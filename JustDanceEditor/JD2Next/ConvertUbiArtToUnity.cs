@@ -30,6 +30,11 @@ internal class ConvertUbiArtToUnity
         string mapsFolder = Path.Combine(originalMapPackagePath, "world", "maps");
         string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
 
+        // Print random seed
+        int seed = Random.Shared.Next(int.MinValue, int.MaxValue);
+        Console.WriteLine($"Random seed: {seed}");
+        Random rand = new(seed);
+
         // Get the files in mapsFolder/{mapName}/timeline/moves/wiiu
         string movesFolder = Path.Combine(mapsFolder, mapName, "timeline", "moves", "wiiu");
         string[] moveFiles = Directory.GetFiles(movesFolder);
@@ -83,7 +88,7 @@ internal class ConvertUbiArtToUnity
             {
                 FileName = "./Resources/xtx_extract.exe",
                 Arguments = $"-o \"{Path.Combine(tempPictoFolder, fileName + ".dds")}\" \"{Path.Combine(tempPictoFolder, fileName + ".xtx")}\"",
-                RedirectStandardOutput = true,
+                RedirectStandardOutput = false,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
@@ -115,9 +120,13 @@ internal class ConvertUbiArtToUnity
             if (newImage.Width != 512 || newImage.Height != 512)
                 newImage.Mutate(x => x.Resize(512, 512));
 
-            //// Place this image in the bottom left corner of a 2048x2048 image
-            //Image<Bgra32> newImage2 = new(2048, 2048);
-            //newImage2.Mutate(x => x.DrawImage(newImage, new Point(0, 1536), 1));
+#if false    // For testing purposes
+            // Place this image in the bottom left corner of a 2048x2048 image
+            Image<Bgra32> newImage2 = new(2048, 2048);
+            newImage2.Mutate(x => x.DrawImage(newImage, new Point(0, 1536), 1));
+            newImage.Dispose();
+            newImage = newImage2;
+#endif
 
             // Delete the .dds file
             File.Delete(Path.Combine(tempPictoFolder, fileName + ".dds"));
@@ -146,6 +155,7 @@ internal class ConvertUbiArtToUnity
         AssetBundleFile bun = bunInst.file;
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
+        afile.GenerateQuickLookup();
 
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
 
@@ -482,7 +492,6 @@ internal class ConvertUbiArtToUnity
             spriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = uintArray[1];
             spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
             spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
-            spriteBaseField["m_RenderDataKey"]["second"].AsLong = 21300000;
 
             // Add the new Sprite to the AssetsFile
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteID, (int)AssetClassID.Sprite, null);
@@ -514,6 +523,7 @@ internal class ConvertUbiArtToUnity
             newRenderDataMap["first"]["first"]["data[1]"].AsUInt = uintArray[1];
             newRenderDataMap["first"]["first"]["data[2]"].AsUInt = uintArray[2];
             newRenderDataMap["first"]["first"]["data[3]"].AsUInt = uintArray[3];
+            newRenderDataMap["first"]["second"].AsLong = 21300000;
 
             // Texture
             newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = textureID;
@@ -635,10 +645,10 @@ internal class ConvertUbiArtToUnity
         // Function to get a random ID that is not used yet
         long GetRandomId()
         {
-            long id = Random.Shared.NextInt64(long.MinValue, long.MaxValue);
+            long id = rand.NextInt64(long.MinValue, long.MaxValue);
 
             while (afile.Metadata.GetAssetInfo(id) is not null)
-                id = Random.Shared.NextInt64(long.MinValue, long.MaxValue);
+                id = rand.NextInt64(long.MinValue, long.MaxValue);
 
             return id;
         }
