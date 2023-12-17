@@ -9,10 +9,10 @@ public class MusicTrack
     public int PROCEDURAL { get; set; }
     public int STARTPAUSED { get; set; }
     public int FORCEISENVIRONMENT { get; set; }
-    public COMPONENT[] COMPONENTS { get; set; }
+    public TrackDataHolder[] COMPONENTS { get; set; }
 }
 
-public class COMPONENT
+public class TrackDataHolder
 {
     public string __class { get; set; }
     public Trackdata trackData { get; set; }

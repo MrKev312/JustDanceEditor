@@ -13,8 +13,6 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using Pfim;
 using TexturePlugin;
-using System;
-using System.Text;
 
 namespace JustDanceEditor.JD2Next;
 
@@ -139,6 +137,82 @@ internal class ConvertUbiArtToUnity
         stopwatch.Stop();
         Console.WriteLine($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
 
+        // Convert the menu art in \cache\itf_cooked\nx\world\maps\pocoloco\menuart\textures
+        string menuArtFolder = Path.Combine(cacheFolder, "menuart", "textures");
+        string tempMenuArtFolder = Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName, "menuart");
+        string[] menuArtFiles = Directory.GetFiles(menuArtFolder);
+
+        // Create the folders
+        Directory.CreateDirectory(tempMenuArtFolder);
+
+        // Get time before starting
+        stopwatch.Restart();
+
+        Console.WriteLine($"Converting {menuArtFiles.Length} menu art files...");
+
+        Parallel.For(0, menuArtFiles.Length, i =>
+        {
+            string item = menuArtFiles[i];
+
+            // Stream the file into a new menuart folder, but skip until 0x2C
+            using FileStream stream = File.OpenRead(item);
+            stream.Seek(0x2C, SeekOrigin.Begin);
+
+            // Get the file name
+            string fileName = Path.GetFileNameWithoutExtension(item);
+
+            // Stream the rest of the file into a new file, but with the .xtx extension
+            using FileStream newStream = File.Create(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
+            stream.CopyTo(newStream);
+
+            // Close the streams
+            stream.Close();
+            newStream.Close();
+
+            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
+            // Print the output to the console
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = "./Resources/xtx_extract.exe",
+                Arguments = $"-o \"{Path.Combine(tempMenuArtFolder, fileName + ".dds")}\" \"{Path.Combine(tempMenuArtFolder, fileName + ".xtx")}\"",
+                RedirectStandardOutput = false,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (Process process = new() { StartInfo = startInfo })
+            {
+                process.Start();
+
+                process.WaitForExit();
+            }
+
+            // Delete the .xtx file
+            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
+
+            // Convert the .dds file to .png
+            Image<Bgra32> newImage;
+            using (IImage image = Pfimage.FromFile(Path.Combine(tempMenuArtFolder, fileName + ".dds")))
+            {
+
+                // If the image is not in Rgba32 format, throw an exception
+                if (image.Format != ImageFormat.Rgba32)
+                    throw new Exception("Image is not in Rgba32 format!");
+
+                // Create image from image.Data
+                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+            }
+
+            newImage.Save(Path.Combine(tempMenuArtFolder, fileName + ".png"));
+
+            // Delete the .dds file
+            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".dds"));
+        });
+        
+        // Get time after finishing
+        stopwatch.Stop();
+        Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
+
         JDNSong originalSong = new()
         {
             // Files end with a null byte, so we remove it
@@ -146,8 +220,10 @@ internal class ConvertUbiArtToUnity
             DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!,
             // pocoloco_musictrack.tpl.ckd
             MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(cacheFolder, "audio", $"{mapName}_musictrack.tpl.ckd")).Replace("\0", ""))!,
+            SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(cacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!
         };
         originalSong.Name = originalSong.DTape.MapName;
+        mapName = originalSong.Name;
 
         // Open the mapPackage using AssetTools.NET and list the contents
         AssetsManager manager = new();
@@ -167,6 +243,10 @@ internal class ConvertUbiArtToUnity
         // Get the assetbundle
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+
+        // Set the name of the assetbundle to {mapName}_MapPackage
+        assetBundleBase["m_Name"].AsString = $"{mapName}_MapPackage";
+
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         {
@@ -189,6 +269,13 @@ internal class ConvertUbiArtToUnity
                 (musicTrackInfos[1], musicTrackInfos[0]) = (musicTrackInfos[0], musicTrackInfos[1]);
             }
         }
+
+        // Set the name of the mapBase to the name of the map
+        mapBase["m_Name"].AsString = mapName;
+        mapBase["MapName"].AsString = mapName;
+        mapBase["SongDesc"]["MapName"].AsString = mapName;
+        mapBase["KaraokeData"]["MapName"].AsString = mapName;
+        mapBase["DanceData"]["MapName"].AsString = mapName;
 
         // Remove all the old dance moves
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.TextAsset))
@@ -262,6 +349,8 @@ internal class ConvertUbiArtToUnity
         // Store reference to the SpriteAtlas
         AssetFileInfo spriteAtlasInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.SpriteAtlas).First();
         AssetTypeValueField spriteAtlasBase = manager.GetBaseField(afileInst, spriteAtlasInfo);
+        spriteAtlasBase["m_Name"].AsString = mapName;
+        spriteAtlasBase["m_Tag"].AsString = mapName;
 
         // Empty the packedSprites, packedSpriteNamesToIndex and RenderDataMap arrays
         spriteAtlasBase["m_PackedSprites"]["Array"].Children.Clear();
@@ -484,6 +573,7 @@ internal class ConvertUbiArtToUnity
             spriteBaseField["m_Rect"]["height"].AsFloat = 512;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = 512;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = 512;
+            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = mapName;
 
             uint[] uintArray = GUID();
 
@@ -584,7 +674,10 @@ internal class ConvertUbiArtToUnity
                     newPictoClip["PictoPath"].AsString = Path.GetFileNameWithoutExtension(clip.PictoPath);
                     newPictoClip["CoachCount"].AsUInt = (uint)clip.CoachCount;
 
+#if false           // Disabled for now
+                    // Causes a crash when opening the map (might be because of the pathID somehow?)
                     pictoClips.Children.Add(newPictoClip);
+#endif
                     break;
                 case "MotionClip":
                     // Create a new MotionClip
