@@ -104,4 +104,56 @@ internal class Question
 
         return filepath;
     }
+
+    public static int AskNumber(string question, int min = int.MinValue, int max = int.MaxValue)
+    {
+        int? value = null;
+
+        while (value == null)
+        {
+            Console.Write(question);
+            string number = Console.ReadLine()!;
+
+            // Trim the number
+            number = number.Trim();
+
+            if (string.IsNullOrWhiteSpace(number))
+            {
+                Console.WriteLine("The number is empty.");
+                continue;
+            }
+
+            // If the number starts with or ends with a quote, remove it
+            if (number.StartsWith('"') && number.EndsWith('"'))
+                number = number[1..^1];
+            
+            if (!int.TryParse(number, out int readNumber))
+            {
+                Console.WriteLine("The number is not a number.");
+                continue;
+            }
+
+            if (value < min && min == 0)
+            {
+                Console.WriteLine("The number must be positive.");
+                continue;
+            }
+
+            if (value > max && max == 0)
+            {
+                Console.WriteLine("The number must be negative.");
+                continue;
+            }
+
+            if (value < min || value > max)
+            {
+                Console.WriteLine("The number is not in the valid range.");
+                continue;
+            }
+
+            value = readNumber;
+        }
+
+        return (int)value;
+    }
 }

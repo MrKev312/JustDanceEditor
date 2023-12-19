@@ -22,9 +22,7 @@ internal class Program
         {
             int choice = Question.Ask([
                 "Exit",
-                "Print the cache",
-                "Generate cache for a song",
-                "See which folders differ from the cache",
+                "Cache stuff",
                 "Convert UbiArt to Unity"
             ]);
 
@@ -33,15 +31,9 @@ internal class Program
                 case 0:
                     return;
                 case 1:
-                    Print.PrintCache();
+                    CacheStuff();
                     break;
                 case 2:
-                    GenerateCache();
-                    break;
-                case 3:
-                    Print.PrintCacheDifferences();
-                    break;
-                case 4:
                     ConvertUbiArtToUnity.Convert();
                     break;
                 default:
@@ -51,14 +43,44 @@ internal class Program
         }
     }
 
+    private static void CacheStuff()
+    {
+        int choice = Question.Ask([
+            "Exit",
+            "Print the cache",
+            "Generate cache for a song",
+            "See which folders differ from the cache"
+        ]);
+
+        switch (choice)
+        {
+        
+                   case 0:
+                       return;
+                   case 1:
+                       Print.PrintCache();
+                       break;
+                   case 2:
+                       GenerateCache();
+                       break;
+                   case 3:
+                       Print.PrintCacheDifferences();
+                       break;
+                   default:
+                       Console.WriteLine("The option is not valid.");
+                       break;
+               }
+    }
+
     private static void GenerateCache()
     {
         // Ask if the user wants to generate a song with existing data or urls
         int choice = Question.Ask([
             "Exit",
-            "Generate a song with existing data",
-            "Generate a song with urls",
-            "Generate a song using songDB + URLs"
+            "Print info about the cache",
+            "Generate a song with URLs (manual data)",
+            "Generate a song with URLs + songdb",
+            "Generate a song with existing data (jd-s3.cdn.ubi.com + json)"
         ]);
 
         switch (choice)
@@ -73,6 +95,9 @@ internal class Program
                 break;
             case 3:
                 GenerateCacheURL.GenerateCacheWithSongDBAndUrls();
+                break;
+            case 4:
+                GenerateCacheURL.GenerateCacheWithExistingData();
                 break;
             default:
                 Console.WriteLine("The option is not valid.");

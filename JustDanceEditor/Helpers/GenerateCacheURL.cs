@@ -1,9 +1,13 @@
-﻿using System.Text.Encodings.Web;
+﻿using System;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace JustDanceEditor.Helpers;
 internal class GenerateCacheURL
 {
+    // This is the hardcoded value, taken from Encanto/We don't talk about Bruno
+    static readonly string audioTrackData = "{\"Markers\":[0,16552,33103,49655,66207,82759,99310,115862,132414,148966,165517,182069,198621,215172,231724,248276,264828,281379,297931,314483,331034,347586,364138,380690,397241,413793,430345,446897,463448,480000,496552,513103,529655,546207,562759,579310,595862,612414,628966,645517,662069,678621,695172,711724,728276,744828,761379,777931,794483,811034,827586,844138,860690,877241,893793,910345,926897,943448,960000,976552,993103,1009655,1026207,1042759,1059310,1075862,1092414,1108966,1125517,1142069,1158621,1175172,1191724,1208276,1224828,1241379,1257931,1274483,1291034,1307586,1324138,1340690,1357241,1373793,1390345,1406897,1423448,1440000,1456552,1473103,1489655,1506207,1522759,1539310,1555862,1572414,1588966,1605517,1622069,1638621,1655172,1671724,1688276,1704828,1721379,1737931,1754483,1771034,1787586,1804138,1820690,1837241,1853793,1870345,1886897,1903448,1920000,1936552,1953103,1969655,1986207,2002759,2019310,2035862,2052414,2068966,2085517,2102069,2118621,2135172,2151724,2168276,2184828,2201379,2217931,2234483,2251034,2267586,2284138,2300690,2317241,2333793,2350345,2366897,2383448,2400000,2416552,2433103,2449655,2466207,2482759,2499310,2515862,2532414,2548966,2565517,2582069,2598621,2615172,2631724,2648276,2664828,2681379,2697931,2714483,2731034,2747586,2764138,2780690,2797241,2813793,2830345,2846897,2863448,2880000,2896552,2913103,2929655,2946207,2962759,2979310,2995862,3012414,3028966,3045517,3062069,3078621,3095172,3111724,3128276,3144828,3161379,3177931,3194483,3211034,3227586,3244138,3260690,3277241,3293793,3310345,3326897,3343448,3360000,3376552,3393103,3409655,3426207,3442759,3459310,3475862,3492414,3508966,3525517,3542069,3558621,3575172,3591724,3608276,3624828,3641379,3657931,3674483,3691034,3707586,3724138,3740690,3757241,3773793,3790345,3806897,3823448,3840000,3856552,3873103,3889655,3906207,3922759,3939310,3955862,3972414,3988966,4005517,4022069,4038621,4055172,4071724,4088276,4104828,4121379,4137931,4154483,4171034,4187586,4204138,4220690,4237241,4253793,4270345,4286897,4303448,4320000,4336552,4353103,4369655,4386207,4402759,4419310,4435862,4452414,4468966,4485517,4502069,4518621,4535172,4551724,4568276,4584828,4601379,4617931,4634483,4651034,4667586,4684138,4700690,4717241,4733793,4750345,4766897,4783448,4800000,4816552,4833103,4849655,4866207,4882759,4899310,4915862,4932414,4948966,4965517,4982069,4998621,5015172,5031724,5048276,5064828,5081379,5097931,5114483,5131034,5147586,5164138,5180690,5197241,5213793,5230345,5246897,5263448,5280000,5296552,5313103,5329655,5346207,5362759,5379310,5395862,5412414,5428966,5445517,5462069,5478621,5495172,5511724,5528276,5544828,5561379,5577931,5594483,5611034,5627586,5644138,5660690,5677241,5693793,5710345,5726897,5743448,5760000,5776552,5793103,5809655,5826207,5842759,5859310,5875862,5892414,5908966,5925517,5942069,5958621,5975172,5991724,6008276,6024828,6041379,6057931,6074483,6091034,6107586,6124138,6140690,6157241,6173793,6190345,6206897,6223448,6240000,6256552,6273103,6289655,6306207,6322759,6339310,6355862,6372414,6388966,6405517,6422069,6438621,6455172,6471724,6488276,6504828,6521379,6537931,6554483,6571034,6587586,6604138,6620690,6637241,6653793,6670345,6686897,6703448,6720000,6736552,6753103,6769655,6786207,6802759,6819310,6835862,6852414,6868966,6885517,6902069,6918621,6935172,6951724,6968276,6984828,7001379,7017931,7034483,7051034,7067586,7084138,7100690,7117241,7133793,7150345,7166897,7183448,7200000,7216552,7233103,7249655,7266207,7282759,7299310,7315862,7332414,7348966,7365517,7382069,7398621,7415172,7431724,7448276,7464828,7481379,7497931,7514483,7531034,7547586,7564138,7580690,7597241,7613793,7630345,7646897,7663448,7680000,7696552,7713103,7729655,7746207,7762759,7779310,7795862,7812414,7828966,7845517,7862069,7878621,7895172,7911724,7928276,7944828,7961379,7977931,7994483,8011034,8027585],\"StartBeat\":-8.0,\"EndBeat\":481.0,\"VideoStartTime\":-14.828,\"PreviewEntry\":327.0,\"PreviewLoopStart\":329.0,\"PreviewLoopEnd\":401.0}";
+
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         WriteIndented = true,
@@ -26,46 +30,7 @@ internal class GenerateCacheURL
         Console.Write("Enter the sweat difficulty: ");
         uint sweatDifficulty = uint.Parse(Console.ReadLine()!);
 
-        // Get the audioTrackData
-        string audioTrackData = "{\"Markers\":[0,16552,33103,49655,66207,82759,99310,115862,132414,148966,165517,182069,198621,215172,231724,248276,264828,281379,297931,314483,331034,347586,364138,380690,397241,413793,430345,446897,463448,480000,496552,513103,529655,546207,562759,579310,595862,612414,628966,645517,662069,678621,695172,711724,728276,744828,761379,777931,794483,811034,827586,844138,860690,877241,893793,910345,926897,943448,960000,976552,993103,1009655,1026207,1042759,1059310,1075862,1092414,1108966,1125517,1142069,1158621,1175172,1191724,1208276,1224828,1241379,1257931,1274483,1291034,1307586,1324138,1340690,1357241,1373793,1390345,1406897,1423448,1440000,1456552,1473103,1489655,1506207,1522759,1539310,1555862,1572414,1588966,1605517,1622069,1638621,1655172,1671724,1688276,1704828,1721379,1737931,1754483,1771034,1787586,1804138,1820690,1837241,1853793,1870345,1886897,1903448,1920000,1936552,1953103,1969655,1986207,2002759,2019310,2035862,2052414,2068966,2085517,2102069,2118621,2135172,2151724,2168276,2184828,2201379,2217931,2234483,2251034,2267586,2284138,2300690,2317241,2333793,2350345,2366897,2383448,2400000,2416552,2433103,2449655,2466207,2482759,2499310,2515862,2532414,2548966,2565517,2582069,2598621,2615172,2631724,2648276,2664828,2681379,2697931,2714483,2731034,2747586,2764138,2780690,2797241,2813793,2830345,2846897,2863448,2880000,2896552,2913103,2929655,2946207,2962759,2979310,2995862,3012414,3028966,3045517,3062069,3078621,3095172,3111724,3128276,3144828,3161379,3177931,3194483,3211034,3227586,3244138,3260690,3277241,3293793,3310345,3326897,3343448,3360000,3376552,3393103,3409655,3426207,3442759,3459310,3475862,3492414,3508966,3525517,3542069,3558621,3575172,3591724,3608276,3624828,3641379,3657931,3674483,3691034,3707586,3724138,3740690,3757241,3773793,3790345,3806897,3823448,3840000,3856552,3873103,3889655,3906207,3922759,3939310,3955862,3972414,3988966,4005517,4022069,4038621,4055172,4071724,4088276,4104828,4121379,4137931,4154483,4171034,4187586,4204138,4220690,4237241,4253793,4270345,4286897,4303448,4320000,4336552,4353103,4369655,4386207,4402759,4419310,4435862,4452414,4468966,4485517,4502069,4518621,4535172,4551724,4568276,4584828,4601379,4617931,4634483,4651034,4667586,4684138,4700690,4717241,4733793,4750345,4766897,4783448,4800000,4816552,4833103,4849655,4866207,4882759,4899310,4915862,4932414,4948966,4965517,4982069,4998621,5015172,5031724,5048276,5064828,5081379,5097931,5114483,5131034,5147586,5164138,5180690,5197241,5213793,5230345,5246897,5263448,5280000,5296552,5313103,5329655,5346207,5362759,5379310,5395862,5412414,5428966,5445517,5462069,5478621,5495172,5511724,5528276,5544828,5561379,5577931,5594483,5611034,5627586,5644138,5660690,5677241,5693793,5710345,5726897,5743448,5760000,5776552,5793103,5809655,5826207,5842759,5859310,5875862,5892414,5908966,5925517,5942069,5958621,5975172,5991724,6008276,6024828,6041379,6057931,6074483,6091034,6107586,6124138,6140690,6157241,6173793,6190345,6206897,6223448,6240000,6256552,6273103,6289655,6306207,6322759,6339310,6355862,6372414,6388966,6405517,6422069,6438621,6455172,6471724,6488276,6504828,6521379,6537931,6554483,6571034,6587586,6604138,6620690,6637241,6653793,6670345,6686897,6703448,6720000,6736552,6753103,6769655,6786207,6802759,6819310,6835862,6852414,6868966,6885517,6902069,6918621,6935172,6951724,6968276,6984828,7001379,7017931,7034483,7051034,7067586,7084138,7100690,7117241,7133793,7150345,7166897,7183448,7200000,7216552,7233103,7249655,7266207,7282759,7299310,7315862,7332414,7348966,7365517,7382069,7398621,7415172,7431724,7448276,7464828,7481379,7497931,7514483,7531034,7547586,7564138,7580690,7597241,7613793,7630345,7646897,7663448,7680000,7696552,7713103,7729655,7746207,7762759,7779310,7795862,7812414,7828966,7845517,7862069,7878621,7895172,7911724,7928276,7944828,7961379,7977931,7994483,8011034,8027585],\"StartBeat\":-8.0,\"EndBeat\":481.0,\"VideoStartTime\":-14.828,\"PreviewEntry\":327.0,\"PreviewLoopStart\":329.0,\"PreviewLoopEnd\":401.0}";
-
-        // If the cache number is empty, set it to 8
-        Console.Write("cache number, leave empty for 8: ");
-        uint? cacheNumber = null;
-        while (cacheNumber == null)
-        {
-            string? cacheNumberString = Console.ReadLine();
-
-            // If the cache number is empty, set it to 8
-            if (string.IsNullOrEmpty(cacheNumberString))
-            {
-                cacheNumber = 8;
-                break;
-            }
-
-            // If the cache number is not a number, print an error and continue
-            if (!uint.TryParse(cacheNumberString, out uint value))
-            {
-                Console.WriteLine("The cache number is not a number.");
-                continue;
-            }
-
-            // If the cache number is not valid, print an error and continue
-            if (value < 0)
-            {
-                Console.WriteLine("The cache number must be 1 or higher.");
-                continue;
-            }
-
-            // The number can't be 0
-            if (value == 0)
-            {
-                Console.WriteLine("The cache number can't be 0.");
-                continue;
-            }
-
-            cacheNumber = value;
-        }
+        uint cacheNumber = (uint)Question.AskNumber("Enter the cache number (can be empty): ", 1);
 
         // Enter
         Console.WriteLine();
@@ -257,7 +222,7 @@ internal class GenerateCacheURL
 
         // The place to put everything from cache{x}
         // Cachename is
-        string cachexPath = Path.Combine(path, $"cache{cacheNumber.Value:X}", guid);
+        string cachexPath = Path.Combine(path, $"cache{cacheNumber:X}", guid);
         {
             Directory.CreateDirectory(Path.Combine(cachexPath));
 
@@ -451,6 +416,313 @@ internal class GenerateCacheURL
         Console.WriteLine(json);
         Console.WriteLine();
         Console.WriteLine("Add the json to the cache file and save it. Make sure to add in the correct place.");
+    }
+
+    internal static void GenerateCacheWithExistingData()
+    {
+        // First off, where is the input data?
+        string? path = Question.AskFolder("Enter the path for the input data: ", true);
+
+        // This must contain the folder "jd-s3.cdn.ubi.com" and one json file
+        if (!Directory.Exists(Path.Combine(path, "jd-s3.cdn.ubi.com")))
+        {
+            Console.WriteLine("The path doesn't contain the folder \"jd-s3.cdn.ubi.com\".");
+            return;
+        }
+
+        // Get the json file
+        string[] jsonFiles = Directory.GetFiles(path, "*.json");
+        if (jsonFiles.Length == 0)
+        {
+            Console.WriteLine("The path doesn't contain a json file.");
+            return;
+        }
+
+        // If there are multiple json files, give an error
+        if (jsonFiles.Length > 1)
+        {
+            Console.WriteLine("The path contains multiple json files.");
+            return;
+        }
+
+        // Where do we want to save the cache?
+        string? savePath = Question.AskFolder("Enter the path for where to save the cache: ", false);
+        Directory.CreateDirectory(savePath);
+
+        // Ask for the cache number
+        uint cacheNumber = (uint)Question.AskNumber("Enter the cache number: ", 1);
+
+        // Create the cache_x and cache_0 folders
+        string cacheXPath = Path.Combine(savePath, $"SD_Cache.{cacheNumber:4X}");
+        string cache0Path = Path.Combine(savePath, "SD_Cache.0000");
+        Directory.CreateDirectory(cacheXPath);
+        Directory.CreateDirectory(cache0Path);
+
+        // Private and public path
+        string privatePath = Path.Combine(path, "jd-s3.cdn.ubi.com", "private", "jdnext", "maps");
+        string publicPath = Path.Combine(path, "jd-s3.cdn.ubi.com", "public", "jdnext", "maps");
+
+        // Get all folder names in the private path
+        string[] mapIDs = Directory.GetDirectories(privatePath).Select(Path.GetFileName).ToArray()!;
+
+        Console.WriteLine($"Found {mapIDs.Length} maps.");
+
+        // Parse the json file into a JDNextUbiData
+        Dictionary<string, JDNextUbiMapData> json = JsonSerializer.Deserialize<Dictionary<string, JDNextUbiMapData>>(File.ReadAllText(jsonFiles[0]))!;
+        Dictionary<string, JDSong> MapsDict = [];
+
+        // Print each map
+        foreach (string map in mapIDs)
+            Console.WriteLine($"\t- {json[map].title}");
+
+        Console.WriteLine();
+        Console.WriteLine("Processing maps...");
+
+        foreach (string map in mapIDs)
+        {
+            // Create the map folder
+            string map0Path = Path.Combine(cache0Path, map);
+            string mapXPath = Path.Combine(cacheXPath, map);
+            Directory.CreateDirectory(map0Path);
+            Directory.CreateDirectory(mapXPath);
+
+            string puMapPath = Path.Combine(publicPath, map);
+            string prMapPath = Path.Combine(privatePath, map);
+
+            /// Cache 0
+            // Create the videoPreview_MID_vp9_webm folder
+            string videoPreviewMidVp9WebmPath = Path.Combine(map0Path, "VideoPreview_MID_vp9_webm");
+            Directory.CreateDirectory(videoPreviewMidVp9WebmPath);
+            string videoPreviewMidVp9WebmFile = Directory.GetFiles(Path.Combine(puMapPath, "videoPreview_MID.vp9.webm"))[0];
+            string videoPreviewMidVp9WebmHash = Download.GetFileMD5(videoPreviewMidVp9WebmFile);
+            File.Copy(videoPreviewMidVp9WebmFile, Path.Combine(videoPreviewMidVp9WebmPath, videoPreviewMidVp9WebmHash));
+
+            // Create the audioPreview_opus folder
+            string audioPreviewOpusPath = Path.Combine(map0Path, "AudioPreview_opus");
+            Directory.CreateDirectory(audioPreviewOpusPath);
+            string audioPreviewOpusFile = Directory.GetFiles(Path.Combine(puMapPath, "audioPreview.opus"))[0];
+            string audioPreviewOpusHash = Download.GetFileMD5(audioPreviewOpusFile);
+            File.Copy(audioPreviewOpusFile, Path.Combine(audioPreviewOpusPath, audioPreviewOpusHash));
+
+            // Create the cover folder
+            string coverPath = Path.Combine(map0Path, "Cover");
+            Directory.CreateDirectory(coverPath);
+            string coverFile = Directory.GetFiles(Path.Combine(puMapPath, "nx", "cover"))[0];
+            string coverHash = Download.GetFileMD5(coverFile);
+            File.Copy(coverFile, Path.Combine(coverPath, coverHash));
+
+            // Check if the map has a songTitleLogo
+            bool hasSongTitleLogo = Directory.Exists(Path.Combine(puMapPath, "nx", "songTitleLogo"));
+            string? songTitleLogoPath = null;
+            string? songTitleLogoHash = null;
+            if (hasSongTitleLogo)
+            {
+                // Create the songTitleLogo folder
+                songTitleLogoPath = Path.Combine(map0Path, "songTitleLogo");
+                Directory.CreateDirectory(songTitleLogoPath);
+                string songTitleLogoFile = Directory.GetFiles(Path.Combine(puMapPath, "nx", "songTitleLogo"))[0];
+                songTitleLogoHash = Download.GetFileMD5(songTitleLogoFile);
+                File.Copy(songTitleLogoFile, Path.Combine(songTitleLogoPath, songTitleLogoHash));
+            }
+
+            /// Cache x
+            // Create the audio_opus folder
+            string audioOpusPath = Path.Combine(mapXPath, "Audio_opus");
+            Directory.CreateDirectory(audioOpusPath);
+            string audioOpusFile = Directory.GetFiles(Path.Combine(prMapPath, "audio.opus"))[0];
+            string audioOpusHash = Download.GetFileMD5(audioOpusFile);
+            File.Copy(audioOpusFile, Path.Combine(audioOpusPath, audioOpusHash));
+
+            // Create the coachesLarge folder
+            string coachesLargePath = Path.Combine(mapXPath, "CoachesLarge");
+            Directory.CreateDirectory(coachesLargePath);
+            string coachesLargeFile = Directory.GetFiles(Path.Combine(puMapPath, "nx", "coachesLarge"))[0];
+            string coachesLargeHash = Download.GetFileMD5(coachesLargeFile);
+            File.Copy(coachesLargeFile, Path.Combine(coachesLargePath, coachesLargeHash));
+
+            // Create the coachesSmall folder
+            string coachesSmallPath = Path.Combine(mapXPath, "CoachesSmall");
+            Directory.CreateDirectory(coachesSmallPath);
+            string coachesSmallFile = Directory.GetFiles(Path.Combine(puMapPath, "nx", "coachesSmall"))[0];
+            string coachesSmallHash = Download.GetFileMD5(coachesSmallFile);
+            File.Copy(coachesSmallFile, Path.Combine(coachesSmallPath, coachesSmallHash));
+
+            // Create the mapPackage folder
+            string mapPackagePath = Path.Combine(mapXPath, "MapPackage");
+            Directory.CreateDirectory(mapPackagePath);
+            string mapPackageFile = Directory.GetFiles(Path.Combine(prMapPath, "nx", "mapPackage"))[0];
+            string mapPackageHash = Download.GetFileMD5(mapPackageFile);
+            File.Copy(mapPackageFile, Path.Combine(mapPackagePath, mapPackageHash));
+
+            // Create the video_HIGH_vp9_webm folder
+            string videoHighVp9WebmPath = Path.Combine(mapXPath, "Video_HIGH_vp9_webm");
+            Directory.CreateDirectory(videoHighVp9WebmPath);
+            string videoHighVp9WebmFile = Directory.GetFiles(Path.Combine(prMapPath, "video_HIGH.vp9.webm"))[0];
+            string videoHighVp9WebmHash = Download.GetFileMD5(videoHighVp9WebmFile);
+            File.Copy(videoHighVp9WebmFile, Path.Combine(videoHighVp9WebmPath, videoHighVp9WebmHash));
+
+            // Create the json.cache file
+            string jsonCachePath = Path.Combine(mapXPath, "json.cache");
+            string jsonCache = $$"""
+            {
+              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
+              "totalSize": 0,
+              "free": 71568604,
+              "journal": 0,
+              "cachedStreamsDict": {
+                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
+              },
+              "name": "{{map}}",
+              "path": "/CacheStorage_{{cacheNumber}}/{{map}}",
+              "pathNX": "CacheStorage_{{cacheNumber}}/{{map}}",
+              "index": {{cacheNumber}}
+            }
+            """;
+            File.WriteAllText(jsonCachePath, jsonCache);
+
+            JDNextUbiMapData songData = json[map];
+
+            // Generate the JDSong
+            JDSong song = new()
+            {
+                SongDatabaseEntry = new()
+                {
+                    MapId = map,
+                    ParentMapId = songData.parentMapName,
+                    Title = songData.title,
+                    Artist = songData.artist,
+                    Credits = songData.credits,
+                    LyricsColor = songData.lyricsColor,
+                    MapLength = songData.mapLength,
+                    OriginalJDVersion = songData.originalJDVersion,
+                    CoachCount = songData.coachCount,
+                    Difficulty = songData.difficulty,
+                    SweatDifficulty = songData.sweatDifficulty,
+                    Tags = ["Main"],
+                    TagIds = [.. songData.tagIds],
+                    SearchTagsLocIds = [],
+                    CoachNamesLocIds = [.. songData.coachNamesLocIds],
+                    HasSongTitleInCover = false
+                },
+                AudioPreviewTrk = audioTrackData,
+                AssetFilesDict = new()
+                {
+                    Cover = new()
+                    {
+                        AssetType = AssetType.Cover,
+                        Name = "Cover",
+                        Hash = coverHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 0,
+                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/Cover/{coverHash}"
+                    },
+                    CoachesSmall = new()
+                    {
+                        AssetType = AssetType.CoachesSmall,
+                        Name = "CoachesSmall",
+                        Hash = coachesSmallHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 1,
+                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/CoachesSmall/{coachesSmallHash}"
+                    },
+                    CoachesLarge = new()
+                    {
+                        AssetType = AssetType.CoachesLarge,
+                        Name = "CoachesLarge",
+                        Hash = coachesLargeHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 1,
+                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/CoachesLarge/{coachesLargeHash}"
+                    },
+                    AudioPreview_opus = new()
+                    {
+                        AssetType = AssetType.AudioPreview_opus,
+                        Name = "AudioPreview_opus",
+                        Hash = audioPreviewOpusHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 0,
+                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/AudioPreview_opus/{audioPreviewOpusHash}"
+                    },
+                    VideoPreview_MID_vp9_webm = new()
+                    {
+                        AssetType = AssetType.VideoPreview_MID_vp9_webm,
+                        Name = "VideoPreview_MID_vp9_webm",
+                        Hash = videoPreviewMidVp9WebmHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 0,
+                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/VideoPreview_MID_vp9_webm/{videoPreviewMidVp9WebmHash}"
+                    },
+                    Audio_opus = new()
+                    {
+                        AssetType = AssetType.Audio_opus,
+                        Name = "Audio_opus",
+                        Hash = audioOpusHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 1,
+                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/Audio_opus/{audioOpusHash}"
+                    },
+                    Video_HIGH_vp9_webm = new()
+                    {
+                        AssetType = AssetType.Video_HIGH_vp9_webm,
+                        Name = "Video_HIGH_vp9_webm",
+                        Hash = videoHighVp9WebmHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 1,
+                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/Video_HIGH_vp9_webm/{videoHighVp9WebmHash}"
+                    },
+                    MapPackage = new()
+                    {
+                        AssetType = AssetType.MapPackage,
+                        Name = "MapPackage",
+                        Hash = mapPackageHash,
+                        Ready = true,
+                        Size = 0,
+                        Category = 1,
+                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/MapPackage/{mapPackageHash}"
+                    }
+                },
+                Sizes = new(),
+                HasSongTitleInCover = hasSongTitleLogo ? true : null
+            };
+
+            // If the song has the song title in the cover, set the songTitleLogo
+            if (hasSongTitleLogo)
+            {
+                song.AssetFilesDict.SongTitleLogo = new()
+                {
+                    AssetType = AssetType.SongTitleLogo,
+                    Name = "Cover",
+                    Hash = songTitleLogoHash,
+                    Ready = true,
+                    Size = 0,
+                    Category = 0,
+                    FilePath = $"/CacheStorage_0/MapBaseCache/{map}/Cover/{songTitleLogoHash}"
+                };
+            }
+
+            // Add the song to the dict
+            MapsDict.Add(map, song);
+        }
+
+        // Convert the dict to json and save it
+        string jsonCache0 = JsonSerializer.Serialize(new JDCacheJSON
+        {
+            MapsDict = MapsDict
+        }, JsonSerializerOptions);
+
+        File.WriteAllText(Path.Combine(cache0Path, "json.cache"), jsonCache0);
+
+        Console.WriteLine(jsonCache0);
+
+        Console.WriteLine();
+        Console.WriteLine("Done.");
     }
 
     internal static void GenerateCacheWithSongDBAndUrls()
@@ -776,9 +1048,6 @@ internal class GenerateCacheURL
 
             //// This didn't work so we'll use a hardcoded value, really don't know how this format works
             //string audioTrackData = AudioTrackConverter.ConvertAudioTrack(songData.audioPreviewData);
-
-            // This is the hardcoded value, taken from Encanto/We don't talk about Bruno
-            string audioTrackData = "{\"Markers\":[0,16552,33103,49655,66207,82759,99310,115862,132414,148966,165517,182069,198621,215172,231724,248276,264828,281379,297931,314483,331034,347586,364138,380690,397241,413793,430345,446897,463448,480000,496552,513103,529655,546207,562759,579310,595862,612414,628966,645517,662069,678621,695172,711724,728276,744828,761379,777931,794483,811034,827586,844138,860690,877241,893793,910345,926897,943448,960000,976552,993103,1009655,1026207,1042759,1059310,1075862,1092414,1108966,1125517,1142069,1158621,1175172,1191724,1208276,1224828,1241379,1257931,1274483,1291034,1307586,1324138,1340690,1357241,1373793,1390345,1406897,1423448,1440000,1456552,1473103,1489655,1506207,1522759,1539310,1555862,1572414,1588966,1605517,1622069,1638621,1655172,1671724,1688276,1704828,1721379,1737931,1754483,1771034,1787586,1804138,1820690,1837241,1853793,1870345,1886897,1903448,1920000,1936552,1953103,1969655,1986207,2002759,2019310,2035862,2052414,2068966,2085517,2102069,2118621,2135172,2151724,2168276,2184828,2201379,2217931,2234483,2251034,2267586,2284138,2300690,2317241,2333793,2350345,2366897,2383448,2400000,2416552,2433103,2449655,2466207,2482759,2499310,2515862,2532414,2548966,2565517,2582069,2598621,2615172,2631724,2648276,2664828,2681379,2697931,2714483,2731034,2747586,2764138,2780690,2797241,2813793,2830345,2846897,2863448,2880000,2896552,2913103,2929655,2946207,2962759,2979310,2995862,3012414,3028966,3045517,3062069,3078621,3095172,3111724,3128276,3144828,3161379,3177931,3194483,3211034,3227586,3244138,3260690,3277241,3293793,3310345,3326897,3343448,3360000,3376552,3393103,3409655,3426207,3442759,3459310,3475862,3492414,3508966,3525517,3542069,3558621,3575172,3591724,3608276,3624828,3641379,3657931,3674483,3691034,3707586,3724138,3740690,3757241,3773793,3790345,3806897,3823448,3840000,3856552,3873103,3889655,3906207,3922759,3939310,3955862,3972414,3988966,4005517,4022069,4038621,4055172,4071724,4088276,4104828,4121379,4137931,4154483,4171034,4187586,4204138,4220690,4237241,4253793,4270345,4286897,4303448,4320000,4336552,4353103,4369655,4386207,4402759,4419310,4435862,4452414,4468966,4485517,4502069,4518621,4535172,4551724,4568276,4584828,4601379,4617931,4634483,4651034,4667586,4684138,4700690,4717241,4733793,4750345,4766897,4783448,4800000,4816552,4833103,4849655,4866207,4882759,4899310,4915862,4932414,4948966,4965517,4982069,4998621,5015172,5031724,5048276,5064828,5081379,5097931,5114483,5131034,5147586,5164138,5180690,5197241,5213793,5230345,5246897,5263448,5280000,5296552,5313103,5329655,5346207,5362759,5379310,5395862,5412414,5428966,5445517,5462069,5478621,5495172,5511724,5528276,5544828,5561379,5577931,5594483,5611034,5627586,5644138,5660690,5677241,5693793,5710345,5726897,5743448,5760000,5776552,5793103,5809655,5826207,5842759,5859310,5875862,5892414,5908966,5925517,5942069,5958621,5975172,5991724,6008276,6024828,6041379,6057931,6074483,6091034,6107586,6124138,6140690,6157241,6173793,6190345,6206897,6223448,6240000,6256552,6273103,6289655,6306207,6322759,6339310,6355862,6372414,6388966,6405517,6422069,6438621,6455172,6471724,6488276,6504828,6521379,6537931,6554483,6571034,6587586,6604138,6620690,6637241,6653793,6670345,6686897,6703448,6720000,6736552,6753103,6769655,6786207,6802759,6819310,6835862,6852414,6868966,6885517,6902069,6918621,6935172,6951724,6968276,6984828,7001379,7017931,7034483,7051034,7067586,7084138,7100690,7117241,7133793,7150345,7166897,7183448,7200000,7216552,7233103,7249655,7266207,7282759,7299310,7315862,7332414,7348966,7365517,7382069,7398621,7415172,7431724,7448276,7464828,7481379,7497931,7514483,7531034,7547586,7564138,7580690,7597241,7613793,7630345,7646897,7663448,7680000,7696552,7713103,7729655,7746207,7762759,7779310,7795862,7812414,7828966,7845517,7862069,7878621,7895172,7911724,7928276,7944828,7961379,7977931,7994483,8011034,8027585],\"StartBeat\":-8.0,\"EndBeat\":481.0,\"VideoStartTime\":-14.828,\"PreviewEntry\":327.0,\"PreviewLoopStart\":329.0,\"PreviewLoopEnd\":401.0}";
 
             // Create the cache0 folder
             // Cachename is SD_Cache.XXXX, where XXXX is the cache number in hex without the 0x prefix and padded to 4 characters

@@ -29,9 +29,7 @@ internal class ConvertUbiArtToUnity
         string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
 
         // Print random seed
-        int seed = Random.Shared.Next(int.MinValue, int.MaxValue);
-        Console.WriteLine($"Random seed: {seed}");
-        Random rand = new(seed);
+        Random rand = new();
 
         // Get the files in mapsFolder/{mapName}/timeline/moves/wiiu
         string movesFolder = Path.Combine(mapsFolder, mapName, "timeline", "moves", "wiiu");
@@ -118,20 +116,65 @@ internal class ConvertUbiArtToUnity
             if (newImage.Width != 512 || newImage.Height != 512)
                 newImage.Mutate(x => x.Resize(512, 512));
 
-#if false    // For testing purposes
-            // Place this image in the bottom left corner of a 2048x2048 image
-            Image<Bgra32> newImage2 = new(2048, 2048);
-            newImage2.Mutate(x => x.DrawImage(newImage, new Point(0, 1536), 1));
-            newImage.Dispose();
-            newImage = newImage2;
-#endif
-
             // Delete the .dds file
             File.Delete(Path.Combine(tempPictoFolder, fileName + ".dds"));
 
             // Save the image as a png
             newImage.Save(Path.Combine(tempPictoFolder, fileName + ".png"));
         });
+
+        Dictionary<string, int> imageDict = [];
+        List<Image<Rgba32>> atlasPics = [];
+        Image<Rgba32>? atlasImage = null;
+
+        // Get the files in the pictos folder
+        string[] pictoFiles = Directory.GetFiles(tempPictoFolder);
+
+        // Convert the 512x512 images to a 2048x2048 atlas
+        // Use 4 pixels of padding between each image
+        for (int i = 0; i < pictoFiles.Length; i++)
+        {
+            int indexInAtlas = i % 9;
+
+            if (indexInAtlas == 0 || atlasImage is null)
+                // Create a new image
+                atlasImage = new(2048, 2048);
+
+            // Get the current image
+            (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
+
+            // Get the x and y coordinates
+            int x_coord = (indexInAtlas % 3 * 512) + (indexInAtlas % 3 * 4);
+            int y_coord = (indexInAtlas / 3 * 512) + (indexInAtlas / 3 * 4);
+
+            // Because the y is calculated from the top left corner, we need to subtract it from 2048
+            y_coord = 2048 - y_coord - 512;
+
+            // Draw the image on the atlas
+            atlasImage.Mutate(x => x.DrawImage(image, new Point(x_coord, y_coord), 1));
+
+            // Dispose the image
+            image.Dispose();
+
+            // Store the name and the atlas index in the dictionary
+            imageDict.Add(name, i / 9);
+
+            // If this is the last image, or i % 9 == 8, add the image to the atlasPics array
+            if (indexInAtlas == 8 || i == pictoFiles.Length - 1)
+            {
+                // Add the image to the atlasPics array
+                atlasPics.Add(atlasImage);
+
+                // Set to null but don't dispose
+                atlasImage = null;
+            }
+        }
+
+        // Save the atlasPics in the tempPictoFolder in the format atlas_{index}.png
+        Directory.CreateDirectory(Path.Combine(tempPictoFolder, "Atlas"));
+
+        for (int i = 0; i < atlasPics.Count; i++)
+            atlasPics[i].Save(Path.Combine(tempPictoFolder, "Atlas", $"atlas_{i}.png"));
 
         // Get time after finishing
         stopwatch.Stop();
@@ -308,8 +351,6 @@ internal class ConvertUbiArtToUnity
 
         AssetFileInfo? spriteTemplate = null;
 
-        Queue<uint[]> guids = new();
-
         // Also remove their corresponding Sprites
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
         {
@@ -323,8 +364,6 @@ internal class ConvertUbiArtToUnity
                 assetBase["m_RenderDataKey"]["first"]["data[2]"].AsUInt,
                 assetBase["m_RenderDataKey"]["first"]["data[3]"].AsUInt,
             ];
-
-            guids.Enqueue(guid);
 
             // And remove it from the preload table
             assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId).First());
@@ -487,8 +526,8 @@ internal class ConvertUbiArtToUnity
         }
 
         // Add the new pictos
-        string[] FileDirs = Directory.GetFiles(tempPictoFolder);
-        (int width, int height, byte[] endImageBytes)[] bytes = new (int, int, byte[])[FileDirs.Length];
+        string[] FileDirs = Directory.GetFiles(Path.Combine(tempPictoFolder, "Atlas"));
+        byte[][] endImageBytes = new byte[FileDirs.Length][];
 
         Parallel.For(0, FileDirs.Length, i =>
         {
@@ -503,22 +542,29 @@ internal class ConvertUbiArtToUnity
 
             byte[] encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
 
-            bytes[i] = (width, height, encImageBytes);
+            // Add the image bytes to the array
+            endImageBytes[i] = encImageBytes;
         });
 
-        for (int i = 0; i < FileDirs.Length; i++)
-        {
-            string item = FileDirs[i];
-            // Set each picto as it's own asset
-            long textureID = GetRandomId();
-            string pictoName = Path.GetFileNameWithoutExtension(item);
+        // First add all atlas images to the bundle
+        long[] atlasIDs = new long[atlasPics.Count];
 
+        // TODO for loop for atlasPics
+        for (int i = 0; i < atlasPics.Count; i++)
+        {
+            // Get the endImageBytes
+            byte[] imgBytes = endImageBytes[i];
+
+            // Create a new asset id
+            long newAssetId = GetRandomId();
+
+            // Create a new AssetTypeValueField
             AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
-            (int width, int height, byte[] endImageBytes) = bytes[i];
 
             // Set the name and content
-            texBaseField["m_Name"].AsString = $"sactx-{i}-{width}x{height}-Crunch-Origin-5e98ca96";
-            //texBaseField["m_Name"].AsString = pictoName;
+            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{mapName}-5e98ca96";
+            texBaseField["m_MipCount"].AsInt = 1;
+
             texBaseField["m_MipCount"].AsInt = 1;
 
             AssetTypeValueField m_StreamData = texBaseField["m_StreamData"];
@@ -528,8 +574,7 @@ internal class ConvertUbiArtToUnity
 
             texBaseField["m_ForcedFallbackFormat"].AsInt = (int)TextureFormat.RGBA32;
             texBaseField["m_TextureFormat"].AsInt = (int)TextureFormat.DXT5Crunched;
-            // todo: size for multi image textures
-            texBaseField["m_CompleteImageSize"].AsUInt = (uint)endImageBytes.Length;
+            texBaseField["m_CompleteImageSize"].AsUInt = (uint)endImageBytes[i].Length;
             texBaseField["m_ImageCount"].AsInt = 1;
             texBaseField["m_TextureDimension"].AsInt = 2;
 
@@ -541,25 +586,39 @@ internal class ConvertUbiArtToUnity
 
             texBaseField["m_ColorSpace"].AsInt = 1;
 
-            texBaseField["m_Width"].AsInt = width;
-            texBaseField["m_Height"].AsInt = height;
+            texBaseField["m_Width"].AsInt = 2048;
+            texBaseField["m_Height"].AsInt = 2048;
 
             AssetTypeValueField image_data = texBaseField["image data"];
             image_data.Value.ValueType = AssetValueType.ByteArray;
             image_data.TemplateField.ValueType = AssetValueType.ByteArray;
-            image_data.AsByteArray = endImageBytes;
+            image_data.AsByteArray = imgBytes;
 
             // Make a new AssetFileInfo
-            AssetFileInfo newInfo = AssetFileInfo.Create(afile, textureID, (int)AssetClassID.Texture2D, null);
+            AssetFileInfo newInfo = AssetFileInfo.Create(afile, newAssetId, (int)AssetClassID.Texture2D, null);
             newInfo.SetNewData(texBaseField);
 
             // Add the new AssetFileInfo to the AssetsFile
             afile.Metadata.AddAssetInfo(newInfo);
 
+            // Add the id to the array
+            atlasIDs[i] = newAssetId;
+
             // Add the new move reference to the preload table
             AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
-            newAssetBundle["m_PathID"].AsLong = textureID;
+            newAssetBundle["m_PathID"].AsLong = newAssetId;
             assetBundleArray.Children.Add(newAssetBundle);
+        }
+
+        // Then add all the pictos to the bundle
+        FileDirs = Directory.GetFiles(tempPictoFolder);
+
+        for (int i = 0; i < FileDirs.Length; i++)
+        {
+            string item = FileDirs[i];
+
+            // Set each picto as it's own asset
+            string pictoName = Path.GetFileNameWithoutExtension(item);
 
             // Now we create a new Sprite
             long spriteID = GetRandomId();
@@ -591,7 +650,7 @@ internal class ConvertUbiArtToUnity
             afile.Metadata.AddAssetInfo(newSpriteInfo);
 
             // Add the new move reference to the preload table
-            newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
+            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
             newAssetBundle["m_PathID"].AsLong = spriteID;
             assetBundleArray.Children.Add(newAssetBundle);
 
@@ -616,13 +675,21 @@ internal class ConvertUbiArtToUnity
             newRenderDataMap["first"]["second"].AsLong = 21300000;
 
             // Texture
-            newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = textureID;
+            int indexInAtlas = i % 9;
+            int x_offset = (indexInAtlas % 3 * 512) + (indexInAtlas % 3 * 4);
+            int y_offset = (indexInAtlas / 3 * 512) + (indexInAtlas / 3 * 4);
+
+            newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName]];
+            newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
+            newRenderDataMap["second"]["textureRect"]["y"].AsFloat = y_offset;
             newRenderDataMap["second"]["textureRect"]["width"].AsFloat = 512;
             newRenderDataMap["second"]["textureRect"]["height"].AsFloat = 512;
+            newRenderDataMap["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
+            newRenderDataMap["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
             newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = 100;
-            newRenderDataMap["second"]["uvTransform"]["y"].AsFloat = 256;
+            newRenderDataMap["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset;
             newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = 100;
-            newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = 256;
+            newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = 256 + y_offset;
             newRenderDataMap["second"]["downscaleMultiplier"].AsFloat = 1;
             newRenderDataMap["second"]["settingsRaw"].AsUInt = 3;
 
@@ -674,10 +741,7 @@ internal class ConvertUbiArtToUnity
                     newPictoClip["PictoPath"].AsString = Path.GetFileNameWithoutExtension(clip.PictoPath);
                     newPictoClip["CoachCount"].AsUInt = (uint)clip.CoachCount;
 
-#if false           // Disabled for now
-                    // Causes a crash when opening the map (might be because of the pathID somehow?)
                     pictoClips.Children.Add(newPictoClip);
-#endif
                     break;
                 case "MotionClip":
                     // Create a new MotionClip
@@ -748,18 +812,16 @@ internal class ConvertUbiArtToUnity
 
         uint[] GUID()
         {
-            //byte[] guidBytes = Guid.NewGuid().ToByteArray();
-            //uint[] uintArray = new uint[4];
+            byte[] guidBytes = Guid.NewGuid().ToByteArray();
+            uint[] uintArray = new uint[4];
 
-            //for (int j = 0; j < guidBytes.Length; j++)
-            //	guidBytes[j] = (byte)(((guidBytes[j] & 0xF0) >> 4) | ((guidBytes[j] & 0x0F) << 4));
+            for (int j = 0; j < guidBytes.Length; j++)
+                guidBytes[j] = (byte)(((guidBytes[j] & 0xF0) >> 4) | ((guidBytes[j] & 0x0F) << 4));
 
-            //for (int j = 0; j < 4; j++)
-            //	uintArray[j] = BitConverter.ToUInt32(guidBytes, j * 4);
+            for (int j = 0; j < 4; j++)
+                uintArray[j] = BitConverter.ToUInt32(guidBytes, j * 4);
 
-            //return uintArray;
-
-            return guids.Dequeue();
+            return uintArray;
         }
     }
 }

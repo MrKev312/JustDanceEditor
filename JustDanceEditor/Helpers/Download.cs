@@ -32,10 +32,7 @@ internal static class Download
         fileStream.Close();
 
         // Get the MD5 hash of the file
-        byte[] hash = MD5.HashData(File.ReadAllBytes(tempFilePath));
-
-        // Convert the byte array to a hex string
-        string hashString = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        string hashString = GetFileMD5(tempFilePath);
 
         // Rename the file to the MD5 hash
         string filePath = Path.Combine(folderPath, hashString + extension);
@@ -53,6 +50,17 @@ internal static class Download
 
         return hashString;
     }
+
+    public static string GetFileMD5(string filePath)
+    {
+        byte[] hash = MD5.HashData(File.ReadAllBytes(filePath));
+
+        // Convert the byte array to a hex string
+        string hashString = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+
+        return hashString;
+    }
+
     public static void DownloadFile(string url, string folderPath, bool keepExtension = true, bool errorIfFileExists = false)
     {
         Uri uri = new(url);
