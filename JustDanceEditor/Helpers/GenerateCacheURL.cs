@@ -445,6 +445,24 @@ internal class GenerateCacheURL
         string cache0Path = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache");
         Directory.CreateDirectory(cache0Path);
 
+        // Create a cache.json file
+        string cache0Json = $$"""
+            {
+              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
+              "totalSize": 0,
+              "free": 71568604,
+              "journal": 0,
+              "cachedStreamsDict": {
+                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
+              },
+              "name": "MapBaseCache",
+              "path": "/CacheStorage_0/MapBaseCache",
+              "pathNX": "CacheStorage_0/MapBaseCache",
+              "index": 0
+            }
+            """;
+        File.WriteAllText(Path.Combine(cache0Path, "json.cache"), cache0Json);
+
         // Parse the CachingStatus.json file
         JDCacheJSON cachingStatus = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(Path.Combine(path, "CachingStatus.json")))!;
 
