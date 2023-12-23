@@ -36,9 +36,6 @@ internal class Program
                 case 2:
                     ConvertUbiArtToUnity.Convert();
                     break;
-                default:
-                    Console.WriteLine("The option is not valid.");
-                    break;
             }
         }
     }
@@ -54,22 +51,19 @@ internal class Program
 
         switch (choice)
         {
-        
-                   case 0:
-                       return;
-                   case 1:
-                       Print.PrintCache();
-                       break;
-                   case 2:
-                       GenerateCache();
-                       break;
-                   case 3:
-                       Print.PrintCacheDifferences();
-                       break;
-                   default:
-                       Console.WriteLine("The option is not valid.");
-                       break;
-               }
+
+            case 0:
+                return;
+            case 1:
+                Print.PrintCache();
+                break;
+            case 2:
+                GenerateCache();
+                break;
+            case 3:
+                Print.PrintCacheDifferences();
+                break;
+        }
     }
 
     private static void GenerateCache()
@@ -80,7 +74,8 @@ internal class Program
             "Print info about the cache",
             "Generate a song with URLs (manual data)",
             "Generate a song with URLs + songdb",
-            "Generate a song with existing data (jd-s3.cdn.ubi.com + json)"
+            "Generate a song with existing data (jd-s3.cdn.ubi.com + json)",
+            "Convert Cache0/x to proper cache"
         ]);
 
         switch (choice)
@@ -99,8 +94,8 @@ internal class Program
             case 4:
                 GenerateCacheURL.GenerateCacheWithExistingData();
                 break;
-            default:
-                Console.WriteLine("The option is not valid.");
+            case 5:
+                GenerateCacheURL.ConvertToProperCache();
                 break;
         }
     }

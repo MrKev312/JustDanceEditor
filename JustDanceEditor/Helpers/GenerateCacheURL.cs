@@ -418,6 +418,140 @@ internal class GenerateCacheURL
         Console.WriteLine("Add the json to the cache file and save it. Make sure to add in the correct place.");
     }
 
+    internal static void ConvertToProperCache()
+    {
+        // Ask for the folder containing a cache_x and cache_0 folder
+        string path = Question.AskFolder("Enter the path to the folder containing the cache_x and cache_0 folders: ", true);
+
+        // Make sure this folder contains the cache_x and cache_0 folders
+        if (!Directory.Exists(Path.Combine(path, "cache_x")) || !Directory.Exists(Path.Combine(path, "cache_0")))
+        {
+            Console.WriteLine("The folder doesn't contain the cache_x and cache_0 folders.");
+            return;
+        }
+
+        // Make sure that it contains a CachingStatus.json file
+        if (!File.Exists(Path.Combine(path, "CachingStatus.json")))
+        {
+            Console.WriteLine("The folder doesn't contain a CachingStatus.json file.");
+            return;
+        }
+
+        // In the same folder, create a new folder called "output"
+        string outputPath = Path.Combine(path, "output");
+        Directory.CreateDirectory(outputPath);
+
+        // In there create a folder called "SD_Cache.0000"
+        string cache0Path = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache");
+        Directory.CreateDirectory(cache0Path);
+
+        // Parse the CachingStatus.json file
+        JDCacheJSON cachingStatus = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(Path.Combine(path, "CachingStatus.json")))!;
+
+        // Convert to a list of key value pairs
+        List<KeyValuePair<string, JDSong>> cachingStatusList = cachingStatus.MapsDict.ToList();
+
+        // Sort by original just dance version
+        cachingStatusList.Sort((x, y) => x.Value.SongDatabaseEntry.OriginalJDVersion.CompareTo(y.Value.SongDatabaseEntry.OriginalJDVersion));
+
+        // Cache counter, starting at 1
+        uint cacheNumber = 0;
+        uint cacheSize = 0;
+        uint JDVersion = 0;
+        string cacheXPath = "";
+
+        // cacheNumber -> JDVersion map
+        Dictionary<uint, uint> cacheNumberJDVersion = [];
+
+        foreach (KeyValuePair<string, JDSong> song in cachingStatusList)
+        {
+            // If the original just dance version is different, increase the cache number and reset the JDVersion
+            if (song.Value.SongDatabaseEntry.OriginalJDVersion != JDVersion)
+            {
+                cacheNumber++;
+                cacheSize = 0;
+                JDVersion = song.Value.SongDatabaseEntry.OriginalJDVersion;
+
+                cacheXPath = Path.Combine(outputPath, $"SD_Cache.{cacheNumber:X4}");
+                Directory.CreateDirectory(cacheXPath);
+
+                cacheNumberJDVersion[cacheNumber] = JDVersion;
+            }
+
+            // If the cache size is bigger than 3GB, increase the cache number and reset the cache size
+            // This could be 4GB, but might as well be safe and use 3.5GB instead, just in case
+            if (cacheSize > 3_500_000_000)
+            {
+                cacheNumber++;
+                cacheSize = 0;
+
+                cacheXPath = Path.Combine(outputPath, $"SD_Cache.{cacheNumber:X4}");
+                Directory.CreateDirectory(cacheXPath);
+            }
+
+            // Copy the files from the original cache0 folder to the new cache0 folder
+            string originalCache0Path = Path.Combine(path, "cache_0", song.Key);
+            string newCache0Path = Path.Combine(cache0Path, song.Key);
+
+            cacheSize += Copy.CopyFolder(originalCache0Path, newCache0Path);
+
+            // Copy the files from the original cache{x} folder to the new cache{x} folder
+            string originalCachexPath = Path.Combine(path, "cache_x", song.Key);
+            string newCachexPath = Path.Combine(cacheXPath, song.Key);
+
+            cacheSize += Copy.CopyFolder(originalCachexPath, newCachexPath);
+
+            // Change the path in the json file
+            song.Value.AssetFilesDict.CoachesSmall.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/CoachesSmall/{song.Value.AssetFilesDict.CoachesSmall.Hash}";
+            song.Value.AssetFilesDict.CoachesLarge.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/CoachesLarge/{song.Value.AssetFilesDict.CoachesLarge.Hash}";
+            song.Value.AssetFilesDict.Audio_opus.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/Audio_opus/{song.Value.AssetFilesDict.Audio_opus.Hash}";
+            song.Value.AssetFilesDict.Video_HIGH_vp9_webm.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/Video_HIGH_vp9_webm/{song.Value.AssetFilesDict.Video_HIGH_vp9_webm.Hash}";
+            song.Value.AssetFilesDict.MapPackage.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/MapPackage/{song.Value.AssetFilesDict.MapPackage.Hash}";
+
+            if (song.Value.HasSongTitleInCover == true)
+                song.Value.AssetFilesDict.SongTitleLogo!.FilePath = $"/CacheStorage_{cacheNumber}/{song.Key}/Cover/{song.Value.AssetFilesDict.SongTitleLogo.Hash}";
+
+            // Create the json.cache file
+            string jsonCachePath = Path.Combine(newCachexPath, "json.cache");
+            string json = $$"""
+            {
+              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
+              "totalSize": 0,
+              "free": 71568604,
+              "journal": 0,
+              "cachedStreamsDict": {
+                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
+              },
+              "name": "{{song.Key}}",
+              "path": "/CacheStorage_{{cacheNumber}}/{{song.Key}}",
+              "pathNX": "CacheStorage_{{cacheNumber}}/{{song.Key}}",
+              "index": {{cacheNumber}}
+            }
+            """;
+
+            File.WriteAllText(jsonCachePath, json);
+        }
+
+        // Now reverse the list as we want the newest songs to be at the top in the CachingStatus.json file
+        cachingStatusList.Reverse();
+
+        // Convert the list back to a dict while keeping the order
+        cachingStatus.MapsDict = cachingStatusList.ToDictionary(x => x.Key, x => x.Value);
+
+        // Convert the dict to json and save it in the cache0 folder
+        string jsonCachingStatus = JsonSerializer.Serialize(cachingStatus, JsonSerializerOptions);
+        File.WriteAllText(Path.Combine(cache0Path, "CachingStatus.json"), jsonCachingStatus);
+
+        // In the input folder, create a mapping.txt file
+        string mappingPath = Path.Combine(path, "mapping.txt");
+        string mapping = "";
+
+        foreach (KeyValuePair<uint, uint> pair in cacheNumberJDVersion)
+            mapping += $"JD {pair.Value:D4} -> SD_Cache.{pair.Key:X4}\n";
+
+        File.WriteAllText(mappingPath, mapping);
+    }
+
     internal static void GenerateCacheWithExistingData()
     {
         // First off, where is the input data?
