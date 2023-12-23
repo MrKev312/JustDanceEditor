@@ -20,16 +20,39 @@ internal class ConvertUbiArtToUnity
 {
     public static void Convert()
     {
-        // Ask for the mapPackage path
-        string mapPackagePath = Question.AskFile("Enter the path to the mapPackage: ", true);
-        string originalMapPackagePath = Question.AskFolder("Enter the path to the original map folder (the one containing cache and world): ", true);
+        Console.WriteLine();
+
+        // Check if there's a template folder
+        if (!Directory.Exists("./template"))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("""
+                Template folder not found!
+                Please put a template in the folder named "template".
+                In it should exist out of a "cache0" and a cachex folder.
+                Place the map files of the template map in the corresponding folders.
+                For example, the MapPackage should be in cachex/MapPackage/*.
+                """);
+            Console.ResetColor();
+
+            Directory.CreateDirectory("./template");
+            Directory.CreateDirectory("./template/cache0");
+            Directory.CreateDirectory("./template/cachex");
+
+            return;
+        }
+
+        // Get the path to the mapPackage in /template/cachex/MapPackage/*, only one file should be in there
+        string mapPackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "MapPackage"))[0];
+        string originalMapPackagePath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world): ", true);
+        string outputFolder = Question.AskFolder("Enter the path to the output folder: ", true);
 
         // Get the folder name in /world/maps/*
         string mapsFolder = Path.Combine(originalMapPackagePath, "world", "maps");
         string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
 
-        // Print random seed
-        Random rand = new();
+        // Use the shared random
+        Random rand = Random.Shared;
 
         // Get the files in mapsFolder/{mapName}/timeline/moves/wiiu
         string movesFolder = Path.Combine(mapsFolder, mapName, "timeline", "moves", "wiiu");
@@ -126,6 +149,8 @@ internal class ConvertUbiArtToUnity
         Dictionary<string, int> imageDict = [];
         List<Image<Rgba32>> atlasPics = [];
         Image<Rgba32>? atlasImage = null;
+
+        Console.WriteLine("Creating atlasses...");
 
         // Get the files in the pictos folder
         string[] pictoFiles = Directory.GetFiles(tempPictoFolder);
@@ -256,6 +281,8 @@ internal class ConvertUbiArtToUnity
         stopwatch.Stop();
         Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
 
+        Console.WriteLine("Loading song info...");
+
         JDNSong originalSong = new()
         {
             // Files end with a null byte, so we remove it
@@ -268,7 +295,9 @@ internal class ConvertUbiArtToUnity
         originalSong.Name = originalSong.DTape.MapName;
         mapName = originalSong.Name;
 
-        // Open the mapPackage using AssetTools.NET and list the contents
+        #region MapPackage
+        Console.WriteLine("Converting MapPackage...");
+        // Open the mapPackage using AssetTools.NET
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(mapPackagePath, true);
         AssetBundleFile bun = bunInst.file;
@@ -289,6 +318,7 @@ internal class ConvertUbiArtToUnity
 
         // Set the name of the assetbundle to {mapName}_MapPackage
         assetBundleBase["m_Name"].AsString = $"{mapName}_MapPackage";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_MapPackage";
 
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
@@ -783,8 +813,10 @@ internal class ConvertUbiArtToUnity
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string uncompressedPath = Path.ChangeExtension(mapPackagePath, ".mod.uncompressed");
-        string compressedPath = Path.ChangeExtension(mapPackagePath, ".mod");
+        string outputPackagePath = Path.Combine(outputFolder, "cachex", "MapPackage");
+        Directory.CreateDirectory(outputPackagePath);
+        string uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
+        string compressedPath = Path.Combine(outputPackagePath, "temp.mod");
 
         using (AssetsFileWriter writer = new(uncompressedPath))
             bun.Write(writer);
@@ -798,6 +830,444 @@ internal class ConvertUbiArtToUnity
         }
 
         newUncompressedBundle.Close();
+
+        // Delete the uncompressed file
+        File.Delete(uncompressedPath);
+
+        // Rename the compressed file to it's md5 hash
+        string hash = Download.GetFileMD5(compressedPath);
+        string newPath = Path.Combine(outputPackagePath, $"{hash}");
+        File.Move(compressedPath, newPath);
+
+        #endregion
+
+        #region Coaches
+
+        // Get the coaches folder
+        // /template/cachex/CoachesLarge/*
+        string coacheLargePackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "CoachesLarge"))[0];
+
+        Console.WriteLine("Converting CoachesLarge...");
+
+        // Open the coaches package using AssetTools.NET
+        manager = new();
+        bunInst = manager.LoadBundleFile(coacheLargePackagePath, true);
+        bun = bunInst.file;
+        afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
+        afile = afileInst.file;
+        afile.GenerateQuickLookup();
+
+        sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
+
+        assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
+        assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+        assetBundleBase["m_Name"].AsString = $"{mapName}_CoachesLarge";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_CoachesLarge";
+        assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+
+        // Get all texture2d's
+        AssetFileInfo[] textureInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D).ToArray();
+        AssetFileInfo[] spriteInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite).ToArray();
+
+        foreach (AssetFileInfo coachInfo in textureInfos)
+        {
+            AssetTypeValueField coachBase = manager.GetBaseField(afileInst, coachInfo);
+
+            // Get the name
+            string coachName = coachBase["m_Name"].AsString;
+
+            byte[] encImageBytes;
+            TextureFormat fmt = TextureFormat.DXT5Crunched;
+            byte[] platformBlob = [];
+            uint platform = afile.Metadata.TargetPlatform;
+            int mips = 1;
+            string path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            Image<Rgba32> image;
+            int width, height;
+
+            // If the name ends in bkg
+            if (coachName.EndsWith("bkg"))
+            {
+                // Set the name to {mapName}_bkg
+                coachBase["m_Name"].AsString = $"{mapName}_map_bkg";
+
+                fmt = TextureFormat.DXT1Crunched;
+                path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+
+                // Load the image
+                image = Image.Load<Rgba32>(path);
+
+                encImageBytes = TextureImportExport.Import(image, fmt, out width, out height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
+
+                // Set the image data
+                coachBase["image data"].AsByteArray = encImageBytes;
+                coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+
+                // Save the file
+                coachInfo.SetNewData(coachBase);
+
+                continue;
+            }
+
+            // If the name does not end with 1, delete it
+            if (!coachName.EndsWith('1'))
+            {
+                // Remove the coach from the bundle
+                afile.AssetInfos.Remove(coachInfo);
+
+                // And remove it from the preload table
+                assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == coachInfo.PathId).First());
+
+                continue;
+            }
+
+            path = Path.Combine(tempMenuArtFolder, $"{mapName}_Coach_1.tga.png");
+
+            // Load the image
+            image = Image.Load<Rgba32>(path);
+
+            encImageBytes = TextureImportExport.Import(image, fmt, out width, out height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
+
+            // Set the name to {mapName}_coach
+            coachBase["m_Name"].AsString = $"{mapName}_Coach_1";
+
+            // Set the image data
+            coachBase["image data"].AsByteArray = encImageBytes;
+            coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+
+            // Save the file
+            coachInfo.SetNewData(coachBase);
+        }
+
+        // For each sprite in the file
+        foreach (AssetFileInfo coachInfo in spriteInfos)
+        {
+            AssetTypeValueField coachBase = manager.GetBaseField(afileInst, coachInfo);
+
+            // Get the name
+            string coachName = coachBase["m_Name"].AsString;
+
+            // If the name ends in bkg
+            if (coachName.EndsWith("bkg"))
+            {
+                // Set the name to {mapName}_bkg
+                coachBase["m_Name"].AsString = $"{mapName}_map_bkg";
+
+                // Save the file
+                coachInfo.SetNewData(coachBase);
+
+                continue;
+            }
+
+            // If the name does not end with 1, delete it
+            if (!coachName.EndsWith('1'))
+            {
+                // Remove the coach from the bundle
+                afile.AssetInfos.Remove(coachInfo);
+
+                // And remove it from the preload table
+                assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == coachInfo.PathId).First());
+
+                continue;
+            }
+
+            // Set the name to {mapName}_coach
+            coachBase["m_Name"].AsString = $"{mapName}_Coach_1";
+
+            // Save the file
+            coachInfo.SetNewData(coachBase);
+        }
+
+        // Apply changes to the AssetBundle
+        assetBundle.SetNewData(assetBundleBase);
+
+        // Save the file
+        bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
+
+        // Add .mod to the end of the file
+        outputPackagePath = Path.Combine(outputFolder, "cachex", "CoachesLarge");
+        Directory.CreateDirectory(outputPackagePath);
+        uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
+        compressedPath = Path.Combine(outputPackagePath, "temp.mod");
+
+        using (AssetsFileWriter writer = new(uncompressedPath))
+            bun.Write(writer);
+
+        newUncompressedBundle = new();
+        newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
+
+        using (AssetsFileWriter compressedWriter = new(compressedPath))
+        {
+            newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+        }
+
+        newUncompressedBundle.Close();
+
+        // Delete the uncompressed file
+        File.Delete(uncompressedPath);
+
+        // Rename the compressed file to it's md5 hash
+        hash = Download.GetFileMD5(compressedPath);
+        newPath = Path.Combine(outputPackagePath, $"{hash}");
+        File.Move(compressedPath, newPath);
+
+        // Now we do the same for the coaches small
+        string coacheSmallPackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "CoachesSmall"))[0];
+
+        Console.WriteLine("Converting CoachesSmall...");
+
+        // Open the coaches package using AssetTools.NET
+        manager = new();
+        bunInst = manager.LoadBundleFile(coacheSmallPackagePath, true);
+        bun = bunInst.file;
+        afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
+        afile = afileInst.file;
+        afile.GenerateQuickLookup();
+
+        sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
+
+        assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
+        assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+        assetBundleBase["m_Name"].AsString = $"{mapName}_CoachesSmall";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_CoachesSmall";
+        assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+
+        // Get all texture2d's
+        textureInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D).ToArray();
+        spriteInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite).ToArray();
+
+        foreach (AssetFileInfo coachInfo in textureInfos)
+        {
+            AssetTypeValueField coachBase = manager.GetBaseField(afileInst, coachInfo);
+
+            // Get the name
+            string coachName = coachBase["m_Name"].AsString;
+
+            byte[] encImageBytes;
+            TextureFormat fmt = TextureFormat.DXT5Crunched;
+            byte[] platformBlob = [];
+            uint platform = afile.Metadata.TargetPlatform;
+            int mips = 1;
+            string path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            Image<Rgba32> image;
+            int width, height;
+
+            // If the name does not end with 1_Phone, delete it
+            if (!coachName.EndsWith("1_Phone"))
+            {
+                // Remove the coach from the bundle
+                afile.AssetInfos.Remove(coachInfo);
+
+                // And remove it from the preload table
+                assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == coachInfo.PathId).First());
+
+                continue;
+            }
+
+            path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+
+            // Load the image
+            image = Image.Load<Rgba32>(path);
+
+            // Resize the image to 256x256
+            image.Mutate(x => x.Resize(256, 256));
+
+            encImageBytes = TextureImportExport.Import(image, fmt, out width, out height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode");
+
+            // Set the name to {mapName}_Coach_1_Phone
+            coachBase["m_Name"].AsString = $"{mapName}_Coach_1_Phone";
+
+            // Set the image data
+            coachBase["image data"].AsByteArray = encImageBytes;
+            coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+            coachBase["m_StreamData"]["offset"].AsInt = 0;
+            coachBase["m_StreamData"]["size"].AsInt = 0;
+            coachBase["m_StreamData"]["path"].AsString = "";
+
+            // Save the file
+            coachInfo.SetNewData(coachBase);
+        }
+
+        // For each sprite in the file
+        foreach (AssetFileInfo coachInfo in spriteInfos)
+        {
+            AssetTypeValueField coachBase = manager.GetBaseField(afileInst, coachInfo);
+
+            // Get the name
+            string coachName = coachBase["m_Name"].AsString;
+
+            // If the name does not end with 1_Phone, delete it
+            if (!coachName.EndsWith("1_Phone"))
+            {
+                // Remove the coach from the bundle
+                afile.AssetInfos.Remove(coachInfo);
+
+                // And remove it from the preload table
+                assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == coachInfo.PathId).First());
+
+                continue;
+            }
+
+            // Set the name to {mapName}_Coach_1_Phone
+            coachBase["m_Name"].AsString = $"{mapName}_Coach_1_Phone";
+
+            // Save the file
+            coachInfo.SetNewData(coachBase);
+        }
+
+        // Apply changes to the AssetBundle
+        assetBundle.SetNewData(assetBundleBase);
+
+        // Save the file
+        bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
+
+        // Add .mod to the end of the file
+        outputPackagePath = Path.Combine(outputFolder, "cachex", "CoachesSmall");
+        Directory.CreateDirectory(outputPackagePath);
+        uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
+        compressedPath = Path.Combine(outputPackagePath, "temp.mod");
+
+        using (AssetsFileWriter writer = new(uncompressedPath))
+            bun.Write(writer);
+
+        newUncompressedBundle = new();
+        newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
+
+        using (AssetsFileWriter compressedWriter = new(compressedPath))
+        {
+            newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+        }
+
+        newUncompressedBundle.Close();
+
+        // Delete the uncompressed file
+        File.Delete(uncompressedPath);
+
+        // Rename the compressed file to it's md5 hash
+        hash = Download.GetFileMD5(compressedPath);
+        newPath = Path.Combine(outputPackagePath, $"{hash}");
+        File.Move(compressedPath, newPath);
+        #endregion
+
+        #region Cover
+        // Now we basically do the same for the cover
+        string coverPackagePath = Directory.GetFiles(Path.Combine("./template", "cache0", "Cover"))[0];
+
+        Console.WriteLine("Converting Cover...");
+
+        // Open the coaches package using AssetTools.NET
+        manager = new();
+        bunInst = manager.LoadBundleFile(coverPackagePath, true);
+        bun = bunInst.file;
+        afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
+        afile = afileInst.file;
+        afile.GenerateQuickLookup();
+
+        sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
+
+        assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
+        assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+        assetBundleBase["m_Name"].AsString = $"{mapName}_Cover";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_Cover";
+        assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+
+        // There's only one texture2d in the cover, so we can just get it
+        AssetFileInfo coverInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D).First();
+        AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
+
+        // Set the name to {mapName}_Cover_2x
+        coverBase["m_Name"].AsString = $"{mapName}_Cover_2x";
+
+        {
+            // Now we gotta make a custom texture from the scraps we have in the menu art folder
+            // First we load in the background
+            string backgroundPath = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            Image<Rgba32> background = Image.Load<Rgba32>(backgroundPath);
+
+            // Then we load in the albumcoach
+            string albumCoachPath = Path.Combine(tempMenuArtFolder, $"{mapName}_cover_albumcoach.tga.png");
+            Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
+
+            // Then we place the albumcoach on top of the background in the center
+            // The background is 2048x1024 and the albumcoach is 1024x1024
+            // So we place it at 512, 0
+            background.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+
+            // Now we resize the image down to 720x360
+            background.Mutate(x => x.Resize(720, 360));
+
+            // Now we crop the image to 640x360 centered
+            background.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
+
+            // Save the image in the temp folder
+            background.Save(Path.Combine(tempMenuArtFolder, $"Cover_{mapName}.png"));
+
+            // Now we can encode the image
+            byte[] encImageBytes;
+            TextureFormat fmt = TextureFormat.DXT1Crunched;
+            byte[] platformBlob = [];
+            uint platform = afile.Metadata.TargetPlatform;
+            int mips = 1;
+            string path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            int width, height;
+
+            encImageBytes = TextureImportExport.Import(background, fmt, out width, out height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
+
+            // Set the image data
+            coverBase["image data"].AsByteArray = encImageBytes;
+            coverBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+            coverBase["m_StreamData"]["offset"].AsInt = 0;
+            coverBase["m_StreamData"]["size"].AsInt = 0;
+            coverBase["m_StreamData"]["path"].AsString = "";
+
+            // Save the file
+            coverInfo.SetNewData(coverBase);
+        }
+
+        // Get the sprite
+        AssetFileInfo coverSpriteInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite).First();
+        AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
+
+        // Set the name to {mapName}_Cover_2x
+        coverSpriteBase["m_Name"].AsString = $"{mapName}_Cover_2x";
+
+        // Save the file
+        coverSpriteInfo.SetNewData(coverSpriteBase);
+
+        // Apply changes to the AssetBundle
+        assetBundle.SetNewData(assetBundleBase);
+
+        // Save the file
+        bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
+
+        // Add .mod to the end of the file
+        outputPackagePath = Path.Combine(outputFolder, "cache0", "Cover");
+        Directory.CreateDirectory(outputPackagePath);
+        uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
+        compressedPath = Path.Combine(outputPackagePath, "temp.mod");
+
+        using (AssetsFileWriter writer = new(uncompressedPath))
+            bun.Write(writer);
+
+        newUncompressedBundle = new();
+        newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
+
+        using (AssetsFileWriter compressedWriter = new(compressedPath))
+        {
+            newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+        }
+
+        newUncompressedBundle.Close();
+
+        // Delete the uncompressed file
+        File.Delete(uncompressedPath);
+
+        // Rename the compressed file to it's md5 hash
+        hash = Download.GetFileMD5(compressedPath);
+        newPath = Path.Combine(outputPackagePath, $"{hash}");
+        File.Move(compressedPath, newPath);
+
+        #endregion
 
         // Function to get a random ID that is not used yet
         long GetRandomId()

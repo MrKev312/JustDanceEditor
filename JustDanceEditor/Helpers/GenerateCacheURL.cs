@@ -467,7 +467,7 @@ internal class GenerateCacheURL
         JDCacheJSON cachingStatus = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(Path.Combine(path, "CachingStatus.json")))!;
 
         // Convert to a list of key value pairs
-        List<KeyValuePair<string, JDSong>> cachingStatusList = cachingStatus.MapsDict.ToList();
+        List<KeyValuePair<string, JDSong>> cachingStatusList = [.. cachingStatus.MapsDict];
 
         // Sort by original just dance version
         cachingStatusList.Sort((x, y) => x.Value.SongDatabaseEntry.OriginalJDVersion.CompareTo(y.Value.SongDatabaseEntry.OriginalJDVersion));
@@ -568,6 +568,9 @@ internal class GenerateCacheURL
             mapping += $"JD {pair.Value:D4} -> SD_Cache.{pair.Key:X4}\n";
 
         File.WriteAllText(mappingPath, mapping);
+
+        Console.WriteLine($"Finished converting {cachingStatusList.Count} songs to {cacheNumber} caches.");
+        Console.WriteLine(mapping);
     }
 
     internal static void GenerateCacheWithExistingData()
