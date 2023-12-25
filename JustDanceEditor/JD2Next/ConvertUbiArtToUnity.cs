@@ -51,6 +51,8 @@ internal class ConvertUbiArtToUnity
         string mapsFolder = Path.Combine(originalMapPackagePath, "world", "maps");
         string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
 
+        outputFolder = Path.Combine(outputFolder, mapName);
+
         // Use the shared random
         Random rand = Random.Shared;
 
@@ -159,7 +161,7 @@ internal class ConvertUbiArtToUnity
         // Use 4 pixels of padding between each image
         for (int i = 0; i < pictoFiles.Length; i++)
         {
-            int indexInAtlas = i % 9;
+            int indexInAtlas = i % 16;
 
             if (indexInAtlas == 0 || atlasImage is null)
                 // Create a new image
@@ -169,8 +171,8 @@ internal class ConvertUbiArtToUnity
             (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
 
             // Get the x and y coordinates
-            int x_coord = (indexInAtlas % 3 * 512) + (indexInAtlas % 3 * 4);
-            int y_coord = (indexInAtlas / 3 * 512) + (indexInAtlas / 3 * 4);
+            int x_coord = indexInAtlas % 4 * 512;
+            int y_coord = indexInAtlas / 4 * 512;
 
             // Because the y is calculated from the top left corner, we need to subtract it from 2048
             y_coord = 2048 - y_coord - 512;
@@ -182,10 +184,10 @@ internal class ConvertUbiArtToUnity
             image.Dispose();
 
             // Store the name and the atlas index in the dictionary
-            imageDict.Add(name, i / 9);
+            imageDict.Add(name, i / 16);
 
-            // If this is the last image, or i % 9 == 8, add the image to the atlasPics array
-            if (indexInAtlas == 8 || i == pictoFiles.Length - 1)
+            // If this is the last image, or i % 16 == 15, add the image to the atlasPics array
+            if (indexInAtlas == 15 || i == pictoFiles.Length - 1)
             {
                 // Add the image to the atlasPics array
                 atlasPics.Add(atlasImage);
@@ -705,9 +707,9 @@ internal class ConvertUbiArtToUnity
             newRenderDataMap["first"]["second"].AsLong = 21300000;
 
             // Texture
-            int indexInAtlas = i % 9;
-            int x_offset = (indexInAtlas % 3 * 512) + (indexInAtlas % 3 * 4);
-            int y_offset = (indexInAtlas / 3 * 512) + (indexInAtlas / 3 * 4);
+            int indexInAtlas = i % 16;
+            int x_offset = indexInAtlas % 4 * 512;
+            int y_offset = indexInAtlas / 4 * 512;
 
             newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName]];
             newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
@@ -807,6 +809,16 @@ internal class ConvertUbiArtToUnity
         // Store all changes
         musicTrackInfos[0].SetNewData(musicTrackBase);
         musicTrackInfos[1].SetNewData(mapBase);
+
+        // Update the preload sizes
+        for (int i = 0; i < 2; i++)
+        {
+            AssetTypeValueField second = assetBundleBase["m_Container"]["Array"][i]["second"];
+
+            // Get the AssetFileInfo
+            second["preloadSize"].AsInt = (int)musicTrackInfos[i].ByteSize;
+        }
+        
         assetBundle.SetNewData(assetBundleBase);
 
         // Save the file
@@ -1183,6 +1195,9 @@ internal class ConvertUbiArtToUnity
             // First we load in the background
             string backgroundPath = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
             Image<Rgba32> background = Image.Load<Rgba32>(backgroundPath);
+
+            // Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
+            background.Mutate(x => x.Resize(2048, 1024));
 
             // Then we load in the albumcoach
             string albumCoachPath = Path.Combine(tempMenuArtFolder, $"{mapName}_cover_albumcoach.tga.png");

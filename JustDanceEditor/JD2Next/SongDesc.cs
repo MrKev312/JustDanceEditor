@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace JustDanceEditor.JD2Next;
+﻿namespace JustDanceEditor.JD2Next;
 
 public class SongDesc
 {
