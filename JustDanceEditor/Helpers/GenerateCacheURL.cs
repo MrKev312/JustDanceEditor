@@ -43,41 +43,13 @@ internal class GenerateCacheURL
         Directory.CreateDirectory(cache0Path);
 
         // Create a cache.json file
-        string cache0Json = $$"""
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 0,
-              "free": 71568604,
-              "journal": 0,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "MapBaseCache",
-              "path": "/CacheStorage_0/MapBaseCache",
-              "pathNX": "CacheStorage_0/MapBaseCache",
-              "index": 0
-            }
-            """;
+        string cache0Json = JDSongFactory.MapBaseJson();
         File.WriteAllText(Path.Combine(cache0Path, "json.cache"), cache0Json);
 
         // Inside the cache0 folder, create a folder called "Addressables"
         string addressablesPath = Path.Combine(cache0Path, ".." ,"Addressables");
         Directory.CreateDirectory(addressablesPath);
-        string addressablesJsonCache = """
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 524353536,
-              "free": 524353536,
-              "journal": 104923136,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "Addressables",
-              "path": "/CacheStorage_0/Addressables",
-              "pathNX": "CacheStorage_0:/Addressables",
-              "index": 0
-            }
-            """;
+        string addressablesJsonCache = JDSongFactory.AddressablesJson();
         File.WriteAllText(Path.Combine(addressablesPath, "json.cache"), addressablesJsonCache);
 
         // Parse the CachingStatus.json file
@@ -151,21 +123,7 @@ internal class GenerateCacheURL
 
             // Create the json.cache file
             string jsonCachePath = Path.Combine(newCachexPath, "json.cache");
-            string json = $$"""
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 0,
-              "free": 71568604,
-              "journal": 0,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "{{song.Key}}",
-              "path": "/CacheStorage_{{cacheNumber}}/{{song.Key}}",
-              "pathNX": "CacheStorage_{{cacheNumber}}/{{song.Key}}",
-              "index": {{cacheNumber}}
-            }
-            """;
+            string json = JDSongFactory.CacheJson(cacheNumber, song.Key);
 
             File.WriteAllText(jsonCachePath, json);
         }
@@ -337,149 +295,13 @@ internal class GenerateCacheURL
 
             // Create the json.cache file
             string jsonCachePath = Path.Combine(mapXPath, "json.cache");
-            string jsonCache = $$"""
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 0,
-              "free": 71568604,
-              "journal": 0,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "{{map}}",
-              "path": "/CacheStorage_{{cacheNumber}}/{{map}}",
-              "pathNX": "CacheStorage_{{cacheNumber}}/{{map}}",
-              "index": {{cacheNumber}}
-            }
-            """;
+            string jsonCache = JDSongFactory.CacheJson(cacheNumber, map);
             File.WriteAllText(jsonCachePath, jsonCache);
 
             JDNextUbiMapData songData = json[map];
 
             // Generate the JDSong
-            JDSong song = new()
-            {
-                SongDatabaseEntry = new()
-                {
-                    MapId = map,
-                    ParentMapId = songData.parentMapName,
-                    Title = songData.title,
-                    Artist = songData.artist,
-                    Credits = songData.credits,
-                    LyricsColor = songData.lyricsColor,
-                    MapLength = songData.mapLength,
-                    OriginalJDVersion = songData.originalJDVersion,
-                    CoachCount = songData.coachCount,
-                    Difficulty = songData.difficulty,
-                    SweatDifficulty = songData.sweatDifficulty,
-                    Tags = ["Main"],
-                    TagIds = [.. songData.tagIds],
-                    SearchTagsLocIds = [],
-                    CoachNamesLocIds = [.. songData.coachNamesLocIds],
-                    HasSongTitleInCover = false
-                },
-                AudioPreviewTrk = audioTrackData,
-                AssetFilesDict = new()
-                {
-                    Cover = new()
-                    {
-                        AssetType = AssetType.Cover,
-                        Name = "Cover",
-                        Hash = coverHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/Cover/{coverHash}"
-                    },
-                    CoachesSmall = new()
-                    {
-                        AssetType = AssetType.CoachesSmall,
-                        Name = "CoachesSmall",
-                        Hash = coachesSmallHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/CoachesSmall/{coachesSmallHash}"
-                    },
-                    CoachesLarge = new()
-                    {
-                        AssetType = AssetType.CoachesLarge,
-                        Name = "CoachesLarge",
-                        Hash = coachesLargeHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/CoachesLarge/{coachesLargeHash}"
-                    },
-                    AudioPreview_opus = new()
-                    {
-                        AssetType = AssetType.AudioPreview_opus,
-                        Name = "AudioPreview_opus",
-                        Hash = audioPreviewOpusHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/AudioPreview_opus/{audioPreviewOpusHash}"
-                    },
-                    VideoPreview_MID_vp9_webm = new()
-                    {
-                        AssetType = AssetType.VideoPreview_MID_vp9_webm,
-                        Name = "VideoPreview_MID_vp9_webm",
-                        Hash = videoPreviewMidVp9WebmHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{map}/VideoPreview_MID_vp9_webm/{videoPreviewMidVp9WebmHash}"
-                    },
-                    Audio_opus = new()
-                    {
-                        AssetType = AssetType.Audio_opus,
-                        Name = "Audio_opus",
-                        Hash = audioOpusHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/Audio_opus/{audioOpusHash}"
-                    },
-                    Video_HIGH_vp9_webm = new()
-                    {
-                        AssetType = AssetType.Video_HIGH_vp9_webm,
-                        Name = "Video_HIGH_vp9_webm",
-                        Hash = videoHighVp9WebmHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/Video_HIGH_vp9_webm/{videoHighVp9WebmHash}"
-                    },
-                    MapPackage = new()
-                    {
-                        AssetType = AssetType.MapPackage,
-                        Name = "MapPackage",
-                        Hash = mapPackageHash,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{map}/MapPackage/{mapPackageHash}"
-                    }
-                },
-                Sizes = new(),
-                HasSongTitleInCover = hasSongTitleLogo ? true : null
-            };
-
-            // If the song has the song title in the cover, set the songTitleLogo
-            if (hasSongTitleLogo)
-            {
-                song.AssetFilesDict.SongTitleLogo = new()
-                {
-                    AssetType = AssetType.SongTitleLogo,
-                    Name = "Cover",
-                    Hash = songTitleLogoHash,
-                    Ready = true,
-                    Size = 0,
-                    Category = 0,
-                    FilePath = $"/CacheStorage_0/MapBaseCache/{map}/Cover/{songTitleLogoHash}"
-                };
-            }
+            JDSong song = JDSongFactory.CreateSong((SongDatabaseEntry)songData, cacheNumber, coverHash, coachesSmallHash, coachesLargeHash, audioPreviewOpusHash, videoPreviewMidVp9WebmHash, audioOpusHash, videoHighVp9WebmHash, mapPackageHash, songTitleLogoHash, map);
 
             // Add the song to the dict
             MapsDict.Add(map, song);
@@ -724,21 +546,7 @@ internal class GenerateCacheURL
 
         // Create the json.cache file
         string jsonCachePath = Path.Combine(cachexPath, "json.cache");
-        string json = $$"""
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 0,
-              "free": 71568604,
-              "journal": 0,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "{{guid}}",
-              "path": "/CacheStorage_{{cacheNumber}}/{{guid}}",
-              "pathNX": "CacheStorage_{{cacheNumber}}/{{guid}}",
-              "index": {{cacheNumber}}
-            }
-            """;
+        string json = JDSongFactory.CacheJson(cacheNumber, guid);
         File.WriteAllText(jsonCachePath, json);
 
         // Ask for the parentMapId
@@ -758,115 +566,29 @@ internal class GenerateCacheURL
         // Create a string JDSong dict
         Dictionary<string, JDSong> MapsDict;
 
-        // Generate the JDSong
-        JDSong song = new()
+        // First create the SongDatabaseEntry
+        SongDatabaseEntry songDatabaseEntry = new()
         {
-            SongDatabaseEntry = new()
-            {
-                MapId = guid,
-                ParentMapId = parentMapId,
-                Title = songTitle,
-                Artist = artistName,
-                Credits = "Made possible by MrKev312",
-                LyricsColor = "#FFFFFF",
-                MapLength = songDuration,
-                OriginalJDVersion = originalJustDanceVersion,
-                CoachCount = coachCount,
-                Difficulty = difficulty,
-                SweatDifficulty = sweatDifficulty,
-                Tags = ["Main"],
-                TagIds = [],
-                SearchTagsLocIds = [],
-                CoachNamesLocIds = [],
-                HasSongTitleInCover = false
-            },
-            AudioPreviewTrk = audioTrackData,
-            AssetFilesDict = new()
-            {
-                Cover = new()
-                {
-                    AssetType = AssetType.Cover,
-                    Name = "Cover",
-                    Hash = coverUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 0,
-                    FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/Cover/{coverUrl}"
-                },
-                CoachesSmall = new()
-                {
-                    AssetType = AssetType.CoachesSmall,
-                    Name = "CoachesSmall",
-                    Hash = coachesSmallUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesSmall/{coachesSmallUrl}"
-                },
-                CoachesLarge = new()
-                {
-                    AssetType = AssetType.CoachesLarge,
-                    Name = "CoachesLarge",
-                    Hash = coachesLargeUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesLarge/{coachesLargeUrl}"
-                },
-                AudioPreview_opus = new()
-                {
-                    AssetType = AssetType.AudioPreview_opus,
-                    Name = "AudioPreview_opus",
-                    Hash = audioPreviewOpusUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 0,
-                    FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/AudioPreview_opus/{audioPreviewOpusUrl}"
-                },
-                VideoPreview_MID_vp9_webm = new()
-                {
-                    AssetType = AssetType.VideoPreview_MID_vp9_webm,
-                    Name = "VideoPreview_MID_vp9_webm",
-                    Hash = videoPreviewMidVp9WebmUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 0,
-                    FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/VideoPreview_MID_vp9_webm/{videoPreviewMidVp9WebmUrl}"
-                },
-                Audio_opus = new()
-                {
-                    AssetType = AssetType.Audio_opus,
-                    Name = "Audio_opus",
-                    Hash = audioOpusUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Audio_opus/{audioOpusUrl}"
-                },
-                Video_HIGH_vp9_webm = new()
-                {
-                    AssetType = AssetType.Video_HIGH_vp9_webm,
-                    Name = "Video_HIGH_vp9_webm",
-                    Hash = videoHighVp9WebmUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Video_HIGH_vp9_webm/{videoHighVp9WebmUrl}"
-                },
-                MapPackage = new()
-                {
-                    AssetType = AssetType.MapPackage,
-                    Name = "MapPackage",
-                    Hash = mapPackageUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/MapPackage/{mapPackageUrl}"
-                }
-            },
-            Sizes = new(),
-            HasSongTitleInCover = hasSongTitleInCover ? true : null
+            MapId = guid,
+            ParentMapId = parentMapId,
+            Title = songTitle,
+            Artist = artistName,
+            Credits = "",
+            LyricsColor = "",
+            MapLength = songDuration,
+            OriginalJDVersion = originalJustDanceVersion,
+            CoachCount = coachCount,
+            Difficulty = difficulty,
+            SweatDifficulty = sweatDifficulty,
+            Tags = [],
+            TagIds = [],
+            SearchTagsLocIds = [],
+            CoachNamesLocIds = [],
+            HasSongTitleInCover = hasSongTitleInCover
         };
+
+        // Create the JDSong
+        JDSong song = JDSongFactory.CreateSong(songDatabaseEntry, cacheNumber, coverUrl, coachesSmallUrl, coachesLargeUrl, audioPreviewOpusUrl, videoPreviewMidVp9WebmUrl, audioOpusUrl, videoHighVp9WebmUrl, mapPackageUrl, songTitleLogoUrl, guid);
 
         // If the song has the song title in the cover, set the songTitleLogo
         if (hasSongTitleInCover)
@@ -909,34 +631,7 @@ internal class GenerateCacheURL
 
         // Ask for the cache number
         Console.Write("Enter the cache number: ");
-        uint? cacheNumber = null;
-        while (cacheNumber == null)
-        {
-            string? cacheNumberString = Console.ReadLine();
-
-            // If the cache number is not a number, print an error and continue
-            if (!uint.TryParse(cacheNumberString, out uint value))
-            {
-                Console.WriteLine("The cache number is not a number.");
-                continue;
-            }
-
-            // If the cache number is not valid, print an error and continue
-            if (value < 0)
-            {
-                Console.WriteLine("The cache number must be 1 or higher.");
-                continue;
-            }
-
-            // The number can't be 0
-            if (value == 0)
-            {
-                Console.WriteLine("The cache number can't be 0.");
-                continue;
-            }
-
-            cacheNumber = value;
-        }
+        uint cacheNumber = (uint)Question.AskNumber("Enter the cache number: ", 1);
 
         // First get the songDB
         string songDBPath = Question.AskFile("Enter the songDB path: ", true);
@@ -948,15 +643,15 @@ internal class GenerateCacheURL
         string songDBJson = File.ReadAllText(songDBPath);
 
         // Parse the songDB
-        Dictionary<string, SongData> songDB = JsonSerializer.Deserialize<Dictionary<string, SongData>>(songDBJson)!;
+        Dictionary<string, SongDBSongData> songDB = JsonSerializer.Deserialize<Dictionary<string, SongDBSongData>>(songDBJson)!;
 
         // If there's a secondary songDB, read it and parse it, merge it with the songDB but overwrite existing entries
         if (!string.IsNullOrEmpty(songDBSecondaryPath))
         {
             string songDBSecondaryJson = File.ReadAllText(songDBSecondaryPath);
-            Dictionary<string, SongData> songDBSecondary = JsonSerializer.Deserialize<Dictionary<string, SongData>>(songDBSecondaryJson)!;
+            Dictionary<string, SongDBSongData> songDBSecondary = JsonSerializer.Deserialize<Dictionary<string, SongDBSongData>>(songDBSecondaryJson)!;
 
-            foreach (KeyValuePair<string, SongData> songData in songDBSecondary)
+            foreach (KeyValuePair<string, SongDBSongData> songData in songDBSecondary)
                 // If the songDB doesn't contain the song, add it
                 if (!songDB.ContainsKey(songData.Key))
                     songDB.Add(songData.Key, songData.Value);
@@ -967,7 +662,7 @@ internal class GenerateCacheURL
 
         while (true)
         {
-            SongData? songData = null;
+            SongDBSongData? songData = null;
 
             while (songData == null)
             {
@@ -979,7 +674,7 @@ internal class GenerateCacheURL
                     break;
 
                 // Try to find all songs with the song title, either containing or equal to
-                List<SongData> songs = songDB.Values.Where(x => x.title.Contains(songTitle, StringComparison.OrdinalIgnoreCase) || x.title.Equals(songTitle, StringComparison.OrdinalIgnoreCase)).ToList();
+                List<SongDBSongData> songs = songDB.Values.Where(x => x.title.Contains(songTitle, StringComparison.OrdinalIgnoreCase) || x.title.Equals(songTitle, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 // If there are no songs, print an error and continue
                 if (songs.Count == 0)
@@ -1020,31 +715,7 @@ internal class GenerateCacheURL
                         Console.WriteLine($"{i + 1}) {songs[i].title} - {songs[i].mapName} - {songs[i].originalJDVersion} - Coach Count: {songs[i].coachCount}");
                     }
 
-                    uint? choice = null;
-
-                    while (choice == null)
-                    {
-                        // Ask for the song number
-                        Console.Write("Enter the song number: ");
-
-                        string? songNumber = Console.ReadLine();
-
-                        // If the song number is not a number, print an error and continue
-                        if (!uint.TryParse(songNumber, out uint value))
-                        {
-                            Console.WriteLine("The song number is not a number.");
-                            continue;
-                        }
-
-                        // If the song number is not valid, print an error and continue
-                        if (value < 0 || value > songs.Count)
-                        {
-                            Console.WriteLine("The song number is not valid.");
-                            continue;
-                        }
-
-                        choice = value;
-                    }
+                    uint choice = (uint)Question.AskNumber("Enter the number of the song you want to use: ", 0, songs.Count);
 
                     // If the choice is 0, exit
                     if (choice == 0)
@@ -1248,7 +919,7 @@ internal class GenerateCacheURL
             }
 
             // Create the cache{x} folder
-            string cachexPath = Path.Combine(path, $"SD_Cache.{cacheNumber.Value:X4}", guid);
+            string cachexPath = Path.Combine(path, $"SD_Cache.{cacheNumber:X4}", guid);
             {
                 Directory.CreateDirectory(Path.Combine(cachexPath));
 
@@ -1267,149 +938,34 @@ internal class GenerateCacheURL
 
             // Create the json.cache file
             string jsonCachePath = Path.Combine(cachexPath, "json.cache");
-            string json = $$"""
-            {
-              "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-              "totalSize": 0,
-              "free": 71568604,
-              "journal": 0,
-              "cachedStreamsDict": {
-                "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-              },
-              "name": "{{guid}}",
-              "path": "/CacheStorage_{{cacheNumber}}/{{guid}}",
-              "pathNX": "CacheStorage_{{cacheNumber}}/{{guid}}",
-              "index": {{cacheNumber}}
-            }
-            """;
+            string json = JDSongFactory.CacheJson(cacheNumber, guid);
 
             // Write the json to the file
             File.WriteAllText(jsonCachePath, json);
 
-            // Generate the JDSong
-            JDSong song = new()
+            // First create the SongDatabaseEntry
+            SongDatabaseEntry songDatabaseEntry = new()
             {
-                SongDatabaseEntry = new()
-                {
-                    MapId = guid,
-                    ParentMapId = songData.parentMapName,
-                    Title = songData.title,
-                    Artist = songData.artist,
-                    Credits = songData.credits,
-                    LyricsColor = songData.lyricsColor,
-                    MapLength = songData.mapLength,
-                    OriginalJDVersion = songData.originalJDVersion,
-                    CoachCount = songData.coachCount,
-                    Difficulty = songData.difficulty,
-                    SweatDifficulty = songData.sweatDifficulty,
-                    Tags = ["Main"],
-                    TagIds = [],
-                    SearchTagsLocIds = [],
-                    CoachNamesLocIds = [],
-                    HasSongTitleInCover = false
-                },
-                AudioPreviewTrk = audioTrackData,
-                AssetFilesDict = new()
-                {
-                    Cover = new()
-                    {
-                        AssetType = AssetType.Cover,
-                        Name = "Cover",
-                        Hash = coverUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/Cover/{coverUrl}"
-                    },
-                    CoachesSmall = new()
-                    {
-                        AssetType = AssetType.CoachesSmall,
-                        Name = "CoachesSmall",
-                        Hash = coachesSmallUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesSmall/{coachesSmallUrl}"
-                    },
-                    CoachesLarge = new()
-                    {
-                        AssetType = AssetType.CoachesLarge,
-                        Name = "CoachesLarge",
-                        Hash = coachesLargeUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesLarge/{coachesLargeUrl}"
-                    },
-                    AudioPreview_opus = new()
-                    {
-                        AssetType = AssetType.AudioPreview_opus,
-                        Name = "AudioPreview_opus",
-                        Hash = audioPreviewOpusUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/AudioPreview_opus/{audioPreviewOpusUrl}"
-                    },
-                    VideoPreview_MID_vp9_webm = new()
-                    {
-                        AssetType = AssetType.VideoPreview_MID_vp9_webm,
-                        Name = "VideoPreview_MID_vp9_webm",
-                        Hash = videoPreviewMidVp9WebmUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 0,
-                        FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/VideoPreview_MID_vp9_webm/{videoPreviewMidVp9WebmUrl}"
-                    },
-                    Audio_opus = new()
-                    {
-                        AssetType = AssetType.Audio_opus,
-                        Name = "Audio_opus",
-                        Hash = audioOpusUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Audio_opus/{audioOpusUrl}"
-                    },
-                    Video_HIGH_vp9_webm = new()
-                    {
-                        AssetType = AssetType.Video_HIGH_vp9_webm,
-                        Name = "Video_HIGH_vp9_webm",
-                        Hash = videoHighVp9WebmUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Video_HIGH_vp9_webm/{videoHighVp9WebmUrl}"
-                    },
-                    MapPackage = new()
-                    {
-                        AssetType = AssetType.MapPackage,
-                        Name = "MapPackage",
-                        Hash = mapPackageUrl,
-                        Ready = true,
-                        Size = 0,
-                        Category = 1,
-                        FilePath = $"/CacheStorage_{cacheNumber}/{guid}/MapPackage/{mapPackageUrl}"
-                    }
-                },
-                Sizes = new(),
-                HasSongTitleInCover = hasSongTitleInCover ? true : null
+                MapId = guid,
+                ParentMapId = songData.parentMapName,
+                Title = songData.title,
+                Artist = songData.artist,
+                Credits = songData.credits,
+                LyricsColor = songData.lyricsColor,
+                MapLength = songData.mapLength,
+                OriginalJDVersion = songData.originalJDVersion,
+                CoachCount = songData.coachCount,
+                Difficulty = songData.difficulty,
+                SweatDifficulty = songData.sweatDifficulty,
+                Tags = ["Main"],
+                TagIds = [],
+                SearchTagsLocIds = [],
+                CoachNamesLocIds = [],
+                HasSongTitleInCover = hasSongTitleInCover
             };
 
-            // If the song has the song title in the cover, set the songTitleLogo
-            if (hasSongTitleInCover)
-            {
-                song.AssetFilesDict.SongTitleLogo = new()
-                {
-                    AssetType = AssetType.SongTitleLogo,
-                    Name = "Cover",
-                    Hash = songTitleLogoUrl,
-                    Ready = true,
-                    Size = 0,
-                    Category = 0,
-                    FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/Cover/{songTitleLogoUrl}"
-                };
-            }
+            // Generate the JDSong
+            JDSong song = JDSongFactory.CreateSong(songDatabaseEntry, cacheNumber, coverUrl, coachesSmallUrl, coachesLargeUrl, audioPreviewOpusUrl, videoPreviewMidVp9WebmUrl, audioOpusUrl, videoHighVp9WebmUrl, mapPackageUrl, songTitleLogoUrl, guid);
 
             // Add the song to the dict
             MapsDict.Add(guid, song);

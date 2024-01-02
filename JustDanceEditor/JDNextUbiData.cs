@@ -20,7 +20,7 @@ public class JDNextUbiMapData
     public string[] tagIds { get; set; }
     public string[] tags { get; set; }
     public string title { get; set; }
-    public object[] searchTagsLocIds { get; set; }
+    public string[] searchTagsLocIds { get; set; }
     public Assets assets { get; set; }
 }
 

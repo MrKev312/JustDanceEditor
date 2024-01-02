@@ -1,6 +1,6 @@
 ﻿namespace JustDanceEditor;
 
-public class SongData
+public class SongDBSongData
 {
     public string artist { get; set; }
     public string audioPreviewData { get; set; }

@@ -58,6 +58,30 @@ internal class SongDatabaseEntry
     [JsonPropertyName("hasSongTitleInCover")]
     // Seems to always be false, set the one in JDSong instead
     public bool HasSongTitleInCover { get; set; } = false;
+
+    // Allow conversion from JDNextUbiMapData
+    public static explicit operator SongDatabaseEntry(JDNextUbiMapData mapData)
+    {
+        return new SongDatabaseEntry
+        {
+            MapId = mapData.mapName,
+            ParentMapId = mapData.parentMapName,
+            Title = mapData.title,
+            Artist = mapData.artist,
+            Credits = mapData.credits,
+            LyricsColor = mapData.lyricsColor,
+            MapLength = mapData.mapLength,
+            OriginalJDVersion = mapData.originalJDVersion,
+            CoachCount = mapData.coachCount,
+            Difficulty = mapData.difficulty,
+            SweatDifficulty = mapData.sweatDifficulty,
+            Tags = [.. mapData.tags],
+            TagIds = [.. mapData.tagIds],
+            SearchTagsLocIds = [],
+            CoachNamesLocIds = [],
+            HasSongTitleInCover = mapData.hasSongTitleInCover
+        };
+    }
 }
 
 public class AssetFilesDict

@@ -285,7 +285,7 @@ internal class ConvertUbiArtToUnity
 
         Console.WriteLine("Loading song info...");
 
-        JDNSong originalSong = new()
+        JDUbiArtSong originalSong = new()
         {
             // Files end with a null byte, so we remove it
             KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!,
