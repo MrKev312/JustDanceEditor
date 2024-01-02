@@ -507,7 +507,7 @@ internal class ConvertUbiArtToUnity
             karaokeClip["IsEndOfLine"].AsUInt = (uint)clip.IsEndOfLine;
             karaokeClip["ContentType"].AsInt = 2;
             karaokeClip["Id"].AsLong = clip.Id;
-            karaokeClip["SemitoneTolerance"].AsInt = clip.SemitoneTolerance;
+            karaokeClip["SemitoneTolerance"].AsInt = (int)clip.SemitoneTolerance;
             karaokeClip["StartTimeTolerance"].AsInt = clip.StartTimeTolerance;
             karaokeClip["EndTimeTolerance"].AsInt = clip.EndTimeTolerance;
 
@@ -815,8 +815,8 @@ internal class ConvertUbiArtToUnity
         {
             AssetTypeValueField second = assetBundleBase["m_Container"]["Array"][i]["second"];
 
-            // Get the AssetFileInfo
-            second["preloadSize"].AsInt = (int)musicTrackInfos[i].ByteSize;
+            // Set equal to the size of the preload array
+            second["preloadSize"].AsInt = assetBundleArray.Children.Count;
         }
         
         assetBundle.SetNewData(assetBundleBase);

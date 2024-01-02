@@ -25,6 +25,6 @@ public class KaraokeClip
     public int ContentType { get; set; }
     public int StartTimeTolerance { get; set; }
     public int EndTimeTolerance { get; set; }
-    public int SemitoneTolerance { get; set; }
+    public float SemitoneTolerance { get; set; }
 }
 

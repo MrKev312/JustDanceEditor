@@ -39,8 +39,8 @@ public class Structure
     public int fadeEndBeat { get; set; }
     public bool useFadeEndBeat { get; set; }
     public float videoStartTime { get; set; }
-    public int previewEntry { get; set; }
-    public int previewLoopStart { get; set; }
+    public float previewEntry { get; set; }
+    public float previewLoopStart { get; set; }
     public int previewLoopEnd { get; set; }
     public int volume { get; set; }
     public int fadeInDuration { get; set; }
@@ -59,7 +59,7 @@ public class Signature
 public class Section
 {
     public string __class { get; set; }
-    public int marker { get; set; }
+    public float marker { get; set; }
     public int sectionType { get; set; }
     public string comment { get; set; }
 }
