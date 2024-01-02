@@ -348,162 +348,20 @@ internal class GenerateCacheURL
 
         // Ask for the urls
         Console.WriteLine("Enter the urls for the following assets:");
-        Console.Write("CoachesSmall: ");
-        string? coachesSmallUrl = Console.ReadLine();
-        // If the url doesn't contain "coachesSmall" ask if the user is sure, if not ask for the url again
-        while (!coachesSmallUrl.Contains("coachesSmall"))
-        {
-            Console.WriteLine("The url doesn't contain \"coachesSmall\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("CoachesSmall: ");
-            coachesSmallUrl = Console.ReadLine();
-        }
-
-        Console.Write("CoachesLarge: ");
-        string? coachesLargeUrl = Console.ReadLine();
-        // If the url doesn't contain "coachesLarge" ask if the user is sure, if not ask for the url again
-        while (!coachesLargeUrl.Contains("coachesLarge"))
-        {
-            Console.WriteLine("The url doesn't contain \"coachesLarge\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("CoachesLarge: ");
-            coachesLargeUrl = Console.ReadLine();
-        }
-
-        Console.Write("Cover: ");
-        string? coverUrl = Console.ReadLine();
-        // If the url doesn't contain "cover" ask if the user is sure, if not ask for the url again
-        while (!coverUrl.Contains("cover"))
-        {
-            Console.WriteLine("The url doesn't contain \"cover\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("Cover: ");
-            coverUrl = Console.ReadLine();
-        }
-
-        string? songTitleLogoUrl = "";
-        Console.Write("songTitleLogo (can be empty): ");
-        songTitleLogoUrl = Console.ReadLine();
-        bool hasSongTitleInCover = !string.IsNullOrEmpty(songTitleLogoUrl);
-        // If the url isn't empty and doesn't contain "songTitleLogo" ask if the user is sure, if not ask for the url again
-        while (!string.IsNullOrEmpty(songTitleLogoUrl) && !songTitleLogoUrl.Contains("songTitleLogo"))
-        {
-            Console.WriteLine("The url doesn't contain \"songTitleLogo\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("songTitleLogo (can be empty): ");
-            songTitleLogoUrl = Console.ReadLine();
-        }
-
-        Console.Write("AudioPreview_opus: ");
-        string? audioPreviewOpusUrl = Console.ReadLine();
-        // If the url doesn't contain "audioPreview.opus" ask if the user is sure, if not ask for the url again
-        while (!audioPreviewOpusUrl.Contains("audioPreview.opus"))
-        {
-            Console.WriteLine("The url doesn't contain \"audioPreview.opus\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("AudioPreview_opus: ");
-            audioPreviewOpusUrl = Console.ReadLine();
-        }
-
-        Console.Write("VideoPreview_MID_vp9_webm: ");
-        string? videoPreviewMidVp9WebmUrl = Console.ReadLine();
-        // If the url doesn't contain "videoPreview_MID.vp9.webm" ask if the user is sure, if not ask for the url again
-        while (!videoPreviewMidVp9WebmUrl.Contains("videoPreview_MID.vp9.webm"))
-        {
-            Console.WriteLine("The url doesn't contain \"videoPreview_MID.vp9.webm\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("VideoPreview_MID_vp9_webm: ");
-            videoPreviewMidVp9WebmUrl = Console.ReadLine();
-        }
-
-        Console.Write("Video_HIGH_vp9_webm: ");
-        string? videoHighVp9WebmUrl = Console.ReadLine();
-        // If the url doesn't contain "video_HIGH.vp9.webm" ask if the user is sure, if not ask for the url again
-        while (!videoHighVp9WebmUrl.Contains("video_HIGH.vp9.webm"))
-        {
-            Console.WriteLine("The url doesn't contain \"video_HIGH.vp9.webm\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("Video_HIGH_vp9_webm: ");
-            videoHighVp9WebmUrl = Console.ReadLine();
-        }
-
-        Console.Write("Audio_opus: ");
-        string? audioOpusUrl = Console.ReadLine();
-        // If the url doesn't contain "audio.opus" ask if the user is sure, if not ask for the url again
-        while (!audioOpusUrl.Contains("audio.opus"))
-        {
-            Console.WriteLine("The url doesn't contain \"audio.opus\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("Audio_opus: ");
-            audioOpusUrl = Console.ReadLine();
-        }
-
-        Console.Write("MapPackage: ");
-        string? mapPackageUrl = Console.ReadLine();
-        // If the url doesn't contain "mapPackage" ask if the user is sure, if not ask for the url again
-        while (!mapPackageUrl.Contains("mapPackage"))
-        {
-            Console.WriteLine("The url doesn't contain \"mapPackage\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
-            if (answer == "y")
-                break;
-            Console.Write("MapPackage: ");
-            mapPackageUrl = Console.ReadLine();
-        }
+        string coachesSmallUrl = Question.AskForUrl("coachesSmall");
+        string coachesLargeUrl = Question.AskForUrl("coachesLarge");
+        string coverUrl = Question.AskForUrl("cover");
+        string songTitleLogoUrl = Question.AskForUrl("songTitleLogo", true);
+        bool hasSongTitleInCover = string.IsNullOrEmpty(songTitleLogoUrl);
+        string audioPreviewOpusUrl = Question.AskForUrl("audioPreview.opus");
+        string videoPreviewMidVp9WebmUrl = Question.AskForUrl("videoPreview_MID.vp9.webm");
+        string videoHighVp9WebmUrl = Question.AskForUrl("video_HIGH.vp9.webm");
+        string audioOpusUrl = Question.AskForUrl("audio.opus");
+        string mapPackageUrl = Question.AskForUrl("mapPackage");
 
         // Create the cache
         // Ask for a cache location
-        string? path = null;
-        while (string.IsNullOrWhiteSpace(path))
-        {
-            Console.Write("Enter the path to the cache file: ");
-            path = Console.ReadLine();
-
-            // If the path is empty, set it to null
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                Console.WriteLine("The path is empty.");
-                path = null;
-                continue;
-            }
-
-            // If the path has quotes, remove them
-            if (path.StartsWith('"') && path.EndsWith('"'))
-                path = path[1..^1];
-
-            // If the path is a file, set it to null
-            if (File.Exists(path))
-            {
-                Console.WriteLine("The path is a file.");
-                path = null;
-                continue;
-            }
-        }
+        string path = Question.AskFolder("Enter the path for where to save the cache: ");
 
         // The place to put everything from cache0
         string cache0Path = Path.Combine(path, "cache0", guid);
@@ -589,21 +447,6 @@ internal class GenerateCacheURL
 
         // Create the JDSong
         JDSong song = JDSongFactory.CreateSong(songDatabaseEntry, cacheNumber, coverUrl, coachesSmallUrl, coachesLargeUrl, audioPreviewOpusUrl, videoPreviewMidVp9WebmUrl, audioOpusUrl, videoHighVp9WebmUrl, mapPackageUrl, songTitleLogoUrl, guid);
-
-        // If the song has the song title in the cover, set the songTitleLogo
-        if (hasSongTitleInCover)
-        {
-            song.AssetFilesDict.SongTitleLogo = new()
-            {
-                AssetType = AssetType.SongTitleLogo,
-                Name = "Cover",
-                Hash = songTitleLogoUrl,
-                Ready = true,
-                Size = 0,
-                Category = 0,
-                FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/Cover/{songTitleLogoUrl}"
-            };
-        }
 
         // Add the song to the dict
         MapsDict = new()
@@ -738,162 +581,21 @@ internal class GenerateCacheURL
 
             // Ask for the urls
             Console.WriteLine("Enter the urls for the following assets:");
-            Console.Write("CoachesSmall: ");
-            string? coachesSmallUrl = Console.ReadLine();
-            // If the url doesn't contain "coachesSmall" ask if the user is sure, if not ask for the url again
-            while (!coachesSmallUrl.Contains("coachesSmall"))
-            {
-                Console.WriteLine("The url doesn't contain \"coachesSmall\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("CoachesSmall: ");
-                coachesSmallUrl = Console.ReadLine();
-            }
-
-            Console.Write("CoachesLarge: ");
-            string? coachesLargeUrl = Console.ReadLine();
-            // If the url doesn't contain "coachesLarge" ask if the user is sure, if not ask for the url again
-            while (!coachesLargeUrl.Contains("coachesLarge"))
-            {
-                Console.WriteLine("The url doesn't contain \"coachesLarge\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("CoachesLarge: ");
-                coachesLargeUrl = Console.ReadLine();
-            }
-
-            Console.Write("Cover: ");
-            string? coverUrl = Console.ReadLine();
-            // If the url doesn't contain "cover" ask if the user is sure, if not ask for the url again
-            while (!coverUrl.Contains("cover"))
-            {
-                Console.WriteLine("The url doesn't contain \"cover\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("Cover: ");
-                coverUrl = Console.ReadLine();
-            }
-
-            string? songTitleLogoUrl = "";
-            Console.Write("songTitleLogo (can be empty): ");
-            songTitleLogoUrl = Console.ReadLine();
-            // If the url isn't empty and doesn't contain "songTitleLogo" ask if the user is sure, if not ask for the url again
-            while (!string.IsNullOrEmpty(songTitleLogoUrl) && !songTitleLogoUrl.Contains("songTitleLogo"))
-            {
-                Console.WriteLine("The url doesn't contain \"songTitleLogo\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("songTitleLogo (can be empty): ");
-                songTitleLogoUrl = Console.ReadLine();
-            }
-
+            string coachesSmallUrl = Question.AskForUrl("coachesSmall");
+            string coachesLargeUrl = Question.AskForUrl("coachesLarge");
+            string coverUrl = Question.AskForUrl("cover");
+            string songTitleLogoUrl = Question.AskForUrl("songTitleLogo", true);
             bool hasSongTitleInCover = !string.IsNullOrEmpty(songTitleLogoUrl);
-
-            Console.Write("AudioPreview_opus: ");
-            string? audioPreviewOpusUrl = Console.ReadLine();
-            // If the url doesn't contain "audioPreview.opus" ask if the user is sure, if not ask for the url again
-            while (!audioPreviewOpusUrl.Contains("audioPreview.opus"))
-            {
-                Console.WriteLine("The url doesn't contain \"audioPreview.opus\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("AudioPreview_opus: ");
-                audioPreviewOpusUrl = Console.ReadLine();
-            }
-
-            Console.Write("VideoPreview_MID_vp9_webm: ");
-            string? videoPreviewMidVp9WebmUrl = Console.ReadLine();
-            // If the url doesn't contain "videoPreview_MID.vp9.webm" ask if the user is sure, if not ask for the url again
-            while (!videoPreviewMidVp9WebmUrl.Contains("videoPreview_MID.vp9.webm"))
-            {
-                Console.WriteLine("The url doesn't contain \"videoPreview_MID.vp9.webm\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("VideoPreview_MID_vp9_webm: ");
-                videoPreviewMidVp9WebmUrl = Console.ReadLine();
-            }
-
-            Console.Write("Video_HIGH_vp9_webm: ");
-            string? videoHighVp9WebmUrl = Console.ReadLine();
-            // If the url doesn't contain "video_HIGH.vp9.webm" ask if the user is sure, if not ask for the url again
-            while (!videoHighVp9WebmUrl.Contains("video_HIGH.vp9.webm"))
-            {
-                Console.WriteLine("The url doesn't contain \"video_HIGH.vp9.webm\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("Video_HIGH_vp9_webm: ");
-                videoHighVp9WebmUrl = Console.ReadLine();
-            }
-
-            Console.Write("Audio_opus: ");
-            string? audioOpusUrl = Console.ReadLine();
-            // If the url doesn't contain "audio.opus" ask if the user is sure, if not ask for the url again
-            while (!audioOpusUrl.Contains("audio.opus"))
-            {
-                Console.WriteLine("The url doesn't contain \"audio.opus\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("Audio_opus: ");
-                audioOpusUrl = Console.ReadLine();
-            }
-
-            Console.Write("MapPackage: ");
-            string? mapPackageUrl = Console.ReadLine();
-            // If the url doesn't contain "mapPackage" ask if the user is sure, if not ask for the url again
-            while (!mapPackageUrl.Contains("mapPackage"))
-            {
-                Console.WriteLine("The url doesn't contain \"mapPackage\".");
-                Console.Write("Are you sure this is the correct url? (y/n): ");
-                string? answer = Console.ReadLine();
-                if (answer == "y")
-                    break;
-                Console.Write("MapPackage: ");
-                mapPackageUrl = Console.ReadLine();
-            }
-
-            // Turned out to not be unique, which makes things a bit harder to prevent collisions
-            //// We look at the mapPackageUrl, for no reason other than that it's the last one, for the GUID
-            //// Create a URI and 2nd part of the URI in one line
-            //string? guid = new Uri(mapPackageUrl).Segments[1];
-
-            //// If the guid ends with a /, remove it
-            //if (guid.EndsWith('/'))
-            //    guid = guid[..^1];
-
-            //// If this isn't a valid GUID, ask for a GUID type 4, or whether to generate one
-            //if (!Guid.TryParse(guid, out _))
-            //{
-            //    Console.WriteLine("The automatically scraped GUID is not valid.");
-            //    Console.Write("Enter the GUID, or leave empty to generate one: ");
-            //    guid = Console.ReadLine();
-            //    if (string.IsNullOrEmpty(guid))
-            //        guid = Guid.NewGuid().ToString();
-            //}
-            //else
-            //{
-            //    Console.WriteLine($"The automatically scraped GUID is valid: {guid}");
-            //}
+            string audioPreviewOpusUrl = Question.AskForUrl("audioPreview.opus");
+            string videoPreviewMidVp9WebmUrl = Question.AskForUrl("videoPreview_MID.vp9.webm");
+            string videoHighVp9WebmUrl = Question.AskForUrl("video_HIGH.vp9.webm");
+            string audioOpusUrl = Question.AskForUrl("audio.opus");
+            string mapPackageUrl = Question.AskForUrl("mapPackage");
 
             // Generate a GUID
             string guid = Guid.NewGuid().ToString();
 
-            //// This didn't work so we'll use a hardcoded value, really don't know how this format works
+            // This didn't work so we'll use a hardcoded value, really don't know how this format works
             //string audioTrackData = AudioTrackConverter.ConvertAudioTrack(songData.audioPreviewData);
 
             // Create the cache0 folder

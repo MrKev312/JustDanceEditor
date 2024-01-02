@@ -156,4 +156,24 @@ internal class Question
 
         return (int)value;
     }
+
+    public static string AskForUrl(string assetName, bool canBeEmpty = false)
+    {
+        string canBeEmptyText = canBeEmpty ? " (can be empty)" : "";
+        Console.Write($"{assetName}{canBeEmptyText}: ");
+        string? url = Console.ReadLine();
+
+        while (!string.IsNullOrEmpty(url) && !url.Contains(assetName))
+        {
+            Console.WriteLine($"The url doesn't contain \"{assetName}\".");
+            Console.Write("Are you sure this is the correct url? (y/n): ");
+            string? answer = Console.ReadLine();
+            if (answer == "y")
+                break;
+            Console.Write($"{assetName}{canBeEmptyText}: ");
+            url = Console.ReadLine();
+        }
+
+        return url;
+    }
 }
