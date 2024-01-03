@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor;
+﻿namespace JustDanceEditor.JDUbiArt;
 
 public class JDNextUbiMapData
 {

@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.JD2Next;
+﻿namespace JustDanceEditor.JDUbiArt;
 
 public class DanceTape
 {

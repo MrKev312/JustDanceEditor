@@ -13,6 +13,7 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using Pfim;
 using TexturePlugin;
+using JustDanceEditor.JDUbiArt;
 
 namespace JustDanceEditor.JD2Next;
 

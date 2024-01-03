@@ -161,17 +161,17 @@ internal class Question
     {
         string canBeEmptyText = canBeEmpty ? " (can be empty)" : "";
         Console.Write($"{assetName}{canBeEmptyText}: ");
-        string? url = Console.ReadLine();
+        string? url = Console.ReadLine()!;
 
         while (!string.IsNullOrEmpty(url) && !url.Contains(assetName))
         {
             Console.WriteLine($"The url doesn't contain \"{assetName}\".");
             Console.Write("Are you sure this is the correct url? (y/n): ");
-            string? answer = Console.ReadLine();
+            string answer = Console.ReadLine()!;
             if (answer == "y")
                 break;
             Console.Write($"{assetName}{canBeEmptyText}: ");
-            url = Console.ReadLine();
+            url = Console.ReadLine()!;
         }
 
         return url;

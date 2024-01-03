@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <Folder Include="JD2Next\TextureConverter\" />
-    <Folder Include="Resources\" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor;
+﻿namespace JustDanceEditor.JD2Next;
 
 public class SongDBSongData
 {

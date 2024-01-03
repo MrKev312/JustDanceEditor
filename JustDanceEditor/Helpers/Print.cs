@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using JustDanceEditor.JD2Next;
 
 namespace JustDanceEditor.Helpers;
 internal class Print

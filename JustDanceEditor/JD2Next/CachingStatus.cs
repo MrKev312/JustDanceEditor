@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Serialization;
+using JustDanceEditor.JDUbiArt;
 
-namespace JustDanceEditor;
+namespace JustDanceEditor.JD2Next;
 
 internal class JDCacheJSON
 {

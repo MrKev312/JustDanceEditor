@@ -1,5 +1,7 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text.Json;
+using JustDanceEditor.JD2Next;
+using JustDanceEditor.JDUbiArt;
 
 namespace JustDanceEditor.Helpers;
 internal class GenerateCacheURL
@@ -499,7 +501,6 @@ internal class GenerateCacheURL
                 if (!songDB.ContainsKey(songData.Key))
                     songDB.Add(songData.Key, songData.Value);
         }
-
 
         Dictionary<string, JDSong> MapsDict = [];
 
