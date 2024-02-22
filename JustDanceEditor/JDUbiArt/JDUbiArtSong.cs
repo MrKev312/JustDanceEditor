@@ -1,4 +1,6 @@
-﻿namespace JustDanceEditor.JDUbiArt;
+﻿using JustDanceEditor.JDUbiArt.Tapes;
+
+namespace JustDanceEditor.JDUbiArt;
 
 internal class JDUbiArtSong
 {

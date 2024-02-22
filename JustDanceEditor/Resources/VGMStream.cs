@@ -13,7 +13,7 @@ internal class VGMStream
 	// Check whether VGMStream exists in Resources/VGMStream/ folder
 	public static bool Exists() =>
 		// Check whether VGMStream exists in Resources/VGMStream/ folder
-		Directory.Exists("Resources/VGMStream/") && File.Exists("Resources/VGMStream/vgmstream.exe");
+		Directory.Exists("Resources/VGMStream/") && File.Exists("Resources/VGMStream/vgmstream-cli.exe");
 
 	// Function to download the latest VGMStream release
 	public static async Task Download()
@@ -76,6 +76,8 @@ internal class VGMStream
 		// Check for VGMStream
 		await Check();
 
+        string vgmFullPath = Path.GetFullPath("Resources/VGMStream/vgmstream-cli.exe");
+
 		// Create a new process
 		Process process = new()
 		{
@@ -83,7 +85,7 @@ internal class VGMStream
 			StartInfo = new ProcessStartInfo
 			{
 				// Set the process start info
-				FileName = "Resources/VGMStream/vgmstream.exe",
+				FileName = vgmFullPath,
 				// Set the process start info
 				Arguments = $"-o \"{output}\" \"{input}\"",
 				// Set the process start info
@@ -94,18 +96,13 @@ internal class VGMStream
 				RedirectStandardOutput = true,
 				// Set the process start info
 				RedirectStandardError = true
-			}
+            }
 		};
 
-		// Start the process
-		process.Start();
+        // Start the process
+        process.Start();
 		// Wait for the process to exit
 		process.WaitForExit();
-
-		// Check whether the process exited with an error
-		if (process.ExitCode != 0)
-			// Throw an exception
-			throw new Exception($"Failed to convert \"{input}\" to \"{output}\".");
 
 		// Return success
 		return;

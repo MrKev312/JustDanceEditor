@@ -5,15 +5,17 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 using AssetsTools.NET.Texture;
 
-using JustDanceEditor.Helpers;
-
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 using Pfim;
 using TexturePlugin;
+
+using JustDanceEditor.Helpers;
 using JustDanceEditor.JDUbiArt;
+using JustDanceEditor.JDUbiArt.Tapes;
+using HtmlAgilityPack;
 
 namespace JustDanceEditor.JD2Next;
 
@@ -48,6 +50,7 @@ internal class ConvertUbiArtToUnity
 		string originalMapPackagePath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world): ", true);
 		string outputFolder = Question.AskFolder("Enter the path to the output folder: ", true);
 
+        /// Get all the imporant folders
 		// Get the folder name in /world/maps/*
 		string mapsFolder = Path.Combine(originalMapPackagePath, "world", "maps");
 		string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
@@ -68,8 +71,26 @@ internal class ConvertUbiArtToUnity
 		// Get the pictos folder in timeline/pictos
 		string pictosFolder = Path.Combine(timelineFolder, "pictos");
 
-		// Create a temporary folder
-		string tempPictoFolder = Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName, "pictos");
+        /// Load in the song data
+        // Get the song info
+        Console.WriteLine("Loading song info...");
+
+        JDUbiArtSong originalSong = new()
+        {
+            // Files end with a null byte, so we remove it
+            KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!,
+            DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!,
+            // pocoloco_musictrack.tpl.ckd
+            MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(cacheFolder, "audio", $"{mapName}_musictrack.tpl.ckd")).Replace("\0", ""))!,
+            SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(cacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!
+        };
+        originalSong.Name = originalSong.DTape.MapName;
+        mapName = originalSong.Name;
+
+        /// Start converting
+        // Create a temporary folder
+        string tempMapFolder = Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName);
+        string tempPictoFolder = Path.Combine(tempMapFolder, "pictos");
 
 		// Create the folders
 		Directory.CreateDirectory(tempPictoFolder);
@@ -284,22 +305,84 @@ internal class ConvertUbiArtToUnity
 		stopwatch.Stop();
 		Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
 
-		Console.WriteLine("Loading song info...");
+        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
+        Console.WriteLine("Converting audio files...");
+        stopwatch.Restart();
 
-		JDUbiArtSong originalSong = new()
-		{
-			// Files end with a null byte, so we remove it
-			KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!,
-			DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!,
-			// pocoloco_musictrack.tpl.ckd
-			MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(cacheFolder, "audio", $"{mapName}_musictrack.tpl.ckd")).Replace("\0", ""))!,
-			SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(cacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!
-		};
-		originalSong.Name = originalSong.DTape.MapName;
-		mapName = originalSong.Name;
+        string tempAudioFolder = Path.Combine(tempMapFolder, "audio");
+        Directory.CreateDirectory(tempAudioFolder);
 
-		#region MapPackage
-		Console.WriteLine("Converting MapPackage...");
+        // Get the mainsequence tape
+        string mainSequenceTapePath = Path.Combine(cacheFolder, "cinematics", $"{mapName}_mainsequence.tape.ckd");
+        MainSequence mainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(mainSequenceTapePath).Replace("\0", ""))!;
+
+        // Get the audio files
+        // Foreach where __class is SoundSetClip
+        AudioVibrationClip[] audioClips = mainSequence.Clips.Where(s => s.__class == "SoundSetClip").ToArray();
+        foreach (AudioVibrationClip audioVibrationClip in audioClips)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
+
+            // In audio/ambs folder, convert the .wav.ckd file to .wav
+            string wavPath = Path.Combine(cacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
+            string newWavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
+
+            // Run vgmstream on the .wav.ckd file
+            Resources.VGMStream.Convert(wavPath, newWavPath).Wait();
+        }
+
+        // Now convert the main song
+        string mainSongPath;
+
+        // If the world\maps\{mapName}\audio\ folder exists, use the file in there
+        if (Directory.Exists(Path.Combine(mapsFolder, mapName, "audio")))
+            mainSongPath = Directory.GetFiles(Path.Combine(mapsFolder, mapName, "audio"))[0];
+        else
+            // Else use the file in cache\itf_cooked\nx\world\maps\{mapName}\audio that ends with .wav.ckd
+            mainSongPath = Directory.GetFiles(Path.Combine(cacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First()!;
+
+        string newMainSongPath = Path.Combine(tempAudioFolder, "mainSong.wav");
+
+        // Run vgmstream on the main song
+        Resources.VGMStream.Convert(mainSongPath, newMainSongPath).Wait();        
+
+        // Get time after finishing
+        stopwatch.Stop();
+        Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
+
+        // Now we merge them all together according to their offset
+        Console.WriteLine("Merging audio files...");
+        stopwatch.Restart();
+
+        double divisionRaw = originalSong.MTrack.COMPONENTS[0].trackData.structure.avgMarkerDistance / 48d;
+        double division = 2502.66305525460462d / (6000d / divisionRaw);
+
+        // Get the lowest offset from the audioClips
+        // Everything will be offset by this value such that the lowest offset is 0, aka the start of the audiofile
+        int lowestOffset = audioClips.Min(x => x.StartTime);
+
+        (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
+        for (int i = 0; i < audioClips.Length; i++)
+        {
+            AudioVibrationClip audioVibrationClip = audioClips[i];
+            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
+            string wavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
+
+            // Get the offset
+            float offset = (float)((audioVibrationClip.StartTime - lowestOffset) / division);
+
+            // Add the file to the array
+            audioFiles[i] = (wavPath, offset);
+        }
+
+        // Add the main song to the end of the array
+        audioFiles[^1] = (newMainSongPath, (float)((0 - lowestOffset) / division));
+
+        // Merge the audio files
+        Audio.MergeAudioFiles(audioFiles, Path.Combine(tempAudioFolder, "merged.wav"));
+
+        #region MapPackage
+        Console.WriteLine("Converting MapPackage...");
 		// Open the mapPackage using AssetTools.NET
 		AssetsManager manager = new();
 		BundleFileInstance bunInst = manager.LoadBundleFile(mapPackagePath, true);
@@ -573,10 +656,10 @@ internal class ConvertUbiArtToUnity
 			// Load the image
 			Image<Rgba32> image = Image.Load<Rgba32>(path);
 
-			byte[] encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
+			byte[] imageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
 
 			// Add the image bytes to the array
-			endImageBytes[i] = encImageBytes;
+			endImageBytes[i] = imageBytes;
 		});
 
 		// First add all atlas images to the bundle
@@ -839,9 +922,7 @@ internal class ConvertUbiArtToUnity
 		newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
 
 		using (AssetsFileWriter compressedWriter = new(compressedPath))
-		{
 			newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
-		}
 
 		newUncompressedBundle.Close();
 
@@ -1011,9 +1092,7 @@ internal class ConvertUbiArtToUnity
 		newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
 
 		using (AssetsFileWriter compressedWriter = new(compressedPath))
-		{
 			newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
-		}
 
 		newUncompressedBundle.Close();
 
@@ -1148,9 +1227,7 @@ internal class ConvertUbiArtToUnity
 		newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
 
 		using (AssetsFileWriter compressedWriter = new(compressedPath))
-		{
 			newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
-		}
 
 		newUncompressedBundle.Close();
 
@@ -1192,54 +1269,119 @@ internal class ConvertUbiArtToUnity
 		// Set the name to {mapName}_Cover_2x
 		coverBase["m_Name"].AsString = $"{mapName}_Cover_2x";
 
-		{
-			// Now we gotta make a custom texture from the scraps we have in the menu art folder
-			// First we load in the background
-			string backgroundPath = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
-			Image<Rgba32> background = Image.Load<Rgba32>(backgroundPath);
+        Image<Rgba32>? coverImage = null;
 
-			// Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
-			background.Mutate(x => x.Resize(2048, 1024));
+        // If a cover.png exists in the map folder, use that
+        if (File.Exists(Path.Combine(originalMapPackagePath, "cover.png")))
+        {
+            coverImage = Image.Load<Rgba32>(Path.Combine(originalMapPackagePath, "cover.png"));
 
-			// Then we load in the albumcoach
-			string albumCoachPath = Path.Combine(tempMenuArtFolder, $"{mapName}_cover_albumcoach.tga.png");
-			Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
+            // Stretch it to 640x360, this shouldn't do anything to correctly sized images
+            coverImage.Mutate(x => x.Resize(640, 360));
+        }
+        else
+        {
+            // Download one from https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B
+            {
+                // Load the webpage
+                HttpClient client = new();
+                string html = client.GetStringAsync("https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B").Result;
 
-			// Then we place the albumcoach on top of the background in the center
-			// The background is 2048x1024 and the albumcoach is 1024x1024
-			// So we place it at 512, 0
-			background.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+                // Convert the html to a document
+                HtmlDocument doc = new();
+                doc.LoadHtml(html);
 
-			// Now we resize the image down to 720x360
-			background.Mutate(x => x.Resize(720, 360));
+                // Get the class called "fandom-table"[0]/tbody
+                HtmlNode table = doc.DocumentNode.SelectNodes("//table[@class='fandom-table']")[0];
+                HtmlNode htmlNode = table.SelectSingleNode("tbody");
 
-			// Now we crop the image to 640x360 centered
-			background.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
+                // Now get the node where the first td is the map name
+                List<HtmlNode> rows = htmlNode.SelectNodes("tr").Skip(1).Where(x => x.SelectSingleNode("td").InnerText == originalSong.SongDesc.COMPONENTS[0].Title).ToList();
+                // Select the first one, if it exists, if not, null
+                HtmlNode? row = rows.Count > 0 ? rows[0] : null;
 
-			// Save the image in the temp folder
-			background.Save(Path.Combine(tempMenuArtFolder, $"Cover_{mapName}.png"));
+                // If the row is null, then the cover doesn't exist
+                bool coverExists = row is not null;
 
-			// Now we can encode the image
-			byte[] encImageBytes;
-			TextureFormat fmt = TextureFormat.DXT1Crunched;
-			byte[] platformBlob = [];
-			uint platform = afile.Metadata.TargetPlatform;
-			int mips = 1;
-			string path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
-			int width, height;
+                if (coverExists)
+                // If the cover exists, then we can just download it
+                {
+                    // If both the last or second to last td's are empty or "N/A", then the cover doesn't exist
+                    HtmlNodeCollection tds = row.SelectNodes("td");
+                    string coverUrl = "";
 
-			encImageBytes = TextureImportExport.Import(background, fmt, out width, out height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
+                    // Get the cover url
+                    if (tds[^1].InnerText.Contains("PlaceHolderCover2023") || tds[^1].InnerText == "")
+                        coverUrl = tds[^1].SelectSingleNode("a").Attributes["href"].Value;
+                    else if (tds[^2].InnerText.Contains("PlaceHolderCover2023") || tds[^2].InnerText == "")
+                        coverUrl = tds[^2].SelectSingleNode("a").Attributes["href"].Value;
+                    else
+                        coverExists = false;
 
-			// Set the image data
-			coverBase["image data"].AsByteArray = encImageBytes;
-			coverBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
-			coverBase["m_StreamData"]["offset"].AsInt = 0;
-			coverBase["m_StreamData"]["size"].AsInt = 0;
-			coverBase["m_StreamData"]["path"].AsString = "";
+                    if (coverExists)
+                    {
+                        Stream coverStream = client.GetStreamAsync(coverUrl).Result;
 
-			// Save the file
-			coverInfo.SetNewData(coverBase);
-		}
+                        // Load the image
+                        coverImage = Image.Load<Rgba32>(coverStream);
+                        coverImage.Mutate(x => x.Resize(640, 360));
+                    }
+                }
+
+                if (!coverExists)
+                // Manually create the cover
+                {
+                    // Now we gotta make a custom texture from the scraps we have in the menu art folder
+                    // First we load in the background
+                    string backgroundPath = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+                    coverImage = Image.Load<Rgba32>(backgroundPath);
+
+                    // Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
+                    coverImage.Mutate(x => x.Resize(2048, 1024));
+
+                    // Then we load in the albumcoach
+                    string albumCoachPath = Path.Combine(tempMenuArtFolder, $"{mapName}_cover_albumcoach.tga.png");
+                    Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
+
+                    // Then we place the albumcoach on top of the background in the center
+                    // The background is 2048x1024 and the albumcoach is 1024x1024
+                    // So we place it at 512, 0
+                    coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+
+                    // Now we resize the image down to 720x360
+                    coverImage.Mutate(x => x.Resize(720, 360));
+
+                    // Now we crop the image to 640x360 centered
+                    coverImage.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
+                }
+            }
+        }
+
+        // Save the image in the temp folder
+        coverImage!.Save(Path.Combine(tempMenuArtFolder, $"Cover_{mapName}.png"));
+
+        // Now we can encode the image
+        {
+            byte[] encImageBytes;
+            TextureFormat fmt = TextureFormat.DXT1Crunched;
+            byte[] platformBlob = [];
+            uint platform = afile.Metadata.TargetPlatform;
+            int mips = 1;
+            string path = Path.Combine(tempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            int width, height;
+
+            encImageBytes = TextureImportExport.Import(coverImage!, fmt, out width, out height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
+
+            // Set the image data
+            coverBase["image data"].AsByteArray = encImageBytes;
+            coverBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+            coverBase["m_StreamData"]["offset"].AsInt = 0;
+            coverBase["m_StreamData"]["size"].AsInt = 0;
+            coverBase["m_StreamData"]["path"].AsString = "";
+
+            // Save the file
+            coverInfo.SetNewData(coverBase);
+        }
 
 		// Get the sprite
 		AssetFileInfo coverSpriteInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite).First();
@@ -1270,9 +1412,7 @@ internal class ConvertUbiArtToUnity
 		newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
 
 		using (AssetsFileWriter compressedWriter = new(compressedPath))
-		{
 			newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
-		}
 
 		newUncompressedBundle.Close();
 
