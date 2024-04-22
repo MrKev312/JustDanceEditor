@@ -22,26 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="JD2Next\TextureConverter\" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Update="Resources\library.zip">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\python34.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\xtx_extract.exe">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\_ctypes.pyd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 	</ItemGroup>
 
 </Project>

@@ -45,6 +45,7 @@ internal class ConvertUbiArtToUnity
 			return;
 		}
 
+        /// TODO: move this to the front end and have this function take these as parameters
 		// Get the path to the mapPackage in /template/cachex/MapPackage/*, only one file should be in there
 		string mapPackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "MapPackage"))[0];
 		string originalMapPackagePath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world): ", true);
