@@ -1,8 +1,10 @@
-﻿namespace JustDanceEditor.Helpers;
+﻿using System.Collections.ObjectModel;
+
+namespace JustDanceEditor.Helpers;
 internal class Question
 {
 	// Version that takes in a list of options and an optional start index
-	public static int Ask(List<string> options, int startIndex = 0, string? question = null)
+	public static int Ask(Collection<string> options, int startIndex = 0, string? question = null)
 	{
 		// If the list is empty, return -1
 		if (options.Count == 0)

@@ -32,7 +32,7 @@ internal class ConvertUbiArtToUnity
 			Console.WriteLine("""
 				Template folder not found!
 				Please put a template in the folder named "template".
-				In it should exist out of a "cache0" and a cachex folder.
+				In it should exist out of a "cache0" and a "cachex" folder.
 				Place the map files of the template map in the corresponding folders.
 				For example, the MapPackage should be in cachex/MapPackage/*.
 				""");
