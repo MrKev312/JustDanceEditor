@@ -1,10 +1,10 @@
 ﻿using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
-namespace JustDanceEditor.Helpers;
+namespace JustDanceEditor.Converter.Helpers;
 internal static class Audio
 {
-	public static void MergeAudioFiles((string path, float startTime)[] audioFiles, string outputPath)
+    public static void MergeAudioFiles((string path, float startTime)[] audioFiles, string outputPath)
     {
         // If there are no files, return
         if (audioFiles.Length == 0)
@@ -33,7 +33,7 @@ internal static class Audio
 
         // Create a mixer with the SampleProviders
         MixingSampleProvider mixer = new(sampleProviders[0].WaveFormat);
-        
+
         // Loop through the SampleProviders
         foreach (ISampleProvider sampleProvider in sampleProviders)
             // Add the SampleProvider to the mixer

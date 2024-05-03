@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.JDUbiArt.Tapes;
+﻿namespace JustDanceEditor.Converter.UbiArt.Tapes;
 
 public class DanceTape
 {

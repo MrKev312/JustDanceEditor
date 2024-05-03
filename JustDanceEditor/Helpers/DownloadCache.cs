@@ -1,6 +1,4 @@
-﻿using JustDanceEditor.JD2Next;
-
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace JustDanceEditor.Helpers;
 internal class DownloadCache
