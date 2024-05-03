@@ -4,22 +4,22 @@ namespace TexturePlugin;
 
 public partial class PInvoke
 {
-	[LibraryImport("TexToolWrap.dll")]
-	public static partial uint DecodeByCrunchUnity(IntPtr data, IntPtr buf, int mode, uint width, uint height, uint byteSize);
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
+	public static extern uint DecodeByCrunchUnity(IntPtr data, IntPtr buf, int mode, uint width, uint height, uint byteSize);
 
-	[LibraryImport("TexToolWrap.dll")]
-	public static partial uint DecodeByPVRTexLib(IntPtr data, IntPtr buf, int mode, uint width, uint height);
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
+	public static extern uint DecodeByPVRTexLib(IntPtr data, IntPtr buf, int mode, uint width, uint height);
 
-	[LibraryImport("TexToolWrap.dll")]
-	public static partial uint EncodeByCrunchUnity(IntPtr data, ref int checkoutId, int mode, int level, uint width, uint height, uint ver, int mips);
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
+	public static extern uint EncodeByCrunchUnity(IntPtr data, ref int checkoutId, int mode, int level, uint width, uint height, uint ver, int mips);
 
-	[LibraryImport("TexToolWrap.dll")]
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
 	[return: MarshalAs(UnmanagedType.Bool)]
-	public static partial bool PickUpAndFree(IntPtr outBuf, uint size, int id);
+	public static extern bool PickUpAndFree(IntPtr outBuf, uint size, int id);
 
-	[LibraryImport("TexToolWrap.dll")]
-	public static partial uint EncodeByPVRTexLib(IntPtr data, IntPtr buf, int mode, int level, uint width, uint height);
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
+	public static extern uint EncodeByPVRTexLib(IntPtr data, IntPtr buf, int mode, int level, uint width, uint height);
 
-	[LibraryImport("TexToolWrap.dll")]
-	public static partial uint EncodeByISPC(IntPtr data, IntPtr buf, int mode, int level, uint width, uint height);
+	[DllImport("TexToolWrap.dll", CallingConvention = CallingConvention.Cdecl)]
+	public static extern uint EncodeByISPC(IntPtr data, IntPtr buf, int mode, int level, uint width, uint height);
 }
