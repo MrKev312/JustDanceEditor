@@ -1,6 +1,6 @@
 ﻿namespace JustDanceEditor.Converter.Helpers;
 
-internal static class Copy
+public static class Copy
 {
     public static uint CopyFolder(string sourceFolder, string destFolder)
     {

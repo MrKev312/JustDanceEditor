@@ -1,5 +1,5 @@
 ﻿namespace JustDanceEditor.Converter.Unity;
-internal class JDSongFactory
+public class JDSongFactory
 {
     // This is the hardcoded value, taken from Encanto/We don't talk about Bruno
     // Not for any particular reason, just because it's the first song I saw

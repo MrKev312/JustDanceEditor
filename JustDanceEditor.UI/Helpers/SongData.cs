@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.Helpers;
+﻿namespace JustDanceEditor.UI.Helpers;
 
 public class SongData
 {

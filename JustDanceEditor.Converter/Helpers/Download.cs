@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 
 namespace JustDanceEditor.Converter.Helpers;
-internal static class Download
+public static class Download
 {
     /// <summary>
     /// Downloads a file from a URL to a folder and renames it to the MD5 hash of the file.

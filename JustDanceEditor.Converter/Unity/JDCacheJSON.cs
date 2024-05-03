@@ -4,7 +4,7 @@ using JustDanceEditor.Converter.UbiArt;
 
 namespace JustDanceEditor.Converter.Unity;
 
-internal class JDCacheJSON
+public class JDCacheJSON
 {
     [JsonPropertyName("schemaVersion")]
     public uint SchemaVersion { get; set; } = 1;
@@ -14,7 +14,7 @@ internal class JDCacheJSON
     public required Dictionary<string, JDSong> MapsDict { get; set; }
 }
 
-internal class JDSong
+public class JDSong
 {
     [JsonPropertyName("songDatabaseEntry")]
     public required SongDatabaseEntry SongDatabaseEntry { get; set; }
@@ -32,7 +32,7 @@ internal class JDSong
     public bool? HasSongTitleInCover { get; set; } = null;
 }
 
-internal class SongDatabaseEntry
+public class SongDatabaseEntry
 {
     // Must be a version 4 UUID
     public string MapId { get; set; }

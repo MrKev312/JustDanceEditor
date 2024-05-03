@@ -3,8 +3,6 @@
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using TexturePlugin;
-
 namespace JustDanceEditor.Converter.Unity.TextureConverter;
 
 public class TextureEncoderDecoder
