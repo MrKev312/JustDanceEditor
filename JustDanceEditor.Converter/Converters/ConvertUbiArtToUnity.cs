@@ -86,15 +86,15 @@ public class ConvertUbiArtToUnity
         Directory.CreateDirectory(tempPictoFolder);
 
         // Before starting on the mapPackage, prepare the pictos
-        string[] array = Directory.GetFiles(pictosFolder);
-        Console.WriteLine($"Converting {array.Length} pictos...");
+        string[] pictoImageFiles = Directory.GetFiles(pictosFolder);
+        Console.WriteLine($"Converting {pictoImageFiles.Length} pictos...");
 
         // Get time before starting
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        Parallel.For(0, array.Length, i =>
+        Parallel.For(0, pictoImageFiles.Length, i =>
         {
-            string item = array[i];
+            string item = pictoImageFiles[i];
 
             // Stream the file into a new pictos folder, but skip until 0x2C
             using FileStream stream = File.OpenRead(item);
