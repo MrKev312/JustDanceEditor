@@ -21,355 +21,99 @@ namespace JustDanceEditor.Converter.Converters;
 
 public class ConvertUbiArtToUnity
 {
-    public static void Convert(ConversionRequest conversionRequest)
+    JDUbiArtSong songData;
+    ConversionRequest conversionRequest;
+    string mapName = "";
+
+    // Easy access to shared random:
+    static Random rand => Random.Shared;
+
+    /// Folders
+    // Main folders
+    string inputFolder => conversionRequest.InputPath;
+    string outputFolder => Path.Combine(conversionRequest.OutputPath, mapName);
+    string templateFolder => conversionRequest.TemplatePath;
+    // Temporary folders
+    string tempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName);
+    string tempPictoFolder => Path.Combine(tempMapFolder, "pictos");
+    string tempMenuArtFolder => Path.Combine(tempMapFolder, "menuart");
+    string tempAudioFolder => Path.Combine(tempMapFolder, "audio");
+    // Specific map folders
+    string cacheFolder => Path.Combine(inputFolder, "cache", "itf_cooked", "nx", "world", "maps", mapName);
+    string mapsFolder => Path.Combine(inputFolder, "world", "maps");
+    string timelineFolder => Path.Combine(cacheFolder, "timeline");
+    string movesFolder => Path.Combine(mapsFolder, mapName, "timeline", "moves", "wiiu");
+    string pictosFolder => Path.Combine(timelineFolder, "pictos");
+    string menuArtFolder => Path.Combine(cacheFolder, "menuart", "textures");
+    // Template files
+    string mapPackagePath
     {
-        Console.WriteLine();
-
-        // Check if there's a template folder
-        if (!Directory.Exists(conversionRequest.TemplatePath))
+        get
         {
-            throw new FileNotFoundException("Template folder not found");
+            string[] files = Directory.GetFiles(Path.Combine(templateFolder, "MapPackage"));
+            if (files.Length == 0)
+                throw new FileNotFoundException("Could not find the template MapPackage");
+            return files[0];
         }
+    }
 
-        /// TODO: move this to the front end and have this function take these as parameters
-        // Get the path to the mapPackage in /template/cachex/MapPackage/*, only one file should be in there
-        //string mapPackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "MapPackage"))[0];
-        //string originalMapPackagePath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world): ", true);
-        //string outputFolder = Question.AskFolder("Enter the path to the output folder: ", true);
-        string mapPackagePath = conversionRequest.TemplatePath;
-        string originalMapPackagePath = conversionRequest.InputPath;
-        string outputFolder = conversionRequest.OutputPath;
+    public ConvertUbiArtToUnity(ConversionRequest conversionRequest)
+    {
+        this.conversionRequest = conversionRequest;
+        ConvertOld();
+    }
 
-        /// Get all the imporant folders
-        // Get the folder name in /world/maps/*
-        string mapsFolder = Path.Combine(originalMapPackagePath, "world", "maps");
-        string mapName = Path.GetFileName(Directory.GetDirectories(mapsFolder)[0])!;
+    private void ValidateRequest()
+    {
+        ArgumentNullException.ThrowIfNull(conversionRequest);
 
-        outputFolder = Path.Combine(outputFolder, mapName);
+        // Check the template folder
+        if (!Directory.Exists(conversionRequest.TemplatePath))
+            throw new DirectoryNotFoundException("Template folder not found");
 
-        // Use the shared random
-        Random rand = Random.Shared;
+        // Validate the input path
+        if (string.IsNullOrWhiteSpace(conversionRequest.InputPath) || Directory.Exists(conversionRequest.InputPath))
+            throw new FileNotFoundException("Input folder not found");
 
-        // Get the files in mapsFolder/{mapName}/timeline/moves/wiiu
-        string movesFolder = Path.Combine(mapsFolder, mapName, "timeline", "moves", "wiiu");
-        string[] moveFiles = Directory.GetFiles(movesFolder);
+        // Validate the output path by checking if it's a valid URI
+        if (string.IsNullOrWhiteSpace(conversionRequest.OutputPath) || !Uri.IsWellFormedUriString(conversionRequest.OutputPath, UriKind.RelativeOrAbsolute))
+            throw new ArgumentException("Output path is not valid URI");
+    }
 
-        // Get the main folder in /cache
-        string cacheFolder = Path.Combine(originalMapPackagePath, "cache", "itf_cooked", "nx", "world", "maps", mapName);
-        string timelineFolder = Path.Combine(cacheFolder, "timeline");
+    private void LoadSongData()
+    {
+        mapName = Path.GetFileName(Directory.GetDirectories(Path.Combine(conversionRequest.InputPath, "world", "maps"))[0])!;
 
-        // Get the pictos folder in timeline/pictos
-        string pictosFolder = Path.Combine(timelineFolder, "pictos");
-
-        /// Load in the song data
-        // Get the song info
+        // Load in the song data
         Console.WriteLine("Loading song info...");
 
-        JDUbiArtSong originalSong = new()
+        songData = new()
         {
-            // Files end with a null byte, so we remove it
             KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!,
             DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(timelineFolder, $"{mapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!,
-            // pocoloco_musictrack.tpl.ckd
             MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(cacheFolder, "audio", $"{mapName}_musictrack.tpl.ckd")).Replace("\0", ""))!,
             SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(cacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!
         };
-        originalSong.Name = originalSong.DTape.MapName;
-        mapName = originalSong.Name;
 
-        /// Start converting
-        // Create a temporary folder
-        string tempMapFolder = Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName);
-        string tempPictoFolder = Path.Combine(tempMapFolder, "pictos");
+        return;
+    }
 
+    private void CreateTempFolders()
+    {
         // Create the folders
+        Directory.CreateDirectory(tempMapFolder);
         Directory.CreateDirectory(tempPictoFolder);
-
-        // Before starting on the mapPackage, prepare the pictos
-        string[] pictoImageFiles = Directory.GetFiles(pictosFolder);
-        Console.WriteLine($"Converting {pictoImageFiles.Length} pictos...");
-
-        // Get time before starting
-        Stopwatch stopwatch = Stopwatch.StartNew();
-
-        Parallel.For(0, pictoImageFiles.Length, i =>
-        {
-            string item = pictoImageFiles[i];
-
-            // Stream the file into a new pictos folder, but skip until 0x2C
-            using FileStream stream = File.OpenRead(item);
-            stream.Seek(0x2C, SeekOrigin.Begin);
-
-            // If the file ends with .png.ckd, change it to .ckd
-            if (item.EndsWith(".png.ckd"))
-                item = item.Replace(".png.ckd", ".ckd");
-
-            // Get the file name
-            string fileName = Path.GetFileNameWithoutExtension(item);
-
-            // Stream the rest of the file into a new file, but with the .xtx extension
-            using FileStream newStream = File.Create(Path.Combine(tempPictoFolder, fileName + ".xtx"));
-            stream.CopyTo(newStream);
-
-            // Close the streams
-            stream.Close();
-            newStream.Close();
-
-            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
-            // Print the output to the console
-            ProcessStartInfo startInfo = new()
-            {
-                FileName = "./Resources/xtx_extract.exe",
-                Arguments = $"-o \"{Path.Combine(tempPictoFolder, fileName + ".dds")}\" \"{Path.Combine(tempPictoFolder, fileName + ".xtx")}\"",
-                RedirectStandardOutput = false,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (Process process = new() { StartInfo = startInfo })
-            {
-                process.Start();
-
-                process.WaitForExit();
-            }
-
-            // Delete the .xtx file
-            File.Delete(Path.Combine(tempPictoFolder, fileName + ".xtx"));
-
-            // Convert the .dds file to .png
-            Image<Bgra32> newImage;
-            using (IImage image = Pfimage.FromFile(Path.Combine(tempPictoFolder, fileName + ".dds")))
-            {
-
-                // If the image is not in Rgba32 format, throw an exception
-                if (image.Format != ImageFormat.Rgba32)
-                    throw new Exception("Image is not in Rgba32 format!");
-
-                // Create image from image.Data
-                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-            }
-
-            // If the image isn't 512x512, resize it to 512x364
-            if (newImage.Width != 512 || newImage.Height != 512)
-                newImage.Mutate(x => x.Resize(512, 512));
-
-            // Delete the .dds file
-            File.Delete(Path.Combine(tempPictoFolder, fileName + ".dds"));
-
-            // Save the image as a png
-            newImage.Save(Path.Combine(tempPictoFolder, fileName + ".png"));
-        });
-
-        Dictionary<string, int> imageDict = [];
-        List<Image<Rgba32>> atlasPics = [];
-        Image<Rgba32>? atlasImage = null;
-
-        Console.WriteLine("Creating atlasses...");
-
-        // Get the files in the pictos folder
-        string[] pictoFiles = Directory.GetFiles(tempPictoFolder);
-
-        // Convert the 512x512 images to a 2048x2048 atlas
-        // Use 4 pixels of padding between each image
-        for (int i = 0; i < pictoFiles.Length; i++)
-        {
-            int indexInAtlas = i % 16;
-
-            if (indexInAtlas == 0 || atlasImage is null)
-                // Create a new image
-                atlasImage = new(2048, 2048);
-
-            // Get the current image
-            (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
-
-            // Get the x and y coordinates
-            int x_coord = indexInAtlas % 4 * 512;
-            int y_coord = indexInAtlas / 4 * 512;
-
-            // Because the y is calculated from the top left corner, we need to subtract it from 2048
-            y_coord = 2048 - y_coord - 512;
-
-            // Draw the image on the atlas
-            atlasImage.Mutate(x => x.DrawImage(image, new Point(x_coord, y_coord), 1));
-
-            // Dispose the image
-            image.Dispose();
-
-            // Store the name and the atlas index in the dictionary
-            imageDict.Add(name, i / 16);
-
-            // If this is the last image, or i % 16 == 15, add the image to the atlasPics array
-            if (indexInAtlas == 15 || i == pictoFiles.Length - 1)
-            {
-                // Add the image to the atlasPics array
-                atlasPics.Add(atlasImage);
-
-                // Set to null but don't dispose
-                atlasImage = null;
-            }
-        }
-
-        // Save the atlasPics in the tempPictoFolder in the format atlas_{index}.png
-        Directory.CreateDirectory(Path.Combine(tempPictoFolder, "Atlas"));
-
-        for (int i = 0; i < atlasPics.Count; i++)
-            atlasPics[i].Save(Path.Combine(tempPictoFolder, "Atlas", $"atlas_{i}.png"));
-
-        // Get time after finishing
-        stopwatch.Stop();
-        Console.WriteLine($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
-
-        // Convert the menu art in \cache\itf_cooked\nx\world\maps\pocoloco\menuart\textures
-        string menuArtFolder = Path.Combine(cacheFolder, "menuart", "textures");
-        string tempMenuArtFolder = Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName, "menuart");
-        string[] menuArtFiles = Directory.GetFiles(menuArtFolder);
-
-        // Create the folders
         Directory.CreateDirectory(tempMenuArtFolder);
-
-        // Get time before starting
-        stopwatch.Restart();
-
-        Console.WriteLine($"Converting {menuArtFiles.Length} menu art files...");
-
-        Parallel.For(0, menuArtFiles.Length, i =>
-        {
-            string item = menuArtFiles[i];
-
-            // Stream the file into a new menuart folder, but skip until 0x2C
-            using FileStream stream = File.OpenRead(item);
-            stream.Seek(0x2C, SeekOrigin.Begin);
-
-            // Get the file name
-            string fileName = Path.GetFileNameWithoutExtension(item);
-
-            // Stream the rest of the file into a new file, but with the .xtx extension
-            using FileStream newStream = File.Create(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
-            stream.CopyTo(newStream);
-
-            // Close the streams
-            stream.Close();
-            newStream.Close();
-
-            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
-            // Print the output to the console
-            ProcessStartInfo startInfo = new()
-            {
-                FileName = "./Resources/xtx_extract.exe",
-                Arguments = $"-o \"{Path.Combine(tempMenuArtFolder, fileName + ".dds")}\" \"{Path.Combine(tempMenuArtFolder, fileName + ".xtx")}\"",
-                RedirectStandardOutput = false,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (Process process = new() { StartInfo = startInfo })
-            {
-                process.Start();
-
-                process.WaitForExit();
-            }
-
-            // Delete the .xtx file
-            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
-
-            // Convert the .dds file to .png
-            Image<Bgra32> newImage;
-            using (IImage image = Pfimage.FromFile(Path.Combine(tempMenuArtFolder, fileName + ".dds")))
-            {
-
-                // If the image is not in Rgba32 format, throw an exception
-                if (image.Format != ImageFormat.Rgba32)
-                    throw new Exception("Image is not in Rgba32 format!");
-
-                // Create image from image.Data
-                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-            }
-
-            newImage.Save(Path.Combine(tempMenuArtFolder, fileName + ".png"));
-
-            // Delete the .dds file
-            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".dds"));
-        });
-
-        // Get time after finishing
-        stopwatch.Stop();
-        Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
-
-        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
-        Console.WriteLine("Converting audio files...");
-        stopwatch.Restart();
-
-        string tempAudioFolder = Path.Combine(tempMapFolder, "audio");
         Directory.CreateDirectory(tempAudioFolder);
+    }
 
-        // Get the mainsequence tape
-        string mainSequenceTapePath = Path.Combine(cacheFolder, "cinematics", $"{mapName}_mainsequence.tape.ckd");
-        MainSequence mainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(mainSequenceTapePath).Replace("\0", ""))!;
+    public async Task GenerateMapPackage()
+    {
+        // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
+        Task<(Dictionary<string, int>, List<Image<Rgba32>>)> pictoTask = 
+            Task.Run(() => Task.FromResult(ConvertPictos()));
 
-        // Get the audio files
-        // Foreach where __class is SoundSetClip
-        AudioVibrationClip[] audioClips = mainSequence.Clips.Where(s => s.__class == "SoundSetClip").ToArray();
-        foreach (AudioVibrationClip audioVibrationClip in audioClips)
-        {
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-
-            // In audio/ambs folder, convert the .wav.ckd file to .wav
-            string wavPath = Path.Combine(cacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
-            string newWavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
-
-            // Run vgmstream on the .wav.ckd file
-            VGMStream.Convert(wavPath, newWavPath).Wait();
-        }
-
-        // Now convert the main song
-        string mainSongPath;
-
-        // If the world\maps\{mapName}\audio\ folder exists, use the file in there
-        if (Directory.Exists(Path.Combine(mapsFolder, mapName, "audio")))
-            mainSongPath = Directory.GetFiles(Path.Combine(mapsFolder, mapName, "audio"))[0];
-        else
-            // Else use the file in cache\itf_cooked\nx\world\maps\{mapName}\audio that ends with .wav.ckd
-            mainSongPath = Directory.GetFiles(Path.Combine(cacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First()!;
-
-        string newMainSongPath = Path.Combine(tempAudioFolder, "mainSong.wav");
-
-        // Run vgmstream on the main song
-        VGMStream.Convert(mainSongPath, newMainSongPath).Wait();
-
-        // Get time after finishing
-        stopwatch.Stop();
-        Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
-
-        // Now we merge them all together according to their offset
-        Console.WriteLine("Merging audio files...");
-        stopwatch.Restart();
-
-        double divisionRaw = originalSong.MTrack.COMPONENTS[0].trackData.structure.avgMarkerDistance / 48d;
-        double division = 2502.66305525460462d / (6000d / divisionRaw);
-
-        // Get the lowest offset from the audioClips
-        // Everything will be offset by this value such that the lowest offset is 0, aka the start of the audiofile
-        int lowestOffset = audioClips.Min(x => x.StartTime);
-
-        (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
-        for (int i = 0; i < audioClips.Length; i++)
-        {
-            AudioVibrationClip audioVibrationClip = audioClips[i];
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-            string wavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
-
-            // Get the offset
-            float offset = (float)((audioVibrationClip.StartTime - lowestOffset) / division);
-
-            // Add the file to the array
-            audioFiles[i] = (wavPath, offset);
-        }
-
-        // Add the main song to the end of the array
-        audioFiles[^1] = (newMainSongPath, (float)((0 - lowestOffset) / division));
-
-        // Merge the audio files
-        Audio.MergeAudioFiles(audioFiles, Path.Combine(tempAudioFolder, "merged.wav"));
+        // While the pictos are in the oven, we can convert the mapfiles
 
         #region MapPackage
         Console.WriteLine("Converting MapPackage...");
@@ -504,7 +248,7 @@ public class ConvertUbiArtToUnity
 
         /// The musicTrackBase:
         // First set the basic fields
-        Structure trackStructure = originalSong.MTrack.COMPONENTS[0].trackData.structure;
+        Structure trackStructure = songData.MTrack.COMPONENTS[0].trackData.structure;
         AssetTypeValueField structure = musicTrackBase["m_structure"]["MusicTrackStructure"];
         structure["startBeat"].AsInt = trackStructure.startBeat;
         structure["endBeat"].AsInt = trackStructure.endBeat;
@@ -565,7 +309,7 @@ public class ConvertUbiArtToUnity
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (KaraokeClip clip in originalSong.KTape.Clips)
+        foreach (KaraokeClip clip in songData.KTape.Clips)
         {
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
@@ -594,6 +338,7 @@ public class ConvertUbiArtToUnity
         movesArray.Children.Clear();
 
         // Add the new dance moves
+        string[] moveFiles = Directory.GetFiles(movesFolder);
         foreach (string item in moveFiles)
         {
             // Get the file name and content, must read as bytes
@@ -601,7 +346,7 @@ public class ConvertUbiArtToUnity
             byte[] fileContent = File.ReadAllBytes(item);
 
             // Random new asset id
-            long newAssetId = GetRandomId();
+            long newAssetId = GetRandomId(afile);
 
             AssetTypeValueField newBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.TextAsset);
 
@@ -652,6 +397,9 @@ public class ConvertUbiArtToUnity
             endImageBytes[i] = imageBytes;
         });
 
+        // Here we finally await the pictoTask and store the results
+        (Dictionary<string, int> imageDict, List<Image<Rgba32>> atlasPics) = await pictoTask;
+
         // First add all atlas images to the bundle
         long[] atlasIDs = new long[atlasPics.Count];
 
@@ -662,7 +410,7 @@ public class ConvertUbiArtToUnity
             byte[] imgBytes = endImageBytes[i];
 
             // Create a new asset id
-            long newAssetId = GetRandomId();
+            long newAssetId = GetRandomId(afile);
 
             // Create a new AssetTypeValueField
             AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
@@ -727,7 +475,7 @@ public class ConvertUbiArtToUnity
             string pictoName = Path.GetFileNameWithoutExtension(item);
 
             // Now we create a new Sprite
-            long spriteID = GetRandomId();
+            long spriteID = GetRandomId(afile);
 
             // Load in the sprite template
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
@@ -819,7 +567,7 @@ public class ConvertUbiArtToUnity
         hideHudClips.Children.Clear();
         pictoClips.Children.Clear();
 
-        foreach (MotionClip clip in originalSong.DTape.Clips)
+        foreach (MotionClip clip in songData.DTape.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
             switch (clip.__class)
@@ -925,6 +673,325 @@ public class ConvertUbiArtToUnity
         File.Move(compressedPath, newPath);
 
         #endregion
+    }
+
+    private (Dictionary<string, int> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos()
+    {
+        // Before starting on the mapPackage, prepare the pictos
+        string[] pictoFiles = Directory.GetFiles(pictosFolder);
+        Console.WriteLine($"Converting {pictoFiles.Length} pictos...");
+
+        // Get time before starting
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        Parallel.For(0, pictoFiles.Length, i =>
+        {
+            string item = pictoFiles[i];
+
+            // Stream the file into a new pictos folder, but skip until 0x2C
+            using FileStream stream = File.OpenRead(item);
+            stream.Seek(0x2C, SeekOrigin.Begin);
+
+            // If the file ends with .png.ckd, change it to .ckd
+            if (item.EndsWith(".png.ckd"))
+                item = item.Replace(".png.ckd", ".ckd");
+
+            // Get the file name
+            string fileName = Path.GetFileNameWithoutExtension(item);
+
+            // Stream the rest of the file into a new file, but with the .xtx extension
+            using FileStream newStream = File.Create(Path.Combine(tempPictoFolder, fileName + ".xtx"));
+            stream.CopyTo(newStream);
+
+            // Close the streams
+            stream.Close();
+            newStream.Close();
+
+            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
+            // Print the output to the console
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = "./Resources/xtx_extract.exe",
+                Arguments = $"-o \"{Path.Combine(tempPictoFolder, fileName + ".dds")}\" \"{Path.Combine(tempPictoFolder, fileName + ".xtx")}\"",
+                RedirectStandardOutput = false,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (Process process = new() { StartInfo = startInfo })
+            {
+                process.Start();
+
+                process.WaitForExit();
+            }
+
+            // Delete the .xtx file
+            File.Delete(Path.Combine(tempPictoFolder, fileName + ".xtx"));
+
+            // Convert the .dds file to .png
+            Image<Bgra32> newImage;
+            using (IImage image = Pfimage.FromFile(Path.Combine(tempPictoFolder, fileName + ".dds")))
+            {
+
+                // If the image is not in Rgba32 format, throw an exception
+                if (image.Format != ImageFormat.Rgba32)
+                    throw new Exception("Image is not in Rgba32 format!");
+
+                // Create image from image.Data
+                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+            }
+
+            // If the image isn't 512x512, resize it to 512x364
+            if (newImage.Width != 512 || newImage.Height != 512)
+                newImage.Mutate(x => x.Resize(512, 512));
+
+            // Delete the .dds file
+            File.Delete(Path.Combine(tempPictoFolder, fileName + ".dds"));
+
+            // Save the image as a png
+            newImage.Save(Path.Combine(tempPictoFolder, fileName + ".png"));
+        });
+
+        Dictionary<string, int> imageDict = [];
+        List<Image<Rgba32>> atlasPics = [];
+        Image<Rgba32>? atlasImage = null;
+
+        Console.WriteLine("Creating atlasses...");
+
+        // Get the files in the pictos folder
+        pictoFiles = Directory.GetFiles(tempPictoFolder);
+
+        // Convert the 512x512 images to a 2048x2048 atlas
+        // Use 4 pixels of padding between each image
+        for (int i = 0; i < pictoFiles.Length; i++)
+        {
+            int indexInAtlas = i % 16;
+
+            if (indexInAtlas == 0 || atlasImage is null)
+                // Create a new image
+                atlasImage = new(2048, 2048);
+
+            // Get the current image
+            (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
+
+            // Get the x and y coordinates
+            int x_coord = indexInAtlas % 4 * 512;
+            int y_coord = indexInAtlas / 4 * 512;
+
+            // Because the y is calculated from the top left corner, we need to subtract it from 2048
+            y_coord = 2048 - y_coord - 512;
+
+            // Draw the image on the atlas
+            atlasImage.Mutate(x => x.DrawImage(image, new Point(x_coord, y_coord), 1));
+
+            // Dispose the image
+            image.Dispose();
+
+            // Store the name and the atlas index in the dictionary
+            imageDict.Add(name, i / 16);
+
+            // If this is the last image, or i % 16 == 15, add the image to the atlasPics array
+            if (indexInAtlas == 15 || i == pictoFiles.Length - 1)
+            {
+                // Add the image to the atlasPics array
+                atlasPics.Add(atlasImage);
+
+                // Set to null but don't dispose
+                atlasImage = null;
+            }
+        }
+
+        // Save the atlasPics in the tempPictoFolder in the format atlas_{index}.png
+        Directory.CreateDirectory(Path.Combine(tempPictoFolder, "Atlas"));
+
+        for (int i = 0; i < atlasPics.Count; i++)
+            atlasPics[i].Save(Path.Combine(tempPictoFolder, "Atlas", $"atlas_{i}.png"));
+
+        // Get time after finishing
+        stopwatch.Stop();
+        Console.WriteLine($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
+
+        return (imageDict, atlasPics);
+    }
+
+    private void ConvertMenuArt()
+    {
+        // Convert the menu art in \cache\itf_cooked\nx\world\maps\pocoloco\menuart\textures
+        string[] menuArtFiles = Directory.GetFiles(menuArtFolder);
+
+        // Get time before starting
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        Console.WriteLine($"Converting {menuArtFiles.Length} menu art files...");
+
+        Parallel.For(0, menuArtFiles.Length, i =>
+        {
+            string item = menuArtFiles[i];
+
+            // Stream the file into a new menuart folder, but skip until 0x2C
+            using FileStream stream = File.OpenRead(item);
+            stream.Seek(0x2C, SeekOrigin.Begin);
+
+            // Get the file name
+            string fileName = Path.GetFileNameWithoutExtension(item);
+
+            // Stream the rest of the file into a new file, but with the .xtx extension
+            using FileStream newStream = File.Create(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
+            stream.CopyTo(newStream);
+
+            // Close the streams
+            stream.Close();
+            newStream.Close();
+
+            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
+            // Print the output to the console
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = "./Resources/xtx_extract.exe",
+                Arguments = $"-o \"{Path.Combine(tempMenuArtFolder, fileName + ".dds")}\" \"{Path.Combine(tempMenuArtFolder, fileName + ".xtx")}\"",
+                RedirectStandardOutput = false,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (Process process = new() { StartInfo = startInfo })
+            {
+                process.Start();
+
+                process.WaitForExit();
+            }
+
+            // Delete the .xtx file
+            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".xtx"));
+
+            // Convert the .dds file to .png
+            Image<Bgra32> newImage;
+            using (IImage image = Pfimage.FromFile(Path.Combine(tempMenuArtFolder, fileName + ".dds")))
+            {
+
+                // If the image is not in Rgba32 format, throw an exception
+                if (image.Format != ImageFormat.Rgba32)
+                    throw new Exception("Image is not in Rgba32 format!");
+
+                // Create image from image.Data
+                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+            }
+
+            newImage.Save(Path.Combine(tempMenuArtFolder, fileName + ".png"));
+
+            // Delete the .dds file
+            File.Delete(Path.Combine(tempMenuArtFolder, fileName + ".dds"));
+        });
+
+        // Get time after finishing
+        stopwatch.Stop();
+        Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
+    }
+
+    private void ConvertAudio()
+    {
+        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
+        Console.WriteLine("Converting audio files...");
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        string tempAudioFolder = Path.Combine(tempMapFolder, "audio");
+        Directory.CreateDirectory(tempAudioFolder);
+
+        // Get the mainsequence tape
+        string mainSequenceTapePath = Path.Combine(cacheFolder, "cinematics", $"{mapName}_mainsequence.tape.ckd");
+        MainSequence mainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(mainSequenceTapePath).Replace("\0", ""))!;
+
+        // Get the audio files
+        // Foreach where __class is SoundSetClip
+        AudioVibrationClip[] audioClips = mainSequence.Clips.Where(s => s.__class == "SoundSetClip").ToArray();
+        foreach (AudioVibrationClip audioVibrationClip in audioClips)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
+
+            // In audio/ambs folder, convert the .wav.ckd file to .wav
+            string wavPath = Path.Combine(cacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
+            string newWavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
+
+            // Run vgmstream on the .wav.ckd file
+            VGMStream.Convert(wavPath, newWavPath).Wait();
+        }
+
+        // Now convert the main song
+        string mainSongPath;
+
+        // If the world\maps\{mapName}\audio\ folder exists, use the file in there
+        if (Directory.Exists(Path.Combine(mapsFolder, mapName, "audio")))
+            mainSongPath = Directory.GetFiles(Path.Combine(mapsFolder, mapName, "audio"))[0];
+        else
+            // Else use the file in cache\itf_cooked\nx\world\maps\{mapName}\audio that ends with .wav.ckd
+            mainSongPath = Directory.GetFiles(Path.Combine(cacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First()!;
+
+        string newMainSongPath = Path.Combine(tempAudioFolder, "mainSong.wav");
+
+        // Run vgmstream on the main song
+        VGMStream.Convert(mainSongPath, newMainSongPath).Wait();
+
+        // Get time after finishing
+        stopwatch.Stop();
+        Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
+
+        // Now we merge them all together according to their offset
+        Console.WriteLine("Merging audio files...");
+        stopwatch.Restart();
+
+        double divisionRaw = songData.MTrack.COMPONENTS[0].trackData.structure.avgMarkerDistance / 48d;
+        double division = 2502.66305525460462d / (6000d / divisionRaw);
+
+        // Get the lowest offset from the audioClips
+        // Everything will be offset by this value such that the lowest offset is 0, aka the start of the audiofile
+        int lowestOffset = audioClips.Min(x => x.StartTime);
+
+        (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
+        for (int i = 0; i < audioClips.Length; i++)
+        {
+            AudioVibrationClip audioVibrationClip = audioClips[i];
+            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
+            string wavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
+
+            // Get the offset
+            float offset = (float)((audioVibrationClip.StartTime - lowestOffset) / division);
+
+            // Add the file to the array
+            audioFiles[i] = (wavPath, offset);
+        }
+
+        // Add the main song to the end of the array
+        audioFiles[^1] = (newMainSongPath, (float)((0 - lowestOffset) / division));
+
+        // Merge the audio files
+        Audio.MergeAudioFiles(audioFiles, Path.Combine(tempAudioFolder, "merged.wav"));
+    }
+
+    public async Task GenerateCoaches()
+    {
+
+    }
+
+    private void ConvertOld()
+    {
+        // Validate the request
+        ValidateRequest();
+
+        // Load the song data
+        LoadSongData();
+
+        // Create the folders
+        CreateTempFolders();
+
+        // Start converting
+        Task map = GenerateMapPackage();
+        Task.WaitAll(map);
+
+        // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
+        ConvertMenuArt();
+
+        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
+        ConvertAudio();
 
         #region Coaches
 
@@ -933,22 +1000,21 @@ public class ConvertUbiArtToUnity
         string coacheLargePackagePath = Directory.GetFiles(Path.Combine("./template", "cachex", "CoachesLarge"))[0];
 
         Console.WriteLine("Converting CoachesLarge...");
-
         // Open the coaches package using AssetTools.NET
-        manager = new();
-        bunInst = manager.LoadBundleFile(coacheLargePackagePath, true);
-        bun = bunInst.file;
-        afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
-        afile = afileInst.file;
+        AssetsManager manager = new();
+        BundleFileInstance bunInst = manager.LoadBundleFile(coacheLargePackagePath, true);
+        AssetBundleFile bun = bunInst.file;
+        AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
+        AssetsFile afile = afileInst.file;
         afile.GenerateQuickLookup();
 
-        sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
+        List<AssetFileInfo>  sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
 
-        assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
-        assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+        AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
+        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
         assetBundleBase["m_Name"].AsString = $"{mapName}_CoachesLarge";
         assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_CoachesLarge";
-        assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // Get all texture2d's
         AssetFileInfo[] textureInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D).ToArray();
@@ -1070,15 +1136,15 @@ public class ConvertUbiArtToUnity
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        outputPackagePath = Path.Combine(outputFolder, "cachex", "CoachesLarge");
+        string outputPackagePath = Path.Combine(outputFolder, "cachex", "CoachesLarge");
         Directory.CreateDirectory(outputPackagePath);
-        uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
-        compressedPath = Path.Combine(outputPackagePath, "temp.mod");
+        string uncompressedPath = Path.Combine(outputPackagePath, "temp.mod.uncompressed");
+        string compressedPath = Path.Combine(outputPackagePath, "temp.mod");
 
         using (AssetsFileWriter writer = new(uncompressedPath))
             bun.Write(writer);
 
-        newUncompressedBundle = new();
+        AssetBundleFile newUncompressedBundle = new();
         newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
 
         using (AssetsFileWriter compressedWriter = new(compressedPath))
@@ -1090,8 +1156,8 @@ public class ConvertUbiArtToUnity
         File.Delete(uncompressedPath);
 
         // Rename the compressed file to it's md5 hash
-        hash = Download.GetFileMD5(compressedPath);
-        newPath = Path.Combine(outputPackagePath, $"{hash}");
+        string hash = Download.GetFileMD5(compressedPath);
+        string newPath = Path.Combine(outputPackagePath, $"{hash}");
         File.Move(compressedPath, newPath);
 
         // Now we do the same for the coaches small
@@ -1262,9 +1328,9 @@ public class ConvertUbiArtToUnity
         Image<Rgba32>? coverImage = null;
 
         // If a cover.png exists in the map folder, use that
-        if (File.Exists(Path.Combine(originalMapPackagePath, "cover.png")))
+        if (File.Exists(Path.Combine(inputFolder, "cover.png")))
         {
-            coverImage = Image.Load<Rgba32>(Path.Combine(originalMapPackagePath, "cover.png"));
+            coverImage = Image.Load<Rgba32>(Path.Combine(inputFolder, "cover.png"));
 
             // Stretch it to 640x360, this shouldn't do anything to correctly sized images
             coverImage.Mutate(x => x.Resize(640, 360));
@@ -1286,7 +1352,7 @@ public class ConvertUbiArtToUnity
                 HtmlNode htmlNode = table.SelectSingleNode("tbody");
 
                 // Now get the node where the first td is the map name
-                List<HtmlNode> rows = htmlNode.SelectNodes("tr").Skip(1).Where(x => x.SelectSingleNode("td").InnerText == originalSong.SongDesc.COMPONENTS[0].Title).ToList();
+                List<HtmlNode> rows = htmlNode.SelectNodes("tr").Skip(1).Where(x => x.SelectSingleNode("td").InnerText == songData.SongDesc.COMPONENTS[0].Title).ToList();
                 // Select the first one, if it exists, if not, null
                 HtmlNode? row = rows.Count > 0 ? rows[0] : null;
 
@@ -1415,30 +1481,31 @@ public class ConvertUbiArtToUnity
         File.Move(compressedPath, newPath);
 
         #endregion
+    }
 
-        // Function to get a random ID that is not used yet
-        long GetRandomId()
-        {
-            long id = rand.NextInt64(long.MinValue, long.MaxValue);
 
-            while (afile.Metadata.GetAssetInfo(id) is not null)
-                id = rand.NextInt64(long.MinValue, long.MaxValue);
+    // Function to get a random ID that is not used yet
+    static long GetRandomId(AssetsFile afile)
+    {
+        long id = rand.NextInt64(long.MinValue, long.MaxValue);
 
-            return id;
-        }
+        while (afile.Metadata.GetAssetInfo(id) is not null)
+            id = rand.NextInt64(long.MinValue, long.MaxValue);
 
-        uint[] GUID()
-        {
-            byte[] guidBytes = Guid.NewGuid().ToByteArray();
-            uint[] uintArray = new uint[4];
+        return id;
+    }
 
-            for (int j = 0; j < guidBytes.Length; j++)
-                guidBytes[j] = (byte)((guidBytes[j] & 0xF0) >> 4 | (guidBytes[j] & 0x0F) << 4);
+    static uint[] GUID()
+    {
+        byte[] guidBytes = Guid.NewGuid().ToByteArray();
+        uint[] uintArray = new uint[4];
 
-            for (int j = 0; j < 4; j++)
-                uintArray[j] = BitConverter.ToUInt32(guidBytes, j * 4);
+        for (int j = 0; j < guidBytes.Length; j++)
+            guidBytes[j] = (byte)((guidBytes[j] & 0xF0) >> 4 | (guidBytes[j] & 0x0F) << 4);
 
-            return uintArray;
-        }
+        for (int j = 0; j < 4; j++)
+            uintArray[j] = BitConverter.ToUInt32(guidBytes, j * 4);
+
+        return uintArray;
     }
 }

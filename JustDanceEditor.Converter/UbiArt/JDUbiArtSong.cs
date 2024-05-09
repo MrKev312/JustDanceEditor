@@ -2,9 +2,9 @@
 
 namespace JustDanceEditor.Converter.UbiArt;
 
-internal class JDUbiArtSong
+public class JDUbiArtSong
 {
-    public string Name { get; set; }
+    public string Name { get => DTape.MapName; set => DTape.MapName = value; }
     public KaraokeTape KTape { get; set; }
     public DanceTape DTape { get; set; }
     public MusicTrack MTrack { get; set; }
