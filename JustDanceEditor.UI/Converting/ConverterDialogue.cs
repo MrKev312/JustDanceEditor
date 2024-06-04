@@ -1,4 +1,5 @@
 ﻿using JustDanceEditor.Converter;
+using JustDanceEditor.Converter.Converters;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
@@ -40,6 +41,6 @@ internal class ConverterDialogue
             OutputPath = outputPath
         };
 
-        Converter.Converters.ConvertUbiArtToUnity.Convert(conversionRequest);
+        ConvertUbiArtToUnity converted = new(conversionRequest);
     }
 }

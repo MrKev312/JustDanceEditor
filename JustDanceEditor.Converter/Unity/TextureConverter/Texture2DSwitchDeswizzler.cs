@@ -36,7 +36,7 @@ public class Texture2DSwitchDeswizzler
         {
             for (int j = 0; j < blockSizeH; j++)
             {
-                dstImage[dbx * blockSizeW + i, dby * blockSizeH + j] = srcImage[sbx * blockSizeW + i, sby * blockSizeH + j];
+                dstImage[(dbx * blockSizeW) + i, (dby * blockSizeH) + j] = srcImage[(sbx * blockSizeW) + i, (sby * blockSizeH) + j];
             }
         }
     }
@@ -70,10 +70,10 @@ public class Texture2DSwitchDeswizzler
                     for (int l = 0; l < BLOCKS_IN_GOB; l++)
                     {
                         // todo: use table for speedy boi
-                        int gobX = l >> 3 & 0b10 | l >> 1 & 0b1;
-                        int gobY = l >> 1 & 0b110 | l & 0b1;
-                        int gobDstX = j * GOB_X_BLOCK_COUNT + gobX;
-                        int gobDstY = (i * gobsPerBlock + k) * GOB_Y_BLOCK_COUNT + gobY;
+                        int gobX = ((l >> 3) & 0b10) | ((l >> 1) & 0b1);
+                        int gobY = ((l >> 1) & 0b110) | (l & 0b1);
+                        int gobDstX = (j * GOB_X_BLOCK_COUNT) + gobX;
+                        int gobDstY = (((i * gobsPerBlock) + k) * GOB_Y_BLOCK_COUNT) + gobY;
                         CopyBlock(srcImage, dstImage, srcX, srcY, gobDstX, gobDstY, blockSize.Width, blockSize.Height);
 
                         srcX++;
@@ -114,10 +114,10 @@ public class Texture2DSwitchDeswizzler
                     for (int l = 0; l < BLOCKS_IN_GOB; l++)
                     {
                         // todo: use table for speedy boi
-                        int gobX = l >> 3 & 0b10 | l >> 1 & 0b1;
-                        int gobY = l >> 1 & 0b110 | l & 0b1;
-                        int gobSrcX = j * GOB_X_BLOCK_COUNT + gobX;
-                        int gobSrcY = (i * gobsPerBlock + k) * GOB_Y_BLOCK_COUNT + gobY;
+                        int gobX = ((l >> 3) & 0b10) | ((l >> 1) & 0b1);
+                        int gobY = ((l >> 1) & 0b110) | (l & 0b1);
+                        int gobSrcX = (j * GOB_X_BLOCK_COUNT) + gobX;
+                        int gobSrcY = (((i * gobsPerBlock) + k) * GOB_Y_BLOCK_COUNT) + gobY;
                         CopyBlock(srcImage, dstImage, gobSrcX, gobSrcY, dstX, dstY, blockSize.Width, blockSize.Height);
 
                         dstX++;

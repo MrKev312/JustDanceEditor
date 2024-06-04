@@ -12,6 +12,8 @@ internal class Program
         Console.WriteLine("Just Dance Editor");
         Console.WriteLine("Made by: MrKev312");
         Console.WriteLine($"Version: {Assembly.GetExecutingAssembly().GetName().Version}");
+        Console.WriteLine($"Current Directory: {Environment.CurrentDirectory}");
+
         MainLoop();
         Console.WriteLine("Exiting...");
     }

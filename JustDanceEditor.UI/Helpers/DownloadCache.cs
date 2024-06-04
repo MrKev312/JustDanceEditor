@@ -2,7 +2,7 @@
 
 using System.Text.Json;
 
-namespace JustDanceEditor.UI.Helpers
+namespace JustDanceEditor.UI.Helpers;
 internal class DownloadCache
 {
     internal static void DownloadAllSongs()

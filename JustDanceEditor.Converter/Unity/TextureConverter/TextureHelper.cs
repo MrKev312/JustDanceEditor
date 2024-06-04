@@ -46,7 +46,7 @@ public static class TextureHelper
 
     public static bool IsPo2(int n)
     {
-        return n > 0 && (n & n - 1) == 0;
+        return n > 0 && (n & (n - 1)) == 0;
     }
 
     // assuming width and height are po2
