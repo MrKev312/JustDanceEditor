@@ -25,7 +25,8 @@ internal class Program
             int choice = Question.Ask([
                 "Exit",
                 "Cache stuff",
-                "Convert UbiArt to Unity"
+                "Convert UbiArt to Unity",
+                "Extract IPK file"
             ]);
 
             switch (choice)
@@ -37,6 +38,9 @@ internal class Program
                     break;
                 case 2:
                     ConverterDialogue.ConvertDialogue();
+                    break;
+                case 3:
+                    ExtractorDialogue.ExtractDialogue();
                     break;
             }
         }
