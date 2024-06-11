@@ -124,21 +124,10 @@ public class JustDanceIPKParser
 			fileStream.Seek(entry.Offset, SeekOrigin.Begin);
 			byte[] buffer = reader.ReadBytes(entry.ZSize);
             // Decompress the buffer using zlib
-            buffer = Decompress(buffer);
+            buffer = Decompressor.Decompress(buffer);
             file.Write(buffer, 0, buffer.Length);
         }
 
 		Console.ForegroundColor = old;
 	}
-
-    public static byte[] Decompress(byte[] data)
-    {
-        using MemoryStream compressedStream = new(data);
-        // Skip the first two bytes of the zlib header
-        compressedStream.Seek(2, SeekOrigin.Begin);
-        using DeflateStream deflateStream = new(compressedStream, CompressionMode.Decompress);
-        using MemoryStream decompressedStream = new();
-        deflateStream.CopyTo(decompressedStream);
-        return decompressedStream.ToArray();
-    }
 }

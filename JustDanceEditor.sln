@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.UI", "JustD
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Converter", "JustDanceEditor.Converter\JustDanceEditor.Converter.csproj", "{53EF7C3A-1FC5-4E92-AF70-94C78C504DBD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustDanceEditor.IPK", "JustDanceEditor.IPK\JustDanceEditor.IPK.csproj", "{118392D0-9C63-493D-94FF-3BCC67C939DD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.IPK", "JustDanceEditor.IPK\JustDanceEditor.IPK.csproj", "{118392D0-9C63-493D-94FF-3BCC67C939DD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
