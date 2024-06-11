@@ -148,6 +148,7 @@ EXPORT unsigned int DecodeByPVRTexLib(void* data, void* outBuf, int mode, unsign
 	memcpy(outBuf, newData, size);
 	return size;
 }
+
 EXPORT unsigned int EncodeByPVRTexLib(void* data, void* outBuf, int mode, int level, unsigned int width, unsigned int height) {
 	PVRTuint64 pvrtlMode;
 	PVRTexLibVariableType pvrtlVarType;
