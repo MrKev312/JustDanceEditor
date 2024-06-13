@@ -428,10 +428,6 @@ public class ConvertUbiArtToUnity
             endImageBytes[i] = imageBytes;
         });
 
-        // Here we finally await the pictoTask and store the results
-        //(Dictionary<string, int> imageDict, List<Image<Rgba32>> atlasPics) = await pictoTask;
-
-
         // First add all atlas images to the bundle
         long[] atlasIDs = new long[atlasPics.Count];
 

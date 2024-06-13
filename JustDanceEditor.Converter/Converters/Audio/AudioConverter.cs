@@ -92,7 +92,7 @@ public static class AudioConverter
         // Assuming the main song's offset is determined by the startBeat and markers in songData
         int startBeat = Math.Abs(songData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
         int marker = songData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
-        float mainSongOffset = marker / 48f / 1000f; // Convert to seconds if necessary
+        float mainSongOffset = marker / 48f / 1000f; // Convert to seconds
         audioFiles[^1] = (newMainSongPath, mainSongOffset);
 
         // Adjust offsets so the first audio file starts at 0
