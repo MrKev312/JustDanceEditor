@@ -37,10 +37,17 @@ public class JustDanceIPKParser
             throw new InvalidDataException("Invalid IPK file");
 
         version = reader.ReadInt32BigEndian();
+
+        // Print the version
+        Console.WriteLine($"IPK version: {version}");
+
         // Skipping dummy long
         reader.ReadInt32BigEndian();
         baseOffset = reader.ReadInt32BigEndian();
         filesCount = reader.ReadInt32BigEndian();
+
+        // Print the number of files
+        Console.WriteLine($"Number of files: {filesCount}");
 
         fileStream.Seek(0x30, SeekOrigin.Begin);
 
@@ -56,7 +63,6 @@ public class JustDanceIPKParser
             fileStream.Seek(entry.Offset, SeekOrigin.Begin);
             ProcessFileEntry(entry, fileStream, outputDirectory);
         }
-
     }
 
     private FileEntry ReadFileEntry(BinaryReader reader)
