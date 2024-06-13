@@ -30,7 +30,6 @@ public class Structure
 {
     public string __class { get; set; }
     public int[] markers { get; set; }
-    public double avgMarkerDistance => markers.Average();
     public Signature[] signatures { get; set; }
     public Section[] sections { get; set; }
     public int startBeat { get; set; }

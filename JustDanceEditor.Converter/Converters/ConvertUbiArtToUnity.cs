@@ -26,9 +26,6 @@ public class ConvertUbiArtToUnity
     readonly ConversionRequest conversionRequest;
     string mapName = "";
 
-    // Easy access to shared random:
-    static Random Rand => Random.Shared;
-
     /// Folders
     // Main folders
     string InputFolder => conversionRequest.InputPath;
@@ -82,8 +79,10 @@ public class ConvertUbiArtToUnity
         ConvertMenuArt();
 
         // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
-        // Currently broken, so skipping
-        //ConvertAudio();
+        // Only convert in debug mode as this is currently not working properly
+#if DEBUG
+        ConvertAudio();
+#endif
 
         // Generate both coaches files
         GenerateCoaches();
@@ -948,13 +947,6 @@ public class ConvertUbiArtToUnity
         Console.WriteLine("Merging audio files...");
         stopwatch.Restart();
 
-        double divisionRaw = songData.MTrack.COMPONENTS[0].trackData.structure.avgMarkerDistance / 48d;
-        double division = 2502.66305525460462d / (6000d / divisionRaw);
-
-        // Get the lowest offset from the audioClips
-        // Everything will be offset by this value such that the lowest offset is 0, aka the start of the audiofile
-        int lowestOffset = audioClips.Min(x => x.StartTime);
-
         (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
         for (int i = 0; i < audioClips.Length; i++)
         {
@@ -963,14 +955,28 @@ public class ConvertUbiArtToUnity
             string wavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
 
             // Get the offset
-            float offset = (float)((audioVibrationClip.StartTime - lowestOffset) / division);
+            float offset = (float)(audioVibrationClip.StartTime / 48f);
 
             // Add the file to the array
             audioFiles[i] = (wavPath, offset);
         }
 
+        // Get the startbeat from the mtrack
+        int startBeat = Math.Abs(songData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
+        Console.WriteLine($"Startbeat is {startBeat}");
+        int marker = songData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
+        Console.WriteLine($"Marker is {marker}");
+        float timestamp = marker / 48f / 1000f;
+
         // Add the main song to the end of the array
-        audioFiles[^1] = (newMainSongPath, (float)((0 - lowestOffset) / division));
+        audioFiles[^1] = (newMainSongPath, timestamp);
+
+        // Get the lowest offset
+        float lowestOffset = audioFiles.Min(x => x.offset);
+
+        // For each audio file, subtract the lowest offset such that the first audio file starts at 0
+        for (int i = 0; i < audioFiles.Length; i++)
+            audioFiles[i].offset -= lowestOffset;
 
         // Merge the audio files
         Audio.MergeAudioFiles(audioFiles, Path.Combine(tempAudioFolder, "merged.wav"));
