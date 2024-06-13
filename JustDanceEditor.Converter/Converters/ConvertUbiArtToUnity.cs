@@ -17,6 +17,7 @@ using JustDanceEditor.Converter.Unity.TextureConverter;
 using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Converter.Converters.Audio;
+using JustDanceEditor.Converter.Converters.Images;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -76,7 +77,7 @@ public class ConvertUbiArtToUnity
         GenerateMapPackage();
 
         // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
-        ConvertMenuArt();
+        MenuArtConverter.ConvertMenuArt(this);
 
         // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
         // Only convert in debug mode as this is currently not working properly
@@ -820,80 +821,6 @@ public class ConvertUbiArtToUnity
         Console.WriteLine($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
 
         return (imageDict, atlasPics);
-    }
-
-    void ConvertMenuArt()
-    {
-        // Convert the menu art in \cache\itf_cooked\nx\world\maps\pocoloco\menuart\textures
-        string[] menuArtFiles = Directory.GetFiles(MenuArtFolder);
-
-        // Get time before starting
-        Stopwatch stopwatch = Stopwatch.StartNew();
-
-        Console.WriteLine($"Converting {menuArtFiles.Length} menu art files...");
-
-        Parallel.For(0, menuArtFiles.Length, i =>
-        {
-            string item = menuArtFiles[i];
-
-            // Stream the file into a new menuart folder, but skip until 0x2C
-            using FileStream stream = File.OpenRead(item);
-            stream.Seek(0x2C, SeekOrigin.Begin);
-
-            // Get the file name
-            string fileName = Path.GetFileNameWithoutExtension(item);
-
-            // Stream the rest of the file into a new file, but with the .xtx extension
-            using FileStream newStream = File.Create(Path.Combine(TempMenuArtFolder, fileName + ".xtx"));
-            stream.CopyTo(newStream);
-
-            // Close the streams
-            stream.Close();
-            newStream.Close();
-
-            // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
-            // Print the output to the console
-            ProcessStartInfo startInfo = new()
-            {
-                FileName = "./Resources/xtx_extract.exe",
-                Arguments = $"-o \"{Path.Combine(TempMenuArtFolder, fileName + ".dds")}\" \"{Path.Combine(TempMenuArtFolder, fileName + ".xtx")}\"",
-                RedirectStandardOutput = false,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (Process process = new() { StartInfo = startInfo })
-            {
-                process.Start();
-
-                process.WaitForExit();
-            }
-
-            // Delete the .xtx file
-            File.Delete(Path.Combine(TempMenuArtFolder, fileName + ".xtx"));
-
-            // Convert the .dds file to .png
-            Image<Bgra32> newImage;
-            using (IImage image = Pfimage.FromFile(Path.Combine(TempMenuArtFolder, fileName + ".dds")))
-            {
-
-                // If the image is not in Rgba32 format, throw an exception
-                if (image.Format != ImageFormat.Rgba32)
-                    throw new Exception("Image is not in Rgba32 format!");
-
-                // Create image from image.Data
-                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-            }
-
-            newImage.Save(Path.Combine(TempMenuArtFolder, fileName + ".png"));
-
-            // Delete the .dds file
-            File.Delete(Path.Combine(TempMenuArtFolder, fileName + ".dds"));
-        });
-
-        // Get time after finishing
-        stopwatch.Stop();
-        Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
 
     void GenerateCoaches()
