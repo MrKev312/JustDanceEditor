@@ -69,6 +69,11 @@ internal static class Extensions
         // Rename the compressed file to it's md5 hash
         string hash = Download.GetFileMD5(compressedPath);
         string newPath = Path.Combine(outputPath, $"{hash}");
+
+        // If the file already exists, delete it
+        if (File.Exists(newPath))
+            File.Delete(newPath);
+
         File.Move(compressedPath, newPath);
     }
 
