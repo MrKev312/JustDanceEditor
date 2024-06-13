@@ -1,8 +1,11 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
 
+using JustDanceEditor.Converter.Helpers;
+
 namespace JustDanceEditor.Converter.Resources;
-internal class VGMStream
+
+internal class VGMStreamAdapter : IAudioConverter
 {
     // Check whether VGMStream exists in Resources/VGMStream/ folder
     public static bool Exists() =>
@@ -65,7 +68,7 @@ internal class VGMStream
     }
 
     // Function to convert a file to wav
-    public static async Task Convert(string input, string output)
+    public async Task Convert(string input, string output)
     {
         // Check for VGMStream
         await Check();

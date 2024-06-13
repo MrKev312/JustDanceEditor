@@ -11,12 +11,12 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using Pfim;
 using HtmlAgilityPack;
-using JustDanceEditor.Converter.Helpers;
-using JustDanceEditor.Converter.Resources;
+
 using JustDanceEditor.Converter.UbiArt.Tapes;
 using JustDanceEditor.Converter.Unity.TextureConverter;
 using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Converter.Converters.Audio;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -24,25 +24,25 @@ public class ConvertUbiArtToUnity
 {
     JDUbiArtSong songData = new();
     readonly ConversionRequest conversionRequest;
-    string mapName = "";
+    public string MapName { get; private set; } = "";
 
     /// Folders
     // Main folders
     string InputFolder => conversionRequest.InputPath;
-    string OutputFolder => Path.Combine(conversionRequest.OutputPath, mapName);
+    string OutputFolder => Path.Combine(conversionRequest.OutputPath, MapName);
     string TemplateFolder => conversionRequest.TemplatePath;
     // Temporary folders
-    string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", mapName);
-    string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
-    string TempMenuArtFolder => Path.Combine(TempMapFolder, "menuart");
-    string TempAudioFolder => Path.Combine(TempMapFolder, "audio");
+    public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", MapName);
+    public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
+    public string TempMenuArtFolder => Path.Combine(TempMapFolder, "menuart");
+    public string TempAudioFolder => Path.Combine(TempMapFolder, "audio");
     // Specific map folders
-    string CacheFolder => Path.Combine(InputFolder, "cache", "itf_cooked", "nx", "world", "maps", mapName);
-    string MapsFolder => Path.Combine(InputFolder, "world", "maps");
-    string TimelineFolder => Path.Combine(CacheFolder, "timeline");
-    string MovesFolder => Path.Combine(MapsFolder, mapName, "timeline", "moves", "wiiu");
-    string PictosFolder => Path.Combine(TimelineFolder, "pictos");
-    string MenuArtFolder => Path.Combine(CacheFolder, "menuart", "textures");
+    public string CacheFolder => Path.Combine(InputFolder, "cache", "itf_cooked", "nx", "world", "maps", MapName);
+    public string MapsFolder => Path.Combine(InputFolder, "world", "maps");
+    public string TimelineFolder => Path.Combine(CacheFolder, "timeline");
+    public string MovesFolder => Path.Combine(MapsFolder, MapName, "timeline", "moves", "wiiu");
+    public string PictosFolder => Path.Combine(TimelineFolder, "pictos");
+    public string MenuArtFolder => Path.Combine(CacheFolder, "menuart", "textures");
     // Template files
     string MapPackagePath
     {
@@ -81,7 +81,7 @@ public class ConvertUbiArtToUnity
         // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
         // Only convert in debug mode as this is currently not working properly
 #if DEBUG
-        ConvertAudio();
+        AudioConverter.ConvertAudio(this, songData);
 #endif
 
         // Generate both coaches files
@@ -115,7 +115,7 @@ public class ConvertUbiArtToUnity
 
     void LoadSongData()
     {
-        mapName = Path.GetFileName(Directory.GetDirectories(Path.Combine(conversionRequest.InputPath, "world", "maps"))[0])!;
+        MapName = Path.GetFileName(Directory.GetDirectories(Path.Combine(conversionRequest.InputPath, "world", "maps"))[0])!;
 
         // Load in the song data
         Console.WriteLine("Loading song info...");
@@ -123,11 +123,11 @@ public class ConvertUbiArtToUnity
         songData = new();
 
         Console.WriteLine("Loading KTape");
-        songData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{mapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!;
+        songData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{MapName}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading DTape");
-        songData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{mapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!;
+        songData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{MapName}_tml_dance.dtape.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading MTrack");
-        songData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{mapName}_musictrack.tpl.ckd")).Replace("\0", ""))!;
+        songData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{MapName}_musictrack.tpl.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading SongDesc");
         songData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
 
@@ -172,8 +172,8 @@ public class ConvertUbiArtToUnity
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
 
         // Set the name of the assetbundle to {mapName}_MapPackage
-        assetBundleBase["m_Name"].AsString = $"{mapName}_MapPackage";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_MapPackage";
+        assetBundleBase["m_Name"].AsString = $"{MapName}_MapPackage";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{MapName}_MapPackage";
 
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
@@ -199,11 +199,11 @@ public class ConvertUbiArtToUnity
         }
 
         // Set the name of the mapBase to the name of the map
-        mapBase["m_Name"].AsString = mapName;
-        mapBase["MapName"].AsString = mapName;
-        mapBase["SongDesc"]["MapName"].AsString = mapName;
-        mapBase["KaraokeData"]["MapName"].AsString = mapName;
-        mapBase["DanceData"]["MapName"].AsString = mapName;
+        mapBase["m_Name"].AsString = MapName;
+        mapBase["MapName"].AsString = MapName;
+        mapBase["SongDesc"]["MapName"].AsString = MapName;
+        mapBase["KaraokeData"]["MapName"].AsString = MapName;
+        mapBase["DanceData"]["MapName"].AsString = MapName;
 
         // Remove all the old dance moves
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.TextAsset))
@@ -265,8 +265,8 @@ public class ConvertUbiArtToUnity
         // Store reference to the SpriteAtlas
         AssetFileInfo spriteAtlasInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.SpriteAtlas).First();
         AssetTypeValueField spriteAtlasBase = manager.GetBaseField(afileInst, spriteAtlasInfo);
-        spriteAtlasBase["m_Name"].AsString = mapName;
-        spriteAtlasBase["m_Tag"].AsString = mapName;
+        spriteAtlasBase["m_Name"].AsString = MapName;
+        spriteAtlasBase["m_Tag"].AsString = MapName;
 
         // Empty the packedSprites, packedSpriteNamesToIndex and RenderDataMap arrays
         spriteAtlasBase["m_PackedSprites"]["Array"].Children.Clear();
@@ -447,7 +447,7 @@ public class ConvertUbiArtToUnity
             AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
 
             // Set the name and content
-            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{mapName}-5e98ca96";
+            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{MapName}-5e98ca96";
             texBaseField["m_MipCount"].AsInt = 1;
 
             texBaseField["m_MipCount"].AsInt = 1;
@@ -517,7 +517,7 @@ public class ConvertUbiArtToUnity
             spriteBaseField["m_Rect"]["height"].AsFloat = 512;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = 512;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = 512;
-            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = mapName;
+            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = MapName;
 
             uint[] uintArray = Guid.NewGuid().ToUnity();
 
@@ -896,92 +896,6 @@ public class ConvertUbiArtToUnity
         Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    void ConvertAudio()
-    {
-        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
-        Console.WriteLine("Converting audio files...");
-        Stopwatch stopwatch = Stopwatch.StartNew();
-
-        string tempAudioFolder = Path.Combine(TempMapFolder, "audio");
-        Directory.CreateDirectory(tempAudioFolder);
-
-        // Get the mainsequence tape
-        string mainSequenceTapePath = Path.Combine(CacheFolder, "cinematics", $"{mapName}_mainsequence.tape.ckd");
-        MainSequence mainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(mainSequenceTapePath).Replace("\0", ""))!;
-
-        // Get the audio files
-        // Foreach where __class is SoundSetClip
-        AudioVibrationClip[] audioClips = mainSequence.Clips.Where(s => s.__class == "SoundSetClip").ToArray();
-        foreach (AudioVibrationClip audioVibrationClip in audioClips)
-        {
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-
-            // In audio/ambs folder, convert the .wav.ckd file to .wav
-            string wavPath = Path.Combine(CacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
-            string newWavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
-
-            // Run vgmstream on the .wav.ckd file
-            VGMStream.Convert(wavPath, newWavPath).Wait();
-        }
-
-        // Now convert the main song
-        string mainSongPath;
-
-        // If the world\maps\{mapName}\audio\ folder exists, use the file in there
-        if (Directory.Exists(Path.Combine(MapsFolder, mapName, "audio")))
-            mainSongPath = Directory.GetFiles(Path.Combine(MapsFolder, mapName, "audio"))[0];
-        else
-            // Else use the file in cache\itf_cooked\nx\world\maps\{mapName}\audio that ends with .wav.ckd
-            mainSongPath = Directory.GetFiles(Path.Combine(CacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First()!;
-
-        string newMainSongPath = Path.Combine(tempAudioFolder, "mainSong.wav");
-
-        // Run vgmstream on the main song
-        VGMStream.Convert(mainSongPath, newMainSongPath).Wait();
-
-        // Get time after finishing
-        stopwatch.Stop();
-        Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
-
-        // Now we merge them all together according to their offset
-        Console.WriteLine("Merging audio files...");
-        stopwatch.Restart();
-
-        (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
-        for (int i = 0; i < audioClips.Length; i++)
-        {
-            AudioVibrationClip audioVibrationClip = audioClips[i];
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-            string wavPath = Path.Combine(tempAudioFolder, $"{fileName}.wav");
-
-            // Get the offset
-            float offset = (float)(audioVibrationClip.StartTime / 48f);
-
-            // Add the file to the array
-            audioFiles[i] = (wavPath, offset);
-        }
-
-        // Get the startbeat from the mtrack
-        int startBeat = Math.Abs(songData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
-        Console.WriteLine($"Startbeat is {startBeat}");
-        int marker = songData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
-        Console.WriteLine($"Marker is {marker}");
-        float timestamp = marker / 48f / 1000f;
-
-        // Add the main song to the end of the array
-        audioFiles[^1] = (newMainSongPath, timestamp);
-
-        // Get the lowest offset
-        float lowestOffset = audioFiles.Min(x => x.offset);
-
-        // For each audio file, subtract the lowest offset such that the first audio file starts at 0
-        for (int i = 0; i < audioFiles.Length; i++)
-            audioFiles[i].offset -= lowestOffset;
-
-        // Merge the audio files
-        Audio.MergeAudioFiles(audioFiles, Path.Combine(tempAudioFolder, "merged.wav"));
-    }
-
     void GenerateCoaches()
     {
 
@@ -1001,8 +915,8 @@ public class ConvertUbiArtToUnity
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{mapName}_CoachesLarge";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_CoachesLarge";
+        assetBundleBase["m_Name"].AsString = $"{MapName}_CoachesLarge";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{MapName}_CoachesLarge";
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // Get all texture2d's
@@ -1021,7 +935,7 @@ public class ConvertUbiArtToUnity
             byte[] platformBlob = [];
             uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            string path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
             Image<Rgba32> image;
             int width, height;
 
@@ -1029,10 +943,10 @@ public class ConvertUbiArtToUnity
             if (coachName.EndsWith("bkg"))
             {
                 // Set the name to {mapName}_bkg
-                coachBase["m_Name"].AsString = $"{mapName}_map_bkg";
+                coachBase["m_Name"].AsString = $"{MapName}_map_bkg";
 
                 fmt = TextureFormat.DXT1Crunched;
-                path = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+                path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
 
                 // Load the image
                 image = Image.Load<Rgba32>(path);
@@ -1061,7 +975,7 @@ public class ConvertUbiArtToUnity
                 continue;
             }
 
-            path = Path.Combine(TempMenuArtFolder, $"{mapName}_Coach_1.tga.png");
+            path = Path.Combine(TempMenuArtFolder, $"{MapName}_Coach_1.tga.png");
 
             // Load the image
             image = Image.Load<Rgba32>(path);
@@ -1069,7 +983,7 @@ public class ConvertUbiArtToUnity
             encImageBytes = TextureImportExport.Import(image, fmt, out width, out height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
 
             // Set the name to {mapName}_coach
-            coachBase["m_Name"].AsString = $"{mapName}_Coach_1";
+            coachBase["m_Name"].AsString = $"{MapName}_Coach_1";
 
             // Set the image data
             coachBase["image data"].AsByteArray = encImageBytes;
@@ -1091,7 +1005,7 @@ public class ConvertUbiArtToUnity
             if (coachName.EndsWith("bkg"))
             {
                 // Set the name to {mapName}_bkg
-                coachBase["m_Name"].AsString = $"{mapName}_map_bkg";
+                coachBase["m_Name"].AsString = $"{MapName}_map_bkg";
 
                 // Save the file
                 coachInfo.SetNewData(coachBase);
@@ -1112,7 +1026,7 @@ public class ConvertUbiArtToUnity
             }
 
             // Set the name to {mapName}_coach
-            coachBase["m_Name"].AsString = $"{mapName}_Coach_1";
+            coachBase["m_Name"].AsString = $"{MapName}_Coach_1";
 
             // Save the file
             coachInfo.SetNewData(coachBase);
@@ -1145,8 +1059,8 @@ public class ConvertUbiArtToUnity
 
         assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{mapName}_CoachesSmall";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_CoachesSmall";
+        assetBundleBase["m_Name"].AsString = $"{MapName}_CoachesSmall";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{MapName}_CoachesSmall";
         assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // Get all texture2d's
@@ -1165,7 +1079,7 @@ public class ConvertUbiArtToUnity
             byte[] platformBlob = [];
             uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            string path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
             Image<Rgba32> image;
 
             // If the name does not end with 1_Phone, delete it
@@ -1180,7 +1094,7 @@ public class ConvertUbiArtToUnity
                 continue;
             }
 
-            path = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
 
             // Load the image
             image = Image.Load<Rgba32>(path);
@@ -1191,7 +1105,7 @@ public class ConvertUbiArtToUnity
             encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode");
 
             // Set the name to {mapName}_Coach_1_Phone
-            coachBase["m_Name"].AsString = $"{mapName}_Coach_1_Phone";
+            coachBase["m_Name"].AsString = $"{MapName}_Coach_1_Phone";
 
             // Set the image data
             coachBase["image data"].AsByteArray = encImageBytes;
@@ -1225,7 +1139,7 @@ public class ConvertUbiArtToUnity
             }
 
             // Set the name to {mapName}_Coach_1_Phone
-            coachBase["m_Name"].AsString = $"{mapName}_Coach_1_Phone";
+            coachBase["m_Name"].AsString = $"{MapName}_Coach_1_Phone";
 
             // Save the file
             coachInfo.SetNewData(coachBase);
@@ -1260,8 +1174,8 @@ public class ConvertUbiArtToUnity
 
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{mapName}_Cover";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{mapName}_Cover";
+        assetBundleBase["m_Name"].AsString = $"{MapName}_Cover";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{MapName}_Cover";
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // There's only one texture2d in the cover, so we can just get it
@@ -1269,7 +1183,7 @@ public class ConvertUbiArtToUnity
         AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
 
         // Set the name to {mapName}_Cover_2x
-        coverBase["m_Name"].AsString = $"{mapName}_Cover_2x";
+        coverBase["m_Name"].AsString = $"{MapName}_Cover_2x";
 
         Image<Rgba32>? coverImage = null;
 
@@ -1335,14 +1249,14 @@ public class ConvertUbiArtToUnity
                 {
                     // Now we gotta make a custom texture from the scraps we have in the menu art folder
                     // First we load in the background
-                    string backgroundPath = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+                    string backgroundPath = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
                     coverImage = Image.Load<Rgba32>(backgroundPath);
 
                     // Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
                     coverImage.Mutate(x => x.Resize(2048, 1024));
 
                     // Then we load in the albumcoach
-                    string albumCoachPath = Path.Combine(TempMenuArtFolder, $"{mapName}_cover_albumcoach.tga.png");
+                    string albumCoachPath = Path.Combine(TempMenuArtFolder, $"{MapName}_cover_albumcoach.tga.png");
                     Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
 
                     // Then we place the albumcoach on top of the background in the center
@@ -1360,7 +1274,7 @@ public class ConvertUbiArtToUnity
         }
 
         // Save the image in the temp folder
-        coverImage!.Save(Path.Combine(TempMenuArtFolder, $"Cover_{mapName}.png"));
+        coverImage!.Save(Path.Combine(TempMenuArtFolder, $"Cover_{MapName}.png"));
 
         // Now we can encode the image
         {
@@ -1369,7 +1283,7 @@ public class ConvertUbiArtToUnity
             byte[] platformBlob = [];
             uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(TempMenuArtFolder, $"{mapName}_map_bkg.tga.png");
+            string path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
 
             encImageBytes = TextureImportExport.Import(coverImage!, fmt, out int width, out int height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
 
@@ -1389,7 +1303,7 @@ public class ConvertUbiArtToUnity
         AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
 
         // Set the name to {mapName}_Cover_2x
-        coverSpriteBase["m_Name"].AsString = $"{mapName}_Cover_2x";
+        coverSpriteBase["m_Name"].AsString = $"{MapName}_Cover_2x";
 
         // Save the file
         coverSpriteInfo.SetNewData(coverSpriteBase);
