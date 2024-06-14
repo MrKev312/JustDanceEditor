@@ -11,7 +11,7 @@ public static class XTXExtractAdapter
         {
             FileName = "./Resources/xtx_extract.exe",
             Arguments = $"-o \"{Path.Combine(outputPath)}\" \"{Path.Combine(inputPath)}\"",
-            RedirectStandardOutput = false,
+            RedirectStandardOutput = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };

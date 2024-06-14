@@ -52,8 +52,8 @@ internal static class Extensions
         string uncompressedPath = Path.Combine(outputPath, "temp.mod.uncompressed");
         string compressedPath = Path.Combine(outputPath, "temp.mod");
 
-        using (AssetsFileWriter writer = new(uncompressedPath))
-            assetBundleFile.Write(writer);
+        using (AssetsFileWriter assetWriter = new(uncompressedPath))
+            assetBundleFile.Write(assetWriter);
 
         AssetBundleFile newUncompressedBundle = new();
         newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
@@ -75,6 +75,46 @@ internal static class Extensions
             File.Delete(newPath);
 
         File.Move(compressedPath, newPath);
+
+        ModifyMDHash(hash, newPath);
+    }
+
+    private static void ModifyMDHash(string hash, string newPath)
+    {
+        BinaryReader binaryReader = new(File.OpenRead(newPath));
+        const string marker = "CAB-";
+        byte[] markerBytes = Encoding.UTF8.GetBytes(marker);
+        bool foundMarker = false;
+        long startPosition = binaryReader.BaseStream.Length - 0x40; // Start from -0x40 from the end
+        long position = startPosition < 0 ? 0 : startPosition; // Ensure the start position is not out of bounds
+
+        binaryReader.BaseStream.Seek(position, SeekOrigin.Begin); // Move to the start position
+
+        // Read through the file from the start position to find the marker
+        while (binaryReader.BaseStream.Position < binaryReader.BaseStream.Length)
+        {
+            byte[] buffer = binaryReader.ReadBytes(markerBytes.Length);
+            if (buffer.SequenceEqual(markerBytes))
+            {
+                foundMarker = true;
+                position = binaryReader.BaseStream.Position - markerBytes.Length;
+                break;
+            }
+
+            // Move back the stream's position to ensure overlapping sequences are checked
+            binaryReader.BaseStream.Seek(-markerBytes.Length + 1, SeekOrigin.Current);
+        }
+
+        if (!foundMarker)
+        {
+            throw new InvalidOperationException("Marker 'CAB-' not found in the file.");
+        }
+
+        // Now that we've found the marker, we can update the offset
+        long offset = position + 5;
+        BinaryWriter binaryWriter = new(File.OpenWrite(newPath));
+        binaryWriter.BaseStream.Seek(offset, SeekOrigin.Begin);
+        binaryWriter.Write(Encoding.UTF8.GetBytes(hash));
     }
 
     /// <summary>

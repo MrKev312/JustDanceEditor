@@ -49,8 +49,18 @@ public static class MenuArtConverter
     private static string ExtractToDDS(string inputPath, string tempFolder, string fileName)
     {
         string outputPath = Path.Combine(tempFolder, fileName + ".dds");
-        XTXExtractAdapter.ConvertToDDS(inputPath, outputPath);
-        File.Delete(inputPath);
+
+        // If the file ends in .tga.xtx, just rename it to .tga.dds
+        if (inputPath.EndsWith(".tga.xtx", StringComparison.OrdinalIgnoreCase))
+        {
+            File.Move(inputPath, outputPath);
+        }
+        else
+        {
+            XTXExtractAdapter.ConvertToDDS(inputPath, outputPath);
+            File.Delete(inputPath);
+        }
+
         return outputPath;
     }
 
@@ -58,7 +68,7 @@ public static class MenuArtConverter
     {
         string pngPath = Path.Combine(tempFolder, fileName + ".png");
 
-        using (IImage image = Pfim.Pfimage.FromFile(ddsPath))
+        using (IImage image = Pfimage.FromFile(ddsPath))
         {
             if (image.Format != ImageFormat.Rgba32)
                 throw new Exception("Image is not in Rgba32 format!");

@@ -18,6 +18,7 @@ using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Converter.Converters.Audio;
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Resources;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -26,6 +27,7 @@ public class ConvertUbiArtToUnity
     JDUbiArtSong songData = new();
     readonly ConversionRequest conversionRequest;
     public string MapName { get; private set; } = "";
+    public bool IsMainScene { get; private set; } = false;
 
     /// Folders
     // Main folders
@@ -43,7 +45,10 @@ public class ConvertUbiArtToUnity
     public string TimelineFolder => Path.Combine(CacheFolder, "timeline");
     public string MovesFolder => Path.Combine(MapsFolder, MapName, "timeline", "moves", "wiiu");
     public string PictosFolder => Path.Combine(TimelineFolder, "pictos");
-    public string MenuArtFolder => Path.Combine(CacheFolder, "menuart", "textures");
+    public string MenuArtFolder => IsMainScene ?
+        Path.Combine(CacheFolder, "menuart", "textures") :
+        Path.Combine(InputFolder, "menuart");
+
     // Template files
     string MapPackagePath
     {
@@ -82,7 +87,15 @@ public class ConvertUbiArtToUnity
         // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
         // Only convert in debug mode as this is currently not working properly
 #if DEBUG
-        AudioConverter.ConvertAudio(this, songData);
+        // TODO: do this in a prettier way by checking if there's any audio to convert
+        try
+        {
+            AudioConverter.ConvertAudio(this, songData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to convert audio: {ex.Message}");
+        }
 #endif
 
         // Generate both coaches files
@@ -131,6 +144,9 @@ public class ConvertUbiArtToUnity
         songData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{MapName}_musictrack.tpl.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading SongDesc");
         songData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
+
+        // Check if the menuart folder exists
+        IsMainScene = !Directory.Exists(MenuArtFolder);
 
         return;
     }
@@ -714,21 +730,7 @@ public class ConvertUbiArtToUnity
 
             // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
             // Print the output to the console
-            ProcessStartInfo startInfo = new()
-            {
-                FileName = "./Resources/xtx_extract.exe",
-                Arguments = $"-o \"{Path.Combine(TempPictoFolder, fileName + ".dds")}\" \"{Path.Combine(TempPictoFolder, fileName + ".xtx")}\"",
-                RedirectStandardOutput = false,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (Process process = new() { StartInfo = startInfo })
-            {
-                process.Start();
-
-                process.WaitForExit();
-            }
+            XTXExtractAdapter.ConvertToDDS(Path.Combine(TempPictoFolder, fileName + ".xtx"), Path.Combine(TempPictoFolder, fileName + ".dds"));
 
             // Delete the .xtx file
             File.Delete(Path.Combine(TempPictoFolder, fileName + ".xtx"));
