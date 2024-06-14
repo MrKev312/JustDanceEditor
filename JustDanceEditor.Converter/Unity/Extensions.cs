@@ -76,9 +76,9 @@ internal static class Extensions
 
         File.Move(compressedPath, newPath);
 
-        ModifyMDHash(hash, newPath);
+        ModifyMDHash();
 
-        static void ModifyMDHash(string hash, string newPath)
+        void ModifyMDHash()
         {
             BinaryReader binaryReader = new(File.OpenRead(newPath));
             const string marker = "CAB-";
@@ -109,11 +109,14 @@ internal static class Extensions
                 throw new InvalidOperationException("Marker 'CAB-' not found in the file.");
             }
 
+            binaryReader.Close();
+
             // Now that we've found the marker, we can update the offset
-            long offset = position + 5;
+            long offset = position + 4;
             BinaryWriter binaryWriter = new(File.OpenWrite(newPath));
             binaryWriter.BaseStream.Seek(offset, SeekOrigin.Begin);
             binaryWriter.Write(Encoding.UTF8.GetBytes(hash));
+            binaryWriter.Close();
         }
     }
 

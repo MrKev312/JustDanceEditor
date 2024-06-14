@@ -864,7 +864,7 @@ public class ConvertUbiArtToUnity
             Image<Rgba32> image;
             int width, height;
 
-            // If the name ends in bkg
+            // Setting the map background
             if (coachName.EndsWith("bkg"))
             {
                 // Set the name to {mapName}_bkg
@@ -881,6 +881,9 @@ public class ConvertUbiArtToUnity
                 // Set the image data
                 coachBase["image data"].AsByteArray = encImageBytes;
                 coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+                coachBase["m_StreamData"]["offset"].AsULong = 0;
+                coachBase["m_StreamData"]["size"].AsUInt = 0;
+                coachBase["m_StreamData"]["path"].AsString = "";
 
                 // Save the file
                 coachInfo.SetNewData(coachBase);
@@ -913,6 +916,9 @@ public class ConvertUbiArtToUnity
             // Set the image data
             coachBase["image data"].AsByteArray = encImageBytes;
             coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+            coachBase["m_StreamData"]["offset"].AsULong = 0;
+            coachBase["m_StreamData"]["size"].AsUInt = 0;
+            coachBase["m_StreamData"]["path"].AsString = "";
 
             // Save the file
             coachInfo.SetNewData(coachBase);
@@ -1004,7 +1010,7 @@ public class ConvertUbiArtToUnity
             byte[] platformBlob = [];
             uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
+            string path = Path.Combine(TempMenuArtFolder, $"{MapName}_coach_1.tga.png");
             Image<Rgba32> image;
 
             // If the name does not end with 1_Phone, delete it
@@ -1018,8 +1024,6 @@ public class ConvertUbiArtToUnity
 
                 continue;
             }
-
-            path = Path.Combine(TempMenuArtFolder, $"{MapName}_map_bkg.tga.png");
 
             // Load the image
             image = Image.Load<Rgba32>(path);
@@ -1035,8 +1039,8 @@ public class ConvertUbiArtToUnity
             // Set the image data
             coachBase["image data"].AsByteArray = encImageBytes;
             coachBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
-            coachBase["m_StreamData"]["offset"].AsInt = 0;
-            coachBase["m_StreamData"]["size"].AsInt = 0;
+            coachBase["m_StreamData"]["offset"].AsULong = 0;
+            coachBase["m_StreamData"]["size"].AsUInt = 0;
             coachBase["m_StreamData"]["path"].AsString = "";
 
             // Save the file
