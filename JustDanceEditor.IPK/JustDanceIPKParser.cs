@@ -25,10 +25,10 @@ public class JustDanceIPKParser
             throw new FileNotFoundException("File not found", filePath);
 
         fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-        outputDirectory = Path.Combine(outputPath, Path.GetFileNameWithoutExtension(filePath));
+        outputDirectory = outputPath;
     }
 
-    public void Parse()
+    public void Parse(bool ShowInfo = false)
     {
         using BinaryReader reader = new(fileStream);
         byte[] magic = reader.ReadBytes(4);
@@ -39,7 +39,8 @@ public class JustDanceIPKParser
         version = reader.ReadInt32BigEndian();
 
         // Print the version
-        Console.WriteLine($"IPK version: {version}");
+        if (ShowInfo)
+            Console.WriteLine($"IPK version: {version}");
 
         // Skipping dummy long
         reader.ReadInt32BigEndian();
@@ -47,7 +48,8 @@ public class JustDanceIPKParser
         filesCount = reader.ReadInt32BigEndian();
 
         // Print the number of files
-        Console.WriteLine($"Number of files: {filesCount}");
+        if (ShowInfo)
+            Console.WriteLine($"Number of files: {filesCount}");
 
         fileStream.Seek(0x30, SeekOrigin.Begin);
 
@@ -61,7 +63,7 @@ public class JustDanceIPKParser
         foreach (FileEntry entry in entries)
         {
             fileStream.Seek(entry.Offset, SeekOrigin.Begin);
-            ProcessFileEntry(entry, fileStream, outputDirectory);
+            ProcessFileEntry(entry, fileStream, outputDirectory, ShowInfo);
         }
     }
 
@@ -92,7 +94,7 @@ public class JustDanceIPKParser
         return entry;
     }
 
-	private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory)
+	private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool ShowInfo = false)
 	{
 		(string fileName, string folderPath) = entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name);
 		BinaryReader reader = new(fileStream);
@@ -100,13 +102,19 @@ public class JustDanceIPKParser
         folderPath = Path.Combine(outputDirectory, folderPath);
         string fullPath = Path.Combine(folderPath, fileName);
 
-        ConsoleColor old = Console.ForegroundColor;
+        ConsoleColor old = ConsoleColor.Gray;
+        if (ShowInfo)
+            old = Console.ForegroundColor;
+
 		if (entry.ZSize == 0)
 		{
-			// Uncompressed file
-			// Set console color to green
-			Console.ForegroundColor = ConsoleColor.Green;
-			Console.WriteLine($"File: {fileName}");
+            // Uncompressed file
+            if (ShowInfo)
+            {
+                // Set console color to green
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"File: {fileName}");
+            }
 
 			// Create the directory if it doesn't exist
 			Directory.CreateDirectory(folderPath);
@@ -118,10 +126,13 @@ public class JustDanceIPKParser
 		}
 		else
 		{
-			// Compressed file
-			// Set console color to red
-			Console.ForegroundColor = ConsoleColor.Red;
-			Console.WriteLine($"Compression: {entry.ZSize}, File: {fileName}");
+            // Compressed file
+            if (ShowInfo)
+            {
+                // Set console color to red
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Compression: {entry.ZSize}, File: {fileName}");
+            }
 
             // Create the directory if it doesn't exist
             Directory.CreateDirectory(folderPath);
@@ -134,6 +145,7 @@ public class JustDanceIPKParser
             file.Write(buffer, 0, buffer.Length);
         }
 
-		Console.ForegroundColor = old;
+        if (ShowInfo)
+            Console.ForegroundColor = old;
 	}
 }

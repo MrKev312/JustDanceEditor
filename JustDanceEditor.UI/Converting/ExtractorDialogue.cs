@@ -20,7 +20,7 @@ internal class ExtractorDialogue
         Directory.CreateDirectory(outputPath);
 
         // Extract the IPK file
-        JustDanceIPKParser parser = new(inputPath, outputPath);
+        JustDanceIPKParser parser = new(inputPath, Path.Combine(outputPath, Path.GetFileNameWithoutExtension(inputPath)));
         parser.Parse();
     }
 }
