@@ -77,44 +77,44 @@ internal static class Extensions
         File.Move(compressedPath, newPath);
 
         ModifyMDHash(hash, newPath);
-    }
 
-    private static void ModifyMDHash(string hash, string newPath)
-    {
-        BinaryReader binaryReader = new(File.OpenRead(newPath));
-        const string marker = "CAB-";
-        byte[] markerBytes = Encoding.UTF8.GetBytes(marker);
-        bool foundMarker = false;
-        long startPosition = binaryReader.BaseStream.Length - 0x40; // Start from -0x40 from the end
-        long position = startPosition < 0 ? 0 : startPosition; // Ensure the start position is not out of bounds
-
-        binaryReader.BaseStream.Seek(position, SeekOrigin.Begin); // Move to the start position
-
-        // Read through the file from the start position to find the marker
-        while (binaryReader.BaseStream.Position < binaryReader.BaseStream.Length)
+        static void ModifyMDHash(string hash, string newPath)
         {
-            byte[] buffer = binaryReader.ReadBytes(markerBytes.Length);
-            if (buffer.SequenceEqual(markerBytes))
+            BinaryReader binaryReader = new(File.OpenRead(newPath));
+            const string marker = "CAB-";
+            byte[] markerBytes = Encoding.UTF8.GetBytes(marker);
+            bool foundMarker = false;
+            long startPosition = binaryReader.BaseStream.Length - 0x40; // Start from -0x40 from the end
+            long position = startPosition < 0 ? 0 : startPosition; // Ensure the start position is not out of bounds
+
+            binaryReader.BaseStream.Seek(position, SeekOrigin.Begin); // Move to the start position
+
+            // Read through the file from the start position to find the marker
+            while (binaryReader.BaseStream.Position < binaryReader.BaseStream.Length)
             {
-                foundMarker = true;
-                position = binaryReader.BaseStream.Position - markerBytes.Length;
-                break;
+                byte[] buffer = binaryReader.ReadBytes(markerBytes.Length);
+                if (buffer.SequenceEqual(markerBytes))
+                {
+                    foundMarker = true;
+                    position = binaryReader.BaseStream.Position - markerBytes.Length;
+                    break;
+                }
+
+                // Move back the stream's position to ensure overlapping sequences are checked
+                binaryReader.BaseStream.Seek(-markerBytes.Length + 1, SeekOrigin.Current);
             }
 
-            // Move back the stream's position to ensure overlapping sequences are checked
-            binaryReader.BaseStream.Seek(-markerBytes.Length + 1, SeekOrigin.Current);
-        }
+            if (!foundMarker)
+            {
+                throw new InvalidOperationException("Marker 'CAB-' not found in the file.");
+            }
 
-        if (!foundMarker)
-        {
-            throw new InvalidOperationException("Marker 'CAB-' not found in the file.");
+            // Now that we've found the marker, we can update the offset
+            long offset = position + 5;
+            BinaryWriter binaryWriter = new(File.OpenWrite(newPath));
+            binaryWriter.BaseStream.Seek(offset, SeekOrigin.Begin);
+            binaryWriter.Write(Encoding.UTF8.GetBytes(hash));
         }
-
-        // Now that we've found the marker, we can update the offset
-        long offset = position + 5;
-        BinaryWriter binaryWriter = new(File.OpenWrite(newPath));
-        binaryWriter.BaseStream.Seek(offset, SeekOrigin.Begin);
-        binaryWriter.Write(Encoding.UTF8.GetBytes(hash));
     }
 
     /// <summary>
