@@ -671,7 +671,7 @@ public class ConvertUbiArtToUnity
         // Set the counts
         mapBase["HandOnlyCoachDatas"]["Array"][0]["GoldMovesCount"].AsUInt = (uint)goldEffectClipsArray.Children.Count;
         // I have no idea why this isn't just the length of the array, but seems to always be around half of it
-        mapBase["HandOnlyCoachDatas"]["Array"][0]["StandardMovesCount"].AsUInt = (uint)motionClipsArray.Children.Count / 2;
+        mapBase["HandOnlyCoachDatas"]["Array"][0]["StandardMovesCount"].AsUInt = (uint)motionClipsArray.Children.Count;
 
         // Store all changes
         musicTrackInfos[0].SetNewData(musicTrackBase);
