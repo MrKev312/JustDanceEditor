@@ -53,6 +53,13 @@ public static class MenuArtConverter
     {
         string outputPath = Path.Combine(tempFolder, fileName + ".dds");
 
+        // If the file starts with "DDS ", it's already a DDS file and we simply rename it
+        if (File.ReadAllBytes(inputPath).Take(4).SequenceEqual("DDS "u8.ToArray()))
+        {
+            File.Move(inputPath, outputPath);
+            return outputPath;
+        }
+
         // Convert the XTX file to DDS
         XTXExtractAdapter.ConvertToDDS(inputPath, outputPath);
         File.Delete(inputPath);
