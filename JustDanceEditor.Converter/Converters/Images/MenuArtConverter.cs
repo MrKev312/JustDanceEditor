@@ -1,8 +1,11 @@
-﻿using Pfim;
+﻿using JustDanceEditor.Converter.Resources;
+
+using Pfim;
+
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+
 using System.Diagnostics;
-using JustDanceEditor.Converter.Resources;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -50,16 +53,9 @@ public static class MenuArtConverter
     {
         string outputPath = Path.Combine(tempFolder, fileName + ".dds");
 
-        // If the file ends in .tga.xtx, just rename it to .tga.dds
-        if (inputPath.EndsWith(".tga.xtx", StringComparison.OrdinalIgnoreCase))
-        {
-            File.Move(inputPath, outputPath);
-        }
-        else
-        {
-            XTXExtractAdapter.ConvertToDDS(inputPath, outputPath);
-            File.Delete(inputPath);
-        }
+        // Convert the XTX file to DDS
+        XTXExtractAdapter.ConvertToDDS(inputPath, outputPath);
+        File.Delete(inputPath);
 
         return outputPath;
     }

@@ -1,4 +1,5 @@
 ﻿namespace JustDanceEditor.Converter;
+
 public class ConversionRequest
 {
     // Folder where the input files are located
