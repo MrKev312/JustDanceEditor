@@ -5,6 +5,7 @@ namespace JustDanceEditor.Converter.UbiArt;
 public class JDUbiArtSong
 {
     public string Name { get => DTape.MapName; set => DTape.MapName = value; }
+    public int CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
     public JDVersion EngineVersion = JDVersion.Unknown;
     public JDVersion JDVersion = JDVersion.Unknown;
     public KaraokeTape KTape { get; set; } = new();

@@ -72,9 +72,19 @@ public static class PictoConverter
                 newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
             }
 
-            // If the image isn't 512x512, resize it to 512x364
-            if (newImage.Width != 512 || newImage.Height != 512)
-                newImage.Mutate(x => x.Resize(512, 512));
+            if (convert.SongData.CoachCount > 1)
+            {
+                // If we have more than 1 coach, we need to resize the image to 512x364
+                newImage.Mutate(x => x.Resize(512, 364));
+                // Now expand the image to 512x512
+                newImage.Mutate(x => x.Pad(512, 512));
+            }
+            else
+            {
+                // If the image isn't 512x512, resize it to 512x512
+                if (newImage.Width != 512 || newImage.Height != 512)
+                    newImage.Mutate(x => x.Resize(512, 512));
+            }
 
             // Delete the .dds file
             File.Delete(Path.Combine(convert.TempPictoFolder, fileName + ".dds"));

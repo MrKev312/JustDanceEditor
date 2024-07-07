@@ -17,7 +17,7 @@ public interface IAudioConverter
     Task Convert(string sourcePath, string targetPath);
 }
 
-internal static class Audio
+public static class Audio
 {
     public static void MergeAudioFiles((string path, float startTime)[] audioFiles, string outputPath)
     {

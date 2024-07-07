@@ -3,7 +3,7 @@ using JustDanceEditor.Converter.Converters;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
-internal class ConverterDialogue
+public class ConverterDialogue
 {
     public static void ConvertDialogue()
     {

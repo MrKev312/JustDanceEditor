@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Converter.Unity;
 
-internal static class Extensions
+public static class Extensions
 {
     /// <summary>
     /// Convert a <see cref="Guid"/> to a Unity <see cref="uint"/>[] GUID

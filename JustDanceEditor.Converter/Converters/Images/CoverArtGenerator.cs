@@ -16,10 +16,7 @@ public static class CoverArtGenerator
         if (File.Exists(Path.Combine(convert.InputFolder, "cover.png")))
         {
             // Load the image
-            coverImage = Image.Load<Rgba32>(Path.Combine(convert.InputFolder, "cover.png"));
-
-            // Resize the image to 640x360
-            coverImage.Mutate(x => x.Resize(640, 360));
+            coverImage = LoadImage(Path.Combine(convert.InputFolder, "cover.png"));
 
             return true;
         }
@@ -28,15 +25,21 @@ public static class CoverArtGenerator
         if (File.Exists(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png")))
         {
             // Load the image
-            coverImage = Image.Load<Rgba32>(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"));
-
-            // Resize the image to 640x360
-            coverImage.Mutate(x => x.Resize(640, 360));
+            coverImage = LoadImage(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"));
 
             return true;
         }
 
         return false;
+    }
+
+    private static Image<Rgba32> LoadImage(string path)
+    {
+        // Load the image
+        Image<Rgba32> image = Image.Load<Rgba32>(path);
+        // Resize the image to 640x360
+        image.Mutate(x => x.Resize(640, 360));
+        return image;
     }
 
     public static bool TryCoverWeb(out Image<Rgba32>? coverImage, ConvertUbiArtToUnity convert)

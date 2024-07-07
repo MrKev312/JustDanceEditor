@@ -51,23 +51,17 @@ public static class MapPackageBundleGenerator
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         {
-            // Set the musicTrackBase to the MonoBehaviour named "MusicTrack"
-            AssetTypeValueField temp = manager.GetBaseField(afileInst, musicTrackInfos[0]);
+            AssetTypeValueField firstTrackInfo = manager.GetBaseField(afileInst, musicTrackInfos[0]);
+            string name = firstTrackInfo["m_Name"].AsString;
 
-            string name = temp["m_Name"].AsString;
+            bool isFirstTrackMusicTrack = name == "MusicTrack";
 
-            if (name is "MusicTrack" or "")
+            musicTrackBase = isFirstTrackMusicTrack ? firstTrackInfo : manager.GetBaseField(afileInst, musicTrackInfos[1]);
+            mapBase = isFirstTrackMusicTrack ? manager.GetBaseField(afileInst, musicTrackInfos[1]) : firstTrackInfo;
+
+            if (!isFirstTrackMusicTrack)
             {
-                musicTrackBase = temp;
-                mapBase = manager.GetBaseField(afileInst, musicTrackInfos[1]);
-            }
-            else
-            {
-                musicTrackBase = manager.GetBaseField(afileInst, musicTrackInfos[1]);
-                mapBase = temp;
-
-                // Swap the AssetFileInfo's
-                (musicTrackInfos[1], musicTrackInfos[0]) = (musicTrackInfos[0], musicTrackInfos[1]);
+                (musicTrackInfos[0], musicTrackInfos[1]) = (musicTrackInfos[1], musicTrackInfos[0]);
             }
         }
 
@@ -75,6 +69,7 @@ public static class MapPackageBundleGenerator
         mapBase["m_Name"].AsString = convert.SongData.Name;
         mapBase["MapName"].AsString = convert.SongData.Name;
         mapBase["SongDesc"]["MapName"].AsString = convert.SongData.Name;
+        mapBase["SongDesc"]["NumCoach"].AsInt = convert.SongData.CoachCount;
         mapBase["KaraokeData"]["MapName"].AsString = convert.SongData.Name;
         mapBase["DanceData"]["MapName"].AsString = convert.SongData.Name;
 
@@ -461,11 +456,25 @@ public static class MapPackageBundleGenerator
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];
         AssetTypeValueField hideHudClips = mapBase["DanceData"]["HideHudClips"]["Array"];
         AssetTypeValueField pictoClips = mapBase["DanceData"]["PictoClips"]["Array"];
+        AssetTypeValueField coachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
 
         motionClipsArray.Children.Clear();
         goldEffectClipsArray.Children.Clear();
         hideHudClips.Children.Clear();
         pictoClips.Children.Clear();
+        coachCounters.Children.Clear();
+
+        // For each coach in the song, create a new CoachCounter
+        for (int i = 0; i < convert.SongData.CoachCount; i++)
+        {
+            // Create a new CoachCounter
+            AssetTypeValueField newCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(coachCounters);
+
+            newCoachCounter["GoldMovesCount"].AsUInt = 0;
+            newCoachCounter["StandardMovesCount"].AsUInt = 0;
+
+            coachCounters.Children.Add(newCoachCounter);
+        }
 
         foreach (MotionClip clip in convert.SongData.DTape.Clips)
         {
@@ -516,6 +525,13 @@ public static class MapPackageBundleGenerator
 
                     // Add the new MotionClip to the array
                     motionClipsArray.Children.Add(newMotionClip);
+
+                    // Increment the coach move counters
+                    if (clip.GoldMove == 1)
+                        coachCounters.Children[clip.CoachId]["GoldMovesCount"].AsUInt++;
+                    else
+                        coachCounters.Children[clip.CoachId]["StandardMovesCount"].AsUInt++;
+
                     break;
 
                 default:
@@ -523,11 +539,6 @@ public static class MapPackageBundleGenerator
                     break;
             }
         }
-
-        // Set the counts
-        mapBase["HandOnlyCoachDatas"]["Array"][0]["GoldMovesCount"].AsUInt = (uint)goldEffectClipsArray.Children.Count;
-        // I have no idea why this isn't just the length of the array, but seems to always be around half of it
-        mapBase["HandOnlyCoachDatas"]["Array"][0]["StandardMovesCount"].AsUInt = (uint)motionClipsArray.Children.Count;
 
         // Store all changes
         musicTrackInfos[0].SetNewData(musicTrackBase);

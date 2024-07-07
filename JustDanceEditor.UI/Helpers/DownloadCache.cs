@@ -3,9 +3,9 @@
 using System.Text.Json;
 
 namespace JustDanceEditor.UI.Helpers;
-internal class DownloadCache
+public class DownloadCache
 {
-    internal static void DownloadAllSongs()
+    public static void DownloadAllSongs()
     {
         // First off, where do we want to save the cache?
         string? path = Question.AskFolder("Enter the path for where to save the cache: ", false);
@@ -63,6 +63,7 @@ internal class DownloadCache
             string cache0 = Path.Combine(path, "Cache0", songID);
             Directory.CreateDirectory(cache0);
             string cacheX = Path.Combine(path, "CacheX", songID);
+            Directory.CreateDirectory(cacheX);
         }
     }
 }
