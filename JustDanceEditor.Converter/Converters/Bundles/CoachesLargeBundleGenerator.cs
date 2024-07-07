@@ -8,8 +8,6 @@ using JustDanceEditor.Converter.Unity.TextureConverter;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Runtime.Intrinsics.X86;
-
 namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoachesLargeBundleGenerator

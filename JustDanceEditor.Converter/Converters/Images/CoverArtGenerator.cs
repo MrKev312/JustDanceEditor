@@ -12,25 +12,38 @@ public static class CoverArtGenerator
     {
         coverImage = null;
 
-        // Is there a cover.png in the input folder?
-        if (File.Exists(Path.Combine(convert.InputFolder, "cover.png")))
+        string[] paths =
+        [
+            Path.Combine(convert.InputFolder, "cover.png"),
+            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"),
+            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_generic.tga.png")
+        ];
+
+        foreach (string path in paths)
         {
-            // Load the image
-            coverImage = LoadImage(Path.Combine(convert.InputFolder, "cover.png"));
-
-            return true;
-        }
-
-        // Is there a {name}_cover_online.tga.png in the menu art folder?
-        if (File.Exists(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png")))
-        {
-            // Load the image
-            coverImage = LoadImage(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"));
-
-            return true;
+            if (TryLoadImage(ref coverImage, path))
+                return true;
         }
 
         return false;
+    }
+
+    private static bool TryLoadImage(ref Image<Rgba32>? coverImage, string path)
+    {
+        if (!File.Exists(path))
+            return false;
+
+        // Load the image
+        coverImage = LoadImage(path);
+
+        // If the image is a square, dispose of it and return false
+        if (coverImage.Width == coverImage.Height)
+        {
+            coverImage.Dispose();
+            return false;
+        }
+
+        return true;
     }
 
     private static Image<Rgba32> LoadImage(string path)
