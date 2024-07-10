@@ -100,6 +100,9 @@ public static class PictoConverter
 
             // Save the image as a png
             newImage.Save(Path.Combine(convert.TempPictoFolder, fileName + ".png"));
+
+            // Dispose the image
+            newImage.Dispose();
         });
 
         Dictionary<string, (int, (int, int))> imageDict = [];

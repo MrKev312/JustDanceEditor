@@ -293,6 +293,8 @@ public static class MapPackageBundleGenerator
 
             // Add the image bytes to the array
             endImageBytes[i] = imageBytes;
+
+            image.Dispose();
         });
 
         // First add all atlas images to the bundle
@@ -456,24 +458,34 @@ public static class MapPackageBundleGenerator
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];
         AssetTypeValueField hideHudClips = mapBase["DanceData"]["HideHudClips"]["Array"];
         AssetTypeValueField pictoClips = mapBase["DanceData"]["PictoClips"]["Array"];
-        AssetTypeValueField coachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
+        AssetTypeValueField handCoachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
+        AssetTypeValueField bodyCoachCounters = mapBase["FullBodyCoachDatas"]["Array"];
 
         motionClipsArray.Children.Clear();
         goldEffectClipsArray.Children.Clear();
         hideHudClips.Children.Clear();
         pictoClips.Children.Clear();
-        coachCounters.Children.Clear();
+        handCoachCounters.Children.Clear();
+        bodyCoachCounters.Children.Clear();
 
         // For each coach in the song, create a new CoachCounter
         for (int i = 0; i < convert.SongData.CoachCount; i++)
         {
             // Create a new CoachCounter
-            AssetTypeValueField newCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(coachCounters);
+            AssetTypeValueField newCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(handCoachCounters);
 
             newCoachCounter["GoldMovesCount"].AsUInt = 0;
             newCoachCounter["StandardMovesCount"].AsUInt = 0;
 
-            coachCounters.Children.Add(newCoachCounter);
+            handCoachCounters.Children.Add(newCoachCounter);
+
+            // Create a new CoachCounter
+            AssetTypeValueField newBodyCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(bodyCoachCounters);
+
+            newBodyCoachCounter["GoldMovesCount"].AsUInt = 1;
+            newBodyCoachCounter["StandardMovesCount"].AsUInt = 1;
+
+            bodyCoachCounters.Children.Add(newBodyCoachCounter);
         }
 
         foreach (MotionClip clip in convert.SongData.DTape.Clips)
@@ -528,9 +540,9 @@ public static class MapPackageBundleGenerator
 
                     // Increment the coach move counters
                     if (clip.GoldMove == 1)
-                        coachCounters.Children[clip.CoachId]["GoldMovesCount"].AsUInt++;
+                        handCoachCounters.Children[clip.CoachId]["GoldMovesCount"].AsUInt++;
                     else
-                        coachCounters.Children[clip.CoachId]["StandardMovesCount"].AsUInt++;
+                        handCoachCounters.Children[clip.CoachId]["StandardMovesCount"].AsUInt++;
 
                     break;
 
