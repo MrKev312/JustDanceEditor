@@ -12,7 +12,7 @@ namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class PictoConverter
 {
-    public static (Dictionary<string, int> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
+    public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
     {
         // Before starting on the mapPackage, prepare the pictos
         string[] pictoFiles = Directory.GetFiles(convert.PictosFolder);
@@ -74,10 +74,19 @@ public static class PictoConverter
 
             if (convert.SongData.CoachCount > 1)
             {
-                // If we have more than 1 coach, we need to resize the image to 512x364
-                newImage.Mutate(x => x.Resize(512, 364));
-                // Now expand the image to 512x512
-                newImage.Mutate(x => x.Pad(512, 512));
+                // First we unsquash the image
+                newImage.Mutate(x => x.Resize(newImage.Width, (int)(newImage.Height * (512f / 364f))));
+                // Resize the image such that it fits in a 512x512 size
+                // Get the width and height of the image
+                int width = newImage.Width;
+                int height = newImage.Height;
+
+                // Get the max of the width and height and get the ratio of 512 to that max
+                float ratio = 512f / Math.Max(width, height);
+
+                // Resize the image to the ratio
+                newImage.Mutate(x => x.Resize(Math.Min((int)(width * ratio), 512),
+                    Math.Min((int)(height * ratio), 512)));
             }
             else
             {
@@ -93,7 +102,7 @@ public static class PictoConverter
             newImage.Save(Path.Combine(convert.TempPictoFolder, fileName + ".png"));
         });
 
-        Dictionary<string, int> imageDict = [];
+        Dictionary<string, (int, (int, int))> imageDict = [];
         List<Image<Rgba32>> atlasPics = [];
         Image<Rgba32>? atlasImage = null;
 
@@ -115,6 +124,7 @@ public static class PictoConverter
             // Get the current image
             (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
 
+
             // Get the x and y coordinates
             int x_coord = indexInAtlas % 4 * 512;
             int y_coord = indexInAtlas / 4 * 512;
@@ -129,7 +139,7 @@ public static class PictoConverter
             image.Dispose();
 
             // Store the name and the atlas index in the dictionary
-            imageDict.Add(name, i / 16);
+            imageDict.Add(name, (i / 16, (image.Width, image.Height)));
 
             // If this is the last image, or i % 16 == 15, add the image to the atlasPics array
             if (indexInAtlas == 15 || i == pictoFiles.Length - 1)

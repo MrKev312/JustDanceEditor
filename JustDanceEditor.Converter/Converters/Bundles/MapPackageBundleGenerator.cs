@@ -20,7 +20,7 @@ public static class MapPackageBundleGenerator
         string mapPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateXFolder, "MapPackage"))[0];
 
         // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
-        Task<(Dictionary<string, int>, List<Image<Rgba32>>)> pictoTask =
+        Task<(Dictionary<string, (int index, (int Width, int Height))>, List<Image<Rgba32>>)> pictoTask =
             Task.Run(() => Task.FromResult(PictoConverter.ConvertPictos(convert)));
 
         // While the pictos are in the oven, we can convert the mapfiles
@@ -272,7 +272,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Wait for the pictos to finish
-        (Dictionary<string, int> imageDict, List<Image<Rgba32>> atlasPics) = pictoTask.Result;
+        (Dictionary<string, (int index, (int width, int height) size)> imageDict, List<Image<Rgba32>> atlasPics) = pictoTask.Result;
 
         // Add the new pictos
         string[] FileDirs = Directory.GetFiles(Path.Combine(convert.TempPictoFolder, "Atlas"));
@@ -377,10 +377,10 @@ public static class MapPackageBundleGenerator
 
             // Set the name and content
             spriteBaseField["m_Name"].AsString = pictoName;
-            spriteBaseField["m_Rect"]["width"].AsFloat = 512;
-            spriteBaseField["m_Rect"]["height"].AsFloat = 512;
-            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = 512;
-            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = 512;
+            spriteBaseField["m_Rect"]["width"].AsFloat = imageDict[pictoName].size.width;
+            spriteBaseField["m_Rect"]["height"].AsFloat = imageDict[pictoName].size.height;
+            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
+            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
             spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = convert.SongData.Name;
 
             uint[] uintArray = Guid.NewGuid().ToUnity();
@@ -428,11 +428,11 @@ public static class MapPackageBundleGenerator
             int x_offset = indexInAtlas % 4 * 512;
             int y_offset = indexInAtlas / 4 * 512;
 
-            newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName]];
+            newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName].index];
             newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
             newRenderDataMap["second"]["textureRect"]["y"].AsFloat = y_offset;
-            newRenderDataMap["second"]["textureRect"]["width"].AsFloat = 512;
-            newRenderDataMap["second"]["textureRect"]["height"].AsFloat = 512;
+            newRenderDataMap["second"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
+            newRenderDataMap["second"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
             newRenderDataMap["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
             newRenderDataMap["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
             newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = 100;
