@@ -15,6 +15,7 @@ public static class CoverArtGenerator
         string[] paths =
         [
             Path.Combine(convert.InputFolder, "cover.png"),
+            Path.Combine(convert.MenuArtFolder, "cover.png"),
             Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"),
             Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_generic.tga.png")
         ];
