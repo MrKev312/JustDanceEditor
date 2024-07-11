@@ -374,6 +374,11 @@ public static class MapPackageBundleGenerator
             // Now we create a new Sprite
             long spriteID = afile.GetRandomId();
 
+            // Magic number for the sprite
+            float magicNumber = convert.SongData.CoachCount == 1 ?
+                100f :
+                69.140625f;
+
             // Load in the sprite template
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
 
@@ -384,6 +389,7 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
             spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = convert.SongData.Name;
+            spriteBaseField["m_PixelsToUnits"].AsFloat = magicNumber;
 
             uint[] uintArray = Guid.NewGuid().ToUnity();
 
@@ -437,9 +443,9 @@ public static class MapPackageBundleGenerator
             newRenderDataMap["second"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
             newRenderDataMap["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
             newRenderDataMap["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
-            newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = 100;
+            newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = magicNumber;
             newRenderDataMap["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset;
-            newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = 100;
+            newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = magicNumber;
             newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = 256 + y_offset;
             newRenderDataMap["second"]["downscaleMultiplier"].AsFloat = 1;
             newRenderDataMap["second"]["settingsRaw"].AsUInt = 3;

@@ -135,6 +135,9 @@ public static class PictoConverter
             // Because the y is calculated from the top left corner, we need to subtract it from 2048
             y_coord = 2048 - y_coord - 512;
 
+            // Shift the y coordinate by 512 - image.Height to adjust for the image being at the bottom
+            y_coord += 512 - image.Height;
+
             // Draw the image on the atlas
             atlasImage.Mutate(x => x.DrawImage(image, new Point(x_coord, y_coord), 1));
 
