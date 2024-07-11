@@ -34,7 +34,7 @@ public static class CoverArtGenerator
             return false;
 
         // Load the image
-        coverImage = LoadImage(path);
+        coverImage = Image.Load<Rgba32>(path);
 
         // If the image is a square, dispose of it and return false
         if (coverImage.Width == coverImage.Height)
@@ -43,16 +43,10 @@ public static class CoverArtGenerator
             return false;
         }
 
-        return true;
-    }
-
-    private static Image<Rgba32> LoadImage(string path)
-    {
-        // Load the image
-        Image<Rgba32> image = Image.Load<Rgba32>(path);
         // Resize the image to 640x360
-        image.Mutate(x => x.Resize(640, 360));
-        return image;
+        coverImage.Mutate(x => x.Resize(640, 360));
+
+        return true;
     }
 
     public static bool TryCoverWeb(out Image<Rgba32>? coverImage, ConvertUbiArtToUnity convert)
