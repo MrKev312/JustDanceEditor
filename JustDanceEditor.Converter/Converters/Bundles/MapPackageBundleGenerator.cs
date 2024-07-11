@@ -388,6 +388,10 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_Rect"]["height"].AsFloat = imageDict[pictoName].size.height;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
+            spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = magicNumber;
+            spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
+            spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = magicNumber;
+            spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = 256;
             spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = convert.SongData.Name;
             spriteBaseField["m_PixelsToUnits"].AsFloat = magicNumber;
 
@@ -435,6 +439,9 @@ public static class MapPackageBundleGenerator
             int indexInAtlas = i % 16;
             int x_offset = indexInAtlas % 4 * 512;
             int y_offset = indexInAtlas / 4 * 512;
+
+            // Shift the y coordinate by 512 - image.Height to adjust for the image being at the bottom
+            y_offset -= 512 - imageDict[pictoName].size.height;
 
             newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName].index];
             newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
