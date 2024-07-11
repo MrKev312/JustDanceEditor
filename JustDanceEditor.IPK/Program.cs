@@ -21,10 +21,6 @@ internal class Program
             {
                 Console.WriteLine($"File {arg} doesn't exist.");
             }
-
-            // Wait for any key
-            Console.WriteLine("Press any key to continue...");
-            Console.ReadKey();
         }
 
         // If there are no arguments, show the help
@@ -49,6 +45,10 @@ internal class Program
             // Show that the file has been processed
             Console.WriteLine($"{x} has been processed.");
         });
+
+        // Wait for any key
+        Console.WriteLine("Press any key to continue...");
+        Console.ReadKey();
     }
 
     private static void ShowHelp()
