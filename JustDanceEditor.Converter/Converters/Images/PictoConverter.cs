@@ -74,19 +74,9 @@ public static class PictoConverter
 
             if (convert.SongData.CoachCount > 1)
             {
-                // First we unsquash the image
-                newImage.Mutate(x => x.Resize(newImage.Width, (int)(newImage.Height * (512f / 364f))));
-                // Resize the image such that it fits in a 512x512 size
-                // Get the width and height of the image
-                int width = newImage.Width;
-                int height = newImage.Height;
-
-                // Get the max of the width and height and get the ratio of 512 to that max
-                float ratio = 512f / Math.Max(width, height);
-
-                // Resize the image to the ratio
-                newImage.Mutate(x => x.Resize(Math.Min((int)(width * ratio), 512),
-                    Math.Min((int)(height * ratio), 512)));
+                // For multi-coach songs, resize the image to 512x354
+                if (newImage.Width != 512 || newImage.Height != 354)
+                    newImage.Mutate(x => x.Resize(512, 354));
             }
             else
             {

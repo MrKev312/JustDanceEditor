@@ -375,9 +375,12 @@ public static class MapPackageBundleGenerator
             long spriteID = afile.GetRandomId();
 
             // Magic number for the sprite
-            float magicNumber = convert.SongData.CoachCount == 1 ?
+            float pixelsToUnitsMagic = convert.SongData.CoachCount == 1 ?
                 100f :
                 69.140625f;
+            float wMagic = convert.SongData.CoachCount == 1 ?
+                256f :
+                177f;
 
             // Load in the sprite template
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
@@ -388,12 +391,12 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_Rect"]["height"].AsFloat = imageDict[pictoName].size.height;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
-            spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = magicNumber;
+            spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnitsMagic;
             spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
-            spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = magicNumber;
-            spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = 256;
+            spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
+            spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = wMagic;
             spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = convert.SongData.Name;
-            spriteBaseField["m_PixelsToUnits"].AsFloat = magicNumber;
+            spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnitsMagic;
 
             uint[] uintArray = Guid.NewGuid().ToUnity();
 
@@ -402,6 +405,19 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = uintArray[1];
             spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
             spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
+
+            byte[] vertexMagics = convert.SongData.CoachCount == 1 ?
+                [10, 215, 35] :
+                [97, 247, 108];
+
+            // Modify vertex data array
+            byte[] vertexData = spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray;
+            for (int j = 0; j <= 36; j+=12)
+            {
+                vertexData[j] = vertexMagics[0];
+                vertexData[j + 1] = vertexMagics[1];
+                vertexData[j + 2] = vertexMagics[2];
+            }
 
             // Add the new Sprite to the AssetsFile
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteID, (int)AssetClassID.Sprite, null);
@@ -440,9 +456,6 @@ public static class MapPackageBundleGenerator
             int x_offset = indexInAtlas % 4 * 512;
             int y_offset = indexInAtlas / 4 * 512;
 
-            // Shift the y coordinate by 512 - image.Height to adjust for the image being at the bottom
-            y_offset -= 512 - imageDict[pictoName].size.height;
-
             newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName].index];
             newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
             newRenderDataMap["second"]["textureRect"]["y"].AsFloat = y_offset;
@@ -450,10 +463,10 @@ public static class MapPackageBundleGenerator
             newRenderDataMap["second"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
             newRenderDataMap["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
             newRenderDataMap["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
-            newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = magicNumber;
+            newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = pixelsToUnitsMagic;
             newRenderDataMap["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset;
-            newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = magicNumber;
-            newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = 256 + y_offset;
+            newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
+            newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = wMagic + y_offset;
             newRenderDataMap["second"]["downscaleMultiplier"].AsFloat = 1;
             newRenderDataMap["second"]["settingsRaw"].AsUInt = 3;
 
