@@ -4,14 +4,14 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using System;
+
 namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class CoverArtGenerator
 {
-    public static bool ExistingCover(out Image<Rgba32>? coverImage, ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? ExistingCover(ConvertUbiArtToUnity convert)
     {
-        coverImage = null;
-
         string[] paths =
         [
             Path.Combine(convert.InputFolder, "cover.png"),
@@ -22,37 +22,37 @@ public static class CoverArtGenerator
 
         foreach (string path in paths)
         {
-            if (TryLoadImage(ref coverImage, path))
-                return true;
+            Image<Rgba32>? image = TryLoadImage(path);
+            if (image is not null)
+                return image;
         }
 
-        return false;
+        return null;
     }
 
-    private static bool TryLoadImage(ref Image<Rgba32>? coverImage, string path)
+    private static Image<Rgba32>? TryLoadImage(string path)
     {
         if (!File.Exists(path))
-            return false;
+            return null;
 
         // Load the image
-        coverImage = Image.Load<Rgba32>(path);
+        Image<Rgba32> coverImage = Image.Load<Rgba32>(path);
 
         // If the image is a square, dispose of it and return false
         if (coverImage.Width == coverImage.Height)
         {
             coverImage.Dispose();
-            return false;
+            return null;
         }
 
         // Resize the image to 640x360
         coverImage.Mutate(x => x.Resize(640, 360));
 
-        return true;
+        return coverImage;
     }
 
-    public static bool TryCoverWeb(out Image<Rgba32>? coverImage, ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? TryCoverWeb(ConvertUbiArtToUnity convert)
     {
-        coverImage = null;
         // Download one from https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B
         // Load the webpage
         HttpClient client = new();
@@ -66,44 +66,56 @@ public static class CoverArtGenerator
         HtmlNode table = doc.DocumentNode.SelectNodes("//table[@class='fandom-table']")[0];
         HtmlNode htmlNode = table.SelectSingleNode("tbody");
 
-        // Now get the node where the first td is the map name
-        List<HtmlNode> rows = htmlNode.SelectNodes("tr").Skip(1).Where(x => x.SelectSingleNode("td").InnerText == convert.SongData.SongDesc.COMPONENTS[0].Title).ToList();
-        // Select the first one, if it exists, if not, null
-        HtmlNode? row = rows.Count > 0 ? rows[0] : null;
+        // Get all the tr nodes
+        List<HtmlNode> allNodes = htmlNode.SelectNodes("tr").Skip(1).ToList();
+
+        // Find the node where the first td's inner text is the map name
+        HtmlNode? row = null;
+
+        foreach (HtmlNode node in allNodes)
+        {
+            // Get the first <i> tag's title, it might not be a direct child
+            string title = node.SelectSingleNode(".//i").InnerText;
+
+            if (title == convert.SongData.SongDesc.COMPONENTS[0].Title)
+            {
+                row = node;
+                break;
+            }
+        }
 
         // If the cover doesn't exist, return false
         if (row is null)
-            return false;
+            return null;
 
         // If both the last or second to last td's are empty or "N/A", then the cover doesn't exist
         HtmlNodeCollection tds = row.SelectNodes("td");
-        string coverUrl = "";
 
-        // Get the cover url
-        if (tds[^1].InnerText.Contains("PlaceHolderCover2023") || tds[^1].InnerText == "")
-            coverUrl = tds[^1].SelectSingleNode("a").Attributes["href"].Value;
-        else if (tds[^2].InnerText.Contains("PlaceHolderCover2023") || tds[^2].InnerText == "")
+        // Get the cover url with text on it
+        string coverUrl = tds[^1].SelectSingleNode("a").Attributes["href"].Value;
+        // If this is a placeholder cover, get the second to last, the version without text
+        if (coverUrl.Contains("PlaceHolderCover2023"))
             coverUrl = tds[^2].SelectSingleNode("a").Attributes["href"].Value;
-        else
+        else if (coverUrl.Contains("PlaceHolderCover2023"))
             // Couldn't find the cover, return false
-            return false;
+            return null;
 
         // Load the image
         Stream coverStream = client.GetStreamAsync(coverUrl).Result;
-        coverImage = Image.Load<Rgba32>(coverStream);
+        Image<Rgba32>? coverImage = Image.Load<Rgba32>(coverStream);
         coverImage.Mutate(x => x.Resize(640, 360));
 
         // Success!
-        return true;
+        return coverImage;
     }
 
-    public static void GenerateOwnCover(out Image<Rgba32> coverImage, ConvertUbiArtToUnity convert)
+    public static Image<Rgba32> GenerateOwnCover(ConvertUbiArtToUnity convert)
     {
         // Manually create the cover
         // Now we gotta make a custom texture from the scraps we have in the menu art folder
         // First we load in the background
         string backgroundPath = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
-        coverImage = Image.Load<Rgba32>(backgroundPath);
+        Image<Rgba32> coverImage = Image.Load<Rgba32>(backgroundPath);
 
         // Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
         coverImage.Mutate(x => x.Resize(2048, 1024));
@@ -122,5 +134,7 @@ public static class CoverArtGenerator
 
         // Now we crop the image to 640x360 centered
         coverImage.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
+
+        return coverImage;
     }
 }

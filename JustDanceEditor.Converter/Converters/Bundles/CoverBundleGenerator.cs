@@ -42,19 +42,13 @@ public static class CoverBundleGenerator
         // Set the name to {mapName}_Cover_2x
         coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Cover_2x";
 
-        Image<Rgba32>? coverImage = null;
-
         // If a cover.png exists in the map folder, use that
-        if (!CoverArtGenerator.ExistingCover(out coverImage, convert))
-        {
-            if (!CoverArtGenerator.TryCoverWeb(out coverImage, convert))
-            {
-                CoverArtGenerator.GenerateOwnCover(out coverImage, convert);
-            }
-        }
+        Image<Rgba32>? coverImage = CoverArtGenerator.ExistingCover(convert);
+        coverImage ??= CoverArtGenerator.TryCoverWeb(convert);
+        coverImage ??= CoverArtGenerator.GenerateOwnCover(convert);
 
         // Save the image in the temp folder
-        coverImage!.Save(Path.Combine(convert.TempMenuArtFolder, $"Cover_{convert.SongData.Name}.png"));
+        coverImage.Save(Path.Combine(convert.TempMenuArtFolder, $"Cover_{convert.SongData.Name}.png"));
 
         // Now we can encode the image
         {
