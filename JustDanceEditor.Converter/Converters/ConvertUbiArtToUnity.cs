@@ -12,13 +12,13 @@ namespace JustDanceEditor.Converter.Converters;
 public class ConvertUbiArtToUnity
 {
     public JDUbiArtSong SongData { get; private set; } = new();
-    readonly ConversionRequest conversionRequest;
+    public readonly ConversionRequest ConversionRequest;
 
     /// Folders
     // Main folders
-    public string InputFolder => conversionRequest.InputPath;
-    public string OutputFolder => Path.Combine(conversionRequest.OutputPath, SongData.Name);
-    public string TemplateFolder => conversionRequest.TemplatePath;
+    public string InputFolder => ConversionRequest.InputPath;
+    public string OutputFolder => Path.Combine(ConversionRequest.OutputPath, SongData.Name);
+    public string TemplateFolder => ConversionRequest.TemplatePath;
     public string TemplateXFolder => Path.Combine(TemplateFolder, "cachex");
     public string Template0Folder => Path.Combine(TemplateFolder, "cache0");
     // Temporary folders
@@ -38,11 +38,10 @@ public class ConvertUbiArtToUnity
 
     public ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     {
-        this.conversionRequest = conversionRequest;
-        Convert();
+        ConversionRequest = conversionRequest;
     }
 
-    void Convert()
+    public void Convert()
     {
         Console.WriteLine("Started conversion");
         Stopwatch stopwatch = new();
@@ -68,22 +67,22 @@ public class ConvertUbiArtToUnity
 
     void ValidateRequest()
     {
-        ArgumentNullException.ThrowIfNull(conversionRequest);
+        ArgumentNullException.ThrowIfNull(ConversionRequest);
 
         // Check the template folder
-        if (!Directory.Exists(conversionRequest.TemplatePath))
+        if (!Directory.Exists(ConversionRequest.TemplatePath))
             throw new DirectoryNotFoundException("Template folder not found");
 
         // Validate the input path
-        if (string.IsNullOrWhiteSpace(conversionRequest.InputPath) || !Directory.Exists(conversionRequest.InputPath))
+        if (string.IsNullOrWhiteSpace(ConversionRequest.InputPath) || !Directory.Exists(ConversionRequest.InputPath))
             throw new FileNotFoundException("Input folder not found");
 
         // Validate the output path by checking if it's a valid URI
-        if (string.IsNullOrWhiteSpace(conversionRequest.OutputPath))
+        if (string.IsNullOrWhiteSpace(ConversionRequest.OutputPath))
             throw new ArgumentException("Output path is not valid URI");
 
         // Create the output folder if it doesn't exist
-        Directory.CreateDirectory(conversionRequest.OutputPath);
+        Directory.CreateDirectory(ConversionRequest.OutputPath);
     }
 
     void LoadSongData()
@@ -95,7 +94,7 @@ public class ConvertUbiArtToUnity
         // Set the song name to bootstrap the process
         SongData = new()
         {
-            Name = Path.GetFileName(Directory.GetDirectories(Path.Combine(conversionRequest.InputPath, "world", "maps"))[0])!
+            Name = Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0])!
         };
 
         Console.WriteLine($"Song name: {SongData.Name}");

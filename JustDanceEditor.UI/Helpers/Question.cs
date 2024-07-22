@@ -41,11 +41,13 @@ internal class Question
 
     public static string AskFolder(string question, bool mustExist = false)
     {
+        question += mustExist ? " (must exist)" : " (can be empty)";
+
         string? filepath = null;
 
         while (filepath == null)
         {
-            Console.Write(question);
+            Console.Write($"{question}: ");
             filepath = Console.ReadLine()!;
 
             // Trim the filepath
@@ -75,11 +77,13 @@ internal class Question
 
     public static string AskFile(string question, bool mustExist = false)
     {
+        question += mustExist ? " (must exist)" : " (can be empty)";
+
         string? filepath = null;
 
         while (filepath == null)
         {
-            Console.Write(question);
+            Console.Write($"{question}: ");
             filepath = Console.ReadLine()!;
 
             // Trim the filepath
@@ -113,7 +117,7 @@ internal class Question
 
         while (value == null)
         {
-            Console.Write(question);
+            Console.Write($"{question}: ");
             string number = Console.ReadLine()!;
 
             // Trim the number
@@ -169,8 +173,8 @@ internal class Question
         {
             Console.WriteLine($"The url doesn't contain \"{assetName}\".");
             Console.Write("Are you sure this is the correct url? (y/n): ");
-            string answer = Console.ReadLine()!;
-            if (answer == "y")
+            string answer = Console.ReadLine()!.Trim().ToLower();
+            if (answer is "y" or "yes")
                 break;
             Console.Write($"{assetName}{canBeEmptyText}: ");
             url = Console.ReadLine()!;
@@ -178,4 +182,27 @@ internal class Question
 
         return url;
     }
+
+	public static bool AskYesNo(string question)
+	{
+		Console.Write($"{question} (y/n): ");
+		string answer = Console.ReadLine()!;
+
+		while (answer is not "y" and not "n")
+		{
+			Console.WriteLine("The answer is not valid.");
+			Console.Write($"{question} (y/n): ");
+			answer = Console.ReadLine()!.Trim().ToLower();
+
+            // If the answer is yes or no, convert it to y or n
+            if (answer == "yes")
+                answer = "y";
+            else if (answer == "no")
+                answer = "n";
+        }
+
+		Console.WriteLine();
+
+		return answer == "y";
+	}
 }

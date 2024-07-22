@@ -28,8 +28,9 @@ public class ConverterDialogue
         }
 
         // Ask for the input and output path
-        string inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world): ", true);
-        string outputPath = Question.AskFolder("Enter the path to the output folder: ", false);
+        string inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world)", true);
+        string outputPath = Question.AskFolder("Enter the path to the output folder", false);
+        bool onlineCover = Question.AskYesNo("Do you want to look up the cover online if needed?");
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(outputPath);
@@ -38,9 +39,11 @@ public class ConverterDialogue
         {
             TemplatePath = "./Template",
             InputPath = inputPath,
-            OutputPath = outputPath
+            OutputPath = outputPath,
+            OnlineCover = onlineCover
         };
 
-        ConvertUbiArtToUnity converted = new(conversionRequest);
+        ConvertUbiArtToUnity converter = new(conversionRequest);
+        converter.Convert();
     }
 }
