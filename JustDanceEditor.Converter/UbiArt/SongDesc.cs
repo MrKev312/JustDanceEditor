@@ -31,8 +31,8 @@ public class InfoComponent
     public int SweatDifficulty { get; set; }
     public int backgroundType { get; set; }
     public int LyricsType { get; set; }
-    public string[] Tags { get; set; }
-    public int Status { get; set; }
+    public string[] Tags { get; set; } = [];
+    public float Status { get; set; }
     public long LocaleID { get; set; }
     public int MojoValue { get; set; }
     public int CountInProgression { get; set; }
