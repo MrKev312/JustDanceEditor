@@ -44,4 +44,22 @@
 		</None>
 	</ItemGroup>
 
+	<!-- Copy the following dlls to the output directory -->
+	<ItemGroup>
+		<None Update="..\TexToolWrap\bin\Release\TexToolWrap.dll" Condition="'$(Configuration)' == 'Release'">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="..\TexToolWrap\bin\Debug\TexToolWrap.dll" Condition="'$(Configuration)' == 'Debug'">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="..\TexToolWrap\crunch\win64\crunch.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="..\TexToolWrap\ispc\win64\ispc_texcomp.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="..\TexToolWrap\PVRTexLib\win_x86_64\PVRTexLib.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 </Project>
