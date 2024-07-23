@@ -132,23 +132,28 @@ public class ConvertUbiArtToUnity
 
     private void ConversionTasks()
     {
-        // Start converting
-        Task MapPackage = Task.Run(() => MapPackageBundleGenerator.GenerateMapPackage(this));
-
-        // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
-        Task AudioConversion = Task.Run(() => AudioConverter.ConvertAudio(this));
-
-        // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
-        MenuArtConverter.ConvertMenuArt(this);
-
-        // Generate both coaches files
-        Task CoachesLarge = Task.Run(() => CoachesLargeBundleGenerator.GenerateCoachesLarge(this));
-        Task CoachesSmall = Task.Run(() => CoachesSmallBundleGenerator.GenerateCoachesSmall(this));
-
-        // Generate the cover
-        Task Cover = Task.Run(() => CoverBundleGenerator.GenerateCover(this));
 
         // Wait for all tasks to finish
-        Task.WaitAll(MapPackage, AudioConversion, CoachesLarge, CoachesSmall, Cover);
+        // Start converting
+        Task[] tasks =
+        [
+            Task.Run(() => MapPackageBundleGenerator.GenerateMapPackage(this)),
+            // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
+			Task.Run(() => AudioConverter.ConvertAudio(this)),
+            // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
+			Task.Run(() => MenuArtConverter.ConvertMenuArt(this)).ContinueWith(_ =>{
+                // Generate both coaches files
+			    Task.Run(() => CoachesLargeBundleGenerator.GenerateCoachesLarge(this));
+                Task.Run(() => CoachesSmallBundleGenerator.GenerateCoachesSmall(this));
+                // Generate the cover
+			    Task.Run(() => CoverBundleGenerator.GenerateCover(this));
+            }),
+            
+            // Generate the song title logo
+            Task.Run(() => SongTitleBundleGenerator.GenerateSongTitleLogo(this))
+        ];
+
+        // Wait for all tasks to finish
+        Task.WaitAll(tasks);
     }
 }
