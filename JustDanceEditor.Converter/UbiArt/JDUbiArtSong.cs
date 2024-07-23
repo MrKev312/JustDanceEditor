@@ -11,6 +11,7 @@ public class JDUbiArtSong
     public KaraokeTape KTape { get; set; } = new();
     public DanceTape DTape { get; set; } = new();
     public MusicTrack MTrack { get; set; } = new();
+    public MainSequence MainSequence { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
 }
 

@@ -105,6 +105,8 @@ public class ConvertUbiArtToUnity
         SongData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading MTrack");
         SongData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""))!;
+        Console.WriteLine("Loading MainSequence");
+        SongData.MainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""))!;
         Console.WriteLine("Loading SongDesc");
         SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
 

@@ -3,7 +3,7 @@
 public class MainSequence
 {
     public string __class { get; set; }
-    public AudioVibrationClip[] Clips { get; set; }
+    public MainSequenceClip[] Clips { get; set; }
     public int TapeClock { get; set; }
     public int TapeBarCount { get; set; }
     public int FreeResourcesAfterPlay { get; set; }
@@ -11,7 +11,7 @@ public class MainSequence
     public string SoundwichEvent { get; set; }
 }
 
-public class AudioVibrationClip
+public class MainSequenceClip
 {
     public string __class { get; set; }
     public long Id { get; set; }
@@ -19,6 +19,7 @@ public class AudioVibrationClip
     public int IsActive { get; set; }
     public int StartTime { get; set; }
     public int Duration { get; set; }
+    public int EventType { get; set; }
     public string SoundSetPath { get; set; }
     public int SoundChannel { get; set; }
     public int StartOffset { get; set; }

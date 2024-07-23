@@ -514,6 +514,7 @@ public static class MapPackageBundleGenerator
             bodyCoachCounters.Children.Add(newBodyCoachCounter);
         }
 
+        // Add the clips from the dance tape
         foreach (MotionClip clip in convert.SongData.DTape.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
@@ -575,6 +576,22 @@ public static class MapPackageBundleGenerator
                 default:
                     Console.WriteLine($"Unknown clip type: {clip.__class}");
                     break;
+            }
+        }
+
+        // Add the clips from the mainsequence tape
+        foreach (MainSequenceClip clip in convert.SongData.MainSequence.Clips)
+        {
+            // If the clip is a HideHudClip, add it to the HideHudClips array
+            if (clip.__class == "HideHudClip")
+            {
+                AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
+
+                newHideHudClip["StartTime"].AsInt = clip.StartTime;
+                newHideHudClip["Duration"].AsInt = clip.Duration;
+                newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
+
+                hideHudClips.Children.Add(newHideHudClip);
             }
         }
 
