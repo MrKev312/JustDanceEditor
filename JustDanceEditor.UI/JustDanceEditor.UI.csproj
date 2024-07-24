@@ -10,13 +10,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Costura.Fody" Version="5.7.0">
-	    <PrivateAssets>all</PrivateAssets>
-	    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	  </PackageReference>
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\JustDanceEditor.Converter\JustDanceEditor.Converter.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
@@ -28,5 +21,6 @@
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\PVRTexLib\Windows_x86_64\PVRTexLib.dll" DestinationFolder="$(TargetDir)" />
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\ispc\win64\ispc_texcomp.dll" DestinationFolder="$(TargetDir)" />
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\crunch\win64\crnlib.dll" DestinationFolder="$(TargetDir)" />
+		<Copy SourceFiles="$(SolutionDir)TexToolWrap\bin\$(Configuration)\TexToolWrap.dll" DestinationFolder="$(TargetDir)" />
 	</Target>
 </Project>
