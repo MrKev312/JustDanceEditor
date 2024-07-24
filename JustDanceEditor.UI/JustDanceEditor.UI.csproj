@@ -10,6 +10,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Fody" Version="6.8.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\JustDanceEditor.Converter\JustDanceEditor.Converter.csproj" />
     <ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
     <ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
