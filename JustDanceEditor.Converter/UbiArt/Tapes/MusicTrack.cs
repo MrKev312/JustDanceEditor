@@ -42,9 +42,9 @@ public class Structure
     public float previewEntry { get; set; }
     public float previewLoopStart { get; set; }
     public float previewLoopEnd { get; set; }
-    public int volume { get; set; }
-    public int fadeInDuration { get; set; }
-    public int fadeInType { get; set; }
+    public float volume { get; set; }
+    public float fadeInDuration { get; set; }
+    public float fadeInType { get; set; }
     public float fadeOutDuration { get; set; }
     public int fadeOutType { get; set; }
 }
