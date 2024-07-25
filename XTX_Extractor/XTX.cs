@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Net;
+using System.Text;
 
 namespace XTX_Extractor;
 
@@ -118,9 +119,49 @@ public class XTX
         Console.WriteLine($"Found {ImageInfo} images and {images} data blocks.");
     }
 
-    public void DeswizzleData()
+    public byte[] DeswizzleData(int i)
     {
+        TextureHeader texInfo = TextureInfos[i];
+        byte[] data = TextureBlocks[i];
 
+        if (texInfo.Depth != 1)
+            throw new Exception("Deswizzling only supported for 2D textures!");
+
+        if (texInfo.MipCount > 1)
+            Console.WriteLine($"Deswizzling {texInfo.MipCount - 1} mipmaps...");
+
+        int bpp = GetBPP(texInfo.Format);
+
+        List<byte[]> result = [];
+        for (int level = 0; level < texInfo.MipCount; level++)
+        {
+            int size;
+            if (BCnFormats.Contains(texInfo.Format))
+            {
+                size = (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp);
+            }
+            else
+            {
+                size = (int)(Math.Max(1, texInfo.Width>> level) * Math.Max(1, texInfo.Height >> level) * bpp);
+            }
+
+            int mipOffset = (int)texInfo.MipOffsets[level];
+
+            if (level != 0)
+            {
+                Console.WriteLine($"{level}: {Math.Max(1, texInfo.Width >> level)}x{Math.Max(1, texInfo.Height >> level)}");
+                Console.WriteLine(mipOffset.ToString("X"));
+            }
+
+            byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
+            //byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), format, mipData);
+            //result.Add(deswizzled.Take(size).ToArray());
+            // For now, keep it swizzled
+            result.Add(mipData);
+        }
+
+        byte[] hdr = DDS.GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, texInfo.Format, nv.CompSel[i], realSize, BCnFormats.Contains(format));
+        return result.SelectMany(x => x).ToArray();
     }
 
     public class BlockHeader
