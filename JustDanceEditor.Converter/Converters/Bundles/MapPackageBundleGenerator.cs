@@ -54,7 +54,7 @@ public static class MapPackageBundleGenerator
             AssetTypeValueField firstTrackInfo = manager.GetBaseField(afileInst, musicTrackInfos[0]);
             string name = firstTrackInfo["m_Name"].AsString;
 
-            bool isFirstTrackMusicTrack = name == "MusicTrack";
+            bool isFirstTrackMusicTrack = name == "";
 
             musicTrackBase = isFirstTrackMusicTrack ? firstTrackInfo : manager.GetBaseField(afileInst, musicTrackInfos[1]);
             mapBase = isFirstTrackMusicTrack ? manager.GetBaseField(afileInst, musicTrackInfos[1]) : firstTrackInfo;
@@ -151,7 +151,9 @@ public static class MapPackageBundleGenerator
         structure["previewEntry"].AsDouble = trackStructure.previewEntry;
         structure["previewLoopStart"].AsDouble = trackStructure.previewLoopStart;
         structure["previewLoopEnd"].AsDouble = 0;
-        structure["previewDuration"].AsDouble = trackStructure.previewLoopEnd - trackStructure.previewLoopStart;
+        // Sometimes appearently doesn't exist
+        if (!structure["previewDuration"].IsDummy)
+            structure["previewDuration"].AsDouble = trackStructure.previewLoopEnd - trackStructure.previewLoopStart;
 
         // Set the signatures array
         AssetTypeValueField signaturesArray = structure["signatures"]["Array"];

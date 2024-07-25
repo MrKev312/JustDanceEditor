@@ -7,7 +7,6 @@ public class ConverterDialogue
 {
     public static void ConvertDialogue()
     {
-        // Check if there's a template folder
         if (!Directory.Exists("./template"))
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -20,10 +19,40 @@ public class ConverterDialogue
 				""");
             Console.ResetColor();
 
-            Directory.CreateDirectory("./template");
-            Directory.CreateDirectory("./template/cache0");
-            Directory.CreateDirectory("./template/cachex");
+            return;
+        }
 
+        string[] folders = [
+            "./template/cache0/Cover",
+            "./template/cachex/MapPackage",
+            "./template/cachex/CoachesLarge",
+            "./template/cachex/CoachesSmall"
+        ];
+
+        // If any of the folders don't exist, create them
+        foreach (string folder in folders)
+        {
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+        }
+
+        bool missing = false;
+        // If any of the folders is empty, ask the user to put the files in the folder
+        foreach (string folder in folders)
+        {
+            if (Directory.GetFiles(folder).Length == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"The folder {folder} is empty. Please put a template file in the folder.");
+                Console.ResetColor();
+                missing = true;
+            }
+        }
+
+        if (missing)
+        {
             return;
         }
 

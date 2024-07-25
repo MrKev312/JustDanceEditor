@@ -47,6 +47,9 @@ public class ConvertUbiArtToUnity
         Stopwatch stopwatch = new();
         stopwatch.Start();
 
+        // Validate the template folder
+        ValidateTemplateFolder();
+
         // Validate the request
         ValidateRequest();
 
@@ -65,13 +68,37 @@ public class ConvertUbiArtToUnity
         return;
     }
 
+    static void ValidateTemplateFolder()
+    {
+        string[] folders = [
+            "./template/cache0/Cover",
+            "./template/cachex/MapPackage",
+            "./template/cachex/CoachesLarge",
+            "./template/cachex/CoachesSmall"
+        ];
+
+        // If any of the folders don't exist, throw an exception
+        foreach (string folder in folders)
+        {
+            if (!Directory.Exists(folder))
+            {
+                throw new DirectoryNotFoundException($"The folder {folder} is missing. Please put a template file in the folder.");
+            }
+        }
+
+        // If any of the folders is empty, throw an exception
+        foreach (string folder in folders)
+        {
+            if (Directory.GetFiles(folder).Length == 0)
+            {
+                throw new FileNotFoundException($"The folder {folder} is empty. Please put a template file in the folder.");
+            }
+        }
+    }
+
     void ValidateRequest()
     {
         ArgumentNullException.ThrowIfNull(ConversionRequest);
-
-        // Check the template folder
-        if (!Directory.Exists(ConversionRequest.TemplatePath))
-            throw new DirectoryNotFoundException("Template folder not found");
 
         // Validate the input path
         if (string.IsNullOrWhiteSpace(ConversionRequest.InputPath) || !Directory.Exists(ConversionRequest.InputPath))
