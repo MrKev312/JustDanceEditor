@@ -119,7 +119,7 @@ public class XTX
         Console.WriteLine($"Found {ImageInfo} images and {images} data blocks.");
     }
 
-    public byte[] DeswizzleData(int i)
+    public (byte[][] data, byte[] hdr) DeswizzleData(int i)
     {
         TextureHeader texInfo = TextureInfos[i];
         byte[] data = TextureBlocks[i];
@@ -154,14 +154,13 @@ public class XTX
             }
 
             byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
-            //byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), format, mipData);
-            //result.Add(deswizzled.Take(size).ToArray());
-            // For now, keep it swizzled
-            result.Add(mipData);
+            byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
+            result.Add(deswizzled.Take(size).ToArray());
         }
 
-        byte[] hdr = DDS.GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, texInfo.Format, nv.CompSel[i], realSize, BCnFormats.Contains(format));
-        return result.SelectMany(x => x).ToArray();
+        byte[] hdr = DDS.GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, texInfo.Format, texInfo.GetCompSel(), (uint)texInfo.DataSize, BCnFormats.Contains(texInfo.Format));
+
+        return (result.ToArray(), hdr);
     }
 
     public class BlockHeader
@@ -213,7 +212,7 @@ public class XTX
 
         public uint Boolean;
 
-        public (int, int, int, int) GetCompSel()
+        public (uint, uint, uint, uint) GetCompSel()
         {
             return Format switch
             {
