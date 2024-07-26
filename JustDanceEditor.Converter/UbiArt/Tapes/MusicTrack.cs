@@ -9,7 +9,7 @@ public class MusicTrack
     public int PROCEDURAL { get; set; }
     public int STARTPAUSED { get; set; }
     public int FORCEISENVIRONMENT { get; set; }
-    public TrackDataHolder[] COMPONENTS { get; set; }
+    public TrackDataHolder[] COMPONENTS { get; set; } = [];
 }
 
 public class TrackDataHolder
@@ -29,9 +29,9 @@ public class Trackdata
 public class Structure
 {
     public string __class { get; set; }
-    public int[] markers { get; set; }
-    public Signature[] signatures { get; set; }
-    public Section[] sections { get; set; }
+    public int[] markers { get; set; } = [];
+    public Signature[] signatures { get; set; } = [];
+    public Section[] sections { get; set; } = [];
     public int startBeat { get; set; }
     public int endBeat { get; set; }
     public int fadeStartBeat { get; set; }
