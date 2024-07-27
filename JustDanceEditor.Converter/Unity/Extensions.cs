@@ -2,13 +2,7 @@
 
 using JustDanceEditor.Converter.Helpers;
 
-using NAudio.Codecs;
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace JustDanceEditor.Converter.Unity;
 

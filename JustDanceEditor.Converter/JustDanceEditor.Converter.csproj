@@ -4,7 +4,6 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -18,30 +17,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="Unity\TextureConverter\" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
 			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
 			<OutputItemType>Content</OutputItemType>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</ProjectReference>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Update="Resources\library.zip">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\python34.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\xtx_extract.exe">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\_ctypes.pyd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
+		<ProjectReference Include="..\SwitchTexture\SwitchTexture.csproj" />
 	</ItemGroup>
 
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">

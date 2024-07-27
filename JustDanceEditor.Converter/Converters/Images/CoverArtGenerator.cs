@@ -4,8 +4,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using System;
-
 namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class CoverArtGenerator

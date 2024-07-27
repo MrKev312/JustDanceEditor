@@ -2,7 +2,7 @@
 using AssetsTools.NET.Texture;
 using AssetsTools.NET;
 
-namespace JustDanceEditor.Converter.Unity.TextureConverter;
+namespace SwitchTexture.TextureConverter;
 
 public static class TextureHelper
 {

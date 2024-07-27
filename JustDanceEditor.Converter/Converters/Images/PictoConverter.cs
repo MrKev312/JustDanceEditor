@@ -1,8 +1,4 @@
-﻿using JustDanceEditor.Converter.Resources;
-
-using Pfim;
-
-using SixLabors.ImageSharp;
+﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -44,33 +40,8 @@ public static class PictoConverter
             stream.Close();
             newStream.Close();
 
-            // If the file starts with "DDS ", it's already a DDS file and we simply rename it
-            if (File.ReadAllBytes(Path.Combine(convert.TempPictoFolder, fileName + ".xtx")).Take(4).SequenceEqual("DDS "u8.ToArray()))
-            {
-                File.Move(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"), Path.Combine(convert.TempPictoFolder, fileName + ".dds"));
-            }
-            else
-            {
-                // Run xtx_extract on the new file, parameters: -o {filename}.dds {filename}.xtx
-                // Print the output to the console
-                XTXExtractAdapter.ConvertToDDS(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"), Path.Combine(convert.TempPictoFolder, fileName + ".dds"));
-
-                // Delete the .xtx file
-                File.Delete(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
-            }
-
-            // Convert the .dds file to .png
-            Image<Bgra32> newImage;
-            using (IImage image = Pfimage.FromFile(Path.Combine(convert.TempPictoFolder, fileName + ".dds")))
-            {
-
-                // If the image is not in Rgba32 format, throw an exception
-                if (image.Format != ImageFormat.Rgba32)
-                    throw new Exception("Image is not in Rgba32 format!");
-
-                // Create image from image.Data
-                newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-            }
+            // Convert the xtx/dds to png
+            var newImage = TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
 
             if (convert.SongData.CoachCount > 1)
             {

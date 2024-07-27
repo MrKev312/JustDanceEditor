@@ -1,12 +1,6 @@
 ﻿using JustDanceEditor.IPK;
 using JustDanceEditor.UI.Helpers;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace JustDanceEditor.UI.Converting;
 internal class ExtractorDialogue
 {
