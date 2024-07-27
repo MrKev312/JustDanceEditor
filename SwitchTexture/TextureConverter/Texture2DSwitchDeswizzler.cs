@@ -1,8 +1,9 @@
 ﻿using AssetsTools.NET.Texture;
+
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
-namespace JustDanceEditor.Converter.Unity.TextureConverter;
+namespace SwitchTexture.TextureConverter;
 
 public class Texture2DSwitchDeswizzler
 {

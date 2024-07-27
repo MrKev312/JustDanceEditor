@@ -4,7 +4,6 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -18,15 +17,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="Unity\TextureConverter\" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
 			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
 			<OutputItemType>Content</OutputItemType>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</ProjectReference>
+		<ProjectReference Include="..\SwitchTexture\SwitchTexture.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

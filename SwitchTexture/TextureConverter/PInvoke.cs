@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace JustDanceEditor.Converter.Unity.TextureConverter;
+namespace SwitchTexture.TextureConverter;
 
 public partial class PInvoke
 {

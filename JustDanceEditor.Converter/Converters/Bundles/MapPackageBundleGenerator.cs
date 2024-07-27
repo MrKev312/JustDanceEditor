@@ -4,11 +4,12 @@ using AssetsTools.NET;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.Unity.TextureConverter;
 using JustDanceEditor.Converter.Unity;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+
+using SwitchTexture.TextureConverter;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator

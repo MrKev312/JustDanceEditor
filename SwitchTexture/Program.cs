@@ -1,4 +1,4 @@
-﻿using XTX_Extractor;
+﻿using SwitchTexture.TextureType;
 
 Console.Write("Enter a path to a .xtx file: ");
 

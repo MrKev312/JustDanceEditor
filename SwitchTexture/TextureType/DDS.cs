@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace XTX_Extractor;
+namespace SwitchTexture.TextureType;
 
 internal class DDS
 {
@@ -70,9 +70,7 @@ internal class DDS
         byte[] fourCC = new byte[4];
 
         if (mipCount == 0)
-        {
             mipCount = 1;
-        }
         else if (mipCount != 1)
         {
             flags |= 0x00020000;
@@ -125,9 +123,7 @@ internal class DDS
                 throw new Exception("Unsupported format!");
 
             if (hasAlpha && !a)
-            {
                 pFlags |= 0x00000001;
-            }
 
             size = width * fmtBPP;
         }
@@ -143,9 +139,7 @@ internal class DDS
         Array.Copy(BitConverter.GetBytes(pFlags), 0, hdr, 80, 4);
 
         if (compressed)
-        {
             Array.Copy(fourCC, 0, hdr, 84, 4);
-        }
         else
         {
             Array.Copy(BitConverter.GetBytes(fmtBPP << 3), 0, hdr, 88, 4);

@@ -4,10 +4,11 @@ using AssetsTools.NET.Texture;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
-using JustDanceEditor.Converter.Unity.TextureConverter;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using SwitchTexture.TextureConverter;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 

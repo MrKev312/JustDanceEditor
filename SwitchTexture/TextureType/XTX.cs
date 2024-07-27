@@ -1,7 +1,6 @@
-﻿using System.Net;
-using System.Text;
+﻿using System.Text;
 
-namespace XTX_Extractor;
+namespace SwitchTexture.TextureType;
 
 public class XTX
 {
@@ -24,7 +23,7 @@ public class XTX
         BC5S = 0x0000004c
     };
 
-    private readonly XTXImageFormat[] BCnFormats =
+    public readonly XTXImageFormat[] BCnFormats =
     [
         XTXImageFormat.DXT1,
         XTXImageFormat.DXT3,
@@ -35,7 +34,7 @@ public class XTX
         XTXImageFormat.BC5S
     ];
 
-    private static int GetBPP(XTXImageFormat format)
+    public static int GetBPP(XTXImageFormat format)
     {
         return format switch
         {
@@ -137,12 +136,10 @@ public class XTX
         {
             int size;
             if (BCnFormats.Contains(texInfo.Format))
-            {
                 size = (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp);
-            }
             else
             {
-                size = (int)(Math.Max(1, texInfo.Width>> level) * Math.Max(1, texInfo.Height >> level) * bpp);
+                size = (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
             }
 
             int mipOffset = (int)texInfo.MipOffsets[level];
