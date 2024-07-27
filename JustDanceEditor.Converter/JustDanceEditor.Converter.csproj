@@ -25,21 +25,6 @@
 		<ProjectReference Include="..\SwitchTexture\SwitchTexture.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<None Update="Resources\library.zip">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\python34.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\xtx_extract.exe">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Resources\_ctypes.pyd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\PVRTexLib\Windows_x86_64\PVRTexLib.dll" DestinationFolder="$(TargetDir)" />
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\ispc\win64\ispc_texcomp.dll" DestinationFolder="$(TargetDir)" />

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace JustDanceEditor.IPK;
+﻿namespace JustDanceEditor.IPK;
 public static class Extensions
 {
     // Extend the BinaryReader to read stuff in Big Endian

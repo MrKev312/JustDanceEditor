@@ -1,6 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-using System.Text.Json;
+﻿using System.Diagnostics;
 
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;

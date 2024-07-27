@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿using Pfim;
+
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+
+using System.Text;
 
 namespace SwitchTexture.TextureType;
 
@@ -114,8 +119,33 @@ public class XTX
 
         if (!blockB || !blockC)
             throw new Exception("Invalid XTX file! Missing texture or data block.");
+    }
 
-        Console.WriteLine($"Found {ImageInfo} images and {images} data blocks.");
+    public Image<Bgra32> ConvertToImage()
+    {
+        (byte[][] data, byte[] hdr) = DeswizzleData(0);
+
+        byte[] output = [.. hdr, .. data.SelectMany(x => x)];
+
+        MemoryStream memoryStream = new(output);
+
+        // Using pfim, we can convert from DDS to PNG
+        using IImage image = Pfimage.FromStream(memoryStream);
+        if (image.Format != ImageFormat.Rgba32)
+            throw new Exception("Image is not in Rgba32 format!");
+
+        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+
+        return newImage;
+    }
+
+    public static Image<Bgra32> ConvertToImage(string inputPath)
+    {
+        XTX xtx = new();
+        using FileStream fileStream = new(inputPath, FileMode.Open, FileAccess.Read);
+        xtx.LoadFile(fileStream);
+
+        return xtx.ConvertToImage();
     }
 
     public (byte[][] data, byte[] hdr) DeswizzleData(int i)
@@ -126,29 +156,15 @@ public class XTX
         if (texInfo.Depth != 1)
             throw new Exception("Deswizzling only supported for 2D textures!");
 
-        if (texInfo.MipCount > 1)
-            Console.WriteLine($"Deswizzling {texInfo.MipCount - 1} mipmaps...");
-
         int bpp = GetBPP(texInfo.Format);
 
         List<byte[]> result = [];
         for (int level = 0; level < texInfo.MipCount; level++)
         {
-            int size;
-            if (BCnFormats.Contains(texInfo.Format))
-                size = (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp);
-            else
-            {
-                size = (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
-            }
-
+            int size = BCnFormats.Contains(texInfo.Format)
+                ? (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp)
+                : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
             int mipOffset = (int)texInfo.MipOffsets[level];
-
-            if (level != 0)
-            {
-                Console.WriteLine($"{level}: {Math.Max(1, texInfo.Width >> level)}x{Math.Max(1, texInfo.Height >> level)}");
-                Console.WriteLine(mipOffset.ToString("X"));
-            }
 
             byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
             byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
