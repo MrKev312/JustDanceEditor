@@ -35,13 +35,13 @@ public class JDSong
 public class SongDatabaseEntry
 {
     // Must be a version 4 UUID
-    public string MapId { get; set; }
-    public string ParentMapId { get; set; }
-    public string Title { get; set; }
-    public string Artist { get; set; }
-    public string Credits { get; set; }
+    public string MapId { get; set; } = "";
+    public string ParentMapId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Artist { get; set; } = "";
+    public string Credits { get; set; } = "";
     // Format: "#RRGGBB"
-    public string LyricsColor { get; set; }
+    public string LyricsColor { get; set; } = "";
     // Song length in seconds
     public double MapLength { get; set; }
     public uint OriginalJDVersion { get; set; }
@@ -50,12 +50,12 @@ public class SongDatabaseEntry
     // Must be between 1 and 5
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }
-    public List<string> Tags { get; set; }
-    public List<string> TagIds { get; set; }
+    public List<string> Tags { get; set; } = [];
+    public List<string> TagIds { get; set; } = [];
     // Seems to always be empty
-    public List<uint> SearchTagsLocIds { get; set; }
+    public List<uint> SearchTagsLocIds { get; set; } = [];
     // Can be empty, causes all names to be blank
-    public List<uint> CoachNamesLocIds { get; set; }
+    public List<uint> CoachNamesLocIds { get; set; } = [];
 
     [JsonPropertyName("hasSongTitleInCover")]
     // Seems to always be false, set the one in JDSong instead

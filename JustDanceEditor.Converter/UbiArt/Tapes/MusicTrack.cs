@@ -2,7 +2,7 @@
 
 public class MusicTrack
 {
-    public string __class { get; set; }
+    public string __class { get; set; } = "";
     public int WIP { get; set; }
     public int LOWUPDATE { get; set; }
     public int UPDATE_LAYER { get; set; }
@@ -14,21 +14,21 @@ public class MusicTrack
 
 public class TrackDataHolder
 {
-    public string __class { get; set; }
-    public Trackdata trackData { get; set; }
+    public string __class { get; set; } = "";
+    public Trackdata trackData { get; set; } = new();
 }
 
 public class Trackdata
 {
-    public string __class { get; set; }
-    public Structure structure { get; set; }
-    public string path { get; set; }
-    public string url { get; set; }
+    public string __class { get; set; } = "";
+    public Structure structure { get; set; } = new();
+    public string path { get; set; } = "";
+    public string url { get; set; } = "";
 }
 
 public class Structure
 {
-    public string __class { get; set; }
+    public string __class { get; set; } = "";
     public int[] markers { get; set; } = [];
     public Signature[] signatures { get; set; } = [];
     public Section[] sections { get; set; } = [];
@@ -51,15 +51,15 @@ public class Structure
 
 public class Signature
 {
-    public string __class { get; set; }
+    public string __class { get; set; }  = "";
     public float marker { get; set; }
     public int beats { get; set; }
 }
 
 public class Section
 {
-    public string __class { get; set; }
+    public string __class { get; set; } = "";
     public float marker { get; set; }
     public int sectionType { get; set; }
-    public string comment { get; set; }
+    public string comment { get; set; } = "";
 }

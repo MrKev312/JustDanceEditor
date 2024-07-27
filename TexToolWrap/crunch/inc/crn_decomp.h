@@ -1359,7 +1359,7 @@ struct dxt5_block {
 
   uint32 get_endpoints_as_word() const { return m_endpoints[0] | (m_endpoints[1] << 8); }
 
-  uint32 get_selectors_as_word(uint32 index) {
+  uint32 get_selectors_as_word(uint32 index) const {
     CRND_ASSERT(index < 3);
     return m_selectors[index * 2] | (m_selectors[index * 2 + 1] << 8);
   }
@@ -1567,7 +1567,7 @@ class symbol_codec {
   uint32 decode_bits(uint32 num_bits);
   uint32 decode(const static_huffman_data_model& model);
 
-  uint64 stop_decoding();
+  uint64 stop_decoding() const;
 
  public:
   const uint8* m_pDecode_buf;
@@ -1725,7 +1725,7 @@ uint32 compute_max_mips(uint32 width, uint32 height) {
 namespace crnd {
 namespace prefix_coding {
 bool decoder_tables::init(uint32 num_syms, const uint8* pCodesizes, uint32 table_bits) {
-  uint32 min_codes[cMaxExpectedCodeSize];
+    uint32 min_codes[cMaxExpectedCodeSize]{};
   if ((!num_syms) || (table_bits > cMaxTableBits))
     return false;
 
@@ -1740,7 +1740,7 @@ bool decoder_tables::init(uint32 num_syms, const uint8* pCodesizes, uint32 table
       num_codes[c]++;
   }
 
-  uint32 sorted_positions[cMaxExpectedCodeSize + 1];
+  uint32 sorted_positions[cMaxExpectedCodeSize + 1]{};
 
   uint32 cur_code = 0;
 
@@ -1821,7 +1821,7 @@ bool decoder_tables::init(uint32 num_syms, const uint8* pCodesizes, uint32 table
         return false;
     }
 
-    memset(m_lookup, 0xFF, (uint)sizeof(m_lookup[0]) * (1UL << table_bits));
+    memset(m_lookup, 0xFF, (uint)sizeof(m_lookup[0]) * (static_cast<size_t>(1UL) << table_bits));
 
     for (uint32 codesize = 1; codesize <= table_bits; codesize++) {
       if (!num_codes[codesize])
@@ -2720,7 +2720,7 @@ uint32 symbol_codec::decode(const static_huffman_data_model& model) {
   return sym;
 }
 
-uint64 symbol_codec::stop_decoding() {
+uint64 symbol_codec::stop_decoding() const {
   return static_cast<uint64>(m_pDecode_buf_next - m_pDecode_buf);
 }
 
@@ -3143,7 +3143,7 @@ class crn_unpacker {
       return false;
 
     static_huffman_data_model dm[2];
-    for (uint32 i = 0; i < (has_etc_color_blocks ? 1 : 2); i++)
+    for (int i = 0; i < (has_etc_color_blocks ? 1 : 2); i++)
       if (!m_codec.decode_receive_static_data_model(dm[i]))
         return false;
 
@@ -3235,7 +3235,7 @@ class crn_unpacker {
     static_huffman_data_model dm;
     m_codec.decode_receive_static_data_model(dm);
     m_alpha_selectors.resize(m_pHeader->m_alpha_selectors.m_num * 3);
-    uint8 dxt5_from_linear[64];
+    uint8 dxt5_from_linear[64]{};
     for (uint32 i = 0; i < 64; i++)
       dxt5_from_linear[i] = g_dxt5_from_linear[i & 7] | g_dxt5_from_linear[i >> 3] << 3;
     for (uint32 s0_linear = 0, s1_linear = 0, i = 0; i < m_alpha_selectors.size();) {
@@ -3355,7 +3355,7 @@ class crn_unpacker {
           if (!(y & 1) && !(x & 1))
             reference_group = m_codec.decode(m_reference_encoding_dm);
           block_buffer_element &buffer = m_block_buffer[x];
-          uint8 endpoint_reference;
+          uint16 endpoint_reference;
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {
@@ -3408,7 +3408,7 @@ class crn_unpacker {
           if (!(y & 1) && !(x & 1))
             reference_group = m_codec.decode(m_reference_encoding_dm);
           block_buffer_element &buffer = m_block_buffer[x];
-          uint8 endpoint_reference;
+          uint16 endpoint_reference;
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {
@@ -3470,7 +3470,7 @@ class crn_unpacker {
           if (!(y & 1) && !(x & 1))
             reference_group = m_codec.decode(m_reference_encoding_dm);
           block_buffer_element &buffer = m_block_buffer[x];
-          uint8 endpoint_reference;
+          uint16 endpoint_reference;
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {
@@ -3532,7 +3532,7 @@ class crn_unpacker {
           if (!(y & 1) && !(x & 1))
             reference_group = m_codec.decode(m_reference_encoding_dm);
           block_buffer_element &buffer = m_block_buffer[x];
-          uint8 endpoint_reference;
+          uint16 endpoint_reference;
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {
@@ -3582,7 +3582,8 @@ class crn_unpacker {
         for (uint32 x = 0; x < width; x++, pData += 2) {
           visible = visible && x < output_width;
           block_buffer_element &buffer = m_block_buffer[x << 1];
-          uint8 endpoint_reference, block_endpoint[4], e0[4], e1[4];
+		  uint16 endpoint_reference;
+          uint8 block_endpoint[4]{}, e0[4]{}, e1[4]{};
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {
@@ -3649,7 +3650,8 @@ class crn_unpacker {
         for (uint32 x = 0; x < width; x++, pData += 4) {
           visible = visible && x < output_width;
           block_buffer_element &buffer = m_block_buffer[x << 1];
-          uint8 endpoint_reference, block_endpoint[4], e0[4], e1[4];
+		  uint16 endpoint_reference;
+          uint8 block_endpoint[4]{}, e0[4]{}, e1[4]{};
           if (y & 1) {
             endpoint_reference = buffer.endpoint_reference;
           } else {

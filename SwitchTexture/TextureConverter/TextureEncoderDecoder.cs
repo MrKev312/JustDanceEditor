@@ -56,25 +56,14 @@ public class TextureEncoderDecoder
             case TextureFormat.ETC2_RGBA8:
                 blockCountX = (width + 3) / 4;
                 blockCountY = (height + 3) / 4;
-                switch (format)
+                return format switch
                 {
-                    case TextureFormat.EAC_R:
-                    case TextureFormat.EAC_R_SIGNED:
-                        return blockCountX * blockCountY * 8;
-                    case TextureFormat.EAC_RG:
-                    case TextureFormat.EAC_RG_SIGNED:
-                        return blockCountX * blockCountY * 16;
-                    case TextureFormat.ETC_RGB4:
-                    case TextureFormat.ETC_RGB4_3DS:
-                        return blockCountX * blockCountY * 8;
-                    case TextureFormat.ETC2_RGB4:
-                    case TextureFormat.ETC2_RGBA1:
-                    case TextureFormat.ETC2_RGBA8:
-                    case TextureFormat.ETC_RGBA8_3DS:
-                        return blockCountX * blockCountY * 16;
-                    default:
-                        return 0; // can't happen
-                }
+                    TextureFormat.EAC_R or TextureFormat.EAC_R_SIGNED => blockCountX * blockCountY * 8,
+                    TextureFormat.EAC_RG or TextureFormat.EAC_RG_SIGNED => blockCountX * blockCountY * 16,
+                    TextureFormat.ETC_RGB4 or TextureFormat.ETC_RGB4_3DS => blockCountX * blockCountY * 8,
+                    TextureFormat.ETC2_RGB4 or TextureFormat.ETC2_RGBA1 or TextureFormat.ETC2_RGBA8 or TextureFormat.ETC_RGBA8_3DS => blockCountX * blockCountY * 16,
+                    _ => 0,// can't happen
+                };
             case TextureFormat.PVRTC_RGB2:
             case TextureFormat.PVRTC_RGBA2:
                 blockCountX = (width + 7) / 8;
@@ -128,21 +117,14 @@ public class TextureEncoderDecoder
                 {
                     blockCountX = (width + 3) / 4;
                     blockCountY = (height + 3) / 4;
-                    switch (format)
+                    return format switch
                     {
-                        case TextureFormat.DXT1:
-                            return blockCountX * blockCountY * 8;
-                        case TextureFormat.DXT5:
-                            return blockCountX * blockCountY * 16;
-                        case TextureFormat.BC4:
-                            return blockCountX * blockCountY * 8;
-                        case TextureFormat.BC5:
-                        case TextureFormat.BC6H:
-                        case TextureFormat.BC7:
-                            return blockCountX * blockCountY * 16;
-                        default:
-                            return 0; // can't happen
-                    }
+                        TextureFormat.DXT1 => blockCountX * blockCountY * 8,
+                        TextureFormat.DXT5 => blockCountX * blockCountY * 16,
+                        TextureFormat.BC4 => blockCountX * blockCountY * 8,
+                        TextureFormat.BC5 or TextureFormat.BC6H or TextureFormat.BC7 => blockCountX * blockCountY * 16,
+                        _ => 0,// can't happen
+                    };
                 }
             default:
                 return width * height * 16; // don't know
@@ -180,13 +162,11 @@ public class TextureEncoderDecoder
         {
             byte[] resizedDest = new byte[size];
             Buffer.BlockCopy(dest, 0, resizedDest, 0, (int)size);
-            dest = null;
             return resizedDest;
         }
         else
         {
-            dest = null;
-            return null;
+            return [];
         }
     }
 
@@ -208,7 +188,7 @@ public class TextureEncoderDecoder
         if (size > 0)
             return dest; //big size is fine for now
         else
-            return null;
+            return [];
     }
 
     private static byte[] EncodeISPC(byte[] data, int width, int height, TextureFormat format, int quality)
@@ -237,13 +217,11 @@ public class TextureEncoderDecoder
         {
             byte[] resizedDest = new byte[size];
             Buffer.BlockCopy(dest, 0, resizedDest, 0, (int)size);
-            dest = null;
             return resizedDest;
         }
         else
         {
-            dest = null;
-            return null;
+            return [];
         }
     }
 
@@ -273,19 +251,17 @@ public class TextureEncoderDecoder
         {
             byte[] resizedDest = new byte[size];
             Buffer.BlockCopy(dest, 0, resizedDest, 0, (int)size);
-            dest = null;
             return resizedDest;
         }
         else
         {
-            dest = null;
-            return null;
+            return [];
         }
     }
 
     private static byte[] EncodeCrunch(byte[] data, int width, int height, TextureFormat format, int quality, int mips)
     {
-        byte[] dest = Array.Empty<byte>();
+        byte[] dest = [];
         uint size = 0;
         unsafe
         {
@@ -301,7 +277,7 @@ public class TextureEncoderDecoder
                 nint dataIntPtr = (nint)dataPtr;
                 size = PInvoke.EncodeByCrunchUnity(dataIntPtr, ref checkoutId, (int)format, quality, (uint)width, (uint)height, 1, mips);
                 if (size == 0)
-                    return null;
+                    return [];
             }
 
             dest = new byte[size];
@@ -310,7 +286,7 @@ public class TextureEncoderDecoder
             {
                 nint destIntPtr = (nint)destPtr;
                 if (!PInvoke.PickUpAndFree(destIntPtr, size, checkoutId))
-                    return null;
+                    return [];
             }
         }
 
@@ -318,13 +294,11 @@ public class TextureEncoderDecoder
         {
             byte[] resizedDest = new byte[size];
             Buffer.BlockCopy(dest, 0, resizedDest, 0, (int)size);
-            dest = null;
             return resizedDest;
         }
         else
         {
-            dest = null;
-            return null;
+            return [];
         }
     }
 
@@ -340,7 +314,7 @@ public class TextureEncoderDecoder
                 {
                     byte[] uncrunch = DecodeCrunch(data, width, height, format);
                     if (uncrunch == null)
-                        return null;
+                        return [];
 
                     format = format switch
                     {
@@ -351,12 +325,9 @@ public class TextureEncoderDecoder
                         _ => 0 //can't happen
                     };
 
-                    byte[] res;
-                    if (format == TextureFormat.DXT1 || format == TextureFormat.DXT5)
-                        res = DecodeAssetRipperTex(uncrunch, width, height, format);
-                    else //if (format == TextureFormat.ETC_RGB4 || format == TextureFormat.ETC2_RGBA8)
-                        res = DecodePVRTexLib(uncrunch, width, height, format);
-
+                    byte[] res = format is TextureFormat.DXT1 or TextureFormat.DXT5
+                        ? DecodeAssetRipperTex(uncrunch, width, height, format)
+                        : DecodePVRTexLib(uncrunch, width, height, format);
                     return res;
                 }
             //pvrtexlib
@@ -423,7 +394,7 @@ public class TextureEncoderDecoder
                     return res;
                 }
             default:
-                return null;
+                return [];
         }
     }
 
@@ -500,11 +471,9 @@ public class TextureEncoderDecoder
             case TextureFormat.BC6H: //pls don't use
             case TextureFormat.BC4:
             case TextureFormat.BC5:
-                return null;
             case TextureFormat.RGB9e5Float: //pls don't use
-                return null;
             default:
-                return null;
+                return [];
         }
     }
 
@@ -530,7 +499,7 @@ public class TextureEncoderDecoder
                 image.CopyPixelDataTo(rawRgbaData);
                 byte[] rawEncodedData = EncodeMip(rawRgbaData, curWidth, curHeight, format, quality);
                 if (rawEncodedData == null)
-                    return null;
+                    return [];
 
                 rawDataStream.Write(rawEncodedData);
 

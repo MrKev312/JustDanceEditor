@@ -19,8 +19,6 @@ public class DownloadCache
         string nextDBPath = Question.AskFile("Enter the nextDB.json file: ", true);
         Dictionary<string, SongDBSongData> nextDB = JsonSerializer.Deserialize<Dictionary<string, SongDBSongData>>(File.ReadAllText(nextDBPath))!;
 
-        JDCacheJSON status;
-
         // Ask which quality to download the preview and the content in
         int prevQuality = Question.Ask(["Low", "Mid", "High", "Ultra"], question: "Which quality do you want to download the preview in?");
         bool vp9Prev = Question.Ask(["VP8", "VP9"], question: "Do you want to download the preview in VP9?") == 1;

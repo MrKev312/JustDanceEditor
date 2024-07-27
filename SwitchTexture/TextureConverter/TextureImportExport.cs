@@ -10,7 +10,7 @@ public class TextureImportExport
     public static byte[] Import(
         string imagePath, TextureFormat format,
         out int width, out int height, ref int mips,
-        uint platform = 0, byte[] platformBlob = null)
+        uint platform = 0, byte[]? platformBlob = null)
     {
         using Image<Rgba32> image = Image.Load<Rgba32>(imagePath);
         return Import(image, format, out width, out height, ref mips, platform, platformBlob);
@@ -19,7 +19,7 @@ public class TextureImportExport
     public static byte[] Import(
         Image<Rgba32> image, TextureFormat format,
         out int width, out int height, ref int mips,
-        uint platform = 0, byte[] platformBlob = null)
+        uint platform = 0, byte[]? platformBlob = null)
     {
         // switch swizzle code does not support mipmaps yet (they're a bit special)
         if (platform == 38 && platformBlob != null && platformBlob.Length != 0)
@@ -41,9 +41,8 @@ public class TextureImportExport
     private static byte[] ImportSwitch(
         Image<Rgba32> image, TextureFormat format,
         out int width, out int height,
-        byte[] platformBlob = null)
+        byte[]? platformBlob = null)
     {
-        byte[] decData;
         int paddedWidth, paddedHeight;
 
         width = image.Width;
@@ -70,9 +69,9 @@ public class TextureImportExport
         return encData;
     }
 
-    public static Image<Rgba32> Export(
+    public static Image<Rgba32>? Export(
         byte[] encData, int width, int height,
-        TextureFormat format, uint platform = 0, byte[] platformBlob = null)
+        TextureFormat format, uint platform = 0, byte[]? platformBlob = null)
     {
         if (platform == 38 && platformBlob != null && platformBlob.Length != 0)
             return ExportSwitch(encData, width, height, format, platformBlob);
@@ -89,9 +88,9 @@ public class TextureImportExport
         return image;
     }
 
-    private static Image<Rgba32> ExportSwitch(
+    private static Image<Rgba32>? ExportSwitch(
         byte[] encData, int width, int height,
-        TextureFormat format, byte[] platformBlob = null)
+        TextureFormat format, byte[]? platformBlob = null)
     {
         int originalWidth = width;
         int originalHeight = height;

@@ -180,8 +180,9 @@ public class Texture2DSwitchDeswizzler
         return new Size(width, height);
     }
 
-    internal static int GetSwitchGobsPerBlock(byte[] platformBlob)
+    internal static int GetSwitchGobsPerBlock(byte[]? platformBlob)
     {
+        platformBlob ??= [];
         // apparently there is another value to worry about, but seeing as it's
         // always 0 and I have nothing else to test against, this will probably
         // work fine for now

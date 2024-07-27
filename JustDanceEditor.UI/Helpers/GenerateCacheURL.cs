@@ -323,9 +323,9 @@ public static class GenerateCacheURL
     {
         // First get all relevant data
         Console.Write("Enter the song title: ");
-        string? songTitle = Console.ReadLine();
+        string songTitle = Console.ReadLine()!;
         Console.Write("Enter the artist name: ");
-        string? artistName = Console.ReadLine();
+        string artistName = Console.ReadLine()!;
         Console.Write("Enter the original just dance version: ");
         uint originalJustDanceVersion = uint.Parse(Console.ReadLine()!);
         Console.Write("Enter the coach count: ");
@@ -410,7 +410,7 @@ public static class GenerateCacheURL
         // Ask for the parentMapId
         Console.WriteLine("You are required to look for the parentMapId. You can find this on the wiki.");
         Console.Write("Enter the ParentMapId: ");
-        string? parentMapId = Console.ReadLine();
+        string parentMapId = Console.ReadLine()!;
 
         //// Open the webm file and get the duration
         //string webmPath = Path.Combine(cachexPath, "Video_HIGH_vp9_webm", videoHighVp9WebmUrl);
@@ -510,7 +510,7 @@ public static class GenerateCacheURL
             {
                 // Ask for the song title
                 Console.Write("Enter the song title (or exit): ");
-                string? songTitle = Console.ReadLine();
+                string songTitle = Console.ReadLine()!;
 
                 if (songTitle is "exit" or "")
                     break;
