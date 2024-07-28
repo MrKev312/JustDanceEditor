@@ -76,9 +76,9 @@ public class XTX
         TextureBlocks = [];
 
         BinaryReader reader = new(data);
-        string Signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
-        if (Signature != "DFvN")
-            throw new Exception($"Invalid signature {Signature}! Expected DFvN.");
+        string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
+        if (signature != "DFvN")
+            throw new Exception($"Invalid signature {signature}! Expected DFvN.");
 
         HeaderSize = reader.ReadUInt32();
         MajorVersion = reader.ReadUInt32();
@@ -192,9 +192,9 @@ public class XTX
         {
             long pos = reader.BaseStream.Position;
 
-            string Signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
-            if (Signature != "HBvN")
-                throw new Exception($"Invalid signature {Signature}! Expected HBvN.");
+            string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
+            if (signature != "HBvN")
+                throw new Exception($"Invalid signature {signature}! Expected HBvN.");
 
             BlockSize = reader.ReadUInt32();
             DataSize = reader.ReadUInt64();
