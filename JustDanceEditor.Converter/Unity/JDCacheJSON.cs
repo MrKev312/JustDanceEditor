@@ -88,17 +88,17 @@ public class SongDatabaseEntry
 
 public class AssetFilesDict
 {
-    public Asset Cover { get; set; }
-    public Asset CoachesSmall { get; set; }
-    public Asset CoachesLarge { get; set; }
-    public Asset AudioPreview_opus { get; set; }
-    public Asset VideoPreview_MID_vp9_webm { get; set; }
+    public Asset Cover { get; set; } = new();
+    public Asset CoachesSmall { get; set; } = new();
+    public Asset CoachesLarge { get; set; } = new();
+    public Asset AudioPreview_opus { get; set; } = new();
+    public Asset VideoPreview_MID_vp9_webm { get; set; } = new();
     [JsonPropertyName("songTitleLogo")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Asset? SongTitleLogo { get; set; } = null;
-    public Asset Audio_opus { get; set; }
-    public Asset Video_HIGH_vp9_webm { get; set; }
-    public Asset MapPackage { get; set; }
+    public Asset Audio_opus { get; set; } = new();
+    public Asset Video_HIGH_vp9_webm { get; set; } = new();
+    public Asset MapPackage { get; set; } = new();
 }
 
 public enum AssetType
@@ -119,9 +119,9 @@ public class Asset
     [JsonPropertyName("assetType")]
     public AssetType AssetType { get; set; }
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string Name { get; set; } = "";
     [JsonPropertyName("hash")]
-    public string Hash { get; set; }
+    public string Hash { get; set; } = "";
     [JsonPropertyName("ready")]
     public bool Ready { get; set; }
     [JsonPropertyName("size")]
@@ -130,7 +130,7 @@ public class Asset
     public uint Category { get; set; }
     [JsonPropertyName("filePath")]
     // If this is set, change the hash to the file's MD5 hash
-    public string FilePath { get; set; }
+    public string FilePath { get; set; } = "";
 }
 
 // Everything in this class seems to always be 0

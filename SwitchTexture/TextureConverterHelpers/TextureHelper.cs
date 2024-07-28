@@ -2,13 +2,14 @@
 using AssetsTools.NET.Texture;
 using AssetsTools.NET;
 
-namespace SwitchTexture.TextureConverter;
+namespace SwitchTexture.TextureConverterHelpers;
 
 public static class TextureHelper
 {
     public static byte[] GetRawTextureBytes(TextureFile texFile, AssetsFileInstance inst)
     {
-        string rootPath = Path.GetDirectoryName(inst.path);
+        string? rootPath = Path.GetDirectoryName(inst.path);
+
         if (texFile.m_StreamData.size != 0 && texFile.m_StreamData.path != string.Empty)
         {
             string fixedStreamPath = texFile.m_StreamData.path;
@@ -27,7 +28,7 @@ public static class TextureHelper
             }
             else
             {
-                return null;
+                return [];
             }
         }
 
@@ -37,7 +38,7 @@ public static class TextureHelper
     public static byte[] GetPlatformBlob(AssetTypeValueField texBaseField)
     {
         AssetTypeValueField m_PlatformBlob = texBaseField["m_PlatformBlob"];
-        byte[] platformBlob = null;
+        byte[] platformBlob = [];
         if (!m_PlatformBlob.IsDummy)
             platformBlob = m_PlatformBlob["Array"].AsByteArray;
 

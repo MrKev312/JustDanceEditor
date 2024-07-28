@@ -3,7 +3,7 @@
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
-namespace SwitchTexture.TextureConverter;
+namespace SwitchTexture.TextureConverterHelpers;
 
 public class Texture2DSwitchDeswizzler
 {

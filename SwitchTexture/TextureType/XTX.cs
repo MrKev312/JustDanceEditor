@@ -4,6 +4,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
 using System.Text;
+using SwitchTexture.TextureConverterHelpers;
 
 namespace SwitchTexture.TextureType;
 
@@ -139,7 +140,7 @@ public class XTX
         return newImage;
     }
 
-    public static Image<Bgra32> ConvertToImage(string inputPath)
+    public static Image<Bgra32> GetImage(string inputPath)
     {
         XTX xtx = new();
         using FileStream fileStream = new(inputPath, FileMode.Open, FileAccess.Read);

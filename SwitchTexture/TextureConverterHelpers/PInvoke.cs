@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace SwitchTexture.TextureConverter;
+namespace SwitchTexture.TextureConverterHelpers;
 
 public partial class PInvoke
 {

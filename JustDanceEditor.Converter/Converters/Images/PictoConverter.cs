@@ -2,6 +2,8 @@
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using SwitchTexture;
+
 using System.Diagnostics;
 
 namespace JustDanceEditor.Converter.Converters.Images;
@@ -41,7 +43,7 @@ public static class PictoConverter
             newStream.Close();
 
             // Convert the xtx/dds to png
-            var newImage = TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
+            Image<Bgra32> newImage = TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
 
             if (convert.SongData.CoachCount > 1)
             {
@@ -87,7 +89,6 @@ public static class PictoConverter
 
             // Get the current image
             (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
-
 
             // Get the x and y coordinates
             int x_coord = indexInAtlas % 4 * 512;

@@ -26,8 +26,9 @@ public class ConvertUbiArtToUnity
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
     public string TempMenuArtFolder => Path.Combine(TempMapFolder, "menuart");
     public string TempAudioFolder => Path.Combine(TempMapFolder, "audio");
+    public string PlatformType { get; private set; } = "NX";
     // Specific map folders
-    public string CacheFolder => Path.Combine(InputFolder, "cache", "itf_cooked", "nx", "world", "maps", SongData.Name);
+    public string CacheFolder => Path.Combine(InputFolder, "cache", "itf_cooked", PlatformType, "world", "maps", SongData.Name);
     public string MapsFolder => Path.Combine(InputFolder, "world", "maps");
     public string TimelineFolder => Path.Combine(CacheFolder, "timeline");
     public string MovesFolder => Path.Combine(MapsFolder, SongData.Name, "timeline", "moves", "wiiu");
@@ -125,6 +126,14 @@ public class ConvertUbiArtToUnity
         };
 
         Console.WriteLine($"Song name: {SongData.Name}");
+
+        string path = Path.Combine(InputFolder, "cache", "itf_cooked");
+        PlatformType = Directory.GetDirectories(path).First();
+
+        Console.Write($"Platform: {PlatformType}");
+        Console.WriteLine(!PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase) ?
+            " which is not officially supported. The conversion might not work as expected." :
+            "");
 
         Console.WriteLine("Loading KTape");
         SongData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!;

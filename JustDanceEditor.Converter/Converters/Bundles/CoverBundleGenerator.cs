@@ -8,7 +8,7 @@ using JustDanceEditor.Converter.Unity;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using SwitchTexture.TextureConverter;
+using SwitchTexture.TextureConverterHelpers;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 

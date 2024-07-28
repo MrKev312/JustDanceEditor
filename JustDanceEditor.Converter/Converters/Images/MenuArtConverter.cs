@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using SwitchTexture;
+
+using System.Diagnostics;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -15,7 +17,7 @@ public static class MenuArtConverter
         {
             string fileName = Path.GetFileNameWithoutExtension(item);
             string tempFilePath = PrepareFileForConversion(item, convert.TempMenuArtFolder, fileName);
-            TextureConverter.ExtractToPNG(tempFilePath, convert.TempMenuArtFolder, fileName + ".png");
+            TextureConverter.ExtractToPNG(tempFilePath, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
         });
 
         stopwatch.Stop();

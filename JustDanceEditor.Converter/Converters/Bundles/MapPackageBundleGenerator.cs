@@ -8,8 +8,7 @@ using JustDanceEditor.Converter.Unity;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
-
-using SwitchTexture.TextureConverter;
+using SwitchTexture.TextureConverterHelpers;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator

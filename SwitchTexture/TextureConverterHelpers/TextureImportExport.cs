@@ -3,7 +3,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using AssetsTools.NET.Texture;
 
-namespace SwitchTexture.TextureConverter;
+namespace SwitchTexture.TextureConverterHelpers;
 
 public class TextureImportExport
 {

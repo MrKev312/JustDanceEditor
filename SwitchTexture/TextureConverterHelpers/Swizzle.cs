@@ -1,6 +1,6 @@
 ﻿using SwitchTexture.TextureType;
 
-namespace SwitchTexture;
+namespace SwitchTexture.TextureConverterHelpers;
 
 internal class Swizzle
 {
@@ -42,10 +42,8 @@ internal class Swizzle
 
         uint hh = Pow2RoundUp(originHeight) >> 1;
 
-        if (!IsPow2(originHeight) && originHeight <= hh + hh / 3 && yb > 3)
-        {
+        if (!IsPow2(originHeight) && originHeight <= hh + (hh / 3) && yb > 3)
             yb -= 1;
-        }
 
         width = RoundSize(originWidth, padds[bpp]);
 
@@ -61,9 +59,7 @@ internal class Swizzle
                 int pos = GetAddr(x, y, xb, yb, width, xBase) * bpp;
 
                 if (pos_ + bpp <= data.Length && pos + bpp <= data.Length)
-                {
                     Array.Copy(data, pos, result, pos_, bpp);
-                }
 
                 pos_ += bpp;
             }
@@ -106,9 +102,7 @@ internal class Swizzle
         for (int i = 0; i < 32; i++)
         {
             if ((v & (1 << i)) != 0)
-            {
                 break;
-            }
 
             numZeros += 1;
         }
@@ -124,7 +118,7 @@ internal class Swizzle
         int yUsed = 0;
         int address = 0;
 
-        while ((xUsed < xBase + 2) && (xUsed + xCnt < xb))
+        while (xUsed < xBase + 2 && xUsed + xCnt < xb)
         {
             int xMask = (1 << xCnt) - 1;
             int yMask = (1 << yCnt) - 1;
@@ -142,7 +136,7 @@ internal class Swizzle
             yCnt = Math.Max(Math.Min(yb - yUsed, yCnt << 1), 0);
         }
 
-        address |= (int)((x + y * (width >> xUsed)) << (xUsed + yUsed));
+        address |= (int)((x + (y * (width >> xUsed))) << (xUsed + yUsed));
 
         return address;
     }

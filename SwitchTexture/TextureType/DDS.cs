@@ -1,9 +1,24 @@
-﻿using System.Text;
+﻿using Pfim;
+
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
+using System.Text;
 
 namespace SwitchTexture.TextureType;
 
-internal class DDS
+public class DDS
 {
+    internal static Image<Bgra32> GetImage(string inputPath)
+    {
+        using IImage image = Pfimage.FromFile(inputPath);
+        if (image.Format != ImageFormat.Rgba32)
+            throw new Exception("Image is not in Rgba32 format!");
+
+        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+        return newImage;
+    }
+
     internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, XTX.XTXImageFormat format, (uint, uint, uint, uint) compSel, uint size, bool compressed)
     {
         byte[] hdr = new byte[128];
