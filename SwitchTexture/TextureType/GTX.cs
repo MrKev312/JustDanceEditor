@@ -3,6 +3,7 @@ using SixLabors.ImageSharp;
 
 using System.Text;
 using static SwitchTexture.TextureType.XTX;
+using static SwitchTexture.TextureType.DDS;
 
 namespace SwitchTexture.TextureType;
 
@@ -96,10 +97,10 @@ public class GTX
     private GTXHeader? header = null;
 
 
-    public List<GX2Surface> gTXSurfaces { get; private set; } = [];
-    public List<byte[]> imageDatas { get; private set; } = [];
-    public Dictionary<uint, byte[]> mipDatas { get; private set; } = [];
-    public List<GTXDataBlock> blocks { get; private set; } = [];
+    public List<GX2Surface> GTXSurfaces { get; private set; } = [];
+    public List<byte[]> ImageDatas { get; private set; } = [];
+    public Dictionary<uint, byte[]> MipDatas { get; private set; } = [];
+    public List<GTXDataBlock> Blocks { get; private set; } = [];
 
     public void LoadFile(Stream data)
     {
@@ -126,7 +127,7 @@ public class GTX
         while (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             GTXDataBlock block = new(reader);
-            blocks.Add(block);
+            Blocks.Add(block);
 
             bool blockIsEmpty = block.BlockType is BlockType.AlignData or BlockType.EndOfFile;
 
@@ -147,7 +148,7 @@ public class GTX
                         if (surface.MipCount > 14)
                             throw new Exception($"Invalid number of mip maps {surface.MipCount}!");
 
-                        gTXSurfaces.Add(surface);
+                        GTXSurfaces.Add(surface);
                         break;
                     }
                 case BlockType.SurfaceData:
@@ -155,7 +156,7 @@ public class GTX
                         images++;
                         blockC = true;
 
-                        imageDatas.Add(block.Data);
+                        ImageDatas.Add(block.Data);
 
                         break;
                     }
@@ -164,7 +165,7 @@ public class GTX
                         if (!blockC)
                             throw new Exception("MipData2 block without SurfaceData block!");
 
-                        mipDatas.Add(images - 1, block.Data);
+                        MipDatas.Add(images - 1, block.Data);
 
                         break;
                     }
@@ -187,6 +188,49 @@ public class GTX
         gtx.LoadFile(fs);
 
         return null;
+    }
+
+    public (byte[][] data, byte[] hdr) DeswizzleData(int i)
+    {
+        GX2Surface texInfo = GTXSurfaces[i];
+        byte[] data = ImageDatas[i];
+
+        // Try to get the mip data, else empty byte array
+        byte[] mipData = MipDatas.TryGetValue((uint)i, out byte[]? mip) ? mip : [];
+
+        if (texInfo.AA != 1)
+            throw new Exception("Unsupported AA value!");
+
+        if (texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
+            throw new Exception("Invalid format!");
+
+        DDSFormat ddsFormat = texInfo.Format switch
+        {
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM => DDSFormat.RGBA8,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_SRGB => DDSFormat.RGBA_SRGB,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TCS_R10_G10_B10_A2_UNORM => DDSFormat.RGB10A2,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TCS_R5_G6_B5_UNORM => DDSFormat.RGB565,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TC_R5_G5_B5_A1_UNORM => DDSFormat.RGB5A1,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TC_R4_G4_B4_A4_UNORM => DDSFormat.RGBA4,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TC_R8_UNORM => DDSFormat.L8,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TC_R8_G8_UNORM => DDSFormat.LA8,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_TC_R4_G4_UNORM => DDSFormat.LA4,
+            // BCn formats
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC1_UNORM => DDSFormat.BC1,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC1_SRGB => DDSFormat.BC1,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC2_UNORM => DDSFormat.BC2,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC2_SRGB => DDSFormat.BC2,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC3_UNORM => DDSFormat.BC3,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC3_SRGB => DDSFormat.BC3,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC4_UNORM => DDSFormat.BC4U,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC4_SNORM => DDSFormat.BC4S,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC5_UNORM => DDSFormat.BC5U,
+            GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC5_SNORM => DDSFormat.BC5S,
+            
+            _ => throw new Exception("Unsupported format!")
+        };
+
+        throw new NotImplementedException();
     }
 
     public class GTXHeader

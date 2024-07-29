@@ -4,6 +4,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
 using System.Text;
+using static SwitchTexture.TextureType.DDS;
 using SwitchTexture.TextureConverterHelpers;
 
 namespace SwitchTexture.TextureType;
@@ -28,17 +29,6 @@ public class XTX
         BC5U = 0x0000004b,
         BC5S = 0x0000004c
     };
-
-    public readonly XTXImageFormat[] BCnFormats =
-    [
-        XTXImageFormat.DXT1,
-        XTXImageFormat.DXT3,
-        XTXImageFormat.DXT5,
-        XTXImageFormat.BC4U,
-        XTXImageFormat.BC4S,
-        XTXImageFormat.BC5U,
-        XTXImageFormat.BC5S
-    ];
 
     public static int GetBPP(XTXImageFormat format)
     {
@@ -159,10 +149,33 @@ public class XTX
 
         int bpp = GetBPP(texInfo.Format);
 
+        // Convert xtx format to dds format
+        DDSFormat ddsFormat = texInfo.Format switch
+        {
+            XTXImageFormat.NVN_FORMAT_RGBA8 => DDSFormat.RGBA8,
+            XTXImageFormat.NVN_FORMAT_RGBA8_SRGB => DDSFormat.RGBA_SRGB,
+            XTXImageFormat.NVN_FORMAT_RGB10A2 => DDSFormat.RGB10A2,
+            XTXImageFormat.NVN_FORMAT_RGB565 => DDSFormat.RGB565,
+            XTXImageFormat.NVN_FORMAT_RGB5A1 => DDSFormat.RGB5A1,
+            XTXImageFormat.NVN_FORMAT_RGBA4 => DDSFormat.RGBA4,
+            XTXImageFormat.NVN_FORMAT_R8 => DDSFormat.L8,
+            XTXImageFormat.NVN_FORMAT_RG8 => DDSFormat.LA8,
+            // BCn formats
+            XTXImageFormat.DXT1 => DDSFormat.BC1,
+            XTXImageFormat.DXT3 => DDSFormat.BC2,
+            XTXImageFormat.DXT5 => DDSFormat.BC3,
+            XTXImageFormat.BC4U => DDSFormat.BC4U,
+            XTXImageFormat.BC4S => DDSFormat.BC4S,
+            XTXImageFormat.BC5U => DDSFormat.BC5U,
+            XTXImageFormat.BC5S => DDSFormat.BC5S,
+
+            _ => throw new Exception("Invalid format!")
+        };
+
         List<byte[]> result = [];
         for (int level = 0; level < texInfo.MipCount; level++)
         {
-            int size = BCnFormats.Contains(texInfo.Format)
+            int size = BCnFormats.Contains(ddsFormat)
                 ? (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp)
                 : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
             int mipOffset = (int)texInfo.MipOffsets[level];
@@ -172,7 +185,7 @@ public class XTX
             result.Add(deswizzled.Take(size).ToArray());
         }
 
-        byte[] hdr = DDS.GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, texInfo.Format, texInfo.GetCompSel(), (uint)texInfo.DataSize, BCnFormats.Contains(texInfo.Format));
+        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize, BCnFormats.Contains(ddsFormat));
 
         return (result.ToArray(), hdr);
     }

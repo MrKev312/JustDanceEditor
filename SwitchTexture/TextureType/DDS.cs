@@ -5,10 +5,52 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
 
+using static SwitchTexture.TextureType.DDS;
+
 namespace SwitchTexture.TextureType;
 
 public class DDS
 {
+    public enum DDSFormat
+    {
+        // Common formats
+        ETC1,
+        DXT1,
+        DXT3,
+        DXT5,
+        BC1,
+        BC2,
+        BC3,
+        BC4U,
+        BC4S,
+        BC5U,
+        BC5S,
+        // NVN formats
+        RGBA8,
+        RGBA_SRGB,
+        RGB10A2,
+        RGB565,
+        RGB5A1,
+        RGBA4,
+        L8,
+        LA8,
+        LA4
+    }
+
+    public static readonly DDSFormat[] BCnFormats =
+    {
+        DDSFormat.DXT1,
+        DDSFormat.DXT3,
+        DDSFormat.DXT5,
+        DDSFormat.BC1,
+        DDSFormat.BC2,
+        DDSFormat.BC3,
+        DDSFormat.BC4U,
+        DDSFormat.BC4S,
+        DDSFormat.BC5U,
+        DDSFormat.BC5S
+    };
+
     internal static Image<Bgra32> GetImage(string inputPath)
     {
         using IImage image = Pfimage.FromFile(inputPath);
@@ -19,7 +61,7 @@ public class DDS
         return newImage;
     }
 
-    internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, XTX.XTXImageFormat format, (uint, uint, uint, uint) compSel, uint size, bool compressed)
+    internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, DDSFormat format, (uint, uint, uint, uint) compSel, uint size, bool compressed)
     {
         byte[] hdr = new byte[128];
         (uint, uint, uint, uint, uint) compSels = (0, 0, 0, 0, 0);
@@ -31,48 +73,56 @@ public class DDS
 
         switch (format)
         {
-            case XTX.XTXImageFormat.NVN_FORMAT_RGBA8:
-            case XTX.XTXImageFormat.NVN_FORMAT_RGBA8_SRGB:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGBA8:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGBA8_SRGB:
+            case DDSFormat.RGBA8:
+            case DDSFormat.RGBA_SRGB:
                 RGB = true;
                 compSels = (0xFF, 0xFF00, 0xFF0000, 0xFF000000, 0);
                 fmtBPP = 4;
                 hasAlpha = true;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_RGB10A2:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGB10A2:
+            case DDSFormat.RGB10A2:
                 RGB = true;
                 compSels = (0x3FF00000, 0xFFC00, 0x3FF, 0xC0000000, 0);
                 fmtBPP = 4;
                 hasAlpha = true;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_RGB565:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGB565:
+            case DDSFormat.RGB565:
                 RGB = true;
                 compSels = (0x1F, 0x7E0, 0xF800, 0, 0);
                 fmtBPP = 2;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_RGB5A1:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGB5A1:
+            case DDSFormat.RGB5A1:
                 RGB = true;
                 compSels = (0x1F, 0x3E0, 0x7C00, 0x8000, 0);
                 fmtBPP = 2;
                 hasAlpha = true;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_RGBA4:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RGBA4:
+            case DDSFormat.RGBA4:
                 RGB = true;
                 compSels = (0xF, 0xF0, 0xF00, 0xF000, 0);
                 fmtBPP = 2;
                 hasAlpha = true;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_R8:
+            //case XTX.XTXImageFormat.NVN_FORMAT_R8:
+            case DDSFormat.L8:
                 luminance = true;
                 compSels = (0xFF, 0, 0, 0, 0);
                 fmtBPP = 1;
                 break;
 
-            case XTX.XTXImageFormat.NVN_FORMAT_RG8:
+            //case XTX.XTXImageFormat.NVN_FORMAT_RG8:
+            case DDSFormat.LA8:
                 luminance = true;
                 compSels = (0xFF, 0xFF00, 0, 0, 0);
                 fmtBPP = 2;
@@ -98,22 +148,21 @@ public class DDS
             flags |= 0x00080000;
             pFlags = 0x00000004;
 
-            if (format == XTX.XTXImageFormat.DXT1)
-                fourCC = Encoding.ASCII.GetBytes("DXT1");
-            else if (format == XTX.XTXImageFormat.DXT3)
-                fourCC = Encoding.ASCII.GetBytes("DXT3");
-            else if (format == XTX.XTXImageFormat.DXT5)
-                fourCC = Encoding.ASCII.GetBytes("DXT5");
-            else if (format == XTX.XTXImageFormat.BC4U)
-                fourCC = Encoding.ASCII.GetBytes("ATI1");
-            else if (format == XTX.XTXImageFormat.BC4S)
-                fourCC = Encoding.ASCII.GetBytes("BC4S");
-            else if (format == XTX.XTXImageFormat.BC5U)
-                fourCC = Encoding.ASCII.GetBytes("BC5U");
-            else if (format == XTX.XTXImageFormat.BC5S)
-                fourCC = Encoding.ASCII.GetBytes("BC5S");
-            else
-                throw new Exception("Unsupported format!");
+            fourCC = format switch
+            {
+                DDSFormat.ETC1 => Encoding.ASCII.GetBytes("ETC1"),
+                DDSFormat.DXT1 => Encoding.ASCII.GetBytes("DXT1"),
+                DDSFormat.DXT3 => Encoding.ASCII.GetBytes("DXT3"),
+                DDSFormat.DXT5 => Encoding.ASCII.GetBytes("DXT5"),
+                DDSFormat.BC1 => Encoding.ASCII.GetBytes("DXT1"),
+                DDSFormat.BC2 => Encoding.ASCII.GetBytes("DXT3"),
+                DDSFormat.BC3 => Encoding.ASCII.GetBytes("DXT5"),
+                DDSFormat.BC4U => Encoding.ASCII.GetBytes("ATI1"),
+                DDSFormat.BC4S => Encoding.ASCII.GetBytes("BC4S"),
+                DDSFormat.BC5U => Encoding.ASCII.GetBytes("BC5U"),
+                DDSFormat.BC5S => Encoding.ASCII.GetBytes("BC5S"),
+                _ => throw new Exception("Unsupported format!"),
+            };
         }
         else
         {
@@ -153,19 +202,36 @@ public class DDS
         Array.Copy(BitConverter.GetBytes((uint)32), 0, hdr, 76, 4);
         Array.Copy(BitConverter.GetBytes(pFlags), 0, hdr, 80, 4);
 
+        uint[] compSelsArr = [
+            compSels.Item1,
+            compSels.Item2,
+            compSels.Item3,
+            compSels.Item4,
+            compSels.Item5
+            ];
+
         if (compressed)
             Array.Copy(fourCC, 0, hdr, 84, 4);
         else
         {
             Array.Copy(BitConverter.GetBytes(fmtBPP << 3), 0, hdr, 88, 4);
 
-            Array.Copy(BitConverter.GetBytes(compSels.Item1), 0, hdr, 92, 4);
-            Array.Copy(BitConverter.GetBytes(compSels.Item2), 0, hdr, 96, 4);
-            Array.Copy(BitConverter.GetBytes(compSels.Item3), 0, hdr, 100, 4);
-            Array.Copy(BitConverter.GetBytes(compSels.Item4), 0, hdr, 104, 4);
+            Array.Copy(BitConverter.GetBytes(compSelsArr[compSel.Item1]), 0, hdr, 92, 4);
+            Array.Copy(BitConverter.GetBytes(compSelsArr[compSel.Item2]), 0, hdr, 96, 4);
+            Array.Copy(BitConverter.GetBytes(compSelsArr[compSel.Item3]), 0, hdr, 100, 4);
+            Array.Copy(BitConverter.GetBytes(compSelsArr[compSel.Item4]), 0, hdr, 104, 4);
         }
 
         Array.Copy(BitConverter.GetBytes(caps), 0, hdr, 108, 4);
+
+        hdr = format switch
+        {
+            DDSFormat.BC4U => [.. hdr, .. new byte[] { 0x50, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }],
+            DDSFormat.BC4S => [.. hdr, .. new byte[] { 0x51, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }],
+            DDSFormat.BC5U => [.. hdr, .. new byte[] { 0x53, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }],
+            DDSFormat.BC5S => [.. hdr, .. new byte[] { 0x54, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }],
+            _ => hdr,
+        };
 
         return hdr;
     }
