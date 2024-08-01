@@ -5,9 +5,7 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
 
-using static SwitchTexture.TextureType.DDS;
-
-namespace SwitchTexture.TextureType;
+namespace TextureConverter.TextureType;
 
 public class DDS
 {
@@ -38,7 +36,7 @@ public class DDS
     }
 
     public static readonly DDSFormat[] BCnFormats =
-    {
+    [
         DDSFormat.DXT1,
         DDSFormat.DXT3,
         DDSFormat.DXT5,
@@ -49,7 +47,7 @@ public class DDS
         DDSFormat.BC4S,
         DDSFormat.BC5U,
         DDSFormat.BC5S
-    };
+    ];
 
     internal static Image<Bgra32> GetImage(string inputPath)
     {

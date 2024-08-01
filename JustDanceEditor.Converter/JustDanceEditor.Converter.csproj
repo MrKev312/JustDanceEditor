@@ -22,7 +22,7 @@
 			<OutputItemType>Content</OutputItemType>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</ProjectReference>
-		<ProjectReference Include="..\SwitchTexture\SwitchTexture.csproj" />
+		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
 	</ItemGroup>
 
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">

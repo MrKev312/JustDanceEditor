@@ -4,10 +4,10 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
 using System.Text;
-using static SwitchTexture.TextureType.DDS;
-using SwitchTexture.TextureConverterHelpers;
+using static TextureConverter.TextureType.DDS;
+using TextureConverter.TextureConverterHelpers;
 
-namespace SwitchTexture.TextureType;
+namespace TextureConverter.TextureType;
 
 public class XTX
 {

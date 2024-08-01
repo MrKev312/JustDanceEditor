@@ -1,6 +1,6 @@
-﻿using SwitchTexture.TextureType;
+﻿using TextureConverter.TextureType;
 
-namespace SwitchTexture.TextureConverterHelpers;
+namespace TextureConverter.TextureConverterHelpers;
 
 internal class Swizzle
 {
