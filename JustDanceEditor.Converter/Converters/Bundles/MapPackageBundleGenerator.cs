@@ -584,8 +584,8 @@ public static class MapPackageBundleGenerator
         // Add the clips from the mainsequence tape
         foreach (MainSequenceClip clip in convert.SongData.MainSequence.Clips)
         {
-            // If the clip is a HideHudClip, add it to the HideHudClips array
-            if (clip.__class == "HideHudClip")
+            // If the clip is a HideUserInterfaceClip, add it to the HideHudClips array
+            if (clip.__class == "HideUserInterfaceClip")
             {
                 AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
 
