@@ -207,11 +207,8 @@ public static class MapPackageBundleGenerator
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (IClip iClip in convert.SongData.KTape.Clips)
+        foreach (KaraokeClip clip in convert.SongData.KTape.Clips.OfType<KaraokeClip>())
         {
-            if (iClip is not KaraokeClip clip)
-                continue;
-
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
             AssetTypeValueField karaokeClip = newContainer["KaraokeClip"];
