@@ -27,6 +27,10 @@
 		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Helpers\CustomJsonParsers\" />
+	</ItemGroup>
+
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\PVRTexLib\Windows_x86_64\PVRTexLib.dll" DestinationFolder="$(TargetDir)" />
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\ispc\win64\ispc_texcomp.dll" DestinationFolder="$(TargetDir)" />
