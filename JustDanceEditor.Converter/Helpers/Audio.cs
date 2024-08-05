@@ -31,9 +31,22 @@ public static class Audio
         // Create a list to hold the SampleProviders
         List<ISampleProvider> sampleProviders = [];
 
+        bool anyExists = false;
+
         // Loop through the audio files
         foreach ((string path, float startTime) in audioFiles)
         {
+            // If the file doesn't exist, skip it, but throw a big red warning
+            if (!File.Exists(path))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"File {path} does not exist!");
+                Console.ResetColor();
+                continue;
+            }
+
+            anyExists = true;
+
             // Read in the next file with the correct start time
             AudioFileReader reader = new(path);
 
@@ -45,6 +58,10 @@ public static class Audio
             // Add the reader to the list of SampleProviders
             sampleProviders.Add(offsetSampleProvider);
         }
+
+        // If no files exist, return
+        if (!anyExists)
+            return;
 
         // Create a mixer with the SampleProviders
         MixingSampleProvider mixer = new(sampleProviders[0].WaveFormat);

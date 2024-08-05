@@ -4,6 +4,7 @@ using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
 using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.UbiArt.Tapes;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 namespace JustDanceEditor.Converter.Converters.Audio;
 public static class AudioConverter
@@ -30,7 +31,7 @@ public static class AudioConverter
     {
         Console.WriteLine("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
-        MainSequenceClip[] audioClips = GetAudioClips(convert.SongData.MainSequence);
+        SoundSetClip[] audioClips = GetAudioClips(convert.SongData.MainSequence.Clips);
 
         ConvertAudioFiles(convert, audioClips);
         string newMainSongPath = ConvertMainSong(convert);
@@ -40,14 +41,14 @@ public static class AudioConverter
         MergeAudioFiles(convert, audioClips, newMainSongPath);
     }
 
-    private static MainSequenceClip[] GetAudioClips(MainSequence mainSequence)
+    private static SoundSetClip[] GetAudioClips(IClip[] clips)
     {
-        return mainSequence.Clips.Where(s => s.__class == "SoundSetClip").ToArray();
+        return clips.OfType<SoundSetClip>().ToArray();
     }
 
-    private static void ConvertAudioFiles(ConvertUbiArtToUnity convert, MainSequenceClip[] audioClips)
+    private static void ConvertAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips)
     {
-        foreach (MainSequenceClip audioVibrationClip in audioClips)
+        foreach (SoundSetClip audioVibrationClip in audioClips)
         {
             string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
             string wavPath = Path.Combine(convert.CacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
@@ -71,7 +72,7 @@ public static class AudioConverter
             : Directory.GetFiles(Path.Combine(convert.CacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First();
     }
 
-    private static void MergeAudioFiles(ConvertUbiArtToUnity convert, MainSequenceClip[] audioClips, string newMainSongPath)
+    private static void MergeAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips, string newMainSongPath)
     {
         Console.WriteLine("Merging audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -82,7 +83,7 @@ public static class AudioConverter
         // Process each audio clip
         for (int i = 0; i < audioClips.Length; i++)
         {
-            MainSequenceClip clip = audioClips[i];
+            SoundSetClip clip = audioClips[i];
             string fileName = Path.GetFileNameWithoutExtension(clip.SoundSetPath);
             string wavPath = Path.Combine(convert.TempAudioFolder, $"{fileName}.wav");
 

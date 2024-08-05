@@ -6,6 +6,8 @@ using JustDanceEditor.Converter.Converters.Audio;
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Converters.Bundles;
 using System.Diagnostics;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Converter.Helpers;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -115,7 +117,6 @@ public class ConvertUbiArtToUnity
 
     void LoadSongData()
     {
-
         // Load in the song data
         Console.WriteLine("Loading song info...");
 
@@ -135,14 +136,18 @@ public class ConvertUbiArtToUnity
             " which is not officially supported. The conversion might not work as expected." :
             "");
 
+        JsonSerializerOptions options = new();
+        options.Converters.Add(new ClipConverter());
+        options.Converters.Add(new IntBoolConverter());
+
         Console.WriteLine("Loading KTape");
-        SongData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""))!;
+        SongData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading DTape");
-        SongData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""))!;
+        SongData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading MTrack");
-        SongData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""))!;
+        SongData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading MainSequence");
-        SongData.MainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""))!;
+        SongData.MainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading SongDesc");
         SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
 
