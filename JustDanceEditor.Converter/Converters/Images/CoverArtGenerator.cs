@@ -23,8 +23,20 @@ public static class CoverArtGenerator
         foreach (string path in paths)
         {
             Image<Rgba32>? image = TryLoadImage(path);
-            if (image is not null)
-                return image;
+            if (image is null)
+                continue;
+
+            // Check if the image is square-ish, must be wider than 4:3
+            if (image.Width < image.Height * 1.33)
+            {
+                image.Dispose();
+                continue;
+            }
+
+            // Resize the image to 640x360
+            image.Mutate(x => x.Resize(640, 360));
+
+            return image;
         }
 
         return null;
@@ -37,16 +49,6 @@ public static class CoverArtGenerator
 
         // Load the image
         Image<Rgba32> coverImage = Image.Load<Rgba32>(path);
-
-        // If the image is a square, dispose of it and return false
-        if (coverImage.Width == coverImage.Height)
-        {
-            coverImage.Dispose();
-            return null;
-        }
-
-        // Resize the image to 640x360
-        coverImage.Mutate(x => x.Resize(640, 360));
 
         return coverImage;
     }
@@ -117,7 +119,10 @@ public static class CoverArtGenerator
 
         // Then we load in the albumcoach
         string albumCoachPath = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.tga.png");
-        Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
+        Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath);
+        albumCoach ??= TryLoadImage(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_Coach_1.tga.png"));
+        albumCoach ??= new Image<Rgba32>(1024, 1024);
+
         albumCoach.Mutate(x => x.Resize(1024, 1024));
 
 
