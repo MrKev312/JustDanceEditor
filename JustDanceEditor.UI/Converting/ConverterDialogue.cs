@@ -60,6 +60,7 @@ public class ConverterDialogue
         string inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world)", true);
         string outputPath = Question.AskFolder("Enter the path to the output folder", false);
         bool onlineCover = Question.AskYesNo("Do you want to look up the cover online if needed?");
+        bool convertAudioVideo = Question.AskYesNo("Do you want to convert the audio and video files?");
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(outputPath);
@@ -69,7 +70,8 @@ public class ConverterDialogue
             TemplatePath = "./Template",
             InputPath = inputPath,
             OutputPath = outputPath,
-            OnlineCover = onlineCover
+            OnlineCover = onlineCover,
+            ConvertAudioVideo = convertAudioVideo
         };
 
         ConvertUbiArtToUnity converter = new(conversionRequest);

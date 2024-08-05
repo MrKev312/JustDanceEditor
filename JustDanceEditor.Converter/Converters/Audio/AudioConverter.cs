@@ -67,8 +67,8 @@ public static class AudioConverter
 
     private static string GetMainSongPath(ConvertUbiArtToUnity convert)
     {
-        return Directory.Exists(Path.Combine(convert.MapsFolder, convert.SongData.Name, "audio"))
-            ? Directory.GetFiles(Path.Combine(convert.MapsFolder, convert.SongData.Name, "audio"))[0]
+        return Directory.Exists(Path.Combine(convert.WorldFolder, "audio"))
+            ? Directory.GetFiles(Path.Combine(convert.WorldFolder, "audio"))[0]
             : Directory.GetFiles(Path.Combine(convert.CacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First();
     }
 

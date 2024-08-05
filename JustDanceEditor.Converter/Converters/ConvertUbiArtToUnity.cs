@@ -1,13 +1,16 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics;
+using System.Text.Json;
 
+using JustDanceEditor.Converter.Converters.Audio;
+using JustDanceEditor.Converter.Converters.Bundles;
+using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Converters.Video;
 using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.Converters.Audio;
-using JustDanceEditor.Converter.Converters.Images;
-using JustDanceEditor.Converter.Converters.Bundles;
-using System.Diagnostics;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Helpers;
+
+using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -28,12 +31,13 @@ public class ConvertUbiArtToUnity
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
     public string TempMenuArtFolder => Path.Combine(TempMapFolder, "menuart");
     public string TempAudioFolder => Path.Combine(TempMapFolder, "audio");
+    public string TempVideoFolder => Path.Combine(TempMapFolder, "video");
     public string PlatformType { get; private set; } = "NX";
     // Specific map folders
     public string CacheFolder => Path.Combine(InputFolder, "cache", "itf_cooked", PlatformType, "world", "maps", SongData.Name);
-    public string MapsFolder => Path.Combine(InputFolder, "world", "maps");
+    public string WorldFolder => Path.Combine(InputFolder, "world", "maps", SongData.Name);
     public string TimelineFolder => Path.Combine(CacheFolder, "timeline");
-    public string MovesFolder => Path.Combine(MapsFolder, SongData.Name, "timeline", "moves", "wiiu");
+    public string MovesFolder => Path.Combine(WorldFolder, "timeline", "moves", "wiiu");
     public string PictosFolder => Path.Combine(TimelineFolder, "pictos");
     public string MenuArtFolder => SongData.EngineVersion == JDVersion.JDUnlimited ?
         Path.Combine(InputFolder, "menuart") :
@@ -55,6 +59,9 @@ public class ConvertUbiArtToUnity
 
         // Validate the request
         ValidateRequest();
+
+        if (ConversionRequest.ConvertAudioVideo)
+            CheckFFMpeg();
 
         // Load the song data
         LoadSongData();
@@ -113,6 +120,11 @@ public class ConvertUbiArtToUnity
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(ConversionRequest.OutputPath);
+    }
+
+    static void CheckFFMpeg()
+    {
+        FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official).Wait();
     }
 
     void LoadSongData()
@@ -183,6 +195,8 @@ public class ConvertUbiArtToUnity
             Task.Run(() => MapPackageBundleGenerator.GenerateMapPackage(this)),
             // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
 			Task.Run(() => AudioConverter.ConvertAudio(this)),
+            // Convert the video files in /cache/itf_cooked/nx/world/maps/{mapName}/videoscoach
+            Task.Run(() => VideoConverter.ConvertVideo(this)),
             // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
 			Task.Run(() => MenuArtConverter.ConvertMenuArt(this)).ContinueWith(_ =>{
                 // Generate both coaches files
