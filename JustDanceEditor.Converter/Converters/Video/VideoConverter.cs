@@ -45,8 +45,6 @@ public static class VideoConverter
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);
 
-        string logFile = Path.Combine(convert.TempVideoFolder, "vp9_passlog");
-
         IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(input).Result;
 
         // Check the aspect ratio
@@ -55,7 +53,7 @@ public static class VideoConverter
         // If it's not 16:9, we'll add a crop filter
         if (aspectRatio != 16 / 9)
         {
-            string cropFilter = aspectRatio < 16 / 9
+            string cropFilter = aspectRatio > 16 / 9
                 ? "crop=in_w:in_w*9/16"
                 : "crop=in_h*16/9:in_h";
 
@@ -70,11 +68,14 @@ public static class VideoConverter
 
         // Set output to webm
         conversion.SetOutputFormat(Format.webm)
+            .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(convert.TempVideoFolder, "output.webm"));
 
         conversion.OnProgress += (sender, args) => Console.WriteLine($"Video progress: {args.Duration}/{args.TotalLength}");
 
         // Start the conversion
-        conversion.Start();
+        var result = conversion.Start().Result;
+
+        Console.WriteLine($"Ran following: {result.Arguments}");
     }
 }
