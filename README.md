@@ -47,6 +47,8 @@ Detailed guide might be added in the future.
 Look at existing songs for reference and the ``CachingStatus.json`` in ``SD_Cache.0000``.
 
 ## Bug Reporting
+Before reporting, make sure that you're using the latest version of the tool!
+
 Please report any bugs you find in the [Issues](https://github.com/MrKev312/JustDanceEditor/issues) section.
 Be sure to include the following information:
 - The version of the tool you are using.
