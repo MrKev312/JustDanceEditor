@@ -75,7 +75,6 @@ public static class PictoConverter
         // Get the png files in the pictos folder
         pictoFiles = Directory.GetFiles(convert.TempPictoFolder, "*.png");
 
-
         // Convert the 512x512 images to a 2048x2048 atlas
         // Use 4 pixels of padding between each image
         for (int i = 0; i < pictoFiles.Length; i++)

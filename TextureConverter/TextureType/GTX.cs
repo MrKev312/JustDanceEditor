@@ -130,13 +130,12 @@ public class GTX
         using EndianBinaryReader reader = new(data, Encoding.Default, true, true);
         header = new GTXHeader(reader);
 
-        bool shiftedType;
-        if (header.MajorVersion == 6 && header.MinorVersion == 0)
-            shiftedType = false;
-        else if (header.MajorVersion is 6 or 7)
-            shiftedType = true;
-        else
-            throw new Exception($"Unsupported GTX version {header.MajorVersion}");
+        bool shiftedType = header.MajorVersion switch
+        {
+            6 when header.MinorVersion == 0 => false,
+            6 or 7 => true,
+            _ => throw new Exception($"Unsupported GTX version {header.MajorVersion}"),
+        };
 
         if (header.GpuVersion != 2)
             throw new Exception($"Unsupported GPU version {header.GpuVersion}");
@@ -234,11 +233,6 @@ public class GTX
     SurfaceIn pIn = new();
     SurfaceOut pOut = new();
 
-    static uint DivRoundUp(uint a, uint b)
-    {
-        return (a + b - 1) / b;
-    }
-
     public (byte[][] data, byte[] hdr) DeswizzleData(int i)
     {
         GX2Surface texInfo = GTXSurfaces[i];
@@ -291,7 +285,7 @@ public class GTX
 
         uint bpp = GetBPP(texInfo.Format);
 
-		if (!Enum.IsDefined(typeof(GX2SurfaceFormat), texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
+        if (!Enum.IsDefined(typeof(GX2SurfaceFormat), texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
             throw new Exception("Invalid format!");
 
         uint tilingDepth = surfOut.Depth;
@@ -318,7 +312,7 @@ public class GTX
             uint mipWidth = Math.Max(1, texInfo.Width >> level);
             uint mipHeight = Math.Max(1, texInfo.Height >> level);
 
-            uint mipSize = DivRoundUp(mipWidth, blkWidth) * DivRoundUp(mipHeight, blkHeight) * bpp;
+            //uint mipSize = DivRoundUp(mipWidth, blkWidth) * DivRoundUp(mipHeight, blkHeight) * bpp;
 
             if (level != 0)
             {
@@ -420,27 +414,27 @@ public class GTX
         }
 
         uint elemOffset = sampleOffset + pixelOffset;
-
-        uint samplesPerSlice;
+        
         uint numSampleSplits;
         uint sampleSlice;
-        uint tileSliceBits;
+        
         if (numSamples <= 1 || microTileBytes <= 2048)
         {
-            samplesPerSlice = numSamples;
             numSampleSplits = 1;
             sampleSlice = 0;
         }
         else
         {
-            samplesPerSlice = 2048 / bytesPerSample;
+            uint samplesPerSlice = 2048 / bytesPerSample;
             numSampleSplits = numSamples / samplesPerSlice;
             numSamples = samplesPerSlice;
 
-            tileSliceBits = microTileBits / numSampleSplits;
+            uint tileSliceBits = microTileBits / numSampleSplits;
             sampleSlice = elemOffset / tileSliceBits;
             elemOffset %= tileSliceBits;
         }
+
+        elemOffset = (elemOffset + 7) / 8;
 
         uint pipe = ((y >> 3) ^ (x >> 3)) & 1;
         uint bank = (((y >> 5) ^ (x >> 3)) & 1) | (2 * (((y >> 4) ^ (x >> 4)) & 1));
@@ -502,21 +496,24 @@ public class GTX
 
     private static uint ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
-        uint microTileThickness = tileMode == 3 ? 4u : 1u;
-        uint microTileBytes = ((64 * microTileThickness * bpp) + 7) / 8;
+        int microTileThickness = 1;
+        if ((AddrTileMode)tileMode == AddrTileMode.ADDR_TM_1D_TILED_THICK)
+            microTileThickness = 4;
+
+        uint microTileBytes = (uint)((64 * microTileThickness * bpp) + 7) / 8;
         uint microTilesPerRow = pitch >> 3;
         uint microTileIndexX = x >> 3;
         uint microTileIndexY = y >> 3;
-        uint microTileIndexZ = slice / microTileThickness;
+        uint microTileIndexZ = slice / (uint)microTileThickness;
 
-        uint microTileOffset = microTileBytes * (microTileIndexX + (microTileIndexY * microTilesPerRow));
-        uint sliceBytes = ((pitch * height * microTileThickness * bpp) + 7) / 8;
-        uint sliceOffset = microTileIndexZ * sliceBytes;
+        ulong microTileOffset = microTileBytes * (microTileIndexX + (microTileIndexY * microTilesPerRow));
+        ulong sliceBytes = (ulong)((pitch * height * microTileThickness * bpp) + 7) / 8;
+        ulong sliceOffset = microTileIndexZ * sliceBytes;
 
         uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
-        uint pixelOffset = (pixelIndex * bpp) >> 3;
+        ulong pixelOffset = (bpp * pixelIndex) >> 3;
 
-        return pixelOffset + microTileOffset + sliceOffset;
+        return (uint)(pixelOffset + microTileOffset + sliceOffset);
     }
 
     static uint ComputePixelIndexWithinMicroTile(uint x, uint y, uint z, uint bpp, uint tileMode, bool isDepth)
@@ -609,7 +606,6 @@ public class GTX
         return pixelIndex;
     }
 
-
     private static uint ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint depth)
     {
         return ((y * pitch) + x + (pitch * height * (slice + (sample * depth)))) * bpp;
@@ -625,11 +621,11 @@ public class GTX
         uint surfaceAA,
         int level)
     {
-        uint dim = 0;
-        uint width = 0;
-        uint blockSize = 0;
-        uint numSamples = 0;
-        uint hwFormat = 0;
+        uint dim;
+        uint width;
+        uint blockSize;
+        uint numSamples;
+        uint hwFormat;
 
         SurfaceIn aSurfIn = new();
         SurfaceOut pSurfOut = new();
@@ -869,19 +865,17 @@ public class GTX
             pOut.PixelHeight = Math.Max(1, height);
         }
 
-        if (bpp != 0)
-        {
-            return elemMode switch
-            {
-                4 => expandY * expandX * bpp,
-                5 or 6 => bpp / expandX / expandY,
-                9 or 12 => 64,
-                10 or 11 or 13 => 128,
-                _ => bpp,
-            };
-        }
+        if (bpp == 0)
+            return 0;
 
-        return 0;
+        return elemMode switch
+        {
+            4 => expandY * expandX * bpp,
+            5 or 6 => bpp / expandX / expandY,
+            9 or 12 => 64,
+            10 or 11 or 13 => 128,
+            _ => bpp,
+        };
     }
 
     public enum AddrTileMode
