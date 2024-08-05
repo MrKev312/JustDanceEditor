@@ -2,10 +2,12 @@
 using AssetsTools.NET.Extra;
 using AssetsTools.NET.Texture;
 
+using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 using TextureConverter.TextureConverterHelpers;
 
@@ -131,6 +133,7 @@ public static class CoachesLargeBundleGenerator
 
             // Load the image
             Image<Rgba32> image = Image.Load<Rgba32>(path);
+            image.Mutate(x => x.Resize(1024, 1024));
 
             encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
 
@@ -181,10 +184,8 @@ public static class CoachesLargeBundleGenerator
             bkgTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
             bkgSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
 
-            string path = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
-
             // Load the image
-            Image<Rgba32> image = Image.Load<Rgba32>(path);
+            Image<Rgba32> image = CoverArtGenerator.GetBackground(convert);
 
             fmt = TextureFormat.DXT1Crunched;
 
