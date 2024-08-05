@@ -128,7 +128,7 @@ public class ConvertUbiArtToUnity
         Console.WriteLine($"Song name: {SongData.Name}");
 
         string path = Path.Combine(InputFolder, "cache", "itf_cooked");
-        PlatformType = Directory.GetDirectories(path).First();
+        PlatformType = Path.GetFileName(Directory.GetDirectories(path).First())!;
 
         Console.Write($"Platform: {PlatformType}");
         Console.WriteLine(!PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase) ?
