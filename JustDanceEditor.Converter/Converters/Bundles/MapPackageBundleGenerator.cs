@@ -9,6 +9,7 @@ using JustDanceEditor.Converter.Unity;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 using TextureConverter.TextureConverterHelpers;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
@@ -206,8 +207,11 @@ public static class MapPackageBundleGenerator
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (KaraokeClip clip in convert.SongData.KTape.Clips)
+        foreach (IClip iClip in convert.SongData.KTape.Clips)
         {
+            if (iClip is not KaraokeClip clip)
+                continue;
+
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
             AssetTypeValueField karaokeClip = newContainer["KaraokeClip"];
@@ -517,12 +521,12 @@ public static class MapPackageBundleGenerator
         }
 
         // Add the clips from the dance tape
-        foreach (MotionClip clip in convert.SongData.DTape.Clips)
+        foreach (IClip iClip in convert.SongData.DTape.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
-            switch (clip.__class)
+            switch (iClip)
             {
-                case "GoldEffectClip":
+                case GoldEffectClip clip:
                     AssetTypeValueField newGoldEffectClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
 
                     newGoldEffectClip["StartTime"].AsInt = clip.StartTime;
@@ -534,7 +538,7 @@ public static class MapPackageBundleGenerator
 
                     goldEffectClipsArray.Children.Add(newGoldEffectClip);
                     break;
-                case "PictogramClip":
+                case PictogramClip clip:
                     AssetTypeValueField newPictoClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClips);
 
                     newPictoClip["StartTime"].AsInt = clip.StartTime;
@@ -547,7 +551,7 @@ public static class MapPackageBundleGenerator
 
                     pictoClips.Children.Add(newPictoClip);
                     break;
-                case "MotionClip":
+                case MotionClip clip:
                     // Create a new MotionClip
                     AssetTypeValueField newMotionClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
 
@@ -576,25 +580,25 @@ public static class MapPackageBundleGenerator
                     break;
 
                 default:
-                    Console.WriteLine($"Unknown clip type: {clip.__class}");
+                    Console.WriteLine($"Unknown clip type: {iClip.__class}");
                     break;
             }
         }
 
         // Add the clips from the mainsequence tape
-        foreach (MainSequenceClip clip in convert.SongData.MainSequence.Clips)
+        foreach (IClip iClip in convert.SongData.MainSequence.Clips)
         {
+            if (iClip is not HideUserInterfaceClip clip)
+                continue;
+
             // If the clip is a HideUserInterfaceClip, add it to the HideHudClips array
-            if (clip.__class == "HideUserInterfaceClip")
-            {
-                AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
+            AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
 
-                newHideHudClip["StartTime"].AsInt = clip.StartTime;
-                newHideHudClip["Duration"].AsInt = clip.Duration;
-                newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
+            newHideHudClip["StartTime"].AsInt = clip.StartTime;
+            newHideHudClip["Duration"].AsInt = clip.Duration;
+            newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
 
-                hideHudClips.Children.Add(newHideHudClip);
-            }
+            hideHudClips.Children.Add(newHideHudClip);
         }
 
         // Store all changes
