@@ -4,7 +4,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
-using System.Drawing.Text;
 using SixLabors.Fonts;
 
 namespace JustDanceEditor.Converter.Converters.Images;
