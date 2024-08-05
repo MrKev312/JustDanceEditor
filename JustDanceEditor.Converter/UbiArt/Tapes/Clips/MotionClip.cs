@@ -12,5 +12,4 @@ public class MotionClip : IClip
     public int GoldMove { get; set; }
     public int CoachId { get; set; }
     public int MoveType { get; set; }
-    public int EffectType { get; set; }
 }

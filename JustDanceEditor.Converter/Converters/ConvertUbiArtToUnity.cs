@@ -7,6 +7,7 @@ using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Converters.Bundles;
 using System.Diagnostics;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Converter.Helpers;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -137,6 +138,7 @@ public class ConvertUbiArtToUnity
 
         JsonSerializerOptions options = new();
         options.Converters.Add(new ClipConverter());
+        options.Converters.Add(new IntBoolConverter());
 
         Console.WriteLine("Loading KTape");
         SongData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
