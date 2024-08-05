@@ -17,6 +17,7 @@ public class TextureConverter
         {
             "DDS " => DDS.GetImage(inputPath),
             "DFvN" => XTX.GetImage(inputPath),
+            "Gfx2" => GTX.GetImage(inputPath),
             _ => throw new Exception("Unknown file format!"),
         };
 

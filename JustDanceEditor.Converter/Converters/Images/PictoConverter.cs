@@ -2,8 +2,6 @@
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using SwitchTexture;
-
 using System.Diagnostics;
 
 namespace JustDanceEditor.Converter.Converters.Images;
@@ -43,7 +41,7 @@ public static class PictoConverter
             newStream.Close();
 
             // Convert the xtx/dds to png
-            Image<Bgra32> newImage = TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
+            Image<Bgra32> newImage = TextureConverter.TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
 
             if (convert.SongData.CoachCount > 1)
             {
@@ -74,8 +72,9 @@ public static class PictoConverter
 
         Console.WriteLine("Creating atlasses...");
 
-        // Get the files in the pictos folder
-        pictoFiles = Directory.GetFiles(convert.TempPictoFolder);
+        // Get the png files in the pictos folder
+        pictoFiles = Directory.GetFiles(convert.TempPictoFolder, "*.png");
+
 
         // Convert the 512x512 images to a 2048x2048 atlas
         // Use 4 pixels of padding between each image

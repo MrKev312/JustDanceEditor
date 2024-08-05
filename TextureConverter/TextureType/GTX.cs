@@ -3,6 +3,7 @@ using SixLabors.ImageSharp;
 
 using System.Text;
 using static TextureConverter.TextureType.DDS;
+using Pfim;
 
 namespace TextureConverter.TextureType;
 
@@ -126,15 +127,16 @@ public class GTX
 
     public void LoadFile(Stream data)
     {
-        using BinaryReader reader = new(data, Encoding.Default, true);
+        using EndianBinaryReader reader = new(data, Encoding.Default, true, true);
         header = new GTXHeader(reader);
 
-        bool shiftedType = header.MajorVersion switch
-        {
-            6 when header.MinorVersion == 0 => true,
-            6 or 7 => false,
-            _ => throw new Exception($"Unsupported GTX version {header.MajorVersion}"),
-        };
+        bool shiftedType;
+        if (header.MajorVersion == 6 && header.MinorVersion == 0)
+            shiftedType = false;
+        else if (header.MajorVersion is 6 or 7)
+            shiftedType = true;
+        else
+            throw new Exception($"Unsupported GTX version {header.MajorVersion}");
 
         if (header.GpuVersion != 2)
             throw new Exception($"Unsupported GPU version {header.GpuVersion}");
@@ -147,7 +149,7 @@ public class GTX
 
         while (reader.BaseStream.Position < reader.BaseStream.Length)
         {
-            GTXDataBlock block = new(reader);
+            GTXDataBlock block = new(reader, shiftedType);
             Blocks.Add(block);
 
             bool blockIsEmpty = block.BlockType is BlockType.AlignData or BlockType.EndOfFile;
@@ -160,7 +162,7 @@ public class GTX
                         blockB = true;
 
                         MemoryStream stream = new(block.Data);
-                        BinaryReader dataReader = new(stream);
+                        EndianBinaryReader dataReader = new(stream, true);
                         GX2Surface surface = new(dataReader);
 
                         if (surface.TileMode is 0 or > 16)
@@ -202,13 +204,31 @@ public class GTX
             throw new Exception("Missing SurfaceInfo or SurfaceData block!");
     }
 
+    public Image<Bgra32> ConvertToImage()
+    {
+        (byte[][] data, byte[] hdr) = DeswizzleData(0);
+
+        byte[] output = [.. hdr, .. data.SelectMany(x => x)];
+
+        MemoryStream memoryStream = new(output);
+
+        // Using pfim, we can convert from DDS to PNG
+        using IImage image = Pfimage.FromStream(memoryStream);
+        if (image.Format != ImageFormat.Rgba32)
+            throw new Exception("Image is not in Rgba32 format!");
+
+        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+
+        return newImage;
+    }
+
     public static Image<Bgra32> GetImage(string inputPath)
     {
         GTX gtx = new();
         using FileStream fs = new(inputPath, FileMode.Open);
         gtx.LoadFile(fs);
 
-        throw new NotImplementedException();
+        return gtx.ConvertToImage();
     }
 
     SurfaceIn pIn = new();
@@ -227,7 +247,7 @@ public class GTX
         // Try to get the mip data, else empty byte array
         byte[] mipData = MipDatas.TryGetValue((uint)i, out byte[]? mip) ? mip : [];
 
-        if (texInfo.AA != 1)
+        if (texInfo.AA != 0)
             throw new Exception("Unsupported AA value!");
 
         if (texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
@@ -274,9 +294,6 @@ public class GTX
 		if (!Enum.IsDefined(typeof(GX2SurfaceFormat), texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
             throw new Exception("Invalid format!");
 
-        if (texInfo.AA == 0)
-            throw new Exception("Unsupported AA value!");
-
         uint tilingDepth = surfOut.Depth;
 
         if (surfOut.TileMode == 3)
@@ -294,41 +311,44 @@ public class GTX
             blkHeight = 4;
         }
 
-        List<byte> result = [];
+        byte[][] result = new byte[texInfo.MipCount][];
 
-        for (int mipLevel = 0; mipLevel < texInfo.MipCount; mipLevel++) 
+        for (int level = 0; level < texInfo.MipCount; level++) 
         {
-            uint mipWidth = Math.Max(1, texInfo.Width >> mipLevel);
-            uint mipHeight = Math.Max(1, texInfo.Height >> mipLevel);
+            uint mipWidth = Math.Max(1, texInfo.Width >> level);
+            uint mipHeight = Math.Max(1, texInfo.Height >> level);
 
             uint mipSize = DivRoundUp(mipWidth, blkWidth) * DivRoundUp(mipHeight, blkHeight) * bpp;
 
-            if (mipLevel != 0)
+            if (level != 0)
             {
-                uint mipOffset = texInfo.MipOffsets[mipLevel - 1];
+                uint mipOffset = texInfo.MipOffsets[level - 1];
 
-                if (mipLevel == 1)
+                if (level == 1)
                     mipOffset -= (uint)surfOut.SurfSize;
 
-                surfOut = GetSurfaceInfo(texInfo.Format, texInfo.Width, texInfo.Height, texInfo.Depth, texInfo.Dim, texInfo.TileMode, texInfo.AA, mipLevel);
+                surfOut = GetSurfaceInfo(texInfo.Format, texInfo.Width, texInfo.Height, texInfo.Depth, texInfo.Dim, texInfo.TileMode, texInfo.AA, level);
 
                 data = mipData[(int)mipOffset..(int)(mipOffset + surfOut.SurfSize)];
             }
 
-            // TODO
             byte[] mipResult = Deswizzle(mipWidth, mipHeight, 1, texInfo.Format, 0, texInfo.Use, surfOut.TileMode,
                 texInfo.Swizzle, surfOut.Pitch, surfOut.Bpp, 0, 0, data);
+
+            result[level] = mipResult;
         }
 
-        // TODO
+        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.CompSel, texInfo.RealSize);
+
+        return (result, hdr);
     }
 
-    private byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint tileMode, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
+    private static byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint tileMode, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
     {
         return SwizzleSurface(mipWidth, mipHeight, depth, format, aa, use, swizzle, pitch, bpp, slice, sample, data, false);
     }
 
-    private byte[] SwizzleSurface(uint width, uint height, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint swizzle, uint pitch, uint bitsPerPixel, uint slice, uint sample, byte[] data, bool doSwizzle)
+    private static byte[] SwizzleSurface(uint width, uint height, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint swizzle, uint pitch, uint bitsPerPixel, uint slice, uint sample, byte[] data, bool doSwizzle)
     {
         uint bytesPerPixel = bitsPerPixel / 8;
 
@@ -344,6 +364,8 @@ public class GTX
         uint bankSwizzle = (swizzle >> 9) & 0x3;
 
         uint tileMode = (uint)format == 16 ? 0 : (uint)format;
+        bool isDepth = (use & 4) != 0;
+        uint numSamples = (uint)(1 << (int)aa);
 
         for (uint y = 0; y < height; y++)
         {
@@ -352,16 +374,30 @@ public class GTX
                 uint pos = tileMode switch
                 {
                     0 or 1 => ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height, depth),
-                    2 or 3 => ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height, tileMode, (use & 3) != 0),
-                    _ => ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel,pitch, height, (uint)(1 << (int)aa), tileMode, (use & 4) != 0, pipeSwizzle, bankSwizzle),
+                    2 or 3 => ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height, tileMode, isDepth),
+                    _ => ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel, pitch, height, numSamples, tileMode, isDepth, pipeSwizzle, bankSwizzle),
                 };
 
-                // TODO pos stuff
+                uint pos2 = ((y * width) + x) * bytesPerPixel;
+
+                if (pos2 + bytesPerPixel <= data.Length && pos + bytesPerPixel <= data.Length)
+                {
+                    if (doSwizzle)
+                    {
+                        Array.Copy(data, (int)pos2, result, (int)pos, (int)bytesPerPixel);
+                    }
+                    else
+                    {
+                        Array.Copy(data, (int)pos, result, (int)pos2, (int)bytesPerPixel);
+                    }
+                }
             }
         }
+
+        return result;
     }
 
-    private uint ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
+    private static uint ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
     {
         uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
         uint microTileBits = numSamples * bpp * 64 * microTileThickness;
@@ -464,7 +500,7 @@ public class GTX
         return (bank << 9) | (pipe << 8) | (totalOffset & 0xFF) | (((uint)((int)totalOffset & -256)) << 3);
     }
 
-    private uint ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
+    private static uint ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
         uint microTileThickness = tileMode == 3 ? 4u : 1u;
         uint microTileBytes = ((64 * microTileThickness * bpp) + 7) / 8;
@@ -923,7 +959,7 @@ public class GTX
         {
             case 0:
             case 1:
-                var compSurfInfoLinear = ComputeSurfaceInfoLinear(
+                uint[] compSurfInfoLinear = ComputeSurfaceInfoLinear(
             tileMode,
             bpp,
             numSamples,
@@ -948,7 +984,7 @@ public class GTX
                 break;
             case 2:
             case 3:
-                var compSurfInfoMicroTile = ComputeSurfaceInfoMicroTiled(
+                uint[] compSurfInfoMicroTile = ComputeSurfaceInfoMicroTiled(
             tileMode,
             bpp,
             numSamples,
@@ -983,7 +1019,7 @@ public class GTX
             case 13:
             case 14:
             case 15:
-                var compSurfInfoMacoTile = ComputeSurfaceInfoMacroTiled(
+                uint[] compSurfInfoMacoTile = ComputeSurfaceInfoMacroTiled(
             tileMode,
             baseTileMode,
             bpp,
@@ -1221,7 +1257,7 @@ public class GTX
             || IsThickMacroTiled((AddrTileMode)baseTileMode) == 0
             || IsThickMacroTiled((AddrTileMode)tileMode) != 0)
         {
-            var tup = ComputeSurfaceAlignmentsMacroTiled(
+            Tuple<uint, uint, uint, uint, uint> tup = ComputeSurfaceAlignmentsMacroTiled(
                 tileMode,
                 bpp,
                 flags,
@@ -1238,7 +1274,7 @@ public class GTX
             if (bankSwappedWidth > pitchAlign)
                 pitchAlign = bankSwappedWidth;
 
-            var padDimens = PadDimensions(
+            Tuple<uint, uint, uint> padDimens = PadDimensions(
                  tileMode,
                  padDims,
                  (flags >> 4) & 1,
@@ -1264,7 +1300,7 @@ public class GTX
 
         else
         {
-            var tup = ComputeSurfaceAlignmentsMacroTiled(
+            Tuple<uint, uint, uint, uint, uint> tup = ComputeSurfaceAlignmentsMacroTiled(
                 baseTileMode,
                 bpp,
                 flags,
@@ -1282,7 +1318,7 @@ public class GTX
             {
                 expTileMode = 2;
 
-                var microTileInfo = ComputeSurfaceInfoMicroTiled(
+                uint[] microTileInfo = ComputeSurfaceInfoMicroTiled(
                     2,
                     bpp,
                     numSamples,
@@ -1323,7 +1359,7 @@ public class GTX
                 if (bankSwappedWidth > pitchAlign)
                     pitchAlign = bankSwappedWidth;
 
-                var padDimens = PadDimensions(
+                Tuple<uint, uint, uint> padDimens = PadDimensions(
                     tileMode,
                     padDims,
                     (flags >> 4) & 1,
@@ -1409,7 +1445,7 @@ public class GTX
             }
         }
 
-        var surfMicroAlign = ComputeSurfaceAlignmentsMicroTiled(
+        Tuple<uint, uint, uint> surfMicroAlign = ComputeSurfaceAlignmentsMicroTiled(
             expTileMode,
             bpp,
             flags,
@@ -1419,7 +1455,7 @@ public class GTX
         uint pitchAlign = surfMicroAlign.Item2;
         uint heightAlign = surfMicroAlign.Item3;
 
-        var padDimens = PadDimensions(
+        Tuple<uint, uint, uint> padDimens = PadDimensions(
             expTileMode,
             padDims,
             (flags >> 4) & 1,
@@ -1487,7 +1523,7 @@ public class GTX
         uint baseAlign, pitchAlign, heightAlign, slices;
         uint pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign;
 
-        var compAllignLinear = ComputeSurfaceAlignmentsLinear(tileMode, bpp, flags);
+        Tuple<uint, uint, uint> compAllignLinear = ComputeSurfaceAlignmentsLinear(tileMode, bpp, flags);
         baseAlign = compAllignLinear.Item1;
         pitchAlign = compAllignLinear.Item2;
         heightAlign = compAllignLinear.Item3;
@@ -1515,7 +1551,7 @@ public class GTX
                 expNumSlices = NextPow2(numSlices);
         }
 
-        var padimens = PadDimensions(
+        Tuple<uint, uint, uint> padimens = PadDimensions(
         tileMode,
         padDims,
         (flags >> 4) & 1,
@@ -1857,7 +1893,7 @@ public class GTX
         public uint GpuVersion;
         public uint AlignMode;
 
-        public GTXHeader(BinaryReader reader)
+        public GTXHeader(EndianBinaryReader reader)
         {
             string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
             if (signature != "Gfx2")
@@ -1884,7 +1920,7 @@ public class GTX
         public uint DataSize;
         public byte[] Data = [];
 
-        public GTXDataBlock(BinaryReader reader, bool shiftedType = false)
+        public GTXDataBlock(EndianBinaryReader reader, bool shiftedType = false)
         {
             long pos = reader.BaseStream.Position;
 
@@ -1900,12 +1936,14 @@ public class GTX
                 ? (BlockType)(blockType - 1)
                 : (BlockType)blockType;
 
+            DataSize = reader.ReadUInt32();
             Identifier = reader.ReadUInt32();
             Index = reader.ReadUInt32();
-            DataSize = reader.ReadUInt32();
 
             reader.BaseStream.Seek(pos + HeaderSize, SeekOrigin.Begin);
             Data = reader.ReadBytes((int)DataSize);
+
+            reader.BaseStream.Seek(pos + HeaderSize + DataSize, SeekOrigin.Begin);
         }
     }
 
@@ -1933,7 +1971,7 @@ public class GTX
 
         public (uint, uint, uint, uint) CompSel { get; private set; }
 
-        public GX2Surface(BinaryReader reader)
+        public GX2Surface(EndianBinaryReader reader)
         {
             Dim = reader.ReadUInt32();
             Width = reader.ReadUInt32();
@@ -1957,12 +1995,7 @@ public class GTX
             MipOffsets = new uint[13];
             for (int i = 0; i < 13; i++)
             {
-                // Read uint32 
-                byte[] bytes = reader.ReadBytes(4);
-                // Reverse the bytes
-                Array.Reverse(bytes);
-                // Convert the reversed bytes to uint32
-                MipOffsets[i] = BitConverter.ToUInt32(bytes);
+                MipOffsets[i] = reader.ReadUInt32();
             }
 
             pos += 0x44;

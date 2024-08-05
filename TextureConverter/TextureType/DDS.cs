@@ -59,8 +59,9 @@ public class DDS
         return newImage;
     }
 
-    internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, DDSFormat format, (uint, uint, uint, uint) compSel, uint size, bool compressed)
+    internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, DDSFormat format, (uint, uint, uint, uint) compSel, uint size)
     {
+        bool compressed = BCnFormats.Contains(format);
         byte[] hdr = new byte[128];
         (uint, uint, uint, uint, uint) compSels = (0, 0, 0, 0, 0);
 
