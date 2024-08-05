@@ -3,6 +3,9 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using System.Drawing.Text;
+using SixLabors.Fonts;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -111,16 +114,13 @@ public static class CoverArtGenerator
     {
         // Manually create the cover
         // Now we gotta make a custom texture from the scraps we have in the menu art folder
-        // First we load in the background
-        string backgroundPath = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
-        Image<Rgba32> coverImage = Image.Load<Rgba32>(backgroundPath);
-
-        // Stretch it to 2048x1024, this shouldn't do anything to correctly sized images
-        coverImage.Mutate(x => x.Resize(2048, 1024));
+        Image<Rgba32>? coverImage = GetBackground(convert);
 
         // Then we load in the albumcoach
         string albumCoachPath = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.tga.png");
         Image<Rgba32> albumCoach = Image.Load<Rgba32>(albumCoachPath);
+        albumCoach.Mutate(x => x.Resize(1024, 1024));
+
 
         // Then we place the albumcoach on top of the background in the center
         // The background is 2048x1024 and the albumcoach is 1024x1024
@@ -132,6 +132,38 @@ public static class CoverArtGenerator
 
         // Now we crop the image to 640x360 centered
         coverImage.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
+
+        return coverImage;
+    }
+
+    public static Image<Rgba32> GetBackground(ConvertUbiArtToUnity convert)
+    {
+        // First we load in the background
+        string[] paths = [
+            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png"),
+            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_banner_bkg.tga.png")
+        ];
+
+        Image<Rgba32>? coverImage = null;
+        foreach (string path in paths)
+        {
+            if (File.Exists(path))
+            {
+                coverImage = TryLoadImage(path);
+            }
+        }
+
+        if (coverImage is null)
+        {
+            // If the cover doesn't exist, create a new one
+            coverImage = new Image<Rgba32>(2048, 1024);
+            coverImage.Mutate(x => x.BackgroundColor(Color.Magenta));
+            // Write the text "Cover not found" in the center
+            Font font = SystemFonts.CreateFont("Segoe UI", 150, FontStyle.Regular);
+            coverImage.Mutate(x => x.DrawText("Background not found", font, Color.FloralWhite, new PointF(200, 512)));
+        }
+
+        coverImage.Mutate(x => x.Resize(2048, 1024));
 
         return coverImage;
     }

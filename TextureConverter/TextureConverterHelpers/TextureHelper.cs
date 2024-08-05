@@ -2,7 +2,7 @@
 using AssetsTools.NET.Texture;
 using AssetsTools.NET;
 
-namespace SwitchTexture.TextureConverterHelpers;
+namespace TextureConverter.TextureConverterHelpers;
 
 public static class TextureHelper
 {

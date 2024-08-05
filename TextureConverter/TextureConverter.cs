@@ -1,11 +1,11 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using SwitchTexture.TextureType;
-
 using System.Text;
 
-namespace SwitchTexture;
+using TextureConverter.TextureType;
+
+namespace TextureConverter;
 
 public class TextureConverter
 {
@@ -17,6 +17,7 @@ public class TextureConverter
         {
             "DDS " => DDS.GetImage(inputPath),
             "DFvN" => XTX.GetImage(inputPath),
+            "Gfx2" => GTX.GetImage(inputPath),
             _ => throw new Exception("Unknown file format!"),
         };
 

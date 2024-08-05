@@ -4,10 +4,10 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 
 using System.Text;
-using static SwitchTexture.TextureType.DDS;
-using SwitchTexture.TextureConverterHelpers;
+using static TextureConverter.TextureType.DDS;
+using TextureConverter.TextureConverterHelpers;
 
-namespace SwitchTexture.TextureType;
+namespace TextureConverter.TextureType;
 
 public class XTX
 {
@@ -65,7 +65,7 @@ public class XTX
         TextureInfos = [];
         TextureBlocks = [];
 
-        BinaryReader reader = new(data);
+        EndianBinaryReader reader = new(data);
         string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
         if (signature != "DFvN")
             throw new Exception($"Invalid signature {signature}! Expected DFvN.");
@@ -94,7 +94,7 @@ public class XTX
                     blockB = true;
 
                     MemoryStream stream = new(blockHeader.Data);
-                    BinaryReader dataReader = new(stream);
+                    EndianBinaryReader dataReader = new(stream);
                     TextureHeader textureHeader = new(dataReader);
                     TextureInfos.Add(textureHeader);
                     break;
@@ -172,7 +172,7 @@ public class XTX
             _ => throw new Exception("Invalid format!")
         };
 
-        List<byte[]> result = [];
+        byte[][] result = new byte[texInfo.MipCount][];
         for (int level = 0; level < texInfo.MipCount; level++)
         {
             int size = BCnFormats.Contains(ddsFormat)
@@ -182,12 +182,12 @@ public class XTX
 
             byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
             byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
-            result.Add(deswizzled.Take(size).ToArray());
+            result[level] = deswizzled.Take(size).ToArray();
         }
 
-        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize, BCnFormats.Contains(ddsFormat));
+        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);
 
-        return (result.ToArray(), hdr);
+        return (result, hdr);
     }
 
     public class BlockHeader
@@ -201,7 +201,7 @@ public class XTX
 
         public byte[] Data { get; set; } = [];
 
-        public BlockHeader(BinaryReader reader)
+        public BlockHeader(EndianBinaryReader reader)
         {
             long pos = reader.BaseStream.Position;
 
@@ -250,7 +250,7 @@ public class XTX
             };
         }
 
-        public TextureHeader(BinaryReader reader)
+        public TextureHeader(EndianBinaryReader reader)
         {
             DataSize = reader.ReadUInt64();
             Alignment = reader.ReadUInt32();

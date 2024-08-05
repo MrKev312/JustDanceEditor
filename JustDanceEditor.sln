@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Converter",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.IPK", "JustDanceEditor.IPK\JustDanceEditor.IPK.csproj", "{118392D0-9C63-493D-94FF-3BCC67C939DD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SwitchTexture", "SwitchTexture\SwitchTexture.csproj", "{0308DC52-E115-45C0-A300-8185F8837B11}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextureConverter", "TextureConverter\TextureConverter.csproj", "{0308DC52-E115-45C0-A300-8185F8837B11}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
