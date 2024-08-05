@@ -71,7 +71,7 @@ public class ConverterDialogue
             InputPath = inputPath,
             OutputPath = outputPath,
             OnlineCover = onlineCover,
-            ConvertAudioVideo = convertAudioVideo
+            ConvertVideo = convertAudioVideo
         };
 
         ConvertUbiArtToUnity converter = new(conversionRequest);

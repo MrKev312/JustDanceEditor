@@ -3,8 +3,9 @@
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
 using JustDanceEditor.Converter.UbiArt;
-using JustDanceEditor.Converter.UbiArt.Tapes;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+
+using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Converter.Converters.Audio;
 public static class AudioConverter
@@ -39,6 +40,49 @@ public static class AudioConverter
         Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
         MergeAudioFiles(convert, audioClips, newMainSongPath);
+
+        string opusPath = ConvertToOpus(convert);
+        MoveOpusToOutput(convert, opusPath);
+    }
+
+    private static void MoveOpusToOutput(ConvertUbiArtToUnity convert, string opusPath)
+    {
+        // Copy the Opus file to the output folder
+        string md5 = Download.GetFileMD5(opusPath);
+        string outputFolder = Path.Combine(convert.OutputFolder, "cachex", "Audio_opus");
+        Directory.CreateDirectory(outputFolder);
+        string outputOpusPath = Path.Combine(outputFolder, md5);
+        File.Move(opusPath, outputOpusPath, true);
+    }
+
+    static string ConvertToOpus(ConvertUbiArtToUnity convert)
+    {
+        // FFMpeg to convert the merged audio file to Opus
+        string mergedWavPath = Path.Combine(convert.TempAudioFolder, "merged.wav");
+        string opusPath = Path.Combine(convert.TempAudioFolder, "merged.opus");
+
+        ConvertToOpusFFMpeg(mergedWavPath, opusPath);
+
+        return opusPath;
+    }
+
+    static void ConvertToOpusFFMpeg(string mergedWavPath, string opusPath)
+    {
+        IConversion conversion = FFmpeg.Conversions.New()
+            .UseMultiThread(true);
+
+        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(mergedWavPath).Result;
+
+        IStream stream = mediaInfo.AudioStreams.First()
+            .SetCodec(AudioCodec.libopus)
+            .SetSampleRate(48000);
+
+        conversion.AddStream(stream)
+            .SetOverwriteOutput(true)
+            .UseMultiThread(true)
+            .SetOutput(opusPath)
+            .SetOverwriteOutput(true)
+            .Start().Wait();
     }
 
     private static SoundSetClip[] GetAudioClips(IClip[] clips)

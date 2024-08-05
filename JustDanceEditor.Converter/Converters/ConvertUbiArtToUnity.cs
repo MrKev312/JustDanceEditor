@@ -60,7 +60,7 @@ public class ConvertUbiArtToUnity
         // Validate the request
         ValidateRequest();
 
-        if (ConversionRequest.ConvertAudioVideo)
+        if (ConversionRequest.ConvertVideo)
             CheckFFMpeg();
 
         // Load the song data

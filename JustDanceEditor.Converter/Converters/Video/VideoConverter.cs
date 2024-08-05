@@ -13,7 +13,13 @@ public static class VideoConverter
         {
             try
             {
-                Convert(convert);
+                if (convert.ConversionRequest.ConvertVideo)
+                    Convert(convert);
+                else
+                {
+                    File.Delete(Path.Combine(convert.TempVideoFolder, "output.webm"));
+                    File.Copy(Path.Combine(convert.WorldFolder, "videoscoach", "video.webm"), Path.Combine(convert.TempVideoFolder, "output.webm"));
+                }
             }
             catch (Exception e)
             {
