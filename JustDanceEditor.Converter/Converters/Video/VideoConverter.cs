@@ -2,6 +2,7 @@
 using JustDanceEditor.Converter.UbiArt;
 
 using System.Diagnostics;
+using System.IO;
 
 using Xabe.FFmpeg;
 
@@ -34,6 +35,7 @@ public static class VideoConverter
                 else
                 {
                     Console.WriteLine("Video file is already in the correct format");
+                    Directory.CreateDirectory(convert.TempVideoFolder);
                     File.Copy(videoFile, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
                 }
             }
@@ -41,6 +43,21 @@ public static class VideoConverter
             {
                 Console.WriteLine($"Failed to convert video file: {e.Message}");
             }
+
+            // Now generate the preview video
+            GeneratePreviewVideo(convert, Path.Combine(convert.TempVideoFolder, "output.webm"));
+
+            // Move the video file to the output folder
+            string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
+            string outputVideoPath = Path.Combine(convert.OutputFolder, "cachex", "Video_HIGH_vp9_webm");
+            Directory.CreateDirectory(outputVideoPath);
+            File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
+
+            // Move the preview video to the output folder
+            md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
+            string previewVideoPath = Path.Combine(convert.OutputFolder, "cache0", "VideoPreview_MID_vp9_webm");
+            Directory.CreateDirectory(previewVideoPath);
+            File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
         }
     }
 
@@ -63,8 +80,54 @@ public static class VideoConverter
             File.Copy(path, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
         }
 
+        GeneratePreviewVideo(convert, path);
+
         stopwatch.Stop();
         Console.WriteLine($"Finished converting video file in {stopwatch.ElapsedMilliseconds}ms");
+    }
+
+    private static void GeneratePreviewVideo(ConvertUbiArtToUnity convert, string path)
+    {
+        (float startTime, float endTime) = convert.SongData.GetPreviewStartEndTimes(false);
+
+        // Get info about the video file
+        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(path).Result;
+
+        // Check if the endTime is below the duration of the video file
+        if (endTime > mediaInfo.Duration.TotalSeconds)
+            endTime = (float)mediaInfo.Duration.TotalSeconds;
+
+        // Generate the preview video file
+        string previewVideoPath = Path.Combine(convert.TempVideoFolder, "preview.webm");
+
+        GeneratePreviewVideoFFmpeg(path, previewVideoPath, startTime, endTime);
+    }
+
+    private static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime, float endTime)
+    {
+        IConversion conversion = FFmpeg.Conversions.New()
+            .UseMultiThread(true);
+
+        IStream stream = FFmpeg.GetMediaInfo(path).Result.VideoStreams.First();
+
+        conversion.AddStream(stream)
+            .SetOverwriteOutput(true)
+            .UseMultiThread(true)
+            .SetVideoBitrate(600000)
+            .SetSeek(TimeSpan.FromSeconds(startTime))
+            .SetInputTime(TimeSpan.FromSeconds(endTime))
+            // Set fade-in of .5 seconds
+            .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={endTime - 1}:d=1\"")
+            .SetOutput(previewVideoPath)
+            .SetOverwriteOutput(true);
+
+        FFMpegProgress progress = new("Video preview");
+        conversion.OnProgress += (sender, args) => progress.Update(args);
+        progress.Finish();
+
+        var result = conversion.Start().Result;
+
+        Console.WriteLine($"Ran following: {result.Arguments}");
     }
 
     static void ConvertVideoFile(ConvertUbiArtToUnity convert, string input)
@@ -103,20 +166,9 @@ public static class VideoConverter
             .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(convert.TempVideoFolder, "output.webm"));
 
-        (TimeSpan current, TimeSpan finish) previous = (TimeSpan.Zero, TimeSpan.Zero);
-        conversion.OnProgress += (sender, args) =>
-        {
-            (TimeSpan, TimeSpan) current = (args.Duration, args.TotalLength);
-            
-            if (previous != current)
-                Console.WriteLine($"Video progress: {args.Duration}/{args.TotalLength}");
-
-            previous = current;
-        };
-
-        // Did we print the final progress?
-        if (previous.current != previous.finish)
-            Console.WriteLine($"Video progress: {previous.finish}/{previous.finish}");
+        FFMpegProgress progress = new("Video");
+        conversion.OnProgress += (sender, args) => progress.Update(args);
+        progress.Finish();
 
         // Start the conversion
         var result = conversion.Start().Result;

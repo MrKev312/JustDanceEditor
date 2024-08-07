@@ -47,7 +47,56 @@ public static class AudioConverter
             File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
 
         string opusPath = ConvertToOpus(convert);
+
+        // Now we quickly generate the preview audio file
+        GeneratePreviewAudio(convert, opusPath);
+
         MoveOpusToOutput(convert, opusPath);
+    }
+
+    private static void GeneratePreviewAudio(ConvertUbiArtToUnity convert, string opusPath)
+    {
+        (float startTime, float endTime) = convert.SongData.GetPreviewStartEndTimes();
+
+        // Get info about the Opus file
+        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(opusPath).Result;
+
+        // Check if the endTime is below the duration of the Opus file
+        if (endTime > mediaInfo.Duration.TotalSeconds)
+            endTime = (float)mediaInfo.Duration.TotalSeconds;
+
+        // Generate the preview audio file
+        string previewOpusPath = Path.Combine(convert.TempAudioFolder, "preview.opus");
+
+        GeneratePreviewAudioFFMpeg(opusPath, previewOpusPath, startTime, endTime);
+
+        // Move the preview audio file to the output folder
+        string md5 = Download.GetFileMD5(previewOpusPath);
+        string outputFolder = Path.Combine(convert.OutputFolder, "cache0", "AudioPreview_opus");
+        Directory.CreateDirectory(outputFolder);
+        string outputOpusPath = Path.Combine(outputFolder, md5);
+        File.Move(previewOpusPath, outputOpusPath, true);
+    }
+
+    private static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime, float endTime)
+    {
+        IConversion conversion = FFmpeg.Conversions.New()
+            .UseMultiThread(true);
+
+        IStream stream = FFmpeg.GetMediaInfo(opusPath).Result.AudioStreams.First()
+            .SetCodec(AudioCodec.libopus)
+            .SetSampleRate(48000);
+
+        conversion.AddStream(stream)
+            .SetOverwriteOutput(true)
+            .UseMultiThread(true)
+            .SetSeek(TimeSpan.FromSeconds(startTime))
+            .SetInputTime(TimeSpan.FromSeconds(endTime))
+            // Set fade-in of .1 seconds
+            .AddParameter($"-af \"afade=t=in:st={startTime}:d=1,afade=t=out:st={endTime - 1}:d=1\"")
+            .SetOutput(previewOpusPath)
+            .SetOverwriteOutput(true)
+            .Start().Wait();
     }
 
     private static void MoveOpusToOutput(ConvertUbiArtToUnity convert, string opusPath)
