@@ -26,8 +26,8 @@ public static class VideoConverter
                 IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(videoFile).Result;
 
                 // If codec is vp8 or vp9 AND aspect ratio is 16:9, we don't need to convert
-                bool needsConversion = mediaInfo.VideoStreams.First().Codec is not "vp8" and not "vp9"
-                    || mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height != 16f / 9f;
+                bool needsConversion = !(mediaInfo.VideoStreams.First().Codec is "vp8" or "vp9"
+                    && mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height == 16f / 9f);
 
                 if (needsConversion)
                     Convert(convert, videoFile);
