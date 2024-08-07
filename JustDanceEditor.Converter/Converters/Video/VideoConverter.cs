@@ -125,9 +125,7 @@ public static class VideoConverter
         conversion.OnProgress += (sender, args) => progress.Update(args);
         progress.Finish();
 
-        var result = conversion.Start().Result;
-
-        Console.WriteLine($"Ran following: {result.Arguments}");
+        conversion.Start().Wait();
     }
 
     static void ConvertVideoFile(ConvertUbiArtToUnity convert, string input)
