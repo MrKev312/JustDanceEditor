@@ -32,6 +32,9 @@ public class JDUbiArtSong
             endTime -= MTrack.COMPONENTS[0].trackData.structure.videoStartTime;
         }
 
+        // For now, force the length to be 30.01 seconds
+        endTime = startTime + 30.01f;
+
         return (startTime, endTime);
     }
 }

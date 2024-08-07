@@ -122,7 +122,8 @@ public static class VideoConverter
             .SetOverwriteOutput(true);
 
         FFMpegProgress progress = new("Video preview");
-        conversion.OnProgress += (sender, args) => progress.Update(args);
+        TimeSpan totalLength = TimeSpan.FromSeconds(endTime - startTime);
+        conversion.OnProgress += (sender, args) => progress.Update(new(args.Duration, totalLength, (int)args.ProcessId);
         progress.Finish();
 
         conversion.Start().Wait();
