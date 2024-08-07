@@ -122,7 +122,14 @@ public static class AudioConverter
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         // Prepare the array with an extra slot for the main song
-        (string path, float offset)[] audioFiles = new (string path, float offset)[audioClips.Length + 1];
+        List<(string path, float offset)> audioFiles = [];
+
+        // Process the main song
+        // Assuming the main song's offset is determined by the startBeat and markers in songData
+        int startBeat = Math.Abs(convert.SongData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
+        int marker = convert.SongData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
+        float mainSongOffset = marker / 48f / 1000f; // Convert to seconds
+        audioFiles.Add((newMainSongPath, mainSongOffset));
 
         // Process each audio clip
         for (int i = 0; i < audioClips.Length; i++)
@@ -131,27 +138,26 @@ public static class AudioConverter
             string fileName = Path.GetFileNameWithoutExtension(clip.SoundSetPath);
             string wavPath = Path.Combine(convert.TempAudioFolder, $"{fileName}.wav");
 
-            // Calculate the offset (assuming StartTime is in ticks and 48 ticks per second)
-            float offset = clip.StartTime / 48f;
-            audioFiles[i] = (wavPath, offset);
+            // If the wav file doesn't exist, skip it
+            if (!File.Exists(wavPath))
+                continue;
+
+            // Calculate the offset, 56 seems to be the magic number?
+            float offset = clip.StartTime / 56f;
+            audioFiles.Add((wavPath, offset));
         }
 
-        // Process the main song
-        // Assuming the main song's offset is determined by the startBeat and markers in songData
-        int startBeat = Math.Abs(convert.SongData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
-        int marker = convert.SongData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
-        float mainSongOffset = marker / 48f / 1000f; // Convert to seconds
-        audioFiles[^1] = (newMainSongPath, mainSongOffset);
-
-        // Adjust offsets so the first audio file starts at 0
-        float lowestOffset = audioFiles.Min(x => x.offset);
-        for (int i = 0; i < audioFiles.Length; i++)
+        // Adjust offsets
+        for (int i = 1; i < audioFiles.Count; i++)
         {
-            audioFiles[i].offset -= lowestOffset;
+            float offset = audioFiles[i].offset;
+
+            if (offset >= 0)
+                audioFiles[i] = (audioFiles[i].path, offset - mainSongOffset);
         }
 
         // Call the helper to merge audio files
-        Helpers.Audio.MergeAudioFiles(audioFiles, Path.Combine(convert.TempAudioFolder, "merged.wav"));
+        Helpers.Audio.MergeAudioFiles(audioFiles.ToArray(), Path.Combine(convert.TempAudioFolder, "merged.wav"));
 
         stopwatch.Stop();
         Console.WriteLine($"Finished merging audio files in {stopwatch.ElapsedMilliseconds}ms");

@@ -50,10 +50,15 @@ public static class Audio
             // Read in the next file with the correct start time
             AudioFileReader reader = new(path);
 
-            OffsetSampleProvider offsetSampleProvider = new(reader)
-            {
-                DelayBy = TimeSpan.FromSeconds(startTime)
-            };
+            OffsetSampleProvider offsetSampleProvider = new(reader);
+
+            // If index is 0 or greater, set the offset
+            if (startTime >= 0)
+                offsetSampleProvider.DelayBy = TimeSpan.FromSeconds(startTime);
+            // Else, skip
+            else
+                offsetSampleProvider.SkipOver = TimeSpan.FromSeconds(-startTime);
+
 
             // Add the reader to the list of SampleProviders
             sampleProviders.Add(offsetSampleProvider);
