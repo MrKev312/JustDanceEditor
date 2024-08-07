@@ -39,7 +39,12 @@ public static class AudioConverter
 
         Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        MergeAudioFiles(convert, audioClips, newMainSongPath);
+        if (!Directory.Exists(Path.Combine(convert.WorldFolder, "audio")))
+            // If the song isn't pre-merged, merge the audio files
+            MergeAudioFiles(convert, audioClips, newMainSongPath);
+        else
+            // Else, just rename the main song to merged.wav
+            File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
 
         string opusPath = ConvertToOpus(convert);
         MoveOpusToOutput(convert, opusPath);
