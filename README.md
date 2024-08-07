@@ -69,3 +69,7 @@ This project is licensed under the MIT License.
 
 ## Contact
 For any inquiries, please dm me on Discord: ``mrkev312``
+
+## Credits
+- MrKev312: Creator of the tool
+- Stella/AboodXD and KillzXGaming for their XTX and GX2 converters
