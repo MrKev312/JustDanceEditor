@@ -15,16 +15,13 @@ public static class AudioConverter
 
     public static void ConvertAudio(ConvertUbiArtToUnity convert)
     {
-        if (convert.SongData.EngineVersion != JDVersion.JDUnlimited)
+        try
         {
-            try
-            {
-                Convert(convert);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Failed to convert audio files: {e.Message}");
-            }
+            Convert(convert);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Failed to convert audio files: {e.Message}");
         }
     }
 
@@ -35,16 +32,17 @@ public static class AudioConverter
         SoundSetClip[] audioClips = GetAudioClips(convert.SongData.MainSequence.Clips);
 
         ConvertAudioFiles(convert, audioClips);
-        string newMainSongPath = ConvertMainSong(convert);
+        string mainSongPath = GetMainSongPath(convert);
+        string newMainSongPath = ConvertMainSong(convert, mainSongPath);
 
         Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (!Directory.Exists(Path.Combine(convert.WorldFolder, "audio")))
-            // If the song isn't pre-merged, merge the audio files
-            MergeAudioFiles(convert, audioClips, newMainSongPath);
-        else
-            // Else, just rename the main song to merged.wav
+        if (mainSongPath.StartsWith(Path.Combine(convert.InputFolder, "media")))
+            // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
+        else
+            // Else, merge the audio files
+            MergeAudioFiles(convert, audioClips, newMainSongPath);
 
         string opusPath = ConvertToOpus(convert);
 
@@ -155,9 +153,8 @@ public static class AudioConverter
         }
     }
 
-    private static string ConvertMainSong(ConvertUbiArtToUnity convert)
+    private static string ConvertMainSong(ConvertUbiArtToUnity convert, string mainSongPath)
     {
-        string mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = Path.Combine(convert.TempAudioFolder, "mainSong.wav");
         audioConverter.Convert(mainSongPath, newMainSongPath);
         return newMainSongPath;
@@ -165,9 +162,24 @@ public static class AudioConverter
 
     private static string GetMainSongPath(ConvertUbiArtToUnity convert)
     {
-        return Directory.Exists(Path.Combine(convert.WorldFolder, "audio"))
-            ? Directory.GetFiles(Path.Combine(convert.WorldFolder, "audio"))[0]
-            : Directory.GetFiles(Path.Combine(convert.CacheFolder, "audio")).Where(x => x.EndsWith(".wav.ckd")).First();
+        string[] audios = [];
+        // Is there any *.ogg file in the media folder?
+        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
+            audios = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.ogg");
+        if (audios.Length > 0)
+            return audios[0];
+
+        if (Directory.Exists(Path.Combine(convert.CacheFolder, "audio")))
+        audios = Directory.GetFiles(Path.Combine(convert.CacheFolder, "audio"), "*.wav.ckd");
+        if (audios.Length > 0)
+            return audios[0];
+
+        if (Directory.Exists(Path.Combine(convert.WorldFolder, "audio")))
+            audios = Directory.GetFiles(Path.Combine(convert.WorldFolder, "audio"), "*.ogg");
+        if (audios.Length > 0)
+            return audios[0];
+
+        throw new Exception("Main song not found");
     }
 
     private static void MergeAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips, string newMainSongPath)
@@ -186,9 +198,8 @@ public static class AudioConverter
         audioFiles.Add((newMainSongPath, mainSongOffset));
 
         // Process each audio clip
-        for (int i = 0; i < audioClips.Length; i++)
+        foreach (SoundSetClip clip in audioClips)
         {
-            SoundSetClip clip = audioClips[i];
             string fileName = Path.GetFileNameWithoutExtension(clip.SoundSetPath);
             string wavPath = Path.Combine(convert.TempAudioFolder, $"{fileName}.wav");
 

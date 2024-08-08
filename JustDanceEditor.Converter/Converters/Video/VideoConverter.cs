@@ -11,54 +11,61 @@ public static class VideoConverter
 {
     public static void ConvertVideo(ConvertUbiArtToUnity convert)
     {
-        if (convert.SongData.EngineVersion != JDVersion.JDUnlimited)
+        try
         {
-            try
+            string videoFile = GetVideoFile(convert);
+
+            IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(videoFile).Result;
+
+            // If codec is vp8 or vp9 AND aspect ratio is 16:9, we don't need to convert
+            bool needsConversion = !(mediaInfo.VideoStreams.First().Codec is "vp8" or "vp9"
+                && mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height == 16f / 9f);
+
+            if (needsConversion)
+                Convert(convert, videoFile);
+            else
             {
-                string[] videofiles = Directory.GetFiles(Path.Combine(convert.WorldFolder, "videoscoach"), "*.webm");
-
-                if (videofiles.Length == 0)
-                {
-                    throw new Exception("No video file found");
-                }
-
-                string videoFile = videofiles[0];
-
-                IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(videoFile).Result;
-
-                // If codec is vp8 or vp9 AND aspect ratio is 16:9, we don't need to convert
-                bool needsConversion = !(mediaInfo.VideoStreams.First().Codec is "vp8" or "vp9"
-                    && mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height == 16f / 9f);
-
-                if (needsConversion)
-                    Convert(convert, videoFile);
-                else
-                {
-                    Console.WriteLine("Video file is already in the correct format");
-                    Directory.CreateDirectory(convert.TempVideoFolder);
-                    File.Copy(videoFile, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
-                }
+                Console.WriteLine("Video file is already in the correct format");
+                Directory.CreateDirectory(convert.TempVideoFolder);
+                File.Copy(videoFile, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
             }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Failed to convert video file: {e.Message}");
-            }
-
-            // Now generate the preview video
-            GeneratePreviewVideo(convert, Path.Combine(convert.TempVideoFolder, "output.webm"));
-
-            // Move the video file to the output folder
-            string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
-            string outputVideoPath = Path.Combine(convert.OutputFolder, "cachex", "Video_HIGH_vp9_webm");
-            Directory.CreateDirectory(outputVideoPath);
-            File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
-
-            // Move the preview video to the output folder
-            md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
-            string previewVideoPath = Path.Combine(convert.OutputFolder, "cache0", "VideoPreview_MID_vp9_webm");
-            Directory.CreateDirectory(previewVideoPath);
-            File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
         }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Failed to convert video file: {e.Message}");
+            return;
+        }
+
+        // Now generate the preview video
+        GeneratePreviewVideo(convert, Path.Combine(convert.TempVideoFolder, "output.webm"));
+
+        // Move the video file to the output folder
+        string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
+        string outputVideoPath = Path.Combine(convert.OutputFolder, "cachex", "Video_HIGH_vp9_webm");
+        Directory.CreateDirectory(outputVideoPath);
+        File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
+
+        // Move the preview video to the output folder
+        md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
+        string previewVideoPath = Path.Combine(convert.OutputFolder, "cache0", "VideoPreview_MID_vp9_webm");
+        Directory.CreateDirectory(previewVideoPath);
+        File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
+    }
+
+    static string GetVideoFile(ConvertUbiArtToUnity convert)
+    {
+        string[] videofiles = [];
+        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
+            videofiles = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.webm");
+        if (videofiles.Length > 0)
+            return videofiles[0];
+
+        if (Directory.Exists(Path.Combine(convert.WorldFolder, "videoscoach")))
+            videofiles = Directory.GetFiles(Path.Combine(convert.WorldFolder, "videoscoach"), "*.webm");
+        if (videofiles.Length > 0)
+            return videofiles[0];
+
+        throw new Exception("No video file found");
     }
 
     private static void Convert(ConvertUbiArtToUnity convert, string path)
@@ -79,8 +86,6 @@ public static class VideoConverter
             // Copy the file as is
             File.Copy(path, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
         }
-
-        GeneratePreviewVideo(convert, path);
 
         stopwatch.Stop();
         Console.WriteLine($"Finished converting video file in {stopwatch.ElapsedMilliseconds}ms");
@@ -108,11 +113,11 @@ public static class VideoConverter
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);
 
-        IStream stream = FFmpeg.GetMediaInfo(path).Result.VideoStreams.First();
+        IStream stream = FFmpeg.GetMediaInfo(path).Result.VideoStreams.First()
+            .SetCodec(VideoCodec.vp9);
 
         conversion.AddStream(stream)
             .SetOverwriteOutput(true)
-            .UseMultiThread(true)
             .SetVideoBitrate(600000)
             .SetSeek(TimeSpan.FromSeconds(startTime))
             .SetInputTime(TimeSpan.FromSeconds(endTime))
@@ -147,7 +152,7 @@ public static class VideoConverter
         float targetAspectRatio = 16f / 9f;
         if (aspectRatio != targetAspectRatio)
         {
-            string cropFilter = aspectRatio > targetAspectRatio
+            string cropFilter = aspectRatio < targetAspectRatio
                 ? "crop=in_w:in_w*9/16"
                 : "crop=in_h*16/9:in_h";
 
@@ -162,6 +167,7 @@ public static class VideoConverter
 
         // Set output to webm
         conversion.SetOutputFormat(Format.webm)
+            .AddParameter("-crf 1")
             .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(convert.TempVideoFolder, "output.webm"));
 

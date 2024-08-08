@@ -18,19 +18,29 @@ public class JDUbiArtSong
 
     public (float start, float end) GetPreviewStartEndTimes(bool isAudio = true)
     {
+        float songOffset = 0;
+
+        if (isAudio)
+        {
+            // Get the startbeat offset
+            int songStartBeat = Math.Abs(MTrack.COMPONENTS[0].trackData.structure.startBeat);
+            songOffset = -MTrack.COMPONENTS[0].trackData.structure.markers[songStartBeat] / 48f / 1000f;
+        }
+        else
+        {
+            songOffset = MTrack.COMPONENTS[0].trackData.structure.videoStartTime;
+        }
+
         // Get the start and end markers
-        int startMarker = MTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
-        int endMarker = MTrack.COMPONENTS[0].trackData.structure.previewLoopEnd;
+        int startBeat = MTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
+        int endBeat = MTrack.COMPONENTS[0].trackData.structure.previewLoopEnd;
 
         // Convert the ticks to ubiart timing using the markers
-        float startTime = MTrack.COMPONENTS[0].trackData.structure.markers[startMarker] / 48f / 1000f;
-        float endTime = MTrack.COMPONENTS[0].trackData.structure.markers[endMarker] / 48f / 1000f;
+        float startTime = MTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
+        float endTime = MTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
-        if (!isAudio)
-        {
-            startTime -= MTrack.COMPONENTS[0].trackData.structure.videoStartTime;
-            endTime -= MTrack.COMPONENTS[0].trackData.structure.videoStartTime;
-        }
+        startTime -= songOffset;
+        endTime -= songOffset;
 
         // For now, force the length to be 30.01 seconds
         endTime = startTime + 30.01f;
