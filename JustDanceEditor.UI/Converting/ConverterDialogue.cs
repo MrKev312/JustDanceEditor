@@ -7,7 +7,9 @@ public class ConverterDialogue
 {
     public static void ConvertDialogue()
     {
-        CheckTemplate();
+        if (!CheckTemplate())
+            return;
+
         ConversionRequest conversionRequest = CreateConversionRequest();
 
         ConvertUbiArtToUnity converter = new(conversionRequest);
@@ -16,7 +18,9 @@ public class ConverterDialogue
 
     public static void ConvertDialogueAdvanced()
     {
-        CheckTemplate();
+        if (!CheckTemplate())
+            return;
+
         ConversionRequest conversionRequest = CreateConversionRequest();
 
         // Ask for the cache number
