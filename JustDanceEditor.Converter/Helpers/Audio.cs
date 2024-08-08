@@ -3,20 +3,6 @@ using NAudio.Wave.SampleProviders;
 
 namespace JustDanceEditor.Converter.Helpers;
 
-/// <summary>
-/// Interface for converting audio files
-/// </summary>
-public interface IAudioConverter
-{
-    /// <summary>
-    /// Convert an audio file
-    /// </summary>
-    /// <param name="sourcePath">The path to the source audio file</param>
-    /// <param name="targetPath">The path to save the converted audio file</param>
-    /// <returns>A task that represents the asynchronous conversion operation</returns>
-    Task Convert(string sourcePath, string targetPath);
-}
-
 public static class Audio
 {
     public static void MergeAudioFiles((string path, float startTime)[] audioFiles, string outputPath)
@@ -50,10 +36,15 @@ public static class Audio
             // Read in the next file with the correct start time
             AudioFileReader reader = new(path);
 
-            OffsetSampleProvider offsetSampleProvider = new(reader)
-            {
-                DelayBy = TimeSpan.FromSeconds(startTime)
-            };
+            OffsetSampleProvider offsetSampleProvider = new(reader);
+
+            // If index is 0 or greater, set the offset
+            if (startTime >= 0)
+                offsetSampleProvider.DelayBy = TimeSpan.FromSeconds(startTime);
+            // Else, skip
+            else
+                offsetSampleProvider.SkipOver = TimeSpan.FromSeconds(-startTime);
+
 
             // Add the reader to the list of SampleProviders
             sampleProviders.Add(offsetSampleProvider);

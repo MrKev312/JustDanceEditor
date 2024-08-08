@@ -1,5 +1,7 @@
 ﻿using JustDanceEditor.Converter.UbiArt.Tapes;
 
+using System;
+
 namespace JustDanceEditor.Converter.UbiArt;
 
 public class JDUbiArtSong
@@ -13,6 +15,38 @@ public class JDUbiArtSong
     public MusicTrack MTrack { get; set; } = new();
     public MainSequence MainSequence { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
+
+    public (float start, float end) GetPreviewStartEndTimes(bool isAudio = true)
+    {
+        float songOffset = 0;
+
+        if (isAudio)
+        {
+            // Get the startbeat offset
+            int songStartBeat = Math.Abs(MTrack.COMPONENTS[0].trackData.structure.startBeat);
+            songOffset = -MTrack.COMPONENTS[0].trackData.structure.markers[songStartBeat] / 48f / 1000f;
+        }
+        else
+        {
+            songOffset = MTrack.COMPONENTS[0].trackData.structure.videoStartTime;
+        }
+
+        // Get the start and end markers
+        int startBeat = MTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
+        int endBeat = MTrack.COMPONENTS[0].trackData.structure.previewLoopEnd;
+
+        // Convert the ticks to ubiart timing using the markers
+        float startTime = MTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
+        float endTime = MTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
+
+        startTime -= songOffset;
+        endTime -= songOffset;
+
+        // For now, force the length to be 30.01 seconds
+        endTime = startTime + 30.01f;
+
+        return (startTime, endTime);
+    }
 }
 
 public enum JDVersion

@@ -39,9 +39,9 @@ public class Structure
     public int fadeEndBeat { get; set; }
     public bool useFadeEndBeat { get; set; }
     public float videoStartTime { get; set; }
-    public float previewEntry { get; set; }
-    public float previewLoopStart { get; set; }
-    public float previewLoopEnd { get; set; }
+    public int previewEntry { get; set; }
+    public int previewLoopStart { get; set; }
+    public int previewLoopEnd { get; set; }
     public float volume { get; set; }
     public float fadeInDuration { get; set; }
     public float fadeInType { get; set; }
