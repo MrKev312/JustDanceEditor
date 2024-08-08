@@ -388,12 +388,33 @@ public static class MapPackageBundleGenerator
             // Load in the sprite template
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
 
+            // Let's fix the vertex data yayyy
+            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["indexCount"].AsUInt = 6;
+            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["vertexCount"].AsUInt = 4;
+
+            // Set the index buffer
+            spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0];
+
+            // Fix the vertex buffer
+            spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = 
+                [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
+                    0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
+                    215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+
             // Set the name and content
             spriteBaseField["m_Name"].AsString = pictoName;
             spriteBaseField["m_Rect"]["width"].AsFloat = imageDict[pictoName].size.width;
             spriteBaseField["m_Rect"]["height"].AsFloat = imageDict[pictoName].size.height;
+            spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
+            spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
+            spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0;
+            spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
+            spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0;
             spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnitsMagic;
             spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
             spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
@@ -421,6 +442,7 @@ public static class MapPackageBundleGenerator
                 vertexData[j + 1] = vertexMagics[1];
                 vertexData[j + 2] = vertexMagics[2];
             }
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexData;
 
             // Add the new Sprite to the AssetsFile
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteID, (int)AssetClassID.Sprite, null);
