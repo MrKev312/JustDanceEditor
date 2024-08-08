@@ -74,7 +74,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         ConversionTasks();
 
         // Generate the cache
-        CacheJsonGenerator.GenerateCacheJson(this);
+        GenerateCache();
 
         stopwatch.Stop();
         Console.WriteLine($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
@@ -82,6 +82,17 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         return;
     }
 
+    void GenerateCache()
+    {
+        try
+        {
+            CacheJsonGenerator.GenerateCacheJson(this);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Error while generating the cache: {e.Message}");
+        }
+    }
     static void ValidateTemplateFolder()
     {
         string[] folders = [
