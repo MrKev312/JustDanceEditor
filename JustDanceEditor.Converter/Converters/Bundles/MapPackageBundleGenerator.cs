@@ -57,13 +57,16 @@ public static class MapPackageBundleGenerator
 
             bool isFirstTrackMusicTrack = name == "";
 
-            musicTrackBase = isFirstTrackMusicTrack ? firstTrackInfo : manager.GetBaseField(afileInst, musicTrackInfos[1]);
-            mapBase = isFirstTrackMusicTrack ? manager.GetBaseField(afileInst, musicTrackInfos[1]) : firstTrackInfo;
-
             if (!isFirstTrackMusicTrack)
             {
                 (musicTrackInfos[0], musicTrackInfos[1]) = (musicTrackInfos[1], musicTrackInfos[0]);
             }
+
+            musicTrackBase = manager.GetBaseField(afileInst, musicTrackInfos[0]);
+            mapBase = manager.GetBaseField(afileInst, musicTrackInfos[1]);
+
+            if (mapBase["m_Name"].AsString == "")
+                throw new Exception("Something is wrong with the MapPackage! Please dm which template you used.");
         }
 
         // Set the name of the mapBase to the name of the map
