@@ -199,8 +199,6 @@ internal class Question
                 answer = "n";
         }
 
-		Console.WriteLine();
-
 		return answer == "y";
 	}
 }

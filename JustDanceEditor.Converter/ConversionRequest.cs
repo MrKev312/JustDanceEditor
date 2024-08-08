@@ -15,5 +15,6 @@ public class ConversionRequest
     // GUID of the song
     public string SongID { get; set; } = Guid.NewGuid().ToString();
     // Cache number
-    public int CacheNumber { get; set; } = 123;
+    public uint CacheNumber { get; set; } = 123;
+    public uint? JDVersion { get; set; } = null;
 }

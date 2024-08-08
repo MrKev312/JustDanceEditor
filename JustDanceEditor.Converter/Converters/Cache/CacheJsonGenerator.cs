@@ -10,11 +10,9 @@ public static class CacheJsonGenerator
 
     public static void GenerateCacheJson(ConvertUbiArtToUnity convert)
     {
-        uint cacheNumber = 123;
-
         // Generate the json.cache file
         string cachexJsonPath = Path.Combine(convert.OutputXFolder, "json.cache");
-        string cachexJson = JDSongFactory.CacheJson(cacheNumber, convert.SongID);
+        string cachexJson = JDSongFactory.CacheJson(convert.CacheNumber, convert.SongID);
         File.WriteAllText(cachexJsonPath, cachexJson);
 
         string audioName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "Audio_opus"))[0]);
@@ -33,7 +31,7 @@ public static class CacheJsonGenerator
         }
 
         string cachingStatusPath = Path.Combine(convert.OutputFolder, "cachingStatus.json");
-        JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
+        JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, convert.CacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
 
         Dictionary<string, JDSong> caching = new()
         {

@@ -28,11 +28,11 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     public string InputMenuArtFolder => Path.Combine(WorldFolder, "menuart");
     public string InputMediaFolder => Path.Combine(WorldFolder, "media");
     public string OutputFolder => Path.Combine(ConversionRequest.OutputPath, SongData.Name);
-    public string Output0Folder => Path.Combine(OutputFolder, "cache0", SongID);
-    public string OutputXFolder => Path.Combine(OutputFolder, "cachex", SongID);
+    public string Output0Folder => Path.Combine(OutputFolder, $"SD_Cache.0000", SongID);
+    public string OutputXFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", SongID);
     public string TemplateFolder => ConversionRequest.TemplatePath;
     public string SongID => ConversionRequest.SongID;
-    public int CacheNumber => ConversionRequest.CacheNumber;
+    public uint CacheNumber => ConversionRequest.CacheNumber;
     // Temporary folders
     public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", SongData.Name);
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
@@ -88,7 +88,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
             "./template/Cover",
             "./template/MapPackage",
             "./template/CoachesLarge",
-            "./template//CoachesSmall"
+            "./template/CoachesSmall"
         ];
 
         // If any of the folders don't exist, throw an exception
@@ -175,7 +175,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
             JDVersion.JDUnlimited :
             (JDVersion)SongData.SongDesc.COMPONENTS[0].JDVersion;
 
-        SongData.JDVersion = (JDVersion)SongData.SongDesc.COMPONENTS[0].OriginalJDVersion;
+        SongData.JDVersion = (JDVersion)(ConversionRequest.JDVersion ?? SongData.SongDesc.COMPONENTS[0].OriginalJDVersion);
 
         Console.WriteLine($"Loaded versions, engine: {SongData.EngineVersion}, original version: {SongData.JDVersion}");
 

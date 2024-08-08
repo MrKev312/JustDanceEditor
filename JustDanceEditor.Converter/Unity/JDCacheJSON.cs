@@ -108,10 +108,14 @@ public class SongDatabaseEntry
 
         // Get startBeat and endBeat
         int startBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat;
-        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat;
+        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat + startBeat;
+
+        if (endBeat >= convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length)
+            endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length - 1;
+
         // Use markers to get the length of the song
         float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[-startBeat] / 48f / 1000f;
-        float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat + startBeat] / 48f / 1000f;
+        float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
         string songTitleLogoPath = Path.Combine(convert.Output0Folder, "songTitleLogo");
         bool songTitleLogo = Directory.Exists(songTitleLogoPath) && Directory.GetFiles(Path.Combine(convert.Output0Folder, "songTitleLogo")).Length > 0;
@@ -125,7 +129,7 @@ public class SongDatabaseEntry
             Credits = info.Credits,
             LyricsColor = lyricsColor,
             MapLength = endTime - startTime,
-            OriginalJDVersion = info.OriginalJDVersion,
+            OriginalJDVersion = (uint)convert.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
             SweatDifficulty = info.SweatDifficulty,

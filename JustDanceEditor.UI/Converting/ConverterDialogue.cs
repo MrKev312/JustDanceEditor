@@ -11,6 +11,7 @@ public class ConverterDialogue
             return;
 
         ConversionRequest conversionRequest = CreateConversionRequest();
+        Console.WriteLine();
 
         ConvertUbiArtToUnity converter = new(conversionRequest);
         converter.Convert();
@@ -24,7 +25,12 @@ public class ConverterDialogue
         ConversionRequest conversionRequest = CreateConversionRequest();
 
         // Ask for the cache number
-        conversionRequest.CacheNumber = Question.AskNumber("Enter the cache number", 1);
+        conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the cache number", 1);
+
+        // Ask for the JD version
+        uint version = (uint)Question.AskNumber("Force the JD version (0 for normal)", 0);
+        conversionRequest.JDVersion = version == 0 ? null : version;
+        Console.WriteLine();
 
         ConvertUbiArtToUnity converter = new(conversionRequest);
         converter.Convert();
@@ -48,6 +54,7 @@ public class ConverterDialogue
             OnlineCover = onlineCover,
             SongName = songName
         };
+
         return conversionRequest;
     }
 
@@ -77,6 +84,7 @@ public class ConverterDialogue
 
     private static bool AskOnlineCover() => 
         Question.AskYesNo("Do you want to look up the cover online if needed?");
+
     private static string AskOutputFolder() => 
         Question.AskFolder("Enter the path to the output folder", false);
 
