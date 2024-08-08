@@ -35,7 +35,7 @@ public class JDSongFactory
                     Ready = true,
                     Size = 0,
                     Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/MapBaseCache/{guid}/CoachesSmall/{coachesSmallFilename}"
+                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesSmall/{coachesSmallFilename}"
                 },
                 CoachesLarge = new()
                 {
@@ -45,7 +45,7 @@ public class JDSongFactory
                     Ready = true,
                     Size = 0,
                     Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/MapBaseCache/{guid}/CoachesLarge/{coachesLargeFilename}"
+                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/CoachesLarge/{coachesLargeFilename}"
                 },
                 AudioPreview_opus = new()
                 {
@@ -75,7 +75,7 @@ public class JDSongFactory
                     Ready = true,
                     Size = 0,
                     Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/MapBaseCache/{guid}/Audio_opus/{audioOpusFilename}"
+                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Audio_opus/{audioOpusFilename}"
                 },
                 Video_HIGH_vp9_webm = new()
                 {
@@ -85,7 +85,7 @@ public class JDSongFactory
                     Ready = true,
                     Size = 0,
                     Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/MapBaseCache/{guid}/Video_HIGH_vp9_webm/{videoHighVp9WebmFilename}"
+                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/Video_HIGH_vp9_webm/{videoHighVp9WebmFilename}"
                 },
                 MapPackage = new()
                 {
@@ -95,7 +95,7 @@ public class JDSongFactory
                     Ready = true,
                     Size = 0,
                     Category = 1,
-                    FilePath = $"/CacheStorage_{cacheNumber}/MapBaseCache/{guid}/MapPackage/{mapPackageFilename}"
+                    FilePath = $"/CacheStorage_{cacheNumber}/{guid}/MapPackage/{mapPackageFilename}"
                 }
             },
             Sizes = new(),

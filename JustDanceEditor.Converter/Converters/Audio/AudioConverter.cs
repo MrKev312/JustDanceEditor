@@ -129,6 +129,7 @@ public static class AudioConverter
             .SetSampleRate(48000);
 
         conversion.AddStream(stream)
+            .AddParameter("-sample_fmt flt")
             .SetOverwriteOutput(true)
             .UseMultiThread(true)
             .SetOutput(opusPath)
