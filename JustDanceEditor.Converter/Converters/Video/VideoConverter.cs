@@ -120,14 +120,14 @@ public static class VideoConverter
             .SetOverwriteOutput(true)
             .SetVideoBitrate(600000)
             .SetSeek(TimeSpan.FromSeconds(startTime))
-            .SetInputTime(TimeSpan.FromSeconds(endTime))
             // Set fade-in of .5 seconds
             .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={endTime - 1}:d=1\"")
+            .AddParameter("-t 30")
             .SetOutput(previewVideoPath)
             .SetOverwriteOutput(true);
 
         FFMpegProgress progress = new("Video preview");
-        TimeSpan totalLength = TimeSpan.FromSeconds(endTime - startTime);
+        TimeSpan totalLength = TimeSpan.FromSeconds(30);
         conversion.OnProgress += (sender, args) => progress.Update(new(args.Duration, totalLength, (int)args.ProcessId));
         progress.Finish();
 

@@ -89,9 +89,9 @@ public static class AudioConverter
             .SetOverwriteOutput(true)
             .UseMultiThread(true)
             .SetSeek(TimeSpan.FromSeconds(startTime))
-            .SetInputTime(TimeSpan.FromSeconds(endTime))
             // Set fade-in of .1 seconds
             .AddParameter($"-af \"afade=t=in:st={startTime}:d=1,afade=t=out:st={endTime - 1}:d=1\"")
+            .AddParameter("-t 30")
             .SetOutput(previewOpusPath)
             .SetOverwriteOutput(true)
             .Start().Wait();
