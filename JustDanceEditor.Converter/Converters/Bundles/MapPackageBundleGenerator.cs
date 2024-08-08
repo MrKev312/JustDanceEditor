@@ -18,7 +18,7 @@ public static class MapPackageBundleGenerator
     {
         // Get the mapPackage path
         // /template/cachex/MapPackage/*
-        string mapPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateXFolder, "MapPackage"))[0];
+        string mapPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "MapPackage"))[0];
 
         // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
         Task<(Dictionary<string, (int index, (int Width, int Height))>, List<Image<Rgba32>>)> pictoTask =

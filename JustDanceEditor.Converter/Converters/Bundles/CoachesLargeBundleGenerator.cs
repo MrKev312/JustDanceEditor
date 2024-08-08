@@ -19,7 +19,7 @@ public static class CoachesLargeBundleGenerator
     {
         // Get the coaches folder
         // /template/cachex/CoachesLarge/*
-        string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateXFolder, "CoachesLarge"))[0];
+        string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "CoachesLarge"))[0];
 
         Console.WriteLine("Converting CoachesLarge...");
         // Open the coaches package using AssetTools.NET

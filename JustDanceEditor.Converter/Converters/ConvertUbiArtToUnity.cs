@@ -17,10 +17,10 @@ using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Converter.Converters;
 
-public class ConvertUbiArtToUnity
+public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 {
     public JDUbiArtSong SongData { get; private set; } = new();
-    public readonly ConversionRequest ConversionRequest;
+    public readonly ConversionRequest ConversionRequest = conversionRequest;
 
     /// Folders
     // Main folders
@@ -31,9 +31,8 @@ public class ConvertUbiArtToUnity
     public string Output0Folder => Path.Combine(OutputFolder, "cache0", SongID);
     public string OutputXFolder => Path.Combine(OutputFolder, "cachex", SongID);
     public string TemplateFolder => ConversionRequest.TemplatePath;
-    public string TemplateXFolder => Path.Combine(TemplateFolder, "cachex");
-    public string Template0Folder => Path.Combine(TemplateFolder, "cache0");
-    public string SongID { get; private set; } = Guid.NewGuid().ToString();
+    public string SongID => ConversionRequest.SongID;
+    public int CacheNumber => ConversionRequest.CacheNumber;
     // Temporary folders
     public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", SongData.Name);
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
@@ -50,11 +49,6 @@ public class ConvertUbiArtToUnity
     public string MenuArtFolder => SongData.EngineVersion == JDVersion.JDUnlimited ?
         InputMenuArtFolder :
         Path.Combine(CacheFolder, "menuart", "textures");
-
-    public ConvertUbiArtToUnity(ConversionRequest conversionRequest)
-    {
-        ConversionRequest = conversionRequest;
-    }
 
     public void Convert()
     {

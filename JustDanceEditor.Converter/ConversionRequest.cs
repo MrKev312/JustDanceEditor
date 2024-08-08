@@ -12,4 +12,8 @@ public class ConversionRequest
     public bool OnlineCover { get; set; } = true;
     // Name of the song (optional)
     public string? SongName { get; set; } = null;
+    // GUID of the song
+    public string SongID { get; set; } = Guid.NewGuid().ToString();
+    // Cache number
+    public int CacheNumber { get; set; } = 123;
 }

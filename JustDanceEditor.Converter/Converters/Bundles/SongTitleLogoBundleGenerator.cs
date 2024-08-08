@@ -24,7 +24,7 @@ public static class SongTitleBundleGenerator
             return;
         }
 
-        string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.Template0Folder, "songTitleLogo"));
+        string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "songTitleLogo"));
         if (songTitleLogoPackagePaths.Length == 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;

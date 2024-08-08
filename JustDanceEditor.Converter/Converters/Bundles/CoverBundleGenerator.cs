@@ -16,7 +16,7 @@ public static class CoverBundleGenerator
 {
     public static void GenerateCover(ConvertUbiArtToUnity convert)
     {
-        string coverPackagePath = Directory.GetFiles(Path.Combine(convert.Template0Folder, "Cover"))[0];
+        string coverPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "Cover"))[0];
 
         Console.WriteLine("Converting Cover...");
 
