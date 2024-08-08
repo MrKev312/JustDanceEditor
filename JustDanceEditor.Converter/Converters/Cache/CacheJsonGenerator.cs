@@ -1,12 +1,16 @@
-﻿using JustDanceEditor.Converter.Unity;
-
+﻿using System.Text.Encodings.Web;
 using System.Text.Json;
+
+using JustDanceEditor.Converter.Unity;
 
 namespace JustDanceEditor.Converter.Converters.Cache;
 
 public static class CacheJsonGenerator
 {
-    static readonly JsonSerializerOptions options = new() { WriteIndented = true };
+    static readonly JsonSerializerOptions options = new() { 
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = true
+    };
 
     public static void GenerateCacheJson(ConvertUbiArtToUnity convert)
     {
