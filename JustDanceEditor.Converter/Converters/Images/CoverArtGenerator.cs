@@ -154,6 +154,9 @@ public static class CoverArtGenerator
             if (File.Exists(path))
             {
                 coverImage = TryLoadImage(path);
+                
+                if (coverImage is not null)
+                    break;
             }
         }
 
