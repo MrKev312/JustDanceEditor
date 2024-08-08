@@ -12,6 +12,7 @@ public class IntBoolConverter : JsonConverter<int>
             JsonTokenType.False => 0,
             JsonTokenType.True => 1,
             JsonTokenType.Number when reader.TryGetInt32(out int intValue) => intValue,
+            JsonTokenType.Number when reader.TryGetDouble(out double doubleValue) => (int)doubleValue,
             _ => throw new JsonException("Unexpected token type")
         };
     }

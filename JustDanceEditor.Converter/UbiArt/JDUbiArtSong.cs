@@ -42,8 +42,8 @@ public class JDUbiArtSong
         startTime -= songOffset;
         endTime -= songOffset;
 
-        // For now, force the length to be 30.01 seconds
-        endTime = startTime + 30.01f;
+        // For now, force the length to be 30 seconds
+        endTime = startTime + 30f;
 
         return (startTime, endTime);
     }
