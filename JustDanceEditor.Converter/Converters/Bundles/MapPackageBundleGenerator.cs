@@ -261,7 +261,7 @@ public static class MapPackageBundleGenerator
 
             // Build up the reference
             AssetTypeValueField newMove = ValueBuilder.DefaultValueFieldFromArrayTemplate(movesArray);
-            newMove["Key"].AsString = Path.GetFileNameWithoutExtension(fileName);
+            newMove["Key"].AsString = Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
             newMove["Value"]["m_FileID"].AsInt = 0;
             newMove["Value"]["m_PathID"].AsLong = newAssetId;
 
@@ -574,7 +574,7 @@ public static class MapPackageBundleGenerator
                     // Create a new MotionClip
                     AssetTypeValueField newMotionClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
 
-                    string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath);
+                    string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
                     newMotionClip["StartTime"].AsInt = clip.StartTime;
                     newMotionClip["Duration"].AsInt = clip.Duration;
