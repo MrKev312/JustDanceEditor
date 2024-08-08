@@ -31,17 +31,14 @@ public class JDUbiArtSong
 
         // Get the start and end markers
         int startBeat = MusicTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
-        int endBeat = MusicTrack.COMPONENTS[0].trackData.structure.previewLoopEnd;
 
         // Convert the ticks to ubiart timing using the markers
         float startTime = MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
-        float endTime = MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
         startTime -= songOffset;
-        endTime -= songOffset;
 
         // For now, force the length to be 30 seconds
-        endTime = startTime + 30f;
+        float endTime = startTime + 30f;
 
         return (startTime, endTime);
     }

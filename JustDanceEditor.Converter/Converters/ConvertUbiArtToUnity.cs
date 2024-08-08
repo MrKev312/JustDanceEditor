@@ -159,9 +159,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntBoolConverter());
 
+        // Some maps don't have KaraokeTape
         Console.WriteLine("Loading KTape");
-
-        SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
+        if (File.Exists(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")))
+            SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading DTape");
         SongData.DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading MTrack");
