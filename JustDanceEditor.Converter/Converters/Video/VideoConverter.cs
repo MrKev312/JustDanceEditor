@@ -116,9 +116,9 @@ public static class VideoConverter
 
         conversion.AddStream(stream)
             .SetOverwriteOutput(true)
-            .SetVideoBitrate(600000)
             .SetSeek(TimeSpan.FromSeconds(startTime))
-            // Set fade-in of .5 seconds
+            .AddParameter("-b:v 500k -maxrate 600k -bufsize 1200k")
+            // Set fade-in of 1 second
             .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={endTime - 1}:d=1\"")
             .AddParameter("-t 30")
             .SetOutput(previewVideoPath)

@@ -160,6 +160,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         options.Converters.Add(new IntBoolConverter());
 
         Console.WriteLine("Loading KTape");
+
         SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading DTape");
         SongData.DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
@@ -184,12 +185,20 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     void CreateTempFolders()
     {
+        // Delete the old temp folder
+        if (Directory.Exists(TempMapFolder))
+        {
+            Console.WriteLine("Deleting the old temp folder");
+            Directory.Delete(TempMapFolder, true);
+        }
+
         // Create the folders
         Console.WriteLine("Creating the temp folders");
         Directory.CreateDirectory(TempMapFolder);
         Directory.CreateDirectory(TempPictoFolder);
         Directory.CreateDirectory(TempMenuArtFolder);
         Directory.CreateDirectory(TempAudioFolder);
+        Directory.CreateDirectory(TempVideoFolder);
     }
 
     private void ConversionTasks()

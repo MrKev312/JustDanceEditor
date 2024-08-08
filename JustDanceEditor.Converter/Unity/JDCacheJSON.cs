@@ -107,14 +107,14 @@ public class SongDatabaseEntry
         string lyricsColor = $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
 
         // Get startBeat and endBeat
-        int startBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat;
-        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat + startBeat;
+        int startBeat = Math.Abs(convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
+        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat - startBeat;
 
         if (endBeat >= convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length)
             endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length - 1;
 
         // Use markers to get the length of the song
-        float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[-startBeat] / 48f / 1000f;
+        float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
         float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
         string songTitleLogoPath = Path.Combine(convert.Output0Folder, "songTitleLogo");
