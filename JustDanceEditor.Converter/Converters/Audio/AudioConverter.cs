@@ -207,18 +207,10 @@ public static class AudioConverter
             if (!File.Exists(wavPath))
                 continue;
 
-            // Calculate the offset, 56 seems to be the magic number?
-            float offset = clip.StartTime / 56f;
+            // Calculate the offset
+            float offset = clip.StartTime / 48f;
+            offset += mainSongOffset;
             audioFiles.Add((wavPath, offset));
-        }
-
-        // Adjust offsets
-        for (int i = 1; i < audioFiles.Count; i++)
-        {
-            float offset = audioFiles[i].offset;
-
-            if (offset >= 0)
-                audioFiles[i] = (audioFiles[i].path, offset - mainSongOffset);
         }
 
         // Call the helper to merge audio files
