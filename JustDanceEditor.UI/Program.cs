@@ -46,7 +46,8 @@ internal class Program
         }
     }
 
-    private static void CacheStuff()
+    [Obsolete]
+    static void CacheStuff()
     {
         Console.WriteLine("""
             Please note that this was made for some quick and dirty cache testing. This is not intended to be used by the end user.
@@ -79,6 +80,7 @@ internal class Program
                 break;
         }
 
+        [Obsolete]
         static void GenerateCache()
         {
             // Ask if the user wants to generate a song with existing data or URLs

@@ -1,4 +1,5 @@
 ﻿namespace JustDanceEditor.Converter.Unity;
+
 public class JDSongFactory
 {
     // This is the hardcoded value, taken from Encanto/We don't talk about Bruno
@@ -120,7 +121,13 @@ public class JDSongFactory
         return song;
     }
 
-    public static string CacheJson(uint cacheNumber, string guid)
+    public static string CacheJson(uint cacheNumber, string guid) => GenerateJson(cacheNumber, guid);
+
+    public static string MapBaseJson() => GenerateJson(0, "MapBaseCache");
+
+    public static string AddressablesJson() => GenerateJson(0, "Addressables");
+
+    public static string GenerateJson(uint cacheNumber, string path)
     {
         return $$"""
 			{
@@ -131,48 +138,10 @@ public class JDSongFactory
 			  "cachedStreamsDict": {
 				"$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
 			  },
-			  "name": "{{guid}}",
-			  "path": "/CacheStorage_{{cacheNumber}}/{{guid}}",
-			  "pathNX": "CacheStorage_{{cacheNumber}}/{{guid}}",
+			  "name": "{{Path.GetFileName(path)}}",
+			  "path": "/CacheStorage_{{cacheNumber}}/{{path}}",
+			  "pathNX": "CacheStorage_{{cacheNumber}}/{{path}}",
 			  "index": {{cacheNumber}}
-			}
-			""";
-    }
-
-    public static string MapBaseJson()
-    {
-        return $$"""
-			{
-			  "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-			  "totalSize": 0,
-			  "free": 71568604,
-			  "journal": 0,
-			  "cachedStreamsDict": {
-				"$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-			  },
-			  "name": "MapBaseCache",
-			  "path": "/CacheStorage_0/MapBaseCache",
-			  "pathNX": "CacheStorage_0/MapBaseCache",
-			  "index": 0
-			}
-			""";
-    }
-
-    public static string AddressablesJson()
-    {
-        return """
-			{
-			  "$type": "JD.CacheSystem.JDNCache, Ubisoft.JustDance.CacheSystem",
-			  "totalSize": 524353536,
-			  "free": 524353536,
-			  "journal": 104923136,
-			  "cachedStreamsDict": {
-				"$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[JD.CacheSystem.CacheWriteJob, Ubisoft.JustDance.CacheSystem]], mscorlib"
-			  },
-			  "name": "Addressables",
-			  "path": "/CacheStorage_0/Addressables",
-			  "pathNX": "CacheStorage_0:/Addressables",
-			  "index": 0
 			}
 			""";
     }

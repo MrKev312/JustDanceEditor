@@ -15,6 +15,7 @@ public static class GenerateCacheURL
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    [Obsolete]
     public static void ConvertToProperCache()
     {
         // Ask for the folder containing a cache_x and cache_0 folder
@@ -150,6 +151,7 @@ public static class GenerateCacheURL
         Console.WriteLine($"Finished converting {cachingStatusList.Count} songs to {cacheNumber} caches.");
     }
 
+    [Obsolete]
     public static void GenerateCacheWithExistingData()
     {
         // First off, where is the input data?
@@ -319,6 +321,7 @@ public static class GenerateCacheURL
         Console.WriteLine("Done.");
     }
 
+    [Obsolete]
     public static void GenerateCacheWithUrls()
     {
         // First get all relevant data
@@ -466,6 +469,7 @@ public static class GenerateCacheURL
         Console.WriteLine("Add the json to the cache file and save it. Make sure to add in the correct place.");
     }
 
+    [Obsolete]
     public static void GenerateCacheWithSongDBAndUrls()
     {
         // First off, where do we want to save the cache?

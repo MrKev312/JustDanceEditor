@@ -91,7 +91,7 @@ public static class CoverBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cache0", "Cover");
+        string outputPackagePath = Path.Combine(convert.Output0Folder, "Cover");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

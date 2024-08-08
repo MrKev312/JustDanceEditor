@@ -73,7 +73,7 @@ public static class MapPackageBundleGenerator
         mapBase["m_Name"].AsString = convert.SongData.Name;
         mapBase["MapName"].AsString = convert.SongData.Name;
         mapBase["SongDesc"]["MapName"].AsString = convert.SongData.Name;
-        mapBase["SongDesc"]["NumCoach"].AsInt = convert.SongData.CoachCount;
+        mapBase["SongDesc"]["NumCoach"].AsInt = (int)convert.SongData.CoachCount;
         mapBase["KaraokeData"]["MapName"].AsString = convert.SongData.Name;
         mapBase["DanceData"]["MapName"].AsString = convert.SongData.Name;
 
@@ -147,7 +147,7 @@ public static class MapPackageBundleGenerator
 
         /// The musicTrackBase:
         // First set the basic fields
-        Structure trackStructure = convert.SongData.MTrack.COMPONENTS[0].trackData.structure;
+        Structure trackStructure = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure;
         AssetTypeValueField structure = musicTrackBase["m_structure"]["MusicTrackStructure"];
         structure["startBeat"].AsInt = trackStructure.startBeat;
         structure["endBeat"].AsInt = trackStructure.endBeat;
@@ -210,7 +210,7 @@ public static class MapPackageBundleGenerator
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (KaraokeClip clip in convert.SongData.KTape.Clips.OfType<KaraokeClip>())
+        foreach (KaraokeClip clip in convert.SongData.KaraokeTape.Clips.OfType<KaraokeClip>())
         {
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
@@ -543,7 +543,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Add the clips from the dance tape
-        foreach (IClip iClip in convert.SongData.DTape.Clips)
+        foreach (IClip iClip in convert.SongData.DanceTape.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
             switch (iClip)
@@ -642,7 +642,7 @@ public static class MapPackageBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cachex", "MapPackage");
+        string outputPackagePath = Path.Combine(convert.OutputXFolder, "MapPackage");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

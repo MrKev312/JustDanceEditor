@@ -1,8 +1,6 @@
 ﻿using JustDanceEditor.Converter.Helpers;
-using JustDanceEditor.Converter.UbiArt;
 
 using System.Diagnostics;
-using System.IO;
 
 using Xabe.FFmpeg;
 
@@ -41,13 +39,13 @@ public static class VideoConverter
 
         // Move the video file to the output folder
         string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
-        string outputVideoPath = Path.Combine(convert.OutputFolder, "cachex", "Video_HIGH_vp9_webm");
+        string outputVideoPath = Path.Combine(convert.OutputXFolder, "Video_HIGH_vp9_webm");
         Directory.CreateDirectory(outputVideoPath);
         File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
 
         // Move the preview video to the output folder
         md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
-        string previewVideoPath = Path.Combine(convert.OutputFolder, "cache0", "VideoPreview_MID_vp9_webm");
+        string previewVideoPath = Path.Combine(convert.Output0Folder, "VideoPreview_MID_vp9_webm");
         Directory.CreateDirectory(previewVideoPath);
         File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
     }

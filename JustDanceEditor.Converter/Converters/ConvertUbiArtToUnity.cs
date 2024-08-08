@@ -3,11 +3,14 @@ using System.Text.Json;
 
 using JustDanceEditor.Converter.Converters.Audio;
 using JustDanceEditor.Converter.Converters.Bundles;
+using JustDanceEditor.Converter.Converters.Cache;
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Converters.Video;
+
 using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.UbiArt.Tapes;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+
 using JustDanceEditor.Converter.Helpers;
 
 using Xabe.FFmpeg.Downloader;
@@ -25,9 +28,12 @@ public class ConvertUbiArtToUnity
     public string InputMenuArtFolder => Path.Combine(WorldFolder, "menuart");
     public string InputMediaFolder => Path.Combine(WorldFolder, "media");
     public string OutputFolder => Path.Combine(ConversionRequest.OutputPath, SongData.Name);
+    public string Output0Folder => Path.Combine(OutputFolder, "cache0", SongID);
+    public string OutputXFolder => Path.Combine(OutputFolder, "cachex", SongID);
     public string TemplateFolder => ConversionRequest.TemplatePath;
     public string TemplateXFolder => Path.Combine(TemplateFolder, "cachex");
     public string Template0Folder => Path.Combine(TemplateFolder, "cache0");
+    public string SongID { get; private set; } = Guid.NewGuid().ToString();
     // Temporary folders
     public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", SongData.Name);
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
@@ -72,6 +78,9 @@ public class ConvertUbiArtToUnity
 
         // Convert the files
         ConversionTasks();
+
+        // Generate the cache
+        CacheJsonGenerator.GenerateCacheJson(this);
 
         stopwatch.Stop();
         Console.WriteLine($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
@@ -157,13 +166,13 @@ public class ConvertUbiArtToUnity
         options.Converters.Add(new IntBoolConverter());
 
         Console.WriteLine("Loading KTape");
-        SongData.KTape = JsonSerializer.Deserialize<KaraokeTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
+        SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading DTape");
-        SongData.DTape = JsonSerializer.Deserialize<DanceTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
+        SongData.DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading MTrack");
-        SongData.MTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
+        SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading MainSequence");
-        SongData.MainSequence = JsonSerializer.Deserialize<MainSequence>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
+        SongData.MainSequence = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
         Console.WriteLine("Loading SongDesc");
         SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
 

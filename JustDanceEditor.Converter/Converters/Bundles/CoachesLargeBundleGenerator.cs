@@ -237,7 +237,7 @@ public static class CoachesLargeBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cachex", "CoachesLarge");
+        string outputPackagePath = Path.Combine(convert.OutputXFolder, "CoachesLarge");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

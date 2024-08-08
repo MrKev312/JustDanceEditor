@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
+using JustDanceEditor.Converter.Converters;
 using JustDanceEditor.Converter.UbiArt;
 
 namespace JustDanceEditor.Converter.Unity;
@@ -64,7 +65,7 @@ public class SongDatabaseEntry
     // Allow conversion from JDNextUbiMapData
     public static explicit operator SongDatabaseEntry(JDNextUbiMapData mapData)
     {
-        return new SongDatabaseEntry
+        return new()
         {
             MapId = mapData.mapName,
             ParentMapId = mapData.parentMapName,
@@ -82,6 +83,57 @@ public class SongDatabaseEntry
             SearchTagsLocIds = [],
             CoachNamesLocIds = [],
             HasSongTitleInCover = mapData.hasSongTitleInCover
+        };
+    }
+
+    public static explicit operator SongDatabaseEntry(ConvertUbiArtToUnity convert)
+    {
+        SongDesc mapData = convert.SongData.SongDesc;
+
+        if (mapData.COMPONENTS.Length == 0)
+            throw new ArgumentException("COMPONENTS must have at least one element");
+
+        InfoComponent info = mapData.COMPONENTS[0];
+
+        float[] lyricsColorUbi = info.DefaultColors.lyrics;
+
+        // Convert each component from float (0-1 range) to byte (0-255 range)
+        int alpha = (int)(lyricsColorUbi[0] * 255);
+        int red = (int)(lyricsColorUbi[1] * 255);
+        int green = (int)(lyricsColorUbi[2] * 255);
+        int blue = (int)(lyricsColorUbi[3] * 255);
+
+        // Create the hex string in the format #RRGGBB
+        string lyricsColor = $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
+
+        // Get startBeat and endBeat
+        int startBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat;
+        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat;
+        // Use markers to get the length of the song
+        float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[-startBeat] / 48f / 1000f;
+        float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat + startBeat] / 48f / 1000f;
+
+        string songTitleLogoPath = Path.Combine(convert.Output0Folder, "songTitleLogo");
+        bool songTitleLogo = Directory.Exists(songTitleLogoPath) && Directory.GetFiles(Path.Combine(convert.Output0Folder, "songTitleLogo")).Length > 0;
+
+        return new()
+        {
+            MapId = convert.SongID,
+            ParentMapId = info.MapName,
+            Title = info.Title,
+            Artist = info.Artist,
+            Credits = info.Credits,
+            LyricsColor = lyricsColor,
+            MapLength = endTime - startTime,
+            OriginalJDVersion = info.OriginalJDVersion,
+            CoachCount = info.NumCoach,
+            Difficulty = info.Difficulty,
+            SweatDifficulty = info.SweatDifficulty,
+            Tags = [.. info.Tags],
+            TagIds = [],
+            SearchTagsLocIds = [],
+            CoachNamesLocIds = [],
+            HasSongTitleInCover = songTitleLogo
         };
     }
 }

@@ -110,7 +110,7 @@ public static class SongTitleBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cache0", "songTitleLogo");
+        string outputPackagePath = Path.Combine(convert.Output0Folder, "songTitleLogo");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

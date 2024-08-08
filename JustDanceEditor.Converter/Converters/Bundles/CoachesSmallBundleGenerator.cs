@@ -190,7 +190,7 @@ public static class CoachesSmallBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cachex", "CoachesSmall");
+        string outputPackagePath = Path.Combine(convert.OutputXFolder, "CoachesSmall");
         bun.SaveAndCompress(outputPackagePath);
     }
 }
