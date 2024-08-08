@@ -37,7 +37,7 @@ public static class AudioConverter
 
         Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (mainSongPath.StartsWith(Path.Combine(convert.InputFolder, "media")))
+        if (mainSongPath.StartsWith(convert.InputMediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
         else
@@ -164,8 +164,8 @@ public static class AudioConverter
     {
         string[] audios = [];
         // Is there any *.ogg file in the media folder?
-        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
-            audios = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.ogg");
+        if (Directory.Exists(convert.InputMediaFolder))
+            audios = Directory.GetFiles(convert.InputMediaFolder, "*.ogg");
         if (audios.Length > 0)
             return audios[0];
 
@@ -207,18 +207,10 @@ public static class AudioConverter
             if (!File.Exists(wavPath))
                 continue;
 
-            // Calculate the offset, 56 seems to be the magic number?
-            float offset = clip.StartTime / 56f;
+            // Calculate the offset
+            float offset = clip.StartTime / 50f;
+            offset += mainSongOffset;
             audioFiles.Add((wavPath, offset));
-        }
-
-        // Adjust offsets
-        for (int i = 1; i < audioFiles.Count; i++)
-        {
-            float offset = audioFiles[i].offset;
-
-            if (offset >= 0)
-                audioFiles[i] = (audioFiles[i].path, offset - mainSongOffset);
         }
 
         // Call the helper to merge audio files

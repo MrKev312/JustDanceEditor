@@ -56,8 +56,26 @@ public class ConverterDialogue
             return;
         }
 
-        // Ask for the input and output path
-        string inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world)", true);
+        string inputPath = "";
+        string[] maps = [];
+
+        while (maps.Length == 0)
+        {
+            // Ask for the input and output path
+            inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world)", true);
+            maps = Directory.GetDirectories(Path.Combine(inputPath, "world", "maps"));
+        }
+
+        // Foreach map, replace it with the Path.GetFileName of the map
+        maps = maps.Select(Path.GetFileName).ToArray()!;
+
+        int index = 0;
+        if (maps.Length > 1)
+        {
+            index = Question.Ask(maps, 0, "Which map do you want to convert");
+        }
+
+
         string outputPath = Question.AskFolder("Enter the path to the output folder", false);
         bool onlineCover = Question.AskYesNo("Do you want to look up the cover online if needed?");
 
@@ -69,7 +87,8 @@ public class ConverterDialogue
             TemplatePath = "./Template",
             InputPath = inputPath,
             OutputPath = outputPath,
-            OnlineCover = onlineCover
+            OnlineCover = onlineCover,
+            SongName = Path.GetFileName(maps[index])
         };
 
         ConvertUbiArtToUnity converter = new(conversionRequest);

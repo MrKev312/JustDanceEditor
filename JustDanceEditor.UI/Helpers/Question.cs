@@ -4,7 +4,7 @@ namespace JustDanceEditor.UI.Helpers;
 internal class Question
 {
     // Version that takes in a list of options and an optional start index
-    public static int Ask(Collection<string> options, int startIndex = 0, string? question = null)
+    public static int Ask(ICollection<string> options, int startIndex = 0, string? question = null)
     {
         // If the list is empty, return -1
         if (options.Count == 0)
@@ -16,7 +16,7 @@ internal class Question
 
         // Print the options with "i) " before each option, i starting at startIndex
         for (int i = 0; i < options.Count; i++)
-            Console.WriteLine($"{i + startIndex})  {options[i]}");
+            Console.WriteLine($"{i + startIndex})  {options.ElementAt(i)}");
 
         // Ask the user for an option
         Console.Write("Enter the number of the option you want to use: ");

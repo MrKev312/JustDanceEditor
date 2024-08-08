@@ -55,8 +55,8 @@ public static class VideoConverter
     static string GetVideoFile(ConvertUbiArtToUnity convert)
     {
         string[] videofiles = [];
-        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
-            videofiles = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.webm");
+        if (Directory.Exists(convert.InputMediaFolder))
+            videofiles = Directory.GetFiles(convert.InputMediaFolder, "*.webm");
         if (videofiles.Length > 0)
             return videofiles[0];
 
@@ -131,7 +131,9 @@ public static class VideoConverter
         conversion.OnProgress += (sender, args) => progress.Update(new(args.Duration, totalLength, (int)args.ProcessId));
         progress.Finish();
 
-        conversion.Start().Wait();
+        IConversionResult result = conversion.Start().Result;
+
+        Console.WriteLine($"Ran following: {result.Arguments}");
     }
 
     static void ConvertVideoFile(ConvertUbiArtToUnity convert, string input)
@@ -167,7 +169,8 @@ public static class VideoConverter
 
         // Set output to webm
         conversion.SetOutputFormat(Format.webm)
-            .AddParameter("-crf 1")
+            .AddParameter("-crf 4")
+            .AddParameter("-b:v 4M")
             .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(convert.TempVideoFolder, "output.webm"));
 
@@ -176,7 +179,7 @@ public static class VideoConverter
         progress.Finish();
 
         // Start the conversion
-        var result = conversion.Start().Result;
+        IConversionResult result = conversion.Start().Result;
 
         Console.WriteLine($"Ran following: {result.Arguments}");
     }

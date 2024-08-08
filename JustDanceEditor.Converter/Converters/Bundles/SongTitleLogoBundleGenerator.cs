@@ -17,7 +17,7 @@ public static class SongTitleBundleGenerator
     public static void GenerateSongTitleLogo(ConvertUbiArtToUnity convert)
     {
         // Does the following exist?
-        string logoPath = Path.Combine(convert.InputFolder, "songTitleLogo.png");
+        string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
         if (!File.Exists(logoPath))
         {
             Console.WriteLine("No songTitleLogo.png found, skipping...");
@@ -78,7 +78,7 @@ public static class SongTitleBundleGenerator
             byte[] platformBlob = [];
             uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
+            string path = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
 
             encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
 
