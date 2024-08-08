@@ -577,6 +577,10 @@ public static class MapPackageBundleGenerator
                     // Create a new MotionClip
                     AssetTypeValueField newMotionClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
 
+                    // If the clip is not a .msm file, skip it
+                    if (!clip.ClassifierPath.EndsWith(".msm"))
+                        continue;
+
                     string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
                     newMotionClip["StartTime"].AsInt = clip.StartTime;
@@ -608,12 +612,8 @@ public static class MapPackageBundleGenerator
         }
 
         // Add the clips from the mainsequence tape
-        foreach (IClip iClip in convert.SongData.MainSequence.Clips)
+        foreach (HideUserInterfaceClip clip in convert.SongData.MainSequence.Clips.OfType<HideUserInterfaceClip>())
         {
-            if (iClip is not HideUserInterfaceClip clip)
-                continue;
-
-            // If the clip is a HideUserInterfaceClip, add it to the HideHudClips array
             AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
 
             newHideHudClip["StartTime"].AsInt = clip.StartTime;
