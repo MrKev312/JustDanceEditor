@@ -85,10 +85,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     static void ValidateTemplateFolder()
     {
         string[] folders = [
-            "./template/cache0/Cover",
-            "./template/cachex/MapPackage",
-            "./template/cachex/CoachesLarge",
-            "./template/cachex/CoachesSmall"
+            "./template/Cover",
+            "./template/MapPackage",
+            "./template/CoachesLarge",
+            "./template//CoachesSmall"
         ];
 
         // If any of the folders don't exist, throw an exception
