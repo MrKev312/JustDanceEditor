@@ -208,7 +208,7 @@ public static class AudioConverter
                 continue;
 
             // Calculate the offset
-            float offset = clip.StartTime / 48f;
+            float offset = clip.StartTime / 50f;
             offset += mainSongOffset;
             audioFiles.Add((wavPath, offset));
         }

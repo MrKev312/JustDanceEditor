@@ -303,7 +303,7 @@ public static class MapPackageBundleGenerator
         // First add all atlas images to the bundle
         long[] atlasIDs = new long[atlasPics.Count];
 
-        // TODO for loop for atlasPics
+        // For loop for atlasPics
         for (int i = 0; i < atlasPics.Count; i++)
         {
             // Get the endImageBytes

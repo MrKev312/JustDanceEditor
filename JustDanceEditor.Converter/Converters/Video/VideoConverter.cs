@@ -167,7 +167,8 @@ public static class VideoConverter
 
         // Set output to webm
         conversion.SetOutputFormat(Format.webm)
-            .AddParameter("-crf 1")
+            .AddParameter("-crf 4")
+            .AddParameter("-b:v 4M")
             .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(convert.TempVideoFolder, "output.webm"));
 

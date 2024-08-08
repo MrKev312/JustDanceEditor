@@ -132,9 +132,19 @@ public class ConvertUbiArtToUnity
         Console.WriteLine("Loading song info...");
 
         // Set the song name to bootstrap the process
+        string mapName;
+        if (ConversionRequest.SongName != null)
+        {
+            mapName = ConversionRequest.SongName;
+        }
+        else
+        {
+            mapName = Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0])!;
+        }
+
         SongData = new()
         {
-            Name = Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0])!
+            Name = mapName
         };
 
         Console.WriteLine($"Song name: {SongData.Name}");

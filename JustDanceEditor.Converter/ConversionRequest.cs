@@ -10,4 +10,6 @@ public class ConversionRequest
     public required string TemplatePath { get; set; }
     // Should the cover be looked up online
     public bool OnlineCover { get; set; } = true;
+    // Name of the song (optional)
+    public string? SongName { get; set; } = null;
 }
