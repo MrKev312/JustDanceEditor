@@ -22,6 +22,8 @@ public class ConvertUbiArtToUnity
     /// Folders
     // Main folders
     public string InputFolder => ConversionRequest.InputPath;
+    public string InputMenuArtFolder => Path.Combine(WorldFolder, "menuart");
+    public string InputMediaFolder => Path.Combine(WorldFolder, "media");
     public string OutputFolder => Path.Combine(ConversionRequest.OutputPath, SongData.Name);
     public string TemplateFolder => ConversionRequest.TemplatePath;
     public string TemplateXFolder => Path.Combine(TemplateFolder, "cachex");
@@ -40,7 +42,7 @@ public class ConvertUbiArtToUnity
     public string MovesFolder => Path.Combine(WorldFolder, "timeline", "moves", "wiiu");
     public string PictosFolder => Path.Combine(TimelineFolder, "pictos");
     public string MenuArtFolder => SongData.EngineVersion == JDVersion.JDUnlimited ?
-        Path.Combine(InputFolder, "menuart") :
+        InputMenuArtFolder :
         Path.Combine(CacheFolder, "menuart", "textures");
 
     public ConvertUbiArtToUnity(ConversionRequest conversionRequest)
@@ -132,15 +134,8 @@ public class ConvertUbiArtToUnity
         Console.WriteLine("Loading song info...");
 
         // Set the song name to bootstrap the process
-        string mapName;
-        if (ConversionRequest.SongName != null)
-        {
-            mapName = ConversionRequest.SongName;
-        }
-        else
-        {
-            mapName = Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0])!;
-        }
+        string mapName = ConversionRequest.SongName 
+            ?? Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0]);
 
         SongData = new()
         {

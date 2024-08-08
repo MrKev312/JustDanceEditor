@@ -55,8 +55,8 @@ public static class VideoConverter
     static string GetVideoFile(ConvertUbiArtToUnity convert)
     {
         string[] videofiles = [];
-        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
-            videofiles = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.webm");
+        if (Directory.Exists(convert.InputMediaFolder))
+            videofiles = Directory.GetFiles(convert.InputMediaFolder, "*.webm");
         if (videofiles.Length > 0)
             return videofiles[0];
 

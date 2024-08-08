@@ -37,7 +37,7 @@ public static class AudioConverter
 
         Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (mainSongPath.StartsWith(Path.Combine(convert.InputFolder, "media")))
+        if (mainSongPath.StartsWith(convert.InputMediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
         else
@@ -164,8 +164,8 @@ public static class AudioConverter
     {
         string[] audios = [];
         // Is there any *.ogg file in the media folder?
-        if (Directory.Exists(Path.Combine(convert.InputFolder, "media")))
-            audios = Directory.GetFiles(Path.Combine(convert.InputFolder, "media"), "*.ogg");
+        if (Directory.Exists(convert.InputMediaFolder))
+            audios = Directory.GetFiles(convert.InputMediaFolder, "*.ogg");
         if (audios.Length > 0)
             return audios[0];
 
