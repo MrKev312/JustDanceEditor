@@ -2,7 +2,7 @@
 
 namespace JustDanceEditor.Converter.UbiArt.Tapes;
 
-public class DanceTape
+public class ClipTape
 {
     public string __class { get; set; } = "";
     public IClip[] Clips { get; set; } = [];

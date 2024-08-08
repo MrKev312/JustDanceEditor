@@ -17,7 +17,7 @@ public static class CoachesSmallBundleGenerator
     {
         // Get the coaches folder
         // /template/cachex/CoachesSmall/*
-        string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateXFolder, "CoachesSmall"))[0];
+        string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "CoachesSmall"))[0];
 
         Console.WriteLine("Converting CoachesSmall...");
         // Open the coaches package using AssetTools.NET
@@ -190,7 +190,7 @@ public static class CoachesSmallBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cachex", "CoachesSmall");
+        string outputPackagePath = Path.Combine(convert.OutputXFolder, "CoachesSmall");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

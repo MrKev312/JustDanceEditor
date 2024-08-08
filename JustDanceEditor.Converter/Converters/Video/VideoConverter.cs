@@ -1,8 +1,6 @@
 ﻿using JustDanceEditor.Converter.Helpers;
-using JustDanceEditor.Converter.UbiArt;
 
 using System.Diagnostics;
-using System.IO;
 
 using Xabe.FFmpeg;
 
@@ -41,13 +39,13 @@ public static class VideoConverter
 
         // Move the video file to the output folder
         string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
-        string outputVideoPath = Path.Combine(convert.OutputFolder, "cachex", "Video_HIGH_vp9_webm");
+        string outputVideoPath = Path.Combine(convert.OutputXFolder, "Video_HIGH_vp9_webm");
         Directory.CreateDirectory(outputVideoPath);
         File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
 
         // Move the preview video to the output folder
         md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
-        string previewVideoPath = Path.Combine(convert.OutputFolder, "cache0", "VideoPreview_MID_vp9_webm");
+        string previewVideoPath = Path.Combine(convert.Output0Folder, "VideoPreview_MID_vp9_webm");
         Directory.CreateDirectory(previewVideoPath);
         File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
     }
@@ -118,9 +116,9 @@ public static class VideoConverter
 
         conversion.AddStream(stream)
             .SetOverwriteOutput(true)
-            .SetVideoBitrate(600000)
             .SetSeek(TimeSpan.FromSeconds(startTime))
-            // Set fade-in of .5 seconds
+            .AddParameter("-b:v 500k -maxrate 600k -bufsize 1200k")
+            // Set fade-in of 1 second
             .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={endTime - 1}:d=1\"")
             .AddParameter("-t 30")
             .SetOutput(previewVideoPath)

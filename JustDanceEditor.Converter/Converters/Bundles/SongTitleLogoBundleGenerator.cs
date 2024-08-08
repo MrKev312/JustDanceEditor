@@ -24,7 +24,7 @@ public static class SongTitleBundleGenerator
             return;
         }
 
-        string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.Template0Folder, "songTitleLogo"));
+        string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "songTitleLogo"));
         if (songTitleLogoPackagePaths.Length == 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;
@@ -110,7 +110,7 @@ public static class SongTitleBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = Path.Combine(convert.OutputFolder, "cache0", "songTitleLogo");
+        string outputPackagePath = Path.Combine(convert.Output0Folder, "songTitleLogo");
         bun.SaveAndCompress(outputPackagePath);
     }
 }

@@ -1,6 +1,4 @@
-﻿using System.Collections.ObjectModel;
-
-namespace JustDanceEditor.UI.Helpers;
+﻿namespace JustDanceEditor.UI.Helpers;
 internal class Question
 {
     // Version that takes in a list of options and an optional start index
@@ -200,8 +198,6 @@ internal class Question
             else if (answer == "no")
                 answer = "n";
         }
-
-		Console.WriteLine();
 
 		return answer == "y";
 	}

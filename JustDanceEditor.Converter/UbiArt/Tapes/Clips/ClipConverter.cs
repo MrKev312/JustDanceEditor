@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Formats.Asn1;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using System.Text.Json;
 
 namespace JustDanceEditor.Converter.UbiArt.Tapes.Clips;

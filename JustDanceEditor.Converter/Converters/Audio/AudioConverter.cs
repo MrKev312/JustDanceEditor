@@ -2,7 +2,6 @@
 
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
-using JustDanceEditor.Converter.UbiArt;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 using Xabe.FFmpeg;
@@ -70,7 +69,7 @@ public static class AudioConverter
 
         // Move the preview audio file to the output folder
         string md5 = Download.GetFileMD5(previewOpusPath);
-        string outputFolder = Path.Combine(convert.OutputFolder, "cache0", "AudioPreview_opus");
+        string outputFolder = Path.Combine(convert.Output0Folder, "AudioPreview_opus");
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);
         File.Move(previewOpusPath, outputOpusPath, true);
@@ -101,7 +100,7 @@ public static class AudioConverter
     {
         // Copy the Opus file to the output folder
         string md5 = Download.GetFileMD5(opusPath);
-        string outputFolder = Path.Combine(convert.OutputFolder, "cachex", "Audio_opus");
+        string outputFolder = Path.Combine(convert.OutputXFolder, "Audio_opus");
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);
         File.Move(opusPath, outputOpusPath, true);
@@ -192,8 +191,8 @@ public static class AudioConverter
 
         // Process the main song
         // Assuming the main song's offset is determined by the startBeat and markers in songData
-        int startBeat = Math.Abs(convert.SongData.MTrack.COMPONENTS[0].trackData.structure.startBeat);
-        int marker = convert.SongData.MTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
+        int startBeat = Math.Abs(convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
+        int marker = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
         float mainSongOffset = marker / 48f / 1000f; // Convert to seconds
         audioFiles.Add((newMainSongPath, mainSongOffset));
 

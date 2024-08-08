@@ -19,16 +19,16 @@ public class InfoComponent
     // The engine version
     public int JDVersion { get; set; }
     // The original game version
-    public int OriginalJDVersion { get; set; }
+    public uint OriginalJDVersion { get; set; }
     public string Artist { get; set; } = "";
     public string DancerName { get; set; } = "";
     public string Title { get; set; } = "";
     public string Credits { get; set; } = "";
     public Phoneimages PhoneImages { get; set; } = new();
-    public int NumCoach { get; set; }
+    public uint NumCoach { get; set; }
     public int MainCoach { get; set; }
-    public int Difficulty { get; set; }
-    public int SweatDifficulty { get; set; }
+    public uint Difficulty { get; set; }
+    public uint SweatDifficulty { get; set; }
     public int backgroundType { get; set; }
     public int LyricsType { get; set; }
     public string[] Tags { get; set; } = [];
