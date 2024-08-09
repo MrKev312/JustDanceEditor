@@ -132,7 +132,7 @@ public class SongDatabaseEntry
             OriginalJDVersion = (uint)convert.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
-            SweatDifficulty = info.SweatDifficulty + 1,
+            SweatDifficulty = Math.Clamp(info.SweatDifficulty + 1, 1, 3),
             Tags = [.. info.Tags],
             TagIds = [],
             SearchTagsLocIds = [],
