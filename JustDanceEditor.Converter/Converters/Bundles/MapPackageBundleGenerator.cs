@@ -563,8 +563,15 @@ public static class MapPackageBundleGenerator
                 case PictogramClip clip:
                     AssetTypeValueField newPictoClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClips);
 
+                    int duration = clip.Duration;
+
+                    // Some songs have pictos with a duration of 0, this causes it to not show up in JDNext
+                    // So we set the duration to 16, which should be good enough
+                    if (clip.Duration == 0)
+                        duration = 16;
+
                     newPictoClip["StartTime"].AsInt = clip.StartTime;
-                    newPictoClip["Duration"].AsInt = clip.Duration;
+                    newPictoClip["Duration"].AsInt = duration;
                     newPictoClip["Id"].AsLong = clip.Id;
                     newPictoClip["TrackId"].AsLong = clip.TrackId;
                     newPictoClip["IsActive"].AsUInt = (uint)clip.IsActive;
