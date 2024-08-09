@@ -40,8 +40,11 @@ public static class AudioConverter
             // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
         else
-            // Else, merge the audio files
+        {
+            // Else, convert and merge the audio files
+            ConvertAudioFiles(convert, audioClips);
             MergeAudioFiles(convert, audioClips, newMainSongPath);
+        }
 
         string opusPath = ConvertToOpus(convert);
 
