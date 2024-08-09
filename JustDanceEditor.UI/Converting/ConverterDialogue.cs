@@ -90,8 +90,29 @@ public class ConverterDialogue
 
     private static bool CheckTemplate()
     {
-        if (!Directory.Exists("./template"))
+        bool missing = !Directory.Exists("./template");
+
+        string[] folders = [
+            "./template/Cover",
+            "./template/MapPackage",
+            "./template/CoachesLarge",
+            "./template/CoachesSmall",
+            "./template/songTitleLogo",
+        ];
+
+        // If any of the folders don't exist, create them
+        foreach (string folder in folders)
         {
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+        }
+
+        if (missing)
+        {
+            Directory.CreateDirectory("./template");
+
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("""
 				Template folder not found!
@@ -104,23 +125,7 @@ public class ConverterDialogue
             return false;
         }
 
-        string[] folders = [
-            "./template/Cover",
-            "./template/MapPackage",
-            "./template/CoachesLarge",
-            "./template/CoachesSmall"
-        ];
-
-        // If any of the folders don't exist, create them
-        foreach (string folder in folders)
-        {
-            if (!Directory.Exists(folder))
-            {
-                Directory.CreateDirectory(folder);
-            }
-        }
-
-        bool missing = false;
+        missing = false;
         // If any of the folders is empty, ask the user to put the files in the folder
         foreach (string folder in folders)
         {
@@ -133,11 +138,6 @@ public class ConverterDialogue
             }
         }
 
-        if (missing)
-        {
-            return false;
-        }
-
-        return true;
+        return !missing;
     }
 }
