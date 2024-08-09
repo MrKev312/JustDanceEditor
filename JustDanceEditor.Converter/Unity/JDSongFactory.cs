@@ -112,7 +112,7 @@ public class JDSongFactory
                 Ready = true,
                 Size = 0,
                 Category = 0,
-                FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/SongTitleLogo/{songTitleLogoFilename}"
+                FilePath = $"/CacheStorage_0/MapBaseCache/{guid}/songTitleLogo/{songTitleLogoFilename}"
             };
 
             song.SongDatabaseEntry.HasSongTitleInCover = true;
