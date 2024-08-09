@@ -19,23 +19,24 @@ The author is not responsible for any misuse of this tool.
 1. Download the latest release.
 2. Extract the files.
 4. Create a folder called ``template`` in the same directory as the executable. In there create the following 2 folders:
-	- ``cache0``: Which should contain a folder called ``Cover``
-	- ``cachex``: Which should contain the following folders:
-		- ``CoachesSmall``
-		- ``CoachesLarge``
-		- ``MapPackage``
+	- ``CoachesSmall``
+	- ``CoachesLarge``
+	- ``Cover``
+	- ``MapPackage``
+ 	- ``songTitleLogo``
 	
 	Each folder should contain a bundle from an official Just Dance Next song.
 3. That's it!
 
 ## Usage
 1. Extract the ``ipk`` file of the song you want to convert by drag and dropping it onto ``JustDanceEditor.IPK.exe``.
-2. If the song is a ``mainscene``, in the song folder, create a new folder called ``menuart`` and put in the following files:
+2. If the song is a ``mainscene``, in the song folder, create a new folder called ``menuart`` in ``\world\maps\{MapName}\`` and put in the following files:
 	- ``{MapName}_Coach_1.tga.cdk``, ``{MapName}_Coach_2.tga.cdk``, ``{MapName}_Coach_..`` (up to 4 coaches)
 	- ``{MapName}_AlbumCoach.tga.cdk`` or a 1024x2048 ``{MapName}_Cover_Generic.tga.png``
 	- ``{MapName}_map_bkg.tga.png``
-3. You can optionally add in a ``cover.png`` file in the song folder to use as the cover.
-4. Launch ``JustDanceEditor.exe`` and select option ``2``.
+	You can optionally add in a ``cover.png`` file in the song folder to use as the cover.
+	In the song folder, create a new folder called ``media`` in ``\world\maps\{MapName}\`` and in it, place the ``webm`` and the ``ogg``, names don't matter.
+4. Launch ``JustDanceEditor.exe`` and select either ``1`` or ``2``.
 5. Drag and drop the song folder onto the window.
 6. Drag and drop the output folder onto the window.
 7. Select whether you want to download a cover from the internet.
@@ -43,8 +44,7 @@ The author is not responsible for any misuse of this tool.
 9. Profit!
 
 ## Adding a song to the game
-Detailed guide might be added in the future.
-Look at existing songs for reference and the ``CachingStatus.json`` in ``SD_Cache.0000``.
+Copy the output files to your cache and add the info in ``cachingStatus.json`` to the game's ``cachingStatus.json``.
 
 ## Bug Reporting
 Before reporting, make sure that you're using the latest version of the tool!
