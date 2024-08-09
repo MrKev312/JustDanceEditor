@@ -30,7 +30,6 @@ public static class AudioConverter
         Stopwatch stopwatch = Stopwatch.StartNew();
         SoundSetClip[] audioClips = GetAudioClips(convert.SongData.MainSequence.Clips);
 
-        ConvertAudioFiles(convert, audioClips);
         string mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);
 
