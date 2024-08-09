@@ -1,4 +1,5 @@
 ﻿namespace JustDanceEditor.IPK;
+
 internal class Program
 {
     private static void Main(string[] args)

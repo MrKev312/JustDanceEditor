@@ -79,7 +79,7 @@ public class XTX
         bool blockB = false;
         bool blockC = false;
 
-        uint ImageInfo = 0;
+        uint imageInfo = 0;
         uint images = 0;
 
         while (reader.BaseStream.Position < reader.BaseStream.Length)
@@ -90,7 +90,7 @@ public class XTX
             switch (blockHeader.BlockType)
             {
                 case BlockType.Texture:
-                    ImageInfo += 1;
+                    imageInfo += 1;
                     blockB = true;
 
                     MemoryStream stream = new(blockHeader.Data);
@@ -148,9 +148,30 @@ public class XTX
             throw new Exception("Deswizzling only supported for 2D textures!");
 
         int bpp = GetBPP(texInfo.Format);
+        DDSFormat ddsFormat = ConvertXTXToDDSFormat(texInfo.Format);
 
+        byte[][] result = new byte[texInfo.MipCount][];
+        for (int level = 0; level < texInfo.MipCount; level++)
+        {
+            int size = BCnFormats.Contains(ddsFormat)
+                ? (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp)
+                : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
+            int mipOffset = (int)texInfo.MipOffsets[level];
+
+            byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
+            byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
+            result[level] = deswizzled.Take(size).ToArray();
+        }
+
+        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);
+
+        return (result, hdr);
+    }
+
+    public static DDSFormat ConvertXTXToDDSFormat(XTXImageFormat format)
+    {
         // Convert xtx format to dds format
-        DDSFormat ddsFormat = texInfo.Format switch
+        DDSFormat ddsFormat = format switch
         {
             XTXImageFormat.NVN_FORMAT_RGBA8 => DDSFormat.RGBA8,
             XTXImageFormat.NVN_FORMAT_RGBA8_SRGB => DDSFormat.RGBA_SRGB,
@@ -171,23 +192,7 @@ public class XTX
 
             _ => throw new Exception("Invalid format!")
         };
-
-        byte[][] result = new byte[texInfo.MipCount][];
-        for (int level = 0; level < texInfo.MipCount; level++)
-        {
-            int size = BCnFormats.Contains(ddsFormat)
-                ? (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp)
-                : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
-            int mipOffset = (int)texInfo.MipOffsets[level];
-
-            byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
-            byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
-            result[level] = deswizzled.Take(size).ToArray();
-        }
-
-        byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);
-
-        return (result, hdr);
+        return ddsFormat;
     }
 
     public class BlockHeader

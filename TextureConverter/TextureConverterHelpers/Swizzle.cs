@@ -31,7 +31,7 @@ internal class Swizzle
         uint originWidth = width;
         uint originHeight = height;
 
-        if (XTX.GetBPP(format) != 0)
+        if (DDS.BCnFormats.Contains(XTX.ConvertXTXToDDSFormat(format)))
         {
             originWidth = (originWidth + 3) / 4;
             originHeight = (originHeight + 3) / 4;
