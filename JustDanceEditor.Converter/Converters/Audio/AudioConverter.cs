@@ -158,7 +158,7 @@ public static class AudioConverter
     private static string ConvertMainSong(ConvertUbiArtToUnity convert, string mainSongPath)
     {
         string newMainSongPath = Path.Combine(convert.TempAudioFolder, "mainSong.wav");
-        audioConverter.Convert(mainSongPath, newMainSongPath);
+        audioConverter.Convert(mainSongPath, newMainSongPath).Wait();
         return newMainSongPath;
     }
 
