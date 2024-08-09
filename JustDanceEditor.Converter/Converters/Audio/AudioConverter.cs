@@ -194,9 +194,7 @@ public static class AudioConverter
 
         // Process the main song
         // Assuming the main song's offset is determined by the startBeat and markers in songData
-        int startBeat = Math.Abs(convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
-        int marker = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat];
-        float mainSongOffset = marker / 48f / 1000f; // Convert to seconds
+        (float mainSongOffset, _) = convert.SongData.GetPreviewStartEndTimes();
         audioFiles.Add((newMainSongPath, mainSongOffset));
 
         // Process each audio clip
