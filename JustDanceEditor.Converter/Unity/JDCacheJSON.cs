@@ -103,8 +103,8 @@ public class SongDatabaseEntry
         int green = (int)(lyricsColorUbi[2] * 255);
         int blue = (int)(lyricsColorUbi[3] * 255);
 
-        // Create the hex string in the format #RRGGBB
-        string lyricsColor = $"#{alpha:X2}{red:X2}{green:X2}{blue:X2}";
+        // Create the hex string in the format #RRGGBBAA
+        string lyricsColor = $"#{red:X2}{green:X2}{blue:X2}{alpha:X2}";
 
         // Get startBeat and endBeat
         int startBeat = Math.Abs(convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
@@ -132,7 +132,7 @@ public class SongDatabaseEntry
             OriginalJDVersion = (uint)convert.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
-            SweatDifficulty = info.SweatDifficulty,
+            SweatDifficulty = info.SweatDifficulty + 1,
             Tags = [.. info.Tags],
             TagIds = [],
             SearchTagsLocIds = [],
