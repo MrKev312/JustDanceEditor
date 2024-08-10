@@ -119,7 +119,6 @@ public class GTX
     }
 
     private GTXHeader? header = null;
-
     public List<GX2Surface> GTXSurfaces { get; private set; } = [];
     public List<byte[]> ImageDatas { get; private set; } = [];
     public Dictionary<uint, byte[]> MipDatas { get; private set; } = [];
@@ -216,16 +215,20 @@ public class GTX
         if (image.Format != ImageFormat.Rgba32)
             throw new Exception("Image is not in Rgba32 format!");
 
-        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-
-        return newImage;
+        return Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
     }
 
     public static Image<Bgra32> GetImage(string inputPath)
     {
+        using FileStream filestream = new(inputPath, FileMode.Open);
+
+        return GetImage(filestream);
+    }
+
+    public static Image<Bgra32> GetImage(Stream data)
+    {
         GTX gtx = new();
-        using FileStream fs = new(inputPath, FileMode.Open);
-        gtx.LoadFile(fs);
+        gtx.LoadFile(data);
 
         return gtx.ConvertToImage();
     }
@@ -1889,6 +1892,7 @@ public class GTX
 
         public GTXHeader(EndianBinaryReader reader)
         {
+            long dataOffset = reader.BaseStream.Position;
             string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
             if (signature != "Gfx2")
                 throw new Exception($"Invalid signature {signature}! Expected Gfx2.");
@@ -1899,7 +1903,7 @@ public class GTX
             GpuVersion = reader.ReadUInt32();
             AlignMode = reader.ReadUInt32();
 
-            reader.BaseStream.Seek(HeaderSize, SeekOrigin.Begin);
+            reader.BaseStream.Seek(dataOffset + HeaderSize, SeekOrigin.Begin);
         }
     }
 

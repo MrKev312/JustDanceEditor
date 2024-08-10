@@ -52,6 +52,7 @@ public class XTX
         Data = 3,
     }
 
+    long dataOffset = 0;
     public uint HeaderSize { get; set; }
     public uint MajorVersion { get; set; }
     public uint MinorVersion { get; set; }
@@ -61,6 +62,8 @@ public class XTX
 
     public void LoadFile(Stream data)
     {
+        dataOffset = data.Position;
+
         Blocks = [];
         TextureInfos = [];
         TextureBlocks = [];
@@ -74,7 +77,7 @@ public class XTX
         MajorVersion = reader.ReadUInt32();
         MinorVersion = reader.ReadUInt32();
 
-        reader.BaseStream.Seek(HeaderSize, SeekOrigin.Begin);
+        reader.BaseStream.Seek(dataOffset + HeaderSize, SeekOrigin.Begin);
 
         bool blockB = false;
         bool blockC = false;
@@ -125,16 +128,20 @@ public class XTX
         if (image.Format != ImageFormat.Rgba32)
             throw new Exception("Image is not in Rgba32 format!");
 
-        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-
-        return newImage;
+        return Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
     }
 
     public static Image<Bgra32> GetImage(string inputPath)
     {
+        using FileStream fileStream = File.OpenRead(inputPath);
+
+        return GetImage(fileStream);
+    }
+
+    public static Image<Bgra32> GetImage(Stream data)
+    {
         XTX xtx = new();
-        using FileStream fileStream = new(inputPath, FileMode.Open, FileAccess.Read);
-        xtx.LoadFile(fileStream);
+        xtx.LoadFile(data);
 
         return xtx.ConvertToImage();
     }

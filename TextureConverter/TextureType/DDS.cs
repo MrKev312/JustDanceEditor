@@ -49,14 +49,20 @@ public class DDS
         DDSFormat.BC5S
     ];
 
-    internal static Image<Bgra32> GetImage(string inputPath)
+    public static Image<Bgra32> GetImage(string inputPath)
     {
-        using IImage image = Pfimage.FromFile(inputPath);
+        using FileStream fileStream = File.OpenRead(inputPath);
+
+        return GetImage(fileStream);
+    }
+
+    public static Image<Bgra32> GetImage(Stream data)
+    {
+        using IImage image = Pfimage.FromStream(data);
         if (image.Format != ImageFormat.Rgba32)
             throw new Exception("Image is not in Rgba32 format!");
 
-        Image<Bgra32> newImage = Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
-        return newImage;
+        return Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
     }
 
     internal static byte[] GenerateHeader(uint mipCount, uint width, uint height, DDSFormat format, (uint, uint, uint, uint) compSel, uint size)
