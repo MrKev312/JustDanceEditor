@@ -18,7 +18,7 @@ The author is not responsible for any misuse of this tool.
 ## Installation
 1. Download the latest release.
 2. Extract the files.
-4. Create a folder called ``template`` in the same directory as the executable. In there create the following 2 folders:
+4. Create a folder called ``template`` in the same directory as the executable. In there create the following folders:
 	- ``CoachesSmall``
 	- ``CoachesLarge``
 	- ``Cover``
