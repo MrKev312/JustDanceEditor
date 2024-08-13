@@ -1,4 +1,6 @@
-﻿using SixLabors.ImageSharp;
+﻿using JustDanceEditor.Logging;
+
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -12,7 +14,7 @@ public static class PictoConverter
     {
         // Before starting on the mapPackage, prepare the pictos
         string[] pictoFiles = Directory.GetFiles(convert.PictosFolder);
-        Console.WriteLine($"Converting {pictoFiles.Length} pictos...");
+        Logger.Log($"Converting {pictoFiles.Length} pictos...");
 
         // Get time before starting
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -70,7 +72,7 @@ public static class PictoConverter
         List<Image<Rgba32>> atlasPics = [];
         Image<Rgba32>? atlasImage = null;
 
-        Console.WriteLine("Creating atlasses...");
+        Logger.Log("Creating atlasses...");
 
         // Get the png files in the pictos folder
         pictoFiles = Directory.GetFiles(convert.TempPictoFolder, "*.png");
@@ -126,7 +128,7 @@ public static class PictoConverter
 
         // Get time after finishing
         stopwatch.Stop();
-        Console.WriteLine($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
 
         return (imageDict, atlasPics);
     }

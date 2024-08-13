@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using JustDanceEditor.Logging;
+
+using System.Diagnostics;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -9,7 +11,7 @@ public static class MenuArtConverter
         string[] menuArtFiles = Directory.GetFiles(convert.MenuArtFolder);
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        Console.WriteLine($"Converting {menuArtFiles.Length} menu art files...");
+        Logger.Log($"Converting {menuArtFiles.Length} menu art files...");
 
         Parallel.ForEach(menuArtFiles, (item) =>
         {
@@ -19,7 +21,7 @@ public static class MenuArtConverter
         });
 
         stopwatch.Stop();
-        Console.WriteLine($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
 
     private static string PrepareFileForConversion(string originalFilePath, string tempFolder, string fileName)

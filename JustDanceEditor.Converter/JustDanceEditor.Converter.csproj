@@ -22,6 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
 		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
 			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
 			<OutputItemType>Content</OutputItemType>

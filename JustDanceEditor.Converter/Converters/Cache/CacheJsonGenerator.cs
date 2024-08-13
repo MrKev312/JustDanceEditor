@@ -2,6 +2,7 @@
 using System.Text.Json;
 
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters.Cache;
 
@@ -13,6 +14,18 @@ public static class CacheJsonGenerator
     };
 
     public static void GenerateCacheJson(ConvertUbiArtToUnity convert)
+    {
+        try
+        {
+            GenerateCacheJsonInternal(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate cache json, usually means something went wrong before: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    static void GenerateCacheJsonInternal(ConvertUbiArtToUnity convert)
     {
         // Generate the json.cache file
         string cachexJsonPath = Path.Combine(convert.OutputXFolder, "json.cache");
@@ -42,7 +55,10 @@ public static class CacheJsonGenerator
             { convert.SongID, jdSong }
         };
 
+        // Generate the cachingStatus.json file
         string cachingStatus = JsonSerializer.Serialize(caching, options);
+        // Remove the curly braces from the json
+        cachingStatus = cachingStatus.TrimStart('{').TrimEnd('}');
 
         File.WriteAllText(cachingStatusPath, cachingStatus);
     }

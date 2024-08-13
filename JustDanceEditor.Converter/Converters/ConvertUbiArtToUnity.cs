@@ -14,6 +14,7 @@ using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Helpers;
 
 using Xabe.FFmpeg.Downloader;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -52,7 +53,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     public void Convert()
     {
-        Console.WriteLine("Started conversion");
+        Logger.Log("Started conversion");
         Stopwatch stopwatch = new();
         stopwatch.Start();
 
@@ -77,21 +78,14 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         GenerateCache();
 
         stopwatch.Stop();
-        Console.WriteLine($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
 
         return;
     }
 
     void GenerateCache()
     {
-        try
-        {
-            CacheJsonGenerator.GenerateCacheJson(this);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Error while generating the cache: {e.Message}");
-        }
+        CacheJsonGenerator.GenerateCacheJson(this);
     }
     static void ValidateTemplateFolder()
     {
@@ -145,10 +139,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     void LoadSongData()
     {
         // Load in the song data
-        Console.WriteLine("Loading song info...");
+        Logger.Log("Loading song info...");
 
         // Set the song name to bootstrap the process
-        string mapName = ConversionRequest.SongName 
+        string mapName = ConversionRequest.SongName
             ?? Path.GetFileName(Directory.GetDirectories(Path.Combine(ConversionRequest.InputPath, "world", "maps"))[0]);
 
         SongData = new()
@@ -156,41 +150,47 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
             Name = mapName
         };
 
-        Console.WriteLine($"Song name: {SongData.Name}");
+        Logger.Log($"Song name: {SongData.Name}");
 
         string path = Path.Combine(InputFolder, "cache", "itf_cooked");
         PlatformType = Path.GetFileName(Directory.GetDirectories(path).First())!;
 
-        Console.Write($"Platform: {PlatformType}");
-        Console.WriteLine(!PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase) ?
-            " which is not officially supported. The conversion might not work as expected." :
-            "");
+        string message = $"Platform: {PlatformType}";
+        if (!PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase))
+            message += " which is not officially supported. The conversion might not work as expected.";
+
+        Logger.Log(message);
 
         JsonSerializerOptions options = new();
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntBoolConverter());
 
         // Some maps don't have KaraokeTape
-        Console.WriteLine("Loading KTape");
         if (File.Exists(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")))
+        {
+            Logger.Log("Loading KaraokeTape");
             SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
-        Console.WriteLine("Loading DTape");
+        }
+        else
+            Logger.Log("KaraokeTape not found");
+        Logger.Log("Loading DanceTape");
         SongData.DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
-        Console.WriteLine("Loading MTrack");
+        Logger.Log("Loading MusicTrack");
         SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
-        Console.WriteLine("Loading MainSequence");
+        Logger.Log("Loading MainSequence");
         SongData.MainSequence = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
-        Console.WriteLine("Loading SongDesc");
+        Logger.Log("Loading SongDesc");
         SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(CacheFolder, "songdesc.tpl.ckd")).Replace("\0", ""))!;
 
         // Get the JD version
+        Logger.Log("Loading JDVersion");
         SongData.EngineVersion = !Directory.Exists(MenuArtFolder) ?
             JDVersion.JDUnlimited :
             (JDVersion)SongData.SongDesc.COMPONENTS[0].JDVersion;
 
         SongData.JDVersion = (JDVersion)(ConversionRequest.JDVersion ?? SongData.SongDesc.COMPONENTS[0].OriginalJDVersion);
 
-        Console.WriteLine($"Loaded versions, engine: {SongData.EngineVersion}, original version: {SongData.JDVersion}");
+        Logger.Log($"Loaded versions, engine: {SongData.EngineVersion}, original version: {SongData.JDVersion}");
 
         return;
     }
@@ -200,12 +200,12 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Delete the old temp folder
         if (Directory.Exists(TempMapFolder))
         {
-            Console.WriteLine("Deleting the old temp folder");
+            Logger.Log("Deleting the old temp folder", LogLevel.Debug);
             Directory.Delete(TempMapFolder, true);
         }
 
         // Create the folders
-        Console.WriteLine("Creating the temp folders");
+        Logger.Log("Creating temp folders", LogLevel.Debug);
         Directory.CreateDirectory(TempMapFolder);
         Directory.CreateDirectory(TempPictoFolder);
         Directory.CreateDirectory(TempMenuArtFolder);
@@ -215,6 +215,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     private void ConversionTasks()
     {
+        Logger.Log("Starting conversion tasks", LogLevel.Debug);
 
         // Wait for all tasks to finish
         // Start converting
@@ -240,5 +241,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Wait for all tasks to finish
         Task.WaitAll(tasks);
+
+        Logger.Log("Conversion tasks finished", LogLevel.Debug);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using JustDanceEditor.Converter.Helpers;
+using JustDanceEditor.Logging;
 
 using System.Diagnostics;
 
@@ -23,31 +24,38 @@ public static class VideoConverter
                 Convert(convert, videoFile);
             else
             {
-                Console.WriteLine("Video file is already in the correct format");
+                Logger.Log("Video file is already in the correct format");
                 Directory.CreateDirectory(convert.TempVideoFolder);
                 File.Copy(videoFile, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
             }
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Failed to convert video file: {e.Message}");
+            Logger.Log($"Failed to convert video file: {e.Message}", LogLevel.Error);
             return;
         }
 
-        // Now generate the preview video
-        GeneratePreviewVideo(convert, Path.Combine(convert.TempVideoFolder, "output.webm"));
+        try
+        {
+            // Now generate the preview video
+            GeneratePreviewVideo(convert, Path.Combine(convert.TempVideoFolder, "output.webm"));
 
-        // Move the video file to the output folder
-        string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
-        string outputVideoPath = Path.Combine(convert.OutputXFolder, "Video_HIGH_vp9_webm");
-        Directory.CreateDirectory(outputVideoPath);
-        File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
+            // Move the video file to the output folder
+            string md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "output.webm"));
+            string outputVideoPath = Path.Combine(convert.OutputXFolder, "Video_HIGH_vp9_webm");
+            Directory.CreateDirectory(outputVideoPath);
+            File.Move(Path.Combine(convert.TempVideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
 
-        // Move the preview video to the output folder
-        md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
-        string previewVideoPath = Path.Combine(convert.Output0Folder, "VideoPreview_MID_vp9_webm");
-        Directory.CreateDirectory(previewVideoPath);
-        File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
+            // Move the preview video to the output folder
+            md5 = Download.GetFileMD5(Path.Combine(convert.TempVideoFolder, "preview.webm"));
+            string previewVideoPath = Path.Combine(convert.Output0Folder, "VideoPreview_MID_vp9_webm");
+            Directory.CreateDirectory(previewVideoPath);
+            File.Move(Path.Combine(convert.TempVideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate preview video: {e.Message}", LogLevel.Error);
+        }
     }
 
     static string GetVideoFile(ConvertUbiArtToUnity convert)
@@ -68,7 +76,7 @@ public static class VideoConverter
 
     private static void Convert(ConvertUbiArtToUnity convert, string path)
     {
-        Console.WriteLine("Converting video file...");
+        Logger.Log("Converting video file...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         try
@@ -78,19 +86,21 @@ public static class VideoConverter
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Failed to convert video file: {e.Message}");
-            Console.WriteLine("File will be copied as is");
+            Logger.Log($"Failed to convert video file, copying as is: {e.Message}", LogLevel.Warning);
 
             // Copy the file as is
             File.Copy(path, Path.Combine(convert.TempVideoFolder, "output.webm"), true);
         }
 
         stopwatch.Stop();
-        Console.WriteLine($"Finished converting video file in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Finished converting video file in {stopwatch.ElapsedMilliseconds}ms");
     }
 
     private static void GeneratePreviewVideo(ConvertUbiArtToUnity convert, string path)
     {
+        Logger.Log("Generating preview video...");
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
         (float startTime, float endTime) = convert.SongData.GetPreviewStartEndTimes(false);
 
         // Get info about the video file
@@ -104,6 +114,9 @@ public static class VideoConverter
         string previewVideoPath = Path.Combine(convert.TempVideoFolder, "preview.webm");
 
         GeneratePreviewVideoFFmpeg(path, previewVideoPath, startTime, endTime);
+
+        stopwatch.Stop();
+        Logger.Log($"Finished generating preview video in {stopwatch.ElapsedMilliseconds}ms");
     }
 
     private static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime, float endTime)
@@ -131,7 +144,7 @@ public static class VideoConverter
 
         IConversionResult result = conversion.Start().Result;
 
-        Console.WriteLine($"Ran following: {result.Arguments}");
+        Logger.Log($"Generated preview video with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
     static void ConvertVideoFile(ConvertUbiArtToUnity convert, string input)
@@ -179,6 +192,6 @@ public static class VideoConverter
         // Start the conversion
         IConversionResult result = conversion.Start().Result;
 
-        Console.WriteLine($"Ran following: {result.Arguments}");
+        Logger.Log($"Converted video with \"{result.Arguments}\"", LogLevel.Debug);
     }
 }

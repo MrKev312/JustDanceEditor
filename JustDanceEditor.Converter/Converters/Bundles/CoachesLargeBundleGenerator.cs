@@ -4,6 +4,7 @@ using AssetsTools.NET.Texture;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -17,11 +18,23 @@ public static class CoachesLargeBundleGenerator
 {
     public static void GenerateCoachesLarge(ConvertUbiArtToUnity convert)
     {
+        try
+        {
+            GenerateCoachesLargeInteral(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate CoachesLarge: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    static void GenerateCoachesLargeInteral(ConvertUbiArtToUnity convert)
+    {
         // Get the coaches folder
         // /template/cachex/CoachesLarge/*
         string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "CoachesLarge"))[0];
 
-        Console.WriteLine("Converting CoachesLarge...");
+        Logger.Log("Converting CoachesLarge...");
         // Open the coaches package using AssetTools.NET
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(coacheLargePackagePath, true);

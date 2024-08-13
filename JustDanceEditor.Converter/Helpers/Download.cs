@@ -1,4 +1,6 @@
-﻿using System.Security.Cryptography;
+﻿using JustDanceEditor.Logging;
+
+using System.Security.Cryptography;
 
 namespace JustDanceEditor.Converter.Helpers;
 public static class Download
@@ -42,7 +44,7 @@ public static class Download
             if (errorIfFileExists)
                 throw new Exception($"The file {fileName} already exists.");
 
-            Console.WriteLine($"The file {fileName} already exists, skipping.");
+            Logger.Log($"The file {fileName} already exists, skipping.", LogLevel.Debug);
             return hashString;
         }
 
@@ -79,7 +81,7 @@ public static class Download
             if (errorIfFileExists)
                 throw new Exception($"The file {fileName} already exists.");
 
-            Console.WriteLine($"The file {fileName} already exists, skipping.");
+            Logger.Log($"The file {fileName} already exists, skipping.", LogLevel.Debug);
             return;
         }
 

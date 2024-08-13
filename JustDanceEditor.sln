@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.IPK", "Just
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextureConverter", "TextureConverter\TextureConverter.csproj", "{0308DC52-E115-45C0-A300-8185F8837B11}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Logging", "JustDanceEditor.Logging\JustDanceEditor.Logging.csproj", "{6D98BCD7-A35E-45A6-B566-95502FE287FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{0308DC52-E115-45C0-A300-8185F8837B11}.Release|x64.Build.0 = Release|Any CPU
 		{0308DC52-E115-45C0-A300-8185F8837B11}.Release|x86.ActiveCfg = Release|Any CPU
 		{0308DC52-E115-45C0-A300-8185F8837B11}.Release|x86.Build.0 = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|x64.Build.0 = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Debug|x86.Build.0 = Debug|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|x64.ActiveCfg = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|x64.Build.0 = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|x86.ActiveCfg = Release|Any CPU
+		{6D98BCD7-A35E-45A6-B566-95502FE287FC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

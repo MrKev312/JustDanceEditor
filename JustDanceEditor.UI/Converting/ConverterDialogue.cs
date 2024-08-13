@@ -1,5 +1,6 @@
 ﻿using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Converters;
+using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
@@ -7,33 +8,49 @@ public class ConverterDialogue
 {
     public static void ConvertDialogue()
     {
-        if (!CheckTemplate())
-            return;
+        try
+        {
+            if (!CheckTemplate())
+                return;
 
-        ConversionRequest conversionRequest = CreateConversionRequest();
-        Console.WriteLine();
+            ConversionRequest conversionRequest = CreateConversionRequest();
+            Console.WriteLine();
 
-        ConvertUbiArtToUnity converter = new(conversionRequest);
-        converter.Convert();
+            ConvertUbiArtToUnity converter = new(conversionRequest);
+            converter.Convert();
+        }
+        catch (Exception e)
+        {
+            Logger.Log(e.Message, LogLevel.Fatal);
+            throw;
+        }
     }
 
     public static void ConvertDialogueAdvanced()
     {
-        if (!CheckTemplate())
-            return;
+        try
+        {
+            if (!CheckTemplate())
+                return;
 
-        ConversionRequest conversionRequest = CreateConversionRequest();
+            ConversionRequest conversionRequest = CreateConversionRequest();
 
-        // Ask for the cache number
-        conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the cache number", 1);
+            // Ask for the cache number
+            conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the cache number", 1);
 
-        // Ask for the JD version
-        uint version = (uint)Question.AskNumber("Force the JD version (0 for normal)", 0);
-        conversionRequest.JDVersion = version == 0 ? null : version;
-        Console.WriteLine();
+            // Ask for the JD version
+            uint version = (uint)Question.AskNumber("Force the JD version (0 for normal)", 0);
+            conversionRequest.JDVersion = version == 0 ? null : version;
+            Console.WriteLine();
 
-        ConvertUbiArtToUnity converter = new(conversionRequest);
-        converter.Convert();
+            ConvertUbiArtToUnity converter = new(conversionRequest);
+            converter.Convert();
+        }
+        catch (Exception e)
+        {
+            Logger.Log(e.Message, LogLevel.Fatal);
+            throw;
+        }
     }
 
     private static ConversionRequest CreateConversionRequest()

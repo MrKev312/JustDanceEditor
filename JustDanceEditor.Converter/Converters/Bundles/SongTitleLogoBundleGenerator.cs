@@ -3,12 +3,13 @@ using AssetsTools.NET.Extra;
 using AssetsTools.NET.Texture;
 
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Logging;
+
+using TextureConverter.TextureConverterHelpers;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-
-using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 
@@ -16,26 +17,37 @@ public static class SongTitleBundleGenerator
 {
     public static void GenerateSongTitleLogo(ConvertUbiArtToUnity convert)
     {
+        try
+        {
+            GenerateSongTitleLogoInternal(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate song title logo: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)
+    {
         // Does the following exist?
         string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
         if (!File.Exists(logoPath))
         {
-            Console.WriteLine("No songTitleLogo.png found, skipping...");
+            //Console.WriteLine("No songTitleLogo.png found, skipping...");
+            Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Warning);
             return;
         }
 
         string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "songTitleLogo"));
         if (songTitleLogoPackagePaths.Length == 0)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("No songTitleLogo bundle found despite songTitleLogo.png existing, skipping...");
-            Console.ResetColor();
+            Logger.Log("No songTitleLogo bundle found despite songTitleLogo.png existing, skipping...", LogLevel.Warning);
             return;
         }
 
         string songTitleLogoPackagePath = songTitleLogoPackagePaths[0];
 
-        Console.WriteLine("Converting SongTitleLogo...");
+        Logger.Log("Converting SongTitleLogo...");
 
         // Open the coaches package using AssetTools.NET
         AssetsManager manager = new();

@@ -2,6 +2,7 @@
 using System.IO.Compression;
 
 using JustDanceEditor.Converter.Helpers;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Resources;
 
@@ -18,6 +19,8 @@ internal class VGMStreamAdapter : IAudioConverter
         // Check whether VGMStream exists in Resources/VGMStream/ folder
         if (Exists())
             return;
+
+        Logger.Log("Downloading VGMStream...");
 
         // Create Resources/VGMStream/ folder
         Directory.CreateDirectory("Resources/VGMStream/");

@@ -4,17 +4,31 @@ using AssetsTools.NET;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.UbiArt.Tapes;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Logging;
+
+using TextureConverter.TextureConverterHelpers;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
-using TextureConverter.TextureConverterHelpers;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
 {
     public static void GenerateMapPackage(ConvertUbiArtToUnity convert)
+    {
+        try
+        {
+            GenerateMapPackageInternally(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate map package: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    static void GenerateMapPackageInternally(ConvertUbiArtToUnity convert)
     {
         // Get the mapPackage path
         // /template/cachex/MapPackage/*
@@ -25,7 +39,7 @@ public static class MapPackageBundleGenerator
             Task.Run(() => Task.FromResult(PictoConverter.ConvertPictos(convert)));
 
         // While the pictos are in the oven, we can convert the mapfiles
-        Console.WriteLine("Converting MapPackage...");
+        Logger.Log("Converting MapPackage...");
         // Open the mapPackage using AssetTools.NET
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(mapPackagePath, true);
@@ -400,7 +414,7 @@ public static class MapPackageBundleGenerator
 
             // Fix the vertex buffer
             spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
-            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = 
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray =
                 [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
                     0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
                     215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -439,7 +453,7 @@ public static class MapPackageBundleGenerator
 
             // Modify vertex data array
             byte[] vertexData = spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray;
-            for (int j = 0; j <= 36; j+=12)
+            for (int j = 0; j <= 36; j += 12)
             {
                 vertexData[j] = vertexMagics[0];
                 vertexData[j + 1] = vertexMagics[1];
@@ -588,6 +602,9 @@ public static class MapPackageBundleGenerator
                     if (!clip.ClassifierPath.EndsWith(".msm"))
                         continue;
 
+                    if (clip.CoachId >= convert.SongData.CoachCount)
+                        throw new Exception($"CoachId {clip.CoachId} is higher than the amount of coaches in the song ({convert.SongData.CoachCount})");
+
                     string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
                     newMotionClip["StartTime"].AsInt = clip.StartTime;
@@ -613,7 +630,7 @@ public static class MapPackageBundleGenerator
                     break;
 
                 default:
-                    Console.WriteLine($"Unknown clip type: {iClip.__class}");
+                    Logger.Log($"Unknown clip type: {iClip.GetType()}", LogLevel.Debug);
                     break;
             }
         }

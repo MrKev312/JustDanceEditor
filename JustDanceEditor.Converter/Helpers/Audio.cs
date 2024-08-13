@@ -1,4 +1,6 @@
-﻿using NAudio.Wave;
+﻿using JustDanceEditor.Logging;
+
+using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
 namespace JustDanceEditor.Converter.Helpers;
@@ -25,9 +27,7 @@ public static class Audio
             // If the file doesn't exist, skip it, but throw a big red warning
             if (!File.Exists(path))
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"File {path} does not exist!");
-                Console.ResetColor();
+                Logger.Log($"File {path} does not exist!", LogLevel.Warning);
                 continue;
             }
 

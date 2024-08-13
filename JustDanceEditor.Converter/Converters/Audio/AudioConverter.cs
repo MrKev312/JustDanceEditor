@@ -3,6 +3,7 @@
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Logging;
 
 using Xabe.FFmpeg;
 
@@ -20,20 +21,20 @@ public static class AudioConverter
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Failed to convert audio files: {e.Message}");
+            Logger.Log($"Failed to convert audio files: {e.Message}", LogLevel.Error);
         }
     }
 
     private static void Convert(ConvertUbiArtToUnity convert)
     {
-        Console.WriteLine("Converting audio files...");
+        Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
         SoundSetClip[] audioClips = GetAudioClips(convert.SongData.MainSequence.Clips);
 
         string mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);
 
-        Console.WriteLine($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
         if (mainSongPath.StartsWith(convert.InputMediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
@@ -86,7 +87,7 @@ public static class AudioConverter
             .SetCodec(AudioCodec.libopus)
             .SetSampleRate(48000);
 
-        conversion.AddStream(stream)
+        IConversionResult result = conversion.AddStream(stream)
             .SetOverwriteOutput(true)
             .UseMultiThread(true)
             .SetSeek(TimeSpan.FromSeconds(startTime))
@@ -95,7 +96,9 @@ public static class AudioConverter
             .AddParameter("-t 30")
             .SetOutput(previewOpusPath)
             .SetOverwriteOutput(true)
-            .Start().Wait();
+            .Start().Result;
+
+        Logger.Log($"Generated preview audio with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
     private static void MoveOpusToOutput(ConvertUbiArtToUnity convert, string opusPath)
@@ -130,13 +133,15 @@ public static class AudioConverter
             .SetCodec(AudioCodec.libopus)
             .SetSampleRate(48000);
 
-        conversion.AddStream(stream)
+        IConversionResult result = conversion.AddStream(stream)
             .AddParameter("-sample_fmt flt")
             .SetOverwriteOutput(true)
             .UseMultiThread(true)
             .SetOutput(opusPath)
             .SetOverwriteOutput(true)
-            .Start().Wait();
+            .Start().Result;
+
+        Logger.Log($"Converted song audio with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
     private static SoundSetClip[] GetAudioClips(IClip[] clips)
@@ -186,7 +191,7 @@ public static class AudioConverter
 
     private static void MergeAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips, string newMainSongPath)
     {
-        Console.WriteLine("Merging audio files...");
+        Logger.Log("Merging audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         // Prepare the array with an extra slot for the main song
@@ -217,6 +222,6 @@ public static class AudioConverter
         Helpers.Audio.MergeAudioFiles(audioFiles.ToArray(), Path.Combine(convert.TempAudioFolder, "merged.wav"));
 
         stopwatch.Stop();
-        Console.WriteLine($"Finished merging audio files in {stopwatch.ElapsedMilliseconds}ms");
+        Logger.Log($"Finished merging audio files in {stopwatch.ElapsedMilliseconds}ms");
     }
 }

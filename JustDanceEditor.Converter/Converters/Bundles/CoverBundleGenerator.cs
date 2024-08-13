@@ -4,6 +4,7 @@ using AssetsTools.NET.Texture;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -16,9 +17,21 @@ public static class CoverBundleGenerator
 {
     public static void GenerateCover(ConvertUbiArtToUnity convert)
     {
+        try
+        {
+            GenerateCoverInternal(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate cover: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    static void GenerateCoverInternal(ConvertUbiArtToUnity convert)
+    {
         string coverPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "Cover"))[0];
 
-        Console.WriteLine("Converting Cover...");
+        Logger.Log("Converting Cover...");
 
         // Open the coaches package using AssetTools.NET
         AssetsManager manager = new();
