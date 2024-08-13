@@ -11,7 +11,7 @@ namespace JustDanceEditor.Converter.Converters.Audio;
 public static class AudioConverter
 {
     // Interface to make it easier to switch between different audio converters
-    private static IAudioConverter audioConverter = new VGMStreamAdapter();
+    private static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
 
     public static void ConvertAudio(ConvertUbiArtToUnity convert)
     {

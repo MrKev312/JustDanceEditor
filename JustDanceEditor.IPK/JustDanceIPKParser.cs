@@ -6,9 +6,9 @@ public class JustDanceIPKParser
     long version;
     long baseOffset;
     long filesCount;
-    Stream fileStream;
+    readonly Stream fileStream;
 
-    string outputDirectory;
+    readonly string outputDirectory;
 
     public JustDanceIPKParser(Stream fileStream, string outputPath)
     {
