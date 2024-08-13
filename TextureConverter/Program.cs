@@ -15,20 +15,14 @@ class Program
         foreach (string arg in args)
         {
             if (File.Exists(arg))
-            {
                 list.Add(arg);
-            }
             else
-            {
                 Console.WriteLine($"File {arg} doesn't exist.");
-            }
         }
 
         // If there are no arguments, show the help
         if (list.Count == 0)
-        {
-            ShowHelp();
-        }
+            Console.WriteLine("Usage: TextureConverter.exe <file1> <file2> ...");
 
         // For each file extract the images in parallel
         Parallel.ForEach(list, x =>
@@ -59,11 +53,5 @@ class Program
         // Wait for any key
         Console.WriteLine("Press any key to continue...");
         Console.ReadKey();
-    }
-
-    private static void ShowHelp()
-    {
-        // Show the help
-        Console.WriteLine("Usage: TextureConverter.exe <file1> <file2> ...");
     }
 }
