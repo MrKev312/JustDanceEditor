@@ -150,7 +150,8 @@ public class GTX
             GTXDataBlock block = new(reader, shiftedType);
             Blocks.Add(block);
 
-            bool blockIsEmpty = block.BlockType is BlockType.AlignData or BlockType.EndOfFile;
+            if (block.BlockType == BlockType.EndOfFile)
+                break;
 
             switch (block.BlockType)
             {
