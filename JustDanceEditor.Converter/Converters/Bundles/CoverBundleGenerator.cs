@@ -57,9 +57,10 @@ public static class CoverBundleGenerator
         coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Cover_2x";
 
         // If a cover.png exists in the map folder, use that
-        Image<Rgba32>? coverImage = CoverArtGenerator.ExistingCover(convert);
+        Image<Rgba32>? coverImage = null;
         if (convert.ConversionRequest.OnlineCover)
             coverImage ??= CoverArtGenerator.TryCoverWeb(convert);
+        coverImage ??= CoverArtGenerator.ExistingCover(convert);
         coverImage ??= CoverArtGenerator.GenerateOwnCover(convert);
 
         // Save the image in the temp folder
