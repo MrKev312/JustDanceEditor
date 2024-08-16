@@ -15,9 +15,16 @@ public static class MenuArtConverter
 
         Parallel.ForEach(menuArtFiles, (item) =>
         {
-            string fileName = Path.GetFileNameWithoutExtension(item);
-            string tempFilePath = PrepareFileForConversion(item, convert.TempMenuArtFolder, fileName);
-            TextureConverter.TextureConverter.ExtractToPNG(tempFilePath, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
+            try
+            {
+                string fileName = Path.GetFileNameWithoutExtension(item);
+                string tempFilePath = PrepareFileForConversion(item, convert.TempMenuArtFolder, fileName);
+                TextureConverter.TextureConverter.ExtractToPNG(tempFilePath, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Failed to convert menu art file {item}: {ex.Message}", LogLevel.Error);
+            }
         });
 
         stopwatch.Stop();

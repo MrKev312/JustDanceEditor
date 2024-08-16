@@ -37,6 +37,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     // Temporary folders
     public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", SongData.Name);
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
+    public string TempPictoAtlasFolder => Path.Combine(TempPictoFolder, "Atlas");
     public string TempMenuArtFolder => Path.Combine(TempMapFolder, "menuart");
     public string TempAudioFolder => Path.Combine(TempMapFolder, "audio");
     public string TempVideoFolder => Path.Combine(TempMapFolder, "video");
@@ -208,6 +209,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         Logger.Log("Creating temp folders", LogLevel.Debug);
         Directory.CreateDirectory(TempMapFolder);
         Directory.CreateDirectory(TempPictoFolder);
+        Directory.CreateDirectory(TempPictoAtlasFolder);
         Directory.CreateDirectory(TempMenuArtFolder);
         Directory.CreateDirectory(TempAudioFolder);
         Directory.CreateDirectory(TempVideoFolder);

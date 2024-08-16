@@ -13,7 +13,20 @@ public static class PictoConverter
     public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
     {
         // Before starting on the mapPackage, prepare the pictos
+        if (!Directory.Exists(convert.PictosFolder))
+        {
+            Logger.Log("Pictos folder doesn't exist, skipping picto conversion", LogLevel.Warning);
+            return ([], []);
+        }
+
         string[] pictoFiles = Directory.GetFiles(convert.PictosFolder);
+
+        if (pictoFiles.Length == 0)
+        {
+            Logger.Log("No pictos found, skipping picto conversion", LogLevel.Warning);
+            return ([], []);
+        }
+
         Logger.Log($"Converting {pictoFiles.Length} pictos...");
 
         // Get time before starting
@@ -121,7 +134,7 @@ public static class PictoConverter
         }
 
         // Save the atlasPics in the tempPictoFolder in the format atlas_{index}.png
-        Directory.CreateDirectory(Path.Combine(convert.TempPictoFolder, "Atlas"));
+        Directory.CreateDirectory(convert.TempPictoAtlasFolder);
 
         for (int i = 0; i < atlasPics.Count; i++)
             atlasPics[i].Save(Path.Combine(convert.TempPictoFolder, "Atlas", $"atlas_{i}.png"));
