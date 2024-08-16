@@ -14,9 +14,9 @@ public class JDUbiArtSong
     public ClipTape MainSequence { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
 
-    public (float start, float end) GetPreviewStartEndTimes(bool isAudio = true)
+    public float GetPreviewStartTime(bool isAudio = true)
     {
-        float songOffset = 0;
+        float songOffset;
 
         if (isAudio)
         {
@@ -37,10 +37,23 @@ public class JDUbiArtSong
 
         startTime -= songOffset;
 
-        // For now, force the length to be 30 seconds
-        float endTime = startTime + 30f;
+        return startTime;
+    }
 
-        return (startTime, endTime);
+    public float GetSongStartTime()
+    {
+        int beat = MusicTrack.COMPONENTS[0].trackData.structure.startBeat;
+
+        // Get the absolute of the start beat
+        int marker = Math.Abs(beat);
+
+        float time = MusicTrack.COMPONENTS[0].trackData.structure.markers[marker] / 48f / 1000f;
+
+        // Set opposite sign
+        if (beat < 0)
+            time = -time;
+
+        return time;
     }
 }
 

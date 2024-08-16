@@ -101,25 +101,18 @@ public static class VideoConverter
         Logger.Log("Generating preview video...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        (float startTime, float endTime) = convert.SongData.GetPreviewStartEndTimes(false);
-
-        // Get info about the video file
-        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(path).Result;
-
-        // Check if the endTime is below the duration of the video file
-        if (endTime > mediaInfo.Duration.TotalSeconds)
-            endTime = (float)mediaInfo.Duration.TotalSeconds;
+        float startTime = convert.SongData.GetPreviewStartTime(false);
 
         // Generate the preview video file
         string previewVideoPath = Path.Combine(convert.TempVideoFolder, "preview.webm");
 
-        GeneratePreviewVideoFFmpeg(path, previewVideoPath, startTime, endTime);
+        GeneratePreviewVideoFFmpeg(path, previewVideoPath, startTime);
 
         stopwatch.Stop();
         Logger.Log($"Finished generating preview video in {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    private static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime, float endTime)
+    private static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime)
     {
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);
@@ -132,7 +125,7 @@ public static class VideoConverter
             .SetSeek(TimeSpan.FromSeconds(startTime))
             .AddParameter("-b:v 500k -maxrate 600k -bufsize 1200k")
             // Set fade-in of 1 second
-            .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={endTime - 1}:d=1\"")
+            .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={startTime + 30 - 1}:d=1\"")
             .AddParameter("-t 30")
             .SetOutput(previewVideoPath)
             .SetOverwriteOutput(true);

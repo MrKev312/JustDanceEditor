@@ -56,19 +56,12 @@ public static class AudioConverter
 
     private static void GeneratePreviewAudio(ConvertUbiArtToUnity convert, string opusPath)
     {
-        (float startTime, float endTime) = convert.SongData.GetPreviewStartEndTimes();
-
-        // Get info about the Opus file
-        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(opusPath).Result;
-
-        // Check if the endTime is below the duration of the Opus file
-        if (endTime > mediaInfo.Duration.TotalSeconds)
-            endTime = (float)mediaInfo.Duration.TotalSeconds;
+        float startTime = convert.SongData.GetPreviewStartTime();
 
         // Generate the preview audio file
         string previewOpusPath = Path.Combine(convert.TempAudioFolder, "preview.opus");
 
-        GeneratePreviewAudioFFMpeg(opusPath, previewOpusPath, startTime, endTime);
+        GeneratePreviewAudioFFMpeg(opusPath, previewOpusPath, startTime);
 
         // Move the preview audio file to the output folder
         string md5 = Download.GetFileMD5(previewOpusPath);
@@ -78,7 +71,7 @@ public static class AudioConverter
         File.Move(previewOpusPath, outputOpusPath, true);
     }
 
-    private static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime, float endTime)
+    private static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime)
     {
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);
@@ -92,7 +85,7 @@ public static class AudioConverter
             .UseMultiThread(true)
             .SetSeek(TimeSpan.FromSeconds(startTime))
             // Set fade-in of .1 seconds
-            .AddParameter($"-af \"afade=t=in:st={startTime}:d=1,afade=t=out:st={endTime - 1}:d=1\"")
+            .AddParameter($"-af \"afade=t=in:st={startTime}:d=1,afade=t=out:st={startTime + 30 - 1}:d=1\"")
             .AddParameter("-t 30")
             .SetOutput(previewOpusPath)
             .SetOverwriteOutput(true)
@@ -199,7 +192,7 @@ public static class AudioConverter
 
         // Process the main song
         // Assuming the main song's offset is determined by the startBeat and markers in songData
-        (float mainSongOffset, _) = convert.SongData.GetPreviewStartEndTimes();
+        float mainSongOffset = convert.SongData.GetSongStartTime();
         audioFiles.Add((newMainSongPath, mainSongOffset));
 
         // Process each audio clip
