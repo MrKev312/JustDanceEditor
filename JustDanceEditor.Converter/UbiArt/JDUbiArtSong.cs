@@ -22,7 +22,7 @@ public class JDUbiArtSong
         {
             // Get the startbeat offset
             int songStartBeat = Math.Abs(MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
-            songOffset = -MusicTrack.COMPONENTS[0].trackData.structure.markers[songStartBeat] / 48f / 1000f;
+            songOffset = MusicTrack.COMPONENTS[0].trackData.structure.markers[songStartBeat] / 48f / 1000f;
         }
         else
         {

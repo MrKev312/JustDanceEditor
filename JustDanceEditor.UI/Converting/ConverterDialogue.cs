@@ -4,9 +4,10 @@ using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
+
 public class ConverterDialogue
 {
-    public static void ConvertDialogue()
+    public static void ConvertSingleDialogue()
     {
         try
         {
@@ -26,7 +27,7 @@ public class ConverterDialogue
         }
     }
 
-    public static void ConvertDialogueAdvanced()
+    public static void ConvertSingleDialogueAdvanced()
     {
         try
         {
@@ -53,9 +54,46 @@ public class ConverterDialogue
         }
     }
 
+    public static void ConvertAllSongsInFolder()
+    {
+        try
+        {
+            if (!CheckTemplate())
+                return;
+
+            string inputFolder = AskInputFolder();
+            string outputFolder = AskOutputFolder();
+
+            // Get all the songs in the folder
+            string inputMapsFolder = Path.Combine(inputFolder, "world", "maps");
+            string[] songs = Directory.GetDirectories(inputMapsFolder).Select(Path.GetFileName).ToArray()!;
+
+            bool onlineCover = AskOnlineCover();
+
+            foreach (string song in songs)
+            {
+                ConversionRequest conversionRequest = new()
+                {
+                    TemplatePath = "./Template",
+                    InputPath = Path.Combine(inputFolder),
+                    OutputPath = Path.Combine(outputFolder),
+                    OnlineCover = onlineCover,
+                    SongName = song
+                };
+                ConvertUbiArtToUnity converter = new(conversionRequest);
+                converter.Convert();
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Log(e.Message, LogLevel.Fatal);
+            throw;
+        }
+    }
+
     private static ConversionRequest CreateConversionRequest()
     {
-        (string inputPath, string songName) = AskInputFolder();
+        (string inputPath, string songName) = AskSpecificInputFolder();
 
         string outputPath = AskOutputFolder();
         bool onlineCover = AskOnlineCover();
@@ -75,7 +113,20 @@ public class ConverterDialogue
         return conversionRequest;
     }
 
-    private static (string inputPath, string songName) AskInputFolder()
+    private static string AskInputFolder()
+    {
+        // Must have a cache and world folder
+        string inputPath = "";
+
+        while (!Directory.Exists(Path.Combine(inputPath, "cache")) || !Directory.Exists(Path.Combine(inputPath, "world")))
+        {
+            inputPath = Question.AskFolder("Enter the path to the folder containing the cache and world folders", true);
+        }
+
+        return inputPath;
+    }
+
+    private static (string inputPath, string songName) AskSpecificInputFolder()
     {
         string inputPath = "";
         string[] maps = [];

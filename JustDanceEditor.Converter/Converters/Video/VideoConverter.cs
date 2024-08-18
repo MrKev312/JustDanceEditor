@@ -117,8 +117,7 @@ public static class VideoConverter
 
     static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime)
     {
-        IConversion conversion = FFmpeg.Conversions.New()
-            .UseMultiThread(true);
+        IConversion conversion = FFmpeg.Conversions.New();
 
         IStream stream = FFmpeg.GetMediaInfo(path).Result.VideoStreams.First()
             .SetCodec(VideoCodec.vp9);
@@ -145,8 +144,7 @@ public static class VideoConverter
 
     static void ConvertVideoFile(ConvertUbiArtToUnity convert, string input)
     {
-        IConversion conversion = FFmpeg.Conversions.New()
-            .UseMultiThread(true);
+        IConversion conversion = FFmpeg.Conversions.New();
 
         IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(input).Result;
 

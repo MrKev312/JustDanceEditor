@@ -76,8 +76,7 @@ public static class AudioConverter
 
     static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime)
     {
-        IConversion conversion = FFmpeg.Conversions.New()
-            .UseMultiThread(true);
+        IConversion conversion = FFmpeg.Conversions.New();
 
         IStream stream = FFmpeg.GetMediaInfo(opusPath).Result.AudioStreams.First()
             .SetCodec(AudioCodec.libopus)
@@ -120,8 +119,7 @@ public static class AudioConverter
 
     static void ConvertToOpusFFMpeg(string mergedWavPath, string opusPath)
     {
-        IConversion conversion = FFmpeg.Conversions.New()
-            .UseMultiThread(true);
+        IConversion conversion = FFmpeg.Conversions.New();
 
         IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(mergedWavPath).Result;
 

@@ -26,6 +26,7 @@ internal class Program
                 "Exit",
                 "Convert UbiArt to Unity",
                 "Convert UbiArt to Unity (Advanced)",
+                "Convert all songs in folder",
                 "Extract IPK file"
             ]);
 
@@ -34,12 +35,15 @@ internal class Program
                 case 0:
                     return;
                 case 1:
-                    ConverterDialogue.ConvertDialogue();
+                    ConverterDialogue.ConvertSingleDialogue();
                     break;
                 case 2:
-                    ConverterDialogue.ConvertDialogueAdvanced();
+                    ConverterDialogue.ConvertSingleDialogueAdvanced();
                     break;
                 case 3:
+                    ConverterDialogue.ConvertAllSongsInFolder();
+                    break;
+                case 4:
                     ExtractorDialogue.ExtractDialogue();
                     break;
             }
