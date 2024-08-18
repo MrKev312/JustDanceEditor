@@ -15,6 +15,7 @@ using JustDanceEditor.Converter.Helpers;
 
 using Xabe.FFmpeg.Downloader;
 using JustDanceEditor.Logging;
+using System.Globalization;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -22,7 +23,6 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 {
     public JDUbiArtSong SongData { get; private set; } = new();
     public readonly ConversionRequest ConversionRequest = conversionRequest;
-    bool mergeCache;
 
     /// Folders
     // Main folders
@@ -34,7 +34,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     public string OutputXFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", SongID);
     public string TemplateFolder => ConversionRequest.TemplatePath;
     public string SongID => ConversionRequest.SongID;
-    public uint CacheNumber => ConversionRequest.CacheNumber;
+    public uint CacheNumber => ConversionRequest.CacheNumber ?? 123;
     // Temporary folders
     public string TempMapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", SongData.Name);
     public string TempPictoFolder => Path.Combine(TempMapFolder, "pictos");
@@ -77,16 +77,27 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Generate the cache
         GenerateCache();
 
+        // Merge the cache
+        MergeCacheFiles();
+
         stopwatch.Stop();
         Logger.Log($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
 
         return;
     }
 
+    private void MergeCacheFiles()
+    {
+        if (File.Exists(Path.Combine(OutputFolder, "cachingStatus.json")) &&
+            File.Exists(Path.Combine(ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json")))
+            CacheJsonGenerator.MergeCaches(this);
+    }
+
     void GenerateCache()
     {
         CacheJsonGenerator.GenerateCacheJson(this);
     }
+
     static void ValidateTemplateFolder()
     {
         string[] folders = [
@@ -129,6 +140,51 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(ConversionRequest.OutputPath);
+
+        DetermineCacheNumber();
+    }
+
+    void DetermineCacheNumber()
+    {
+        string cachingStatusPath = Path.Combine(ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
+
+        // If the cache number is provided, use it
+        if (ConversionRequest.CacheNumber != null)
+            return;
+        // If we're not in a real cache folder, just use 123
+        else if (!File.Exists(cachingStatusPath))
+        {
+            ConversionRequest.CacheNumber = 123;
+            Logger.Log("Setting cache number to 123", LogLevel.Warning);
+            return;
+        }
+
+        // We're in a real cache folder, let's find the max cache number
+        // Get all the directories in the output path formatted as SD_Cache.xxxx
+        string[] directories = Directory.GetDirectories(ConversionRequest.OutputPath);
+
+        uint maxCacheNumber = 1;
+
+        foreach (string directory in directories)
+        {
+            // If the directory is SD_Cache.0000, skip it
+            if (Path.GetFileName(directory).Equals("SD_Cache.0000", StringComparison.CurrentCultureIgnoreCase))
+                continue;
+
+            if (directory.Contains("SD_Cache.") && uint.TryParse(directory.Split('.').Last(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint cacheNumber))
+                maxCacheNumber = Math.Max(maxCacheNumber, cacheNumber);
+        }
+
+        // Create the new cache folder
+        Directory.CreateDirectory(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}"));
+
+        // If the folder of the max cache number is over 3 GB, we'll start a new one
+        if (new DirectoryInfo(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}")).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length) > 3u * 1024 * 1024 * 1024)
+            ConversionRequest.CacheNumber = maxCacheNumber + 1;
+        else
+            ConversionRequest.CacheNumber = maxCacheNumber;
+
+        Logger.Log($"Setting cache number to {CacheNumber}", LogLevel.Warning);
     }
 
     void LoadSongData()

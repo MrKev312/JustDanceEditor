@@ -13,6 +13,77 @@ public static class CacheJsonGenerator
         WriteIndented = true
     };
 
+    public static void MergeCaches(ConvertUbiArtToUnity convert)
+    {
+        try
+        {
+            MergeCachesInternal(convert);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to merge cache json files: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    private static void MergeCachesInternal(ConvertUbiArtToUnity convert)
+    {
+        // First we load the generated JSON
+        string cachingStatusPath = Path.Combine(convert.OutputFolder, "cachingStatus.json");
+        Dictionary<string, JDSong> caching = JsonSerializer.Deserialize<Dictionary<string, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
+
+        // The one we'll add to is in the existing SD_0000 folder
+        string cachingStatusPath0 = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
+        JDCacheJSON caching0 = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(cachingStatusPath0), options)!;
+
+        // Merge the two dictionaries
+        if (caching0.MapsDict.ContainsKey(convert.SongID))
+        {
+            throw new Exception("Song already exists in the cache");
+        }
+
+        caching0.MapsDict.Add(convert.SongID, caching[convert.SongID]);
+
+        // Now we move the files first and after that we write the new cachingStatus.json
+        // This is in case we crash while moving the files, we don't want to have the cache.json updated without the files
+        // Moving the SD_Cache.0000 folder
+        string sd0000Path = Path.Combine(convert.OutputFolder, "SD_Cache.0000", "MapBaseCache", convert.SongID);
+        string sd0000PathDest = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", convert.SongID);
+        Directory.Move(sd0000Path, sd0000PathDest);
+
+        // Moving the SD_Cache.xxxx folder
+        string sdXFolder = Path.Combine(convert.OutputFolder, $"SD_Cache.{convert.CacheNumber:D4}", convert.SongID);
+        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{convert.CacheNumber:D4}", convert.SongID);
+        Directory.Move(sdXFolder, sdXFolderDest);
+
+        // Write the new cachingStatus.json
+        string cachingStatus = JsonSerializer.Serialize(caching0, options);
+        File.WriteAllText(cachingStatusPath0, cachingStatus);
+
+        // Delete the old cachingStatus.json
+        File.Delete(cachingStatusPath);
+
+        // Recursively remove empty directories
+        RecursivelyRemoveEmptyDirectories(convert.OutputFolder);
+
+        // If the output folder is empty, remove it
+        if (Directory.GetFiles(convert.OutputFolder).Length == 0 && Directory.GetDirectories(convert.OutputFolder).Length == 0)
+        {
+            Directory.Delete(convert.OutputFolder);
+        }
+    }
+
+    static void RecursivelyRemoveEmptyDirectories(string path)
+    {
+        foreach (string directory in Directory.GetDirectories(path))
+        {
+            RecursivelyRemoveEmptyDirectories(directory);
+            if (Directory.GetFiles(directory).Length == 0 && Directory.GetDirectories(directory).Length == 0)
+            {
+                Directory.Delete(directory);
+            }
+        }
+    }
+
     public static void GenerateCacheJson(ConvertUbiArtToUnity convert)
     {
         try
@@ -57,8 +128,6 @@ public static class CacheJsonGenerator
 
         // Generate the cachingStatus.json file
         string cachingStatus = JsonSerializer.Serialize(caching, options);
-        // Remove the curly braces from the json
-        cachingStatus = cachingStatus.TrimStart('{').TrimEnd('}');
 
         File.WriteAllText(cachingStatusPath, cachingStatus);
     }
