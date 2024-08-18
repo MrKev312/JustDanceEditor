@@ -13,6 +13,9 @@ public static class AudioConverter
     // Interface to make it easier to switch between different audio converters
     private static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
 
+    public async static Task ConvertAudioAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => Convert(convert));
+
     public static void ConvertAudio(ConvertUbiArtToUnity convert)
     {
         try

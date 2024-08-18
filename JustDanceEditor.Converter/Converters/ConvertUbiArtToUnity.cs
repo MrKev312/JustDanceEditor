@@ -22,6 +22,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 {
     public JDUbiArtSong SongData { get; private set; } = new();
     public readonly ConversionRequest ConversionRequest = conversionRequest;
+    bool mergeCache;
 
     /// Folders
     // Main folders
@@ -63,8 +64,6 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Validate the request
         ValidateRequest();
-
-        CheckFFMpeg();
 
         // Load the song data
         LoadSongData();
@@ -130,11 +129,6 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(ConversionRequest.OutputPath);
-    }
-
-    static void CheckFFMpeg()
-    {
-        FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official).Wait();
     }
 
     void LoadSongData()
@@ -219,31 +213,52 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     {
         Logger.Log("Starting conversion tasks", LogLevel.Debug);
 
-        // Wait for all tasks to finish
-        // Start converting
+        // List of tasks to await
         Task[] tasks =
         [
-            Task.Run(() => MapPackageBundleGenerator.GenerateMapPackage(this)),
-            // Convert the audio files in /cache/itf_cooked/nx/world/maps/{mapName}/audio
-			Task.Run(() => AudioConverter.ConvertAudio(this)),
-            // Convert the video files in /cache/itf_cooked/nx/world/maps/{mapName}/videoscoach
-            Task.Run(() => VideoConverter.ConvertVideo(this)),
-            // Convert the menu art in /cache/itf_cooked/nx/world/maps/{mapName}/menuart/textures
-			Task.Run(() => MenuArtConverter.ConvertMenuArt(this)).ContinueWith(_ =>{
-                // Generate both coaches files
-			    Task.Run(() => CoachesLargeBundleGenerator.GenerateCoachesLarge(this));
-                Task.Run(() => CoachesSmallBundleGenerator.GenerateCoachesSmall(this));
-                // Generate the cover
-			    Task.Run(() => CoverBundleGenerator.GenerateCover(this));
-            }),
-            
-            // Generate the song title logo
-            Task.Run(() => SongTitleBundleGenerator.GenerateSongTitleLogo(this))
+            GenerateMapPackageAsync(),
+            ConvertMediaAsync(),
+            ConvertMenuArtAndGenerateAssetsAsync(),
+            ConvertSongTitleLogoAsync()
         ];
 
-        // Wait for all tasks to finish
         Task.WaitAll(tasks);
 
         Logger.Log("Conversion tasks finished", LogLevel.Debug);
+    }
+
+    private async Task GenerateMapPackageAsync()
+    {
+        await MapPackageBundleGenerator.GenerateMapPackageAsync(this);
+    }
+
+    private async Task ConvertMediaAsync()
+    {
+        // First, download FFmpeg if needed
+        await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+
+        // Then, convert the audio and video
+        await Task.WhenAll(
+            AudioConverter.ConvertAudioAsync(this),
+            VideoConverter.ConvertVideoAsync(this)
+        );
+    }
+
+    private async Task ConvertMenuArtAndGenerateAssetsAsync()
+    {
+        // First, convert the menu art
+        await MenuArtConverter.ConvertMenuArtAsync(this);
+
+        // Then, generate the assets
+        await Task.WhenAll(
+            CoachesLargeBundleGenerator.GenerateCoachesLargeAsync(this),
+            CoachesSmallBundleGenerator.GenerateCoachesSmallAsync(this),
+            CoverBundleGenerator.GenerateCoverAsync(this)
+        );
+    }
+
+    private async Task ConvertSongTitleLogoAsync()
+    {
+        await SongTitleBundleGenerator.GenerateSongTitleLogoAsync(this);
     }
 }

@@ -6,6 +6,8 @@ namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class MenuArtConverter
 {
+    public async static Task ConvertMenuArtAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => ConvertMenuArt(convert));
     public static void ConvertMenuArt(ConvertUbiArtToUnity convert)
     {
         string[] menuArtFiles = Directory.GetFiles(convert.MenuArtFolder);

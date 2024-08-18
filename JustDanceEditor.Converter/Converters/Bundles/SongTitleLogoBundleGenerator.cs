@@ -15,6 +15,9 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class SongTitleBundleGenerator
 {
+    public async static Task GenerateSongTitleLogoAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => GenerateSongTitleLogo(convert));
+
     public static void GenerateSongTitleLogo(ConvertUbiArtToUnity convert)
     {
         try

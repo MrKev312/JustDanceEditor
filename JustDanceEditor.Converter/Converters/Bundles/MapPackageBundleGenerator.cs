@@ -16,6 +16,9 @@ using SixLabors.ImageSharp;
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
 {
+    public async static Task GenerateMapPackageAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => GenerateMapPackage(convert));
+
     public static void GenerateMapPackage(ConvertUbiArtToUnity convert)
     {
         try

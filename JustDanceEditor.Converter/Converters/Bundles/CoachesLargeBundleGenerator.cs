@@ -16,6 +16,8 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoachesLargeBundleGenerator
 {
+    public async static Task GenerateCoachesLargeAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => GenerateCoachesLarge(convert));
     public static void GenerateCoachesLarge(ConvertUbiArtToUnity convert)
     {
         try

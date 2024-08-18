@@ -8,6 +8,9 @@ using Xabe.FFmpeg;
 namespace JustDanceEditor.Converter.Converters.Video;
 public static class VideoConverter
 {
+    public async static Task ConvertVideoAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => ConvertVideo(convert));
+
     public static void ConvertVideo(ConvertUbiArtToUnity convert)
     {
         try

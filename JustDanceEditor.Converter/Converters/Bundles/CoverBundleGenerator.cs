@@ -15,6 +15,9 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoverBundleGenerator
 {
+    public async static Task GenerateCoverAsync(ConvertUbiArtToUnity convert) =>
+        await Task.Run(() => GenerateCover(convert));
+
     public static void GenerateCover(ConvertUbiArtToUnity convert)
     {
         try
