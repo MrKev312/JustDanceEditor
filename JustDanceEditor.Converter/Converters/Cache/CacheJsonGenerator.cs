@@ -25,7 +25,7 @@ public static class CacheJsonGenerator
         }
     }
 
-    private static void MergeCachesInternal(ConvertUbiArtToUnity convert)
+    static void MergeCachesInternal(ConvertUbiArtToUnity convert)
     {
         // First we load the generated JSON
         string cachingStatusPath = Path.Combine(convert.OutputFolder, "cachingStatus.json");

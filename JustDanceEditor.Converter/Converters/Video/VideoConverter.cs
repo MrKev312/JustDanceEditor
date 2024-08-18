@@ -77,7 +77,7 @@ public static class VideoConverter
         throw new Exception("No video file found");
     }
 
-    private static void Convert(ConvertUbiArtToUnity convert, string path)
+    static void Convert(ConvertUbiArtToUnity convert, string path)
     {
         Logger.Log("Converting video file...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -99,7 +99,7 @@ public static class VideoConverter
         Logger.Log($"Finished converting video file in {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    private static void GeneratePreviewVideo(ConvertUbiArtToUnity convert, string path)
+    static void GeneratePreviewVideo(ConvertUbiArtToUnity convert, string path)
     {
         Logger.Log("Generating preview video...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -115,7 +115,7 @@ public static class VideoConverter
         Logger.Log($"Finished generating preview video in {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    private static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime)
+    static void GeneratePreviewVideoFFmpeg(string path, string previewVideoPath, float startTime)
     {
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);

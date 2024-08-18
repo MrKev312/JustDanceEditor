@@ -86,7 +86,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         return;
     }
 
-    private void MergeCacheFiles()
+    void MergeCacheFiles()
     {
         if (File.Exists(Path.Combine(OutputFolder, "cachingStatus.json")) &&
             File.Exists(Path.Combine(ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json")))
@@ -265,7 +265,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         Directory.CreateDirectory(TempVideoFolder);
     }
 
-    private void ConversionTasks()
+    void ConversionTasks()
     {
         Logger.Log("Starting conversion tasks", LogLevel.Debug);
 
@@ -283,12 +283,12 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         Logger.Log("Conversion tasks finished", LogLevel.Debug);
     }
 
-    private async Task GenerateMapPackageAsync()
+    async Task GenerateMapPackageAsync()
     {
         await MapPackageBundleGenerator.GenerateMapPackageAsync(this);
     }
 
-    private async Task ConvertMediaAsync()
+    async Task ConvertMediaAsync()
     {
         // First, download FFmpeg if needed
         await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
@@ -300,7 +300,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         );
     }
 
-    private async Task ConvertMenuArtAndGenerateAssetsAsync()
+    async Task ConvertMenuArtAndGenerateAssetsAsync()
     {
         // First, convert the menu art
         await MenuArtConverter.ConvertMenuArtAsync(this);
@@ -313,7 +313,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         );
     }
 
-    private async Task ConvertSongTitleLogoAsync()
+    async Task ConvertSongTitleLogoAsync()
     {
         await SongTitleBundleGenerator.GenerateSongTitleLogoAsync(this);
     }

@@ -42,7 +42,7 @@ public static class CoverArtGenerator
         return null;
     }
 
-    private static Image<Rgba32>? TryLoadImage(string path)
+    static Image<Rgba32>? TryLoadImage(string path)
     {
         if (!File.Exists(path))
             return null;

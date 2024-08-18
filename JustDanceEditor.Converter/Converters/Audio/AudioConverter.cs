@@ -11,7 +11,7 @@ namespace JustDanceEditor.Converter.Converters.Audio;
 public static class AudioConverter
 {
     // Interface to make it easier to switch between different audio converters
-    private static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
+    static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
 
     public async static Task ConvertAudioAsync(ConvertUbiArtToUnity convert) =>
         await Task.Run(() => Convert(convert));
@@ -28,7 +28,7 @@ public static class AudioConverter
         }
     }
 
-    private static void Convert(ConvertUbiArtToUnity convert)
+    static void Convert(ConvertUbiArtToUnity convert)
     {
         Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -57,7 +57,7 @@ public static class AudioConverter
         MoveOpusToOutput(convert, opusPath);
     }
 
-    private static void GeneratePreviewAudio(ConvertUbiArtToUnity convert, string opusPath)
+    static void GeneratePreviewAudio(ConvertUbiArtToUnity convert, string opusPath)
     {
         float startTime = convert.SongData.GetPreviewStartTime();
 
@@ -74,7 +74,7 @@ public static class AudioConverter
         File.Move(previewOpusPath, outputOpusPath, true);
     }
 
-    private static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime)
+    static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime)
     {
         IConversion conversion = FFmpeg.Conversions.New()
             .UseMultiThread(true);
@@ -97,7 +97,7 @@ public static class AudioConverter
         Logger.Log($"Generated preview audio with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
-    private static void MoveOpusToOutput(ConvertUbiArtToUnity convert, string opusPath)
+    static void MoveOpusToOutput(ConvertUbiArtToUnity convert, string opusPath)
     {
         // Copy the Opus file to the output folder
         string md5 = Download.GetFileMD5(opusPath);
@@ -140,12 +140,12 @@ public static class AudioConverter
         Logger.Log($"Converted song audio with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
-    private static SoundSetClip[] GetAudioClips(IClip[] clips)
+    static SoundSetClip[] GetAudioClips(IClip[] clips)
     {
         return clips.OfType<SoundSetClip>().ToArray();
     }
 
-    private static void ConvertAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips)
+    static void ConvertAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips)
     {
         foreach (SoundSetClip audioVibrationClip in audioClips)
         {
@@ -156,14 +156,14 @@ public static class AudioConverter
         }
     }
 
-    private static string ConvertMainSong(ConvertUbiArtToUnity convert, string mainSongPath)
+    static string ConvertMainSong(ConvertUbiArtToUnity convert, string mainSongPath)
     {
         string newMainSongPath = Path.Combine(convert.TempAudioFolder, "mainSong.wav");
         audioConverter.Convert(mainSongPath, newMainSongPath).Wait();
         return newMainSongPath;
     }
 
-    private static string GetMainSongPath(ConvertUbiArtToUnity convert)
+    static string GetMainSongPath(ConvertUbiArtToUnity convert)
     {
         string[] audios = [];
         // Is there any *.ogg file in the media folder?
@@ -185,7 +185,7 @@ public static class AudioConverter
         throw new Exception("Main song not found");
     }
 
-    private static void MergeAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips, string newMainSongPath)
+    static void MergeAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips, string newMainSongPath)
     {
         Logger.Log("Merging audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();

@@ -33,7 +33,7 @@ public static class MenuArtConverter
         Logger.Log($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
 
-    private static string PrepareFileForConversion(string originalFilePath, string tempFolder, string fileName)
+    static string PrepareFileForConversion(string originalFilePath, string tempFolder, string fileName)
     {
         string tempFilePath = Path.Combine(tempFolder, fileName + ".xtx");
 
