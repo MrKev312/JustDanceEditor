@@ -29,7 +29,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     public string InputMenuArtFolder => Path.Combine(WorldFolder, "menuart");
     public string InputMediaFolder => Path.Combine(WorldFolder, "media");
     public string OutputFolder => Path.Combine(ConversionRequest.OutputPath, SongData.Name);
-    public string Output0Folder => Path.Combine(OutputFolder, $"SD_Cache.0000", SongID);
+    public string Output0Folder => Path.Combine(OutputFolder, $"SD_Cache.0000", "MapBaseCache", SongID);
     public string OutputXFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", SongID);
     public string TemplateFolder => ConversionRequest.TemplatePath;
     public string SongID => ConversionRequest.SongID;
