@@ -51,8 +51,8 @@ public static class CacheJsonGenerator
         Directory.Move(sd0000Path, sd0000PathDest);
 
         // Moving the SD_Cache.xxxx folder
-        string sdXFolder = Path.Combine(convert.OutputFolder, $"SD_Cache.{convert.CacheNumber:D4}", convert.SongID);
-        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{convert.CacheNumber:D4}", convert.SongID);
+        string sdXFolder = Path.Combine(convert.OutputFolder, $"SD_Cache.{convert.CacheNumber:X4}", convert.SongID);
+        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{convert.CacheNumber:X4}", convert.SongID);
         Directory.Move(sdXFolder, sdXFolderDest);
 
         // Write the new cachingStatus.json
