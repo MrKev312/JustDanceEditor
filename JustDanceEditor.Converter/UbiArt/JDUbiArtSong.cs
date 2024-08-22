@@ -21,8 +21,7 @@ public class JDUbiArtSong
         if (isAudio)
         {
             // Get the startbeat offset
-            int songStartBeat = Math.Abs(MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
-            songOffset = MusicTrack.COMPONENTS[0].trackData.structure.markers[songStartBeat] / 48f / 1000f;
+            songOffset = -GetSongStartTime();
         }
         else
         {
@@ -50,7 +49,7 @@ public class JDUbiArtSong
         float time = MusicTrack.COMPONENTS[0].trackData.structure.markers[marker] / 48f / 1000f;
 
         // Set opposite sign
-        if (beat < 0)
+        if (beat > 0)
             time = -time;
 
         return time;
