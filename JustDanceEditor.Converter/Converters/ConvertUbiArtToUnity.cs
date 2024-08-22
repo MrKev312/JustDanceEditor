@@ -68,6 +68,9 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Load the song data
         LoadSongData();
 
+        // Given that we can load the song data, we can determine the cache number
+        DetermineCacheNumber();
+
         // Create the folders
         CreateTempFolders();
 
@@ -140,8 +143,6 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(ConversionRequest.OutputPath);
-
-        DetermineCacheNumber();
     }
 
     void DetermineCacheNumber()
@@ -179,10 +180,11 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         Directory.CreateDirectory(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}"));
 
         // If the folder of the max cache number is over 3 GB, we'll start a new one
-        if (new DirectoryInfo(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}")).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length) > 3u * 1024 * 1024 * 1024)
-            ConversionRequest.CacheNumber = maxCacheNumber + 1;
-        else
-            ConversionRequest.CacheNumber = maxCacheNumber;
+        long cacheSize = new DirectoryInfo(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}")).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
+
+        ConversionRequest.CacheNumber = cacheSize > 3u * 1024 * 1024 * 1024 
+            ? maxCacheNumber + 1 
+            : maxCacheNumber;
 
         Logger.Log($"Setting cache number to {CacheNumber}", LogLevel.Warning);
     }
