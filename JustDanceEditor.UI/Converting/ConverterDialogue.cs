@@ -1,7 +1,10 @@
 ﻿using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Converters;
+using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
+
+using System.Text.Json;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -64,6 +67,16 @@ public class ConverterDialogue
             string inputFolder = AskInputFolder();
             string outputFolder = AskOutputFolder();
 
+            // First parse the cachingStatus.json
+            JDCacheJSON? cacheJSON = null;
+
+            string cacheStatusPath = Path.Combine(outputFolder, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
+            if (File.Exists(cacheStatusPath))
+            {
+                string json = File.ReadAllText(cacheStatusPath);
+                cacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json);
+            }
+
             // Get all the songs in the folder
             string inputMapsFolder = Path.Combine(inputFolder, "world", "maps");
             string[] songs = Directory.GetDirectories(inputMapsFolder).Select(Path.GetFileName).ToArray()!;
@@ -72,6 +85,13 @@ public class ConverterDialogue
 
             foreach (string song in songs)
             {
+                // If the song is already cached, skip it
+                if (cacheJSON != null && cacheJSON.MapsDict.Any(x => x.Value.SongDatabaseEntry.MapId.Equals(song, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Logger.Log($"Skipping {song} as it is already cached", LogLevel.Important);
+                    continue;
+                }
+
                 ConversionRequest conversionRequest = new()
                 {
                     TemplatePath = "./Template",
