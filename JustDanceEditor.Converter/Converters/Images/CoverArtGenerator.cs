@@ -5,6 +5,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -32,6 +33,11 @@ public static class CoverArtGenerator
                 image.Dispose();
                 continue;
             }
+
+            string fileName = Path.GetFileName(path);
+
+            // Log that we found an existing usable cover
+            Logger.Log($"Found existing cover: {fileName}", LogLevel.Important);
 
             // Resize the image to 640x360
             image.Mutate(x => x.Resize(640, 360));

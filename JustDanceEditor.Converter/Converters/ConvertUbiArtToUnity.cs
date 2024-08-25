@@ -156,7 +156,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         else if (!File.Exists(cachingStatusPath))
         {
             ConversionRequest.CacheNumber = 123;
-            Logger.Log("Setting cache number to 123", LogLevel.Warning);
+            Logger.Log("Setting cache number to 123", LogLevel.Important);
             return;
         }
 
@@ -186,7 +186,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
             ? maxCacheNumber + 1 
             : maxCacheNumber;
 
-        Logger.Log($"Setting cache number to {CacheNumber}", LogLevel.Warning);
+        Logger.Log($"Setting cache number to {CacheNumber}", LogLevel.Important);
     }
 
     void LoadSongData()
