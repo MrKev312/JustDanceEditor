@@ -32,8 +32,6 @@
 	</ItemGroup>
 
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
-		<Copy SourceFiles="$(SolutionDir)TexToolWrap\PVRTexLib\Windows_x86_64\PVRTexLib.dll" DestinationFolder="$(TargetDir)" />
-		<Copy SourceFiles="$(SolutionDir)TexToolWrap\ispc\win64\ispc_texcomp.dll" DestinationFolder="$(TargetDir)" />
 		<Copy SourceFiles="$(SolutionDir)TexToolWrap\crunch\win64\crnlib.dll" DestinationFolder="$(TargetDir)" />
 	</Target>
 </Project>

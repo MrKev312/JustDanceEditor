@@ -23,6 +23,8 @@
 #define CRNLIB_SUPPORT_ATI_COMPRESS 0
 #define CRNLIB_SUPPORT_SQUISH 0
 
+#define NULL 0
+
 typedef unsigned char crn_uint8;
 typedef unsigned short crn_uint16;
 typedef unsigned int crn_uint32;

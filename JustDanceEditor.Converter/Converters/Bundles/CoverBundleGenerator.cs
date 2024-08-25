@@ -73,12 +73,10 @@ public static class CoverBundleGenerator
         {
             byte[] encImageBytes;
             TextureFormat fmt = TextureFormat.DXT1Crunched;
-            byte[] platformBlob = [];
-            uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
             string path = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
 
-            encImageBytes = TextureImportExport.Import(coverImage!, fmt, out int width, out int height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
+            encImageBytes = TextureImportExport.Import(coverImage!, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
             // Set the image data
             coverBase["image data"].AsByteArray = encImageBytes;

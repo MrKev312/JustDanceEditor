@@ -105,8 +105,6 @@ public static class CoachesSmallBundleGenerator
         // For each coach, we add the texture and the sprite
         byte[] encImageBytes;
         TextureFormat fmt = TextureFormat.DXT5Crunched;
-        byte[] platformBlob = [];
-        uint platform = afile.Metadata.TargetPlatform;
         int mips = 1;
 
         for (int i = 1; i <= convert.SongData.CoachCount; i++)
@@ -131,7 +129,7 @@ public static class CoachesSmallBundleGenerator
             Image<Rgba32> image = Image.Load<Rgba32>(path);
             image.Mutate(x => x.Resize(256, 256));
 
-            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
+            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
             // Set the image data
             coachTextureBaseField["image data"].AsByteArray = encImageBytes;

@@ -304,15 +304,13 @@ public static class MapPackageBundleGenerator
         Parallel.For(0, FileDirs.Length, i =>
         {
             TextureFormat fmt = TextureFormat.DXT5Crunched;
-            byte[] platformBlob = [];
-            uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
             string path = FileDirs[i];
 
             // Load the image
             Image<Rgba32> image = Image.Load<Rgba32>(path);
 
-            byte[] imageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, platform, platformBlob) ?? throw new Exception("Failed to encode image!");
+            byte[] imageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
             // Add the image bytes to the array
             endImageBytes[i] = imageBytes;

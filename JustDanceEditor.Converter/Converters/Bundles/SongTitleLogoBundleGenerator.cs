@@ -95,7 +95,7 @@ public static class SongTitleBundleGenerator
             int mips = 1;
             string path = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
 
-            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips, afile.Metadata.TargetPlatform, []) ?? throw new Exception("Failed to encode image!");
+            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
             // Set the image data
             coverBase["image data"].AsByteArray = encImageBytes;
