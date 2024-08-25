@@ -3,6 +3,8 @@
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using System.Runtime.InteropServices;
+
 namespace TextureConverter.TextureConverterHelpers;
 
 public class TextureEncoderDecoder
@@ -26,47 +28,33 @@ public class TextureEncoderDecoder
     private static byte[] EncodeCrunch(byte[] data, int width, int height, TextureFormat format, int quality, int mips)
     {
         if (format is not TextureFormat.DXT1Crunched and not TextureFormat.DXT5Crunched)
-            // Wrong format, throw exception
             throw new Exception($"Unsupported format: {format}");
 
-        byte[] dest = [];
-        uint size = 0;
-        unsafe
+        byte[] dest;
+
+        // Pin the byte array to avoid GC moving it
+        GCHandle dataHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+
+        try
         {
-            int checkoutId = -1;
-            fixed (byte* dataPtr = data)
-            {
-                // we don't know the size of the output yet
-                // write it to unmanaged memory first and copy to managed after we have the size
-                // ////////////
-                // setting ver to 1 fixes "The texture could not be loaded because it has been
-                // encoded with an older version of Crunch" not sure if this breaks older games though
-                // todo: determine version ranges
-                nint dataIntPtr = (nint)dataPtr;
-                size = PInvoke.EncodeByCrunchUnity(dataIntPtr, ref checkoutId, (int)format, quality, (uint)width, (uint)height, 1, mips);
-                if (size == 0)
-                    return [];
-            }
+            IntPtr dataInPtr = dataHandle.AddrOfPinnedObject(); // Get the pointer to the pinned array
+
+            // Call the PInvoke method
+            IntPtr dataOutPtr = PInvoke.EncodeByCrunchUnity(out uint size, dataInPtr, (int)format, quality, (uint)width, (uint)height, 1, mips);
+
+            if (size == 0)
+                return [];
 
             dest = new byte[size];
-
-            fixed (byte* destPtr = dest)
-            {
-                nint destIntPtr = (nint)destPtr;
-                if (!PInvoke.PickUpAndFree(destIntPtr, size, checkoutId))
-                    return [];
-            }
+            Marshal.Copy(dataOutPtr, dest, 0, (int)size); // Copy the unmanaged memory to the managed array
         }
-
-        if (size > 0)
+        finally
         {
-            byte[] resizedDest = new byte[size];
-            Buffer.BlockCopy(dest, 0, resizedDest, 0, (int)size);
-            return resizedDest;
+            // Always free the handle to avoid memory leaks
+            if (dataHandle.IsAllocated)
+                dataHandle.Free();
         }
-        else
-        {
-            return [];
-        }
+
+        return dest;
     }
 }

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <stdio.h>
 #include <map>
+#include <algorithm>
 
 #if defined(_MSC_VER)
 	#define EXPORT extern "C" __declspec(dllexport)
@@ -15,12 +16,9 @@
 	#define EXPORT extern "C" __attribute__((visibility("default")))
 #endif
 
-std::map<int, void*> memoryPickup;
-int nextMemoryPickupId = 0;
-
 // todo: we need to use two different versions of crunch: the original and the unity fork.
 // currently we just use the unity fork. need to look into when and where to use the original one.
-EXPORT unsigned int EncodeByCrunchUnity(void* data, int* checkoutId, int mode, int level, unsigned int width, unsigned int height, unsigned int ver, int mips) {
+EXPORT unsigned char* EncodeByCrunchUnity(unsigned int* returnLength, void* data, int mode, int level, unsigned int width, unsigned int height, unsigned int ver, int mips) {
 	crn_comp_params comp_params;
 	comp_params.m_width = width;
 	comp_params.m_height = height;
@@ -35,12 +33,6 @@ EXPORT unsigned int EncodeByCrunchUnity(void* data, int* checkoutId, int mode, i
 			break;
 		case 29:
 			comp_params.m_format = cCRNFmtDXT5;
-			break;
-		case 64:
-			comp_params.m_format = cCRNFmtETC1;
-			break;
-		case 65:
-			comp_params.m_format = cCRNFmtETC2A;
 			break;
 		default:
 			return 0;
@@ -58,11 +50,8 @@ EXPORT unsigned int EncodeByCrunchUnity(void* data, int* checkoutId, int mode, i
 	// probably causes mass chaos if we go over since
 	// the asset field wouldn't've been set but w/e
 	// hope that doesn't happen here :shrugs:
-	if (mips > cCRNMaxLevels) {
-		mips = cCRNMaxLevels;
-	} else if (mips < 0) {
-		mips = 1;
-	}
+	mips = std::clamp(mips, 1, (int)cCRNMaxLevels);
+
 	if (mips == 1) {
 		mip_params.m_mode = cCRNMipModeNoMips;
 	} else {
@@ -75,35 +64,14 @@ EXPORT unsigned int EncodeByCrunchUnity(void* data, int* checkoutId, int mode, i
 	float actual_bitrate;
 	crn_uint32 output_file_size;
 
-	void* newData = crn_compress(comp_params, mip_params, output_file_size, &actual_quality_level, &actual_bitrate);
+	unsigned char* newData = static_cast<unsigned char*>(crn_compress(comp_params, mip_params, output_file_size, &actual_quality_level, &actual_bitrate));
 
-	if (checkoutId != NULL) {
-		void* outBuf = malloc(output_file_size);
-		if (outBuf == NULL) {
-			return 0;
-		}
+	// if the length is 0, return nullptr
+	*returnLength = output_file_size;
 
-		memcpy(outBuf, newData, output_file_size);
-		
-		// todo: not thread safe (although we don't do any threading right now)
-		*checkoutId = nextMemoryPickupId;
-		memoryPickup[nextMemoryPickupId] = outBuf;
-		nextMemoryPickupId++;
-
-		return output_file_size;
-	} else {
-		return 0;
+	if (*returnLength == 0) {
+		return nullptr;
 	}
-}
 
-EXPORT bool PickUpAndFree(void* outBuf, unsigned int size, int id)
-{
-	if (memoryPickup.find(id) != memoryPickup.end()) {
-		void* memory = memoryPickup[id];
-		memcpy(outBuf, memory, size);
-		memoryPickup.erase(id);
-		free(memory);
-		return true;
-	}
-	return false;
+	return newData;
 }
