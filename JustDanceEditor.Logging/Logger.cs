@@ -67,4 +67,10 @@ public static class Logger
         Console.WriteLine(message);
         Console.ForegroundColor = originalColor;
     }
+
+    public static void ClearLog()
+    {
+        if (File.Exists("logs/log.txt"))
+            File.Delete("logs/log.txt");
+    }
 }

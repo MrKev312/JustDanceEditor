@@ -2,6 +2,7 @@
 
 using JustDanceEditor.UI.Helpers;
 using JustDanceEditor.UI.Converting;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.UI;
 
@@ -9,16 +10,24 @@ internal class Program
 {
     static void Main()
     {
+        // Delete old log
+        Logger.ClearLog();
+
         Console.WriteLine("Just Dance Editor");
         Console.WriteLine("Made by: MrKev312");
-        Console.WriteLine($"Version: {Assembly.GetExecutingAssembly().GetName().Version}-preview1");
-        Console.WriteLine($"Current Directory: {Environment.CurrentDirectory}");
+        
+        string message = $"Version: {Assembly.GetExecutingAssembly().GetName().Version}-preview1";
+        Logger.Log(message, LogLevel.Debug);
+        Console.WriteLine(message);
+        message = $"Current Directory: {Environment.CurrentDirectory}";
+        Logger.Log(message, LogLevel.Debug);
+        Console.WriteLine(message);
 
         MainLoop();
         Console.WriteLine("Exiting...");
     }
 
-    private static void MainLoop()
+    static void MainLoop()
     {
         while (true)
         {
