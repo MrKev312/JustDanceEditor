@@ -34,7 +34,7 @@ The author is not responsible for any misuse of this tool.
 	- ``{MapName}_Coach_1.tga.cdk``, ``{MapName}_Coach_2.tga.cdk``, ``{MapName}_Coach_..`` (up to 4 coaches)
 	- ``{MapName}_AlbumCoach.tga.cdk`` or a 1024x2048 ``{MapName}_Cover_Generic.tga``
 	- ``{MapName}_map_bkg.tga``
-	You can optionally add in a ``cover.png`` file in the song folder to use as the cover.
+	- You can optionally add in a ``cover.png`` file to use as the cover.
 	
 	In the song folder, create a new folder called ``media`` in ``\world\maps\{MapName}\`` and in it, place the ``webm`` and the ``ogg``, names don't matter.
 4. Launch ``JustDanceEditor.exe`` and select either ``1`` or ``2``.
