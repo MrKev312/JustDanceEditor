@@ -1,5 +1,4 @@
 ﻿using AssetsTools.NET.Extra;
-using AssetsTools.NET.Texture;
 using AssetsTools.NET;
 
 using JustDanceEditor.Converter.Converters.Images;
@@ -12,6 +11,7 @@ using TextureConverter.TextureConverterHelpers;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+using TextureConverter;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
@@ -421,7 +421,6 @@ public static class MapPackageBundleGenerator
                     215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-
             // Set the name and content
             spriteBaseField["m_Name"].AsString = pictoName;
             spriteBaseField["m_Rect"]["width"].AsFloat = imageDict[pictoName].size.width;
@@ -460,6 +459,7 @@ public static class MapPackageBundleGenerator
                 vertexData[j + 1] = vertexMagics[1];
                 vertexData[j + 2] = vertexMagics[2];
             }
+
             spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexData;
 
             // Add the new Sprite to the AssetsFile

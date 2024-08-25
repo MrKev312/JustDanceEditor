@@ -1,7 +1,6 @@
 ﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using AssetsTools.NET.Texture;
 
 namespace TextureConverter.TextureConverterHelpers;
 

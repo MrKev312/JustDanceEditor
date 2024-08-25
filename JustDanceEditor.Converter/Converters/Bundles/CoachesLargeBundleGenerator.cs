@@ -1,6 +1,5 @@
 ﻿using AssetsTools.NET;
 using AssetsTools.NET.Extra;
-using AssetsTools.NET.Texture;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
@@ -10,6 +9,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;

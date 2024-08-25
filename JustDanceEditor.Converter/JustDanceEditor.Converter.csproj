@@ -7,7 +7,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AssetsTools.NET.Texture" Version="1.0.0" />
+		<PackageReference Include="AssetsTools.NET" Version="3.0.0" />
 		<PackageReference Include="HtmlAgilityPack" Version="1.11.62" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
