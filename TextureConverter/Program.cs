@@ -9,7 +9,7 @@ class Program
         List<string> list = [];
 #if DEBUG
         // If in debug mode, read input
-        list.Add(Console.ReadLine()!);
+        list.Add(Console.ReadLine()!.Trim('"'));
 #endif
         // For each argument, remove if the file doesn't exist
         foreach (string arg in args)
