@@ -218,20 +218,29 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntBoolConverter());
 
+        List<IClip> clips = [];
+
+        Logger.Log("Loading MusicTrack");
+        SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
+
+        // Loading clips
+        Logger.Log("Loading DanceTape");
+        ClipTape DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
+        clips.AddRange(DanceTape.Clips);
+        Logger.Log("Loading MainSequence");
+        ClipTape MainSequenceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
+        clips.AddRange(MainSequenceTape.Clips);
         // Some maps don't have KaraokeTape
         if (File.Exists(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")))
         {
             Logger.Log("Loading KaraokeTape");
-            SongData.KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
+            ClipTape KaraokeTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_karaoke.ktape.ckd")).Replace("\0", ""), options)!;
+            clips.AddRange(KaraokeTape.Clips);
         }
         else
             Logger.Log("KaraokeTape not found");
-        Logger.Log("Loading DanceTape");
-        SongData.DanceTape = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(TimelineFolder, $"{SongData.Name}_tml_dance.dtape.ckd")).Replace("\0", ""), options)!;
-        Logger.Log("Loading MusicTrack");
-        SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(File.ReadAllText(Path.Combine(CacheFolder, "audio", $"{SongData.Name}_musictrack.tpl.ckd")).Replace("\0", ""), options)!;
-        Logger.Log("Loading MainSequence");
-        SongData.MainSequence = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
+        SongData.Clips = [.. clips];
+
         Logger.Log("Loading SongDesc");
         SongDesc? songDesc = null;
         List<string> songDescLocs = [
@@ -253,6 +262,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
             throw new FileNotFoundException("SongDesc not found");
 
         SongData.SongDesc = songDesc;
+        SongData.Name = SongData.SongDesc.COMPONENTS[0].MapName;
 
         // Get the JD version
         Logger.Log("Loading JDVersion");

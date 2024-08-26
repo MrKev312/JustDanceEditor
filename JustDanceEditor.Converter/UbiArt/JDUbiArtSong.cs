@@ -1,17 +1,16 @@
 ﻿using JustDanceEditor.Converter.UbiArt.Tapes;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 namespace JustDanceEditor.Converter.UbiArt;
 
 public class JDUbiArtSong
 {
-    public string Name { get => DanceTape.MapName; set => DanceTape.MapName = value; }
+    public string Name { get; set; } = "";
     public uint CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
     public JDVersion EngineVersion = JDVersion.Unknown;
     public JDVersion JDVersion = JDVersion.Unknown;
-    public ClipTape KaraokeTape { get; set; } = new();
-    public ClipTape DanceTape { get; set; } = new();
+    public IClip[] Clips { get; set; } = [];
     public MusicTrack MusicTrack { get; set; } = new();
-    public ClipTape MainSequence { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
 
     public float GetPreviewStartTime(bool isAudio = true)

@@ -32,7 +32,7 @@ public static class AudioConverter
     {
         Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
-        SoundSetClip[] audioClips = GetAudioClips(convert.SongData.MainSequence.Clips);
+        SoundSetClip[] audioClips = GetAudioClips(convert.SongData.Clips);
 
         string mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);

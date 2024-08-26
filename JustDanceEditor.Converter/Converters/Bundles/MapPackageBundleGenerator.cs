@@ -227,7 +227,7 @@ public static class MapPackageBundleGenerator
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (KaraokeClip clip in convert.SongData.KaraokeTape.Clips.OfType<KaraokeClip>())
+        foreach (KaraokeClip clip in convert.SongData.Clips.OfType<KaraokeClip>())
         {
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
@@ -558,7 +558,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Add the clips from the dance tape
-        foreach (IClip iClip in convert.SongData.DanceTape.Clips)
+        foreach (IClip iClip in convert.SongData.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
             switch (iClip)
@@ -629,23 +629,16 @@ public static class MapPackageBundleGenerator
                         handCoachCounters.Children[clip.CoachId]["StandardMovesCount"].AsUInt++;
 
                     break;
+                case HideUserInterfaceClip clip:
+                    AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
 
-                default:
-                    Logger.Log($"Unknown clip type: {iClip.GetType()}", LogLevel.Debug);
+                    newHideHudClip["StartTime"].AsInt = clip.StartTime;
+                    newHideHudClip["Duration"].AsInt = clip.Duration;
+                    newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
+
+                    hideHudClips.Children.Add(newHideHudClip);
                     break;
             }
-        }
-
-        // Add the clips from the mainsequence tape
-        foreach (HideUserInterfaceClip clip in convert.SongData.MainSequence.Clips.OfType<HideUserInterfaceClip>())
-        {
-            AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
-
-            newHideHudClip["StartTime"].AsInt = clip.StartTime;
-            newHideHudClip["Duration"].AsInt = clip.Duration;
-            newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
-
-            hideHudClips.Children.Add(newHideHudClip);
         }
 
         // Store all changes
