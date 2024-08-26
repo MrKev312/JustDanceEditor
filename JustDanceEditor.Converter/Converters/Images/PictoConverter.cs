@@ -157,37 +157,32 @@ public static class PictoConverter
 
         // Sort alphabetically
         pictoNames.Sort();
+        int pictoCount = pictoNames.Count;
+        int columns = 8;
+        int rows = 1;
+        while (columns * rows < pictoCount)
+        {
+            rows++;
+        }
 
         // Get the width and height of the montage
         int width = montage.Width;
         int height = montage.Height;
 
         // Given a picto is 512x512 with 64px vertical padding, we split the montage into columns * rows pictos
-        int totalHeight = 585;
-        int pictoHeight = 540;
-        int pictoPadding = totalHeight - pictoHeight;
-        int columns = width / 512;
-        int rows = height / pictoHeight;
-        int pictoCount = columns * rows;
-
-        // Check if the pictonames count is at most equal to the pictoCount
-        if (pictoNames.Count > pictoCount)
-        {
-            Logger.Log("Picto count is higher than the possible picto count in the montage, will skip the last few", LogLevel.Warning);
-        }
+        int pictoHeight = width / columns;
+        int pictoWidth = height / rows;
 
         // Split the montage into pictos
-        for (int i = 0; i < pictoNames.Count && i < pictoCount; i++)
+        for (int i = 0; i < pictoCount; i++)
         {
             // Calculate row and column
             int row = i / columns;
             int col = i % columns;
 
             // Extract the portion of the montage
-            Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * 512, row * totalHeight + pictoPadding, 512, pictoHeight)));
+            Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * pictoHeight, row * pictoWidth, pictoHeight, pictoWidth)));
 
-            // Pad to square
-            //picto.Mutate(x => x.Pad(pictoHeight, pictoHeight));
             // Resize to 512x512
             picto.Mutate(x => x.Resize(512, 512));
 
