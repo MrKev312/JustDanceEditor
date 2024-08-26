@@ -163,22 +163,45 @@ public static class AudioConverter
 
     static string GetMainSongPath(ConvertUbiArtToUnity convert)
     {
-        string[] audios = [];
+        List<string> ending = ["alt", "vip", "altretake"];
+        List<string> audios = [];
         // Is there any *.ogg file in the media folder?
-        if (Directory.Exists(convert.InputMediaFolder))
-            audios = Directory.GetFiles(convert.InputMediaFolder, "*.ogg");
-        if (audios.Length > 0)
-            return audios[0];
+        string dir = convert.InputMediaFolder;
+        if (Directory.Exists(dir))
+            audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
 
-        if (Directory.Exists(Path.Combine(convert.CacheFolder, "audio")))
-        audios = Directory.GetFiles(Path.Combine(convert.CacheFolder, "audio"), "*.wav.ckd");
-        if (audios.Length > 0)
-            return audios[0];
+        dir = Path.Combine(convert.CacheFolder, "audio");
+        if (Directory.Exists(Path.Combine(dir)))
+            audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.wav.ckd"));
 
-        if (Directory.Exists(Path.Combine(convert.WorldFolder, "audio")))
-            audios = Directory.GetFiles(Path.Combine(convert.WorldFolder, "audio"), "*.ogg");
-        if (audios.Length > 0)
-            return audios[0];
+        dir = Path.Combine(convert.WorldFolder, "audio");
+        if (Directory.Exists(Path.Combine(dir)))
+            audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.ogg"));
+
+        // If the songname ends with alt, try finding it without alt
+        foreach (string end in ending)
+        {
+            string songName = convert.SongData.Name;
+            if (!songName.EndsWith(end, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            songName = songName[..^end.Length];
+
+            dir = convert.InputMediaFolder.Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
+            if (Directory.Exists(dir))
+                audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
+
+            dir = Path.Combine(convert.CacheFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
+            if (Directory.Exists(dir))
+                audios.AddRange(Directory.GetFiles(dir, "*.wav.ckd"));
+
+            dir = Path.Combine(convert.WorldFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
+            if (Directory.Exists(dir))
+                audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
+        }
+
+        if (audios.Count > 0)
+            return audios.First();
 
         throw new Exception("Main song not found");
     }

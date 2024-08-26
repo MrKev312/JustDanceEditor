@@ -23,6 +23,13 @@ public static class CoverArtGenerator
 
         foreach (string path in paths)
         {
+            if (!File.Exists(path))
+                continue;
+
+            // If the hash is "39c8e22496850ada4b849b0d28d76936", skip it
+            if (Helpers.Download.GetFileMD5(path) == "39c8e22496850ada4b849b0d28d76936")
+                continue;
+
             Image<Rgba32>? image = TryLoadImage(path);
             if (image is null)
                 continue;
@@ -102,9 +109,9 @@ public static class CoverArtGenerator
         // Get the cover url with text on it
         string coverUrl = tds[^1].SelectSingleNode("a").Attributes["href"].Value;
         // If this is a placeholder cover, get the second to last, the version without text
-        if (coverUrl.Contains("PlaceHolderCover2023"))
+        if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
             coverUrl = tds[^2].SelectSingleNode("a").Attributes["href"].Value;
-        else if (coverUrl.Contains("PlaceHolderCover2023"))
+        if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
             // Couldn't find the cover, return false
             return null;
 

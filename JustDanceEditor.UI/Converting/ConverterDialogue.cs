@@ -64,7 +64,7 @@ public class ConverterDialogue
             if (!CheckTemplate())
                 return;
 
-            string inputFolder = AskInputFolder();
+            string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
 
             // First parse the cachingStatus.json
@@ -77,31 +77,52 @@ public class ConverterDialogue
                 cacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json);
             }
 
-            // Get all the songs in the folder
-            string inputMapsFolder = Path.Combine(inputFolder, "world", "maps");
-            string[] songs = Directory.GetDirectories(inputMapsFolder).Select(Path.GetFileName).ToArray()!;
-
             bool onlineCover = AskOnlineCover();
+            string[] inputFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
+                ? [inputFolder]
+                : Directory.GetDirectories(inputFolder);
 
-            foreach (string song in songs)
+            // Remove bundle_nx and patch_nx folders
+            inputFolders = inputFolders.Where(x => !x.Contains("bundle_nx") && !x.Contains("patch_nx")).ToArray();
+
+            foreach (string folder in inputFolders)
             {
-                // If the song is already cached, skip it
-                if (cacheJSON != null && cacheJSON.MapsDict.Any(x => x.Value.SongDatabaseEntry.MapId.Equals(song, StringComparison.OrdinalIgnoreCase)))
-                {
-                    Logger.Log($"Skipping {song} as it is already cached", LogLevel.Important);
-                    continue;
-                }
 
-                ConversionRequest conversionRequest = new()
+                // Get all the songs in the folder
+                string inputMapsFolder = Path.Combine(folder, "world", "maps");
+                string[] songs = Directory.GetDirectories(inputMapsFolder);
+
+                foreach (string songPath in songs)
                 {
-                    TemplatePath = "./Template",
-                    InputPath = Path.Combine(inputFolder),
-                    OutputPath = Path.Combine(outputFolder),
-                    OnlineCover = onlineCover,
-                    SongName = song
-                };
-                ConvertUbiArtToUnity converter = new(conversionRequest);
-                converter.Convert();
+                    // Only convert the song if it's a valid song
+                    string song = Path.GetFileName(songPath);
+                    string platform = Directory.GetDirectories(Path.Combine(folder, "cache", "itf_cooked"))[0];
+                    string descPath = Path.Combine(platform, "world", "maps", song, $"{song}_main_scene.isc.ckd");
+
+                    if (!File.Exists(descPath))
+                    {
+                        Logger.Log($"Skipping {song} as it is not a valid song", LogLevel.Important);
+                        continue;
+                    }
+
+                    // If the song is already cached, skip it
+                    if (cacheJSON != null && cacheJSON.MapsDict.Any(x => x.Value.SongDatabaseEntry.ParentMapId.Equals(song, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        Logger.Log($"Skipping {song} as it is already cached", LogLevel.Important);
+                        continue;
+                    }
+
+                    ConversionRequest conversionRequest = new()
+                    {
+                        TemplatePath = "./Template",
+                        InputPath = Path.Combine(folder),
+                        OutputPath = Path.Combine(outputFolder),
+                        OnlineCover = onlineCover,
+                        SongName = song
+                    };
+                    ConvertUbiArtToUnity converter = new(conversionRequest);
+                    converter.Convert();
+                }
             }
         }
         catch (Exception e)
@@ -113,7 +134,7 @@ public class ConverterDialogue
 
     private static ConversionRequest CreateConversionRequest()
     {
-        (string inputPath, string songName) = AskSpecificInputFolder();
+        (string inputPath, string songName) = AskInputFolder();
 
         string outputPath = AskOutputFolder();
         bool onlineCover = AskOnlineCover();
@@ -133,20 +154,40 @@ public class ConverterDialogue
         return conversionRequest;
     }
 
-    private static string AskInputFolder()
+    static string AskMultiInputFolder()
     {
-        // Must have a cache and world folder
         string inputPath = "";
-
-        while (!Directory.Exists(Path.Combine(inputPath, "cache")) || !Directory.Exists(Path.Combine(inputPath, "world")))
+        while (true)
         {
             inputPath = Question.AskFolder("Enter the path to the folder containing the cache and world folders", true);
+
+            if (Directory.Exists(Path.Combine(inputPath, "cache")) && Directory.Exists(Path.Combine(inputPath, "world")))
+            {
+                break;
+            }
+
+            // Else any of the subfolders has to contain a cache and world folder
+            string[] subFolders = Directory.GetDirectories(inputPath);
+            bool found = false;
+            foreach (string subFolder in subFolders)
+            {
+                if (Directory.Exists(Path.Combine(subFolder, "cache")) && Directory.Exists(Path.Combine(subFolder, "world")))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+            {
+                break;
+            }
         }
 
         return inputPath;
     }
 
-    private static (string inputPath, string songName) AskSpecificInputFolder()
+    private static (string inputPath, string songName) AskInputFolder()
     {
         string inputPath = "";
         string[] maps = [];

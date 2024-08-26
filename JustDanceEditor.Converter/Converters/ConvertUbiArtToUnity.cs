@@ -234,9 +234,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         SongData.MainSequence = JsonSerializer.Deserialize<ClipTape>(File.ReadAllText(Path.Combine(CacheFolder, "cinematics", $"{SongData.Name}_mainsequence.tape.ckd")).Replace("\0", ""), options)!;
         Logger.Log("Loading SongDesc");
         SongDesc? songDesc = null;
-        string[] songDescLocs = [
-            Path.Combine(CacheFolder, "songdesc.tpl.ckd"),
-            Path.Combine(InputFolder, "..", "patch_nx", "cache", "itf_cooked", PlatformType, "world", "maps", SongData.Name, "songdesc.tpl.ckd")
+        List<string> songDescLocs = [
+            Path.Combine(InputFolder, "..", "patch_nx", "cache", "itf_cooked", PlatformType, "world", "maps", SongData.Name, "songdesc.tpl.ckd"),
+            Path.Combine(InputFolder, "..", "bundle_nx", "cache", "itf_cooked", PlatformType, "world", "maps", SongData.Name, "songdesc.tpl.ckd"),
+            Path.Combine(CacheFolder, "songdesc.tpl.ckd")
             ];
 
         foreach (string loc in songDescLocs)
@@ -250,6 +251,8 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         if (songDesc == null)
             throw new FileNotFoundException("SongDesc not found");
+
+        SongData.SongDesc = songDesc;
 
         // Get the JD version
         Logger.Log("Loading JDVersion");
