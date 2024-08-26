@@ -27,18 +27,26 @@ internal class Program
         // For each file extract the IPK using the parser in parallel
         Parallel.ForEach(args, x =>
         {
-            // Show the file being processed
-            Console.WriteLine(x);
+            try
+            {
+                // Show the file being processed
+                Console.WriteLine(x);
 
-            // Create the output path
-            string outputPath = Path.Combine(Path.GetDirectoryName(x)!, Path.GetFileNameWithoutExtension(x));
+                // Create the output path
+                string outputPath = Path.Combine(Path.GetDirectoryName(x)!, Path.GetFileNameWithoutExtension(x));
 
-            // Create the parser
-            JustDanceIPKParser parser = new(x, outputPath);
-            parser.Parse();
+                // Create the parser
+                JustDanceIPKParser parser = new(x, outputPath);
+                parser.Parse();
 
-            // Show that the file has been processed
-            Console.WriteLine($"{x} has been processed.");
+                // Show that the file has been processed
+                Console.WriteLine($"{x} has been processed.");
+            }
+            catch (Exception ex)
+            {
+                // Show the exception
+                Console.WriteLine($"Error processing {x}: {ex.Message}");
+            }
         });
 
         // Wait for any key
