@@ -20,8 +20,7 @@ public static class MenuArtConverter
             try
             {
                 string fileName = Path.GetFileNameWithoutExtension(item);
-                string tempFilePath = PrepareFileForConversion(item, convert.TempMenuArtFolder, fileName);
-                TextureConverter.TextureConverter.ExtractToPNG(tempFilePath, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
+                TextureConverter.TextureConverter.ExtractToPNG(item, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
             }
             catch (Exception ex)
             {
@@ -31,19 +30,5 @@ public static class MenuArtConverter
 
         stopwatch.Stop();
         Logger.Log($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
-    }
-
-    static string PrepareFileForConversion(string originalFilePath, string tempFolder, string fileName)
-    {
-        string tempFilePath = Path.Combine(tempFolder, fileName + ".xtx");
-
-        using (FileStream originalStream = File.OpenRead(originalFilePath))
-        using (FileStream tempStream = File.Create(tempFilePath))
-        {
-            originalStream.Seek(0x2C, SeekOrigin.Begin);
-            originalStream.CopyTo(tempStream);
-        }
-
-        return tempFilePath;
     }
 }

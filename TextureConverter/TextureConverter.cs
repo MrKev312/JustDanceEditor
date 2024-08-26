@@ -9,7 +9,7 @@ namespace TextureConverter;
 
 public class TextureConverter
 {
-    public static Image<Bgra32> ConvertToImage(string inputPath, bool deleteOriginal = true)
+    public static Image<Bgra32> ConvertToImage(string inputPath, bool deleteOriginal = false)
     {
         // Check if input exists
         if (!File.Exists(inputPath))
@@ -47,7 +47,7 @@ public class TextureConverter
         return image;
     }
 
-    public static string ExtractToPNG(string inputPath, string? outputPath, bool deleteOriginal = true)
+    public static string ExtractToPNG(string inputPath, string? outputPath, bool deleteOriginal = false)
     {
         outputPath ??= Path.ChangeExtension(inputPath, ".png");
 

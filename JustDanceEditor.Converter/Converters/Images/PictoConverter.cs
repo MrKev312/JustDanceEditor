@@ -1,4 +1,5 @@
-﻿using JustDanceEditor.Logging;
+﻿using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -12,6 +13,8 @@ public static class PictoConverter
 {
     public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
     {
+        PictogramClip[] pictoClips = convert.SongData.Clips.OfType<PictogramClip>().ToArray();
+
         // Before starting on the mapPackage, prepare the pictos
         if (!Directory.Exists(convert.PictosFolder))
         {
@@ -32,53 +35,47 @@ public static class PictoConverter
         // Get time before starting
         Stopwatch stopwatch = Stopwatch.StartNew();
 
+        bool isMontage = false;
+
         Parallel.For(0, pictoFiles.Length, i =>
         {
             string item = pictoFiles[i];
 
-            // Stream the file into a new pictos folder, but skip until 0x2C
-            using FileStream stream = File.OpenRead(item);
-            stream.Seek(0x2C, SeekOrigin.Begin);
+            // Get the name until the first dot, can have multiple dots
+            string name = Path.GetFileName(item).Split('.')[0];
 
-            // If the file ends with .png.ckd, change it to .ckd
-            if (item.EndsWith(".png.ckd"))
-                item = item.Replace(".png.ckd", ".ckd");
+            if (name == "montage")
+            {
+                isMontage = true;
+            }
 
-            // Get the file name
-            string fileName = Path.GetFileNameWithoutExtension(item);
+            // Stream the file into a new pictos folder
+            Image<Bgra32> pictoPic = TextureConverter.TextureConverter.ConvertToImage(item);
 
-            // Stream the rest of the file into a new file, but with the .xtx extension
-            using FileStream newStream = File.Create(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
-            stream.CopyTo(newStream);
-
-            // Close the streams
-            stream.Close();
-            newStream.Close();
-
-            // Convert the xtx/dds to png
-            Image<Bgra32> newImage = TextureConverter.TextureConverter.ConvertToImage(Path.Combine(convert.TempPictoFolder, fileName + ".xtx"));
+            if (isMontage)
+            {
+                SplitMontage(pictoPic, convert);
+                return;
+            }
 
             if (convert.SongData.CoachCount > 1)
             {
                 // For multi-coach songs, resize the image to 512x354
-                if (newImage.Width != 512 || newImage.Height != 354)
-                    newImage.Mutate(x => x.Resize(512, 354));
+                if (pictoPic.Width != 512 || pictoPic.Height != 354)
+                    pictoPic.Mutate(x => x.Resize(512, 354));
             }
             else
             {
                 // If the image isn't 512x512, resize it to 512x512
-                if (newImage.Width != 512 || newImage.Height != 512)
-                    newImage.Mutate(x => x.Resize(512, 512));
+                if (pictoPic.Width != 512 || pictoPic.Height != 512)
+                    pictoPic.Mutate(x => x.Resize(512, 512));
             }
 
-            // Delete the .dds file
-            File.Delete(Path.Combine(convert.TempPictoFolder, fileName + ".dds"));
-
             // Save the image as a png
-            newImage.Save(Path.Combine(convert.TempPictoFolder, fileName + ".png"));
+            pictoPic.Save(Path.Combine(convert.TempPictoFolder, name + ".png"));
 
             // Dispose the image
-            newImage.Dispose();
+            pictoPic.Dispose();
         });
 
         Dictionary<string, (int, (int, int))> imageDict = [];
@@ -144,5 +141,60 @@ public static class PictoConverter
         Logger.Log($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
 
         return (imageDict, atlasPics);
+    }
+
+    static void SplitMontage(Image<Bgra32> montage, ConvertUbiArtToUnity convert)
+    {
+        List<string> pictoNames = [];
+
+        foreach (PictogramClip clip in convert.SongData.Clips.OfType<PictogramClip>())
+        {
+            string name = Path.GetFileNameWithoutExtension(clip.PictoPath);
+
+            if (!pictoNames.Contains(name))
+                pictoNames.Add(name);
+        }
+
+        // Sort alphabetically
+        pictoNames.Sort();
+
+        // Get the width and height of the montage
+        int width = montage.Width;
+        int height = montage.Height;
+
+        // Given a picto is 512x512 with 64px vertical padding, we split the montage into columns * rows pictos
+        int totalHeight = 585;
+        int pictoHeight = 540;
+        int pictoPadding = totalHeight - pictoHeight;
+        int columns = width / 512;
+        int rows = height / pictoHeight;
+        int pictoCount = columns * rows;
+
+        // Check if the pictonames count is at most equal to the pictoCount
+        if (pictoNames.Count > pictoCount)
+        {
+            Logger.Log("Picto count is higher than the possible picto count in the montage, will skip the last few", LogLevel.Warning);
+        }
+
+        // Split the montage into pictos
+        for (int i = 0; i < pictoNames.Count && i < pictoCount; i++)
+        {
+            // Calculate row and column
+            int row = i / columns;
+            int col = i % columns;
+
+            // Extract the portion of the montage
+            Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * 512, row * totalHeight + pictoPadding, 512, pictoHeight)));
+
+            // Pad to square
+            //picto.Mutate(x => x.Pad(pictoHeight, pictoHeight));
+            // Resize to 512x512
+            picto.Mutate(x => x.Resize(512, 512));
+
+            // Save or use the extracted picto (e.g., saving to disk)
+            string pictoName = pictoNames[i];
+            string pictoPath = Path.Combine(convert.TempPictoFolder, $"{pictoName}.png");
+            picto.SaveAsPng(pictoPath);
+        }
     }
 }
