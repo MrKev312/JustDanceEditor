@@ -16,8 +16,9 @@ The author is not responsible for any misuse of this tool.
 - Auto generates the coaches bundles.
 
 ## Installation
-1. Download the latest release.
-2. Extract the files.
+1. Make sure you have .NET 8 installed. Without this, the program will not open.
+2. Download the latest release.
+3. Extract the files.
 4. Create a folder called ``template`` in the same directory as the executable. In there create the following folders:
 	- ``CoachesSmall``
 	- ``CoachesLarge``
@@ -26,7 +27,7 @@ The author is not responsible for any misuse of this tool.
  	- ``songTitleLogo``
 	
 	Each folder should contain a bundle from an official Just Dance Next song.
-3. That's it!
+5. That's it!
 
 ## Usage
 1. Extract the ``ipk`` file of the song you want to convert by drag and dropping it onto ``JustDanceEditor.IPK.exe``.
@@ -37,7 +38,7 @@ The author is not responsible for any misuse of this tool.
 	- You can optionally add in a ``cover.png`` file to use as the cover.
 	
 	In the song folder, create a new folder called ``media`` in ``\world\maps\{MapName}\`` and in it, place the ``webm`` and the ``ogg``, names don't matter.
-4. Launch ``JustDanceEditor.exe`` and select either ``1`` or ``2``.
+4. Launch ``JustDanceEditor.exe`` and select either ``1``.
 5. Drag and drop the song folder onto the window.
 6. Drag and drop the output folder onto the window.
 7. Select whether you want to download a cover from the internet.
@@ -45,6 +46,9 @@ The author is not responsible for any misuse of this tool.
 9. Profit!
 
 ## Adding a song to the game
+### Automatically
+Make sure that your output folder is a valid cache folder, and it will be automatically added to the cache.
+### Manually
 Copy the output files to your cache and add the info in ``cachingStatus.json`` to the game's ``cachingStatus.json``.
 
 ## Bug Reporting
@@ -66,7 +70,7 @@ Contributions are welcome! Please follow these guidelines:
 - Submit a pull request.
 
 ## License
-This project is licensed under the MIT License.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Contact
 For any inquiries, please dm me on Discord: ``mrkev312``
