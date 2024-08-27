@@ -13,16 +13,19 @@ public static class CacheJsonGenerator
         WriteIndented = true
     };
 
-    public static void MergeCaches(ConvertUbiArtToUnity convert)
+    public static bool MergeCaches(ConvertUbiArtToUnity convert)
     {
         try
         {
             MergeCachesInternal(convert);
+            return true;
         }
         catch (Exception e)
         {
             Logger.Log($"Failed to merge cache json files: {e.Message}", LogLevel.Error);
         }
+
+        return false;
     }
 
     static void MergeCachesInternal(ConvertUbiArtToUnity convert)

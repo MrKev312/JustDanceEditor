@@ -81,7 +81,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         GenerateCache();
 
         // Merge the cache
-        MergeCacheFiles();
+        bool canClearTemp = MergeCacheFiles();
+
+        if (canClearTemp)
+            ClearTemp();
 
         stopwatch.Stop();
         Logger.Log($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
@@ -89,11 +92,26 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         return;
     }
 
-    void MergeCacheFiles()
+    void ClearTemp()
+    {
+        try
+        {
+            Logger.Log("Clearing temp folders", LogLevel.Debug);
+            Directory.Delete(TempMapFolder, true);
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to clear temp folders: {e.Message}", LogLevel.Error);
+        }
+    }
+
+    bool MergeCacheFiles()
     {
         if (File.Exists(Path.Combine(OutputFolder, "cachingStatus.json")) &&
             File.Exists(Path.Combine(ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json")))
-            CacheJsonGenerator.MergeCaches(this);
+            return CacheJsonGenerator.MergeCaches(this);
+
+        return true;
     }
 
     void GenerateCache()
