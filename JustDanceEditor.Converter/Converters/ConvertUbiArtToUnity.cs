@@ -179,10 +179,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Create the new cache folder
         Directory.CreateDirectory(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}"));
 
-        // If the folder of the max cache number is over 3 GB, we'll start a new one
+        // If the folder of the max cache number is over 2.8 GB, we'll start a new one
         long cacheSize = new DirectoryInfo(Path.Combine(ConversionRequest.OutputPath, $"SD_Cache.{maxCacheNumber:X4}")).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length);
 
-        ConversionRequest.CacheNumber = cacheSize > 3u * 1024 * 1024 * 1024 
+        ConversionRequest.CacheNumber = cacheSize > 2.8f * 1024 * 1024 * 1024 
             ? maxCacheNumber + 1 
             : maxCacheNumber;
 
