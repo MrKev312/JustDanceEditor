@@ -52,11 +52,12 @@ Make sure that your output folder is a valid cache folder, and it will be automa
 Copy the output files to your cache and add the info in ``cachingStatus.json`` to the game's ``cachingStatus.json``.
 
 ## Panda-0008_0101 Error
-``Panda-0008_0101`` means that you have too many cache folders, specifically that song is over the limit.
+``Panda-0008_0101`` means that it can't find the file in the cache.
+This can either be caused by the file actually not being in the cache, or you have too many cache folders, specifically that song is in a cache folder that is too high.
 I don't know the exact limit, but it's somewhere slightly above ``SD_Cache.0028``.
 I don't know if there's a fix for this, but if you do, please let me know.
 
-You can try to switch over to ``exFat`` but do know that this filesystem is prone to corruption, and when it does, you lose _**ALL**_ data on the sd card.
+You can try to switch over to ``exFat`` and that removes the 4GB size limit of a cache folder, but do know that this filesystem is prone to corruption, and when it does, you lose _**ALL**_ data on the sd card.
 Do so at your own risk, I'm not responsible for any data loss.
 
 ## Bug Reporting
