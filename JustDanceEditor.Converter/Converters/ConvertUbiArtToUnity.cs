@@ -83,8 +83,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Merge the cache
         bool canClearTemp = MergeCacheFiles();
 
+#if RELEASE
         if (canClearTemp)
             ClearTemp();
+#endif
 
         stopwatch.Stop();
         Logger.Log($"Conversion finished in {stopwatch.ElapsedMilliseconds}ms");
