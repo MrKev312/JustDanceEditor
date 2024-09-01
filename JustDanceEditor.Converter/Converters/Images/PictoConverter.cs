@@ -185,8 +185,16 @@ public static class PictoConverter
             // Extract the portion of the montage
             Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * pictoHeight, row * pictoWidth, pictoHeight, pictoWidth)));
 
-            // Resize to 512x512
-            picto.Mutate(x => x.Resize(512, 512));
+            if (convert.SongData.CoachCount > 1)
+            {
+                // Resize to 512x354
+                picto.Mutate(x => x.Resize(512, 354));
+            }
+            else
+            {
+                // Resize to 512x512
+                picto.Mutate(x => x.Resize(512, 512));
+            }
 
             // Save or use the extracted picto (e.g., saving to disk)
             string pictoName = pictoNames[i];
