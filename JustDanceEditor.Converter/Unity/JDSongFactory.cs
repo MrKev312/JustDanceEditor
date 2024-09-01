@@ -121,6 +121,15 @@ public class JDSongFactory
         return song;
     }
 
+	public static void UpdateSong(JDSong songData, uint cacheNumber)
+    {
+        songData.AssetFilesDict.CoachesSmall.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/CoachesSmall/{songData.AssetFilesDict.CoachesSmall.Hash}";
+        songData.AssetFilesDict.CoachesLarge.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/CoachesLarge/{songData.AssetFilesDict.CoachesLarge.Hash}";
+        songData.AssetFilesDict.Audio_opus.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/Audio_opus/{songData.AssetFilesDict.Audio_opus.Hash}";
+        songData.AssetFilesDict.Video_HIGH_vp9_webm.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/Video_HIGH_vp9_webm/{songData.AssetFilesDict.Video_HIGH_vp9_webm.Hash}";
+        songData.AssetFilesDict.MapPackage.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/MapPackage/{songData.AssetFilesDict.MapPackage.Hash}";
+    }
+
     public static string CacheJson(uint cacheNumber, string guid) => GenerateJson(cacheNumber, guid);
 
     public static string MapBaseCacheJson() => GenerateJson(0, "MapBaseCache");

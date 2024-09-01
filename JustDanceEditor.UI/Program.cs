@@ -37,7 +37,8 @@ internal class Program
                 "Convert UbiArt to Unity (Advanced)",
                 "Convert all songs in folder",
                 "Extract IPK file",
-                "Generate a new cache"
+                "Generate a new cache",
+                "Spread cache folders over 0029 (use for exFAT only)"
             ]);
 
             switch (choice)
@@ -57,7 +58,10 @@ internal class Program
                     ExtractorDialogue.ExtractDialogue();
                     break;
                 case 5:
-                    GeneratorDialogue.GenerateCacheDialogue();
+                    CacheDialogue.GenerateCacheDialogue();
+                    break;
+                case 6:
+                    CacheDialogue.SpreadCacheDialogue();
                     break;
             }
         }
