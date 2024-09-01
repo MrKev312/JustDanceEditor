@@ -158,7 +158,9 @@ public static class PictoConverter
         // Sort alphabetically
         pictoNames.Sort();
         int pictoCount = pictoNames.Count;
-        int columns = 8;
+        int columns = convert.SongData.CoachCount == 1 
+            ? 8 
+            : 4;
         int rows = 1;
         while (columns * rows < pictoCount)
         {
