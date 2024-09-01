@@ -140,7 +140,7 @@ public class JDSongFactory
 			  },
 			  "name": "{{Path.GetFileName(path)}}",
 			  "path": "/CacheStorage_{{cacheNumber}}/{{path}}",
-			  "pathNX": "CacheStorage_{{cacheNumber}}/{{path}}",
+			  "pathNX": "CacheStorage_{{cacheNumber}}:/{{path}}",
 			  "index": {{cacheNumber}}
 			}
 			""";
