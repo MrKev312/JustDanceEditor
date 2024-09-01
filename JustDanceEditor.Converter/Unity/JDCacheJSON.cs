@@ -12,22 +12,22 @@ public class JDCacheJSON
 
     [JsonPropertyName("mapsDict")]
     // String is the map ID
-    public required Dictionary<string, JDSong> MapsDict { get; set; }
+    public Dictionary<string, JDSong> MapsDict { get; set; } = [];
 }
 
 public class JDSong
 {
     [JsonPropertyName("songDatabaseEntry")]
-    public required SongDatabaseEntry SongDatabaseEntry { get; set; }
+    public SongDatabaseEntry SongDatabaseEntry { get; set; } = new();
 
     [JsonPropertyName("audioPreviewTrk")]
-    public required string AudioPreviewTrk { get; set; }
+    public string AudioPreviewTrk { get; set; } = "";
 
     [JsonPropertyName("assetFilesDict")]
-    public required AssetFilesDict AssetFilesDict { get; set; }
+    public AssetFilesDict AssetFilesDict { get; set; } = new();
 
     [JsonPropertyName("sizes")]
-    public required Sizes Sizes { get; set; }
+    public Sizes Sizes { get; set; } = new();
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("hasSongTitleInCover")]
     public bool? HasSongTitleInCover { get; set; } = null;
