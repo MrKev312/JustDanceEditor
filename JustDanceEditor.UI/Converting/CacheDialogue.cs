@@ -121,6 +121,7 @@ internal class CacheDialogue
 
                 // First update the CachingStatus.json
                 JDSongFactory.UpdateSong(jDSong, folderNumber);
+                jDCacheJSON.MapsDict[songFolderName] = jDSong;
 
                 // Get the size of the song folder
                 long songFolderSize = Directory.GetFiles(songFolder, "*", SearchOption.AllDirectories).Sum(t => new FileInfo(t).Length);
