@@ -123,7 +123,7 @@ public class JDSongFactory
 
     public static string CacheJson(uint cacheNumber, string guid) => GenerateJson(cacheNumber, guid);
 
-    public static string MapBaseJson() => GenerateJson(0, "MapBaseCache");
+    public static string MapBaseCacheJson() => GenerateJson(0, "MapBaseCache");
 
     public static string AddressablesJson() => GenerateJson(0, "Addressables");
 

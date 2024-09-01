@@ -36,7 +36,8 @@ internal class Program
                 "Convert UbiArt to Unity",
                 "Convert UbiArt to Unity (Advanced)",
                 "Convert all songs in folder",
-                "Extract IPK file"
+                "Extract IPK file",
+                "Generate a new cache"
             ]);
 
             switch (choice)
@@ -54,6 +55,9 @@ internal class Program
                     break;
                 case 4:
                     ExtractorDialogue.ExtractDialogue();
+                    break;
+                case 5:
+                    GeneratorDialogue.GenerateCacheDialogue();
                     break;
             }
         }
