@@ -1,4 +1,5 @@
-﻿using JustDanceEditor.Logging;
+﻿using JustDanceEditor.Converter.Files;
+using JustDanceEditor.Logging;
 
 using System.Diagnostics;
 
@@ -10,21 +11,31 @@ public static class MenuArtConverter
         await Task.Run(() => ConvertMenuArt(convert));
     public static void ConvertMenuArt(ConvertUbiArtToUnity convert)
     {
-        string[] menuArtFiles = Directory.GetFiles(convert.FileSystem.InputFolders.MenuArtFolder);
-        Stopwatch stopwatch = Stopwatch.StartNew();
+        string menuArtFolder = convert.FileSystem.GetFolderPath(convert.FileSystem.InputFolders.MenuArtFolder);
+
+        string[] menuArtFiles = [.. Directory.GetFiles(menuArtFolder)
+            .OrderByDescending(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(f => f)];
 
         Logger.Log($"Converting {menuArtFiles.Length} menu art files...");
+        Stopwatch stopwatch = Stopwatch.StartNew();
 
-        Parallel.ForEach(menuArtFiles, (item) =>
+        Parallel.ForEach(menuArtFiles, (file) =>
         {
             try
             {
-                string fileName = Path.GetFileNameWithoutExtension(item);
-                TextureConverter.TextureConverter.ExtractToPNG(item, Path.Combine(convert.FileSystem.TempFolders.PictoFolder, fileName + ".png"));
+                CookedFile ckdFile = new(file);
+                string pngPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, ckdFile.Name + ".png");
+
+                // If the output file already exists, skip it
+                if (File.Exists(pngPath))
+                    return;
+
+                TextureConverter.TextureConverter.ExtractToPNG(file, pngPath);
             }
             catch (Exception ex)
             {
-                Logger.Log($"Failed to convert menu art file {item}: {ex.Message}", LogLevel.Error);
+                Logger.Log($"Failed to convert menu art file {file}: {ex.Message}", LogLevel.Error);
             }
         });
 
