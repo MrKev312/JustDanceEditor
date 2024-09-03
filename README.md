@@ -31,7 +31,7 @@ The author is not responsible for any misuse of this tool.
 
 ## Usage
 1. Extract the ``ipk`` file of the song you want to convert by drag and dropping it onto ``JustDanceEditor.IPK.exe``.
-2. If the song is a ``mainscene``, in the song folder, create a new folder called ``menuart`` in ``\world\maps\{MapName}\`` and put in the following files:
+2. If the song is a ``mainscene``, in the song folder, place the following files in ``\world\maps\{MapName}\menuart\textures`` (either in ``.png``, ``.png.ckd``, or ``.tga.ckd``):
 	- ``{MapName}_Coach_1.tga.cdk``, ``{MapName}_Coach_2.tga.cdk``, ``{MapName}_Coach_..`` (up to 4 coaches)
 	- ``{MapName}_AlbumCoach.tga.cdk`` or a 1024x2048 ``{MapName}_Cover_Generic.tga``
 	- ``{MapName}_map_bkg.tga``
