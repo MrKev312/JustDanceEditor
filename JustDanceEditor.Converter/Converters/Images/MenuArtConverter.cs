@@ -10,7 +10,7 @@ public static class MenuArtConverter
         await Task.Run(() => ConvertMenuArt(convert));
     public static void ConvertMenuArt(ConvertUbiArtToUnity convert)
     {
-        string[] menuArtFiles = Directory.GetFiles(convert.MenuArtFolder);
+        string[] menuArtFiles = Directory.GetFiles(convert.FileSystem.InputFolders.MenuArtFolder);
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         Logger.Log($"Converting {menuArtFiles.Length} menu art files...");
@@ -20,7 +20,7 @@ public static class MenuArtConverter
             try
             {
                 string fileName = Path.GetFileNameWithoutExtension(item);
-                TextureConverter.TextureConverter.ExtractToPNG(item, Path.Combine(convert.TempMenuArtFolder, fileName + ".png"));
+                TextureConverter.TextureConverter.ExtractToPNG(item, Path.Combine(convert.FileSystem.TempFolders.PictoFolder, fileName + ".png"));
             }
             catch (Exception ex)
             {

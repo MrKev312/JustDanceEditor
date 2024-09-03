@@ -34,7 +34,7 @@ public static class CoachesSmallBundleGenerator
     {
         // Get the coaches folder
         // /template/cachex/CoachesSmall/*
-        string coacheLargePackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "CoachesSmall"))[0];
+        string coacheLargePackagePath = convert.FileSystem.TemplateFiles.CoachesLarge;
 
         Logger.Log("Converting CoachesSmall...");
         // Open the coaches package using AssetTools.NET
@@ -124,7 +124,7 @@ public static class CoachesSmallBundleGenerator
             coachTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}_Phone";
             coachSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}_Phone";
 
-            string path = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.tga.png");
+            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.tga.png");
 
             // Load the image and resize it to 256x256
             Image<Rgba32> image = Image.Load<Rgba32>(path);
@@ -205,7 +205,7 @@ public static class CoachesSmallBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputXFolder, "CoachesSmall");
+        string outputPackagePath = convert.FileSystem.OutputFolders.CoachesSmallFolder;
         bun.SaveAndCompress(outputPackagePath);
     }
 }

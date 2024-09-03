@@ -35,7 +35,7 @@ public static class MapPackageBundleGenerator
     {
         // Get the mapPackage path
         // /template/cachex/MapPackage/*
-        string mapPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "MapPackage"))[0];
+        string mapPackagePath = convert.FileSystem.TemplateFiles.MapPackage;
 
         // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
         Task<(Dictionary<string, (int index, (int Width, int Height))>, List<Image<Rgba32>>)> pictoTask =
@@ -256,7 +256,7 @@ public static class MapPackageBundleGenerator
         movesArray.Children.Clear();
 
         // Add the new dance moves
-        string[] moveFiles = Directory.GetFiles(convert.MovesFolder);
+        string[] moveFiles = Directory.GetFiles(convert.FileSystem.InputFolders.MovesFolder);
         foreach (string item in moveFiles)
         {
             // Get the file name and content, must read as bytes
@@ -298,7 +298,7 @@ public static class MapPackageBundleGenerator
         (Dictionary<string, (int index, (int width, int height) size)> imageDict, List<Image<Rgba32>> atlasPics) = pictoTask.Result;
 
         // Add the new pictos
-        string[] FileDirs = Directory.GetFiles(Path.Combine(convert.TempPictoFolder, "Atlas"));
+        string[] FileDirs = Directory.GetFiles(Path.Combine(convert.FileSystem.TempFolders.PictoFolder, "Atlas"));
         byte[][] endImageBytes = new byte[FileDirs.Length][];
 
         Parallel.For(0, FileDirs.Length, i =>
@@ -383,7 +383,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Then add all the pictos to the bundle
-        FileDirs = Directory.GetFiles(convert.TempPictoFolder);
+        FileDirs = Directory.GetFiles(convert.FileSystem.TempFolders.PictoFolder);
 
         for (int i = 0; i < FileDirs.Length; i++)
         {
@@ -660,7 +660,7 @@ public static class MapPackageBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = Path.Combine(convert.OutputXFolder, "MapPackage");
+        string outputPackagePath = convert.FileSystem.OutputFolders.MapPackageFolder;
         bun.SaveAndCompress(outputPackagePath);
     }
 }

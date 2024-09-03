@@ -1,4 +1,5 @@
-﻿using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+﻿using JustDanceEditor.Converter.Files;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -13,16 +14,19 @@ public static class PictoConverter
 {
     public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
     {
+        TempFolders tempFolders = convert.FileSystem.TempFolders;
+        InputFolders inputFolders = convert.FileSystem.InputFolders;
+
         PictogramClip[] pictoClips = convert.SongData.Clips.OfType<PictogramClip>().ToArray();
 
         // Before starting on the mapPackage, prepare the pictos
-        if (!Directory.Exists(convert.PictosFolder))
+        if (!Directory.Exists(inputFolders.PictosFolder))
         {
             Logger.Log("Pictos folder doesn't exist, skipping picto conversion", LogLevel.Warning);
             return ([], []);
         }
 
-        string[] pictoFiles = Directory.GetFiles(convert.PictosFolder);
+        string[] pictoFiles = Directory.GetFiles(inputFolders.PictosFolder);
 
         if (pictoFiles.Length == 0)
         {
@@ -72,7 +76,7 @@ public static class PictoConverter
             }
 
             // Save the image as a png
-            pictoPic.Save(Path.Combine(convert.TempPictoFolder, name + ".png"));
+            pictoPic.Save(Path.Combine(tempFolders.PictoFolder, name + ".png"));
 
             // Dispose the image
             pictoPic.Dispose();
@@ -85,7 +89,7 @@ public static class PictoConverter
         Logger.Log("Creating atlasses...");
 
         // Get the png files in the pictos folder
-        pictoFiles = Directory.GetFiles(convert.TempPictoFolder, "*.png");
+        pictoFiles = Directory.GetFiles(tempFolders.PictoFolder, "*.png");
 
         // Convert the 512x512 images to a 2048x2048 atlas
         // Use 4 pixels of padding between each image
@@ -131,75 +135,76 @@ public static class PictoConverter
         }
 
         // Save the atlasPics in the tempPictoFolder in the format atlas_{index}.png
-        Directory.CreateDirectory(convert.TempPictoAtlasFolder);
+        Directory.CreateDirectory(tempFolders.PictoAtlasFolder);
 
         for (int i = 0; i < atlasPics.Count; i++)
-            atlasPics[i].Save(Path.Combine(convert.TempPictoFolder, "Atlas", $"atlas_{i}.png"));
+            atlasPics[i].Save(Path.Combine(tempFolders.PictoAtlasFolder, $"atlas_{i}.png"));
 
         // Get time after finishing
         stopwatch.Stop();
         Logger.Log($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms");
 
         return (imageDict, atlasPics);
-    }
-
-    static void SplitMontage(Image<Bgra32> montage, ConvertUbiArtToUnity convert)
-    {
-        List<string> pictoNames = [];
-
-        foreach (PictogramClip clip in convert.SongData.Clips.OfType<PictogramClip>())
-        {
-            string name = Path.GetFileNameWithoutExtension(clip.PictoPath);
-
-            if (!pictoNames.Contains(name))
-                pictoNames.Add(name);
-        }
-
-        // Sort alphabetically
-        pictoNames.Sort();
-        int pictoCount = pictoNames.Count;
-        int columns = convert.SongData.CoachCount == 1 
-            ? 8 
-            : 4;
-        int rows = 1;
-        while (columns * rows < pictoCount)
-        {
-            rows++;
-        }
-
-        // Get the width and height of the montage
-        int width = montage.Width;
-        int height = montage.Height;
-
-        // Given a picto is 512x512 with 64px vertical padding, we split the montage into columns * rows pictos
-        int pictoHeight = width / columns;
-        int pictoWidth = height / rows;
 
         // Split the montage into pictos
-        for (int i = 0; i < pictoCount; i++)
+        void SplitMontage(Image<Bgra32> montage, ConvertUbiArtToUnity convert)
         {
-            // Calculate row and column
-            int row = i / columns;
-            int col = i % columns;
+            List<string> pictoNames = [];
 
-            // Extract the portion of the montage
-            Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * pictoHeight, row * pictoWidth, pictoHeight, pictoWidth)));
+            foreach (PictogramClip clip in convert.SongData.Clips.OfType<PictogramClip>())
+            {
+                string name = Path.GetFileNameWithoutExtension(clip.PictoPath);
 
-            if (convert.SongData.CoachCount > 1)
-            {
-                // Resize to 512x354
-                picto.Mutate(x => x.Resize(512, 354));
-            }
-            else
-            {
-                // Resize to 512x512
-                picto.Mutate(x => x.Resize(512, 512));
+                if (!pictoNames.Contains(name))
+                    pictoNames.Add(name);
             }
 
-            // Save or use the extracted picto (e.g., saving to disk)
-            string pictoName = pictoNames[i];
-            string pictoPath = Path.Combine(convert.TempPictoFolder, $"{pictoName}.png");
-            picto.SaveAsPng(pictoPath);
+            // Sort alphabetically
+            pictoNames.Sort();
+            int pictoCount = pictoNames.Count;
+            int columns = convert.SongData.CoachCount == 1
+                ? 8
+                : 4;
+            int rows = 1;
+            while (columns * rows < pictoCount)
+            {
+                rows++;
+            }
+
+            // Get the width and height of the montage
+            int width = montage.Width;
+            int height = montage.Height;
+
+            // Given a picto is 512x512 with 64px vertical padding, we split the montage into columns * rows pictos
+            int pictoHeight = width / columns;
+            int pictoWidth = height / rows;
+
+            // Split the montage into pictos
+            for (int i = 0; i < pictoCount; i++)
+            {
+                // Calculate row and column
+                int row = i / columns;
+                int col = i % columns;
+
+                // Extract the portion of the montage
+                Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * pictoHeight, row * pictoWidth, pictoHeight, pictoWidth)));
+
+                if (convert.SongData.CoachCount > 1)
+                {
+                    // Resize to 512x354
+                    picto.Mutate(x => x.Resize(512, 354));
+                }
+                else
+                {
+                    // Resize to 512x512
+                    picto.Mutate(x => x.Resize(512, 512));
+                }
+
+                // Save or use the extracted picto (e.g., saving to disk)
+                string pictoName = pictoNames[i];
+                string pictoPath = Path.Combine(tempFolders.PictoFolder, $"{pictoName}.png");
+                picto.SaveAsPng(pictoPath);
+            }
         }
     }
 }
