@@ -190,8 +190,8 @@ public partial class FileSystem
             : throw new DirectoryNotFoundException($"The folder {relativeFolderPath} was not found in the input folders.");
     }
 
-    public static string ReadWithoutNulls(string filePath)
+    public static string ReadWithoutNull(string filePath)
     {
-        return File.ReadAllText(filePath).Replace("\0", "");
+        return File.ReadAllText(filePath).TrimEnd('\0');
     }
 }
