@@ -86,7 +86,7 @@ public partial class FileSystem
             Logger.Log($"Platform: {PlatformType}");
     }
 
-    public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out string filePath)
+    public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath)
     {
         filePath = null;
         string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
@@ -121,7 +121,7 @@ public partial class FileSystem
                 string file = Path.Combine(location, relativeFilePath);
                 if (File.Exists(file))
                 {
-                    filePath = file;
+                    filePath = new(file);
                     return true;
                 }
 
@@ -131,7 +131,7 @@ public partial class FileSystem
                 file = Path.Combine(location, pathCooked);
                 if (File.Exists(file))
                 {
-                    filePath = file;
+                    filePath = new(file);
                     return true;
                 }
             }
@@ -140,9 +140,9 @@ public partial class FileSystem
         return false;
     }
 
-    public string GetFilePath(string relativeFilePath)
+    public CookedFile GetFilePath(string relativeFilePath)
     {
-        return GetFilePath(relativeFilePath, out string? filePath)
+        return GetFilePath(relativeFilePath, out CookedFile? filePath)
             ? filePath
             : throw new FileNotFoundException($"The file {relativeFilePath} was not found in the input folders.");
     }
