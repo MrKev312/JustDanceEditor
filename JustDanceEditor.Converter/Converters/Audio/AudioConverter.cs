@@ -167,8 +167,7 @@ public static class AudioConverter
     static CookedFile GetMainSongPath(ConvertUbiArtToUnity convert)
     {
         // First we check the media folder
-        string mediaFolder = convert.FileSystem.InputFolders.MediaFolder;
-        if (Directory.Exists(mediaFolder))
+        if (convert.FileSystem.GetFolderPath(convert.FileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {
             string[] oggFiles = Directory.GetFiles(mediaFolder, "*.ogg", SearchOption.AllDirectories);
             if (oggFiles.Length > 0)
