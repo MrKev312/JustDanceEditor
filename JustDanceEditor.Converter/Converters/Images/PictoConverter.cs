@@ -20,13 +20,13 @@ public static class PictoConverter
         PictogramClip[] pictoClips = convert.SongData.Clips.OfType<PictogramClip>().ToArray();
 
         // Before starting on the mapPackage, prepare the pictos
-        if (!Directory.Exists(inputFolders.PictosFolder))
+        if (!convert.FileSystem.GetFolderPath(inputFolders.PictosFolder, out string? pictosFolder))
         {
             Logger.Log("Pictos folder doesn't exist, skipping picto conversion", LogLevel.Warning);
             return ([], []);
         }
 
-        string[] pictoFiles = Directory.GetFiles(inputFolders.PictosFolder);
+        string[] pictoFiles = Directory.GetFiles(pictosFolder);
 
         if (pictoFiles.Length == 0)
         {
