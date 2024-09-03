@@ -37,7 +37,7 @@ public static class SongTitleBundleGenerator
         //string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
         FileSystem fs = convert.FileSystem;
 
-        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder), out string? logoPath) || logoPath == null)
+        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder), out CookedFile? logoPath) || logoPath == null)
         {
             //Console.WriteLine("No songTitleLogo.png found, skipping...");
             Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
