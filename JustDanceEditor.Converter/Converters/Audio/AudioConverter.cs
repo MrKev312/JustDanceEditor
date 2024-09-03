@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 
+using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
@@ -34,12 +35,12 @@ public static class AudioConverter
         Stopwatch stopwatch = Stopwatch.StartNew();
         SoundSetClip[] audioClips = GetAudioClips([.. convert.SongData.Clips]);
 
-        string mainSongPath = GetMainSongPath(convert);
+        CookedFile mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);
 
         Logger.Log($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (mainSongPath.StartsWith(convert.FileSystem.InputFolders.MediaFolder, StringComparison.OrdinalIgnoreCase))
+        if (mainSongPath.FullPath.StartsWith(convert.FileSystem.InputFolders.MediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.wav"), true);
         else
@@ -147,10 +148,12 @@ public static class AudioConverter
     {
         foreach (SoundSetClip audioVibrationClip in audioClips)
         {
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-            string wavPath = Path.Combine(convert.FileSystem.InputFolders.AudioFolder, "amb", $"{fileName}.wav.ckd");
-            string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, $"{fileName}.wav");
-            audioConverter.Convert(wavPath, newWavPath);
+            // Change extension to .wav
+            string relativePath = Path.ChangeExtension(audioVibrationClip.SoundSetPath, ".wav");
+            string wavPath = convert.FileSystem.GetFilePath(relativePath);
+            string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, Path.GetFileName(wavPath));
+            if (!File.Exists(newWavPath))
+                audioConverter.Convert(wavPath, newWavPath).Wait();
         }
     }
 
@@ -161,50 +164,21 @@ public static class AudioConverter
         return newMainSongPath;
     }
 
-    static string GetMainSongPath(ConvertUbiArtToUnity convert)
+    static CookedFile GetMainSongPath(ConvertUbiArtToUnity convert)
     {
-        //List<string> ending = ["alt", "vip", "altretake"];
-        //List<string> audios = [];
-        //// Is there any *.ogg file in the media folder?
-        //string dir = convert.InputMediaFolder;
-        //if (Directory.Exists(dir))
-        //    audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
+        // First we check the media folder
+        string mediaFolder = convert.FileSystem.InputFolders.MediaFolder;
+        if (Directory.Exists(mediaFolder))
+        {
+            string[] oggFiles = Directory.GetFiles(mediaFolder, "*.ogg", SearchOption.AllDirectories);
+            if (oggFiles.Length > 0)
+                return new CookedFile(oggFiles.First());
+        }
 
-        //dir = Path.Combine(convert.CacheFolder, "audio");
-        //if (Directory.Exists(Path.Combine(dir)))
-        //    audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.wav.ckd"));
+        string relativePath = convert.SongData.MusicTrack.COMPONENTS[0].trackData.path;
 
-        //dir = Path.Combine(convert.WorldFolder, "audio");
-        //if (Directory.Exists(Path.Combine(dir)))
-        //    audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.ogg"));
-
-        //// If the songname ends with alt, try finding it without alt
-        //foreach (string end in ending)
-        //{
-        //    string songName = convert.SongData.Name;
-        //    if (!songName.EndsWith(end, StringComparison.OrdinalIgnoreCase))
-        //        continue;
-
-        //    songName = songName[..^end.Length];
-
-        //    dir = convert.InputMediaFolder.Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-        //    if (Directory.Exists(dir))
-        //        audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
-
-        //    dir = Path.Combine(convert.CacheFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-        //    if (Directory.Exists(dir))
-        //        audios.AddRange(Directory.GetFiles(dir, "*.wav.ckd"));
-
-        //    dir = Path.Combine(convert.WorldFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-        //    if (Directory.Exists(dir))
-        //        audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
-        //}
-
-        //if (audios.Count > 0)
-        //    return audios.First();
-
-        // TODO: Get the path from the mtrack
-        //convert.SongData.MusicTrack.COMPONENTS[0].trackData.path;
+        if (convert.FileSystem.GetFilePath(relativePath, out CookedFile? mainSongPath))
+            return mainSongPath;
 
         throw new Exception("Main song not found");
     }
