@@ -1,11 +1,13 @@
 ﻿using HtmlAgilityPack;
 
+using JustDanceEditor.Logging;
+using JustDanceEditor.Converter.Files;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
-using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -16,17 +18,14 @@ public static class CoverArtGenerator
         string[] paths =
         [
             Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, "cover.png"),
-            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"),
-            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.tga.png")
+            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.png"),
+            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.png")
         ];
 
-        foreach (string path in paths)
+        foreach (string relativePath in paths)
         {
-            if (!File.Exists(path))
-                continue;
-
-            // If the hash is "39c8e22496850ada4b849b0d28d76936", skip it
-            if (Helpers.Download.GetFileMD5(path) == "39c8e22496850ada4b849b0d28d76936")
+            //convert.FileSystem.GetFilePath(path);
+            if (!convert.FileSystem.GetFilePath(relativePath, out CookedFile? path))
                 continue;
 
             Image<Rgba32>? image = TryLoadImage(path);
