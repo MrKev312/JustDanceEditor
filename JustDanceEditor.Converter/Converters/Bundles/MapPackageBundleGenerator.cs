@@ -256,7 +256,11 @@ public static class MapPackageBundleGenerator
         movesArray.Children.Clear();
 
         // Add the new dance moves
-        string[] moveFiles = Directory.GetFiles(convert.FileSystem.InputFolders.MovesFolder);
+        string[] moveFiles = [];
+
+        if (convert.FileSystem.GetFolderPath(convert.FileSystem.InputFolders.MovesFolder, out string? movesFolder))
+            moveFiles = Directory.GetFiles(movesFolder);
+
         foreach (string item in moveFiles)
         {
             // Get the file name and content, must read as bytes
