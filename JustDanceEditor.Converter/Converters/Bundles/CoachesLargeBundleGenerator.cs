@@ -142,7 +142,7 @@ public static class CoachesLargeBundleGenerator
             coachTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
             coachSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
 
-            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.tga.png");
+            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.png");
 
             // Load the image
             Image<Rgba32> image = Image.Load<Rgba32>(path);
