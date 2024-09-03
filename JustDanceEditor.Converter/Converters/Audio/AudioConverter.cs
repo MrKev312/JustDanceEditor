@@ -32,7 +32,7 @@ public static class AudioConverter
     {
         Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
-        SoundSetClip[] audioClips = GetAudioClips(convert.SongData.Clips);
+        SoundSetClip[] audioClips = GetAudioClips([.. convert.SongData.Clips]);
 
         string mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);
@@ -203,7 +203,8 @@ public static class AudioConverter
         //if (audios.Count > 0)
         //    return audios.First();
 
-        // TODO: read the isc and use that path
+        // TODO: Get the path from the mtrack
+        //convert.SongData.MusicTrack.COMPONENTS[0].trackData.path;
 
         throw new Exception("Main song not found");
     }
