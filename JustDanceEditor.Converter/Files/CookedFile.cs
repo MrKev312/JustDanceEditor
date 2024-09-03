@@ -24,12 +24,11 @@ public class CookedFile
     public string Extension { get; private set; }
     public bool IsCooked { get; private set; }
 
-    public string GetFullPath()
-    {
-        return (string)this;
-    }
+    public string FullPath => this;
+    public string UncookedPath => DirectoryPath + Name + Extension;
 
-    public static explicit operator string(CookedFile v) => v.ToString();
+
+    public static implicit operator string(CookedFile v) => v.ToString();
 
     public override string ToString()
     {
