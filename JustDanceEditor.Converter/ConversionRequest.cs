@@ -1,7 +1,11 @@
 ﻿namespace JustDanceEditor.Converter;
 
-public class ConversionRequest
+public struct ConversionRequest
 {
+    public ConversionRequest()
+    {
+    }
+
     // Folder where the input files are located
     public required string InputPath { get; set; }
     // Folder where the output will be saved
@@ -13,7 +17,7 @@ public class ConversionRequest
     // Name of the song (optional)
     public string? SongName { get; set; } = null;
     // GUID of the song
-    public string SongID { get; set; } = Guid.NewGuid().ToString();
+    public string SongGUID { get; set; } = Guid.NewGuid().ToString();
     // Cache number
     public uint? CacheNumber { get; set; } = null;
     public uint? JDVersion { get; set; } = null;
