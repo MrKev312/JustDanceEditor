@@ -131,13 +131,11 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntBoolConverter());
 
-        List<IClip> clips = [];
-
         // Let's start with the songdesc
         Logger.Log("Loading SongDesc");
-        string relativePath = Path.Combine("world", "maps", SongID, "songdesc.tpl.ckd");
+        string relativePath = Path.Combine(FileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
         string path = FileSystem.GetFilePath(relativePath);
-        SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNulls(path), options)!;
+        SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(path), options)!;
 
         // Get the map name
         SongData.Name = SongData.SongDesc.COMPONENTS[0].MapName;
@@ -150,34 +148,36 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Load the music track
         Logger.Log("Loading MusicTrack");
-        relativePath = Path.Combine("audio", $"{SongData.Name}_musictrack.tpl.ckd");
+        relativePath = Path.Combine(FileSystem.InputFolders.AudioFolder, $"{SongData.Name}_musictrack.tpl");
         path = FileSystem.GetFilePath(relativePath);
-        SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(FileSystem.ReadWithoutNulls(path), options)!;
+        SongData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(FileSystem.ReadWithoutNull(path), options)!;
+
+        Logger.Log("Loading MainSequence");
+        relativePath = Path.Combine(FileSystem.InputFolders.MapWorldFolder, "cinematics", $"{SongData.Name}_mainsequence.tape");
+        path = FileSystem.GetFilePath(relativePath);
+        ClipTape MainSequenceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(path), options)!;
+        SongData.Clips.AddRange(MainSequenceTape.Clips);
 
         // Load the clips
         Logger.Log("Loading DanceTape");
-        relativePath = Path.Combine("timeline", SongID, $"{SongData.Name}_tml_dance.dtape.ckd");
+        relativePath = Path.Combine(FileSystem.InputFolders.TimelineFolder, $"{SongData.Name}_tml_dance.dtape");
         path = FileSystem.GetFilePath(relativePath);
-        ClipTape DanceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNulls(path), options)!;
-        clips.AddRange(DanceTape.Clips);
+        ClipTape DanceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(path), options)!;
+        SongData.Clips.AddRange(DanceTape.Clips);
 
-        Logger.Log("Loading MainSequence");
-        relativePath = Path.Combine("cinematics", $"{SongData.Name}_mainsequence.tape.ckd");
-        path = FileSystem.GetFilePath(relativePath);
-        ClipTape MainSequenceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNulls(path), options)!;
-        clips.AddRange(MainSequenceTape.Clips);
-
-        // Some maps don't have KaraokeTape
-        if (FileSystem.GetFilePath(Path.Combine("timeline", $"{SongID}_tml_karaoke.ktape.ckd"), out string? karaokePath))
+        string timelineFilePath = Path.Combine(FileSystem.InputFolders.TimelineFolder, $"{SongData.Name}_tml.isc");
+        CookedFile timelineFile = FileSystem.GetFilePath(timelineFilePath);
+        if (!ISC.GetActorPath(timelineFile, $"{SongData.Name}_tml_karaoke", out string? karaokePath)
+            || !FileSystem.GetFilePath(karaokePath, out CookedFile? karaokeFile))
         {
-            Logger.Log("Loading KaraokeTape");
-            ClipTape KaraokeTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNulls(karaokePath), options)!;
-            clips.AddRange(KaraokeTape.Clips);
+            Logger.Log("No karaoke tape found, skipping...", LogLevel.Important);
+            return;
         }
-        else
-            Logger.Log("KaraokeTape not found");
 
-        SongData.Clips = [.. clips];
+        Logger.Log("Loading KaraokeTape");
+
+        ClipTape KaraokeTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeFile), options)!;
+        SongData.Clips.AddRange(KaraokeTape.Clips);
 
         return;
     }
