@@ -24,12 +24,12 @@ jobs:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: dotnet restore JustDanceEditor.UI/JustDanceEditor.UI.csproj
-    - name: Build
-      run: dotnet build JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-restore --configuration Release --os win
+    - name: Publish
+      run: dotnet publish -c Release -r win-x64
     - name: Test
-      run: dotnet test JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-build --verbosity normal
+      run: dotnet test JustDanceEditor.UI/JustDanceEditor.UI.csproj --verbosity normal
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
         name: artifact
-        path: JustDanceEditor.UI/bin/Release/net8.0/
+        path: JustDanceEditor.UI/bin/Release/net8.0/publish/
