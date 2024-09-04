@@ -14,8 +14,4 @@
 		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
 	</ItemGroup>
-
-	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
-		<Copy SourceFiles="$(SolutionDir)TexToolWrap\crunch\win64\crnlib.dll" DestinationFolder="$(TargetDir)" />
-	</Target>
 </Project>
