@@ -14,10 +14,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj" />
+	  <None Update="DLLs\crnlib.dll">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DLLs\TexToolWrap.dll">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
-
-	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
-		<Copy SourceFiles="$(SolutionDir)TexToolWrap\crunch\win64\crnlib.dll" DestinationFolder="$(TargetDir)" />
-	</Target>
 </Project>

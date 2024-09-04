@@ -13,9 +13,6 @@
 		<ProjectReference Include="..\JustDanceEditor.Converter\JustDanceEditor.Converter.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
-		<ProjectReference Include="..\TexToolWrap\TexToolWrap.vcxproj">
-			<Private>True</Private>
-		</ProjectReference>
 	</ItemGroup>
 
 	<Target Name="CopyFilesAfterBuild" AfterTargets="AfterBuild">
