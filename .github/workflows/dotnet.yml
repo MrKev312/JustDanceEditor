@@ -1,7 +1,7 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: .NET
+name: .NET Test and Build Artifact
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
 jobs:
   build:
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -25,11 +25,11 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build -c Release
+      run: dotnet build ./JustDanceEditor.UI/JustDanceEditor.UI.csproj --runtime win-x64 --configuration Release --no-restore
     - name: Test
       run: dotnet test
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
         name: artifact
-        path: JustDanceEditor.UI/bin/Release/net8.0/
+        path: JustDanceEditor.UI/bin/Release/net8.0/win-x64/
