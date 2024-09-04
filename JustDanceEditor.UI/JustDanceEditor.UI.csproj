@@ -6,7 +6,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<InvariantGlobalization>true</InvariantGlobalization>
-		<AssemblyVersion>2.0.0.0</AssemblyVersion>
+		<RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
 	</PropertyGroup>
 
 	<ItemGroup>
