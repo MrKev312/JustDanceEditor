@@ -24,7 +24,6 @@ public static class CoverArtGenerator
 
         foreach (string relativePath in paths)
         {
-            //convert.FileSystem.GetFilePath(path);
             if (!convert.FileSystem.GetFilePath(relativePath, out CookedFile? path))
                 continue;
 
