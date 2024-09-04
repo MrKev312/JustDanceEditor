@@ -28,10 +28,8 @@ jobs:
       run: dotnet build --no-restore --configuration Release
     - name: Test
       run: dotnet test --no-build --verbosity normal
-    - name: Create zip of JustDanceEditor.UI release
-      run: zip -r artifact.zip JustDanceEditor.UI/bin/Release/
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
-        name: JustDanceEditor.UI-release
-        path: artifact.zip
+        name: artifact
+        path: JustDanceEditor.UI/bin/Release/
