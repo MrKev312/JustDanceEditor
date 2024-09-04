@@ -16,19 +16,11 @@ public class ClipConverter : JsonConverter<IClip>
         }
 
         string className = classNameElement.GetString()!;
+        Type? type = Type.GetType($"JustDanceEditor.Converter.UbiArt.Tapes.Clips.{className}");
 
-        return className switch
-        {
-            "GoldEffectClip" => JsonSerializer.Deserialize<GoldEffectClip>(root.GetRawText(), options)!,
-            "HideUserInterfaceClip" => JsonSerializer.Deserialize<HideUserInterfaceClip>(root.GetRawText(), options)!,
-            "KaraokeClip" => JsonSerializer.Deserialize<KaraokeClip>(root.GetRawText(), options)!,
-            "MotionClip" => JsonSerializer.Deserialize<MotionClip>(root.GetRawText(), options)!,
-            "PictogramClip" => JsonSerializer.Deserialize<PictogramClip>(root.GetRawText(), options)!,
-            "SoundSetClip" => JsonSerializer.Deserialize<SoundSetClip>(root.GetRawText(), options)!,
-            "VibrationClip" => JsonSerializer.Deserialize<VibrationClip>(root.GetRawText(), options)!,
-
-            _ => throw new JsonException($"Unknown clip type: {className}"),
-        };
+        return type == null
+            ? throw new JsonException($"Unknown clip type: {className}")
+            : (IClip)JsonSerializer.Deserialize(root.GetRawText(), type, options)!;
     }
 
     public override void Write(Utf8JsonWriter writer, IClip value, JsonSerializerOptions? options = null)

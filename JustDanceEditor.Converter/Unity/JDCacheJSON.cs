@@ -117,8 +117,8 @@ public class SongDatabaseEntry
         float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
         float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
-        string songTitleLogoPath = Path.Combine(convert.Output0Folder, "songTitleLogo");
-        bool songTitleLogo = Directory.Exists(songTitleLogoPath) && Directory.GetFiles(Path.Combine(convert.Output0Folder, "songTitleLogo")).Length > 0;
+        string songTitleLogoPath = convert.FileSystem.OutputFolders.SongTitleLogoFolder;
+        bool songTitleLogo = Directory.Exists(songTitleLogoPath) && Directory.GetFiles(songTitleLogoPath).Length > 0;
 
         return new()
         {

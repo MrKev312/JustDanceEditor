@@ -9,7 +9,7 @@ public class JDUbiArtSong
     public uint CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
     public JDVersion EngineVersion = JDVersion.Unknown;
     public JDVersion JDVersion = JDVersion.Unknown;
-    public IClip[] Clips { get; set; } = [];
+    public List<IClip> Clips { get; set; } = [];
     public MusicTrack MusicTrack { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
 

@@ -1,6 +1,7 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text.Json;
 
+using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
@@ -31,11 +32,11 @@ public static class CacheJsonGenerator
     static void MergeCachesInternal(ConvertUbiArtToUnity convert)
     {
         // First we load the generated JSON
-        string cachingStatusPath = Path.Combine(convert.OutputFolder, "cachingStatus.json");
+        string cachingStatusPath = Path.Combine(convert.FileSystem.OutputFolders.OutputFolder, "cachingStatus.json");
         Dictionary<string, JDSong> caching = JsonSerializer.Deserialize<Dictionary<string, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
 
         // The one we'll add to is in the existing SD_0000 folder
-        string cachingStatusPath0 = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
+        string cachingStatusPath0 = convert.FileSystem.OutputFolders.CachingStatusPath;
         JDCacheJSON caching0 = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(cachingStatusPath0), options)!;
 
         // Merge the two dictionaries
@@ -49,14 +50,15 @@ public static class CacheJsonGenerator
         // Now we move the files first and after that we write the new cachingStatus.json
         // This is in case we crash while moving the files, we don't want to have the cache.json updated without the files
         // Moving the SD_Cache.0000 folder
-        string sd0000Path = Path.Combine(convert.OutputFolder, "SD_Cache.0000", "MapBaseCache", convert.SongID);
+        string sd0000Path = convert.FileSystem.OutputFolders.PreviewFolder;
         string sd0000PathDest = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", convert.SongID);
         Directory.Move(sd0000Path, sd0000PathDest);
 
         // Moving the SD_Cache.xxxx folder
-        string sdXFolder = Path.Combine(convert.OutputFolder, $"SD_Cache.{convert.CacheNumber:X4}", convert.SongID);
-        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{convert.CacheNumber:X4}", convert.SongID);
-        Directory.CreateDirectory(Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{convert.CacheNumber:X4}"));
+        string sdXFolder = convert.FileSystem.OutputFolders.MapFolder;
+        uint cacheNumber = convert.FileSystem.OutputFolders.CacheNumber;
+        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{cacheNumber:X4}", convert.SongID);
+        Directory.CreateDirectory(Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{cacheNumber:X4}"));
         Directory.Move(sdXFolder, sdXFolderDest);
 
         // Write the new cachingStatus.json
@@ -67,12 +69,13 @@ public static class CacheJsonGenerator
         File.Delete(cachingStatusPath);
 
         // Recursively remove empty directories
-        RecursivelyRemoveEmptyDirectories(convert.OutputFolder);
+        string outputFolder = convert.FileSystem.OutputFolders.OutputFolder;
+        RecursivelyRemoveEmptyDirectories(outputFolder);
 
         // If the output folder is empty, remove it
-        if (Directory.GetFiles(convert.OutputFolder).Length == 0 && Directory.GetDirectories(convert.OutputFolder).Length == 0)
+        if (Directory.GetFiles(outputFolder).Length == 0 && Directory.GetDirectories(outputFolder).Length == 0)
         {
-            Directory.Delete(convert.OutputFolder);
+            Directory.Delete(outputFolder);
         }
     }
 
@@ -102,28 +105,31 @@ public static class CacheJsonGenerator
 
     static void GenerateCacheJsonInternal(ConvertUbiArtToUnity convert)
     {
+        OutputFolders outputFolders = convert.FileSystem.OutputFolders;
+
         // Generate the json.cache file
-        string cachexJsonPath = Path.Combine(convert.OutputXFolder, "json.cache");
-        string cachexJson = JDSongFactory.CacheJson(convert.CacheNumber, convert.SongID);
+        string cachexJsonPath = Path.Combine(outputFolders.MapFolder, "json.cache");
+        uint cacheNumber = outputFolders.CacheNumber;
+        string cachexJson = JDSongFactory.CacheJson(cacheNumber, convert.SongID);
         File.WriteAllText(cachexJsonPath, cachexJson);
 
-        string audioName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "Audio_opus"))[0]);
-        string audioPreviewName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.Output0Folder, "AudioPreview_opus"))[0]);
-        string coverName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.Output0Folder, "Cover"))[0]);
-        string coachesSmallName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "CoachesSmall"))[0]);
-        string coachesLargeName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "CoachesLarge"))[0]);
-        string mapPackageName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "MapPackage"))[0]);
-        string videoName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.OutputXFolder, "Video_HIGH_vp9_webm"))[0]);
-        string videoPreviewName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.Output0Folder, "VideoPreview_MID_vp9_webm"))[0]);
+        string audioName = Path.GetFileName(Directory.GetFiles(outputFolders.AudioFolder)[0]);
+        string audioPreviewName = Path.GetFileName(Directory.GetFiles(outputFolders.PreviewAudioFolder)[0]);
+        string coverName = Path.GetFileName(Directory.GetFiles(outputFolders.CoverFolder)[0]);
+        string coachesLargeName = Path.GetFileName(Directory.GetFiles(outputFolders.CoachesLargeFolder)[0]);
+        string coachesSmallName = Path.GetFileName(Directory.GetFiles(outputFolders.CoachesSmallFolder)[0]);
+        string mapPackageName = Path.GetFileName(Directory.GetFiles(outputFolders.MapPackageFolder)[0]);
+        string videoName = Path.GetFileName(Directory.GetFiles(outputFolders.VideoFolder)[0]);
+        string videoPreviewName = Path.GetFileName(Directory.GetFiles(outputFolders.PreviewVideoFolder)[0]);
 
         string? songTitleLogoName = null;
-        if (Directory.Exists(Path.Combine(convert.Output0Folder, "songTitleLogo")))
+        if (Directory.Exists(outputFolders.SongTitleLogoFolder))
         {
-            songTitleLogoName = Path.GetFileName(Directory.GetFiles(Path.Combine(convert.Output0Folder, "songTitleLogo"))[0]);
+            songTitleLogoName = Path.GetFileName(Directory.GetFiles(outputFolders.SongTitleLogoFolder)[0]);
         }
 
-        string cachingStatusPath = Path.Combine(convert.OutputFolder, "cachingStatus.json");
-        JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, convert.CacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
+        string cachingStatusPath = Path.Combine(outputFolders.OutputFolder, "cachingStatus.json");
+        JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
 
         Dictionary<string, JDSong> caching = new()
         {

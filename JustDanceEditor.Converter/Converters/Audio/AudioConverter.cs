@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 
+using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
@@ -32,16 +33,16 @@ public static class AudioConverter
     {
         Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
-        SoundSetClip[] audioClips = GetAudioClips(convert.SongData.Clips);
+        SoundSetClip[] audioClips = GetAudioClips([.. convert.SongData.Clips]);
 
-        string mainSongPath = GetMainSongPath(convert);
+        CookedFile mainSongPath = GetMainSongPath(convert);
         string newMainSongPath = ConvertMainSong(convert, mainSongPath);
 
         Logger.Log($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (mainSongPath.StartsWith(convert.InputMediaFolder, StringComparison.OrdinalIgnoreCase))
+        if (mainSongPath.FullPath.StartsWith(convert.FileSystem.InputFolders.MediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
-            File.Move(newMainSongPath, Path.Combine(convert.TempAudioFolder, "merged.wav"), true);
+            File.Move(newMainSongPath, Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.wav"), true);
         else
         {
             // Else, convert and merge the audio files
@@ -62,13 +63,13 @@ public static class AudioConverter
         float startTime = convert.SongData.GetPreviewStartTime();
 
         // Generate the preview audio file
-        string previewOpusPath = Path.Combine(convert.TempAudioFolder, "preview.opus");
+        string previewOpusPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "preview.opus");
 
         GeneratePreviewAudioFFMpeg(opusPath, previewOpusPath, startTime);
 
         // Move the preview audio file to the output folder
         string md5 = Download.GetFileMD5(previewOpusPath);
-        string outputFolder = Path.Combine(convert.Output0Folder, "AudioPreview_opus");
+        string outputFolder = convert.FileSystem.OutputFolders.PreviewAudioFolder;
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);
         File.Move(previewOpusPath, outputOpusPath, true);
@@ -100,7 +101,7 @@ public static class AudioConverter
     {
         // Copy the Opus file to the output folder
         string md5 = Download.GetFileMD5(opusPath);
-        string outputFolder = Path.Combine(convert.OutputXFolder, "Audio_opus");
+        string outputFolder = convert.FileSystem.OutputFolders.AudioFolder;
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);
         File.Move(opusPath, outputOpusPath, true);
@@ -109,8 +110,8 @@ public static class AudioConverter
     static string ConvertToOpus(ConvertUbiArtToUnity convert)
     {
         // FFMpeg to convert the merged audio file to Opus
-        string mergedWavPath = Path.Combine(convert.TempAudioFolder, "merged.wav");
-        string opusPath = Path.Combine(convert.TempAudioFolder, "merged.opus");
+        string mergedWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.wav");
+        string opusPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.opus");
 
         ConvertToOpusFFMpeg(mergedWavPath, opusPath);
 
@@ -147,61 +148,36 @@ public static class AudioConverter
     {
         foreach (SoundSetClip audioVibrationClip in audioClips)
         {
-            string fileName = Path.GetFileNameWithoutExtension(audioVibrationClip.SoundSetPath);
-            string wavPath = Path.Combine(convert.CacheFolder, "audio", "amb", $"{fileName}.wav.ckd");
-            string newWavPath = Path.Combine(convert.TempAudioFolder, $"{fileName}.wav");
-            audioConverter.Convert(wavPath, newWavPath);
+            // Change extension to .wav
+            string relativePath = Path.ChangeExtension(audioVibrationClip.SoundSetPath, ".wav");
+            string wavPath = convert.FileSystem.GetFilePath(relativePath);
+            string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, Path.GetFileName(wavPath));
+            if (!File.Exists(newWavPath))
+                audioConverter.Convert(wavPath, newWavPath).Wait();
         }
     }
 
     static string ConvertMainSong(ConvertUbiArtToUnity convert, string mainSongPath)
     {
-        string newMainSongPath = Path.Combine(convert.TempAudioFolder, "mainSong.wav");
+        string newMainSongPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "mainSong.wav");
         audioConverter.Convert(mainSongPath, newMainSongPath).Wait();
         return newMainSongPath;
     }
 
-    static string GetMainSongPath(ConvertUbiArtToUnity convert)
+    static CookedFile GetMainSongPath(ConvertUbiArtToUnity convert)
     {
-        List<string> ending = ["alt", "vip", "altretake"];
-        List<string> audios = [];
-        // Is there any *.ogg file in the media folder?
-        string dir = convert.InputMediaFolder;
-        if (Directory.Exists(dir))
-            audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
-
-        dir = Path.Combine(convert.CacheFolder, "audio");
-        if (Directory.Exists(Path.Combine(dir)))
-            audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.wav.ckd"));
-
-        dir = Path.Combine(convert.WorldFolder, "audio");
-        if (Directory.Exists(Path.Combine(dir)))
-            audios.AddRange(Directory.GetFiles(Path.Combine(dir), "*.ogg"));
-
-        // If the songname ends with alt, try finding it without alt
-        foreach (string end in ending)
+        // First we check the media folder
+        if (convert.FileSystem.GetFolderPath(convert.FileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {
-            string songName = convert.SongData.Name;
-            if (!songName.EndsWith(end, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            songName = songName[..^end.Length];
-
-            dir = convert.InputMediaFolder.Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-            if (Directory.Exists(dir))
-                audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
-
-            dir = Path.Combine(convert.CacheFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-            if (Directory.Exists(dir))
-                audios.AddRange(Directory.GetFiles(dir, "*.wav.ckd"));
-
-            dir = Path.Combine(convert.WorldFolder, "audio").Replace(convert.SongData.Name, songName, StringComparison.OrdinalIgnoreCase);
-            if (Directory.Exists(dir))
-                audios.AddRange(Directory.GetFiles(dir, "*.ogg"));
+            string[] oggFiles = Directory.GetFiles(mediaFolder, "*.ogg", SearchOption.AllDirectories);
+            if (oggFiles.Length > 0)
+                return new CookedFile(oggFiles.First());
         }
 
-        if (audios.Count > 0)
-            return audios.First();
+        string relativePath = convert.SongData.MusicTrack.COMPONENTS[0].trackData.path;
+
+        if (convert.FileSystem.GetFilePath(relativePath, out CookedFile? mainSongPath))
+            return mainSongPath;
 
         throw new Exception("Main song not found");
     }
@@ -223,7 +199,7 @@ public static class AudioConverter
         foreach (SoundSetClip clip in audioClips)
         {
             string fileName = Path.GetFileNameWithoutExtension(clip.SoundSetPath);
-            string wavPath = Path.Combine(convert.TempAudioFolder, $"{fileName}.wav");
+            string wavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, $"{fileName}.wav");
 
             // If the wav file doesn't exist, skip it
             if (!File.Exists(wavPath))
@@ -236,7 +212,7 @@ public static class AudioConverter
         }
 
         // Call the helper to merge audio files
-        Helpers.Audio.MergeAudioFiles(audioFiles.ToArray(), Path.Combine(convert.TempAudioFolder, "merged.wav"));
+        Helpers.Audio.MergeAudioFiles(audioFiles.ToArray(), Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.wav"));
 
         stopwatch.Stop();
         Logger.Log($"Finished merging audio files in {stopwatch.ElapsedMilliseconds}ms");

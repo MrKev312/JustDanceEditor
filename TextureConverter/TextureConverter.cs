@@ -15,6 +15,16 @@ public class TextureConverter
         if (!File.Exists(inputPath))
             throw new FileNotFoundException("Input file not found!", inputPath);
 
+        try
+        {
+            // Try loading the file as an image
+            return Image.Load<Bgra32>(inputPath);
+        }
+        catch (Exception)
+        {
+            // If it's not an image, continue
+        }
+
         // Open stream and read header
         FileStream fileStream = File.OpenRead(inputPath);
         BinaryReader reader = new(fileStream);

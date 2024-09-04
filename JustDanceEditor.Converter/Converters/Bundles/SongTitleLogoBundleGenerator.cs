@@ -10,6 +10,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using TextureConverter;
+using JustDanceEditor.Converter.Files;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 
@@ -33,22 +34,17 @@ public static class SongTitleBundleGenerator
     static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)
     {
         // Does the following exist?
-        string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
-        if (!File.Exists(logoPath))
+        //string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
+        FileSystem fs = convert.FileSystem;
+
+        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder), out CookedFile? logoPath) || logoPath == null)
         {
             //Console.WriteLine("No songTitleLogo.png found, skipping...");
-            Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Warning);
+            Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
             return;
         }
 
-        string[] songTitleLogoPackagePaths = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "songTitleLogo"));
-        if (songTitleLogoPackagePaths.Length == 0)
-        {
-            Logger.Log("No songTitleLogo bundle found despite songTitleLogo.png existing, skipping...", LogLevel.Warning);
-            return;
-        }
-
-        string songTitleLogoPackagePath = songTitleLogoPackagePaths[0];
+        string songTitleLogoPackagePath = fs.TemplateFiles.SongTitleLogo;
 
         Logger.Log("Converting SongTitleLogo...");
 
@@ -90,10 +86,7 @@ public static class SongTitleBundleGenerator
         {
             byte[] encImageBytes;
             TextureFormat fmt = TextureFormat.DXT5Crunched;
-            byte[] platformBlob = [];
-            uint platform = afile.Metadata.TargetPlatform;
             int mips = 1;
-            string path = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
 
             encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
@@ -125,7 +118,7 @@ public static class SongTitleBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = Path.Combine(convert.Output0Folder, "songTitleLogo");
+        string outputPackagePath = fs.OutputFolders.SongTitleLogoFolder;
         bun.SaveAndCompress(outputPackagePath);
     }
 }

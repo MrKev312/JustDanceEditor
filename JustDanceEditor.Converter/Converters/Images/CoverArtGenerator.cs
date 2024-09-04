@@ -1,11 +1,13 @@
 ﻿using HtmlAgilityPack;
 
+using JustDanceEditor.Logging;
+using JustDanceEditor.Converter.Files;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
-using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -15,19 +17,14 @@ public static class CoverArtGenerator
     {
         string[] paths =
         [
-            Path.Combine(convert.InputMenuArtFolder, "cover.png"),
-            Path.Combine(convert.MenuArtFolder, "cover.png"),
-            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_online.tga.png"),
-            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_generic.tga.png")
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, "cover.png"),
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.png"),
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.png")
         ];
 
         foreach (string path in paths)
         {
             if (!File.Exists(path))
-                continue;
-
-            // If the hash is "39c8e22496850ada4b849b0d28d76936", skip it
-            if (Helpers.Download.GetFileMD5(path) == "39c8e22496850ada4b849b0d28d76936")
                 continue;
 
             Image<Rgba32>? image = TryLoadImage(path);
@@ -131,9 +128,9 @@ public static class CoverArtGenerator
         Image<Rgba32>? coverImage = GetBackground(convert);
 
         // Then we load in the albumcoach
-        string albumCoachPath = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.tga.png");
+        string albumCoachPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.tga.png");
         Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath);
-        albumCoach ??= TryLoadImage(Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_Coach_1.tga.png"));
+        albumCoach ??= TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_1.tga.png"));
         albumCoach ??= new Image<Rgba32>(1024, 1024);
 
         albumCoach.Mutate(x => x.Resize(1024, 1024));
@@ -157,8 +154,8 @@ public static class CoverArtGenerator
     {
         // First we load in the background
         string[] paths = [
-            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png"),
-            Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_banner_bkg.tga.png")
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png"),
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_banner_bkg.tga.png")
         ];
 
         Image<Rgba32>? coverImage = null;

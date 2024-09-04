@@ -32,7 +32,7 @@ public static class CoverBundleGenerator
 
     static void GenerateCoverInternal(ConvertUbiArtToUnity convert)
     {
-        string coverPackagePath = Directory.GetFiles(Path.Combine(convert.TemplateFolder, "Cover"))[0];
+        string coverPackagePath = convert.FileSystem.TemplateFiles.Cover;
 
         Logger.Log("Converting Cover...");
 
@@ -67,14 +67,14 @@ public static class CoverBundleGenerator
         coverImage ??= CoverArtGenerator.GenerateOwnCover(convert);
 
         // Save the image in the temp folder
-        coverImage.Save(Path.Combine(convert.TempMenuArtFolder, $"Cover_{convert.SongData.Name}.png"));
+        coverImage.Save(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"Cover_{convert.SongData.Name}.png"));
 
         // Now we can encode the image
         {
             byte[] encImageBytes;
             TextureFormat fmt = TextureFormat.DXT1Crunched;
             int mips = 1;
-            string path = Path.Combine(convert.TempMenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
+            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
 
             encImageBytes = TextureImportExport.Import(coverImage!, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
@@ -106,7 +106,7 @@ public static class CoverBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = Path.Combine(convert.Output0Folder, "Cover");
+        string outputPackagePath = convert.FileSystem.OutputFolders.CoverFolder;
         bun.SaveAndCompress(outputPackagePath);
     }
 }

@@ -53,6 +53,8 @@ public static class Logger
                 Console.ForegroundColor = ConsoleColor.White;
                 break;
             case LogLevel.Important:
+                Console.ForegroundColor = ConsoleColor.Green;
+                break;
             case LogLevel.Warning:
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 break;
