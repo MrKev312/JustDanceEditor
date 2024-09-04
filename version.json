@@ -7,10 +7,5 @@
   ],
   "release": {
     "firstUnstableTag": "preview"
-  },
-  "cloudBuild": {
-    "buildNumber": {
-      "enabled": true
-    }
   }
 }
