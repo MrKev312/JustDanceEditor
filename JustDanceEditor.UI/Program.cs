@@ -15,8 +15,10 @@ internal class Program
 
         Console.WriteLine("Just Dance Editor");
         Console.WriteLine("Made by: MrKev312");
-        
-        string message = $"Version: {Assembly.GetExecutingAssembly().GetName().Version}-preview3";
+
+        // Get version from nerdbank.gitversioning
+        string message = $"Version: {Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion}";
+
         Logger.Log(message, LogLevel.Debug);
         Console.WriteLine(message);
         message = $"Current Directory: {Environment.CurrentDirectory}";
