@@ -156,7 +156,7 @@ public class ConverterDialogue
 
     static string AskMultiInputFolder()
     {
-        string inputPath = "";
+        string inputPath;
         while (true)
         {
             inputPath = Question.AskFolder("Enter the path to the folder containing the cache and world folders", true);

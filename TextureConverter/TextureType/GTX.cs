@@ -213,10 +213,9 @@ public class GTX
 
         // Using pfim, we can convert from DDS to PNG
         using IImage image = Pfimage.FromStream(memoryStream);
-        if (image.Format != ImageFormat.Rgba32)
-            throw new Exception("Image is not in Rgba32 format!");
-
-        return Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
+        return image.Format == ImageFormat.Rgba32
+            ? Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height)
+            : throw new Exception("Image is not in Rgba32 format!");
     }
 
     public static Image<Bgra32> GetImage(string inputPath)
@@ -287,7 +286,7 @@ public class GTX
             texInfo.AA,
             0);
 
-        uint bpp = GetBPP(texInfo.Format);
+        //uint bpp = GetBPP(texInfo.Format);
 
         if (!Enum.IsDefined(typeof(GX2SurfaceFormat), texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
             throw new Exception("Invalid format!");
@@ -300,14 +299,14 @@ public class GTX
         if (tilingDepth != 1)
             throw new Exception("Unsupported tiling depth!");
 
-        uint blkWidth = 1;
-        uint blkHeight = 1;
+        //uint blkWidth = 1;
+        //uint blkHeight = 1;
 
-        if (BCnFormats.Contains(texInfo.Format))
-        {
-            blkWidth = 4;
-            blkHeight = 4;
-        }
+        //if (BCnFormats.Contains(texInfo.Format))
+        //{
+        //    blkWidth = 4;
+        //    blkHeight = 4;
+        //}
 
         byte[][] result = new byte[texInfo.MipCount][];
 
@@ -330,7 +329,7 @@ public class GTX
                 data = mipData[(int)mipOffset..(int)(mipOffset + surfOut.SurfSize)];
             }
 
-            byte[] mipResult = Deswizzle(mipWidth, mipHeight, 1, texInfo.Format, 0, texInfo.Use, surfOut.TileMode,
+            byte[] mipResult = Deswizzle(mipWidth, mipHeight, 1, texInfo.Format, 0, texInfo.Use,
                 texInfo.Swizzle, surfOut.Pitch, surfOut.Bpp, 0, 0, data);
 
             result[level] = mipResult;
@@ -341,7 +340,7 @@ public class GTX
         return (result, hdr);
     }
 
-    private static byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint tileMode, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
+    private static byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
     {
         return SwizzleSurface(mipWidth, mipHeight, depth, format, aa, use, swizzle, pitch, bpp, slice, sample, data, false);
     }
@@ -772,8 +771,8 @@ public class GTX
 
         uint returnCode = 0;
 
-        uint width, height, bpp, elemMode = 0;
-        uint expandY, expandX;
+        uint elemMode;
+        uint expandX;
 
         if (pIn.Bpp > 0x80)
             returnCode = 3;
@@ -783,25 +782,15 @@ public class GTX
 
             ComputeMipLevel();
 
-            width = pIn.Width;
-            height = pIn.Height;
-            bpp = pIn.Bpp;
-            expandX = 1;
-            expandY = 1;
-
             pOut.PixelBits = pIn.Bpp;
 
             if (pIn.Format != 0)
             {
-                bpp = formatExInfo[pIn.Format * 4];
                 expandX = formatExInfo[(pIn.Format * 4) + 1];
-                expandY = formatExInfo[(pIn.Format * 4) + 2];
                 elemMode = formatExInfo[(pIn.Format * 4) + 3];
 
                 if (elemMode == 4 && expandX == 3 && pIn.TileMode == 1)
                     pIn.Flags |= 0x200;
-
-                bpp = AdjustSurfaceInfo(elemMode, expandX, expandY, bpp, width, height);
             }
             else if (pIn.Bpp != 0)
             {
@@ -820,8 +809,8 @@ public class GTX
                 pOut.PixelPitch = pOut.Pitch;
                 pOut.PixelHeight = pOut.Height;
 
-                if (pIn.Format != 0 && (((pIn.Flags >> 9) & 1) == 0 || pIn.MipLevel == 0))
-                    bpp = RestoreSurfaceInfo(elemMode, expandX, expandY, bpp);
+                //if (pIn.Format != 0 && (((pIn.Flags >> 9) & 1) == 0 || pIn.MipLevel == 0))
+                //    bpp = RestoreSurfaceInfo(elemMode, expandX, expandY, bpp);
 
                 if (((pIn.Flags >> 5) & 1) != 0)
                     pOut.SliceSize = (uint)pOut.SurfSize;
@@ -839,47 +828,6 @@ public class GTX
                 pOut.SliceTileMax = ((pOut.Height * pOut.Pitch) >> 6) - 1;
             }
         }
-    }
-
-    private uint RestoreSurfaceInfo(uint elemMode, uint expandX, uint expandY, uint bpp)
-    {
-        uint width, height;
-
-        if (pOut.PixelPitch != 0 && pOut.PixelHeight != 0)
-        {
-            width = pOut.PixelPitch;
-            height = pOut.PixelHeight;
-
-            if (expandX > 1 || expandY > 1)
-            {
-                if (elemMode == 4)
-                {
-                    width /= expandX;
-                    height /= expandY;
-                }
-
-                else
-                {
-                    width *= expandX;
-                    height *= expandY;
-                }
-            }
-
-            pOut.PixelPitch = Math.Max(1, width);
-            pOut.PixelHeight = Math.Max(1, height);
-        }
-
-        if (bpp == 0)
-            return 0;
-
-        return elemMode switch
-        {
-            4 => expandY * expandX * bpp,
-            5 or 6 => bpp / expandX / expandY,
-            9 or 12 => 64,
-            10 or 11 or 13 => 128,
-            _ => bpp,
-        };
     }
 
     public enum AddrTileMode
@@ -1120,13 +1068,9 @@ public class GTX
         uint heightAlign = macroTileHeight;
         uint macroTileBytes = numSamples * (((bpp * macroTileHeight * macroTileWidth) + 7) >> 3);
 
-        uint baseAlign;
-
-        if (thickness == 1)
-            baseAlign = Math.Max(macroTileBytes, ((numSamples * heightAlign * bpp * pitchAlign) + 7) >> 3);
-        else
-            baseAlign = Math.Max(256, ((4 * heightAlign * bpp * pitchAlign) + 7) >> 3);
-
+        uint baseAlign = thickness == 1
+            ? Math.Max(macroTileBytes, ((numSamples * heightAlign * bpp * pitchAlign) + 7) >> 3)
+            : Math.Max(256, ((4 * heightAlign * bpp * pitchAlign) + 7) >> 3);
         uint microTileBytes = ((thickness * numSamples * (bpp << 6)) + 7) >> 3;
         uint numSlicesPerMicroTile = microTileBytes < 2048 ? 1 : microTileBytes / 2048;
 
@@ -1223,9 +1167,9 @@ public class GTX
         uint expTileMode = tileMode;
         uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
 
-        uint baseAlign, pitchAlign, heightAlign, macroWidth, macroHeight;
+        uint baseAlign, pitchAlign, heightAlign;
         uint bankSwappedWidth, pitchAlignFactor;
-        uint result, pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign;
+        uint result, pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pDepthAlign;
 
         if (mipLevel != 0)
         {
@@ -1264,8 +1208,6 @@ public class GTX
             baseAlign = tup.Item1;
             pitchAlign = tup.Item2;
             heightAlign = tup.Item3;
-            macroWidth = tup.Item4;
-            macroHeight = tup.Item5;
 
             bankSwappedWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
 
@@ -1290,8 +1232,6 @@ public class GTX
             pSurfSize = ((expHeight * expPitch * expNumSlices * bpp * numSamples) + 7) / 8;
             pTileModeOut = expTileMode;
             pBaseAlign = baseAlign;
-            pPitchAlign = pitchAlign;
-            pHeightAlign = heightAlign;
             pDepthAlign = microTileThickness;
             result = valid;
         }
@@ -1304,18 +1244,13 @@ public class GTX
                 flags,
                 numSamples);
 
-            baseAlign = tup.Item1;
             pitchAlign = tup.Item2;
             heightAlign = tup.Item3;
-            macroWidth = tup.Item4;
-            macroHeight = tup.Item5;
 
             pitchAlignFactor = Math.Max(1, 32 / bpp);
 
             if (expPitch < pitchAlign * pitchAlignFactor || expHeight < heightAlign)
             {
-                expTileMode = 2;
-
                 uint[] microTileInfo = ComputeSurfaceInfoMicroTiled(
                     2,
                     bpp,
@@ -1334,8 +1269,6 @@ public class GTX
                 pSurfSize = microTileInfo[4];
                 pTileModeOut = microTileInfo[5];
                 pBaseAlign = microTileInfo[6];
-                pPitchAlign = microTileInfo[7];
-                pHeightAlign = microTileInfo[8];
                 pDepthAlign = microTileInfo[9];
             }
 
@@ -1350,8 +1283,6 @@ public class GTX
                 baseAlign = tup.Item1;
                 pitchAlign = tup.Item2;
                 heightAlign = tup.Item3;
-                macroWidth = tup.Item4;
-                macroHeight = tup.Item5;
 
                 bankSwappedWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
                 if (bankSwappedWidth > pitchAlign)
@@ -1376,8 +1307,6 @@ public class GTX
 
                 pTileModeOut = expTileMode;
                 pBaseAlign = baseAlign;
-                pPitchAlign = pitchAlign;
-                pHeightAlign = heightAlign;
                 pDepthAlign = microTileThickness;
                 result = valid;
             }
@@ -1724,66 +1653,6 @@ public class GTX
             1);
     }
 
-    private uint AdjustSurfaceInfo(uint elemMode, uint expandX, uint expandY, uint bpp, uint width, uint height)
-    {
-        uint bBCnFormat = 0;
-        uint widtha, heighta;
-
-        switch (elemMode)
-        {
-            case 9:
-            case 10:
-            case 11:
-            case 12:
-            case 13:
-                if (bpp != 0)
-                    bBCnFormat = 1;
-
-                break;
-        }
-
-        if (width != 0 && height != 0)
-        {
-            if (expandX > 1 || expandY > 1)
-            {
-                if (elemMode == 4)
-                {
-                    widtha = expandX * width;
-                    heighta = expandY * height;
-                }
-                else if (bBCnFormat != 0)
-                {
-                    widtha = width / expandX;
-                    heighta = height / expandY;
-                }
-                else
-                {
-                    widtha = (width + expandX - 1) / expandX;
-                    heighta = (height + expandY - 1) / expandY;
-                }
-
-                pIn.Width = Math.Max(1, widtha);
-                pIn.Height = Math.Max(1, heighta);
-            }
-        }
-
-        if (bpp != 0)
-        {
-            pIn.Bpp = elemMode switch
-            {
-                4 => bpp / expandX / expandY,
-                5 or 6 => expandY * expandX * bpp,
-                9 or 12 => 64,
-                10 or 11 or 13 => 128,
-                _ => bpp,
-            };
-
-            return pIn.Bpp;
-        }
-
-        return 0;
-    }
-
     public static (uint Bpp, uint ExpandX, uint ExpandY, uint ElemMode) GetBitsPerPixel(int format)
     {
         int fmtIdx = format * 4;
@@ -1792,23 +1661,18 @@ public class GTX
 
     public void ComputeMipLevel()
     {
-        uint slices = 0;
-        uint height = 0;
-        uint width = 0;
-        uint hwlHandled = 0;
-
         if (49 <= pIn.Format && pIn.Format <= 55 && (pIn.MipLevel == 0 || ((pIn.Flags >> 12) & 1) != 0))
         {
             pIn.Width = PowTwoAlign(pIn.Width, 4);
             pIn.Height = PowTwoAlign(pIn.Height, 4);
         }
 
-        hwlHandled = HwlComputeMipLevel();
+        uint hwlHandled = HwlComputeMipLevel();
         if (hwlHandled == 0 && pIn.MipLevel > 0 && ((pIn.Flags >> 12) & 1) != 0)
         {
-            width = Math.Max(1, pIn.Width >> (int)pIn.MipLevel);
-            height = Math.Max(1, pIn.Height >> (int)pIn.MipLevel);
-            slices = Math.Max(1, pIn.NumSlices);
+            uint width = Math.Max(1, pIn.Width >> (int)pIn.MipLevel);
+            uint height = Math.Max(1, pIn.Height >> (int)pIn.MipLevel);
+            uint slices = Math.Max(1, pIn.NumSlices);
 
             if (((pIn.Flags >> 4) & 1) == 0)
             {
