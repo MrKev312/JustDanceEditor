@@ -25,7 +25,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore JustDanceEditor.UI/JustDanceEditor.UI.csproj
     - name: Build
-      run: dotnet build JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-restore --configuration Release --os win-x64
+      run: dotnet build JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-restore --configuration Release --os win
     - name: Test
       run: dotnet test JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-build --verbosity normal
     - name: Upload release artifact
