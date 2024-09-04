@@ -23,11 +23,11 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore JustDanceEditor.UI/JustDanceEditor.UI.csproj
     - name: Build
-      run: dotnet build --no-restore --configuration Release --os win-x64
+      run: dotnet build JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-restore --configuration Release --os win-x64
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test JustDanceEditor.UI/JustDanceEditor.UI.csproj --no-build --verbosity normal
     - name: Upload release artifact
       uses: actions/upload-artifact@v4
       with:
