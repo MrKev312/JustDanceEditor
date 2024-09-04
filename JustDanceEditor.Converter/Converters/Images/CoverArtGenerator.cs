@@ -1,7 +1,6 @@
 ﻿using HtmlAgilityPack;
 
 using JustDanceEditor.Logging;
-using JustDanceEditor.Converter.Files;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -128,9 +127,9 @@ public static class CoverArtGenerator
         Image<Rgba32>? coverImage = GetBackground(convert);
 
         // Then we load in the albumcoach
-        string albumCoachPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.tga.png");
+        string albumCoachPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.png");
         Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath);
-        albumCoach ??= TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_1.tga.png"));
+        albumCoach ??= TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_1.png"));
         albumCoach ??= new Image<Rgba32>(1024, 1024);
 
         albumCoach.Mutate(x => x.Resize(1024, 1024));
@@ -152,23 +151,9 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32> GetBackground(ConvertUbiArtToUnity convert)
     {
-        // First we load in the background
-        string[] paths = [
-            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png"),
-            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_banner_bkg.tga.png")
-        ];
-
-        Image<Rgba32>? coverImage = null;
-        foreach (string path in paths)
-        {
-            if (File.Exists(path))
-            {
-                coverImage = TryLoadImage(path);
-                
-                if (coverImage is not null)
-                    break;
-            }
-        }
+        // Try either the map or banner background
+        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.png"));
+        coverImage ??= ProcessBanner(convert);
 
         if (coverImage is null)
         {
@@ -183,5 +168,78 @@ public static class CoverArtGenerator
         coverImage.Mutate(x => x.Resize(2048, 1024));
 
         return coverImage;
+    }
+
+    public static Image<Rgba32>? ProcessBanner(ConvertUbiArtToUnity convert)
+    {
+        string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_banner_bkg.png");
+        using Image<Rgba32>? banner = TryLoadImage(path);
+        if (banner is null)
+            return null;
+
+        int width = banner.Width;
+        int height = banner.Height;
+
+        // If the engine is 2019 or newer, use 2a
+        // Arrays of Argb values
+        float[] colorsA;
+        float[] colorsB;
+        if (convert.SongData.EngineVersion >= UbiArt.JDVersion.JD2019)
+        {
+            colorsA = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1a;
+            colorsB = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1b;
+        }
+        else
+        {
+            colorsA = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2a;
+            colorsB = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2b;
+        }
+
+        // Create a new image with the same size
+        Rgba32 colorA = new((byte)(colorsA[1] * 255), (byte)(colorsA[2] * 255), (byte)(colorsA[3] * 255), (byte)(colorsA[0] * 255));
+        Rgba32 colorB = new((byte)(colorsB[1] * 255), (byte)(colorsB[2] * 255), (byte)(colorsB[3] * 255), (byte)(colorsB[0] * 255));
+
+        // Create a new image with the same size, filled with the first color
+        Image<Rgba32> resultImage = new(width, height);
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                // Get the color of the pixel
+                Rgba32 pixel = banner[x, y];
+
+                // Get weighted average of the two colors based on the blue channel
+                float weight = pixel.B / 255f;
+                Rgba32 newColor = GetWeightedAverage(colorA, colorB, weight);
+
+                // Add the green channel of the pixel to the new color
+                newColor = AddGreenChannel(newColor, pixel.G);
+
+                // Set the new color
+                resultImage[x, y] = newColor;
+            }
+        }
+
+        return resultImage;
+
+        static Rgba32 GetWeightedAverage(Rgba32 colorA, Rgba32 colorB, float weight)
+        {
+            return new(
+                (byte)((colorA.R * weight) + (colorB.R * (1 - weight))),
+                (byte)((colorA.G * weight) + (colorB.G * (1 - weight))),
+                (byte)((colorA.B * weight) + (colorB.B * (1 - weight))),
+                (byte)((colorA.A * weight) + (colorB.A * (1 - weight)))
+            );
+        }
+
+        static Rgba32 AddGreenChannel(Rgba32 color, byte greenValue)
+        {
+            return new(
+                (byte)Math.Min(color.R + greenValue, byte.MaxValue),
+                (byte)Math.Min(color.G + greenValue, byte.MaxValue),
+                (byte)Math.Min(color.B + greenValue, byte.MaxValue),
+                color.A // Keep the alpha channel unchanged
+            );
+        }
     }
 }
