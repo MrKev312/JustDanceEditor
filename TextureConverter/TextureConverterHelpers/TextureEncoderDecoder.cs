@@ -37,13 +37,13 @@ public class TextureEncoderDecoder
             IntPtr dataInPtr = dataHandle.AddrOfPinnedObject(); // Get the pointer to the pinned array
 
             // Call the PInvoke method
-            IntPtr dataOutPtr = PInvoke.EncodeByCrunchUnity(out uint size, dataInPtr, (int)format, quality, (uint)width, (uint)height, 1, mips);
-
-            if (size == 0)
-                return [];
+            IntPtr dataOutPtr = PInvoke.EncodeByCrunchUnitySafe(out uint size, dataInPtr, (int)format, quality, (uint)width, (uint)height, 1, mips);
 
             dest = new byte[size];
             Marshal.Copy(dataOutPtr, dest, 0, (int)size); // Copy the unmanaged memory to the managed array
+
+            // Free the unmanaged memory
+            Marshal.FreeCoTaskMem(dataOutPtr);
         }
         finally
         {

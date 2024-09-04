@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34309.116
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TexToolWrap", "TexToolWrap\TexToolWrap.vcxproj", "{00E173EB-6B49-4055-A00E-18DBB1283C5B}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.UI", "JustDanceEditor.UI\JustDanceEditor.UI.csproj", "{BCC6531C-BF0C-4C2E-8AE4-E9740D1996C1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Converter", "JustDanceEditor.Converter\JustDanceEditor.Converter.csproj", "{53EF7C3A-1FC5-4E92-AF70-94C78C504DBD}"
@@ -25,18 +23,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|Any CPU.Build.0 = Debug|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|x64.ActiveCfg = Debug|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|x64.Build.0 = Debug|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|x86.ActiveCfg = Debug|Win32
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Debug|x86.Build.0 = Debug|Win32
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|Any CPU.ActiveCfg = Release|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|Any CPU.Build.0 = Release|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|x64.ActiveCfg = Release|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|x64.Build.0 = Release|x64
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|x86.ActiveCfg = Release|Win32
-		{00E173EB-6B49-4055-A00E-18DBB1283C5B}.Release|x86.Build.0 = Release|Win32
 		{BCC6531C-BF0C-4C2E-8AE4-E9740D1996C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BCC6531C-BF0C-4C2E-8AE4-E9740D1996C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCC6531C-BF0C-4C2E-8AE4-E9740D1996C1}.Debug|x64.ActiveCfg = Debug|Any CPU
