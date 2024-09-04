@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <map>
 #include <algorithm>
+// For CoTaskMemAlloc
+#include <Objbase.h>
 
 #if defined(_MSC_VER)
 	#define EXPORT extern "C" __declspec(dllexport)
@@ -18,7 +20,7 @@
 
 // todo: we need to use two different versions of crunch: the original and the unity fork.
 // currently we just use the unity fork. need to look into when and where to use the original one.
-EXPORT unsigned char* EncodeByCrunchUnity(unsigned int* returnLength, void* data, int mode, int level, unsigned int width, unsigned int height, unsigned int ver, int mips) {
+EXPORT unsigned char* EncodeByCrunchUnity(unsigned int& returnLength, void* data, int mode, int level, unsigned int width, unsigned int height, unsigned int ver, int mips) {
 	crn_comp_params comp_params;
 	comp_params.m_width = width;
 	comp_params.m_height = height;
@@ -64,14 +66,29 @@ EXPORT unsigned char* EncodeByCrunchUnity(unsigned int* returnLength, void* data
 	float actual_bitrate;
 	crn_uint32 output_file_size;
 
-	unsigned char* newData = static_cast<unsigned char*>(crn_compress(comp_params, mip_params, output_file_size, &actual_quality_level, &actual_bitrate));
+	unsigned char* unsafeData = static_cast<unsigned char*>(crn_compress(comp_params, mip_params, output_file_size, &actual_quality_level, &actual_bitrate));
 
-	// if the length is 0, return nullptr
-	*returnLength = output_file_size;
+	if (unsafeData == nullptr)
+		return nullptr;
 
-	if (*returnLength == 0) {
+	if (output_file_size == 0) {
+		delete[] unsafeData;
 		return nullptr;
 	}
+
+	unsigned char* newData = static_cast<unsigned char*>(CoTaskMemAlloc(output_file_size));
+
+	// Check if the allocation failed
+	if (newData == nullptr) {
+		delete[] unsafeData;
+		return nullptr;
+	}
+
+	memcpy(newData, unsafeData, output_file_size);
+	delete[] unsafeData;
+
+	// if the length is 0, return nullptr
+	returnLength = output_file_size;
 
 	return newData;
 }
