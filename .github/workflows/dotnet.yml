@@ -32,4 +32,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: artifact
-        path: JustDanceEditor.UI/bin/Release/net8.0/win-x64/
+        path: JustDanceEditor.UI/bin/Release/net8.0/
