@@ -17,14 +17,14 @@ public static class CoverArtGenerator
     {
         string[] paths =
         [
-            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, "cover.png"),
-            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.png"),
-            Path.Combine(convert.FileSystem.InputFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.png")
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, "cover.png"),
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.png"),
+            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.png")
         ];
 
-        foreach (string relativePath in paths)
+        foreach (string path in paths)
         {
-            if (!convert.FileSystem.GetFilePath(relativePath, out CookedFile? path))
+            if (!File.Exists(path))
                 continue;
 
             Image<Rgba32>? image = TryLoadImage(path);
