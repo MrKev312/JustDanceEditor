@@ -608,7 +608,8 @@ public static class MapPackageBundleGenerator
                         continue;
 
                     if (clip.CoachId >= convert.SongData.CoachCount)
-                        throw new Exception($"CoachId {clip.CoachId} is higher than the amount of coaches in the song ({convert.SongData.CoachCount})");
+                        // Ignore clip
+                        continue;
 
                     string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
