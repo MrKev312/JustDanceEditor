@@ -24,7 +24,7 @@ public class OutputFolders
 
 
     public string MapFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID);
-    public string AudioFolder => Path.Combine(MapFolder, "Audio");
+    public string AudioFolder => Path.Combine(MapFolder, "Audio_opus");
     public string CoachesLargeFolder => Path.Combine(MapFolder, "CoachesLarge");
     public string CoachesSmallFolder => Path.Combine(MapFolder, "CoachesSmall");
     public string MapPackageFolder => Path.Combine(MapFolder, "MapPackage");

@@ -7,11 +7,11 @@ using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
+using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
-using TextureConverter;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
