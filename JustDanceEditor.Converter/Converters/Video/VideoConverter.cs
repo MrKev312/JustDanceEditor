@@ -69,8 +69,8 @@ public static class VideoConverter
         if (videofiles.Length > 0)
             return videofiles[0];
 
-        if (convert.FileSystem.GetFolderPath(Path.Combine(convert.FileSystem.InputFolders.MapWorldFolder, "videoscoach"), out string? coachFolder))
-            videofiles = Directory.GetFiles(coachFolder, "*.webm");
+        videofiles = convert.FileSystem.GetAllFiles(Path.Combine(convert.FileSystem.InputFolders.MapWorldFolder, "videoscoach"), "*.webm")
+            .Select(x => (string)x).ToArray();
         if (videofiles.Length > 0)
             return videofiles[0];
 

@@ -147,6 +147,35 @@ public partial class FileSystem
             : throw new FileNotFoundException($"The file {relativeFilePath} was not found in the input folders.");
     }
 
+    public CookedFile[] GetAllFiles(string relativeFolderPath, string pattern = "*")
+    {
+        List<CookedFile> files = [];
+        string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
+        string[] searchPaths = Directory.GetDirectories(parentFolder);
+
+        foreach (string searchPath in searchPaths)
+        {
+            string[] searchLocations = [
+                searchPath,
+                Path.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                ];
+
+            foreach (string location in searchLocations)
+            {
+                string folder = Path.Combine(location, relativeFolderPath);
+                if (Directory.Exists(folder))
+                {
+                    foreach (string file in Directory.GetFiles(folder, pattern))
+                    {
+                        files.Add(new(file));
+                    }
+                }
+            }
+        }
+
+        return [.. files];
+    }
+
     public bool GetFolderPath(string relativeFolderPath, [MaybeNullWhen(false)] out string folderPath)
     {
         folderPath = null;
