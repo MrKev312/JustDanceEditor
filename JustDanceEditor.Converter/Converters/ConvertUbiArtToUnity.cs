@@ -176,6 +176,13 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Load the file at the karaoke path
         ActorTemplate karaokeActor = JsonSerializer.Deserialize<ActorTemplate>(FileSystem.ReadWithoutNull(karaokeActorFile), options)!;
+
+        if (karaokeActor.COMPONENTS.Length == 0 || karaokeActor.COMPONENTS[0].TapesRack.Length == 0 || karaokeActor.COMPONENTS[0].TapesRack[0].Entries.Length == 0)
+        {
+            Logger.Log("Karaoke tape is empty, skipping...", LogLevel.Important);
+            return;
+        }
+
         string karaokePath = FileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path);
 
         Logger.Log("Loading KaraokeTape");
