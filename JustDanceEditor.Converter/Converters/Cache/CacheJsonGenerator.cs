@@ -32,7 +32,7 @@ public static class CacheJsonGenerator
     static void MergeCachesInternal(ConvertUbiArtToUnity convert)
     {
         // First we load the generated JSON
-        string cachingStatusPath = Path.Combine(convert.FileSystem.OutputFolders.OutputFolder, "cachingStatus.json");
+        string cachingStatusPath = convert.FileSystem.OutputFolders.CachePath;
         Dictionary<string, JDSong> caching = JsonSerializer.Deserialize<Dictionary<string, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
 
         // The one we'll add to is in the existing SD_0000 folder
@@ -74,9 +74,7 @@ public static class CacheJsonGenerator
 
         // If the output folder is empty, remove it
         if (Directory.GetFiles(outputFolder).Length == 0 && Directory.GetDirectories(outputFolder).Length == 0)
-        {
             Directory.Delete(outputFolder);
-        }
     }
 
     static void RecursivelyRemoveEmptyDirectories(string path)
@@ -128,7 +126,7 @@ public static class CacheJsonGenerator
             songTitleLogoName = Path.GetFileName(Directory.GetFiles(outputFolders.SongTitleLogoFolder)[0]);
         }
 
-        string cachingStatusPath = Path.Combine(outputFolders.OutputFolder, "cachingStatus.json");
+        string cachingStatusPath = convert.FileSystem.OutputFolders.CachePath;
         JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
 
         Dictionary<string, JDSong> caching = new()

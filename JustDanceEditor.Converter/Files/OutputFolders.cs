@@ -17,7 +17,7 @@ public class OutputFolders
 
     public string OutputFolder => Path.Combine(fileSystem.ConversionRequest.OutputPath, fileSystem.SongName);
 
-    public string PreviewFolder => Path.Combine(OutputFolder, $"SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID);
+    public string PreviewFolder => Path.Combine(OutputFolder, "SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID);
     public string CoverFolder => Path.Combine(PreviewFolder, "Cover");
     public string PreviewAudioFolder => Path.Combine(PreviewFolder, "AudioPreview_opus");
     public string PreviewVideoFolder => Path.Combine(PreviewFolder, "VideoPreview_MID_vp9_webm");
@@ -31,7 +31,7 @@ public class OutputFolders
     public string SongTitleLogoFolder => Path.Combine(MapFolder, "SongTitleLogo");
     public string VideoFolder => Path.Combine(MapFolder, "Video_HIGH_vp9_webm");
 
-    public string CachingStatusPath => Path.Combine(PreviewFolder, "CachingStatus.json");
+    public string CachingStatusPath => Path.Combine(OutputFolder, "..", "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
     public string CachePath => Path.Combine(OutputFolder, "Cache.json");
 
     private uint InitializeCacheNumber()
