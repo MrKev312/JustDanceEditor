@@ -34,10 +34,9 @@ public static class SongTitleBundleGenerator
     static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)
     {
         // Does the following exist?
-        //string logoPath = Path.Combine(convert.InputMenuArtFolder, "songTitleLogo.png");
         FileSystem fs = convert.FileSystem;
 
-        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder), out CookedFile? logoPath) || logoPath == null)
+        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder, "songTitleLogo.png"), out CookedFile? logoPath) || logoPath == null)
         {
             //Console.WriteLine("No songTitleLogo.png found, skipping...");
             Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
