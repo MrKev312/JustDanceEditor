@@ -208,7 +208,8 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     async Task ConvertMediaAsync()
     {
         // First, download FFmpeg if needed
-        await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+        if (!File.Exists("ffmpeg.exe"))
+            await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
 
         // Then, convert the audio and video
         await Task.WhenAll(

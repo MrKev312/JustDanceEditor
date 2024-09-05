@@ -150,8 +150,9 @@ public static class AudioConverter
         {
             // Change extension to .wav
             string relativePath = Path.ChangeExtension(audioVibrationClip.SoundSetPath, ".wav");
-            string wavPath = convert.FileSystem.GetFilePath(relativePath);
-            string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, Path.GetFileName(wavPath));
+            if (!convert.FileSystem.GetFilePath(relativePath, out CookedFile? wavPath))
+                continue;
+            string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, wavPath.Name + wavPath.Extension);
             if (!File.Exists(newWavPath))
                 audioConverter.Convert(wavPath, newWavPath).Wait();
         }
