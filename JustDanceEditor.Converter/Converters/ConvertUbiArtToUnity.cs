@@ -167,16 +167,20 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         string timelineFilePath = Path.Combine(FileSystem.InputFolders.TimelineFolder, $"{SongData.Name}_tml.isc");
         CookedFile timelineFile = FileSystem.GetFilePath(timelineFilePath);
-        if (!ISC.GetActorPath(timelineFile, $"{SongData.Name}_tml_karaoke", out string? karaokePath)
-            || !FileSystem.GetFilePath(karaokePath, out CookedFile? karaokeFile))
+        if (!ISC.GetActorPath(timelineFile, $"{SongData.Name}_tml_karaoke", out string? karaokeActorPath)
+            || !FileSystem.GetFilePath(karaokeActorPath, out CookedFile? karaokeActorFile))
         {
             Logger.Log("No karaoke tape found, skipping...", LogLevel.Important);
             return;
         }
 
+        // Load the file at the karaoke path
+        ActorTemplate karaokeActor = JsonSerializer.Deserialize<ActorTemplate>(FileSystem.ReadWithoutNull(karaokeActorFile), options)!;
+        string karaokePath = FileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path);
+
         Logger.Log("Loading KaraokeTape");
 
-        ClipTape KaraokeTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeFile), options)!;
+        ClipTape KaraokeTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokePath), options)!;
         SongData.Clips.AddRange(KaraokeTape.Clips);
 
         return;
