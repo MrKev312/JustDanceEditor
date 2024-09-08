@@ -17,7 +17,7 @@ public class InfoComponent
     public string __class { get; set; } = "";
     public string MapName { get; set; } = "";
     // The engine version
-    public int JDVersion { get; set; }
+    public uint JDVersion { get; set; }
     // The original game version
     public uint OriginalJDVersion { get; set; }
     public string Artist { get; set; } = "";

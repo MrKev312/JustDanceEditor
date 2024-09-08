@@ -142,8 +142,14 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Load the JD version
         Logger.Log("Loading JDVersion");
-        SongData.EngineVersion = (JDVersion)SongData.SongDesc.COMPONENTS[0].JDVersion;
-        SongData.JDVersion = (JDVersion)SongData.SongDesc.COMPONENTS[0].OriginalJDVersion;
+        SongData.EngineVersion = SongData.SongDesc.COMPONENTS[0].JDVersion;
+        uint originalJDVersion = SongData.SongDesc.COMPONENTS[0].OriginalJDVersion;
+        SongData.JDVersion = originalJDVersion switch
+        {
+            123 => 2014,
+            4884 => 2017,
+            _ => originalJDVersion,
+        };
         Logger.Log($"Loaded versions, engine: {SongData.EngineVersion}, original version: {SongData.JDVersion}");
 
         // Load the music track

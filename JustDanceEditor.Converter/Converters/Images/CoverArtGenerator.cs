@@ -172,7 +172,6 @@ public static class CoverArtGenerator
 
         albumCoach.Mutate(x => x.Resize(1024, 1024));
 
-
         // Then we place the albumcoach on top of the background in the center
         // The background is 2048x1024 and the albumcoach is 1024x1024
         // So we place it at 512, 0
@@ -222,7 +221,7 @@ public static class CoverArtGenerator
         // Arrays of Argb values
         float[] colorsA;
         float[] colorsB;
-        if (convert.SongData.EngineVersion >= UbiArt.JDVersion.JD2019)
+        if (convert.SongData.EngineVersion >= 2019)
         {
             colorsA = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1a;
             colorsB = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1b;
