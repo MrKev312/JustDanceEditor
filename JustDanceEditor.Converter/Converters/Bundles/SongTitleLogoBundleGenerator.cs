@@ -29,6 +29,8 @@ public static class SongTitleBundleGenerator
         {
             Logger.Log($"Failed to generate song title logo: {e.Message}", LogLevel.Error);
         }
+
+        Logger.Log("Finished generating song title logo");
     }
 
     static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)

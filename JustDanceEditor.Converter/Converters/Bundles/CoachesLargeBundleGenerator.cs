@@ -28,6 +28,8 @@ public static class CoachesLargeBundleGenerator
         {
             Logger.Log($"Failed to generate CoachesLarge: {e.Message}", LogLevel.Error);
         }
+
+        Logger.Log("Finished generating CoachesLarge");
     }
 
     static void GenerateCoachesLargeInteral(ConvertUbiArtToUnity convert)

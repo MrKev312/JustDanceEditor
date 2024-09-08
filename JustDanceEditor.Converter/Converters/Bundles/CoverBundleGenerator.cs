@@ -28,6 +28,8 @@ public static class CoverBundleGenerator
         {
             Logger.Log($"Failed to generate cover: {e.Message}", LogLevel.Error);
         }
+
+        Logger.Log("Finished generating cover");
     }
 
     static void GenerateCoverInternal(ConvertUbiArtToUnity convert)

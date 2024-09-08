@@ -29,6 +29,8 @@ public static class MapPackageBundleGenerator
         {
             Logger.Log($"Failed to generate map package: {e.Message}", LogLevel.Error);
         }
+
+        Logger.Log("Finished generating map package");
     }
 
     static void GenerateMapPackageInternally(ConvertUbiArtToUnity convert)
