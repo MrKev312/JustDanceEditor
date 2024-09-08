@@ -7,7 +7,6 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
-using System.Reflection.Metadata;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
@@ -106,7 +105,7 @@ public static class CoverArtGenerator
         foreach (HtmlNode node in nodes)
         {
             // Get the url at .//i//a
-            string url = baseURL + node.SelectSingleNode(".//i//a").Attributes["href"].Value;
+            string url = baseURL + node.SelectSingleNode(".//a").Attributes["href"].Value;
 
             // Load in the page
             string pageHtml = client.GetStringAsync(url).Result;
@@ -122,10 +121,13 @@ public static class CoverArtGenerator
             // Get the parent.parent/div
             HtmlNode codeNameElement = codeName.ParentNode.ParentNode;
 
-            string? codeNameText = codeNameElement.Elements("div").FirstOrDefault()?.InnerText;
+            string? codeNameText = codeNameElement.Elements("div").FirstOrDefault()?.FirstChild.InnerText;
 
             if (codeNameText == null)
                 continue;
+
+            // Skip everything after the first space
+            codeNameText = codeNameText.Split(' ')[0];
 
             if (codeNameText.Trim() == convert.SongData.Name.Trim())
             {

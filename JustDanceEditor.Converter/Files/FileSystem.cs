@@ -97,7 +97,7 @@ public partial class FileSystem
         // Get all folders formatted like *_{number}_* and add them to the search paths in reverse order, then add all other folders
         // Get all subfolders in the parent folder
         string[] allFolders = Directory.GetDirectories(parentFolder);
-        Dictionary<uint, string> numberPatternFolders = [];
+        PriorityQueue<string, uint> numberPatternFolders = new();
         List<string> otherFolders = [];
 
         // Split folders into ones matching the *_{number}_* pattern and others
@@ -122,7 +122,7 @@ public partial class FileSystem
 
             if (uint.TryParse(secondToLastPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint number))
             {
-                numberPatternFolders[number] = folder;
+                numberPatternFolders.Enqueue(folder, number);
             }
             else
             {
@@ -131,8 +131,8 @@ public partial class FileSystem
         }
 
         // Add the folders in reverse order
-        foreach (string folder in numberPatternFolders.OrderByDescending(x => x.Key).Select(x => x.Value))
-            searchPaths.Add(folder);
+        while (numberPatternFolders.Count > 0)
+            searchPaths.Add(numberPatternFolders.Dequeue());
 
         // Add the remaining folders
         searchPaths.AddRange(otherFolders);
