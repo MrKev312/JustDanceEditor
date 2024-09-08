@@ -170,7 +170,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         if (!ISC.GetActorPath(timelineFile, $"{SongData.Name}_tml_karaoke", out string? karaokeActorPath)
             || !FileSystem.GetFilePath(karaokeActorPath, out CookedFile? karaokeActorFile))
         {
-            Logger.Log("No karaoke tape found, skipping...", LogLevel.Important);
+            Logger.Log("No karaoke tape actor found, skipping...", LogLevel.Important);
             return;
         }
 
@@ -179,11 +179,15 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         if (karaokeActor.COMPONENTS.Length == 0 || karaokeActor.COMPONENTS[0].TapesRack.Length == 0 || karaokeActor.COMPONENTS[0].TapesRack[0].Entries.Length == 0)
         {
-            Logger.Log("Karaoke tape is empty, skipping...", LogLevel.Important);
+            Logger.Log("Karaoke tape actor is empty, skipping...", LogLevel.Important);
             return;
         }
 
-        string karaokePath = FileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path);
+        if (!FileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokePath))
+        {
+            Logger.Log("Karaoke tape not found but it should exist, skipping...", LogLevel.Error);
+            return;
+        }
 
         Logger.Log("Loading KaraokeTape");
 
