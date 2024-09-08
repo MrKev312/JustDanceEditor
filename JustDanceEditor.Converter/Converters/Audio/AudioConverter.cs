@@ -146,10 +146,10 @@ public static class AudioConverter
 
     static void ConvertAudioFiles(ConvertUbiArtToUnity convert, SoundSetClip[] audioClips)
     {
-        foreach (SoundSetClip audioVibrationClip in audioClips)
+        foreach (SoundSetClip audioClip in audioClips)
         {
             // Change extension to .wav
-            string relativePath = Path.ChangeExtension(audioVibrationClip.SoundSetPath, ".wav");
+            string relativePath = Path.ChangeExtension(audioClip.SoundSetPath, ".wav");
             if (!convert.FileSystem.GetFilePath(relativePath, out CookedFile? wavPath))
                 continue;
             string newWavPath = Path.Combine(convert.FileSystem.TempFolders.AudioFolder, wavPath.Name + wavPath.Extension);
