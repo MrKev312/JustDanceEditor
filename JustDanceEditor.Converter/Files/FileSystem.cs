@@ -91,14 +91,51 @@ public partial class FileSystem
         filePath = null;
         string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
         List<string> searchPaths = [
-            Path.Combine(parentFolder, $"patch_{PlatformType}"),
-            InputFolders.InputFolder,
-            Path.Combine(parentFolder, $"bundle_{PlatformType}"),
+            Path.Combine(parentFolder, $"patch_{PlatformType}")
             ];
 
-        foreach (string searchPath in Directory.GetDirectories(parentFolder))
-            if (!searchPaths.Contains(searchPath))
-                searchPaths.Add(searchPath);
+        // Get all folders formatted like *_{number}_* and add them to the search paths in reverse order, then add all other folders
+        // Get all subfolders in the parent folder
+        string[] allFolders = Directory.GetDirectories(parentFolder);
+        Dictionary<uint, string> numberPatternFolders = [];
+        List<string> otherFolders = [];
+
+        // Split folders into ones matching the *_{number}_* pattern and others
+        foreach (string folder in allFolders)
+        {
+            if (searchPaths.Contains(folder))
+                continue;
+
+            string folderName = Path.GetFileName(folder);
+
+            // Split the folder name by underscores
+            string[] parts = folderName.Split('_');
+
+            if (parts.Length < 3)
+            {
+                otherFolders.Add(folder);
+                continue;
+            }
+
+            // Get the second to last part
+            string secondToLastPart = parts[^2];
+
+            if (uint.TryParse(secondToLastPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint number))
+            {
+                numberPatternFolders[number] = folder;
+            }
+            else
+            {
+                otherFolders.Add(folder);
+            }
+        }
+
+        // Add the folders in reverse order
+        foreach (string folder in numberPatternFolders.OrderByDescending(x => x.Key).Select(x => x.Value))
+            searchPaths.Add(folder);
+
+        // Add the remaining folders
+        searchPaths.AddRange(otherFolders);
 
         string? pathCooked = null;
 
