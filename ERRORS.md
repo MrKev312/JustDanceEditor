@@ -23,5 +23,5 @@ Do note that ``exFAT`` is more error-prone than ``FAT32`` and can corrupt files 
 
 ## Jackrose-0102_0007 Error
 ``Jackrose-0102_0007`` means that the song is missing some files,
-make sure that the song has all the required files anfd that they were copied correctly,
+make sure that the song has all the required files and that they were copied correctly,
 again, DBI sometimes has issues with copying files, so make sure that the files are there.
