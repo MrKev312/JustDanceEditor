@@ -40,7 +40,7 @@ public static class AudioConverter
 
         Logger.Log($"Finished converting audio files in {stopwatch.ElapsedMilliseconds}ms");
 
-        if (mainSongPath.FullPath.StartsWith(convert.FileSystem.InputFolders.MediaFolder, StringComparison.OrdinalIgnoreCase))
+        if (mainSongPath.FullPath.Contains(convert.FileSystem.InputFolders.MediaFolder, StringComparison.OrdinalIgnoreCase))
             // If the song is pre-merged, just move it to the temp audio folder
             File.Move(newMainSongPath, Path.Combine(convert.FileSystem.TempFolders.AudioFolder, "merged.wav"), true);
         else
