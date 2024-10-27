@@ -101,8 +101,13 @@ public class ConverterDialogue
 
                     if (!File.Exists(descPath))
                     {
-                        Logger.Log($"Skipping {song} as it is not a valid song", LogLevel.Important);
-                        continue;
+                        // If there's also no jddb.json in the input folders, skip the song
+                        string jddbPath = Path.Combine(inputFolder, "jddb.json");
+                        if (!File.Exists(jddbPath))
+                        {
+                            Logger.Log($"Skipping {song} as it is not a valid song", LogLevel.Important);
+                            continue;
+                        }
                     }
 
                     // If the song is already cached, skip it

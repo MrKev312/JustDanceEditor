@@ -19,12 +19,12 @@ public static class ISC
         foreach (XElement actor in xmlDoc.Descendants("Actor"))
         {
             XAttribute? attribute = actor.Attribute("USERFRIENDLY");
-            if (attribute != null && (string)attribute == actorName)
+            if (attribute != null && string.Equals(attribute.Value, actorName, StringComparison.OrdinalIgnoreCase))
             {
                 XAttribute? luaAttribute = actor.Attribute("LUA");
                 if (luaAttribute != null)
                 {
-                    actorPath = (string)luaAttribute;
+                    actorPath = luaAttribute.Value;
                     return true;
                 }
             }

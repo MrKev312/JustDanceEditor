@@ -134,8 +134,21 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Let's start with the songdesc
         Logger.Log("Loading SongDesc");
         string relativePath = Path.Combine(FileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
-        string path = FileSystem.GetFilePath(relativePath);
-        SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(path), options)!;
+        if (FileSystem.GetFilePath(relativePath, out CookedFile? path))
+            SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(path), options)!;
+        // Try to load the songdesc from a db
+        else if (File.Exists(Path.Combine(FileSystem.InputFolders.InputFolder, "jddb.json")))
+        {
+            Logger.Log("Loading songdesc from json");
+            SongData.SongDesc = (SongDesc)JsonSerializer.Deserialize<OnlineSongDesc>(File.ReadAllText(Path.Combine(FileSystem.InputFolders.InputFolder, "jddb.json")), options)!;
+        }
+        else if (File.Exists(Path.Combine(FileSystem.InputFolders.InputFolder, "..", "jddb.json")))
+        {
+            Logger.Log("Loading songdesc from json");
+            SongData.SongDesc = JsonSerializer.Deserialize<SongDesc>(File.ReadAllText(Path.Combine(FileSystem.InputFolders.InputFolder, "..", "jddb.json")), options)!;
+        }
+        else
+            throw new FileNotFoundException("SongDesc not found");
 
         // Get the map name
         SongData.Name = SongData.SongDesc.COMPONENTS[0].MapName;
