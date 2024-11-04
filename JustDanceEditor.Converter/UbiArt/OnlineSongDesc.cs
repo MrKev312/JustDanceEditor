@@ -1,24 +1,42 @@
-﻿namespace JustDanceEditor.Converter.UbiArt;
+﻿using System.Text.Json.Serialization;
+
+namespace JustDanceEditor.Converter.UbiArt;
 
 // For JDUnlimited server JSON
 internal class OnlineSongDesc
 {
-    public string artist { get; set; } = "";
-    public Assets assets { get; set; } = new();
-    public int coachCount { get; set; }
-    public string credits { get; set; } = "";
-    public int difficulty { get; set; }
-    public string lyricsColor { get; set; } = "";
-    public int lyricsType { get; set; }
-    public int mainCoach { get; set; }
-    public float mapLength { get; set; }
-    public string mapName { get; set; } = "";
-    public int originalJDVersion { get; set; }
-    public string parentMapName { get; set; } = "";
-    public int status { get; set; }
-    public int sweatDifficulty { get; set; }
-    public string[] tags { get; set; } = [];
-    public string title { get; set; } = "";
+    [JsonPropertyName("artist")]
+    public string Artist { get; set; } = "";
+    [JsonPropertyName("assets")]
+    public Assets Assets { get; set; } = new();
+    [JsonPropertyName("coachCount")]
+    public int CoachCount { get; set; }
+    [JsonPropertyName("credits")]
+    public string Credits { get; set; } = "";
+    [JsonPropertyName("difficulty")]
+    public int Difficulty { get; set; }
+    [JsonPropertyName("lyricsColor")]
+    public string LyricsColor { get; set; } = "";
+    [JsonPropertyName("lyricsType")]
+    public int LyricsType { get; set; }
+    [JsonPropertyName("mainCoach")]
+    public int MainCoach { get; set; }
+    [JsonPropertyName("mapLength")]
+    public float MapLength { get; set; }
+    [JsonPropertyName("mapName")]
+    public string MapName { get; set; } = "";
+    [JsonPropertyName("originalJDVersion")]
+    public int OriginalJDVersion { get; set; }
+    [JsonPropertyName("parentMapName")]
+    public string ParentMapName { get; set; } = "";
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+    [JsonPropertyName("sweatDifficulty")]
+    public int SweatDifficulty { get; set; }
+    [JsonPropertyName("tagIds")]
+    public string[] Tags { get; set; } = [];
+    [JsonPropertyName("tags")]
+    public string Title { get; set; } = "";
 
     // Allow conversion from OnlineSongDesc to SongDesc
     public static explicit operator SongDesc(OnlineSongDesc onlineSongDesc)
@@ -29,19 +47,19 @@ internal class OnlineSongDesc
             [
                 new()
                 {
-                    Artist = onlineSongDesc.artist,
-                    NumCoach = (uint)onlineSongDesc.coachCount,
-                    MainCoach = onlineSongDesc.mainCoach,
-                    Difficulty = (uint)onlineSongDesc.difficulty,
-                    SweatDifficulty = (uint)onlineSongDesc.sweatDifficulty,
-                    LyricsType = onlineSongDesc.lyricsType,
-                    Title = onlineSongDesc.title,
-                    Credits = onlineSongDesc.credits,
-                    Tags = onlineSongDesc.tags,
-                    Status = onlineSongDesc.status,
-                    OriginalJDVersion = (uint)onlineSongDesc.originalJDVersion,
-                    MapName = onlineSongDesc.mapName,
-                    VideoPreviewPath = onlineSongDesc.assets.videoPreview_HIGHvp9webm
+                    Artist = onlineSongDesc.Artist,
+                    NumCoach = (uint)onlineSongDesc.CoachCount,
+                    MainCoach = onlineSongDesc.MainCoach,
+                    Difficulty = (uint)onlineSongDesc.Difficulty,
+                    SweatDifficulty = (uint)onlineSongDesc.SweatDifficulty,
+                    LyricsType = onlineSongDesc.LyricsType,
+                    Title = onlineSongDesc.Title,
+                    Credits = onlineSongDesc.Credits,
+                    Tags = onlineSongDesc.Tags,
+                    Status = onlineSongDesc.Status,
+                    OriginalJDVersion = (uint)onlineSongDesc.OriginalJDVersion,
+                    MapName = onlineSongDesc.MapName,
+                    VideoPreviewPath = onlineSongDesc.Assets.videoPreview_HIGHvp9webm
                 }
             ]
         };
