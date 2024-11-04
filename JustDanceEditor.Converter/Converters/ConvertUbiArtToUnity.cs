@@ -18,7 +18,6 @@ using JustDanceEditor.Converter.Helpers;
 using Xabe.FFmpeg.Downloader;
 using JustDanceEditor.Logging;
 
-
 namespace JustDanceEditor.Converter.Converters;
 
 public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
