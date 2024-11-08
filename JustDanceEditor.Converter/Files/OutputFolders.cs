@@ -21,6 +21,7 @@ public class OutputFolders
     public string CoverFolder => Path.Combine(PreviewFolder, "Cover");
     public string PreviewAudioFolder => Path.Combine(PreviewFolder, "AudioPreview_opus");
     public string PreviewVideoFolder => Path.Combine(PreviewFolder, "VideoPreview_MID_vp9_webm");
+    public string SongTitleLogoFolder => Path.Combine(PreviewFolder, "songTitleLogo");
 
 
     public string MapFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID);
@@ -28,7 +29,6 @@ public class OutputFolders
     public string CoachesLargeFolder => Path.Combine(MapFolder, "CoachesLarge");
     public string CoachesSmallFolder => Path.Combine(MapFolder, "CoachesSmall");
     public string MapPackageFolder => Path.Combine(MapFolder, "MapPackage");
-    public string SongTitleLogoFolder => Path.Combine(MapFolder, "SongTitleLogo");
     public string VideoFolder => Path.Combine(MapFolder, "Video_HIGH_vp9_webm");
 
     public string CachingStatusPath => Path.Combine(OutputFolder, "..", "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
