@@ -35,12 +35,12 @@ public static class SongTitleBundleGenerator
 
     static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)
     {
-        // Does the following exist?
         FileSystem fs = convert.FileSystem;
 
-        if (fs.GetFilePath(Path.Combine(fs.InputFolders.MenuArtFolder, "songTitleLogo.png"), out CookedFile? logoPath) || logoPath == null)
+        // Does the following exist?
+        string songTitleLogoPath = Path.Combine(fs.TempFolders.MenuArtFolder, "songTitleLogo.png");
+        if (!File.Exists(songTitleLogoPath))
         {
-            //Console.WriteLine("No songTitleLogo.png found, skipping...");
             Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
             return;
         }
@@ -73,7 +73,7 @@ public static class SongTitleBundleGenerator
         coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Title";
 
         // Load the image and make it fit in 1024x512
-        Image<Rgba32> image = Image.Load<Rgba32>(logoPath);
+        Image<Rgba32> image = Image.Load<Rgba32>(songTitleLogoPath);
         if (image.Width / (float)image.Height != 2f)
         {
             // Pad the image to 2:1

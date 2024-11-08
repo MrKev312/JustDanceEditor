@@ -224,8 +224,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         [
             GenerateMapPackageAsync(),
             ConvertMediaAsync(),
-            ConvertMenuArtAndGenerateAssetsAsync(),
-            ConvertSongTitleLogoAsync()
+            ConvertMenuArtAndGenerateAssetsAsync()
         ];
 
         Task.WaitAll(tasks);
@@ -260,12 +259,8 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         await Task.WhenAll(
             CoachesLargeBundleGenerator.GenerateCoachesLargeAsync(this),
             CoachesSmallBundleGenerator.GenerateCoachesSmallAsync(this),
-            CoverBundleGenerator.GenerateCoverAsync(this)
+            CoverBundleGenerator.GenerateCoverAsync(this),
+            SongTitleBundleGenerator.GenerateSongTitleLogoAsync(this)
         );
-    }
-
-    async Task ConvertSongTitleLogoAsync()
-    {
-        await SongTitleBundleGenerator.GenerateSongTitleLogoAsync(this);
     }
 }
