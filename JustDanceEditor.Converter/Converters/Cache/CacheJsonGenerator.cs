@@ -14,6 +14,13 @@ public static class CacheJsonGenerator
         WriteIndented = true
     };
 
+    static readonly JsonSerializerOptions optionsCamelCase = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
+
     public static bool MergeCaches(ConvertUbiArtToUnity convert)
     {
         try
@@ -33,7 +40,7 @@ public static class CacheJsonGenerator
     {
         // First we load the generated JSON
         string cachingStatusPath = convert.FileSystem.OutputFolders.CachePath;
-        Dictionary<string, JDSong> caching = JsonSerializer.Deserialize<Dictionary<string, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
+        Dictionary<Guid, JDSong> caching = JsonSerializer.Deserialize<Dictionary<Guid, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
 
         // The one we'll add to is in the existing SD_0000 folder
         string cachingStatusPath0 = convert.FileSystem.OutputFolders.CachingStatusPath;
@@ -51,13 +58,13 @@ public static class CacheJsonGenerator
         // This is in case we crash while moving the files, we don't want to have the cache.json updated without the files
         // Moving the SD_Cache.0000 folder
         string sd0000Path = convert.FileSystem.OutputFolders.PreviewFolder;
-        string sd0000PathDest = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", convert.SongID);
+        string sd0000PathDest = Path.Combine(convert.ConversionRequest.OutputPath, "SD_Cache.0000", "MapBaseCache", convert.SongID.ToString());
         Directory.Move(sd0000Path, sd0000PathDest);
 
         // Moving the SD_Cache.xxxx folder
         string sdXFolder = convert.FileSystem.OutputFolders.MapFolder;
         uint cacheNumber = convert.FileSystem.OutputFolders.CacheNumber;
-        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{cacheNumber:X4}", convert.SongID);
+        string sdXFolderDest = Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{cacheNumber:X4}", convert.SongID.ToString());
         Directory.CreateDirectory(Path.Combine(convert.ConversionRequest.OutputPath, $"SD_Cache.{cacheNumber:X4}"));
         Directory.Move(sdXFolder, sdXFolderDest);
 
@@ -103,6 +110,18 @@ public static class CacheJsonGenerator
 
     static void GenerateCacheJsonInternal(ConvertUbiArtToUnity convert)
     {
+        if (convert.ConversionRequest.ExportType == ExportType.OfflineCache)
+        {
+            GenerateOfflineCacheJson(convert);
+        }
+        else
+        {
+            GenerateServerCacheJson(convert);
+        }
+    }
+
+    static void GenerateOfflineCacheJson(ConvertUbiArtToUnity convert)
+    {
         OutputFolders outputFolders = convert.FileSystem.OutputFolders;
 
         // Generate the json.cache file
@@ -129,7 +148,7 @@ public static class CacheJsonGenerator
         string cachingStatusPath = convert.FileSystem.OutputFolders.CachePath;
         JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)convert, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, convert.SongID);
 
-        Dictionary<string, JDSong> caching = new()
+        Dictionary<Guid, JDSong> caching = new()
         {
             { convert.SongID, jdSong }
         };
@@ -138,5 +157,18 @@ public static class CacheJsonGenerator
         string cachingStatus = JsonSerializer.Serialize(caching, options);
 
         File.WriteAllText(cachingStatusPath, cachingStatus);
+    }
+
+    static void GenerateServerCacheJson(ConvertUbiArtToUnity convert)
+    {
+        OutputFolders outputFolders = convert.FileSystem.OutputFolders;
+
+        string cachingStatusPath = convert.FileSystem.OutputFolders.CachePath;
+
+        // Convert the songdatabase
+        ServerSongJSON serverSong = (ServerSongJSON)convert;
+        string serverSongJSON = JsonSerializer.Serialize(serverSong, optionsCamelCase);
+
+        File.WriteAllText(cachingStatusPath, serverSongJSON);
     }
 }

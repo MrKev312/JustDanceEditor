@@ -26,7 +26,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     public ConversionRequest ConversionRequest = conversionRequest;
     public FileSystem FileSystem { get; private set; } = new(conversionRequest);
 
-    public string SongID => ConversionRequest.SongGUID;
+    public Guid SongID => ConversionRequest.SongGUID;
 
     public void Convert()
     {
@@ -65,10 +65,16 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     bool MergeCacheFiles()
     {
+        // If we're exporting to the server, we don't need to merge the cache
+        if (ConversionRequest.ExportType == ExportType.CustomServer)
+            return true;
+
+        // Else, merge the cache and return the result
         if (File.Exists(FileSystem.OutputFolders.CachePath) &&
             File.Exists(FileSystem.OutputFolders.CachingStatusPath))
             return CacheJsonGenerator.MergeCaches(this);
 
+        // If there's nothing to merge, return true
         return true;
     }
 

@@ -253,6 +253,6 @@ public static class CoachesLargeBundleGenerator
 
         // Add .mod to the end of the file
         string outputPackagePath = convert.FileSystem.OutputFolders.CoachesLargeFolder;
-        bun.SaveAndCompress(outputPackagePath);
+        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
     }
 }

@@ -120,6 +120,6 @@ public static class SongTitleBundleGenerator
 
         // Write the file
         string outputPackagePath = fs.OutputFolders.SongTitleLogoFolder;
-        bun.SaveAndCompress(outputPackagePath);
+        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
     }
 }

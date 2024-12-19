@@ -25,7 +25,7 @@ public struct ConversionRequest
     // Name of the song (optional)
     public string? SongName { get; set; } = null;
     // GUID of the song
-    public string SongGUID { get; set; } = Guid.NewGuid().ToString();
+    public Guid SongGUID { get; set; } = Guid.NewGuid();
     // Cache number
     public uint? CacheNumber { get; set; } = null;
     public uint? JDVersion { get; set; } = null;

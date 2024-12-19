@@ -12,7 +12,7 @@ public class JDCacheJSON
 
     [JsonPropertyName("mapsDict")]
     // String is the map ID
-    public Dictionary<string, JDSong> MapsDict { get; set; } = [];
+    public Dictionary<Guid, JDSong> MapsDict { get; set; } = [];
 }
 
 public class JDSong
@@ -36,7 +36,7 @@ public class JDSong
 public class SongDatabaseEntry
 {
     // Must be a version 4 UUID
-    public string MapId { get; set; } = "";
+    public Guid MapId { get; set; }
     public string ParentMapId { get; set; } = "";
     public string Title { get; set; } = "";
     public string Artist { get; set; } = "";
@@ -61,30 +61,6 @@ public class SongDatabaseEntry
     [JsonPropertyName("hasSongTitleInCover")]
     // Seems to always be false, set the one in JDSong instead
     public bool HasSongTitleInCover { get; set; } = false;
-
-    // Allow conversion from JDNextUbiMapData
-    public static explicit operator SongDatabaseEntry(JDNextUbiMapData mapData)
-    {
-        return new()
-        {
-            MapId = mapData.mapName,
-            ParentMapId = mapData.parentMapName,
-            Title = mapData.title,
-            Artist = mapData.artist,
-            Credits = mapData.credits,
-            LyricsColor = mapData.lyricsColor,
-            MapLength = mapData.mapLength,
-            OriginalJDVersion = mapData.originalJDVersion,
-            CoachCount = mapData.coachCount,
-            Difficulty = mapData.difficulty,
-            SweatDifficulty = mapData.sweatDifficulty,
-            Tags = [.. mapData.tags],
-            TagIds = [.. mapData.tagIds],
-            SearchTagsLocIds = [],
-            CoachNamesLocIds = [],
-            HasSongTitleInCover = mapData.hasSongTitleInCover
-        };
-    }
 
     public static explicit operator SongDatabaseEntry(ConvertUbiArtToUnity convert)
     {
@@ -129,7 +105,7 @@ public class SongDatabaseEntry
             Credits = info.Credits,
             LyricsColor = lyricsColor,
             MapLength = endTime - startTime,
-            OriginalJDVersion = (uint)convert.SongData.JDVersion,
+            OriginalJDVersion = convert.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
             SweatDifficulty = Math.Clamp(info.SweatDifficulty + 1, 1, 3),

@@ -15,12 +15,12 @@ public class OutputFolders
             CacheNumber = InitializeCacheNumber();
 
             OutputFolder = Path.Combine(fileSystem.ConversionRequest.OutputPath, fileSystem.SongName);
-            PreviewFolder = Path.Combine(OutputFolder, "SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID);
+            PreviewFolder = Path.Combine(OutputFolder, "SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID.ToString());
             CoverFolder = Path.Combine(PreviewFolder, "Cover");
             PreviewAudioFolder = Path.Combine(PreviewFolder, "AudioPreview_opus");
             PreviewVideoFolder = Path.Combine(PreviewFolder, "VideoPreview_MID_vp9_webm");
             SongTitleLogoFolder = Path.Combine(PreviewFolder, "songTitleLogo");
-            MapFolder = Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID);
+            MapFolder = Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID.ToString());
             AudioFolder = Path.Combine(MapFolder, "Audio_opus");
             CoachesLargeFolder = Path.Combine(MapFolder, "CoachesLarge");
             CoachesSmallFolder = Path.Combine(MapFolder, "CoachesSmall");

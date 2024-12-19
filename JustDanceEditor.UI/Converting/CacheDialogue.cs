@@ -107,7 +107,8 @@ internal class CacheDialogue
 
             foreach (string songFolder in songFolders)
             {
-                string songFolderName = Path.GetFileName(songFolder);
+                //string songFolderName = Path.GetFileName(songFolder);
+                Guid songFolderName = Guid.Parse(Path.GetFileName(songFolder));
 
                 JDSong jDSong = jDCacheJSON.MapsDict[songFolderName];
 
@@ -126,7 +127,7 @@ internal class CacheDialogue
                 // Get the size of the song folder
                 long songFolderSize = Directory.GetFiles(songFolder, "*", SearchOption.AllDirectories).Sum(t => new FileInfo(t).Length);
                 cacheOutputFolderSizes.Enqueue(songFolderOutput, priority + songFolderSize);
-                string fullSongFolderOutput = Path.Combine(cachePath, songFolderOutput, songFolderName);
+                string fullSongFolderOutput = Path.Combine(cachePath, songFolderOutput, songFolderName.ToString());
                 Directory.Move(songFolder, fullSongFolderOutput);
 
                 // Overwrite the json.cache

@@ -109,6 +109,6 @@ public static class CoverBundleGenerator
 
         // Write the file
         string outputPackagePath = convert.FileSystem.OutputFolders.CoverFolder;
-        bun.SaveAndCompress(outputPackagePath);
+        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
     }
 }

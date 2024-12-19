@@ -668,6 +668,6 @@ public static class MapPackageBundleGenerator
 
         // Add .mod to the end of the file
         string outputPackagePath = convert.FileSystem.OutputFolders.MapPackageFolder;
-        bun.SaveAndCompress(outputPackagePath);
+        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
     }
 }
