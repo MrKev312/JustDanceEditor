@@ -1,7 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 
+using JustDanceEditor.Logging;
+
 using JustDanceEditor.Converter.Files;
+using JustDanceEditor.Converter.Helpers;
+
+using JustDanceEditor.Converter.UbiArt;
+using JustDanceEditor.Converter.UbiArt.Tapes;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 using JustDanceEditor.Converter.Converters.Audio;
 using JustDanceEditor.Converter.Converters.Bundles;
@@ -9,14 +16,7 @@ using JustDanceEditor.Converter.Converters.Cache;
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Converters.Video;
 
-using JustDanceEditor.Converter.UbiArt;
-using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
-
-using JustDanceEditor.Converter.Helpers;
-
 using Xabe.FFmpeg.Downloader;
-using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters;
 

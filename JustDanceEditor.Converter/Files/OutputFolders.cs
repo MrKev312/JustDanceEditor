@@ -8,31 +8,70 @@ public class OutputFolders
     public OutputFolders(FileSystem fileSystem)
     {
         this.fileSystem = fileSystem;
-        CacheNumber = InitializeCacheNumber();
+        if (fileSystem.ConversionRequest.ExportType == ExportType.OfflineCache)
+        {
+            // Offline Cache
+            Logger.Log("Setting up offline cache paths", LogLevel.Important);
+            CacheNumber = InitializeCacheNumber();
+
+            OutputFolder = Path.Combine(fileSystem.ConversionRequest.OutputPath, fileSystem.SongName);
+            PreviewFolder = Path.Combine(OutputFolder, "SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID);
+            CoverFolder = Path.Combine(PreviewFolder, "Cover");
+            PreviewAudioFolder = Path.Combine(PreviewFolder, "AudioPreview_opus");
+            PreviewVideoFolder = Path.Combine(PreviewFolder, "VideoPreview_MID_vp9_webm");
+            SongTitleLogoFolder = Path.Combine(PreviewFolder, "songTitleLogo");
+            MapFolder = Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID);
+            AudioFolder = Path.Combine(MapFolder, "Audio_opus");
+            CoachesLargeFolder = Path.Combine(MapFolder, "CoachesLarge");
+            CoachesSmallFolder = Path.Combine(MapFolder, "CoachesSmall");
+            MapPackageFolder = Path.Combine(MapFolder, "MapPackage");
+            VideoFolder = Path.Combine(MapFolder, "Video_HIGH_vp9_webm");
+            CachingStatusPath = Path.Combine(OutputFolder, "..", "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
+            CachePath = Path.Combine(OutputFolder, "Cache.json");
+        }
+        else
+        {
+            // Custom Server
+            Logger.Log("Setting up custom server paths", LogLevel.Important);
+
+            OutputFolder = Path.Combine(fileSystem.ConversionRequest.OutputPath, fileSystem.SongName);
+            PreviewFolder = Path.Combine(OutputFolder);
+            CoverFolder = Path.Combine(OutputFolder, "Cover");
+            PreviewAudioFolder = Path.Combine(OutputFolder, "AudioPreview_opus");
+            PreviewVideoFolder = Path.Combine(OutputFolder, "videoPreview");
+            SongTitleLogoFolder = Path.Combine(OutputFolder, "songTitleLogo");
+            MapFolder = Path.Combine(OutputFolder);
+            AudioFolder = Path.Combine(OutputFolder, "Audio_opus");
+            CoachesLargeFolder = Path.Combine(OutputFolder, "CoachesLarge");
+            CoachesSmallFolder = Path.Combine(OutputFolder, "CoachesSmall");
+            MapPackageFolder = Path.Combine(OutputFolder, "MapPackage");
+            VideoFolder = Path.Combine(OutputFolder, "video");
+            CachingStatusPath = Path.Combine(OutputFolder);
+            CachePath = Path.Combine(OutputFolder, "SongInfo.json");
+        }
     }
 
     readonly FileSystem fileSystem;
 
     public uint CacheNumber { get; set; } = 123;
 
-    public string OutputFolder => Path.Combine(fileSystem.ConversionRequest.OutputPath, fileSystem.SongName);
+    public string OutputFolder { get; private set; }
 
-    public string PreviewFolder => Path.Combine(OutputFolder, "SD_Cache.0000", "MapBaseCache", fileSystem.ConversionRequest.SongGUID);
-    public string CoverFolder => Path.Combine(PreviewFolder, "Cover");
-    public string PreviewAudioFolder => Path.Combine(PreviewFolder, "AudioPreview_opus");
-    public string PreviewVideoFolder => Path.Combine(PreviewFolder, "VideoPreview_MID_vp9_webm");
-    public string SongTitleLogoFolder => Path.Combine(PreviewFolder, "songTitleLogo");
+	public string PreviewFolder { get; private set; }
+	public string CoverFolder { get; private set; }
+	public string PreviewAudioFolder { get; private set; }
+	public string PreviewVideoFolder { get; private set; }
+	public string SongTitleLogoFolder { get; private set; }
 
+	public string MapFolder { get; private set; }
+	public string AudioFolder { get; private set; }
+	public string CoachesLargeFolder { get; private set; }
+	public string CoachesSmallFolder { get; private set; }
+	public string MapPackageFolder { get; private set; }
+	public string VideoFolder { get; private set; }
 
-    public string MapFolder => Path.Combine(OutputFolder, $"SD_Cache.{CacheNumber:X4}", fileSystem.ConversionRequest.SongGUID);
-    public string AudioFolder => Path.Combine(MapFolder, "Audio_opus");
-    public string CoachesLargeFolder => Path.Combine(MapFolder, "CoachesLarge");
-    public string CoachesSmallFolder => Path.Combine(MapFolder, "CoachesSmall");
-    public string MapPackageFolder => Path.Combine(MapFolder, "MapPackage");
-    public string VideoFolder => Path.Combine(MapFolder, "Video_HIGH_vp9_webm");
-
-    public string CachingStatusPath => Path.Combine(OutputFolder, "..", "SD_Cache.0000", "MapBaseCache", "CachingStatus.json");
-    public string CachePath => Path.Combine(OutputFolder, "Cache.json");
+	public string CachingStatusPath { get; private set; }
+	public string CachePath { get; private set; }
 
     private uint InitializeCacheNumber()
     {
