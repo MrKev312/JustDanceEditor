@@ -1,5 +1,11 @@
 ﻿namespace JustDanceEditor.Converter;
 
+public enum ExportType
+{
+    OfflineCache,
+    CustomServer
+}
+
 public struct ConversionRequest
 {
     public ConversionRequest()
@@ -12,6 +18,8 @@ public struct ConversionRequest
     public required string OutputPath { get; set; }
     // Folder where the template is located
     public required string TemplatePath { get; set; }
+    // Type of export
+    public required ExportType ExportType { get; set; }
     // Should the cover be looked up online
     public bool OnlineCover { get; set; } = true;
     // Name of the song (optional)

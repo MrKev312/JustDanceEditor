@@ -66,6 +66,7 @@ public class ConverterDialogue
 
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
+            ExportType exportType;
 
             // First parse the cachingStatus.json
             JDCacheJSON? cacheJSON = null;
@@ -75,6 +76,11 @@ public class ConverterDialogue
             {
                 string json = File.ReadAllText(cacheStatusPath);
                 cacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json);
+                exportType = ExportType.OfflineCache;
+            }
+            else
+            {
+                exportType = ExportType.CustomServer;
             }
 
             bool onlineCover = AskOnlineCover();
@@ -122,6 +128,7 @@ public class ConverterDialogue
                         TemplatePath = "./Template",
                         InputPath = Path.Combine(folder),
                         OutputPath = Path.Combine(outputFolder),
+                        ExportType = exportType,
                         OnlineCover = onlineCover,
                         SongName = song
                     };
@@ -147,11 +154,18 @@ public class ConverterDialogue
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(outputPath);
 
+        // Check if there's a cachingStatus.json
+        string cacheStatusPath = Path.Combine(inputPath, "cache", "MapBaseCache", "cachingStatus.json");
+        ExportType exportType = File.Exists(cacheStatusPath) 
+            ? ExportType.OfflineCache 
+            : ExportType.CustomServer;
+
         ConversionRequest conversionRequest = new()
         {
             TemplatePath = "./Template",
             InputPath = inputPath,
             OutputPath = outputPath,
+            ExportType = exportType,
             OnlineCover = onlineCover,
             SongName = songName
         };
