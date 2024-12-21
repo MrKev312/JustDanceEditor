@@ -43,6 +43,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
         // Load the song data
         LoadSongData();
 
+        // If the request is a custom server, we'll create the output folder with the song name
+        if (ConversionRequest.ExportType == ExportType.CustomServer)
+            Directory.CreateDirectory(Path.Combine(ConversionRequest.OutputPath, SongData.Name));
+
         // Convert the files
         ConversionTasks();
 
