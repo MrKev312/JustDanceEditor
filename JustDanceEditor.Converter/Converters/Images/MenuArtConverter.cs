@@ -39,6 +39,31 @@ public static class MenuArtConverter
             }
         }
 
+        string[] pngFiles = Directory.GetFiles(convert.FileSystem.TempFolders.MenuArtFolder, "*.png");
+        foreach (string pngFile in pngFiles)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(pngFile);
+            // If {song}_coachx.png exists, rename it to {song}_Coach_x.png
+            if (fileName.Contains("_coach") && !fileName.Contains("_Coach_"))
+            {
+                Logger.Log($"Renaming {fileName} to {fileName.Replace("_coach", "_Coach_")}", LogLevel.Warning);
+                string newFileName = fileName.Replace("_coach", "_Coach_");
+                string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+                if (!File.Exists(newFilePath))
+                    File.Move(pngFile, newFilePath);
+            }
+
+            // If {song}_AlbumCoach.png exists, rename it to {song}_Cover_AlbumCoach.png
+            if (fileName.Contains("_AlbumCoach", StringComparison.OrdinalIgnoreCase) && !fileName.Contains("_Cover_AlbumCoach", StringComparison.OrdinalIgnoreCase))
+            {
+                Logger.Log($"Renaming {fileName} to {fileName.Replace("_AlbumCoach", "_Cover_AlbumCoach")}", LogLevel.Warning);
+                string newFileName = fileName.Replace("_AlbumCoach", "_Cover_AlbumCoach", StringComparison.OrdinalIgnoreCase);
+                string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+                if (!File.Exists(newFilePath))
+                    File.Move(pngFile, newFilePath);
+            }
+        }
+
         stopwatch.Stop();
         Logger.Log($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
