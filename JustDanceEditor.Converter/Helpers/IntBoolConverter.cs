@@ -20,10 +20,14 @@ public class IntBoolConverter : JsonConverter<int>
             return number.Value;
 
         if (reader.TokenType == JsonTokenType.String)
-            if (int.TryParse(reader.GetString(), out int result))
+        {
+            string str = reader.GetString()!;
+
+            if (int.TryParse(str, out int result))
                 return result;
             else
-                throw new JsonException("Unable to convert string to int");
+                throw new JsonException("Unable to convert string to int: " + str);
+        }
         else
             throw new JsonException("Unable to convert value to int");
     }
