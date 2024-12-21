@@ -1,7 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 
+using JustDanceEditor.Logging;
+
 using JustDanceEditor.Converter.Files;
+using JustDanceEditor.Converter.Helpers;
+
+using JustDanceEditor.Converter.UbiArt;
+using JustDanceEditor.Converter.UbiArt.Tapes;
+using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 
 using JustDanceEditor.Converter.Converters.Audio;
 using JustDanceEditor.Converter.Converters.Bundles;
@@ -9,14 +16,7 @@ using JustDanceEditor.Converter.Converters.Cache;
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Converters.Video;
 
-using JustDanceEditor.Converter.UbiArt;
-using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
-
-using JustDanceEditor.Converter.Helpers;
-
 using Xabe.FFmpeg.Downloader;
-using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -26,7 +26,7 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
     public ConversionRequest ConversionRequest = conversionRequest;
     public FileSystem FileSystem { get; private set; } = new(conversionRequest);
 
-    public string SongID => ConversionRequest.SongGUID;
+    public Guid SongID => ConversionRequest.SongGUID;
 
     public void Convert()
     {
@@ -42,6 +42,10 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
         // Load the song data
         LoadSongData();
+
+        // If the request is a custom server, we'll create the output folder with the song name
+        if (ConversionRequest.ExportType == ExportType.CustomServer)
+            Directory.CreateDirectory(Path.Combine(ConversionRequest.OutputPath, SongData.Name));
 
         // Convert the files
         ConversionTasks();
@@ -65,10 +69,16 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     bool MergeCacheFiles()
     {
+        // If we're exporting to the server, we don't need to merge the cache
+        if (ConversionRequest.ExportType == ExportType.CustomServer)
+            return true;
+
+        // Else, merge the cache and return the result
         if (File.Exists(FileSystem.OutputFolders.CachePath) &&
             File.Exists(FileSystem.OutputFolders.CachingStatusPath))
             return CacheJsonGenerator.MergeCaches(this);
 
+        // If there's nothing to merge, return true
         return true;
     }
 

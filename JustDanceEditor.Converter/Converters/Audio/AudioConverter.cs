@@ -69,6 +69,8 @@ public static class AudioConverter
 
         // Move the preview audio file to the output folder
         string md5 = Download.GetFileMD5(previewOpusPath);
+        if (convert.ConversionRequest.ExportType == ExportType.CustomServer)
+            md5 += ".opus";
         string outputFolder = convert.FileSystem.OutputFolders.PreviewAudioFolder;
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);
@@ -101,6 +103,8 @@ public static class AudioConverter
     {
         // Copy the Opus file to the output folder
         string md5 = Download.GetFileMD5(opusPath);
+        if (convert.ConversionRequest.ExportType == ExportType.CustomServer)
+            md5 += ".opus";
         string outputFolder = convert.FileSystem.OutputFolders.AudioFolder;
         Directory.CreateDirectory(outputFolder);
         string outputOpusPath = Path.Combine(outputFolder, md5);

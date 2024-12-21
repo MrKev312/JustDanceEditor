@@ -34,7 +34,7 @@ public static class Extensions
     /// <param name="outputPath">The path to save the file to</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="outputPath"/> is null or whitespace</exception>
     /// <exception cref="IOException">Thrown if the file already exists</exception>
-    public static void SaveAndCompress(this AssetBundleFile assetBundleFile, string outputPath)
+    public static void SaveAndCompress(this AssetBundleFile assetBundleFile, string outputPath, bool keepExtension)
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(outputPath);
 
@@ -63,6 +63,8 @@ public static class Extensions
         // Rename the compressed file to it's md5 hash
         string hash = Download.GetFileMD5(compressedPath);
         string newPath = Path.Combine(outputPath, $"{hash}");
+        if (keepExtension)
+            newPath += ".bundle";
 
         // If the file already exists, delete it
         if (File.Exists(newPath))

@@ -66,15 +66,23 @@ public class ConverterDialogue
 
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
+            ExportType exportType;
 
-            // First parse the cachingStatus.json
-            JDCacheJSON? cacheJSON = null;
+            List<string> existingSongs = [];
 
             string cacheStatusPath = Path.Combine(outputFolder, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
             if (File.Exists(cacheStatusPath))
             {
                 string json = File.ReadAllText(cacheStatusPath);
-                cacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json);
+                existingSongs = JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId).ToList();
+                exportType = ExportType.OfflineCache;
+            }
+            else
+            {
+                exportType = ExportType.CustomServer;
+                // Get all names in the output folder
+                string[] outputSongs = Directory.GetDirectories(outputFolder);
+                existingSongs = outputSongs.Select(Path.GetFileName).ToList()!;
             }
 
             bool onlineCover = AskOnlineCover();
@@ -111,7 +119,7 @@ public class ConverterDialogue
                     }
 
                     // If the song is already cached, skip it
-                    if (cacheJSON != null && cacheJSON.MapsDict.Any(x => x.Value.SongDatabaseEntry.ParentMapId.Equals(song, StringComparison.OrdinalIgnoreCase)))
+                    if (existingSongs.Contains(song, StringComparer.OrdinalIgnoreCase))
                     {
                         Logger.Log($"Skipping {song} as it is already cached", LogLevel.Important);
                         continue;
@@ -122,6 +130,7 @@ public class ConverterDialogue
                         TemplatePath = "./Template",
                         InputPath = Path.Combine(folder),
                         OutputPath = Path.Combine(outputFolder),
+                        ExportType = exportType,
                         OnlineCover = onlineCover,
                         SongName = song
                     };
@@ -147,11 +156,18 @@ public class ConverterDialogue
         // Create the output folder if it doesn't exist
         Directory.CreateDirectory(outputPath);
 
+        // Check if there's a cachingStatus.json
+        string cacheStatusPath = Path.Combine(inputPath, "cache", "MapBaseCache", "cachingStatus.json");
+        ExportType exportType = File.Exists(cacheStatusPath) 
+            ? ExportType.OfflineCache 
+            : ExportType.CustomServer;
+
         ConversionRequest conversionRequest = new()
         {
             TemplatePath = "./Template",
             InputPath = inputPath,
             OutputPath = outputPath,
+            ExportType = exportType,
             OnlineCover = onlineCover,
             SongName = songName
         };

@@ -45,12 +45,16 @@ public static class VideoConverter
 
             // Move the video file to the output folder
             string md5 = Download.GetFileMD5(Path.Combine(convert.FileSystem.TempFolders.VideoFolder, "output.webm"));
+            if (convert.ConversionRequest.ExportType == ExportType.CustomServer)
+                md5 = "UNKNOWN.webm";
             string outputVideoPath = convert.FileSystem.OutputFolders.VideoFolder;
             Directory.CreateDirectory(outputVideoPath);
             File.Move(Path.Combine(convert.FileSystem.TempFolders.VideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
 
             // Move the preview video to the output folder
             md5 = Download.GetFileMD5(Path.Combine(convert.FileSystem.TempFolders.VideoFolder, "preview.webm"));
+            if (convert.ConversionRequest.ExportType == ExportType.CustomServer)
+                md5 = "LOW.webm";
             string previewVideoPath = convert.FileSystem.OutputFolders.PreviewVideoFolder;
             Directory.CreateDirectory(previewVideoPath);
             File.Move(Path.Combine(convert.FileSystem.TempFolders.VideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
