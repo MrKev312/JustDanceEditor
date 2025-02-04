@@ -591,12 +591,25 @@ public static class MapPackageBundleGenerator
                     if (clip.Duration == 0)
                         duration = 16;
 
+                    // If the picto cannot be found, try to find it in the pictoDict with different casing
+                    string pictoName = Path.GetFileNameWithoutExtension(clip.PictoPath);
+
+                    if (!imageDict.ContainsKey(pictoName))
+                    {
+                        string? key = imageDict.Keys.FirstOrDefault(x => x.Equals(pictoName, StringComparison.InvariantCultureIgnoreCase));
+
+                        if (key is null)
+                            Logger.Log($"Picto {pictoName} not found in imageDict", LogLevel.Warning);
+                        else
+                            pictoName = key;
+                    }
+
                     newPictoClip["StartTime"].AsInt = clip.StartTime;
                     newPictoClip["Duration"].AsInt = duration;
                     newPictoClip["Id"].AsLong = clip.Id;
                     newPictoClip["TrackId"].AsLong = clip.TrackId;
                     newPictoClip["IsActive"].AsUInt = (uint)clip.IsActive;
-                    newPictoClip["PictoPath"].AsString = Path.GetFileNameWithoutExtension(clip.PictoPath);
+                    newPictoClip["PictoPath"].AsString = pictoName;
                     newPictoClip["CoachCount"].AsUInt = (uint)clip.CoachCount;
 
                     pictoClips.Children.Add(newPictoClip);
