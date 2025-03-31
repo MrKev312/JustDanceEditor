@@ -15,27 +15,29 @@ public class JDUbiArtSong
 
     public float GetPreviewStartTime(bool isAudio = true)
     {
-        float songOffset;
+        float songOffsetAudio = -GetSongStartTime();
+        float songOffsetVideo = MusicTrack.COMPONENTS[0].trackData.structure.videoStartTime;
+
+        float startTimeAudio = -1;
+        float startTimeVideo = -1;
+
+        for (int beatOffset = 0; startTimeAudio < 0 || startTimeVideo < 0; beatOffset++)
+        {
+            // Get the start and end markers
+            int startBeat = MusicTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
+
+            // Convert the ticks to ubiart timing using the markers
+            float startTime = MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat + beatOffset] / 48f / 1000f;
+
+            startTimeAudio = startTime - songOffsetAudio;
+            startTimeVideo = startTime - songOffsetVideo;
+        }
+
 
         if (isAudio)
-        {
-            // Get the startbeat offset
-            songOffset = -GetSongStartTime();
-        }
+            return startTimeAudio;
         else
-        {
-            songOffset = MusicTrack.COMPONENTS[0].trackData.structure.videoStartTime;
-        }
-
-        // Get the start and end markers
-        int startBeat = MusicTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
-
-        // Convert the ticks to ubiart timing using the markers
-        float startTime = MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
-
-        startTime -= songOffset;
-
-        return startTime;
+            return startTimeVideo;
     }
 
     public float GetSongStartTime()
