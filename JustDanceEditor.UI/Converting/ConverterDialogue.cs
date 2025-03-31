@@ -91,13 +91,21 @@ public class ConverterDialogue
                 : Directory.GetDirectories(inputFolder);
 
             // Remove bundle_nx and patch_nx folders
-            inputFolders = inputFolders.Where(x => !x.Contains("bundle_nx") && !x.Contains("patch_nx")).ToArray();
+            string[] ignoreFolders = ["bundle_nx", "patch_nx", "sku_nx"];
+            inputFolders = [.. inputFolders.Where(x => !ignoreFolders.Any(x.Contains))];
 
             foreach (string folder in inputFolders)
             {
 
                 // Get all the songs in the folder
                 string inputMapsFolder = Path.Combine(folder, "world", "maps");
+
+                if (!Directory.Exists(inputMapsFolder))
+                {
+                    Logger.Log($"Skipping {folder} as it is not a valid folder", LogLevel.Important);
+                    continue;
+                }
+
                 string[] songs = Directory.GetDirectories(inputMapsFolder);
 
                 foreach (string songPath in songs)
