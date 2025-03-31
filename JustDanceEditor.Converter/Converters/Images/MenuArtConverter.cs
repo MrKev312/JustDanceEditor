@@ -2,10 +2,11 @@
 using JustDanceEditor.Logging;
 
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
-public static class MenuArtConverter
+public static partial class MenuArtConverter
 {
     public async static Task ConvertMenuArtAsync(ConvertUbiArtToUnity convert) =>
         await Task.Run(() => ConvertMenuArt(convert));
@@ -43,15 +44,16 @@ public static class MenuArtConverter
         foreach (string pngFile in pngFiles)
         {
             string fileName = Path.GetFileNameWithoutExtension(pngFile);
-            // If {song}_coachx.png exists, rename it to {song}_Coach_x.png
-            if (fileName.Contains("_coach") && !fileName.Contains("_Coach_"))
-            {
-                Logger.Log($"Renaming {fileName} to {fileName.Replace("_coach", "_Coach_")}", LogLevel.Warning);
-                string newFileName = fileName.Replace("_coach", "_Coach_");
-                string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
-                if (!File.Exists(newFilePath))
-                    File.Move(pngFile, newFilePath);
-            }
+            // If {song}_coachx.png or {song}_coach_x.png exists, rename it to {song}_Coach_x.png
+			if (CoachMatch().IsMatch(fileName))
+			{
+				string newFileName = CoachMatch().Replace(fileName, "_Coach_");
+				Logger.Log($"Renaming {fileName} to {newFileName}", LogLevel.Warning);
+				string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+				if (!File.Exists(newFilePath))
+					File.Move(pngFile, newFilePath);
+                return;
+			}
 
             // If {song}_AlbumCoach.png exists, rename it to {song}_Cover_AlbumCoach.png
             if (fileName.Contains("_AlbumCoach", StringComparison.OrdinalIgnoreCase) && !fileName.Contains("_Cover_AlbumCoach", StringComparison.OrdinalIgnoreCase))
@@ -61,10 +63,14 @@ public static class MenuArtConverter
                 string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
                 if (!File.Exists(newFilePath))
                     File.Move(pngFile, newFilePath);
+                return;
             }
         }
 
         stopwatch.Stop();
         Logger.Log($"Finished converting menu art files in {stopwatch.ElapsedMilliseconds}ms");
     }
+
+    [GeneratedRegex("_coach_?")]
+    private static partial Regex CoachMatch();
 }
