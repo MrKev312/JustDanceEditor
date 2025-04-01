@@ -64,100 +64,108 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32>? TryCoverWeb(ConvertUbiArtToUnity convert)
     {
-        string baseURL = "https://justdance.fandom.com";
-
-        // Download one from https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B
-        // Load the webpage
-        HttpClient client = new();
-        string html = client.GetStringAsync($"{baseURL}/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B").Result;
-
-        // Convert the html to a document
-        HtmlDocument doc = new();
-        doc.LoadHtml(html);
-
-        // Get the class called "fandom-table"[0]/tbody
-        HtmlNode table = doc.DocumentNode.SelectNodes("//table[@class='fandom-table']")[0];
-        HtmlNode htmlNode = table.SelectSingleNode("tbody");
-
-        // Get all the tr nodes
-        List<HtmlNode> allNodes = htmlNode.SelectNodes("tr").Skip(1).ToList();
-
-        // Find the node where the first td's inner text is the map name
-        List<HtmlNode> nodes = [];
-
-        foreach (HtmlNode node in allNodes)
+        try
         {
-            // Get the first <i> tag's title, it might not be a direct child
-            string title = node.SelectSingleNode(".//i").FirstChild.InnerText;
+            string baseURL = "https://justdance.fandom.com";
 
-            if (title.Trim() == convert.SongData.SongDesc.COMPONENTS[0].Title.Trim())
+            // Download one from https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B
+            // Load the webpage
+            HttpClient client = new();
+            string html = client.GetStringAsync($"{baseURL}/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B").Result;
+
+            // Convert the html to a document
+            HtmlDocument doc = new();
+            doc.LoadHtml(html);
+
+            // Get the class called "fandom-table"[0]/tbody
+            HtmlNode table = doc.DocumentNode.SelectNodes("//table[@class='fandom-table']")[0];
+            HtmlNode htmlNode = table.SelectSingleNode("tbody");
+
+            // Get all the tr nodes
+            List<HtmlNode> allNodes = htmlNode.SelectNodes("tr").Skip(1).ToList();
+
+            // Find the node where the first td's inner text is the map name
+            List<HtmlNode> nodes = [];
+
+            foreach (HtmlNode node in allNodes)
             {
-                nodes.Add(node);
+                // Get the first <i> tag's title, it might not be a direct child
+                string title = node.SelectSingleNode(".//i").FirstChild.InnerText;
+
+                if (title.Trim() == convert.SongData.SongDesc.COMPONENTS[0].Title.Trim())
+                {
+                    nodes.Add(node);
+                }
             }
+
+            // If the cover doesn't exist, return false
+            if (nodes.Count == 0)
+                return null;
+
+            HtmlNode? row = null;
+
+            foreach (HtmlNode node in nodes)
+            {
+                // Get the url at .//i//a
+                string url = baseURL + node.SelectSingleNode(".//a").Attributes["href"].Value;
+
+                // Load in the page
+                string pageHtml = client.GetStringAsync(url).Result;
+                HtmlDocument wikiPage = new();
+                wikiPage.LoadHtml(pageHtml);
+
+                // Query for the infobox element
+                HtmlNode? codeName = wikiPage.DocumentNode.SelectSingleNode("//b[contains(text(), 'Code Name')]");
+
+                if (codeName == null)
+                    continue;
+
+                // Get the parent.parent/div
+                HtmlNode codeNameElement = codeName.ParentNode.ParentNode;
+
+                string? codeNameText = codeNameElement.Elements("div").FirstOrDefault()?.FirstChild.InnerText;
+
+                if (codeNameText == null)
+                    continue;
+
+                // Skip everything after the first space
+                codeNameText = codeNameText.Split(' ')[0];
+
+                if (codeNameText.Trim() == convert.SongData.Name.Trim())
+                {
+                    row = node;
+                    break;
+                }
+            }
+
+            if (row == null)
+                return null;
+
+            // If both the last or second to last td's are empty or "N/A", then the cover doesn't exist
+            HtmlNodeCollection tds = row.SelectNodes("td");
+
+            // Get the cover url with text on it
+            string coverUrl = tds[^1].SelectSingleNode("(.//a )[1]").Attributes["href"].Value;
+            // If this is a placeholder cover, get the second to last, the version without text
+            if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
+                coverUrl = tds[^2].SelectSingleNode("(.//a )[1]").Attributes["href"].Value;
+            if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
+                // Couldn't find the cover, return false
+                return null;
+
+            // Load the image
+            Stream coverStream = client.GetStreamAsync(coverUrl).Result;
+            Image<Rgba32>? coverImage = Image.Load<Rgba32>(coverStream);
+            coverImage.Mutate(x => x.Resize(640, 360));
+
+            // Success!
+            return coverImage;
         }
-
-        // If the cover doesn't exist, return false
-        if (nodes.Count == 0)
-            return null;
-
-        HtmlNode? row = null;
-
-        foreach (HtmlNode node in nodes)
+        catch (Exception e)
         {
-            // Get the url at .//i//a
-            string url = baseURL + node.SelectSingleNode(".//a").Attributes["href"].Value;
-
-            // Load in the page
-            string pageHtml = client.GetStringAsync(url).Result;
-            HtmlDocument wikiPage = new();
-            wikiPage.LoadHtml(pageHtml);
-
-            // Query for the infobox element
-            HtmlNode? codeName = wikiPage.DocumentNode.SelectSingleNode("//b[contains(text(), 'Code Name')]");
-
-            if (codeName == null)
-                continue;
-
-            // Get the parent.parent/div
-            HtmlNode codeNameElement = codeName.ParentNode.ParentNode;
-
-            string? codeNameText = codeNameElement.Elements("div").FirstOrDefault()?.FirstChild.InnerText;
-
-            if (codeNameText == null)
-                continue;
-
-            // Skip everything after the first space
-            codeNameText = codeNameText.Split(' ')[0];
-
-            if (codeNameText.Trim() == convert.SongData.Name.Trim())
-            {
-                row = node;
-                break;
-            }
+            Logger.Log($"Failed to get cover from the web: {e.Message}", LogLevel.Warning);
+            return null;
         }
-
-        if (row == null)
-            return null;
-
-        // If both the last or second to last td's are empty or "N/A", then the cover doesn't exist
-        HtmlNodeCollection tds = row.SelectNodes("td");
-
-        // Get the cover url with text on it
-        string coverUrl = tds[^1].SelectSingleNode("a").Attributes["href"].Value;
-        // If this is a placeholder cover, get the second to last, the version without text
-        if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
-            coverUrl = tds[^2].SelectSingleNode("a").Attributes["href"].Value;
-        if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
-            // Couldn't find the cover, return false
-            return null;
-
-        // Load the image
-        Stream coverStream = client.GetStreamAsync(coverUrl).Result;
-        Image<Rgba32>? coverImage = Image.Load<Rgba32>(coverStream);
-        coverImage.Mutate(x => x.Resize(640, 360));
-
-        // Success!
-        return coverImage;
     }
 
     public static Image<Rgba32> GenerateOwnCover(ConvertUbiArtToUnity convert)
