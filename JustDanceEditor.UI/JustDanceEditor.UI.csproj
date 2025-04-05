@@ -14,4 +14,8 @@
 		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
+	</ItemGroup>
 </Project>
