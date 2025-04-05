@@ -14,9 +14,11 @@ The author is not responsible for any misuse of this tool.
 - Auto converts the tracks to a MapPackage bundle.
 - Auto generates a cover.
 - Auto generates the coaches bundles.
+- Auto generates a preview.
+- Auto converts videos to the right aspect ratio and format.
 
 ## Installation
-1. Make sure you have .NET 8 installed. Without this, the program will not open.
+1. Make sure you have .NET 9 installed. Without this, the program will not open.
 2. Download the latest release.
 3. Extract the files.
 4. Create a folder called ``template`` in the same directory as the executable. In there create the following folders:
