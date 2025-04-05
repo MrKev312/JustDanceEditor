@@ -117,8 +117,6 @@ public class ConvertUbiArtToUnity(ConversionRequest conversionRequest)
 
     void ValidateRequest()
     {
-        ArgumentNullException.ThrowIfNull(ConversionRequest);
-
         // Validate the input path
         if (string.IsNullOrWhiteSpace(ConversionRequest.InputPath) || !Directory.Exists(ConversionRequest.InputPath))
             throw new FileNotFoundException("Input folder not found");
