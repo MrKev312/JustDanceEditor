@@ -165,7 +165,7 @@ public class ConverterDialogue
         Directory.CreateDirectory(outputPath);
 
         // Check if there's a cachingStatus.json
-        string cacheStatusPath = Path.Combine(inputPath, "cache", "MapBaseCache", "cachingStatus.json");
+        string cacheStatusPath = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
         ExportType exportType = File.Exists(cacheStatusPath) 
             ? ExportType.OfflineCache 
             : ExportType.CustomServer;
