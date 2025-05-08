@@ -64,7 +64,7 @@ public static class CoverBundleGenerator
         // If a cover.png exists in the map folder, use that
         Image<Rgba32>? coverImage = null;
         if (convert.ConversionRequest.OnlineCover)
-            coverImage ??= CoverArtGenerator.TryCoverWeb(convert);
+            coverImage ??= CoverArtGenerator.TryImageWeb(convert, "Cover");
         coverImage ??= CoverArtGenerator.ExistingCover(convert);
         coverImage ??= CoverArtGenerator.GenerateOwnCover(convert);
 

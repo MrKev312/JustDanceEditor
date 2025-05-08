@@ -64,6 +64,10 @@ Be sure to include the following information:
 - The error message you are getting.
 - Any other relevant information.
 
+## Online Covers
+This tool can automatically download covers from the internet from this repository: [Just Dance Covers](https://github.com/MrKev312/JustDanceCovers).
+Feel free to add your own covers to the repository!
+
 ## Contributing
 Contributions are welcome! Please follow these guidelines:
 - Fork the repository.

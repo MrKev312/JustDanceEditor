@@ -11,6 +11,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using TextureConverter;
 using JustDanceEditor.Converter.Files;
+using JustDanceEditor.Converter.Converters.Images;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 
@@ -37,9 +38,16 @@ public static class SongTitleBundleGenerator
     {
         FileSystem fs = convert.FileSystem;
 
-        // Does the following exist?
-        string songTitleLogoPath = Path.Combine(fs.TempFolders.MenuArtFolder, "songTitleLogo.png");
-        if (!File.Exists(songTitleLogoPath))
+        Image<Rgba32>? image = null;
+        // Should we look up the cover online?
+        if (convert.ConversionRequest.OnlineCover)
+            image = CoverArtGenerator.TryImageWeb(convert, "Title");
+
+        // If we couldn't find the cover online, try to load it from the input folder
+        image ??= CoverArtGenerator.ExistingSongTitleLogo(convert);
+
+        // If we still don't have a cover, we throw an info message
+        if (image == null)
         {
             Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
             return;
@@ -72,8 +80,7 @@ public static class SongTitleBundleGenerator
         // Set the name to {mapName}_Cover_2x
         coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Title";
 
-        // Load the image and make it fit in 1024x512
-        Image<Rgba32> image = Image.Load<Rgba32>(songTitleLogoPath);
+        // Make it fit in 1024x512
         if (image.Width / (float)image.Height != 2f)
         {
             // Pad the image to 2:1

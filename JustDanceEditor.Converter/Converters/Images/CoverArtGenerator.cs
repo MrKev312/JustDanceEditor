@@ -7,11 +7,14 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
+using System.Text.Json;
 
 namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class CoverArtGenerator
 {
+    private static HttpClient httpClient = new();
+
     public static Image<Rgba32>? ExistingCover(ConvertUbiArtToUnity convert)
     {
         string[] paths =
@@ -51,6 +54,12 @@ public static class CoverArtGenerator
         return null;
     }
 
+    public static Image<Rgba32>? ExistingSongTitleLogo(ConvertUbiArtToUnity convert)
+    {
+        // Load the image
+        return TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, "songTitleLogo.png"));
+    }
+
     static Image<Rgba32>? TryLoadImage(string path)
     {
         if (!File.Exists(path))
@@ -62,110 +71,54 @@ public static class CoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? TryCoverWeb(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? TryImageWeb(ConvertUbiArtToUnity convert, string imageType)
     {
-        try
+        string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
+
+        Image<Rgba32>? FetchCoverFromWeb(string name)
+            => LoadFromUrl($"{baseUrl}/Covers/{name}/{imageType}.webp");
+
+        Image<Rgba32>? coverImage = FetchCoverFromWeb(convert.SongData.Name);
+
+        if (coverImage is not null)
         {
-            string baseURL = "https://justdance.fandom.com";
-
-            // Download one from https://justdance.fandom.com/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B
-            // Load the webpage
-            HttpClient client = new();
-            string html = client.GetStringAsync($"{baseURL}/wiki/User_blog:Sweet_King_Candy/Extended_Covers_for_Just_Dance_%2B").Result;
-
-            // Convert the html to a document
-            HtmlDocument doc = new();
-            doc.LoadHtml(html);
-
-            // Get the class called "fandom-table"[0]/tbody
-            HtmlNode table = doc.DocumentNode.SelectNodes("//table[@class='fandom-table']")[0];
-            HtmlNode htmlNode = table.SelectSingleNode("tbody");
-
-            // Get all the tr nodes
-            List<HtmlNode> allNodes = htmlNode.SelectNodes("tr").Skip(1).ToList();
-
-            // Find the node where the first td's inner text is the map name
-            List<HtmlNode> nodes = [];
-
-            foreach (HtmlNode node in allNodes)
-            {
-                // Get the first <i> tag's title, it might not be a direct child
-                string title = node.SelectSingleNode(".//i").FirstChild.InnerText;
-
-                if (title.Trim() == convert.SongData.SongDesc.COMPONENTS[0].Title.Trim())
-                {
-                    nodes.Add(node);
-                }
-            }
-
-            // If the cover doesn't exist, return false
-            if (nodes.Count == 0)
-                return null;
-
-            HtmlNode? row = null;
-
-            foreach (HtmlNode node in nodes)
-            {
-                // Get the url at .//i//a
-                string url = baseURL + node.SelectSingleNode(".//a").Attributes["href"].Value;
-
-                // Load in the page
-                string pageHtml = client.GetStringAsync(url).Result;
-                HtmlDocument wikiPage = new();
-                wikiPage.LoadHtml(pageHtml);
-
-                // Query for the infobox element
-                HtmlNode? codeName = wikiPage.DocumentNode.SelectSingleNode("//b[contains(text(), 'Code Name')]");
-
-                if (codeName == null)
-                    continue;
-
-                // Get the parent.parent/div
-                HtmlNode codeNameElement = codeName.ParentNode.ParentNode;
-
-                string? codeNameText = codeNameElement.Elements("div").FirstOrDefault()?.FirstChild.InnerText;
-
-                if (codeNameText == null)
-                    continue;
-
-                // Skip everything after the first space
-                codeNameText = codeNameText.Split(' ')[0];
-
-                if (codeNameText.Trim() == convert.SongData.Name.Trim())
-                {
-                    row = node;
-                    break;
-                }
-            }
-
-            if (row == null)
-                return null;
-
-            // If both the last or second to last td's are empty or "N/A", then the cover doesn't exist
-            HtmlNodeCollection tds = row.SelectNodes("td");
-
-            // Get the cover url with text on it
-            string coverUrl = tds[^1].SelectSingleNode("(.//a )[1]").Attributes["href"].Value;
-            // If this is a placeholder cover, get the second to last, the version without text
-            if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
-                coverUrl = tds[^2].SelectSingleNode("(.//a )[1]").Attributes["href"].Value;
-            if (coverUrl.Contains("PlaceHolderCover", StringComparison.OrdinalIgnoreCase))
-                // Couldn't find the cover, return false
-                return null;
-
-            // Load the image
-            Stream coverStream = client.GetStreamAsync(coverUrl).Result;
-            Image<Rgba32>? coverImage = Image.Load<Rgba32>(coverStream);
-            coverImage.Mutate(x => x.Resize(640, 360));
-
-            // Success!
+            Logger.Log($"Found {imageType} on the web", LogLevel.Important);
             return coverImage;
         }
-        catch (Exception e)
-        {
-            Logger.Log($"Failed to get cover from the web: {e.Message}", LogLevel.Warning);
+
+        // Else, maybe we can look in the Covers.json
+        string coversJsonUrl = $"{baseUrl}/Covers.json";
+        string json = httpClient.GetStringAsync(coversJsonUrl).Result;
+        Dictionary<string, string[]> covers = JsonSerializer.Deserialize<Dictionary<string, string[]>>(json)!;
+
+        string? codename = covers.Where(x => x.Value.Contains(convert.SongData.Name)).Select(x => x.Key).FirstOrDefault();
+       if (codename is null)
             return null;
+
+        // Now we can try to fetch the cover from the web
+        return FetchCoverFromWeb(codename);
+    }
+
+    private static Image<Rgba32>? LoadFromUrl(string url)
+    {
+        // Return null if the URL is invalid or the request fails
+        if (string.IsNullOrEmpty(url))
+            return null;
+
+        // Send a GET request to the URL
+        using HttpResponseMessage response = httpClient.GetAsync(url).Result;
+
+        // Check if the request was successful
+        if (response.IsSuccessStatusCode)
+        {
+            // Read the image data from the response
+            byte[] imageData = response.Content.ReadAsByteArrayAsync().Result;
+            // Load the image from the byte array
+            using MemoryStream stream = new(imageData);
+            return Image.Load<Rgba32>(stream);
         }
+
+        return null;
     }
 
     public static Image<Rgba32> GenerateOwnCover(ConvertUbiArtToUnity convert)
