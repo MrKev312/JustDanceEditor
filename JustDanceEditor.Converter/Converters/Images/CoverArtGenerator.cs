@@ -13,7 +13,7 @@ namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class CoverArtGenerator
 {
-    private static HttpClient httpClient = new();
+    private static readonly HttpClient httpClient = new();
 
     public static Image<Rgba32>? ExistingCover(ConvertUbiArtToUnity convert)
     {
