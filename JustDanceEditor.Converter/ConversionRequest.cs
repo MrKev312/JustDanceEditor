@@ -6,7 +6,7 @@ public enum ExportType
     CustomServer
 }
 
-public struct ConversionRequest
+public class ConversionRequest
 {
     public ConversionRequest()
     {

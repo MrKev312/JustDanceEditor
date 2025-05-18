@@ -12,19 +12,20 @@ using SixLabors.ImageSharp.Processing;
 using TextureConverter;
 using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Core;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class SongTitleBundleGenerator
 {
-    public async static Task GenerateSongTitleLogoAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => GenerateSongTitleLogo(convert));
+    public async static Task GenerateSongTitleLogoAsync(ConversionContext context) =>
+        await Task.Run(() => GenerateSongTitleLogo(context));
 
-    public static void GenerateSongTitleLogo(ConvertUbiArtToUnity convert)
+    public static void GenerateSongTitleLogo(ConversionContext context)
     {
         try
         {
-            GenerateSongTitleLogoInternal(convert);
+            GenerateSongTitleLogoInternal(context);
         }
         catch (Exception e)
         {
@@ -34,17 +35,17 @@ public static class SongTitleBundleGenerator
         Logger.Log("Finished generating song title logo");
     }
 
-    static void GenerateSongTitleLogoInternal(ConvertUbiArtToUnity convert)
+    static void GenerateSongTitleLogoInternal(ConversionContext context)
     {
-        FileSystem fs = convert.FileSystem;
+        FileSystem fs = context.FileSystem;
 
         Image<Rgba32>? image = null;
         // Should we look up the cover online?
-        if (convert.ConversionRequest.OnlineCover)
-            image = CoverArtGenerator.TryImageWeb(convert, "Title");
+        if (context.Request.OnlineCover)
+            image = CoverArtGenerator.TryImageWeb(context, "Title");
 
         // If we couldn't find the cover online, try to load it from the input folder
-        image ??= CoverArtGenerator.ExistingSongTitleLogo(convert);
+        image ??= CoverArtGenerator.ExistingSongTitleLogo(context);
 
         // If we still don't have a cover, we throw an info message
         if (image == null)
@@ -69,8 +70,8 @@ public static class SongTitleBundleGenerator
 
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{convert.SongData.Name}_SongTitleLogo";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{convert.SongData.Name}_SongTitleLogo";
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_SongTitleLogo";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_SongTitleLogo";
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // There's only one texture2d in the cover, so we can just get it
@@ -78,7 +79,7 @@ public static class SongTitleBundleGenerator
         AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
 
         // Set the name to {mapName}_Cover_2x
-        coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Title";
+        coverBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
 
         // Make it fit in 1024x512
         if (image.Width / (float)image.Height != 2f)
@@ -114,7 +115,7 @@ public static class SongTitleBundleGenerator
         AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
 
         // Set the name to {mapName}_Title
-        coverSpriteBase["m_Name"].AsString = $"{convert.SongData.Name}_Title";
+        coverSpriteBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
 
         // Save the file
         coverSpriteInfo.SetNewData(coverSpriteBase);
@@ -127,6 +128,6 @@ public static class SongTitleBundleGenerator
 
         // Write the file
         string outputPackagePath = fs.OutputFolders.SongTitleLogoFolder;
-        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
+        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

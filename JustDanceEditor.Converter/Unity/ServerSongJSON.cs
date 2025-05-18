@@ -1,4 +1,4 @@
-﻿using JustDanceEditor.Converter.Converters;
+﻿using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.UbiArt;
 
 namespace JustDanceEditor.Converter.Unity;
@@ -25,9 +25,9 @@ public class ServerSongJSON
     public string[] Tags { get; set; } = [];
     public string Title { get; set; } = "";
 
-    public static explicit operator ServerSongJSON(ConvertUbiArtToUnity convert)
+    public static explicit operator ServerSongJSON(ConversionContext context)
     {
-        SongDesc mapData = convert.SongData.SongDesc;
+        SongDesc mapData = context.SongData.SongDesc;
 
         if (mapData.COMPONENTS.Length == 0)
             throw new ArgumentException("COMPONENTS must have at least one element");
@@ -46,24 +46,24 @@ public class ServerSongJSON
         string lyricsColor = $"#{red:X2}{green:X2}{blue:X2}{alpha:X2}";
 
         // Get startBeat and endBeat
-        int startBeat = Math.Abs(convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
-        int endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat - startBeat;
+        int startBeat = Math.Abs(context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.startBeat);
+        int endBeat = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.endBeat - startBeat;
 
-        if (endBeat >= convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length)
-            endBeat = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length - 1;
+        if (endBeat >= context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length)
+            endBeat = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers.Length - 1;
 
         // Use markers to get the length of the song
-        float startTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
-        float endTime = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
+        float startTime = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat] / 48f / 1000f;
+        float endTime = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[endBeat] / 48f / 1000f;
 
-        string songTitleLogoPath = convert.FileSystem.OutputFolders.SongTitleLogoFolder;
+        string songTitleLogoPath = context.FileSystem.OutputFolders.SongTitleLogoFolder;
         bool songTitleLogo = Directory.Exists(songTitleLogoPath) && Directory.GetFiles(songTitleLogoPath).Length > 0;
 
         List<string> tags = ["Custom", "Main"];
 
         return new()
         {
-            SongID = convert.SongID,
+            SongID = context.SongID,
             MapName = info.MapName,
             ParentMapName = info.MapName,
             Title = info.Title,
@@ -71,7 +71,7 @@ public class ServerSongJSON
             Credits = info.Credits,
             LyricsColor = lyricsColor,
             MapLength = endTime - startTime,
-            OriginalJDVersion = convert.SongData.JDVersion,
+            OriginalJDVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
             SweatDifficulty = Math.Clamp(info.SweatDifficulty + 1, 1, 3),

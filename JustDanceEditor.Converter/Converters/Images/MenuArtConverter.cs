@@ -1,4 +1,5 @@
-﻿using JustDanceEditor.Converter.Files;
+﻿using JustDanceEditor.Converter.Core;
+using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Logging;
 
 using System.Diagnostics;
@@ -8,11 +9,11 @@ namespace JustDanceEditor.Converter.Converters.Images;
 
 public static partial class MenuArtConverter
 {
-    public async static Task ConvertMenuArtAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => ConvertMenuArt(convert));
-    public static void ConvertMenuArt(ConvertUbiArtToUnity convert)
+    public async static Task ConvertMenuArtAsync(ConversionContext context) =>
+        await Task.Run(() => ConvertMenuArt(context));
+    public static void ConvertMenuArt(ConversionContext context)
     {
-        CookedFile[] menuArtFiles = convert.FileSystem.GetAllFiles(convert.FileSystem.InputFolders.MenuArtFolder);
+        CookedFile[] menuArtFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder);
 
         menuArtFiles = [.. menuArtFiles
             .OrderByDescending(f => f.IsCooked)
@@ -26,7 +27,7 @@ public static partial class MenuArtConverter
             try
             {
                 CookedFile ckdFile = new(file);
-                string pngPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, ckdFile.Name + ".png");
+                string pngPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, ckdFile.Name + ".png");
 
                 // If the output file already exists, skip it
                 if (File.Exists(pngPath))
@@ -40,7 +41,7 @@ public static partial class MenuArtConverter
             }
         }
 
-        string[] pngFiles = Directory.GetFiles(convert.FileSystem.TempFolders.MenuArtFolder, "*.png");
+        string[] pngFiles = Directory.GetFiles(context.FileSystem.TempFolders.MenuArtFolder, "*.png");
         foreach (string pngFile in pngFiles)
         {
             string fileName = Path.GetFileNameWithoutExtension(pngFile);
@@ -49,7 +50,7 @@ public static partial class MenuArtConverter
 			{
 				string newFileName = CoachMatch().Replace(fileName, "_Coach_");
 				Logger.Log($"Renaming {fileName} to {newFileName}", LogLevel.Warning);
-				string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+				string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
 				if (!File.Exists(newFilePath))
 					File.Move(pngFile, newFilePath);
                 return;
@@ -60,7 +61,7 @@ public static partial class MenuArtConverter
             {
                 Logger.Log($"Renaming {fileName} to {fileName.Replace("_AlbumCoach", "_Cover_AlbumCoach")}", LogLevel.Warning);
                 string newFileName = fileName.Replace("_AlbumCoach", "_Cover_AlbumCoach", StringComparison.OrdinalIgnoreCase);
-                string newFilePath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+                string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
                 if (!File.Exists(newFilePath))
                     File.Move(pngFile, newFilePath);
                 return;

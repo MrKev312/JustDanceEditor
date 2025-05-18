@@ -20,7 +20,7 @@ public class ConverterDialogue
             ConversionRequest conversionRequest = CreateConversionRequest();
             Console.WriteLine();
 
-            ConvertUbiArtToUnity converter = new(conversionRequest);
+            UbiArtToUnityConverter converter = new(conversionRequest);
             converter.Convert();
         }
         catch (Exception e)
@@ -47,7 +47,7 @@ public class ConverterDialogue
             conversionRequest.JDVersion = version == 0 ? null : version;
             Console.WriteLine();
 
-            ConvertUbiArtToUnity converter = new(conversionRequest);
+            UbiArtToUnityConverter converter = new(conversionRequest);
             converter.Convert();
         }
         catch (Exception e)
@@ -74,7 +74,7 @@ public class ConverterDialogue
             if (File.Exists(cacheStatusPath))
             {
                 string json = File.ReadAllText(cacheStatusPath);
-                existingSongs = JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId).ToList();
+                existingSongs = [.. JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId)];
                 exportType = ExportType.OfflineCache;
             }
             else
@@ -142,7 +142,7 @@ public class ConverterDialogue
                         OnlineCover = onlineCover,
                         SongName = song
                     };
-                    ConvertUbiArtToUnity converter = new(conversionRequest);
+                    UbiArtToUnityConverter converter = new(conversionRequest);
                     converter.Convert();
                 }
             }

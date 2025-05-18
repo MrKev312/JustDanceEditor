@@ -2,6 +2,7 @@
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
@@ -16,13 +17,13 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoachesLargeBundleGenerator
 {
-    public async static Task GenerateCoachesLargeAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => GenerateCoachesLarge(convert));
-    public static void GenerateCoachesLarge(ConvertUbiArtToUnity convert)
+    public async static Task GenerateCoachesLargeAsync(ConversionContext context) =>
+        await Task.Run(() => GenerateCoachesLarge(context));
+    public static void GenerateCoachesLarge(ConversionContext context)
     {
         try
         {
-            GenerateCoachesLargeInteral(convert);
+            GenerateCoachesLargeInteral(context);
         }
         catch (Exception e)
         {
@@ -32,11 +33,11 @@ public static class CoachesLargeBundleGenerator
         Logger.Log("Finished generating CoachesLarge");
     }
 
-    static void GenerateCoachesLargeInteral(ConvertUbiArtToUnity convert)
+    static void GenerateCoachesLargeInteral(ConversionContext context)
     {
         // Get the coaches folder
         // /template/cachex/CoachesLarge/*
-        string coacheLargePackagePath = convert.FileSystem.TemplateFiles.CoachesLarge;
+        string coacheLargePackagePath = context.FileSystem.TemplateFiles.CoachesLarge;
 
         Logger.Log("Converting CoachesLarge...");
         // Open the coaches package using AssetTools.NET
@@ -50,8 +51,8 @@ public static class CoachesLargeBundleGenerator
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{convert.SongData.Name}_CoachesLarge";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{convert.SongData.Name}_CoachesLarge";
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_CoachesLarge";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_CoachesLarge";
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
         AssetTypeValueField assetBundleContainer = assetBundleBase["m_Container"]["Array"];
 
@@ -60,8 +61,8 @@ public static class CoachesLargeBundleGenerator
         AssetFileInfo? bkgTexture = null;
         AssetFileInfo? bkgSprite = null;
 
-        long[] TextureIDs = new long[convert.SongData.CoachCount + 1];
-        long[] SpriteIDs = new long[convert.SongData.CoachCount + 1];
+        long[] TextureIDs = new long[context.SongData.CoachCount + 1];
+        long[] SpriteIDs = new long[context.SongData.CoachCount + 1];
 
         // First we clean out the bundle
         // Clearing the preload table and the container
@@ -128,7 +129,7 @@ public static class CoachesLargeBundleGenerator
         TextureFormat fmt = TextureFormat.DXT5Crunched;
         int mips = 1;
 
-        for (int i = 1; i <= convert.SongData.CoachCount; i++)
+        for (int i = 1; i <= context.SongData.CoachCount; i++)
         {
             long coachTextureID = i == 0 ?
                 TextureIDs[1] :
@@ -141,10 +142,10 @@ public static class CoachesLargeBundleGenerator
             AssetTypeValueField coachSpriteBaseField = manager.GetBaseField(afileInst, coachSprite);
 
             // Create the new texture
-            coachTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
-            coachSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
+            coachTextureBaseField["m_Name"].AsString = $"{context.SongData.Name}_Coach_{i}";
+            coachSpriteBaseField["m_Name"].AsString = $"{context.SongData.Name}_Coach_{i}";
 
-            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.png");
+            string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_Coach_{i}.png");
 
             // Load the image
             Image<Rgba32> image = Image.Load<Rgba32>(path);
@@ -196,11 +197,11 @@ public static class CoachesLargeBundleGenerator
             AssetTypeValueField bkgSpriteBaseField = manager.GetBaseField(afileInst, bkgSprite);
 
             // Create the new texture
-            bkgTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
-            bkgSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
+            bkgTextureBaseField["m_Name"].AsString = $"{context.SongData.Name}_map_bkg";
+            bkgSpriteBaseField["m_Name"].AsString = $"{context.SongData.Name}_map_bkg";
 
             // Load the image
-            Image<Rgba32> image = CoverArtGenerator.GetBackground(convert);
+            Image<Rgba32> image = CoverArtGenerator.GetBackground(context);
 
             fmt = TextureFormat.DXT1Crunched;
 
@@ -226,7 +227,7 @@ public static class CoachesLargeBundleGenerator
         }
 
         // Finally we fix the container
-        for (int i = 0; i < convert.SongData.CoachCount + 1; i++)
+        for (int i = 0; i < context.SongData.CoachCount + 1; i++)
         {
             string name = i == 0 ? "CoachesBackground" : $"Coach{i}";
 
@@ -252,7 +253,7 @@ public static class CoachesLargeBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = convert.FileSystem.OutputFolders.CoachesLargeFolder;
-        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
+        string outputPackagePath = context.FileSystem.OutputFolders.CoachesLargeFolder;
+        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

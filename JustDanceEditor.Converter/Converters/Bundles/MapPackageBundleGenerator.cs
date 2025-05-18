@@ -12,18 +12,19 @@ using TextureConverter.TextureConverterHelpers;
 
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+using JustDanceEditor.Converter.Core;
 
 namespace JustDanceEditor.Converter.Converters.Bundles;
 public static class MapPackageBundleGenerator
 {
-    public async static Task GenerateMapPackageAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => GenerateMapPackage(convert));
+    public async static Task GenerateMapPackageAsync(ConversionContext context) =>
+        await Task.Run(() => GenerateMapPackage(context));
 
-    public static void GenerateMapPackage(ConvertUbiArtToUnity convert)
+    public static void GenerateMapPackage(ConversionContext context)
     {
         try
         {
-            GenerateMapPackageInternally(convert);
+            GenerateMapPackageInternally(context);
         }
         catch (Exception e)
         {
@@ -33,15 +34,15 @@ public static class MapPackageBundleGenerator
         Logger.Log("Finished generating map package");
     }
 
-    static void GenerateMapPackageInternally(ConvertUbiArtToUnity convert)
+    static void GenerateMapPackageInternally(ConversionContext context)
     {
         // Get the mapPackage path
         // /template/cachex/MapPackage/*
-        string mapPackagePath = convert.FileSystem.TemplateFiles.MapPackage;
+        string mapPackagePath = context.FileSystem.TemplateFiles.MapPackage;
 
         // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
         Task<(Dictionary<string, (int index, (int Width, int Height))>, List<Image<Rgba32>>)> pictoTask =
-            Task.Run(() => Task.FromResult(PictoConverter.ConvertPictos(convert)));
+            Task.Run(() => Task.FromResult(PictoConverter.ConvertPictos(context)));
 
         // While the pictos are in the oven, we can convert the mapfiles
         Logger.Log("Converting MapPackage...");
@@ -65,8 +66,8 @@ public static class MapPackageBundleGenerator
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
 
         // Set the name of the assetbundle to {mapName}_MapPackage
-        assetBundleBase["m_Name"].AsString = $"{convert.SongData.Name}_MapPackage";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{convert.SongData.Name}_MapPackage";
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_MapPackage";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_MapPackage";
 
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
@@ -89,12 +90,12 @@ public static class MapPackageBundleGenerator
         }
 
         // Set the name of the mapBase to the name of the map
-        mapBase["m_Name"].AsString = convert.SongData.Name;
-        mapBase["MapName"].AsString = convert.SongData.Name;
-        mapBase["SongDesc"]["MapName"].AsString = convert.SongData.Name;
-        mapBase["SongDesc"]["NumCoach"].AsInt = (int)convert.SongData.CoachCount;
-        mapBase["KaraokeData"]["MapName"].AsString = convert.SongData.Name;
-        mapBase["DanceData"]["MapName"].AsString = convert.SongData.Name;
+        mapBase["m_Name"].AsString = context.SongData.Name;
+        mapBase["MapName"].AsString = context.SongData.Name;
+        mapBase["SongDesc"]["MapName"].AsString = context.SongData.Name;
+        mapBase["SongDesc"]["NumCoach"].AsInt = (int)context.SongData.CoachCount;
+        mapBase["KaraokeData"]["MapName"].AsString = context.SongData.Name;
+        mapBase["DanceData"]["MapName"].AsString = context.SongData.Name;
 
         // Remove all the old dance moves
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.TextAsset))
@@ -156,8 +157,8 @@ public static class MapPackageBundleGenerator
         // Store reference to the SpriteAtlas
         AssetFileInfo spriteAtlasInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.SpriteAtlas).First();
         AssetTypeValueField spriteAtlasBase = manager.GetBaseField(afileInst, spriteAtlasInfo);
-        spriteAtlasBase["m_Name"].AsString = convert.SongData.Name;
-        spriteAtlasBase["m_Tag"].AsString = convert.SongData.Name;
+        spriteAtlasBase["m_Name"].AsString = context.SongData.Name;
+        spriteAtlasBase["m_Tag"].AsString = context.SongData.Name;
 
         // Empty the packedSprites, packedSpriteNamesToIndex and RenderDataMap arrays
         spriteAtlasBase["m_PackedSprites"]["Array"].Children.Clear();
@@ -166,7 +167,7 @@ public static class MapPackageBundleGenerator
 
         /// The musicTrackBase:
         // First set the basic fields
-        Structure trackStructure = convert.SongData.MusicTrack.COMPONENTS[0].trackData.structure;
+        Structure trackStructure = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure;
         AssetTypeValueField structure = musicTrackBase["m_structure"]["MusicTrackStructure"];
         structure["startBeat"].AsInt = trackStructure.startBeat;
         structure["endBeat"].AsInt = trackStructure.endBeat;
@@ -229,7 +230,7 @@ public static class MapPackageBundleGenerator
         karaokeArray.Children.Clear();
 
         // For each clip in the karaoke file, create a new KaraokeClipContainer
-        foreach (KaraokeClip clip in convert.SongData.Clips.OfType<KaraokeClip>())
+        foreach (KaraokeClip clip in context.SongData.Clips.OfType<KaraokeClip>())
         {
             // Create a new KaraokeClipContainer
             AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
@@ -260,7 +261,7 @@ public static class MapPackageBundleGenerator
         // Add the new dance moves
         string[] moveFiles = [];
 
-        if (convert.FileSystem.GetFolderPath(convert.FileSystem.InputFolders.MovesFolder, out string? movesFolder))
+        if (context.FileSystem.GetFolderPath(context.FileSystem.InputFolders.MovesFolder, out string? movesFolder))
             moveFiles = Directory.GetFiles(movesFolder);
 
         foreach (string item in moveFiles)
@@ -304,7 +305,7 @@ public static class MapPackageBundleGenerator
         (Dictionary<string, (int index, (int width, int height) size)> imageDict, List<Image<Rgba32>> atlasPics) = pictoTask.Result;
 
         // Add the new pictos
-        string[] FileDirs = Directory.GetFiles(Path.Combine(convert.FileSystem.TempFolders.PictoFolder, "Atlas"));
+        string[] FileDirs = Directory.GetFiles(Path.Combine(context.FileSystem.TempFolders.PictoFolder, "Atlas"));
         byte[][] endImageBytes = new byte[FileDirs.Length][];
 
         Parallel.For(0, FileDirs.Length, i =>
@@ -340,7 +341,7 @@ public static class MapPackageBundleGenerator
             AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
 
             // Set the name and content
-            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{convert.SongData.Name}-5e98ca96";
+            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{context.SongData.Name}-5e98ca96";
             texBaseField["m_MipCount"].AsInt = 1;
 
             texBaseField["m_MipCount"].AsInt = 1;
@@ -389,7 +390,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Then add all the pictos to the bundle
-        FileDirs = Directory.GetFiles(convert.FileSystem.TempFolders.PictoFolder);
+        FileDirs = Directory.GetFiles(context.FileSystem.TempFolders.PictoFolder);
 
         for (int i = 0; i < FileDirs.Length; i++)
         {
@@ -402,10 +403,10 @@ public static class MapPackageBundleGenerator
             long spriteID = afile.GetRandomId();
 
             // Magic number for the sprite
-            float pixelsToUnitsMagic = convert.SongData.CoachCount == 1 ?
+            float pixelsToUnitsMagic = context.SongData.CoachCount == 1 ?
                 100f :
                 69.140625f;
-            float wMagic = convert.SongData.CoachCount == 1 ?
+            float wMagic = context.SongData.CoachCount == 1 ?
                 256f :
                 177f;
 
@@ -442,7 +443,7 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
             spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
             spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = wMagic;
-            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = convert.SongData.Name;
+            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = context.SongData.Name;
             spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnitsMagic;
 
             uint[] uintArray = Guid.NewGuid().ToUnity();
@@ -453,7 +454,7 @@ public static class MapPackageBundleGenerator
             spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
             spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
 
-            byte[] vertexMagics = convert.SongData.CoachCount == 1 ?
+            byte[] vertexMagics = context.SongData.CoachCount == 1 ?
                 [10, 215, 35] :
                 [97, 247, 108];
 
@@ -544,7 +545,7 @@ public static class MapPackageBundleGenerator
         bodyCoachCounters.Children.Clear();
 
         // For each coach in the song, create a new CoachCounter
-        for (int i = 0; i < convert.SongData.CoachCount; i++)
+        for (int i = 0; i < context.SongData.CoachCount; i++)
         {
             // Create a new CoachCounter
             AssetTypeValueField newCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(handCoachCounters);
@@ -564,7 +565,7 @@ public static class MapPackageBundleGenerator
         }
 
         // Add the clips from the dance tape
-        foreach (IClip iClip in convert.SongData.Clips)
+        foreach (IClip iClip in context.SongData.Clips)
         {
             // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
             switch (iClip)
@@ -622,7 +623,7 @@ public static class MapPackageBundleGenerator
                     if (!clip.ClassifierPath.EndsWith(".msm"))
                         continue;
 
-                    if (clip.CoachId >= convert.SongData.CoachCount)
+                    if (clip.CoachId >= context.SongData.CoachCount)
                         // Ignore clip
                         continue;
 
@@ -680,7 +681,7 @@ public static class MapPackageBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Add .mod to the end of the file
-        string outputPackagePath = convert.FileSystem.OutputFolders.MapPackageFolder;
-        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
+        string outputPackagePath = context.FileSystem.OutputFolders.MapPackageFolder;
+        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

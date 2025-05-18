@@ -2,6 +2,7 @@
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
@@ -15,14 +16,14 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoverBundleGenerator
 {
-    public async static Task GenerateCoverAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => GenerateCover(convert));
+    public async static Task GenerateCoverAsync(ConversionContext context) =>
+        await Task.Run(() => GenerateCover(context));
 
-    public static void GenerateCover(ConvertUbiArtToUnity convert)
+    public static void GenerateCover(ConversionContext context)
     {
         try
         {
-            GenerateCoverInternal(convert);
+            GenerateCoverInternal(context);
         }
         catch (Exception e)
         {
@@ -32,9 +33,9 @@ public static class CoverBundleGenerator
         Logger.Log("Finished generating cover");
     }
 
-    static void GenerateCoverInternal(ConvertUbiArtToUnity convert)
+    static void GenerateCoverInternal(ConversionContext context)
     {
-        string coverPackagePath = convert.FileSystem.TemplateFiles.Cover;
+        string coverPackagePath = context.FileSystem.TemplateFiles.Cover;
 
         Logger.Log("Converting Cover...");
 
@@ -50,8 +51,8 @@ public static class CoverBundleGenerator
 
         AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{convert.SongData.Name}_Cover";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{convert.SongData.Name}_Cover";
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_Cover";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_Cover";
         AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
         // There's only one texture2d in the cover, so we can just get it
@@ -59,24 +60,24 @@ public static class CoverBundleGenerator
         AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
 
         // Set the name to {mapName}_Cover_2x
-        coverBase["m_Name"].AsString = $"{convert.SongData.Name}_Cover_2x";
+        coverBase["m_Name"].AsString = $"{context.SongData.Name}_Cover_2x";
 
         // If a cover.png exists in the map folder, use that
         Image<Rgba32>? coverImage = null;
-        if (convert.ConversionRequest.OnlineCover)
-            coverImage ??= CoverArtGenerator.TryImageWeb(convert, "Cover");
-        coverImage ??= CoverArtGenerator.ExistingCover(convert);
-        coverImage ??= CoverArtGenerator.GenerateOwnCover(convert);
+        if (context.Request.OnlineCover)
+            coverImage ??= CoverArtGenerator.TryImageWeb(context, "Cover");
+        coverImage ??= CoverArtGenerator.ExistingCover(context);
+        coverImage ??= CoverArtGenerator.GenerateOwnCover(context);
 
         // Save the image in the temp folder
-        coverImage.Save(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"Cover_{convert.SongData.Name}.png"));
+        coverImage.Save(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"Cover_{context.SongData.Name}.png"));
 
         // Now we can encode the image
         {
             byte[] encImageBytes;
             TextureFormat fmt = TextureFormat.DXT1Crunched;
             int mips = 1;
-            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.tga.png");
+            string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_map_bkg.tga.png");
 
             encImageBytes = TextureImportExport.Import(coverImage!, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
 
@@ -96,7 +97,7 @@ public static class CoverBundleGenerator
         AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
 
         // Set the name to {mapName}_Cover_2x
-        coverSpriteBase["m_Name"].AsString = $"{convert.SongData.Name}_Cover_2x";
+        coverSpriteBase["m_Name"].AsString = $"{context.SongData.Name}_Cover_2x";
 
         // Save the file
         coverSpriteInfo.SetNewData(coverSpriteBase);
@@ -108,7 +109,7 @@ public static class CoverBundleGenerator
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
         // Write the file
-        string outputPackagePath = convert.FileSystem.OutputFolders.CoverFolder;
-        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
+        string outputPackagePath = context.FileSystem.OutputFolders.CoverFolder;
+        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

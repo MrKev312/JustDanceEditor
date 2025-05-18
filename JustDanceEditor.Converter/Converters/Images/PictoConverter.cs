@@ -1,4 +1,5 @@
-﻿using JustDanceEditor.Converter.Files;
+﻿using JustDanceEditor.Converter.Core;
+using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
 
@@ -12,15 +13,15 @@ namespace JustDanceEditor.Converter.Converters.Images;
 
 public static class PictoConverter
 {
-    public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConvertUbiArtToUnity convert)
+    public static (Dictionary<string, (int, (int, int))> ImageDictionary, List<Image<Rgba32>> AtlasPics) ConvertPictos(ConversionContext context)
     {
-        TempFolders tempFolders = convert.FileSystem.TempFolders;
-        InputFolders inputFolders = convert.FileSystem.InputFolders;
+        TempFolders tempFolders = context.FileSystem.TempFolders;
+        InputFolders inputFolders = context.FileSystem.InputFolders;
 
-        PictogramClip[] pictoClips = convert.SongData.Clips.OfType<PictogramClip>().ToArray();
+        PictogramClip[] pictoClips = context.SongData.Clips.OfType<PictogramClip>().ToArray();
 
         // Before starting on the mapPackage, prepare the pictos
-        if (!convert.FileSystem.GetFolderPath(inputFolders.PictosFolder, out string? pictosFolder))
+        if (!context.FileSystem.GetFolderPath(inputFolders.PictosFolder, out string? pictosFolder))
         {
             Logger.Log("Pictos folder doesn't exist, skipping picto conversion", LogLevel.Warning);
             return ([], []);
@@ -58,11 +59,11 @@ public static class PictoConverter
 
             if (isMontage)
             {
-                SplitMontage(pictoPic, convert);
+                SplitMontage(pictoPic, context);
                 return;
             }
 
-            if (convert.SongData.CoachCount > 1)
+            if (context.SongData.CoachCount > 1)
             {
                 // For multi-coach songs, resize the image to 512x354
                 if (pictoPic.Width != 512 || pictoPic.Height != 354)
@@ -147,11 +148,11 @@ public static class PictoConverter
         return (imageDict, atlasPics);
 
         // Split the montage into pictos
-        void SplitMontage(Image<Bgra32> montage, ConvertUbiArtToUnity convert)
+        void SplitMontage(Image<Bgra32> montage, ConversionContext context)
         {
             List<string> pictoNames = [];
 
-            foreach (PictogramClip clip in convert.SongData.Clips.OfType<PictogramClip>())
+            foreach (PictogramClip clip in context.SongData.Clips.OfType<PictogramClip>())
             {
                 string name = Path.GetFileNameWithoutExtension(clip.PictoPath);
 
@@ -162,7 +163,7 @@ public static class PictoConverter
             // Sort alphabetically
             pictoNames.Sort();
             int pictoCount = pictoNames.Count;
-            int columns = convert.SongData.CoachCount == 1
+            int columns = context.SongData.CoachCount == 1
                 ? 8
                 : 4;
             int rows = 1;
@@ -189,7 +190,7 @@ public static class PictoConverter
                 // Extract the portion of the montage
                 Image<Bgra32> picto = montage.Clone(x => x.Crop(new Rectangle(col * pictoHeight, row * pictoWidth, pictoHeight, pictoWidth)));
 
-                if (convert.SongData.CoachCount > 1)
+                if (context.SongData.CoachCount > 1)
                 {
                     // Resize to 512x354
                     picto.Mutate(x => x.Resize(512, 354));
