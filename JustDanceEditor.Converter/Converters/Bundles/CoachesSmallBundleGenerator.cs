@@ -38,23 +38,23 @@ public static class CoachesSmallBundleGenerator
         Logger.Log("Converting CoachesSmall...");
 
         // Initialize AssetsManager and load bundle data
-        var bundleData = InitializeBundle(context);
+        var (Manager, BunInst, AFileInst, AFile, SortedAssetInfos, AssetBundleBase) = InitializeBundle(context);
 
         // Clear existing phone coach assets and identify template assets
         var (coachTextureTpl, coachSpriteTpl, textureIDs, spriteIDs) =
-            ClearBundleAndIdentifyTemplates(context, bundleData.Manager, bundleData.AFileInst, bundleData.AFile, bundleData.AssetBundleBase);
+            ClearBundleAndIdentifyTemplates(context, Manager, AFileInst, AFile, AssetBundleBase);
 
         // Process and add textures and sprites for each phone coach
-        ProcessCoachPhoneAssets(context, bundleData.Manager, bundleData.AFileInst, bundleData.AFile, coachTextureTpl, coachSpriteTpl, textureIDs, spriteIDs);
+        ProcessCoachPhoneAssets(context, Manager, AFileInst, AFile, coachTextureTpl, coachSpriteTpl, textureIDs, spriteIDs);
 
         // Populate the AssetBundle's preload table with all new and updated phone coach assets
-        PopulatePreloadTable(bundleData.AssetBundleBase["m_PreloadTable"]["Array"], textureIDs, spriteIDs);
+        PopulatePreloadTable(AssetBundleBase["m_PreloadTable"]["Array"], textureIDs, spriteIDs);
 
         // Populate the AssetBundle's container with references to phone coach assets
-        PopulateAssetContainer(context, bundleData.AssetBundleBase["m_Container"]["Array"], textureIDs, spriteIDs);
+        PopulateAssetContainer(context, AssetBundleBase["m_Container"]["Array"], textureIDs, spriteIDs);
 
         // Apply all changes to the AssetBundle and save the modified bundle file
-        FinalizeAndSaveBundle(context, bundleData.BunInst.file, bundleData.AFile, bundleData.AssetBundleBase, assetBundleData => bundleData.SortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle).SetNewData(assetBundleData));
+        FinalizeAndSaveBundle(context, BunInst.file, AFile, AssetBundleBase, assetBundleData => SortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle).SetNewData(assetBundleData));
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, List<AssetFileInfo> SortedAssetInfos, AssetTypeValueField AssetBundleBase) InitializeBundle(ConversionContext context)
@@ -104,7 +104,9 @@ public static class CoachesSmallBundleGenerator
                 assetsToRemove.Add(assetInfo);
             }
         }
-        foreach (AssetFileInfo assetInfo in assetsToRemove) afile.AssetInfos.Remove(assetInfo);
+
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
         assetsToRemove.Clear();
 
         foreach (AssetFileInfo assetInfo in afile.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
@@ -120,7 +122,9 @@ public static class CoachesSmallBundleGenerator
                 assetsToRemove.Add(assetInfo);
             }
         }
-        foreach (AssetFileInfo assetInfo in assetsToRemove) afile.AssetInfos.Remove(assetInfo);
+
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
 
         if (coachTexture == null || coachSprite == null)
             throw new Exception("Failed to find the required template phone textures and sprites!");
@@ -179,6 +183,7 @@ public static class CoachesSmallBundleGenerator
                 afile.Metadata.AddAssetInfo(newTextureInfo);
                 afile.Metadata.AddAssetInfo(newSpriteInfo);
             }
+
             textureIDs[i - 1] = coachTextureID;
             spriteIDs[i - 1] = coachSpriteID;
         }

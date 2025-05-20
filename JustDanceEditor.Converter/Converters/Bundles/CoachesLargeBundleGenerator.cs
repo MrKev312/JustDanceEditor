@@ -115,7 +115,9 @@ public static class CoachesLargeBundleGenerator
                 assetsToRemove.Add(assetInfo);
             }
         }
-        foreach (AssetFileInfo assetInfo in assetsToRemove) afile.AssetInfos.Remove(assetInfo);
+
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
         assetsToRemove.Clear();
 
         foreach (AssetFileInfo assetInfo in afile.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
@@ -136,7 +138,9 @@ public static class CoachesLargeBundleGenerator
                 assetsToRemove.Add(assetInfo);
             }
         }
-        foreach (AssetFileInfo assetInfo in assetsToRemove) afile.AssetInfos.Remove(assetInfo);
+
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
 
         if (coachTexture == null || coachSprite == null || bkgTexture == null || bkgSprite == null)
             throw new Exception("Failed to find the required template textures and sprites!");
@@ -195,6 +199,7 @@ public static class CoachesLargeBundleGenerator
                 afile.Metadata.AddAssetInfo(newTextureInfo);
                 afile.Metadata.AddAssetInfo(newSpriteInfo);
             }
+
             textureIDs[i] = coachTextureID;
             spriteIDs[i] = coachSpriteID;
         }

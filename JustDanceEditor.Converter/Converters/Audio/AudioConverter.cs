@@ -146,7 +146,7 @@ public static class AudioConverter
 
     static SoundSetClip[] GetAudioClips(IClip[] clips)
     {
-        return clips.OfType<SoundSetClip>().ToArray();
+        return [.. clips.OfType<SoundSetClip>()];
     }
 
     static void ConvertAudioFiles(ConversionContext context, SoundSetClip[] audioClips)

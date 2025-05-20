@@ -193,7 +193,6 @@ public partial class FileSystem
             ..Directory.GetDirectories(parentFolder)
             ];
 
-
         foreach (string searchPath in searchPaths)
         {
             string[] searchLocations = [

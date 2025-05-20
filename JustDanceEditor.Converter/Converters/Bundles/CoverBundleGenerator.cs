@@ -38,7 +38,7 @@ public static class CoverBundleGenerator
         Logger.Log("Converting Cover...");
 
         // Initialize AssetsManager and load bundle data
-        var bundleData = InitializeBundle(context);
+        var (Manager, BunInst, AFileInst, AFile, AssetBundleInfo, AssetBundleBase, CoverTextureInfo, CoverSpriteInfo) = InitializeBundle(context);
 
         // Prepare the cover image from various sources
         using Image<Rgba32>? coverImage = PrepareCoverImage(context);
@@ -49,13 +49,13 @@ public static class CoverBundleGenerator
         }
 
         // Update the cover texture asset with the new image data
-        UpdateCoverTexture(context, bundleData.Manager, bundleData.AFileInst, bundleData.CoverTextureInfo, coverImage);
+        UpdateCoverTexture(context, Manager, AFileInst, CoverTextureInfo, coverImage);
 
         // Update the cover sprite asset
-        UpdateCoverSprite(context, bundleData.Manager, bundleData.AFileInst, bundleData.CoverSpriteInfo);
+        UpdateCoverSprite(context, Manager, AFileInst, CoverSpriteInfo);
 
         // Apply all changes to the AssetBundle and save the modified bundle file
-        FinalizeAndSaveBundle(context, bundleData.BunInst.file, bundleData.AFile, bundleData.AssetBundleBase, assetBundleData => bundleData.AssetBundleInfo.SetNewData(assetBundleData));
+        FinalizeAndSaveBundle(context, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo CoverTextureInfo, AssetFileInfo CoverSpriteInfo)

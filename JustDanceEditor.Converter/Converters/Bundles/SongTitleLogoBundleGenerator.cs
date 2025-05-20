@@ -47,16 +47,16 @@ public static class SongTitleBundleGenerator
 
         Logger.Log("Converting SongTitleLogo...");
         // Initialize AssetsManager and load bundle data
-        var bundleData = InitializeBundle(context);
+        var (Manager, BunInst, AFileInst, AFile, AssetBundleInfo, AssetBundleBase, TextureInfo, SpriteInfo) = InitializeBundle(context);
 
         // Process the image (resize, pad) and update the texture asset
-        UpdateSongTitleTexture(context, bundleData.Manager, bundleData.AFileInst, bundleData.TextureInfo, titleImage);
+        UpdateSongTitleTexture(context, Manager, AFileInst, TextureInfo, titleImage);
 
         // Update the sprite asset associated with the song title
-        UpdateSongTitleSprite(context, bundleData.Manager, bundleData.AFileInst, bundleData.SpriteInfo);
+        UpdateSongTitleSprite(context, Manager, AFileInst, SpriteInfo);
 
         // Apply all changes to the AssetBundle and save the modified bundle file
-        FinalizeAndSaveBundle(context, bundleData.BunInst.file, bundleData.AFile, bundleData.AssetBundleBase, assetBundleData => bundleData.AssetBundleInfo.SetNewData(assetBundleData));
+        FinalizeAndSaveBundle(context, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
     }
 
     private static Image<Rgba32>? PrepareSongTitleImage(ConversionContext context)
@@ -104,6 +104,7 @@ public static class SongTitleBundleGenerator
             int newWidth = image.Height * 2;
             image.Mutate(x => x.Pad(newWidth, image.Height)); // Pad to 2:1
         }
+
         image.Mutate(x => x.Resize(1024, 512)); // Resize to target dimensions
 
         TextureFormat fmt = TextureFormat.DXT5Crunched; // DXT5 for alpha

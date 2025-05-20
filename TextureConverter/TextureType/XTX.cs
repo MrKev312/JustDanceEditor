@@ -165,9 +165,9 @@ public class XTX
                 : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
             int mipOffset = (int)texInfo.MipOffsets[level];
 
-            byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
+            byte[] mipData = [.. data.Skip(mipOffset).Take(size)];
             byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
-            result[level] = deswizzled.Take(size).ToArray();
+            result[level] = [.. deswizzled.Take(size)];
         }
 
         byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);

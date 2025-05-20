@@ -42,12 +42,12 @@ public static class MapPackageBundleGenerator
 
         Logger.Log("Converting MapPackage...");
         // Initialize AssetsManager and load bundle data
-        var bundleLoadData = InitializeBundle(context);
-        var manager = bundleLoadData.Manager;
-        var afileInst = bundleLoadData.AFileInst;
-        var afile = bundleLoadData.AFile;
-        var bun = bundleLoadData.BunFile;
-        var sortedAssetInfos = bundleLoadData.SortedAssetInfos;
+        var (Manager, BunInst, AFileInst, AFile, BunFile, SortedAssetInfos, MusicTrackInfo, MapInfo) = InitializeBundle(context);
+        var manager = Manager;
+        var afileInst = AFileInst;
+        var afile = AFile;
+        var bun = BunFile;
+        var sortedAssetInfos = SortedAssetInfos;
 
         // Identify MusicTrack and MapBehaviour MonoBehaviours and the main AssetBundle asset
         var (musicTrackBase, mapBase, assetBundleInfo, assetBundleBase) = IdentifyAndPrepareMonoBehavioursAndAssetBundle(context, manager, afileInst, sortedAssetInfos);
@@ -87,8 +87,8 @@ public static class MapPackageBundleGenerator
 
         // Apply changes to MonoBehaviours, update AssetBundle container, and save the bundle
         FinalizeAndSaveBundle(context, bun, afile, musicTrackBase, mapBase, assetBundleBase,
-            () => bundleLoadData.MusicTrackInfo.SetNewData(musicTrackBase),
-            () => bundleLoadData.MapInfo.SetNewData(mapBase),
+            () => MusicTrackInfo.SetNewData(musicTrackBase),
+            () => MapInfo.SetNewData(mapBase),
             () => assetBundleInfo.SetNewData(assetBundleBase)
         );
     }
@@ -105,7 +105,7 @@ public static class MapPackageBundleGenerator
         afile.GenerateQuickLookup();
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
 
-        AssetFileInfo[] musicTrackInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour).ToArray();
+        AssetFileInfo[] musicTrackInfos = [.. sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour)];
         AssetFileInfo musicTrackInfo, mapInfo;
 
         AssetTypeValueField firstTrackField = manager.GetBaseField(afileInst, musicTrackInfos[0]);
@@ -123,7 +123,7 @@ public static class MapPackageBundleGenerator
     private static (AssetTypeValueField musicTrackBase, AssetTypeValueField mapBase, AssetFileInfo assetBundleInfo, AssetTypeValueField assetBundleBase)
         IdentifyAndPrepareMonoBehavioursAndAssetBundle(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, List<AssetFileInfo> sortedAssetInfos)
     {
-        AssetFileInfo[] monoBehaviourInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour).ToArray();
+        AssetFileInfo[] monoBehaviourInfos = [.. sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour)];
         AssetTypeValueField track1 = manager.GetBaseField(afileInst, monoBehaviourInfos[0]);
         AssetFileInfo musicTrackInfo, mapInfo;
 
@@ -201,10 +201,13 @@ public static class MapPackageBundleGenerator
         }
 
         // Perform removal from preload table and asset list
-        foreach (var entry in preloadEntriesToRemove.Distinct()) assetBundleArray.Children.Remove(entry);
-        foreach (var asset in assetsToRemove.Distinct()) afile.AssetInfos.Remove(asset);
+        foreach (var entry in preloadEntriesToRemove.Distinct())
+            assetBundleArray.Children.Remove(entry);
+        foreach (var asset in assetsToRemove.Distinct())
+            afile.AssetInfos.Remove(asset);
 
-        if (spriteTemplate == null) throw new Exception("Sprite template for pictos not found! Ensure the template bundle contains at least one sprite.");
+        if (spriteTemplate == null)
+            throw new Exception("Sprite template for pictos not found! Ensure the template bundle contains at least one sprite.");
         return spriteTemplate;
     }
 
@@ -341,7 +344,7 @@ public static class MapPackageBundleGenerator
         string atlasTempFolder = Path.Combine(context.FileSystem.TempFolders.PictoFolder, "Atlas");
         // Ensure file order matches atlasPics list if indexing is implicit.
         // It's safer if PictoConverter outputs files with predictable names (e.g., atlas_0.png, atlas_1.png).
-        string[] atlasImageFiles = Directory.GetFiles(atlasTempFolder, "*.png").OrderBy(f => f).ToArray();
+        string[] atlasImageFiles = [.. Directory.GetFiles(atlasTempFolder, "*.png").OrderBy(f => f)];
 
         if (atlasImageFiles.Length != atlasPics.Count)
         {
@@ -404,6 +407,7 @@ public static class MapPackageBundleGenerator
             newPreloadEntry["m_PathID"].AsLong = newAssetId;
             assetBundleArray.Children.Add(newPreloadEntry);
         }
+
         return atlasIDs;
     }
 
@@ -415,7 +419,7 @@ public static class MapPackageBundleGenerator
         foreach (var pictoEntry in imageDict)
         {
             string pictoName = pictoEntry.Key;
-            var pictoData = pictoEntry.Value; // Contains atlas page index and original picto dimensions
+            var (index, size) = pictoEntry.Value; // Contains atlas page index and original picto dimensions
 
             long spriteID = afile.GetRandomId();
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate); // Clone from template
@@ -427,16 +431,16 @@ public static class MapPackageBundleGenerator
 
             spriteBaseField["m_Name"].AsString = pictoName;
             // m_Rect is the sprite's rectangle in its own coordinate system (usually at 0,0 with its own width/height).
-            spriteBaseField["m_Rect"]["width"].AsFloat = pictoData.size.width;
-            spriteBaseField["m_Rect"]["height"].AsFloat = pictoData.size.height;
+            spriteBaseField["m_Rect"]["width"].AsFloat = size.width;
+            spriteBaseField["m_Rect"]["height"].AsFloat = size.height;
 
             // m_RD.textureRect defines the source rectangle on the *original, non-atlased* sprite image if it were standalone.
             // For atlased sprites, this often remains the full sprite size (0,0,width,height).
             // The actual UVs mapping to the atlas page are handled by SpriteAtlas data or m_RD.m_VertexData.
             spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
-            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = pictoData.size.width;
-            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = pictoData.size.height;
+            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = size.width;
+            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = size.height;
             spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0; // Offset if the sprite was trimmed (pivot adjustment)
             spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
             spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0; // Sprite packing settings (e.g., tight packing)
@@ -519,12 +523,13 @@ public static class MapPackageBundleGenerator
 
             // Value part: SpriteRenderData for the atlas
             // This defines the sprite's PPtr to its atlas texture page, and its rectangle on that page.
-            if (pictoData.index >= atlasIDs.Length || atlasIDs[pictoData.index] == 0)
+            if (index >= atlasIDs.Length || atlasIDs[index] == 0)
             {
-                Logger.Log($"Error: Atlas texture for picto '{pictoName}' (atlas index {pictoData.index}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
+                Logger.Log($"Error: Atlas texture for picto '{pictoName}' (atlas index {index}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
                 continue;
             }
-            renderDataEntry["second"]["texture"]["m_PathID"].AsLong = atlasIDs[pictoData.index];
+
+            renderDataEntry["second"]["texture"]["m_PathID"].AsLong = atlasIDs[index];
 
             // textureRect: The sprite's rectangle (x, y, width, height) on the atlas texture page.
             // This information MUST come from the PictoConverter's packing step.
@@ -536,8 +541,8 @@ public static class MapPackageBundleGenerator
             // The values below are placeholders or simplistic assumptions.
             renderDataEntry["second"]["textureRect"]["x"].AsFloat = 0; // Needs actual X offset on atlas page from packer
             renderDataEntry["second"]["textureRect"]["y"].AsFloat = 0; // Needs actual Y offset on atlas page from packer
-            renderDataEntry["second"]["textureRect"]["width"].AsFloat = pictoData.size.width;
-            renderDataEntry["second"]["textureRect"]["height"].AsFloat = pictoData.size.height;
+            renderDataEntry["second"]["textureRect"]["width"].AsFloat = size.width;
+            renderDataEntry["second"]["textureRect"]["height"].AsFloat = size.height;
 
             // atlasRectOffset seems to be similar to textureRect's x,y for offset purposes.
             renderDataEntry["second"]["atlasRectOffset"]["x"].AsFloat = 0; // Needs actual X offset
@@ -610,6 +615,7 @@ public static class MapPackageBundleGenerator
                         else
                             Logger.Log($"Pictogram '{pictoName}' for clip not found in image dictionary. Clip might not display correctly.", LogLevel.Warning);
                     }
+
                     newPicto["StartTime"].AsInt = clip.StartTime;
                     newPicto["Duration"].AsInt = clip.Duration == 0 ? 16 : clip.Duration; // Ensure non-zero duration, 16 is a small default
                     newPicto["Id"].AsLong = clip.Id;
@@ -725,6 +731,7 @@ public static class MapPackageBundleGenerator
                 containerArray[i]["second"]["preloadSize"].AsInt = preloadTableArray.Children.Count;
             }
         }
+
         setAssetBundleData(); // Apply changes to the AssetBundle asset itself
 
         // Write changes back to the bundle file structure
