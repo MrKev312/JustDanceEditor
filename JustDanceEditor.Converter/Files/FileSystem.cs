@@ -208,6 +208,11 @@ public partial class FileSystem
                 {
                     foreach (string file in Directory.GetFiles(folder, pattern))
                     {
+                        // If a file already exists that ends with the relative file path, skip it
+                        string relative = Path.GetRelativePath(searchPath, file);
+                        if (files.Any(x => x.FullPath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
+                            continue;
+
                         files.Add(new(file));
                     }
                 }

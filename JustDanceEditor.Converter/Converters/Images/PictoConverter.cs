@@ -20,14 +20,7 @@ public static class PictoConverter
 
         PictogramClip[] pictoClips = context.SongData.Clips.OfType<PictogramClip>().ToArray();
 
-        // Before starting on the mapPackage, prepare the pictos
-        if (!context.FileSystem.GetFolderPath(inputFolders.PictosFolder, out string? pictosFolder))
-        {
-            Logger.Log("Pictos folder doesn't exist, skipping picto conversion", LogLevel.Warning);
-            return ([], []);
-        }
-
-        CookedFile[] pictoFiles = [.. context.FileSystem.GetAllFiles(pictosFolder)];
+        CookedFile[] pictoFiles = [.. context.FileSystem.GetAllFiles(inputFolders.PictosFolder)];
 
         if (pictoFiles.Length == 0)
         {
@@ -55,7 +48,7 @@ public static class PictoConverter
             }
 
             // Stream the file into a new pictos folder
-            Image<Bgra32> pictoPic = TextureConverter.TextureConverter.ConvertToImage(item);
+            using Image<Bgra32> pictoPic = TextureConverter.TextureConverter.ConvertToImage(item);
 
             if (isMontage)
             {
@@ -78,9 +71,6 @@ public static class PictoConverter
 
             // Save the image as a png
             pictoPic.Save(Path.Combine(tempFolders.PictoFolder, name + ".png"));
-
-            // Dispose the image
-            pictoPic.Dispose();
         });
 
         Dictionary<string, (int, (int, int))> imageDict = [];
