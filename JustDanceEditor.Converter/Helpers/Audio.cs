@@ -45,7 +45,6 @@ public static class Audio
             else
                 offsetSampleProvider.SkipOver = TimeSpan.FromSeconds(-startTime);
 
-
             // Add the reader to the list of SampleProviders
             sampleProviders.Add(offsetSampleProvider);
         }

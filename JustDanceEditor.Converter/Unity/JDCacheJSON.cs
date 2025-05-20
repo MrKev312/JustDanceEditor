@@ -47,7 +47,7 @@ public class SongDatabaseEntry
     public double MapLength { get; set; }
     public uint OriginalJDVersion { get; set; }
     // Must be between 1 and 4
-    public uint CoachCount { get; set; }
+    public int CoachCount { get; set; }
     // Must be between 1 and 5
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }

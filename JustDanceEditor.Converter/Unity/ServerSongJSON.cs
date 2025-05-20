@@ -8,7 +8,7 @@ public class ServerSongJSON
 {
     public Guid SongID { get; set; }
     public string Artist { get; set; } = "";
-    public uint CoachCount { get; set; }
+    public int CoachCount { get; set; }
     public int[] CoachNamesLocIds { get; set; } = [];
     public string Credits { get; set; } = "";
     public int DanceVersionLocId { get; set; } = 0;

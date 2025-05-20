@@ -48,7 +48,7 @@ internal class OnlineSongDesc
                 new()
                 {
                     Artist = onlineSongDesc.Artist,
-                    NumCoach = (uint)onlineSongDesc.CoachCount,
+                    NumCoach = onlineSongDesc.CoachCount,
                     MainCoach = onlineSongDesc.MainCoach,
                     Difficulty = (uint)onlineSongDesc.Difficulty,
                     SweatDifficulty = (uint)onlineSongDesc.SweatDifficulty,

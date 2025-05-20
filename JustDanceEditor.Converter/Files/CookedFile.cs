@@ -27,7 +27,6 @@ public class CookedFile
     public string FullPath => this;
     public string UncookedPath => DirectoryPath + Name + Extension;
 
-
     public static implicit operator string(CookedFile v) => v.ToString();
 
     public override string ToString()

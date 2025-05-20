@@ -53,7 +53,6 @@ public class SongDataLoader : ISongDataLoader
         if (songData.SongDesc == null || songData.SongDesc.COMPONENTS.Length == 0)
             throw new InvalidDataException("SongDesc loaded but is invalid or empty.");
 
-
         songData.Name = songData.SongDesc.COMPONENTS[0].MapName;
 
         // Load JD Version

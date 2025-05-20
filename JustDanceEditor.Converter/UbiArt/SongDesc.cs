@@ -25,7 +25,7 @@ public class InfoComponent
     public string Title { get; set; } = "";
     public string Credits { get; set; } = "";
     public Phoneimages PhoneImages { get; set; } = new();
-    public uint NumCoach { get; set; }
+    public int NumCoach { get; set; }
     public int MainCoach { get; set; }
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }

@@ -173,7 +173,6 @@ public class ConverterDialogue
                     string platform = Path.GetFileName(platformDirs[0]);
                     string songDescPath = Path.Combine(songParentFolder, "world", "maps", songName, "songdesc.tpl.ckd"); // Common path, can vary
 
-
                     if (!File.Exists(songDescPath) && !File.Exists(Path.Combine(songParentFolder, "jddb.json")))
                     {
                         Logger.Log($"Skipping song '{songName}' in '{songParentFolder}': No 'songdesc.tpl.ckd', '{songName}_mainscene.isc.ckd', or 'jddb.json' found.", LogLevel.Warning);
