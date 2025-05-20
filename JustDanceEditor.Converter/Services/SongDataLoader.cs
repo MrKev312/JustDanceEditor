@@ -34,17 +34,16 @@ public class SongDataLoader : ISongDataLoader
             string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json"));
             // Assuming OnlineSongDesc is the structure in jddb.json
             var onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
-            if (onlineDesc != null) songData.SongDesc = (SongDesc)onlineDesc;
+            if (onlineDesc != null)
+                songData.SongDesc = (SongDesc)onlineDesc;
         }
         else if (File.Exists(Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json")))
         {
             Logger.Log("Loading songdesc from jddb.json (parent)");
             string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json"));
-            // Assuming OnlineSongDesc for now, adjust if it's direct SongDesc
             var onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
-            if (onlineDesc != null) songData.SongDesc = (SongDesc)onlineDesc;
-            // If it's directly SongDesc:
-            // songData.SongDesc = JsonSerializer.Deserialize<SongDesc>(jddbContent, options)!;
+            if (onlineDesc != null)
+                songData.SongDesc = (SongDesc)onlineDesc;
         }
         else
         {

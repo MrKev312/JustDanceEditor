@@ -17,16 +17,23 @@ public class ConverterDialogue
             if (!CheckTemplate())
                 return;
 
+            Console.WriteLine("Starting standard conversion process...");
             ConversionRequest conversionRequest = CreateConversionRequest();
-            Console.WriteLine();
+            Console.WriteLine("\nProcessing conversion request...");
 
             UbiArtToUnityConverter converter = new(conversionRequest);
             converter.Convert();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\nConversion completed successfully!");
+            Console.ResetColor();
         }
         catch (Exception e)
         {
-            Logger.Log(e.Message, LogLevel.Fatal);
-            throw;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"\nAn error occurred during conversion: {e.Message}");
+            Console.ResetColor();
+            Logger.Log($"Conversion failed: {e.Message}", LogLevel.Fatal);
         }
     }
 
@@ -37,23 +44,31 @@ public class ConverterDialogue
             if (!CheckTemplate())
                 return;
 
+            Console.WriteLine("Starting advanced conversion process...");
             ConversionRequest conversionRequest = CreateConversionRequest();
 
             // Ask for the cache number
-            conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the cache number", 1);
+            conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the target cache number for this song (e.g., 1, 123)", 1);
 
             // Ask for the JD version
-            uint version = (uint)Question.AskNumber("Force the JD version (0 for normal)", 0);
+            uint version = (uint)Question.AskNumber("Optionally, force a specific JDVersion for compatibility (e.g., 2019, 2022). Enter 0 for automatic detection.", 0);
             conversionRequest.JDVersion = version == 0 ? null : version;
-            Console.WriteLine();
+
+            Console.WriteLine("\nProcessing advanced conversion request...");
 
             UbiArtToUnityConverter converter = new(conversionRequest);
             converter.Convert();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\nAdvanced conversion completed successfully!");
+            Console.ResetColor();
         }
         catch (Exception e)
         {
-            Logger.Log(e.Message, LogLevel.Fatal);
-            throw;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"\nAn error occurred during advanced conversion: {e.Message}");
+            Console.ResetColor();
+            Logger.Log($"Advanced conversion failed: {e.Message}", LogLevel.Fatal);
         }
     }
 
@@ -64,115 +79,172 @@ public class ConverterDialogue
             if (!CheckTemplate())
                 return;
 
+            Console.WriteLine("Starting batch conversion process for all songs in a folder.");
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
+            bool onlineCover = AskOnlineCover();
             ExportType exportType;
 
             List<string> existingSongs = [];
 
+            // Determine export type and populate existing songs list
             string cacheStatusPath = Path.Combine(outputFolder, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
             if (File.Exists(cacheStatusPath))
             {
+                Console.WriteLine("Detected existing Offline Cache structure in output folder.");
                 string json = File.ReadAllText(cacheStatusPath);
                 existingSongs = [.. JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId)];
                 exportType = ExportType.OfflineCache;
             }
             else
             {
+                Console.WriteLine("Assuming Custom Server export type (no Offline Cache structure found in output folder).");
                 exportType = ExportType.CustomServer;
-                // Get all names in the output folder
-                string[] outputSongs = Directory.GetDirectories(outputFolder);
-                existingSongs = outputSongs.Select(Path.GetFileName).ToList()!;
+                if (Directory.Exists(outputFolder))
+                {
+                    string[] outputSongs = Directory.GetDirectories(outputFolder);
+                    existingSongs = outputSongs.Select(Path.GetFileName).ToList()!;
+                }
             }
 
-            bool onlineCover = AskOnlineCover();
-            string[] inputFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
-                ? [inputFolder]
-                : Directory.GetDirectories(inputFolder);
+            string[] inputSongParentFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
+                ? [inputFolder] // The provided path is a single song's root
+                : Directory.GetDirectories(inputFolder); // The provided path is a parent of multiple song roots
 
-            // Remove bundle_nx and patch_nx folders
+            // Filter out common non-song folders
             string[] ignoreFolders = ["bundle_nx", "patch_nx", "sku_nx"];
-            inputFolders = [.. inputFolders.Where(x => !ignoreFolders.Any(x.Contains))];
+            inputSongParentFolders = [.. inputSongParentFolders.Where(x => !ignoreFolders.Any(Path.GetFileName(x).Contains))];
 
-            foreach (string folder in inputFolders)
+            if (inputSongParentFolders.Length == 0)
             {
+                Console.WriteLine("No valid song folders found in the specified input path.");
+                return;
+            }
 
-                // Get all the songs in the folder
-                string inputMapsFolder = Path.Combine(folder, "world", "maps");
+            Console.WriteLine($"\nFound {inputSongParentFolders.Length} potential song source(s). Starting processing...");
+            int convertedCount = 0;
+            int skippedCount = 0;
+
+            foreach (string songParentFolder in inputSongParentFolders)
+            {
+                Console.WriteLine($"\nProcessing source: {songParentFolder}");
+                string inputMapsFolder = Path.Combine(songParentFolder, "world", "maps");
 
                 if (!Directory.Exists(inputMapsFolder))
                 {
-                    Logger.Log($"Skipping {folder} as it is not a valid folder", LogLevel.Important);
+                    Logger.Log($"Skipping '{songParentFolder}' as it does not contain 'world/maps' subfolder.", LogLevel.Warning);
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Skipping '{Path.GetFileName(songParentFolder)}': Missing 'world/maps' subfolder.");
+                    Console.ResetColor();
+                    skippedCount++;
                     continue;
                 }
 
-                string[] songs = Directory.GetDirectories(inputMapsFolder);
+                string[] songsInSource = Directory.GetDirectories(inputMapsFolder);
 
-                foreach (string songPath in songs)
+                foreach (string songPath in songsInSource)
                 {
-                    // Only convert the song if it's a valid song
-                    string song = Path.GetFileName(songPath);
-                    string platform = Directory.GetDirectories(Path.Combine(folder, "cache", "itf_cooked"))[0];
-                    string descPath = Path.Combine(platform, "world", "maps", song, $"{song}_main_scene.isc.ckd");
+                    string songName = Path.GetFileName(songPath);
+                    Console.WriteLine($"-- Checking song: {songName}");
 
-                    if (!File.Exists(descPath))
+                    // Basic validation (can be expanded)
+                    string platformCacheFolder = Path.Combine(songParentFolder, "cache", "itf_cooked");
+                    if (!Directory.Exists(platformCacheFolder))
                     {
-                        // If there's also no jddb.json in the input folders, skip the song
-                        string jddbPath = Path.Combine(inputFolder, "jddb.json");
-                        if (!File.Exists(jddbPath))
-                        {
-                            Logger.Log($"Skipping {song} as it is not a valid song", LogLevel.Important);
-                            continue;
-                        }
-                    }
-
-                    // If the song is already cached, skip it
-                    if (existingSongs.Contains(song, StringComparer.OrdinalIgnoreCase))
-                    {
-                        Logger.Log($"Skipping {song} as it is already cached", LogLevel.Important);
+                        Logger.Log($"Skipping song '{songName}' in '{songParentFolder}': Missing 'cache/itf_cooked' folder.", LogLevel.Warning);
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"   Skipped '{songName}': Missing platform cache folder.");
+                        Console.ResetColor();
+                        skippedCount++;
                         continue;
                     }
 
+                    string[] platformDirs = Directory.GetDirectories(platformCacheFolder);
+                    if (platformDirs.Length == 0)
+                    {
+                        Logger.Log($"Skipping song '{songName}' in '{songParentFolder}': No platform found in 'cache/itf_cooked'.", LogLevel.Warning);
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"   Skipped '{songName}': No platform found in cache.");
+                        Console.ResetColor();
+                        skippedCount++;
+                        continue;
+                    }
+                    // Assuming first platform dir is the one to use, could be more robust
+                    string platform = Path.GetFileName(platformDirs[0]);
+                    string songDescPath = Path.Combine(songParentFolder, "world", "maps", songName, "songdesc.tpl.ckd"); // Common path, can vary
+
+
+                    if (!File.Exists(songDescPath) && !File.Exists(Path.Combine(songParentFolder, "jddb.json")))
+                    {
+                        Logger.Log($"Skipping song '{songName}' in '{songParentFolder}': No 'songdesc.tpl.ckd', '{songName}_mainscene.isc.ckd', or 'jddb.json' found.", LogLevel.Warning);
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"   Skipped '{songName}': Missing essential song description file.");
+                        Console.ResetColor();
+                        skippedCount++;
+                        continue;
+                    }
+
+                    if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        Logger.Log($"Skipping song '{songName}' as it is already present in the output location.", LogLevel.Important);
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"   Skipped '{songName}': Already exists in output.");
+                        Console.ResetColor();
+                        skippedCount++;
+                        continue;
+                    }
+
+                    Console.WriteLine($"   Converting '{songName}'...");
                     ConversionRequest conversionRequest = new()
                     {
-                        TemplatePath = "./Template",
-                        InputPath = Path.Combine(folder),
-                        OutputPath = Path.Combine(outputFolder),
+                        TemplatePath = "./Template", // Assuming template is in current dir
+                        InputPath = songParentFolder,
+                        OutputPath = outputFolder,
                         ExportType = exportType,
                         OnlineCover = onlineCover,
-                        SongName = song
+                        SongName = songName
                     };
                     UbiArtToUnityConverter converter = new(conversionRequest);
                     converter.Convert();
+                    convertedCount++;
+                    Console.WriteLine($"   Conversion of '{songName}' finished.");
                 }
             }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\nBatch conversion finished. Converted: {convertedCount} song(s). Skipped: {skippedCount} song(s).");
+            Console.ResetColor();
         }
         catch (Exception e)
         {
-            Logger.Log(e.Message, LogLevel.Fatal);
-            throw;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"\nAn error occurred during batch conversion: {e.Message}");
+            Console.ResetColor();
+            Logger.Log($"Batch conversion failed: {e.Message}", LogLevel.Fatal);
         }
     }
 
     private static ConversionRequest CreateConversionRequest()
     {
         (string inputPath, string songName) = AskInputFolder();
-
         string outputPath = AskOutputFolder();
         bool onlineCover = AskOnlineCover();
 
-        // Create the output folder if it doesn't exist
-        Directory.CreateDirectory(outputPath);
+        Directory.CreateDirectory(outputPath); // Ensure output directory exists
 
-        // Check if there's a cachingStatus.json
+        // Determine export type based on output folder content
         string cacheStatusPath = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
-        ExportType exportType = File.Exists(cacheStatusPath) 
-            ? ExportType.OfflineCache 
+        ExportType exportType = File.Exists(cacheStatusPath)
+            ? ExportType.OfflineCache
             : ExportType.CustomServer;
+
+        Console.WriteLine(exportType == ExportType.OfflineCache
+            ? "Detected Offline Cache structure. Exporting for offline cache."
+            : "No Offline Cache structure found. Exporting for custom server.");
 
         ConversionRequest conversionRequest = new()
         {
-            TemplatePath = "./Template",
+            TemplatePath = "./Template", // Assuming template is in current dir
             InputPath = inputPath,
             OutputPath = outputPath,
             ExportType = exportType,
@@ -185,32 +257,40 @@ public class ConverterDialogue
 
     static string AskMultiInputFolder()
     {
+        Console.WriteLine("Please provide the path to either:");
+        Console.WriteLine("1. A single extracted song folder (containing 'cache' and 'world' subdirectories).");
+        Console.WriteLine("2. A parent folder containing multiple such extracted song folders.");
         string inputPath;
         while (true)
         {
-            inputPath = Question.AskFolder("Enter the path to the folder containing the cache and world folders", true);
+            inputPath = Question.AskFolder("Enter the path to the source folder(s)", true);
 
             if (Directory.Exists(Path.Combine(inputPath, "cache")) && Directory.Exists(Path.Combine(inputPath, "world")))
             {
-                break;
+                break; // Path is a single song's root
             }
 
-            // Else any of the subfolders has to contain a cache and world folder
-            string[] subFolders = Directory.GetDirectories(inputPath);
-            bool found = false;
-            foreach (string subFolder in subFolders)
+            // Check if any subfolders contain cache and world
+            if (Directory.Exists(inputPath))
             {
-                if (Directory.Exists(Path.Combine(subFolder, "cache")) && Directory.Exists(Path.Combine(subFolder, "world")))
+                string[] subFolders = Directory.GetDirectories(inputPath);
+                bool found = false;
+                foreach (string subFolder in subFolders)
                 {
-                    found = true;
-                    break;
+                    if (Directory.Exists(Path.Combine(subFolder, "cache")) && Directory.Exists(Path.Combine(subFolder, "world")))
+                    {
+                        found = true;
+                        break;
+                    }
                 }
+
+                if (found)
+                    break; // Path is a parent of multiple song roots
             }
 
-            if (found)
-            {
-                break;
-            }
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Invalid folder structure. Ensure the folder (or its subfolders) contains 'cache' and 'world' directories.");
+            Console.ResetColor();
         }
 
         return inputPath;
@@ -223,79 +303,99 @@ public class ConverterDialogue
 
         while (maps.Length == 0)
         {
-            // Ask for the input and output path
-            inputPath = Question.AskFolder("Enter the path to the map folder you want to convert (the one containing cache and world)", true);
-            maps = Directory.GetDirectories(Path.Combine(inputPath, "world", "maps"));
+            inputPath = Question.AskFolder("Please enter the full path to the extracted UbiArt map folder (this folder should contain 'cache' and 'world' subdirectories)", true);
+            string mapsPath = Path.Combine(inputPath, "world", "maps");
+            if (Directory.Exists(mapsPath))
+            {
+                maps = Directory.GetDirectories(mapsPath);
+            }
+
+            if (maps.Length == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("No maps found in 'world/maps' subdirectory. Please check the path.");
+                Console.ResetColor();
+            }
         }
 
-        // Foreach map, replace it with the Path.GetFileName of the map
         maps = maps.Select(Path.GetFileName).ToArray()!;
 
         int index = 0;
         if (maps.Length > 1)
         {
-            index = Question.Ask(maps, 0, "Which map do you want to convert");
+            Console.WriteLine("Multiple maps found in the provided folder:");
+            index = Question.Ask(maps, 0, "Which map do you want to convert?");
+        }
+        else if (maps.Length == 1)
+        {
+            Console.WriteLine($"Selected map: {maps[0]}");
         }
 
         return (inputPath, maps[index]);
     }
 
-    private static bool AskOnlineCover() => 
-        Question.AskYesNo("Do you want to look up the cover online if needed?");
+    private static bool AskOnlineCover() =>
+        Question.AskYesNo("Do you want to attempt to download cover art from the internet if not found locally?");
 
-    private static string AskOutputFolder() => 
-        Question.AskFolder("Enter the path to the output folder", false);
+    private static string AskOutputFolder() =>
+        Question.AskFolder("Please enter the full path for the output folder where converted files will be saved");
 
     private static bool CheckTemplate()
     {
-        bool missing = !Directory.Exists("./template");
+        Console.WriteLine("Checking for template files...");
+        string templateRoot = "./template";
+        bool baseFolderMissing = !Directory.Exists(templateRoot);
 
-        string[] folders = [
-            "./template/Cover",
-            "./template/MapPackage",
-            "./template/CoachesLarge",
-            "./template/CoachesSmall",
-            "./template/songTitleLogo",
+        string[] requiredSubFolders = [
+            "Cover",
+            "MapPackage",
+            "CoachesLarge",
+            "CoachesSmall",
+            "songTitleLogo",
         ];
 
-        // If any of the folders don't exist, create them
-        foreach (string folder in folders)
+        List<string> missingMessages = [];
+
+        if (baseFolderMissing)
         {
-            if (!Directory.Exists(folder))
+            Directory.CreateDirectory(templateRoot); // Create base if missing
+            missingMessages.Add($"Base template folder '{templateRoot}' was missing and has been created.");
+            missingMessages.Add("Please populate it with the required template subfolders and files as per documentation.");
+        }
+
+        foreach (string subFolder in requiredSubFolders)
+        {
+            string fullPath = Path.Combine(templateRoot, subFolder);
+            if (!Directory.Exists(fullPath))
             {
-                Directory.CreateDirectory(folder);
+                Directory.CreateDirectory(fullPath); // Create subfolder if missing
+                missingMessages.Add($"Template subfolder '{fullPath}' was missing and has been created.");
+                missingMessages.Add($"Ensure it contains a valid template bundle file from an official Just Dance Next song.");
+
+            }
+            else if (Directory.GetFiles(fullPath).Length == 0)
+            {
+                missingMessages.Add($"Template subfolder '{fullPath}' is empty. It must contain a template bundle file.");
             }
         }
 
-        if (missing)
+        if (missingMessages.Count > 0)
         {
-            Directory.CreateDirectory("./template");
-
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("""
-				Template folder not found!
-				Please put a template in the folder named "template".
-				Place the map files of the template map in the corresponding folders.
-				For example, the MapPackage should be in ./template/MapPackage/*.
-				""");
-            Console.ResetColor();
+            Console.WriteLine("\n--- Template Setup Incomplete ---");
+            foreach (string msg in missingMessages)
+            {
+                Console.WriteLine(msg);
+            }
 
+            Console.WriteLine("\nPlease refer to the README for detailed instructions on template setup.");
+            Console.ResetColor();
             return false;
         }
 
-        missing = false;
-        // If any of the folders is empty, ask the user to put the files in the folder
-        foreach (string folder in folders)
-        {
-            if (Directory.GetFiles(folder).Length == 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"The folder {folder} is empty. Please put a template file in the folder.");
-                Console.ResetColor();
-                missing = true;
-            }
-        }
-
-        return !missing;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("Template files seem to be in place.");
+        Console.ResetColor();
+        return true;
     }
 }
