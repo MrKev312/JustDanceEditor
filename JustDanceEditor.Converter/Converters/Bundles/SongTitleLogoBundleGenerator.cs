@@ -35,99 +35,104 @@ public static class SongTitleBundleGenerator
         Logger.Log("Finished generating song title logo");
     }
 
-    static void GenerateSongTitleLogoInternal(ConversionContext context)
+    private static void GenerateSongTitleLogoInternal(ConversionContext context)
     {
-        FileSystem fs = context.FileSystem;
-
-        Image<Rgba32>? image = null;
-        // Should we look up the cover online?
-        if (context.Request.OnlineCover)
-            image = CoverArtGenerator.TryImageWeb(context, "Title");
-
-        // If we couldn't find the cover online, try to load it from the input folder
-        image ??= CoverArtGenerator.ExistingSongTitleLogo(context);
-
-        // If we still don't have a cover, we throw an info message
-        if (image == null)
+        // Attempt to load or find the song title image
+        using Image<Rgba32>? titleImage = PrepareSongTitleImage(context);
+        if (titleImage == null)
         {
-            Logger.Log("No songTitleLogo.png found, skipping...", LogLevel.Important);
+            Logger.Log("No songTitleLogo.png found or generated, skipping song title logo bundle generation.", LogLevel.Important);
             return;
         }
 
-        string songTitleLogoPackagePath = fs.TemplateFiles.SongTitleLogo;
-
         Logger.Log("Converting SongTitleLogo...");
+        // Initialize AssetsManager and load bundle data
+        var bundleData = InitializeBundle(context);
 
-        // Open the coaches package using AssetTools.NET
+        // Process the image (resize, pad) and update the texture asset
+        UpdateSongTitleTexture(context, bundleData.Manager, bundleData.AFileInst, bundleData.TextureInfo, titleImage);
+
+        // Update the sprite asset associated with the song title
+        UpdateSongTitleSprite(context, bundleData.Manager, bundleData.AFileInst, bundleData.SpriteInfo);
+
+        // Apply all changes to the AssetBundle and save the modified bundle file
+        FinalizeAndSaveBundle(context, bundleData.BunInst.file, bundleData.AFile, bundleData.AssetBundleBase, assetBundleData => bundleData.AssetBundleInfo.SetNewData(assetBundleData));
+    }
+
+    private static Image<Rgba32>? PrepareSongTitleImage(ConversionContext context)
+    {
+        Image<Rgba32>? image = null;
+        if (context.Request.OnlineCover)
+            image = CoverArtGenerator.TryImageWeb(context, "Title");
+        image ??= CoverArtGenerator.ExistingSongTitleLogo(context);
+
+        // No generation step for song title if not found, unlike cover.
+        return image;
+    }
+
+    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo TextureInfo, AssetFileInfo SpriteInfo)
+        InitializeBundle(ConversionContext context)
+    {
+        string songTitleLogoPackagePath = context.FileSystem.TemplateFiles.SongTitleLogo;
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(songTitleLogoPackagePath, true);
-        AssetBundleFile bun = bunInst.file;
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
         afile.GenerateQuickLookup();
 
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
+        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
+        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
 
-        AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
         assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_SongTitleLogo";
         assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_SongTitleLogo";
-        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
-        // There's only one texture2d in the cover, so we can just get it
-        AssetFileInfo coverInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D).First();
-        AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
+        AssetFileInfo textureInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Texture2D);
+        AssetFileInfo spriteInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Sprite);
 
-        // Set the name to {mapName}_Cover_2x
-        coverBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
+        return (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, textureInfo, spriteInfo);
+    }
 
-        // Make it fit in 1024x512
+    private static void UpdateSongTitleTexture(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo textureInfo, Image<Rgba32> image)
+    {
+        AssetTypeValueField textureBase = manager.GetBaseField(afileInst, textureInfo);
+        textureBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
+
+        // Ensure 2:1 aspect ratio and 1024x512 size
         if (image.Width / (float)image.Height != 2f)
         {
-            // Pad the image to 2:1
             int newWidth = image.Height * 2;
-            image.Mutate(x => x.Pad(newWidth, image.Height));
+            image.Mutate(x => x.Pad(newWidth, image.Height)); // Pad to 2:1
         }
+        image.Mutate(x => x.Resize(1024, 512)); // Resize to target dimensions
 
-        image.Mutate(x => x.Resize(1024, 512));
+        TextureFormat fmt = TextureFormat.DXT5Crunched; // DXT5 for alpha
+        int mips = 1;
+        byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode song title image!");
 
-        // Now we can encode the image
-        {
-            byte[] encImageBytes;
-            TextureFormat fmt = TextureFormat.DXT5Crunched;
-            int mips = 1;
+        textureBase["image data"].AsByteArray = encImageBytes;
+        textureBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+        textureBase["m_StreamData"]["offset"].AsInt = 0;
+        textureBase["m_StreamData"]["size"].AsInt = 0;
+        textureBase["m_StreamData"]["path"].AsString = "";
 
-            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
+        textureInfo.SetNewData(textureBase);
+    }
 
-            // Set the image data
-            coverBase["image data"].AsByteArray = encImageBytes;
-            coverBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
-            coverBase["m_StreamData"]["offset"].AsInt = 0;
-            coverBase["m_StreamData"]["size"].AsInt = 0;
-            coverBase["m_StreamData"]["path"].AsString = "";
+    private static void UpdateSongTitleSprite(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo spriteInfo)
+    {
+        AssetTypeValueField spriteBase = manager.GetBaseField(afileInst, spriteInfo);
+        spriteBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
+        // Sprite properties might need adjustment based on new texture dimensions or content (e.g., m_Rect, m_RD.textureRect).
+        // Assuming template sprite settings are general enough or handled by implicit texture link.
+        spriteInfo.SetNewData(spriteBase);
+    }
 
-            // Save the file
-            coverInfo.SetNewData(coverBase);
-        }
-
-        // Get the sprite
-        AssetFileInfo coverSpriteInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite).First();
-        AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
-
-        // Set the name to {mapName}_Title
-        coverSpriteBase["m_Name"].AsString = $"{context.SongData.Name}_Title";
-
-        // Save the file
-        coverSpriteInfo.SetNewData(coverSpriteBase);
-
-        // Apply changes to the AssetBundle
-        assetBundle.SetNewData(assetBundleBase);
-
-        // Save the file
+    private static void FinalizeAndSaveBundle(ConversionContext context, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
+    {
+        setAssetBundleData(assetBundleBase);
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-
-        // Write the file
-        string outputPackagePath = fs.OutputFolders.SongTitleLogoFolder;
+        string outputPackagePath = context.FileSystem.OutputFolders.SongTitleLogoFolder;
         bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

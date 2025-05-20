@@ -27,7 +27,7 @@ public static class PictoConverter
             return ([], []);
         }
 
-        string[] pictoFiles = Directory.GetFiles(pictosFolder);
+        CookedFile[] pictoFiles = [.. context.FileSystem.GetAllFiles(pictosFolder)];
 
         if (pictoFiles.Length == 0)
         {
@@ -90,11 +90,11 @@ public static class PictoConverter
         Logger.Log("Creating atlasses...");
 
         // Get the png files in the pictos folder
-        pictoFiles = Directory.GetFiles(tempFolders.PictoFolder, "*.png");
+        string[] convertedPictoFiles = Directory.GetFiles(tempFolders.PictoFolder, "*.png");
 
         // Convert the 512x512 images to a 2048x2048 atlas
         // Use 4 pixels of padding between each image
-        for (int i = 0; i < pictoFiles.Length; i++)
+        for (int i = 0; i < convertedPictoFiles.Length; i++)
         {
             int indexInAtlas = i % 16;
 
@@ -103,7 +103,7 @@ public static class PictoConverter
                 atlasImage = new(2048, 2048);
 
             // Get the current image
-            (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(pictoFiles[i]), Path.GetFileNameWithoutExtension(pictoFiles[i]));
+            (Image<Rgba32> image, string name) = (Image.Load<Rgba32>(convertedPictoFiles[i]), Path.GetFileNameWithoutExtension(convertedPictoFiles[i]));
 
             // Get the x and y coordinates
             int x_coord = indexInAtlas % 4 * 512;

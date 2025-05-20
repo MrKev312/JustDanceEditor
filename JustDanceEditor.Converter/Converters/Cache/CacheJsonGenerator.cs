@@ -162,8 +162,6 @@ public static class CacheJsonGenerator
 
     static void GenerateServerCacheJson(ConversionContext context)
     {
-        OutputFolders outputFolders = context.FileSystem.OutputFolders;
-
         string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
 
         // Convert the songdatabase

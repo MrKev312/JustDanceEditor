@@ -34,62 +34,119 @@ public static class MapPackageBundleGenerator
         Logger.Log("Finished generating map package");
     }
 
-    static void GenerateMapPackageInternally(ConversionContext context)
+    private static void GenerateMapPackageInternally(ConversionContext context)
     {
-        // Get the mapPackage path
-        // /template/cachex/MapPackage/*
-        string mapPackagePath = context.FileSystem.TemplateFiles.MapPackage;
-
-        // Convert the pictos in /cache/itf_cooked/nx/world/maps/{mapName}/timeline/pictos
+        // Start asynchronous conversion of pictograms
         Task<(Dictionary<string, (int index, (int Width, int Height))>, List<Image<Rgba32>>)> pictoTask =
-            Task.Run(() => Task.FromResult(PictoConverter.ConvertPictos(context)));
+            Task.Run(() => PictoConverter.ConvertPictos(context));
 
-        // While the pictos are in the oven, we can convert the mapfiles
         Logger.Log("Converting MapPackage...");
-        // Open the mapPackage using AssetTools.NET
+        // Initialize AssetsManager and load bundle data
+        var bundleLoadData = InitializeBundle(context);
+        var manager = bundleLoadData.Manager;
+        var afileInst = bundleLoadData.AFileInst;
+        var afile = bundleLoadData.AFile;
+        var bun = bundleLoadData.BunFile;
+        var sortedAssetInfos = bundleLoadData.SortedAssetInfos;
+
+        // Identify MusicTrack and MapBehaviour MonoBehaviours and the main AssetBundle asset
+        var (musicTrackBase, mapBase, assetBundleInfo, assetBundleBase) = IdentifyAndPrepareMonoBehavioursAndAssetBundle(context, manager, afileInst, sortedAssetInfos);
+        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+
+        // Remove old dance moves (TextAssets) and pictos (Texture2D, Sprite) from the bundle, retaining a sprite template
+        var spriteTemplate = ClearExistingMapAssets(manager, afileInst, afile, sortedAssetInfos, assetBundleArray);
+
+        // Prepare the SpriteAtlas for new pictos
+        var spriteAtlasInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.SpriteAtlas);
+        var spriteAtlasBase = PrepareSpriteAtlas(context, manager, afileInst, spriteAtlasInfo);
+
+        // Update the MusicTrack MonoBehaviour with data from the song
+        UpdateMusicTrackData(context, musicTrackBase);
+
+        // Update the MapBehaviour MonoBehaviour with karaoke clip data
+        UpdateKaraokeData(context, mapBase);
+
+        // Add new dance move assets (msm files) to the bundle
+        AddDanceMoveAssets(context, manager, afileInst, afile, mapBase["HandDeviceMoveModels"]["list"]["Array"], assetBundleArray);
+
+        // Wait for picto conversion, then process and add picto atlas textures to the bundle
+        var (imageDict, atlasPics) = pictoTask.Result;
+        long[] atlasIDs = AddPictoAtlasTextureAssets(context, manager, afileInst, afile, atlasPics, assetBundleArray);
+
+        // Process and add individual picto sprites to the bundle and update the SpriteAtlas
+        AddPictoSpriteAssets(context, manager, afileInst, afile, spriteTemplate, spriteAtlasBase, imageDict, atlasIDs, assetBundleArray);
+
+        // Finalize changes to the SpriteAtlas and remove the template sprite
+        FinalizeSpriteAtlas(afile, spriteAtlasInfo, spriteAtlasBase, spriteTemplate);
+
+        // Populate dance data clips (Motion, GoldEffect, HideHud, Picto) in the MapBehaviour
+        PopulateDanceDataClips(context, mapBase, imageDict);
+
+        // Update coach move counters in the MapBehaviour
+        UpdateCoachCounters(context, mapBase);
+
+        // Apply changes to MonoBehaviours, update AssetBundle container, and save the bundle
+        FinalizeAndSaveBundle(context, bun, afile, musicTrackBase, mapBase, assetBundleBase,
+            () => bundleLoadData.MusicTrackInfo.SetNewData(musicTrackBase),
+            () => bundleLoadData.MapInfo.SetNewData(mapBase),
+            () => assetBundleInfo.SetNewData(assetBundleBase)
+        );
+    }
+
+    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetBundleFile BunFile, List<AssetFileInfo> SortedAssetInfos, AssetFileInfo MusicTrackInfo, AssetFileInfo MapInfo)
+        InitializeBundle(ConversionContext context)
+    {
+        string mapPackagePath = context.FileSystem.TemplateFiles.MapPackage;
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(mapPackagePath, true);
-        AssetBundleFile bun = bunInst.file;
+        AssetBundleFile bunFile = bunInst.file;
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
         afile.GenerateQuickLookup();
-
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
 
-        // Get the MonoBehaviour that is not named "MusicTrack"
         AssetFileInfo[] musicTrackInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour).ToArray();
-        AssetTypeValueField musicTrackBase;
-        AssetTypeValueField mapBase;
+        AssetFileInfo musicTrackInfo, mapInfo;
 
-        // Get the assetbundle
-        AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
+        AssetTypeValueField firstTrackField = manager.GetBaseField(afileInst, musicTrackInfos[0]);
+        bool isFirstTrackMusicTrack = firstTrackField["m_Name"].AsString == ""; // MusicTrack often has an empty name
+        musicTrackInfo = isFirstTrackMusicTrack ? musicTrackInfos[0] : musicTrackInfos[1];
+        mapInfo = isFirstTrackMusicTrack ? musicTrackInfos[1] : musicTrackInfos[0];
 
-        // Set the name of the assetbundle to {mapName}_MapPackage
-        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_MapPackage";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_MapPackage";
+        AssetTypeValueField mapBaseTemp = manager.GetBaseField(afileInst, mapInfo);
+        if (mapBaseTemp["m_Name"].AsString == "")
+            throw new Exception("MapBehaviour name is empty, template might be corrupted or incorrect. Cannot identify MapBehaviour.");
 
-        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+        return (manager, bunInst, afileInst, afile, bunFile, sortedAssetInfos, musicTrackInfo, mapInfo);
+    }
 
+    private static (AssetTypeValueField musicTrackBase, AssetTypeValueField mapBase, AssetFileInfo assetBundleInfo, AssetTypeValueField assetBundleBase)
+        IdentifyAndPrepareMonoBehavioursAndAssetBundle(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, List<AssetFileInfo> sortedAssetInfos)
+    {
+        AssetFileInfo[] monoBehaviourInfos = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour).ToArray();
+        AssetTypeValueField track1 = manager.GetBaseField(afileInst, monoBehaviourInfos[0]);
+        AssetFileInfo musicTrackInfo, mapInfo;
+
+        // MusicTrack typically has an empty m_Name, while MapBehaviour has the map's name.
+        if (track1["m_Name"].AsString == "")
         {
-            AssetTypeValueField firstTrackInfo = manager.GetBaseField(afileInst, musicTrackInfos[0]);
-            string name = firstTrackInfo["m_Name"].AsString;
-
-            bool isFirstTrackMusicTrack = name == "";
-
-            if (!isFirstTrackMusicTrack)
-            {
-                (musicTrackInfos[0], musicTrackInfos[1]) = (musicTrackInfos[1], musicTrackInfos[0]);
-            }
-
-            musicTrackBase = manager.GetBaseField(afileInst, musicTrackInfos[0]);
-            mapBase = manager.GetBaseField(afileInst, musicTrackInfos[1]);
-
-            if (mapBase["m_Name"].AsString == "")
-                throw new Exception("Something is wrong with the MapPackage! Please dm which template you used.");
+            musicTrackInfo = monoBehaviourInfos[0];
+            mapInfo = monoBehaviourInfos[1];
+        }
+        else
+        {
+            musicTrackInfo = monoBehaviourInfos[1];
+            mapInfo = monoBehaviourInfos[0];
         }
 
-        // Set the name of the mapBase to the name of the map
+        AssetTypeValueField musicTrackBase = manager.GetBaseField(afileInst, musicTrackInfo);
+        AssetTypeValueField mapBase = manager.GetBaseField(afileInst, mapInfo);
+
+        // Verify that the identified MapBehaviour indeed has a name.
+        if (mapBase["m_Name"].AsString == "")
+            throw new Exception("Critical error: Identified MapBehaviour has an empty name. Check template integrity.");
+
+        // Set map-specific names and properties in the MapBehaviour.
         mapBase["m_Name"].AsString = context.SongData.Name;
         mapBase["MapName"].AsString = context.SongData.Name;
         mapBase["SongDesc"]["MapName"].AsString = context.SongData.Name;
@@ -97,590 +154,583 @@ public static class MapPackageBundleGenerator
         mapBase["KaraokeData"]["MapName"].AsString = context.SongData.Name;
         mapBase["DanceData"]["MapName"].AsString = context.SongData.Name;
 
-        // Remove all the old dance moves
+        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
+        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_MapPackage";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_MapPackage";
+
+        return (musicTrackBase, mapBase, assetBundleInfo, assetBundleBase);
+    }
+
+    private static AssetFileInfo ClearExistingMapAssets(AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, List<AssetFileInfo> sortedAssetInfos, AssetTypeValueField assetBundleArray)
+    {
+        List<AssetFileInfo> assetsToRemove = [];
+        List<AssetTypeValueField> preloadEntriesToRemove = [];
+
+        // Remove old TextAssets (specifically .msm files for dance moves)
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.TextAsset))
         {
             AssetTypeValueField assetBase = manager.GetBaseField(afileInst, assetInfo);
-            string name = assetBase["m_Name"].AsString;
-
-            // If it doesn't end with ".msm", skip it
-            if (!name.EndsWith(".msm"))
-                continue;
-
-            // Then remove it from the bundle
-            afile.AssetInfos.Remove(assetInfo);
-
-            // And remove it from the preload table
-            assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId).First());
+            if (assetBase["m_Name"].AsString.EndsWith(".msm"))
+            {
+                assetsToRemove.Add(assetInfo);
+                preloadEntriesToRemove.AddRange(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId));
+            }
         }
 
-        // Remove all the old pictos
-        foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D))
+        // Remove all old Texture2D assets (pictos)
+        assetsToRemove.AddRange(sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D));
+        foreach (var assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D))
         {
-            AssetTypeValueField assetBase = manager.GetBaseField(afileInst, assetInfo);
-
-            // Then remove it from the bundle
-            afile.AssetInfos.Remove(assetInfo);
-
-            // And remove it from the preload table
-            assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId).First());
+            preloadEntriesToRemove.AddRange(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId));
         }
 
-        // The template sprite from which all custom sprites are based
+        // Remove old Sprite assets (pictos), but keep the first one encountered as a template for new sprites.
         AssetFileInfo? spriteTemplate = null;
-
-        // Also remove their corresponding Sprites
         foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
         {
-            AssetTypeValueField assetBase = manager.GetBaseField(afileInst, assetInfo);
-
-            // Remove it from the preload table
-            assetBundleArray.Children.Remove(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId).First());
-
-            // Set the template sprite
-            if (spriteTemplate is null)
+            preloadEntriesToRemove.AddRange(assetBundleArray.Children.Where(x => x["m_PathID"].AsLong == assetInfo.PathId));
+            if (spriteTemplate == null)
             {
                 spriteTemplate = assetInfo;
-
-                // This one is the template, so we keep it
-                continue;
             }
-
-            // Else, remove it from the bundle
-            afile.AssetInfos.Remove(assetInfo);
+            else
+            {
+                assetsToRemove.Add(assetInfo);
+            }
         }
 
-        // If the sprite atlas is still null, throw an exception
-        if (spriteTemplate is null)
-            throw new Exception("Sprite template is null!");
+        // Perform removal from preload table and asset list
+        foreach (var entry in preloadEntriesToRemove.Distinct()) assetBundleArray.Children.Remove(entry);
+        foreach (var asset in assetsToRemove.Distinct()) afile.AssetInfos.Remove(asset);
 
-        // Store reference to the SpriteAtlas
-        AssetFileInfo spriteAtlasInfo = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.SpriteAtlas).First();
+        if (spriteTemplate == null) throw new Exception("Sprite template for pictos not found! Ensure the template bundle contains at least one sprite.");
+        return spriteTemplate;
+    }
+
+    private static AssetTypeValueField PrepareSpriteAtlas(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo spriteAtlasInfo)
+    {
         AssetTypeValueField spriteAtlasBase = manager.GetBaseField(afileInst, spriteAtlasInfo);
-        spriteAtlasBase["m_Name"].AsString = context.SongData.Name;
-        spriteAtlasBase["m_Tag"].AsString = context.SongData.Name;
-
-        // Empty the packedSprites, packedSpriteNamesToIndex and RenderDataMap arrays
+        spriteAtlasBase["m_Name"].AsString = context.SongData.Name; // Name the atlas after the song
+        spriteAtlasBase["m_Tag"].AsString = context.SongData.Name;  // Tag the atlas similarly for lookup
+        // Clear out collections that will be repopulated with new picto sprite data
         spriteAtlasBase["m_PackedSprites"]["Array"].Children.Clear();
         spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"].Children.Clear();
         spriteAtlasBase["m_RenderDataMap"]["Array"].Children.Clear();
+        return spriteAtlasBase;
+    }
 
-        /// The musicTrackBase:
-        // First set the basic fields
+    private static void UpdateMusicTrackData(ConversionContext context, AssetTypeValueField musicTrackBase)
+    {
         Structure trackStructure = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure;
-        AssetTypeValueField structure = musicTrackBase["m_structure"]["MusicTrackStructure"];
-        structure["startBeat"].AsInt = trackStructure.startBeat;
-        structure["endBeat"].AsInt = trackStructure.endBeat;
-        structure["videoStartTime"].AsDouble = trackStructure.videoStartTime;
-        structure["previewEntry"].AsDouble = trackStructure.previewEntry;
-        structure["previewLoopStart"].AsDouble = trackStructure.previewLoopStart;
-        structure["previewLoopEnd"].AsDouble = 0;
-        // Sometimes appearently doesn't exist
-        if (!structure["previewDuration"].IsDummy)
-            structure["previewDuration"].AsDouble = trackStructure.previewLoopEnd - trackStructure.previewLoopStart;
+        AssetTypeValueField structureField = musicTrackBase["m_structure"]["MusicTrackStructure"];
 
-        // Set the signatures array
-        AssetTypeValueField signaturesArray = structure["signatures"]["Array"];
+        // Basic track structure properties
+        structureField["startBeat"].AsInt = trackStructure.startBeat;
+        structureField["endBeat"].AsInt = trackStructure.endBeat;
+        structureField["videoStartTime"].AsDouble = trackStructure.videoStartTime;
+        structureField["previewEntry"].AsDouble = trackStructure.previewEntry;
+        structureField["previewLoopStart"].AsDouble = trackStructure.previewLoopStart;
+        structureField["previewLoopEnd"].AsDouble = 0; // Often 0 or previewLoopStart + previewDuration
+        if (!structureField["previewDuration"].IsDummy) // Check if field exists
+            structureField["previewDuration"].AsDouble = trackStructure.previewLoopEnd - trackStructure.previewLoopStart;
+
+        // Populate signatures (time signatures)
+        AssetTypeValueField signaturesArray = structureField["signatures"]["Array"];
         signaturesArray.Children.Clear();
-
         foreach (Signature signature in trackStructure.signatures)
         {
-            AssetTypeValueField newSignature = ValueBuilder.DefaultValueFieldFromArrayTemplate(signaturesArray);
-            AssetTypeValueField musicSignature = newSignature["MusicSignature"];
-
-            musicSignature["beats"].AsInt = signature.beats;
-            musicSignature["marker"].AsDouble = signature.marker;
-            musicSignature["comment"].AsString = "";
-
-            signaturesArray.Children.Add(newSignature);
+            AssetTypeValueField newSig = ValueBuilder.DefaultValueFieldFromArrayTemplate(signaturesArray);
+            newSig["MusicSignature"]["beats"].AsInt = signature.beats;
+            newSig["MusicSignature"]["marker"].AsDouble = signature.marker;
+            newSig["MusicSignature"]["comment"].AsString = ""; // Comments usually not used
+            signaturesArray.Children.Add(newSig);
         }
 
-        // Set the markers array
-        AssetTypeValueField markersArray = structure["markers"]["Array"];
+        // Populate markers (beat markers)
+        AssetTypeValueField markersArray = structureField["markers"]["Array"];
         markersArray.Children.Clear();
-
         foreach (int marker in trackStructure.markers)
         {
             AssetTypeValueField newMarker = ValueBuilder.DefaultValueFieldFromArrayTemplate(markersArray);
-
-            newMarker["VAL"].AsLong = marker;
-
+            newMarker["VAL"].AsLong = marker; // Markers are typically integer beat numbers
             markersArray.Children.Add(newMarker);
         }
 
-        // Set the sections array
-        AssetTypeValueField sectionsArray = structure["sections"]["Array"];
+        // Populate sections (intro, verse, chorus, etc.)
+        AssetTypeValueField sectionsArray = structureField["sections"]["Array"];
         sectionsArray.Children.Clear();
-
         foreach (Section section in trackStructure.sections)
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
-            AssetTypeValueField musicSection = newSection["MusicSection"];
-
-            musicSection["sectionType"].AsInt = section.sectionType;
-            musicSection["marker"].AsDouble = section.marker;
-            musicSection["comment"].AsString = "";
-
+            newSection["MusicSection"]["sectionType"].AsInt = section.sectionType;
+            newSection["MusicSection"]["marker"].AsDouble = section.marker;
+            newSection["MusicSection"]["comment"].AsString = ""; // Comments usually not used
             sectionsArray.Children.Add(newSection);
         }
+    }
 
-        /// The mapBase:
-        // Empty the karaoke data
+    private static void UpdateKaraokeData(ConversionContext context, AssetTypeValueField mapBase)
+    {
         AssetTypeValueField karaokeArray = mapBase["KaraokeData"]["Clips"]["Array"];
-        karaokeArray.Children.Clear();
-
-        // For each clip in the karaoke file, create a new KaraokeClipContainer
+        karaokeArray.Children.Clear(); // Clear existing karaoke clips
         foreach (KaraokeClip clip in context.SongData.Clips.OfType<KaraokeClip>())
         {
-            // Create a new KaraokeClipContainer
-            AssetTypeValueField newContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
-            AssetTypeValueField karaokeClip = newContainer["KaraokeClip"];
+            AssetTypeValueField newClipContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
+            AssetTypeValueField karaokeClipField = newClipContainer["KaraokeClip"];
 
-            // Set the fields
-            karaokeClip["StartTime"].AsInt = clip.StartTime;
-            karaokeClip["Duration"].AsInt = clip.Duration;
-            karaokeClip["Lyrics"].AsString = clip.Lyrics;
-            karaokeClip["IsActive"].AsUInt = (uint)clip.IsActive;
-            karaokeClip["TrackId"].AsLong = clip.TrackId;
-            karaokeClip["Pitch"].AsFloat = clip.Pitch;
-            karaokeClip["IsEndOfLine"].AsUInt = (uint)clip.IsEndOfLine;
-            karaokeClip["ContentType"].AsInt = 2;
-            karaokeClip["Id"].AsLong = clip.Id;
-            karaokeClip["SemitoneTolerance"].AsInt = (int)clip.SemitoneTolerance;
-            karaokeClip["StartTimeTolerance"].AsInt = clip.StartTimeTolerance;
-            karaokeClip["EndTimeTolerance"].AsInt = clip.EndTimeTolerance;
+            // Set properties for the karaoke clip
+            karaokeClipField["StartTime"].AsInt = clip.StartTime;
+            karaokeClipField["Duration"].AsInt = clip.Duration;
+            karaokeClipField["Lyrics"].AsString = clip.Lyrics;
+            karaokeClipField["IsActive"].AsUInt = (uint)clip.IsActive; // 1 for active, 0 for inactive
+            karaokeClipField["TrackId"].AsLong = clip.TrackId; // Identifies the lyric line or segment
+            karaokeClipField["Pitch"].AsFloat = clip.Pitch;     // Pitch of the lyric, if available
+            karaokeClipField["IsEndOfLine"].AsUInt = (uint)clip.IsEndOfLine; // 1 if this clip is the end of a line
+            karaokeClipField["ContentType"].AsInt = 2; // Standard content type for lyrics
+            karaokeClipField["Id"].AsLong = clip.Id;           // Unique ID for the clip
+            karaokeClipField["SemitoneTolerance"].AsInt = (int)clip.SemitoneTolerance; // Scoring tolerance
+            karaokeClipField["StartTimeTolerance"].AsInt = clip.StartTimeTolerance;  // Scoring tolerance
+            karaokeClipField["EndTimeTolerance"].AsInt = clip.EndTimeTolerance;    // Scoring tolerance
 
-            // Add the new KaraokeClipContainer to the array
-            karaokeArray.Children.Add(newContainer);
+            karaokeArray.Children.Add(newClipContainer);
+        }
+    }
+
+    private static void AddDanceMoveAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray)
+    {
+        if (!context.FileSystem.GetFolderPath(context.FileSystem.InputFolders.MovesFolder, out string? movesFolder) || !Directory.Exists(movesFolder))
+        {
+            Logger.Log("Moves folder not found or specified, skipping dance move asset addition.", LogLevel.Info);
+            return;
         }
 
-        // Empty the moves data
-        AssetTypeValueField movesArray = mapBase["HandDeviceMoveModels"]["list"]["Array"];
-        movesArray.Children.Clear();
-
-        // Add the new dance moves
-        string[] moveFiles = [];
-
-        if (context.FileSystem.GetFolderPath(context.FileSystem.InputFolders.MovesFolder, out string? movesFolder))
-            moveFiles = Directory.GetFiles(movesFolder);
-
+        string[] moveFiles = Directory.GetFiles(movesFolder, "*.msm"); // Look for .msm (move state machine) files
         foreach (string item in moveFiles)
         {
-            // Get the file name and content, must read as bytes
             string fileName = Path.GetFileName(item);
             byte[] fileContent = File.ReadAllBytes(item);
+            long newAssetId = afile.GetRandomId(); // Generate a unique PathID for the new asset
 
-            // Random new asset id
-            long newAssetId = afile.GetRandomId();
+            // Create a new TextAsset for the move file
+            AssetTypeValueField newTextAssetBase = manager.CreateValueBaseField(afileInst, (int)AssetClassID.TextAsset);
+            newTextAssetBase["m_Name"].AsString = fileName;
+            newTextAssetBase["m_Script"].AsByteArray = fileContent; // The .msm content
 
-            AssetTypeValueField newBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.TextAsset);
-
-            // Then set the name and content
-            newBaseField["m_Name"].AsString = fileName;
-            newBaseField["m_Script"].AsByteArray = fileContent;
-
-            // Make a new AssetFileInfo
             AssetFileInfo newInfo = AssetFileInfo.Create(afile, newAssetId, (int)AssetClassID.TextAsset, null);
-            newInfo.SetNewData(newBaseField);
+            newInfo.SetNewData(newTextAssetBase);
+            afile.Metadata.AddAssetInfo(newInfo); // Add to the file's asset list
 
-            // Add the new AssetFileInfo to the AssetsFile
-            afile.Metadata.AddAssetInfo(newInfo);
+            // Add a reference to this TextAsset in the MapBehaviour's move model list
+            AssetTypeValueField newMoveEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(movesModelArray);
+            newMoveEntry["Key"].AsString = Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant(); // Key is lowercase move name
+            newMoveEntry["Value"]["m_FileID"].AsInt = 0; // 0 for assets within the same file
+            newMoveEntry["Value"]["m_PathID"].AsLong = newAssetId; // Point to the new TextAsset
+            movesModelArray.Children.Add(newMoveEntry);
 
-            // Build up the reference
-            AssetTypeValueField newMove = ValueBuilder.DefaultValueFieldFromArrayTemplate(movesArray);
-            newMove["Key"].AsString = Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant();
-            newMove["Value"]["m_FileID"].AsInt = 0;
-            newMove["Value"]["m_PathID"].AsLong = newAssetId;
+            // Add the new TextAsset to the AssetBundle's preload table
+            AssetTypeValueField newPreloadEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
+            newPreloadEntry["m_PathID"].AsLong = newAssetId;
+            assetBundleArray.Children.Add(newPreloadEntry);
+        }
+    }
 
-            // Add the new move reference to the array
-            movesArray.Children.Add(newMove);
+    private static long[] AddPictoAtlasTextureAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, List<Image<Rgba32>> atlasPics, AssetTypeValueField assetBundleArray)
+    {
+        // Path to where PictoConverter saves the generated atlas page images
+        string atlasTempFolder = Path.Combine(context.FileSystem.TempFolders.PictoFolder, "Atlas");
+        // Ensure file order matches atlasPics list if indexing is implicit.
+        // It's safer if PictoConverter outputs files with predictable names (e.g., atlas_0.png, atlas_1.png).
+        string[] atlasImageFiles = Directory.GetFiles(atlasTempFolder, "*.png").OrderBy(f => f).ToArray();
 
-            // Add the new move reference to the preload table
-            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
-            newAssetBundle["m_PathID"].AsLong = newAssetId;
-            assetBundleArray.Children.Add(newAssetBundle);
+        if (atlasImageFiles.Length != atlasPics.Count)
+        {
+            Logger.Log($"Warning: Mismatch between expected atlas images ({atlasPics.Count}) and found files ({atlasImageFiles.Length}) in {atlasTempFolder}. This may cause issues.", LogLevel.Warning);
         }
 
-        // Wait for the pictos to finish
-        (Dictionary<string, (int index, (int width, int height) size)> imageDict, List<Image<Rgba32>> atlasPics) = pictoTask.Result;
+        byte[][] encodedAtlasBytes = new byte[atlasImageFiles.Length][];
 
-        // Add the new pictos
-        string[] FileDirs = Directory.GetFiles(Path.Combine(context.FileSystem.TempFolders.PictoFolder, "Atlas"));
-        byte[][] endImageBytes = new byte[FileDirs.Length][];
-
-        Parallel.For(0, FileDirs.Length, i =>
+        // Encode atlas images to DXT5 in parallel
+        Parallel.For(0, Math.Min(atlasImageFiles.Length, atlasPics.Count), i =>
         {
-            TextureFormat fmt = TextureFormat.DXT5Crunched;
-            int mips = 1;
-            string path = FileDirs[i];
-
-            // Load the image
-            Image<Rgba32> image = Image.Load<Rgba32>(path);
-
-            byte[] imageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
-
-            // Add the image bytes to the array
-            endImageBytes[i] = imageBytes;
-
-            image.Dispose();
+            using Image<Rgba32> image = Image.Load<Rgba32>(atlasImageFiles[i]);
+            int mips = 1; // No mipmaps for UI elements usually
+            encodedAtlasBytes[i] = TextureImportExport.Import(image, TextureFormat.DXT5Crunched, out _, out _, ref mips)
+                                   ?? throw new Exception($"Failed to encode atlas image {atlasImageFiles[i]}");
         });
 
-        // First add all atlas images to the bundle
         long[] atlasIDs = new long[atlasPics.Count];
-
-        // For loop for atlasPics
         for (int i = 0; i < atlasPics.Count; i++)
         {
-            // Get the endImageBytes
-            byte[] imgBytes = endImageBytes[i];
-
-            // Create a new asset id
-            long newAssetId = afile.GetRandomId();
-
-            // Create a new AssetTypeValueField
-            AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
-
-            // Set the name and content
-            texBaseField["m_Name"].AsString = $"sactx-{i}-{2048}x{2048}-Crunch-{context.SongData.Name}-5e98ca96";
-            texBaseField["m_MipCount"].AsInt = 1;
-
-            texBaseField["m_MipCount"].AsInt = 1;
-
-            AssetTypeValueField m_StreamData = texBaseField["m_StreamData"];
-            m_StreamData["offset"].AsInt = 0;
-            m_StreamData["size"].AsInt = 0;
-            m_StreamData["path"].AsString = "";
-
-            texBaseField["m_ForcedFallbackFormat"].AsInt = (int)TextureFormat.RGBA32;
-            texBaseField["m_TextureFormat"].AsInt = (int)TextureFormat.DXT5Crunched;
-            texBaseField["m_CompleteImageSize"].AsUInt = (uint)endImageBytes[i].Length;
-            texBaseField["m_ImageCount"].AsInt = 1;
-            texBaseField["m_TextureDimension"].AsInt = 2;
-
-            texBaseField["m_TextureSettings"]["m_FilterMode"].AsInt = 1;
-            texBaseField["m_TextureSettings"]["m_Aniso"].AsInt = 1;
-            texBaseField["m_TextureSettings"]["m_WrapU"].AsInt = 1;
-            texBaseField["m_TextureSettings"]["m_WrapV"].AsInt = 1;
-            texBaseField["m_TextureSettings"]["m_WrapW"].AsInt = 1;
-
-            texBaseField["m_ColorSpace"].AsInt = 1;
-
-            texBaseField["m_Width"].AsInt = 2048;
-            texBaseField["m_Height"].AsInt = 2048;
-
-            AssetTypeValueField image_data = texBaseField["image data"];
-            image_data.Value.ValueType = AssetValueType.ByteArray;
-            image_data.TemplateField.ValueType = AssetValueType.ByteArray;
-            image_data.AsByteArray = imgBytes;
-
-            // Make a new AssetFileInfo
-            AssetFileInfo newInfo = AssetFileInfo.Create(afile, newAssetId, (int)AssetClassID.Texture2D, null);
-            newInfo.SetNewData(texBaseField);
-
-            // Add the new AssetFileInfo to the AssetsFile
-            afile.Metadata.AddAssetInfo(newInfo);
-
-            // Add the id to the array
-            atlasIDs[i] = newAssetId;
-
-            // Add the new move reference to the preload table
-            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
-            newAssetBundle["m_PathID"].AsLong = newAssetId;
-            assetBundleArray.Children.Add(newAssetBundle);
-        }
-
-        // Then add all the pictos to the bundle
-        FileDirs = Directory.GetFiles(context.FileSystem.TempFolders.PictoFolder);
-
-        for (int i = 0; i < FileDirs.Length; i++)
-        {
-            string item = FileDirs[i];
-
-            // Set each picto as it's own asset
-            string pictoName = Path.GetFileNameWithoutExtension(item);
-
-            // Now we create a new Sprite
-            long spriteID = afile.GetRandomId();
-
-            // Magic number for the sprite
-            float pixelsToUnitsMagic = context.SongData.CoachCount == 1 ?
-                100f :
-                69.140625f;
-            float wMagic = context.SongData.CoachCount == 1 ?
-                256f :
-                177f;
-
-            // Load in the sprite template
-            AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
-
-            // Let's fix the vertex data yayyy
-            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["indexCount"].AsUInt = 6;
-            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["vertexCount"].AsUInt = 4;
-
-            // Set the index buffer
-            spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0];
-
-            // Fix the vertex buffer
-            spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
-            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray =
-                [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
-                    0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
-                    215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-            // Set the name and content
-            spriteBaseField["m_Name"].AsString = pictoName;
-            spriteBaseField["m_Rect"]["width"].AsFloat = imageDict[pictoName].size.width;
-            spriteBaseField["m_Rect"]["height"].AsFloat = imageDict[pictoName].size.height;
-            spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
-            spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
-            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
-            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
-            spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0;
-            spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
-            spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0;
-            spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnitsMagic;
-            spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
-            spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
-            spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = wMagic;
-            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = context.SongData.Name;
-            spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnitsMagic;
-
-            uint[] uintArray = Guid.NewGuid().ToUnity();
-
-            // Use the GUID for the texture as the key
-            spriteBaseField["m_RenderDataKey"]["first"]["data[0]"].AsUInt = uintArray[0];
-            spriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = uintArray[1];
-            spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
-            spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
-
-            byte[] vertexMagics = context.SongData.CoachCount == 1 ?
-                [10, 215, 35] :
-                [97, 247, 108];
-
-            // Modify vertex data array
-            byte[] vertexData = spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray;
-            for (int j = 0; j <= 36; j += 12)
+            if (i >= encodedAtlasBytes.Length || encodedAtlasBytes[i] == null)
             {
-                vertexData[j] = vertexMagics[0];
-                vertexData[j + 1] = vertexMagics[1];
-                vertexData[j + 2] = vertexMagics[2];
+                Logger.Log($"Error: Encoded data for atlas page {i} is missing. Skipping asset creation.", LogLevel.Error);
+                // Assign a dummy ID or handle error appropriately, e.g., by not adding to atlasIDs or throwing.
+                // For now, this will lead to a PathID of 0 if not handled later.
+                continue;
             }
 
-            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexData;
+            long newAssetId = afile.GetRandomId();
+            AssetTypeValueField texBaseField = manager.CreateValueBaseField(afileInst, (int)AssetClassID.Texture2D);
 
-            // Add the new Sprite to the AssetsFile
+            // Configure Texture2D properties
+            texBaseField["m_Name"].AsString = $"sactx-{i}-{atlasPics[i].Width}x{atlasPics[i].Height}-Crunch-{context.SongData.Name}-pictoatlas";
+            texBaseField["m_MipCount"].AsInt = 1;
+            texBaseField["m_StreamData"]["offset"].AsULong = 0; // Not streamed
+            texBaseField["m_StreamData"]["size"].AsUInt = 0;   // Not streamed
+            texBaseField["m_StreamData"]["path"].AsString = ""; // Not streamed
+            texBaseField["m_ForcedFallbackFormat"].AsInt = (int)TextureFormat.RGBA32; // Fallback format
+            texBaseField["m_TextureFormat"].AsInt = (int)TextureFormat.DXT5Crunched;  // Primary format
+            texBaseField["m_CompleteImageSize"].AsUInt = (uint)encodedAtlasBytes[i].Length;
+            texBaseField["m_ImageCount"].AsInt = 1; // Single image texture
+            texBaseField["m_TextureDimension"].AsInt = 2; // 2D Texture
+            texBaseField["m_TextureSettings"]["m_FilterMode"].AsInt = 1; // Bilinear filtering
+            texBaseField["m_TextureSettings"]["m_Aniso"].AsInt = 1;      // Anisotropic filtering level
+            texBaseField["m_TextureSettings"]["m_WrapU"].AsInt = 1;      // Clamp wrapping
+            texBaseField["m_TextureSettings"]["m_WrapV"].AsInt = 1;      // Clamp wrapping
+            texBaseField["m_TextureSettings"]["m_WrapW"].AsInt = 1;      // Clamp wrapping (for 3D textures, but set anyway)
+            texBaseField["m_ColorSpace"].AsInt = 1; // sRGB color space
+            texBaseField["m_Width"].AsInt = atlasPics[i].Width;   // Atlas page width
+            texBaseField["m_Height"].AsInt = atlasPics[i].Height; // Atlas page height
+            texBaseField["image data"].AsByteArray = encodedAtlasBytes[i]; // The DXT5 compressed image data
+
+            AssetFileInfo newInfo = AssetFileInfo.Create(afile, newAssetId, (int)AssetClassID.Texture2D, null);
+            newInfo.SetNewData(texBaseField);
+            afile.Metadata.AddAssetInfo(newInfo);
+            atlasIDs[i] = newAssetId;
+
+            // Add to AssetBundle preload table
+            AssetTypeValueField newPreloadEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
+            newPreloadEntry["m_PathID"].AsLong = newAssetId;
+            assetBundleArray.Children.Add(newPreloadEntry);
+        }
+        return atlasIDs;
+    }
+
+    private static void AddPictoSpriteAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate, AssetTypeValueField spriteAtlasBase, Dictionary<string, (int index, (int width, int height) size)> imageDict, long[] atlasIDs, AssetTypeValueField assetBundleArray)
+    {
+        // Assumes individual picto images are temporarily saved by PictoConverter if needed for reference,
+        // or that imageDict contains all necessary metadata (like packing rects on atlas pages).
+        // This iteration is over the keys of imageDict, which represent individual pictos.
+        foreach (var pictoEntry in imageDict)
+        {
+            string pictoName = pictoEntry.Key;
+            var pictoData = pictoEntry.Value; // Contains atlas page index and original picto dimensions
+
+            long spriteID = afile.GetRandomId();
+            AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate); // Clone from template
+
+            // Configure sprite properties based on picto data
+            float pixelsToUnits = context.SongData.CoachCount == 1 ? 100f : 69.140625f; // Game-specific scaling
+            // `wMagic` seems to be related to UV or rect width calculation, depends on coach count.
+            float wMagic = context.SongData.CoachCount == 1 ? 256f : 177f;
+
+            spriteBaseField["m_Name"].AsString = pictoName;
+            // m_Rect is the sprite's rectangle in its own coordinate system (usually at 0,0 with its own width/height).
+            spriteBaseField["m_Rect"]["width"].AsFloat = pictoData.size.width;
+            spriteBaseField["m_Rect"]["height"].AsFloat = pictoData.size.height;
+
+            // m_RD.textureRect defines the source rectangle on the *original, non-atlased* sprite image if it were standalone.
+            // For atlased sprites, this often remains the full sprite size (0,0,width,height).
+            // The actual UVs mapping to the atlas page are handled by SpriteAtlas data or m_RD.m_VertexData.
+            spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
+            spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
+            spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = pictoData.size.width;
+            spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = pictoData.size.height;
+            spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0; // Offset if the sprite was trimmed (pivot adjustment)
+            spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
+            spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0; // Sprite packing settings (e.g., tight packing)
+
+            // m_RD.uvTransform: This field can be complex. For non-atlased sprites, it might scale/offset UVs.
+            // For atlased sprites made through Unity's packer, this might be identity or related to the original texture.
+            // The values here (pixelsToUnits, 256, etc.) are specific and seem to be a custom use.
+            spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnits;
+            spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
+            spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnits;
+            spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = wMagic;
+
+            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = context.SongData.Name; // Tag for atlas packing
+            spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnits; // Standard Unity sprite property
+
+            // Generate a new GUID for m_RenderDataKey, used by SpriteAtlas.
+            uint[] guidUnity = Guid.NewGuid().ToUnity();
+            spriteBaseField["m_RenderDataKey"]["first"]["data[0]"].AsUInt = guidUnity[0];
+            spriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = guidUnity[1];
+            spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = guidUnity[2];
+            spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = guidUnity[3];
+
+            // Vertex data (positions, UVs) configuration. This is highly engine-specific.
+            // Standard quad: 4 vertices, 6 indices.
+            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["indexCount"].AsUInt = 6;
+            spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["vertexCount"].AsUInt = 4;
+            spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0]; // Standard quad indices (0,1,2, 2,1,3)
+            spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
+
+            // The m_VertexData.m_DataSize byte array is critical and contains interleaved vertex attributes (pos, uv, color etc.).
+            // Its structure depends on the vertex format used by the shader/engine for these sprites.
+            // This byte array is initialized with a template/default value.
+            byte[] vertexDataBytes =
+                [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
+                 0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
+                 215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
+
+            // Specific bytes in vertexDataBytes are modified based on coach count.
+            // These "magic bytes" likely affect vertex positions or UVs in a shader-specific way.
+            byte[] vertexMagics = context.SongData.CoachCount == 1 ? [10, 215, 35] : [97, 247, 108];
+            for (int j = 0; j <= 36; j += 12) // Modify specific byte sequences in the vertex data
+            {
+                vertexDataBytes[j] = vertexMagics[0];
+                vertexDataBytes[j + 1] = vertexMagics[1];
+                vertexDataBytes[j + 2] = vertexMagics[2];
+            }
+            // Re-assign if AsByteArray returned a copy, otherwise modification is in-place.
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
+
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteID, (int)AssetClassID.Sprite, null);
             newSpriteInfo.SetNewData(spriteBaseField);
-
-            // Add the new AssetFileInfo to the AssetsFile
             afile.Metadata.AddAssetInfo(newSpriteInfo);
 
-            // Add the new move reference to the preload table
-            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
-            newAssetBundle["m_PathID"].AsLong = spriteID;
-            assetBundleArray.Children.Add(newAssetBundle);
+            AssetTypeValueField newPreloadEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
+            newPreloadEntry["m_PathID"].AsLong = spriteID;
+            assetBundleArray.Children.Add(newPreloadEntry);
 
-            // Add it to the SpriteAtlas
-            AssetTypeValueField newPackedSprite = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSprites"]["Array"]);
-            newPackedSprite["m_PathID"].AsLong = spriteID;
-            spriteAtlasBase["m_PackedSprites"]["Array"].Children.Add(newPackedSprite);
+            // --- Update SpriteAtlas collections ---
+            // Add PPtr to this sprite in m_PackedSprites
+            AssetTypeValueField packedSpriteEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSprites"]["Array"]);
+            packedSpriteEntry["m_PathID"].AsLong = spriteID;
+            spriteAtlasBase["m_PackedSprites"]["Array"].Children.Add(packedSpriteEntry);
 
-            // Add it to the packedSpriteNamesToIndex
-            AssetTypeValueField newPackedSpriteName = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"]);
-            newPackedSpriteName.AsString = pictoName;
-            spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"].Children.Add(newPackedSpriteName);
+            // Add sprite name to m_PackedSpriteNamesToIndex (maps name to index in m_PackedSprites)
+            AssetTypeValueField packedSpriteNameEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"]);
+            packedSpriteNameEntry.AsString = pictoName;
+            spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"].Children.Add(packedSpriteNameEntry);
 
-            // Add it to the RenderDataMap
-            AssetTypeValueField newRenderDataMap = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_RenderDataMap"]["Array"]);
+            // Add to m_RenderDataMap (maps RenderDataKey to actual render data on atlas)
+            AssetTypeValueField renderDataEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_RenderDataMap"]["Array"]);
+            // Key part 1: The GUID from sprite's m_RenderDataKey
+            renderDataEntry["first"]["first"]["data[0]"].AsUInt = guidUnity[0];
+            renderDataEntry["first"]["first"]["data[1]"].AsUInt = guidUnity[1];
+            renderDataEntry["first"]["first"]["data[2]"].AsUInt = guidUnity[2];
+            renderDataEntry["first"]["first"]["data[3]"].AsUInt = guidUnity[3];
+            // Key part 2: A long value, seems to be a type identifier or fixed value for sprites.
+            renderDataEntry["first"]["second"].AsLong = 21300000;
 
-            // Reuse the GUID from the sprite as the key
-            newRenderDataMap["first"]["first"]["data[0]"].AsUInt = uintArray[0];
-            newRenderDataMap["first"]["first"]["data[1]"].AsUInt = uintArray[1];
-            newRenderDataMap["first"]["first"]["data[2]"].AsUInt = uintArray[2];
-            newRenderDataMap["first"]["first"]["data[3]"].AsUInt = uintArray[3];
-            newRenderDataMap["first"]["second"].AsLong = 21300000;
+            // Value part: SpriteRenderData for the atlas
+            // This defines the sprite's PPtr to its atlas texture page, and its rectangle on that page.
+            if (pictoData.index >= atlasIDs.Length || atlasIDs[pictoData.index] == 0)
+            {
+                Logger.Log($"Error: Atlas texture for picto '{pictoName}' (atlas index {pictoData.index}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
+                continue;
+            }
+            renderDataEntry["second"]["texture"]["m_PathID"].AsLong = atlasIDs[pictoData.index];
 
-            // Texture
-            int indexInAtlas = i % 16;
-            int x_offset = indexInAtlas % 4 * 512;
-            int y_offset = indexInAtlas / 4 * 512;
+            // textureRect: The sprite's rectangle (x, y, width, height) on the atlas texture page.
+            // This information MUST come from the PictoConverter's packing step.
+            // Assuming PictoConverter provides (x, y) offsets if it packs tightly.
+            // If PictoConverter just outputs full atlas pages, and each picto is on one such page,
+            // and this method is supposed to calculate sub-rects, that logic is missing here.
+            // For now, assuming x,y are 0 if PictoConverter already placed them on the atlas page image.
+            // This part is highly dependent on how PictoConverter outputs atlas pages and picto locations.
+            // The values below are placeholders or simplistic assumptions.
+            renderDataEntry["second"]["textureRect"]["x"].AsFloat = 0; // Needs actual X offset on atlas page from packer
+            renderDataEntry["second"]["textureRect"]["y"].AsFloat = 0; // Needs actual Y offset on atlas page from packer
+            renderDataEntry["second"]["textureRect"]["width"].AsFloat = pictoData.size.width;
+            renderDataEntry["second"]["textureRect"]["height"].AsFloat = pictoData.size.height;
 
-            newRenderDataMap["second"]["texture"]["m_PathID"].AsLong = atlasIDs[imageDict[pictoName].index];
-            newRenderDataMap["second"]["textureRect"]["x"].AsFloat = x_offset;
-            newRenderDataMap["second"]["textureRect"]["y"].AsFloat = y_offset;
-            newRenderDataMap["second"]["textureRect"]["width"].AsFloat = imageDict[pictoName].size.width;
-            newRenderDataMap["second"]["textureRect"]["height"].AsFloat = imageDict[pictoName].size.height;
-            newRenderDataMap["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
-            newRenderDataMap["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
-            newRenderDataMap["second"]["uvTransform"]["x"].AsFloat = pixelsToUnitsMagic;
-            newRenderDataMap["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset;
-            newRenderDataMap["second"]["uvTransform"]["z"].AsFloat = pixelsToUnitsMagic;
-            newRenderDataMap["second"]["uvTransform"]["w"].AsFloat = wMagic + y_offset;
-            newRenderDataMap["second"]["downscaleMultiplier"].AsFloat = 1;
-            newRenderDataMap["second"]["settingsRaw"].AsUInt = 3;
+            // atlasRectOffset seems to be similar to textureRect's x,y for offset purposes.
+            renderDataEntry["second"]["atlasRectOffset"]["x"].AsFloat = 0; // Needs actual X offset
+            renderDataEntry["second"]["atlasRectOffset"]["y"].AsFloat = 0; // Needs actual Y offset
 
-            spriteAtlasBase["m_RenderDataMap"]["Array"].Children.Add(newRenderDataMap);
+            // uvTransform for SpriteAtlas render data:
+            // These values are crucial for correctly mapping UVs from the sprite's quad to the atlas.
+            // (X: scaleX, Y: offsetY_transformed, Z: scaleZ_usuallySameAsX, W: offsetX_transformed)
+            // The exact calculation depends on atlas texture size and sprite rect on it.
+            // The previous `pixelsToUnits, 256 + x_offset, pixelsToUnits, wMagic + y_offset` suggests a custom transform.
+            // `x_offset` and `y_offset` here would be the pixel offsets of the sprite on its atlas page.
+            // Without correct packer-provided offsets, these will be inaccurate.
+            // Assuming 0 offsets for now.
+            float x_offset_on_atlas = 0; // This should be from PictoConverter packing data
+            float y_offset_on_atlas = 0; // This should be from PictoConverter packing data
+            renderDataEntry["second"]["uvTransform"]["x"].AsFloat = pixelsToUnits;
+            renderDataEntry["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset_on_atlas;
+            renderDataEntry["second"]["uvTransform"]["z"].AsFloat = pixelsToUnits;
+            renderDataEntry["second"]["uvTransform"]["w"].AsFloat = wMagic + y_offset_on_atlas;
+
+            renderDataEntry["second"]["downscaleMultiplier"].AsFloat = 1; // No downscaling
+            renderDataEntry["second"]["settingsRaw"].AsUInt = 3; // Settings for atlased sprite
+
+            spriteAtlasBase["m_RenderDataMap"]["Array"].Children.Add(renderDataEntry);
         }
+    }
 
-        // Apply the new SpriteAtlas
-        spriteAtlasInfo.SetNewData(spriteAtlasBase);
+    private static void FinalizeSpriteAtlas(AssetsFile afile, AssetFileInfo spriteAtlasInfo, AssetTypeValueField spriteAtlasBase, AssetFileInfo spriteTemplate)
+    {
+        spriteAtlasInfo.SetNewData(spriteAtlasBase); // Apply changes to the SpriteAtlas asset
+        afile.AssetInfos.Remove(spriteTemplate); // Remove the original template sprite, it's no longer needed
+    }
 
-        // Remove the template sprite from the bundle
-        afile.AssetInfos.Remove(spriteTemplate);
-
-        // Set the new moves in the DanceData/MotionClips/Array
+    private static void PopulateDanceDataClips(ConversionContext context, AssetTypeValueField mapBase, Dictionary<string, (int index, (int Width, int Height) size)> imageDict)
+    {
         AssetTypeValueField motionClipsArray = mapBase["DanceData"]["MotionClips"]["Array"];
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];
-        AssetTypeValueField hideHudClips = mapBase["DanceData"]["HideHudClips"]["Array"];
-        AssetTypeValueField pictoClips = mapBase["DanceData"]["PictoClips"]["Array"];
-        AssetTypeValueField handCoachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
-        AssetTypeValueField bodyCoachCounters = mapBase["FullBodyCoachDatas"]["Array"];
+        AssetTypeValueField hideHudClipsArray = mapBase["DanceData"]["HideHudClips"]["Array"];
+        AssetTypeValueField pictoClipsArray = mapBase["DanceData"]["PictoClips"]["Array"];
 
+        // Clear existing clips before repopulating
         motionClipsArray.Children.Clear();
         goldEffectClipsArray.Children.Clear();
-        hideHudClips.Children.Clear();
-        pictoClips.Children.Clear();
-        handCoachCounters.Children.Clear();
-        bodyCoachCounters.Children.Clear();
+        hideHudClipsArray.Children.Clear();
+        pictoClipsArray.Children.Clear();
 
-        // For each coach in the song, create a new CoachCounter
-        for (int i = 0; i < context.SongData.CoachCount; i++)
+        foreach (IClip iClip in context.SongData.Clips) // Iterate through all clips from parsed song data
         {
-            // Create a new CoachCounter
-            AssetTypeValueField newCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(handCoachCounters);
-
-            newCoachCounter["GoldMovesCount"].AsUInt = 0;
-            newCoachCounter["StandardMovesCount"].AsUInt = 0;
-
-            handCoachCounters.Children.Add(newCoachCounter);
-
-            // Create a new CoachCounter
-            AssetTypeValueField newBodyCoachCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(bodyCoachCounters);
-
-            newBodyCoachCounter["GoldMovesCount"].AsUInt = 1;
-            newBodyCoachCounter["StandardMovesCount"].AsUInt = 1;
-
-            bodyCoachCounters.Children.Add(newBodyCoachCounter);
-        }
-
-        // Add the clips from the dance tape
-        foreach (IClip iClip in context.SongData.Clips)
-        {
-            // If the clip is a GoldEffectClip, add it to the GoldEffectClips array
             switch (iClip)
             {
                 case GoldEffectClip clip:
-                    AssetTypeValueField newGoldEffectClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
-
-                    newGoldEffectClip["StartTime"].AsInt = clip.StartTime;
-                    newGoldEffectClip["Duration"].AsInt = clip.Duration;
-                    newGoldEffectClip["GoldEffectType"].AsInt = clip.EffectType;
-                    newGoldEffectClip["Id"].AsLong = clip.Id;
-                    newGoldEffectClip["TrackId"].AsLong = clip.TrackId;
-                    newGoldEffectClip["IsActive"].AsUInt = (uint)clip.IsActive;
-
-                    goldEffectClipsArray.Children.Add(newGoldEffectClip);
+                    AssetTypeValueField newGold = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
+                    newGold["StartTime"].AsInt = clip.StartTime;
+                    newGold["Duration"].AsInt = clip.Duration;
+                    newGold["GoldEffectType"].AsInt = clip.EffectType; // Type of gold effect
+                    newGold["Id"].AsLong = clip.Id;
+                    newGold["TrackId"].AsLong = clip.TrackId;
+                    newGold["IsActive"].AsUInt = (uint)clip.IsActive;
+                    goldEffectClipsArray.Children.Add(newGold);
                     break;
                 case PictogramClip clip:
-                    AssetTypeValueField newPictoClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClips);
-
-                    int duration = clip.Duration;
-
-                    // Some songs have pictos with a duration of 0, this causes it to not show up in JDNext
-                    // So we set the duration to 16, which should be good enough
-                    if (clip.Duration == 0)
-                        duration = 16;
-
-                    // If the picto cannot be found, try to find it in the pictoDict with different casing
+                    AssetTypeValueField newPicto = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClipsArray);
                     string pictoName = Path.GetFileNameWithoutExtension(clip.PictoPath);
-
+                    // Case-insensitive lookup for picto name in dictionary
                     if (!imageDict.ContainsKey(pictoName))
                     {
-                        string? key = imageDict.Keys.FirstOrDefault(x => x.Equals(pictoName, StringComparison.InvariantCultureIgnoreCase));
-
-                        if (key is null)
-                            Logger.Log($"Picto {pictoName} not found in imageDict", LogLevel.Warning);
+                        string? foundKey = imageDict.Keys.FirstOrDefault(k => k.Equals(pictoName, StringComparison.InvariantCultureIgnoreCase));
+                        if (foundKey != null)
+                            pictoName = foundKey;
                         else
-                            pictoName = key;
+                            Logger.Log($"Pictogram '{pictoName}' for clip not found in image dictionary. Clip might not display correctly.", LogLevel.Warning);
                     }
-
-                    newPictoClip["StartTime"].AsInt = clip.StartTime;
-                    newPictoClip["Duration"].AsInt = duration;
-                    newPictoClip["Id"].AsLong = clip.Id;
-                    newPictoClip["TrackId"].AsLong = clip.TrackId;
-                    newPictoClip["IsActive"].AsUInt = (uint)clip.IsActive;
-                    newPictoClip["PictoPath"].AsString = pictoName;
-                    newPictoClip["CoachCount"].AsUInt = (uint)clip.CoachCount;
-
-                    pictoClips.Children.Add(newPictoClip);
+                    newPicto["StartTime"].AsInt = clip.StartTime;
+                    newPicto["Duration"].AsInt = clip.Duration == 0 ? 16 : clip.Duration; // Ensure non-zero duration, 16 is a small default
+                    newPicto["Id"].AsLong = clip.Id;
+                    newPicto["TrackId"].AsLong = clip.TrackId;
+                    newPicto["IsActive"].AsUInt = (uint)clip.IsActive;
+                    newPicto["PictoPath"].AsString = pictoName; // Name of the picto sprite
+                    newPicto["CoachCount"].AsUInt = (uint)clip.CoachCount; // Number of coaches this picto applies to
+                    pictoClipsArray.Children.Add(newPicto);
                     break;
                 case MotionClip clip:
-                    // Create a new MotionClip
-                    AssetTypeValueField newMotionClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
-
-                    // If the clip is not a .msm file, skip it
-                    if (!clip.ClassifierPath.EndsWith(".msm"))
+                    // Skip if not an .msm move or coach ID is out of bounds
+                    if (!clip.ClassifierPath.EndsWith(".msm") || clip.CoachId >= context.SongData.CoachCount)
                         continue;
-
-                    if (clip.CoachId >= context.SongData.CoachCount)
-                        // Ignore clip
-                        continue;
-
-                    string moveName = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
-
-                    newMotionClip["StartTime"].AsInt = clip.StartTime;
-                    newMotionClip["Duration"].AsInt = clip.Duration;
-                    newMotionClip["Id"].AsLong = clip.Id;
-                    newMotionClip["TrackId"].AsLong = clip.TrackId;
-                    newMotionClip["IsActive"].AsUInt = (uint)clip.IsActive;
-                    newMotionClip["MoveName"].AsString = moveName;
-                    newMotionClip["GoldMove"].AsUInt = (uint)clip.GoldMove;
-                    newMotionClip["CoachId"].AsInt = clip.CoachId;
-                    newMotionClip["MoveType"].AsInt = clip.MoveType;
-                    newMotionClip["Color"].AsString = "";
-
-                    // Add the new MotionClip to the array
-                    motionClipsArray.Children.Add(newMotionClip);
-
-                    // Increment the coach move counters
-                    if (clip.GoldMove == 1)
-                        handCoachCounters.Children[clip.CoachId]["GoldMovesCount"].AsUInt++;
-                    else
-                        handCoachCounters.Children[clip.CoachId]["StandardMovesCount"].AsUInt++;
-
+                    AssetTypeValueField newMotion = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
+                    newMotion["StartTime"].AsInt = clip.StartTime;
+                    newMotion["Duration"].AsInt = clip.Duration;
+                    newMotion["Id"].AsLong = clip.Id;
+                    newMotion["TrackId"].AsLong = clip.TrackId;
+                    newMotion["IsActive"].AsUInt = (uint)clip.IsActive;
+                    newMotion["MoveName"].AsString = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant(); // Move name (from .msm file)
+                    newMotion["GoldMove"].AsUInt = (uint)clip.GoldMove; // 0 for standard, 1 for gold move
+                    newMotion["CoachId"].AsInt = clip.CoachId;     // Which coach performs this move
+                    newMotion["MoveType"].AsInt = clip.MoveType;   // Type of move (e.g., classic, sweat)
+                    newMotion["Color"].AsString = ""; // Optional color override for the move, usually empty
+                    motionClipsArray.Children.Add(newMotion);
                     break;
                 case HideUserInterfaceClip clip:
-                    AssetTypeValueField newHideHudClip = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClips);
-
-                    newHideHudClip["StartTime"].AsInt = clip.StartTime;
-                    newHideHudClip["Duration"].AsInt = clip.Duration;
-                    newHideHudClip["IsActive"].AsUInt = (uint)clip.IsActive;
-
-                    hideHudClips.Children.Add(newHideHudClip);
+                    AssetTypeValueField newHideHud = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClipsArray);
+                    newHideHud["StartTime"].AsInt = clip.StartTime;
+                    newHideHud["Duration"].AsInt = clip.Duration;
+                    newHideHud["IsActive"].AsUInt = (uint)clip.IsActive;
+                    // Add other fields if HideUserInterfaceClip has them, e.g., EventType, TargetElements
+                    // newHideHud["EventType"].AsInt = clip.EventType; // Example
+                    hideHudClipsArray.Children.Add(newHideHud);
                     break;
             }
         }
+    }
 
-        // Store all changes
-        musicTrackInfos[0].SetNewData(musicTrackBase);
-        musicTrackInfos[1].SetNewData(mapBase);
+    private static void UpdateCoachCounters(ConversionContext context, AssetTypeValueField mapBase)
+    {
+        AssetTypeValueField handCoachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
+        AssetTypeValueField bodyCoachCounters = mapBase["FullBodyCoachDatas"]["Array"]; // If this field exists and is used
 
-        // Update the preload sizes
-        for (int i = 0; i < 2; i++)
+        if (bodyCoachCounters == null || bodyCoachCounters.IsDummy) // Check if bodyCoachCounters is valid
         {
-            AssetTypeValueField second = assetBundleBase["m_Container"]["Array"][i]["second"];
-
-            // Set equal to the size of the preload array
-            second["preloadSize"].AsInt = assetBundleArray.Children.Count;
+            bodyCoachCounters = ValueBuilder.DefaultValueFieldFromArrayTemplate(handCoachCounters); // If not, use handCoachCounters as a template
         }
 
-        assetBundle.SetNewData(assetBundleBase);
+        // Clear existing counters
+        handCoachCounters.Children.Clear();
+        bodyCoachCounters.Children.Clear(); 
 
-        // Save the file
+        // Initialize counters for each coach
+        for (int i = 0; i < context.SongData.CoachCount; i++)
+        {
+            AssetTypeValueField newHandCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(handCoachCounters);
+            newHandCounter["GoldMovesCount"].AsUInt = 0;
+            newHandCounter["StandardMovesCount"].AsUInt = 0;
+            handCoachCounters.Children.Add(newHandCounter);
+
+            AssetTypeValueField newBodyCounter = ValueBuilder.DefaultValueFieldFromArrayTemplate(bodyCoachCounters);
+            newBodyCounter["GoldMovesCount"].AsUInt = 0;
+            newBodyCounter["StandardMovesCount"].AsUInt = 0;
+            bodyCoachCounters.Children.Add(newBodyCounter);
+        }
+
+        // Recalculate move counts based on the MotionClips added
+        foreach (var motionClipField in mapBase["DanceData"]["MotionClips"]["Array"].Children)
+        {
+            int coachId = motionClipField["CoachId"].AsInt;
+            int moveType = motionClipField["MoveType"].AsInt;
+            bool isGoldMove = motionClipField["GoldMove"].AsUInt == 1;
+
+            if (coachId >= 0 && coachId < handCoachCounters.Children.Count) // Ensure coachId is valid
+            {
+                if (moveType == 0) // Hand moves
+                {
+                    if (isGoldMove)
+                        handCoachCounters.Children[coachId]["GoldMovesCount"].AsUInt++;
+                    else
+                        handCoachCounters.Children[coachId]["StandardMovesCount"].AsUInt++;
+                }
+                else if (moveType == 1) // Body moves
+                {
+                    if (isGoldMove)
+                        bodyCoachCounters.Children[coachId]["GoldMovesCount"].AsUInt++;
+                    else
+                        bodyCoachCounters.Children[coachId]["StandardMovesCount"].AsUInt++;
+                }
+            }
+        }
+    }
+
+    private static void FinalizeAndSaveBundle(ConversionContext context, AssetBundleFile bun, AssetsFile afile,
+        AssetTypeValueField musicTrackBase, AssetTypeValueField mapBase, AssetTypeValueField assetBundleBase,
+        Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
+    {
+        // Apply changes to the MonoBehaviour assets
+        setMusicTrackData();
+        setMapData();
+
+        // The AssetBundle's m_Container lists main assets. Its 'preloadSize' field for these entries
+        // should be updated to reflect the total number of assets in the m_PreloadTable.
+        AssetTypeValueField preloadTableArray = assetBundleBase["m_PreloadTable"]["Array"];
+        AssetTypeValueField containerArray = assetBundleBase["m_Container"]["Array"];
+        if (containerArray != null && !containerArray.IsDummy)
+        {
+            // Typically, the first few entries in m_Container (for MusicTrack, MapBehaviour)
+            // need their preloadSize updated.
+            for (int i = 0; i < Math.Min(2, containerArray.Children.Count); i++)
+            {
+                containerArray[i]["second"]["preloadSize"].AsInt = preloadTableArray.Children.Count;
+            }
+        }
+        setAssetBundleData(); // Apply changes to the AssetBundle asset itself
+
+        // Write changes back to the bundle file structure
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
 
-        // Add .mod to the end of the file
+        // Save and compress the modified bundle
         string outputPackagePath = context.FileSystem.OutputFolders.MapPackageFolder;
         bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }

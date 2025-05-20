@@ -188,7 +188,11 @@ public partial class FileSystem
     {
         List<CookedFile> files = [];
         string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
-        string[] searchPaths = Directory.GetDirectories(parentFolder);
+        List<string> searchPaths = [
+            Path.Combine(parentFolder, $"patch_{PlatformType}"),
+            ..Directory.GetDirectories(parentFolder)
+            ];
+
 
         foreach (string searchPath in searchPaths)
         {
