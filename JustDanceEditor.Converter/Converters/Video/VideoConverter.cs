@@ -22,7 +22,8 @@ public static class VideoConverter
 
             // If codec is vp8 or vp9 AND aspect ratio is 16:9, we don't need to convert
             bool needsConversion = !(mediaInfo.VideoStreams.First().Codec is "vp8" or "vp9"
-                && mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height == 16f / 9f);
+                && mediaInfo.VideoStreams.First().Width / (float)mediaInfo.VideoStreams.First().Height == 16f / 9f
+                && mediaInfo.VideoStreams.First().Framerate == 25);
 
             if (needsConversion)
                 Convert(context, videoFile);
@@ -129,7 +130,7 @@ public static class VideoConverter
         conversion.AddStream(stream)
             .SetOverwriteOutput(true)
             .SetSeek(TimeSpan.FromSeconds(startTime))
-            .AddParameter("-b:v 500k -maxrate 600k -bufsize 1200k")
+            .AddParameter("-b:v 500k -maxrate 600k -bufsize 1200k -r 25")
             // Set fade-in of 1 second
             .AddParameter($"-vf \"scale=768:432,fade=t=in:st={startTime}:d=1,fade=t=out:st={startTime + 30 - 1}:d=1\"")
             .AddParameter("-t 30")
@@ -182,6 +183,7 @@ public static class VideoConverter
         conversion.SetOutputFormat(Format.webm)
             .AddParameter("-crf 4")
             .AddParameter("-b:v 4M")
+            .AddParameter("-r 25")
             .SetOverwriteOutput(true)
             .SetOutput(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "output.webm"));
 
