@@ -84,17 +84,11 @@ internal class VGMStreamAdapter : IAudioConverter
             // Set the process start info
             StartInfo = new ProcessStartInfo
             {
-                // Set the process start info
                 FileName = vgmFullPath,
-                // Set the process start info
                 Arguments = $"-o \"{output}\" \"{input}\"",
-                // Set the process start info
                 UseShellExecute = false,
-                // Set the process start info
                 CreateNoWindow = true,
-                // Set the process start info
                 RedirectStandardOutput = true,
-                // Set the process start info
                 RedirectStandardError = true
             }
         };
