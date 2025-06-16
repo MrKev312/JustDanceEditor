@@ -7,10 +7,16 @@ class Program
     static void Main(string[] args)
     {
         List<string> list = [];
+        if (args.Length == 0)
+        {
 #if DEBUG
-        // If in debug mode, read input
-        list.Add(Console.ReadLine()!.Trim('"'));
+            list.Add(Console.ReadLine()!.Trim('"'));
+#else
+            Console.WriteLine("No files provided. Please provide file paths as arguments.");
+            return;
 #endif
+        }
+
         // For each argument, remove if the file doesn't exist
         foreach (string arg in args)
         {
