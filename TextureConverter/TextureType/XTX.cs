@@ -215,7 +215,7 @@ public class XTX
 
         public BlockHeader(EndianBinaryReader reader)
         {
-            long pos = reader.BaseStream.Position;
+            long blockHeaderStartPosition = reader.BaseStream.Position;
 
             string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
             if (signature != "HBvN")
@@ -228,8 +228,20 @@ public class XTX
             GlobalBlockIndex = reader.ReadUInt32();
             IncBlockTypeIndex = reader.ReadUInt32();
 
-            reader.BaseStream.Seek(pos + DataOffset, SeekOrigin.Begin);
+            reader.BaseStream.Seek(blockHeaderStartPosition + DataOffset, SeekOrigin.Begin);
             Data = reader.ReadBytes((int)DataSize);
+
+            // Search for the next occurrence of HBvN to determine the end of this block
+            // In theory, we should already be at the start of the next block, but this ensures we are aligned correctly
+            for (long pos = reader.BaseStream.Position; pos + 4 <= reader.BaseStream.Length; pos++)
+            {
+                reader.BaseStream.Seek(pos, SeekOrigin.Begin);
+                if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "HBvN")
+                    continue;
+
+                reader.BaseStream.Seek(pos, SeekOrigin.Begin);
+                break;
+            }
         }
     }
 
