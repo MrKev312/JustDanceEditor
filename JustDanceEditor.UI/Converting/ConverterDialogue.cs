@@ -34,6 +34,9 @@ public class ConverterDialogue
             Console.WriteLine($"\nAn error occurred during conversion: {e.Message}");
             Console.ResetColor();
             Logger.Log($"Conversion failed: {e.Message}", LogLevel.Fatal);
+#if DEBUG
+            throw; // In debug mode, rethrow to allow debugging
+#endif
         }
     }
 
