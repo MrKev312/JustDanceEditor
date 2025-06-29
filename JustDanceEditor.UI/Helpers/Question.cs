@@ -17,43 +17,27 @@ internal class Question
             Console.WriteLine($"{i + startIndex})  {options.ElementAt(i)}");
 
         // Ask the user for an option
-        Console.Write("Enter the number of the option you want to use: ");
-        string? option = Console.ReadLine();
-
-        // If the option is not a number, ask again
-        if (!uint.TryParse(option, out uint value))
-        {
-            Console.WriteLine("The option is not a number.");
-            return Ask(options, startIndex, question);
-        }
-
-        // If the option is not in the valid range, ask again
-        if (value < startIndex || value > options.Count + startIndex - 1)
-        {
-            Console.WriteLine("The option is not valid.");
-            return Ask(options, startIndex, question);
-        }
-
-        return (int)value;
+        return AskNumber("Please select an option", startIndex, options.Count - 1 + startIndex);
     }
 
     public static string AskFolder(string question, bool mustExist = false)
     {
-        question += mustExist ? " (must exist)" : " (can be empty)";
+        string requirement = mustExist ? "(This folder must already exist)" : "(This folder will be created if it doesn't exist)";
+        Console.WriteLine($"{question} {requirement}");
+        Console.WriteLine("You can also drag and drop the folder onto the console window and press Enter.");
 
         string? filepath = null;
 
         while (filepath == null)
         {
-            Console.Write($"{question}: ");
-            filepath = Console.ReadLine()!;
-
-            // Trim the filepath
-            filepath = filepath.Trim();
+            Console.Write("Folder path: ");
+            filepath = Console.ReadLine()?.Trim();
 
             if (string.IsNullOrWhiteSpace(filepath))
             {
-                Console.WriteLine("The path is empty.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The path cannot be empty. Please try again.");
+                Console.ResetColor();
                 filepath = null;
                 continue;
             }
@@ -64,7 +48,9 @@ internal class Question
 
             if (mustExist && !Directory.Exists(filepath))
             {
-                Console.WriteLine("The path does not exist.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The specified folder does not exist. Please check the path and try again.");
+                Console.ResetColor();
                 filepath = null;
                 continue;
             }
@@ -75,21 +61,22 @@ internal class Question
 
     public static string AskFile(string question, bool mustExist = false)
     {
-        question += mustExist ? " (must exist)" : " (can be empty)";
+        string requirement = mustExist ? "(This file must already exist)" : "(This file will be created if it doesn't exist)";
+        Console.WriteLine($"{question} {requirement}");
+        Console.WriteLine("You can also drag and drop the file onto the console window and press Enter.");
 
         string? filepath = null;
 
         while (filepath == null)
         {
-            Console.Write($"{question}: ");
-            filepath = Console.ReadLine()!;
-
-            // Trim the filepath
-            filepath = filepath.Trim();
+            Console.Write("File path: ");
+            filepath = Console.ReadLine()?.Trim();
 
             if (string.IsNullOrWhiteSpace(filepath))
             {
-                Console.WriteLine("The path is empty.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The path cannot be empty. Please try again.");
+                Console.ResetColor();
                 filepath = null;
                 continue;
             }
@@ -100,7 +87,9 @@ internal class Question
 
             if (mustExist && !File.Exists(filepath))
             {
-                Console.WriteLine("The path does not exist.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The specified file does not exist. Please check the path and try again.");
+                Console.ResetColor();
                 filepath = null;
                 continue;
             }
@@ -111,94 +100,95 @@ internal class Question
 
     public static int AskNumber(string question, int min = int.MinValue, int max = int.MaxValue)
     {
+        Console.Write($"{question} ");
+        if (min != int.MinValue && max != int.MaxValue)
+        {
+            Console.Write($"(between {min} and {max}): ");
+        }
+        else if (min != int.MinValue)
+        {
+            Console.Write($"(minimum {min}): ");
+        }
+        else if (max != int.MaxValue)
+        {
+            Console.Write($"(maximum {max}): ");
+        }
+        else
+        {
+            Console.Write(": ");
+        }
+
         int? value = null;
 
         while (value == null)
         {
-            Console.Write($"{question}: ");
-            string number = Console.ReadLine()!;
+            string? numberStr = Console.ReadLine()?.Trim();
 
-            // Trim the number
-            number = number.Trim();
-
-            if (string.IsNullOrWhiteSpace(number))
+            if (string.IsNullOrWhiteSpace(numberStr))
             {
-                Console.WriteLine("The number is empty.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Input cannot be empty. Please enter a number.");
+                Console.ResetColor();
+                Console.Write("Enter number: ");
                 continue;
             }
 
-            // If the number starts with or ends with a quote, remove it
-            if (number.StartsWith('"') && number.EndsWith('"'))
-                number = number[1..^1];
-
-            if (!int.TryParse(number, out int readNumber))
+            if (!int.TryParse(numberStr, out int readNumber))
             {
-                Console.WriteLine("The number is not a number.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Invalid input. Please enter a valid integer.");
+                Console.ResetColor();
+                Console.Write("Enter number: ");
                 continue;
             }
 
-            if (value < min && min == 0)
+            if (readNumber < min || readNumber > max)
             {
-                Console.WriteLine("The number must be positive.");
-                continue;
-            }
-
-            if (value > max && max == 0)
-            {
-                Console.WriteLine("The number must be negative.");
-                continue;
-            }
-
-            if (value < min || value > max)
-            {
-                Console.WriteLine("The number is not in the valid range.");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"The number must be between {min} and {max}. Please try again.");
+                Console.ResetColor();
+                Console.Write("Enter number: ");
                 continue;
             }
 
             value = readNumber;
         }
 
-        return (int)value;
+        return value.Value;
     }
 
     public static string AskForUrl(string assetName, bool canBeEmpty = false)
     {
-        string canBeEmptyText = canBeEmpty ? " (can be empty)" : "";
-        Console.Write($"{assetName}{canBeEmptyText}: ");
-        string? url = Console.ReadLine()!;
+        string canBeEmptyText = canBeEmpty ? "(Leave empty to skip)" : "";
+        Console.Write($"Please enter the URL for {assetName}{canBeEmptyText}: ");
+        string? url = Console.ReadLine();
 
-        while (!string.IsNullOrEmpty(url) && !url.Contains(assetName))
+        while (!string.IsNullOrEmpty(url) && !Uri.IsWellFormedUriString(url, UriKind.Absolute))
         {
-            Console.WriteLine($"The url doesn't contain \"{assetName}\".");
-            Console.Write("Are you sure this is the correct url? (y/n): ");
-            string answer = Console.ReadLine()!.Trim().ToLower();
-            if (answer is "y" or "yes")
-                break;
-            Console.Write($"{assetName}{canBeEmptyText}: ");
-            url = Console.ReadLine()!;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Invalid URL format. Please enter a valid URL (e.g., http://example.com/asset).");
+            Console.ResetColor();
+            Console.Write($"URL for {assetName}{canBeEmptyText}: ");
+            url = Console.ReadLine();
         }
 
-        return url;
+        return string.IsNullOrEmpty(url) ? "" : url;
     }
 
-	public static bool AskYesNo(string question)
-	{
-		Console.Write($"{question} (y/n): ");
-		string answer = Console.ReadLine()!;
+    public static bool AskYesNo(string question)
+    {
+        Console.Write($"{question} (y/n): ");
+        string? answer = Console.ReadLine()?.Trim().ToLower();
 
-		while (answer is not "y" and not "n")
-		{
-			Console.WriteLine("The answer is not valid.");
-			Console.Write($"{question} (y/n): ");
-			answer = Console.ReadLine()!.Trim().ToLower();
-
-            // If the answer is yes or no, convert it to y or n
-            if (answer == "yes")
-                answer = "y";
-            else if (answer == "no")
-                answer = "n";
+        while (answer is not ("y" or "n" or "yes" or "no"))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Invalid input. Please answer with 'y' (yes) or 'n' (no).");
+            Console.ResetColor();
+            Console.Write($"{question} (y/n): ");
+            answer = Console.ReadLine()?.Trim().ToLower();
         }
 
-		return answer == "y";
-	}
+        return answer is "y" or "yes";
+    }
 }

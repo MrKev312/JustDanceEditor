@@ -2,6 +2,7 @@
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
@@ -16,13 +17,14 @@ namespace JustDanceEditor.Converter.Converters.Bundles;
 
 public static class CoachesLargeBundleGenerator
 {
-    public async static Task GenerateCoachesLargeAsync(ConvertUbiArtToUnity convert) =>
-        await Task.Run(() => GenerateCoachesLarge(convert));
-    public static void GenerateCoachesLarge(ConvertUbiArtToUnity convert)
+    public async static Task GenerateCoachesLargeAsync(ConversionContext context) =>
+        await Task.Run(() => GenerateCoachesLarge(context));
+
+    public static void GenerateCoachesLarge(ConversionContext context)
     {
         try
         {
-            GenerateCoachesLargeInteral(convert);
+            GenerateCoachesLargeInternal(context);
         }
         catch (Exception e)
         {
@@ -32,127 +34,143 @@ public static class CoachesLargeBundleGenerator
         Logger.Log("Finished generating CoachesLarge");
     }
 
-    static void GenerateCoachesLargeInteral(ConvertUbiArtToUnity convert)
+    private static void GenerateCoachesLargeInternal(ConversionContext context)
     {
-        // Get the coaches folder
-        // /template/cachex/CoachesLarge/*
-        string coacheLargePackagePath = convert.FileSystem.TemplateFiles.CoachesLarge;
-
         Logger.Log("Converting CoachesLarge...");
-        // Open the coaches package using AssetTools.NET
+
+        // Initialize AssetsManager and load bundle data
+        var (Manager, BunInst, AFileInst, AFile, SortedAssetInfos, AssetBundleBase) = InitializeBundle(context);
+
+        // Clear existing assets and identify template assets for coaches and background
+        var (coachTextureTpl, coachSpriteTpl, bkgTextureTpl, bkgSpriteTpl, textureIDs, spriteIDs) =
+            ClearBundleAndIdentifyTemplates(context, Manager, AFileInst, AFile, AssetBundleBase);
+
+        // Process and add textures and sprites for each coach
+        ProcessCoachAssets(context, Manager, AFileInst, AFile, coachTextureTpl, coachSpriteTpl, textureIDs, spriteIDs);
+
+        // Process and update the background texture and sprite
+        ProcessBackgroundAssets(context, Manager, AFileInst, bkgTextureTpl, bkgSpriteTpl);
+
+        // Populate the AssetBundle's preload table with all new and updated assets
+        PopulatePreloadTable(AssetBundleBase["m_PreloadTable"]["Array"], textureIDs, spriteIDs);
+
+        // Populate the AssetBundle's container with references to coach and background assets
+        PopulateAssetContainer(context, AssetBundleBase["m_Container"]["Array"], textureIDs, spriteIDs);
+
+        // Apply all changes to the AssetBundle and save the modified bundle file
+        FinalizeAndSaveBundle(context, BunInst.file, AFile, AssetBundleBase, assetBundleData => SortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle).SetNewData(assetBundleData));
+    }
+
+    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, List<AssetFileInfo> SortedAssetInfos, AssetTypeValueField AssetBundleBase) InitializeBundle(ConversionContext context)
+    {
+        string coacheLargePackagePath = context.FileSystem.TemplateFiles.CoachesLarge;
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(coacheLargePackagePath, true);
-        AssetBundleFile bun = bunInst.file;
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
         afile.GenerateQuickLookup();
 
         List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
-        AssetFileInfo assetBundle = sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.AssetBundle).First();
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundle);
-        assetBundleBase["m_Name"].AsString = $"{convert.SongData.Name}_CoachesLarge";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{convert.SongData.Name}_CoachesLarge";
-        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
-        AssetTypeValueField assetBundleContainer = assetBundleBase["m_Container"]["Array"];
+        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
+        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
 
+        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_CoachesLarge";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_CoachesLarge";
+
+        return (manager, bunInst, afileInst, afile, sortedAssetInfos, assetBundleBase);
+    }
+
+    private static (AssetFileInfo coachTexture, AssetFileInfo coachSprite, AssetFileInfo bkgTexture, AssetFileInfo bkgSprite, long[] textureIDs, long[] spriteIDs)
+        ClearBundleAndIdentifyTemplates(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleBase)
+    {
         AssetFileInfo? coachTexture = null;
         AssetFileInfo? coachSprite = null;
         AssetFileInfo? bkgTexture = null;
         AssetFileInfo? bkgSprite = null;
 
-        long[] TextureIDs = new long[convert.SongData.CoachCount + 1];
-        long[] SpriteIDs = new long[convert.SongData.CoachCount + 1];
+        long[] textureIDs = new long[context.SongData.CoachCount + 1];
+        long[] spriteIDs = new long[context.SongData.CoachCount + 1];
 
-        // First we clean out the bundle
-        // Clearing the preload table and the container
+        AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
+        AssetTypeValueField assetBundleContainer = assetBundleBase["m_Container"]["Array"];
         assetBundleArray.Children.Clear();
         assetBundleContainer.Children.Clear();
 
-        // Removing all the textures
-        foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D))
+        List<AssetFileInfo> assetsToRemove = [];
+        foreach (AssetFileInfo assetInfo in afile.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.Texture2D))
         {
             AssetTypeValueField assetBase = manager.GetBaseField(afileInst, assetInfo);
-
-            // If assetBase["m_Name"].AsString ends with _map_bkg, it's the background texture
             if (assetBase["m_Name"].AsString.EndsWith("_map_bkg"))
             {
                 bkgTexture = assetInfo;
-                TextureIDs[0] = assetInfo.PathId;
-                continue;
+                textureIDs[0] = assetInfo.PathId;
             }
-
-            // If assetBase["m_Name"].AsString ends with _Coach_1, it's the coach texture
-            if (assetBase["m_Name"].AsString.EndsWith("_Coach_1"))
+            else if (assetBase["m_Name"].AsString.EndsWith("_Coach_1"))
             {
                 coachTexture = assetInfo;
-                TextureIDs[1] = assetInfo.PathId;
-                continue;
+                textureIDs[1] = assetInfo.PathId;
             }
-
-            // Then remove it from the bundle
-            afile.AssetInfos.Remove(assetInfo);
+            else
+            {
+                assetsToRemove.Add(assetInfo);
+            }
         }
 
-        // Also remove their corresponding Sprites
-        foreach (AssetFileInfo assetInfo in sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
+        assetsToRemove.Clear();
+
+        foreach (AssetFileInfo assetInfo in afile.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.Sprite))
         {
             AssetTypeValueField assetBase = manager.GetBaseField(afileInst, assetInfo);
-
-            // If assetBase["m_Name"].AsString ends with _map_bkg, it's the background sprite
             if (assetBase["m_Name"].AsString.EndsWith("_map_bkg"))
             {
                 bkgSprite = assetInfo;
-                SpriteIDs[0] = assetInfo.PathId;
-                continue;
+                spriteIDs[0] = assetInfo.PathId;
             }
-
-            // If assetBase["m_Name"].AsString ends with _Coach_1, it's the coach sprite
-            if (assetBase["m_Name"].AsString.EndsWith("_Coach_1"))
+            else if (assetBase["m_Name"].AsString.EndsWith("_Coach_1"))
             {
                 coachSprite = assetInfo;
-                SpriteIDs[1] = assetInfo.PathId;
-                continue;
+                spriteIDs[1] = assetInfo.PathId;
             }
-
-            // Else, remove it from the bundle
-            afile.AssetInfos.Remove(assetInfo);
+            else
+            {
+                assetsToRemove.Add(assetInfo);
+            }
         }
+
+        foreach (AssetFileInfo assetInfo in assetsToRemove)
+            afile.AssetInfos.Remove(assetInfo);
 
         if (coachTexture == null || coachSprite == null || bkgTexture == null || bkgSprite == null)
-        {
-            throw new Exception("Failed to find the required textures and sprites!");
-        }
+            throw new Exception("Failed to find the required template textures and sprites!");
 
-        // For each coach, we add the texture and the sprite
-        byte[] encImageBytes;
+        return (coachTexture, coachSprite, bkgTexture, bkgSprite, textureIDs, spriteIDs);
+    }
+
+    private static void ProcessCoachAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile,
+        AssetFileInfo coachTextureTpl, AssetFileInfo coachSpriteTpl, long[] textureIDs, long[] spriteIDs)
+    {
         TextureFormat fmt = TextureFormat.DXT5Crunched;
         int mips = 1;
 
-        for (int i = 1; i <= convert.SongData.CoachCount; i++)
+        for (int i = 1; i <= context.SongData.CoachCount; i++)
         {
-            long coachTextureID = i == 0 ?
-                TextureIDs[1] :
-                afile.GetRandomId();
-            long coachSpriteID = i == 0 ?
-                SpriteIDs[1] :
-                afile.GetRandomId();
+            long coachTextureID = i == 1 ? textureIDs[1] : afile.GetRandomId();
+            long coachSpriteID = i == 1 ? spriteIDs[1] : afile.GetRandomId();
 
-            AssetTypeValueField coachTextureBaseField = manager.GetBaseField(afileInst, coachTexture);
-            AssetTypeValueField coachSpriteBaseField = manager.GetBaseField(afileInst, coachSprite);
+            AssetTypeValueField coachTextureBaseField = manager.GetBaseField(afileInst, coachTextureTpl);
+            AssetTypeValueField coachSpriteBaseField = manager.GetBaseField(afileInst, coachSpriteTpl);
 
-            // Create the new texture
-            coachTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
-            coachSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_Coach_{i}";
+            coachTextureBaseField["m_Name"].AsString = $"{context.SongData.Name}_Coach_{i}";
+            coachSpriteBaseField["m_Name"].AsString = $"{context.SongData.Name}_Coach_{i}";
 
-            string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_{i}.png");
-
-            // Load the image
-            Image<Rgba32> image = Image.Load<Rgba32>(path);
+            string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_Coach_{i}.png");
+            using Image<Rgba32> image = Image.Load<Rgba32>(path);
             image.Mutate(x => x.Resize(1024, 1024));
 
-            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
+            byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode coach image!");
 
-            // Set the image data
             coachTextureBaseField["image data"].AsByteArray = encImageBytes;
             coachTextureBaseField["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
             coachTextureBaseField["m_StreamData"]["offset"].AsULong = 0;
@@ -161,98 +179,92 @@ public static class CoachesLargeBundleGenerator
 
             if (i == 1)
             {
-                coachTexture.SetNewData(coachTextureBaseField);
-                coachSprite.SetNewData(coachSpriteBaseField);
-                continue;
+                coachTextureTpl.SetNewData(coachTextureBaseField);
+                coachSpriteTpl.SetNewData(coachSpriteBaseField);
+            }
+            else
+            {
+                uint[] uintArray = Guid.NewGuid().ToUnity();
+                coachSpriteBaseField["m_RenderDataKey"]["first"]["data[0]"].AsUInt = uintArray[0];
+                coachSpriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = uintArray[1];
+                coachSpriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
+                coachSpriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
+                coachSpriteBaseField["m_RD"]["texture"]["m_PathID"].AsLong = coachTextureID;
+
+                AssetFileInfo newTextureInfo = AssetFileInfo.Create(afile, coachTextureID, (int)AssetClassID.Texture2D, null);
+                AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, coachSpriteID, (int)AssetClassID.Sprite, null);
+                newTextureInfo.SetNewData(coachTextureBaseField);
+                newSpriteInfo.SetNewData(coachSpriteBaseField);
+
+                afile.Metadata.AddAssetInfo(newTextureInfo);
+                afile.Metadata.AddAssetInfo(newSpriteInfo);
             }
 
-            uint[] uintArray = Guid.NewGuid().ToUnity();
-
-            // Use the GUID for the texture as the key
-            coachSpriteBaseField["m_RenderDataKey"]["first"]["data[0]"].AsUInt = uintArray[0];
-            coachSpriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = uintArray[1];
-            coachSpriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = uintArray[2];
-            coachSpriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = uintArray[3];
-
-            // Set the texture ID to point to the new texture
-            coachSpriteBaseField["m_RD"]["texture"]["m_PathID"].AsLong = coachTextureID;
-
-            // Make a new AssetFileInfo
-            AssetFileInfo newTextureInfo = AssetFileInfo.Create(afile, coachTextureID, (int)AssetClassID.Texture2D, null);
-            AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, coachSpriteID, (int)AssetClassID.Sprite, null);
-            newTextureInfo.SetNewData(coachTextureBaseField);
-            newSpriteInfo.SetNewData(coachSpriteBaseField);
-
-            // Add the new AssetFileInfo to the AssetFile
-            afile.Metadata.AddAssetInfo(newTextureInfo);
-            afile.Metadata.AddAssetInfo(newSpriteInfo);
-            TextureIDs[i] = coachTextureID;
-            SpriteIDs[i] = coachSpriteID;
+            textureIDs[i] = coachTextureID;
+            spriteIDs[i] = coachSpriteID;
         }
+    }
 
-        // Now let's do the background
+    private static void ProcessBackgroundAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo bkgTexture, AssetFileInfo bkgSprite)
+    {
+        AssetTypeValueField bkgTextureBaseField = manager.GetBaseField(afileInst, bkgTexture);
+        AssetTypeValueField bkgSpriteBaseField = manager.GetBaseField(afileInst, bkgSprite);
+
+        bkgTextureBaseField["m_Name"].AsString = $"{context.SongData.Name}_map_bkg";
+        bkgSpriteBaseField["m_Name"].AsString = $"{context.SongData.Name}_map_bkg";
+
+        using Image<Rgba32> image = CoverArtGenerator.GetBackground(context);
+        TextureFormat fmt = TextureFormat.DXT1Crunched;
+        int mips = 1;
+        byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode background image!");
+
+        bkgTextureBaseField["image data"].AsByteArray = encImageBytes;
+        bkgTextureBaseField["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
+        bkgTextureBaseField["m_StreamData"]["offset"].AsULong = 0;
+        bkgTextureBaseField["m_StreamData"]["size"].AsUInt = 0;
+        bkgTextureBaseField["m_StreamData"]["path"].AsString = "";
+
+        bkgTexture.SetNewData(bkgTextureBaseField);
+        bkgSprite.SetNewData(bkgSpriteBaseField);
+    }
+
+    private static void PopulatePreloadTable(AssetTypeValueField assetBundleArray, long[] textureIDs, long[] spriteIDs)
+    {
+        foreach (long id in textureIDs.Union(spriteIDs))
         {
-            AssetTypeValueField bkgTextureBaseField = manager.GetBaseField(afileInst, bkgTexture);
-            AssetTypeValueField bkgSpriteBaseField = manager.GetBaseField(afileInst, bkgSprite);
-
-            // Create the new texture
-            bkgTextureBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
-            bkgSpriteBaseField["m_Name"].AsString = $"{convert.SongData.Name}_map_bkg";
-
-            // Load the image
-            Image<Rgba32> image = CoverArtGenerator.GetBackground(convert);
-
-            fmt = TextureFormat.DXT1Crunched;
-
-            encImageBytes = TextureImportExport.Import(image, fmt, out int width, out int height, ref mips) ?? throw new Exception("Failed to encode image!");
-
-            // Set the image data
-            bkgTextureBaseField["image data"].AsByteArray = encImageBytes;
-            bkgTextureBaseField["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
-            bkgTextureBaseField["m_StreamData"]["offset"].AsULong = 0;
-            bkgTextureBaseField["m_StreamData"]["size"].AsUInt = 0;
-            bkgTextureBaseField["m_StreamData"]["path"].AsString = "";
-
-            bkgTexture.SetNewData(bkgTextureBaseField);
-            bkgSprite.SetNewData(bkgSpriteBaseField);
+            AssetTypeValueField newPreloadEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
+            newPreloadEntry["m_PathID"].AsLong = id;
+            assetBundleArray.Children.Add(newPreloadEntry);
         }
+    }
 
-        // Let's add everything to the preload table
-        foreach (long id in TextureIDs.Union(SpriteIDs))
-        {
-            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
-            newAssetBundle["m_PathID"].AsLong = id;
-            assetBundleArray.Children.Add(newAssetBundle);
-        }
-
-        // Finally we fix the container
-        for (int i = 0; i < convert.SongData.CoachCount + 1; i++)
+    private static void PopulateAssetContainer(ConversionContext context, AssetTypeValueField assetBundleContainer, long[] textureIDs, long[] spriteIDs)
+    {
+        for (int i = 0; i < context.SongData.CoachCount + 1; i++)
         {
             string name = i == 0 ? "CoachesBackground" : $"Coach{i}";
 
-            AssetTypeValueField newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleContainer);
-            newAssetBundle["first"].AsString = name;
-            newAssetBundle["second"]["preloadIndex"].AsInt = 2 * i;
-            newAssetBundle["second"]["preloadSize"].AsInt = 2;
-            newAssetBundle["second"]["asset"]["m_PathID"].AsLong = TextureIDs[i];
-            assetBundleContainer.Children.Add(newAssetBundle);
+            AssetTypeValueField newContainerEntryTexture = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleContainer);
+            newContainerEntryTexture["first"].AsString = name;
+            newContainerEntryTexture["second"]["preloadIndex"].AsInt = 2 * i;
+            newContainerEntryTexture["second"]["preloadSize"].AsInt = 2;
+            newContainerEntryTexture["second"]["asset"]["m_PathID"].AsLong = textureIDs[i];
+            assetBundleContainer.Children.Add(newContainerEntryTexture);
 
-            newAssetBundle = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleContainer);
-            newAssetBundle["first"].AsString = name;
-            newAssetBundle["second"]["preloadIndex"].AsInt = 2 * i;
-            newAssetBundle["second"]["preloadSize"].AsInt = 2;
-            newAssetBundle["second"]["asset"]["m_PathID"].AsLong = SpriteIDs[i];
-            assetBundleContainer.Children.Add(newAssetBundle);
+            AssetTypeValueField newContainerEntrySprite = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleContainer);
+            newContainerEntrySprite["first"].AsString = name; // Name might need to be distinct if used as a key, e.g., name + "_Sprite"
+            newContainerEntrySprite["second"]["preloadIndex"].AsInt = 2 * i; // PreloadIndex refers to the start of the related group in preloadTable
+            newContainerEntrySprite["second"]["preloadSize"].AsInt = 2;    // PreloadSize is the count of assets in that group
+            newContainerEntrySprite["second"]["asset"]["m_PathID"].AsLong = spriteIDs[i];
+            assetBundleContainer.Children.Add(newContainerEntrySprite);
         }
+    }
 
-        // Apply changes to the AssetBundle
-        assetBundle.SetNewData(assetBundleBase);
-
-        // Save the file
+    private static void FinalizeAndSaveBundle(ConversionContext context, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
+    {
+        setAssetBundleData(assetBundleBase);
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-
-        // Add .mod to the end of the file
-        string outputPackagePath = convert.FileSystem.OutputFolders.CoachesLargeFolder;
-        bun.SaveAndCompress(outputPackagePath, convert.ConversionRequest.ExportType == ExportType.CustomServer);
+        string outputPackagePath = context.FileSystem.OutputFolders.CoachesLargeFolder;
+        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
     }
 }

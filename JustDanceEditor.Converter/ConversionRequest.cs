@@ -6,12 +6,8 @@ public enum ExportType
     CustomServer
 }
 
-public struct ConversionRequest
+public class ConversionRequest
 {
-    public ConversionRequest()
-    {
-    }
-
     // Folder where the input files are located
     public required string InputPath { get; set; }
     // Folder where the output will be saved

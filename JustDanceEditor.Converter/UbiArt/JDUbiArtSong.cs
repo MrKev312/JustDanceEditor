@@ -6,7 +6,7 @@ namespace JustDanceEditor.Converter.UbiArt;
 public class JDUbiArtSong
 {
     public string Name { get; set; } = "";
-    public uint CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
+    public int CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
     public uint EngineVersion = (uint)DateTime.Now.Year;
     public uint JDVersion = 2022;
     public List<IClip> Clips { get; set; } = [];
@@ -32,7 +32,6 @@ public class JDUbiArtSong
             startTimeAudio = startTime - songOffsetAudio;
             startTimeVideo = startTime - songOffsetVideo;
         }
-
 
         if (isAudio)
             return startTimeAudio;

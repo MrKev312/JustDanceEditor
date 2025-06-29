@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace JustDanceEditor.Converter.Files;
+﻿namespace JustDanceEditor.Converter.Files;
 
 public class TemplateFiles
 {

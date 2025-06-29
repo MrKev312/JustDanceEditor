@@ -1,5 +1,4 @@
-﻿using HtmlAgilityPack;
-
+﻿using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -7,6 +6,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
+
 using System.Text.Json;
 
 namespace JustDanceEditor.Converter.Converters.Images;
@@ -15,13 +15,13 @@ public static class CoverArtGenerator
 {
     private static readonly HttpClient httpClient = new();
 
-    public static Image<Rgba32>? ExistingCover(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? ExistingCover(ConversionContext context)
     {
         string[] paths =
         [
-            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, "cover.png"),
-            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_online.png"),
-            Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_generic.png")
+            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, "cover.png"),
+            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_online.png"),
+            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_generic.png")
         ];
 
         foreach (string path in paths)
@@ -54,10 +54,10 @@ public static class CoverArtGenerator
         return null;
     }
 
-    public static Image<Rgba32>? ExistingSongTitleLogo(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? ExistingSongTitleLogo(ConversionContext context)
     {
         // Load the image
-        return TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, "songTitleLogo.png"));
+        return TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, "songTitleLogo.png"));
     }
 
     static Image<Rgba32>? TryLoadImage(string path)
@@ -71,14 +71,14 @@ public static class CoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? TryImageWeb(ConvertUbiArtToUnity convert, string imageType)
+    public static Image<Rgba32>? TryImageWeb(ConversionContext context, string imageType)
     {
         string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
 
         Image<Rgba32>? FetchCoverFromWeb(string name)
             => LoadFromUrl($"{baseUrl}/Covers/{name}/{imageType}.webp");
 
-        Image<Rgba32>? coverImage = FetchCoverFromWeb(convert.SongData.Name);
+        Image<Rgba32>? coverImage = FetchCoverFromWeb(context.SongData.Name);
 
         if (coverImage is not null)
         {
@@ -91,7 +91,7 @@ public static class CoverArtGenerator
         string json = httpClient.GetStringAsync(coversJsonUrl).Result;
         Dictionary<string, string[]> covers = JsonSerializer.Deserialize<Dictionary<string, string[]>>(json)!;
 
-        string? codename = covers.Where(x => x.Value.Contains(convert.SongData.Name)).Select(x => x.Key).FirstOrDefault();
+        string? codename = covers.Where(x => x.Value.Contains(context.SongData.Name)).Select(x => x.Key).FirstOrDefault();
        if (codename is null)
             return null;
 
@@ -121,16 +121,16 @@ public static class CoverArtGenerator
         return null;
     }
 
-    public static Image<Rgba32> GenerateOwnCover(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32> GenerateOwnCover(ConversionContext context)
     {
         // Manually create the cover
         // Now we gotta make a custom texture from the scraps we have in the menu art folder
-        Image<Rgba32>? coverImage = GetBackground(convert);
+        Image<Rgba32>? coverImage = GetBackground(context);
 
         // Then we load in the albumcoach
-        string albumCoachPath = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_cover_albumcoach.png");
+        string albumCoachPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_albumcoach.png");
         Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath);
-        albumCoach ??= TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_Coach_1.png"));
+        albumCoach ??= TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_Coach_1.png"));
         albumCoach ??= new Image<Rgba32>(1024, 1024);
 
         albumCoach.Mutate(x => x.Resize(1024, 1024));
@@ -149,11 +149,11 @@ public static class CoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32> GetBackground(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32> GetBackground(ConversionContext context)
     {
         // Try either the map or banner background
-        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_map_bkg.png"));
-        coverImage ??= ProcessBanner(convert);
+        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_map_bkg.png"));
+        coverImage ??= ProcessBanner(context);
 
         if (coverImage is null)
         {
@@ -170,9 +170,9 @@ public static class CoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? ProcessBanner(ConvertUbiArtToUnity convert)
+    public static Image<Rgba32>? ProcessBanner(ConversionContext context)
     {
-        string path = Path.Combine(convert.FileSystem.TempFolders.MenuArtFolder, $"{convert.SongData.Name}_banner_bkg.png");
+        string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_banner_bkg.png");
         using Image<Rgba32>? banner = TryLoadImage(path);
         if (banner is null)
             return null;
@@ -184,15 +184,15 @@ public static class CoverArtGenerator
         // Arrays of Argb values
         float[] colorsA;
         float[] colorsB;
-        if (convert.SongData.EngineVersion >= 2019)
+        if (context.SongData.EngineVersion >= 2019)
         {
-            colorsA = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1a;
-            colorsB = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1b;
+            colorsA = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1a;
+            colorsB = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1b;
         }
         else
         {
-            colorsA = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2a;
-            colorsB = convert.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2b;
+            colorsA = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2a;
+            colorsB = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2b;
         }
 
         // Create a new image with the same size

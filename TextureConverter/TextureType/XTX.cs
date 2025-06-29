@@ -165,9 +165,9 @@ public class XTX
                 : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
             int mipOffset = (int)texInfo.MipOffsets[level];
 
-            byte[] mipData = data.Skip(mipOffset).Take(size).ToArray();
+            byte[] mipData = [.. data.Skip(mipOffset).Take(size)];
             byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
-            result[level] = deswizzled.Take(size).ToArray();
+            result[level] = [.. deswizzled.Take(size)];
         }
 
         byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);
@@ -215,7 +215,7 @@ public class XTX
 
         public BlockHeader(EndianBinaryReader reader)
         {
-            long pos = reader.BaseStream.Position;
+            long blockHeaderStartPosition = reader.BaseStream.Position;
 
             string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
             if (signature != "HBvN")
@@ -228,8 +228,20 @@ public class XTX
             GlobalBlockIndex = reader.ReadUInt32();
             IncBlockTypeIndex = reader.ReadUInt32();
 
-            reader.BaseStream.Seek(pos + DataOffset, SeekOrigin.Begin);
+            reader.BaseStream.Seek(blockHeaderStartPosition + DataOffset, SeekOrigin.Begin);
             Data = reader.ReadBytes((int)DataSize);
+
+            // Search for the next occurrence of HBvN to determine the end of this block
+            // In theory, we should already be at the start of the next block, but this ensures we are aligned correctly
+            for (long pos = reader.BaseStream.Position; pos + 4 <= reader.BaseStream.Length; pos++)
+            {
+                reader.BaseStream.Seek(pos, SeekOrigin.Begin);
+                if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "HBvN")
+                    continue;
+
+                reader.BaseStream.Seek(pos, SeekOrigin.Begin);
+                break;
+            }
         }
     }
 
