@@ -10,7 +10,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using TextureConverter;
-using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Core;
 

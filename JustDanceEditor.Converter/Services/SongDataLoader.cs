@@ -19,7 +19,8 @@ public class SongDataLoader : ISongDataLoader
 
         JsonSerializerOptions options = new();
         options.Converters.Add(new ClipConverter());
-        options.Converters.Add(new IntBoolConverter());
+        options.Converters.Add(new IntFlexibleJsonConverter());
+        options.Converters.Add(new BoolFlexibleJsonConverter());
 
         // Load SongDesc
         Logger.Log("Loading SongDesc");

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Converter.Helpers;
 
-public class IntBoolConverter : JsonConverter<int>
+public class IntFlexibleJsonConverter : JsonConverter<int>
 {
     public override int Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -35,5 +35,24 @@ public class IntBoolConverter : JsonConverter<int>
     public override void Write(Utf8JsonWriter writer, int value, JsonSerializerOptions options)
     {
         writer.WriteNumberValue(value);
+    }
+}
+
+public class BoolFlexibleJsonConverter : JsonConverter<bool>
+{
+    public override bool Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return reader.TokenType switch
+        {
+            JsonTokenType.False => false,
+            JsonTokenType.True => true,
+            JsonTokenType.Number when reader.TryGetInt32(out int intValue) => intValue != 0,
+            JsonTokenType.String when bool.TryParse(reader.GetString(), out bool boolValue) => boolValue,
+            _ => throw new JsonException("Unable to convert value to bool")
+        };
+    }
+    public override void Write(Utf8JsonWriter writer, bool value, JsonSerializerOptions options)
+    {
+        writer.WriteBooleanValue(value);
     }
 }
