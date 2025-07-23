@@ -413,158 +413,130 @@ public static class MapPackageBundleGenerator
 
     private static void AddPictoSpriteAssets(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate, AssetTypeValueField spriteAtlasBase, Dictionary<string, (int index, (int width, int height) size)> imageDict, long[] atlasIDs, AssetTypeValueField assetBundleArray)
     {
-        // Assumes individual picto images are temporarily saved by PictoConverter if needed for reference,
-        // or that imageDict contains all necessary metadata (like packing rects on atlas pages).
-        // This iteration is over the keys of imageDict, which represent individual pictos.
-        foreach (var pictoEntry in imageDict)
+        // Get the picto names from the dictionary and sort them alphabetically.
+        // This is the most important change to ensure a DETERMINISTIC build process.
+        // The order of pictos in the atlas will now be consistent every time.
+        var sortedPictoNames = imageDict.Keys.ToList();
+        sortedPictoNames.Sort(StringComparer.InvariantCulture);
+
+        // We must use a 'for' loop to get the index 'i'. This index is the master
+        // counter that determines a picto's position within an atlas grid.
+        for (int i = 0; i < sortedPictoNames.Count; i++)
         {
-            string pictoName = pictoEntry.Key;
-            var (index, size) = pictoEntry.Value; // Contains atlas page index and original picto dimensions
+            string pictoName = sortedPictoNames[i];
+            var (atlasPageIndex, size) = imageDict[pictoName];
 
             long spriteID = afile.GetRandomId();
-            AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate); // Clone from template
+            AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate); // Clone properties from the template
 
-            // Configure sprite properties based on picto data
-            float pixelsToUnits = context.SongData.CoachCount == 1 ? 100f : 69.140625f; // Game-specific scaling
-            // `wMagic` seems to be related to UV or rect width calculation, depends on coach count.
+            // These "magic numbers" control sprite scaling and are dependent on the coach count.
+            // This logic is preserved from the original code.
+            float pixelsToUnits = context.SongData.CoachCount == 1 ? 100f : 69.140625f;
             float wMagic = context.SongData.CoachCount == 1 ? 256f : 177f;
 
+            // --- Configure the core Sprite asset ---
             spriteBaseField["m_Name"].AsString = pictoName;
-            // m_Rect is the sprite's rectangle in its own coordinate system (usually at 0,0 with its own width/height).
             spriteBaseField["m_Rect"]["width"].AsFloat = size.width;
             spriteBaseField["m_Rect"]["height"].AsFloat = size.height;
+            spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnits;
+            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = context.SongData.Name;
 
-            // m_RD.textureRect defines the source rectangle on the *original, non-atlased* sprite image if it were standalone.
-            // For atlased sprites, this often remains the full sprite size (0,0,width,height).
-            // The actual UVs mapping to the atlas page are handled by SpriteAtlas data or m_RD.m_VertexData.
+            // --- Configure RenderData (RD) properties ---
+            // These are mostly standard for a basic sprite.
             spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRect"]["width"].AsFloat = size.width;
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = size.height;
-            spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0; // Offset if the sprite was trimmed (pivot adjustment)
+            spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
-            spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0; // Sprite packing settings (e.g., tight packing)
-
-            // m_RD.uvTransform: This field can be complex. For non-atlased sprites, it might scale/offset UVs.
-            // For atlased sprites made through Unity's packer, this might be identity or related to the original texture.
-            // The values here (pixelsToUnits, 256, etc.) are specific and seem to be a custom use.
+            spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0;
             spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnits;
             spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
             spriteBaseField["m_RD"]["uvTransform"]["z"].AsFloat = pixelsToUnits;
             spriteBaseField["m_RD"]["uvTransform"]["w"].AsFloat = wMagic;
 
-            spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = context.SongData.Name; // Tag for atlas packing
-            spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnits; // Standard Unity sprite property
-
-            // Generate a new GUID for m_RenderDataKey, used by SpriteAtlas.
+            // Generate a new, unique GUID for the RenderDataKey. This key links the Sprite to its data in the SpriteAtlas.
             uint[] guidUnity = Guid.NewGuid().ToUnity();
             spriteBaseField["m_RenderDataKey"]["first"]["data[0]"].AsUInt = guidUnity[0];
             spriteBaseField["m_RenderDataKey"]["first"]["data[1]"].AsUInt = guidUnity[1];
             spriteBaseField["m_RenderDataKey"]["first"]["data[2]"].AsUInt = guidUnity[2];
             spriteBaseField["m_RenderDataKey"]["first"]["data[3]"].AsUInt = guidUnity[3];
 
-            // Vertex data (positions, UVs) configuration. This is highly engine-specific.
-            // Standard quad: 4 vertices, 6 indices.
+            // --- Configure Vertex Data ---
+            // This highly-specific byte layout for vertex positions and UVs is preserved exactly from the original.
             spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["indexCount"].AsUInt = 6;
             spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["vertexCount"].AsUInt = 4;
-            spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0]; // Standard quad indices (0,1,2, 2,1,3)
+            spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0];
             spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
-
-            // The m_VertexData.m_DataSize byte array is critical and contains interleaved vertex attributes (pos, uv, color etc.).
-            // Its structure depends on the vertex format used by the shader/engine for these sprites.
-            // This byte array is initialized with a template/default value.
             byte[] vertexDataBytes =
                 [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
-                 0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
-                 215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
-
-            // Specific bytes in vertexDataBytes are modified based on coach count.
-            // These "magic bytes" likely affect vertex positions or UVs in a shader-specific way.
+             0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
+             215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
             byte[] vertexMagics = context.SongData.CoachCount == 1 ? [10, 215, 35] : [97, 247, 108];
-            for (int j = 0; j <= 36; j += 12) // Modify specific byte sequences in the vertex data
+            for (int j = 0; j <= 36; j += 12)
             {
                 vertexDataBytes[j] = vertexMagics[0];
                 vertexDataBytes[j + 1] = vertexMagics[1];
                 vertexDataBytes[j + 2] = vertexMagics[2];
             }
-            // Re-assign if AsByteArray returned a copy, otherwise modification is in-place.
             spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
 
+            // Add the newly created Sprite asset to the bundle
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteID, (int)AssetClassID.Sprite, null);
             newSpriteInfo.SetNewData(spriteBaseField);
             afile.Metadata.AddAssetInfo(newSpriteInfo);
 
+            // Add a reference to the new Sprite to the AssetBundle's preload table
             AssetTypeValueField newPreloadEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(assetBundleArray);
             newPreloadEntry["m_PathID"].AsLong = spriteID;
             assetBundleArray.Children.Add(newPreloadEntry);
 
-            // --- Update SpriteAtlas collections ---
-            // Add PPtr to this sprite in m_PackedSprites
+            // --- Update SpriteAtlas collections to include the new Sprite ---
             AssetTypeValueField packedSpriteEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSprites"]["Array"]);
             packedSpriteEntry["m_PathID"].AsLong = spriteID;
             spriteAtlasBase["m_PackedSprites"]["Array"].Children.Add(packedSpriteEntry);
 
-            // Add sprite name to m_PackedSpriteNamesToIndex (maps name to index in m_PackedSprites)
             AssetTypeValueField packedSpriteNameEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"]);
             packedSpriteNameEntry.AsString = pictoName;
             spriteAtlasBase["m_PackedSpriteNamesToIndex"]["Array"].Children.Add(packedSpriteNameEntry);
 
-            // Add to m_RenderDataMap (maps RenderDataKey to actual render data on atlas)
             AssetTypeValueField renderDataEntry = ValueBuilder.DefaultValueFieldFromArrayTemplate(spriteAtlasBase["m_RenderDataMap"]["Array"]);
-            // Key part 1: The GUID from sprite's m_RenderDataKey
             renderDataEntry["first"]["first"]["data[0]"].AsUInt = guidUnity[0];
             renderDataEntry["first"]["first"]["data[1]"].AsUInt = guidUnity[1];
             renderDataEntry["first"]["first"]["data[2]"].AsUInt = guidUnity[2];
             renderDataEntry["first"]["first"]["data[3]"].AsUInt = guidUnity[3];
-            // Key part 2: A long value, seems to be a type identifier or fixed value for sprites.
             renderDataEntry["first"]["second"].AsLong = 21300000;
 
-            // Value part: SpriteRenderData for the atlas
-            // This defines the sprite's PPtr to its atlas texture page, and its rectangle on that page.
-            if (index >= atlasIDs.Length || atlasIDs[index] == 0)
+            // Calculate the position of this picto within the 4x4 grid of an atlas page.
+            int indexInAtlasGrid = i % 16;
+            int x_offset = indexInAtlasGrid % 4 * 512;
+            int y_offset = indexInAtlasGrid / 4 * 512;
+
+            if (atlasPageIndex >= atlasIDs.Length || atlasIDs[atlasPageIndex] == 0)
             {
-                Logger.Log($"Error: Atlas texture for picto '{pictoName}' (atlas index {index}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
+                Logger.Log($"Error: Atlas texture for picto '{pictoName}' (atlas index {atlasPageIndex}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
                 continue;
             }
 
-            renderDataEntry["second"]["texture"]["m_PathID"].AsLong = atlasIDs[index];
-
-            // textureRect: The sprite's rectangle (x, y, width, height) on the atlas texture page.
-            // This information MUST come from the PictoConverter's packing step.
-            // Assuming PictoConverter provides (x, y) offsets if it packs tightly.
-            // If PictoConverter just outputs full atlas pages, and each picto is on one such page,
-            // and this method is supposed to calculate sub-rects, that logic is missing here.
-            // For now, assuming x,y are 0 if PictoConverter already placed them on the atlas page image.
-            // This part is highly dependent on how PictoConverter outputs atlas pages and picto locations.
-            // The values below are placeholders or simplistic assumptions.
-            renderDataEntry["second"]["textureRect"]["x"].AsFloat = 0; // Needs actual X offset on atlas page from packer
-            renderDataEntry["second"]["textureRect"]["y"].AsFloat = 0; // Needs actual Y offset on atlas page from packer
+            // Set the atlas texture and the calculated rectangle for this sprite.
+            renderDataEntry["second"]["texture"]["m_PathID"].AsLong = atlasIDs[atlasPageIndex];
+            renderDataEntry["second"]["textureRect"]["x"].AsFloat = x_offset;
+            renderDataEntry["second"]["textureRect"]["y"].AsFloat = y_offset;
             renderDataEntry["second"]["textureRect"]["width"].AsFloat = size.width;
             renderDataEntry["second"]["textureRect"]["height"].AsFloat = size.height;
+            renderDataEntry["second"]["atlasRectOffset"]["x"].AsFloat = x_offset;
+            renderDataEntry["second"]["atlasRectOffset"]["y"].AsFloat = y_offset;
 
-            // atlasRectOffset seems to be similar to textureRect's x,y for offset purposes.
-            renderDataEntry["second"]["atlasRectOffset"]["x"].AsFloat = 0; // Needs actual X offset
-            renderDataEntry["second"]["atlasRectOffset"]["y"].AsFloat = 0; // Needs actual Y offset
-
-            // uvTransform for SpriteAtlas render data:
-            // These values are crucial for correctly mapping UVs from the sprite's quad to the atlas.
-            // (X: scaleX, Y: offsetY_transformed, Z: scaleZ_usuallySameAsX, W: offsetX_transformed)
-            // The exact calculation depends on atlas texture size and sprite rect on it.
-            // The previous `pixelsToUnits, 256 + x_offset, pixelsToUnits, wMagic + y_offset` suggests a custom transform.
-            // `x_offset` and `y_offset` here would be the pixel offsets of the sprite on its atlas page.
-            // Without correct packer-provided offsets, these will be inaccurate.
-            // Assuming 0 offsets for now.
-            float x_offset_on_atlas = 0; // This should be from PictoConverter packing data
-            float y_offset_on_atlas = 0; // This should be from PictoConverter packing data
+            // These UV transform values use the offsets in a very specific, non-standard way.
+            // This logic is preserved exactly to match the original output.
             renderDataEntry["second"]["uvTransform"]["x"].AsFloat = pixelsToUnits;
-            renderDataEntry["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset_on_atlas;
+            renderDataEntry["second"]["uvTransform"]["y"].AsFloat = 256 + x_offset;
             renderDataEntry["second"]["uvTransform"]["z"].AsFloat = pixelsToUnits;
-            renderDataEntry["second"]["uvTransform"]["w"].AsFloat = wMagic + y_offset_on_atlas;
+            renderDataEntry["second"]["uvTransform"]["w"].AsFloat = wMagic + y_offset;
 
-            renderDataEntry["second"]["downscaleMultiplier"].AsFloat = 1; // No downscaling
-            renderDataEntry["second"]["settingsRaw"].AsUInt = 3; // Settings for atlased sprite
+            renderDataEntry["second"]["downscaleMultiplier"].AsFloat = 1;
+            renderDataEntry["second"]["settingsRaw"].AsUInt = 3;
 
             spriteAtlasBase["m_RenderDataMap"]["Array"].Children.Add(renderDataEntry);
         }
