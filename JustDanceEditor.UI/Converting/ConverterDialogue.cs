@@ -174,7 +174,7 @@ public class ConverterDialogue
                     }
                     // Assuming first platform dir is the one to use, could be more robust
                     string platform = Path.GetFileName(platformDirs[0]);
-                    string songDescPath = Path.Combine(songParentFolder, "world", "maps", songName, "songdesc.tpl.ckd"); // Common path, can vary
+                    string songDescPath = Path.Combine(platformCacheFolder, platform, "world", "maps", songName, "songdesc.tpl.ckd"); // Common path, can vary
 
                     if (!File.Exists(songDescPath) && !File.Exists(Path.Combine(songParentFolder, "jddb.json")))
                     {
