@@ -53,7 +53,6 @@ public static partial class MenuArtConverter
 				string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
 				if (!File.Exists(newFilePath))
 					File.Move(pngFile, newFilePath);
-                return;
 			}
 
             // If {song}_AlbumCoach.png exists, rename it to {song}_Cover_AlbumCoach.png
@@ -64,7 +63,6 @@ public static partial class MenuArtConverter
                 string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
                 if (!File.Exists(newFilePath))
                     File.Move(pngFile, newFilePath);
-                return;
             }
         }
 
