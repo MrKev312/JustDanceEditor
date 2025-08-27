@@ -1,13 +1,7 @@
 ﻿namespace JustDanceEditor.Converter.Files;
 
-public class InputFolders
+public class InputFolders(FileSystem fileSystem)
 {
-    public InputFolders(FileSystem fileSystem)
-    {
-        this.fileSystem = fileSystem;
-    }
-
-    readonly FileSystem fileSystem;
     public string InputFolder => fileSystem.ConversionRequest.InputPath;
 
     public string MapWorldFolder => Path.Combine("world", "maps", fileSystem.SongName);

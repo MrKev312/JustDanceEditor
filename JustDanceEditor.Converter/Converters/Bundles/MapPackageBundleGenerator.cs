@@ -480,6 +480,7 @@ public static class MapPackageBundleGenerator
                 vertexDataBytes[j + 1] = vertexMagics[1];
                 vertexDataBytes[j + 2] = vertexMagics[2];
             }
+
             spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
 
             // Add the newly created Sprite asset to the bundle

@@ -58,7 +58,7 @@ public static class Download
         byte[] hash = MD5.HashData(File.ReadAllBytes(filePath));
 
         // Convert the byte array to a hex string
-        string hashString = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+        string hashString = Convert.ToHexStringLower(hash);
 
         return hashString;
     }

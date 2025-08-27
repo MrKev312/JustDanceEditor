@@ -1,14 +1,7 @@
 ﻿namespace JustDanceEditor.Converter.Files;
 
-public class TemplateFiles
+public class TemplateFiles(FileSystem fileSystem)
 {
-    public TemplateFiles(FileSystem fileSystem)
-    {
-        this.fileSystem = fileSystem;
-    }
-
-    readonly FileSystem fileSystem;
-
     public string TemplateFolder => fileSystem.ConversionRequest.TemplatePath;
 
     public string CoachesLarge => Directory.GetFiles(Path.Combine(TemplateFolder, "CoachesLarge"))[0];
