@@ -8,6 +8,7 @@ using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
@@ -33,12 +34,49 @@ public static class CoverBundleGenerator
         Logger.Log("Finished generating cover");
     }
 
+    /// <summary>
+    /// Generates a cover bundle from an image path, bypassing the full conversion context.
+    /// </summary>
+    /// <param name="codename">The codename of the song.</param>
+    /// <param name="coverImage">The cover image to use.</param>
+    /// <param name="templatePath">The path to the template cover bundle file.</param>
+    /// <param name="outputFolderPath">The folder where the generated bundle will be saved.</param>
+    /// <param name="forCustomServer">Whether to format the bundle for a custom server.</param>
+    public static void GenerateCover(string codename, Image<Rgba32> coverImage, string templatePath, string outputFolderPath, bool forCustomServer)
+    {
+        try
+        {
+            Logger.Log($"Starting trivial generation for cover: {codename}");
+
+            // Resize the image to 640x360
+            coverImage.Mutate(x => x.Resize(640, 360));
+
+            // Initialize AssetsManager and load bundle data
+            var (Manager, BunInst, AFileInst, AFile, AssetBundleInfo, AssetBundleBase, CoverTextureInfo, CoverSpriteInfo) =
+                InitializeBundle(templatePath, codename);
+
+            // Update the cover texture asset with the new image data
+            UpdateCoverTexture(codename, Manager, AFileInst, CoverTextureInfo, coverImage);
+
+            // Update the cover sprite asset
+            UpdateCoverSprite(codename, Manager, AFileInst, CoverSpriteInfo);
+
+            // Apply all changes to the AssetBundle and save the modified bundle file
+            FinalizeAndSaveBundle(outputFolderPath, forCustomServer, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
+
+            Logger.Log($"Finished generating trivial cover for {codename}");
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to generate trivial cover for {codename}: {e.Message}", LogLevel.Error);
+            throw;
+        }
+    }
+
+
     private static void GenerateCoverInternal(ConversionContext context)
     {
         Logger.Log("Converting Cover...");
-
-        // Initialize AssetsManager and load bundle data
-        var (Manager, BunInst, AFileInst, AFile, AssetBundleInfo, AssetBundleBase, CoverTextureInfo, CoverSpriteInfo) = InitializeBundle(context);
 
         // Prepare the cover image from various sources
         using Image<Rgba32>? coverImage = PrepareCoverImage(context);
@@ -48,22 +86,21 @@ public static class CoverBundleGenerator
             return;
         }
 
-        // Update the cover texture asset with the new image data
-        UpdateCoverTexture(context, Manager, AFileInst, CoverTextureInfo, coverImage);
-
-        // Update the cover sprite asset
-        UpdateCoverSprite(context, Manager, AFileInst, CoverSpriteInfo);
-
-        // Apply all changes to the AssetBundle and save the modified bundle file
-        FinalizeAndSaveBundle(context, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
+        // Generate the cover bundle using the prepared image
+        GenerateCover(
+            context.SongData.Name,
+            coverImage,
+            context.FileSystem.TemplateFiles.Cover,
+            context.FileSystem.OutputFolders.CoverFolder,
+            context.Request.ExportType == ExportType.CustomServer
+        );
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo CoverTextureInfo, AssetFileInfo CoverSpriteInfo)
-        InitializeBundle(ConversionContext context)
+        InitializeBundle(string templatePath, string codename)
     {
-        string coverPackagePath = context.FileSystem.TemplateFiles.Cover;
         AssetsManager manager = new();
-        BundleFileInstance bunInst = manager.LoadBundleFile(coverPackagePath, true);
+        BundleFileInstance bunInst = manager.LoadBundleFile(templatePath, true);
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
         afile.GenerateQuickLookup();
@@ -72,9 +109,8 @@ public static class CoverBundleGenerator
         AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
         AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
 
-        assetBundleBase["m_Name"].AsString = $"{context.SongData.Name}_Cover";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{context.SongData.Name}_Cover";
-        // AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"]; // Not directly modified here but good to be aware of
+        assetBundleBase["m_Name"].AsString = $"{codename}_Cover";
+        assetBundleBase["m_AssetBundleName"].AsString = $"{codename}_Cover";
 
         AssetFileInfo coverTextureInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Texture2D);
         AssetFileInfo coverSpriteInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Sprite);
@@ -90,21 +126,27 @@ public static class CoverBundleGenerator
         coverImage ??= CoverArtGenerator.ExistingCover(context);
         coverImage ??= CoverArtGenerator.GenerateOwnCover(context);
 
-        if (coverImage != null)
+        if (coverImage == null)
         {
-            // Save the image in the temp folder
-            string tempCoverPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"Cover_{context.SongData.Name}.png");
-            coverImage.Save(tempCoverPath);
-            Logger.Log($"Cover image prepared and saved to: {tempCoverPath}", LogLevel.Debug);
+            Logger.Log("No cover image could be prepared.", LogLevel.Warning);
+            return null;
         }
+
+        // Save the image in the temp folder
+        string tempCoverPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"Cover_{context.SongData.Name}.png");
+        coverImage.Mutate(x => x.Resize(640, 360));
+        coverImage.Save(tempCoverPath);
+        Logger.Log($"Cover image prepared and saved to: {tempCoverPath}", LogLevel.Debug);
+
+        // Resize the image to 640x360
 
         return coverImage;
     }
 
-    private static void UpdateCoverTexture(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverInfo, Image<Rgba32> coverImage)
+    private static void UpdateCoverTexture(string codename, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverInfo, Image<Rgba32> coverImage)
     {
         AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
-        coverBase["m_Name"].AsString = $"{context.SongData.Name}_Cover_2x";
+        coverBase["m_Name"].AsString = $"{codename}_Cover_2x";
 
         TextureFormat fmt = TextureFormat.DXT1Crunched;
         int mips = 1;
@@ -119,20 +161,19 @@ public static class CoverBundleGenerator
         coverInfo.SetNewData(coverBase);
     }
 
-    private static void UpdateCoverSprite(ConversionContext context, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverSpriteInfo)
+    private static void UpdateCoverSprite(string codename, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverSpriteInfo)
     {
         AssetTypeValueField coverSpriteBase = manager.GetBaseField(afileInst, coverSpriteInfo);
-        coverSpriteBase["m_Name"].AsString = $"{context.SongData.Name}_Cover_2x";
+        coverSpriteBase["m_Name"].AsString = $"{codename}_Cover_2x";
         // Potentially other sprite properties might need updates if they depend on texture size or content,
         // but usually for covers, only the name and the texture link (implicit via AssetBundle structure) change.
         coverSpriteInfo.SetNewData(coverSpriteBase);
     }
 
-    private static void FinalizeAndSaveBundle(ConversionContext context, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
+    private static void FinalizeAndSaveBundle(string outputFolderPath, bool forCustomServer, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
     {
         setAssetBundleData(assetBundleBase);
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        string outputPackagePath = context.FileSystem.OutputFolders.CoverFolder;
-        bun.SaveAndCompress(outputPackagePath, context.Request.ExportType == ExportType.CustomServer);
+        bun.SaveAndCompress(outputFolderPath, forCustomServer);
     }
 }

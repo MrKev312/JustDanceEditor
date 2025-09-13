@@ -6,6 +6,19 @@ namespace TextureConverter.TextureConverterHelpers;
 
 public class TextureImportExport
 {
+    public static Image<Rgba32>? TryLoadImage(string path)
+    {
+        try
+        {
+            Image<Rgba32> image = Image.Load<Rgba32>(path);
+            return image;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static byte[] Import(
         Image<Rgba32> image, TextureFormat format,
         out int width, out int height, ref int mips)
