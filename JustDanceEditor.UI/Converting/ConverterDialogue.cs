@@ -1,10 +1,16 @@
 ﻿using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Converters;
+using JustDanceEditor.Converter.Converters.Bundles;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
 using System.Text.Json;
+
+using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -72,6 +78,67 @@ public class ConverterDialogue
             Console.WriteLine($"\nAn error occurred during advanced conversion: {e.Message}");
             Console.ResetColor();
             Logger.Log($"Advanced conversion failed: {e.Message}", LogLevel.Fatal);
+        }
+    }
+
+    // Currently requires user to provide both images, would be nice to use the online database to fetch all missing one in a loop?
+    public static void GenerateTrivialBundles()
+    {
+        try
+        {
+            if (!CheckTemplate())
+                return;
+
+            Console.WriteLine("This tool will generate a cover bundle and, optionally, a song title logo bundle from images.");
+
+            Console.WriteLine("Please enter the codename for the song (e.g., 'MySong'):");
+            string codename = Console.ReadLine() ?? "";
+            while (string.IsNullOrWhiteSpace(codename))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Codename cannot be empty. Please enter a codename:");
+                Console.ResetColor();
+                codename = Console.ReadLine() ?? "";
+            }
+
+            string coverImagePath = Question.AskFile("Please enter the full path to the cover image file", true);
+            string titleLogoImagePath = Question.AskFile("Please enter the full path to the song title logo image file (leave empty to skip)", false);
+            string outputFolder = AskOutputFolder();
+
+            // Generate Cover
+            string templateCoverPath = Directory.GetFiles(Path.Combine("./Template", "Cover"))[0];
+            string outputCoverFolder = Path.Combine(outputFolder, codename, "Cover");
+            using Image<Rgba32> coverImage = TextureImportExport.TryLoadImage(coverImagePath) ?? throw new FileNotFoundException("Cover image could not be loaded.");
+            Console.WriteLine($"\nGenerating cover bundle for '{codename}'...");
+            CoverBundleGenerator.GenerateCover(codename, coverImage, templateCoverPath, outputCoverFolder, true);
+            Console.WriteLine("Cover bundle generated.");
+
+            // Generate SongTitleLogo if path is provided
+            if (!string.IsNullOrWhiteSpace(titleLogoImagePath))
+            {
+                string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
+                string outputLogoFolder = Path.Combine(outputFolder, codename, "songTitleLogo");
+                using Image<Rgba32> titleLogoImage = TextureImportExport.TryLoadImage(titleLogoImagePath) ?? throw new FileNotFoundException("Song title logo image could not be loaded.");
+
+                Console.WriteLine($"\nGenerating song title logo bundle for '{codename}'...");
+                SongTitleBundleGenerator.GenerateSongTitleLogo(codename, titleLogoImage, templateLogoPath, outputLogoFolder, true);
+                Console.WriteLine("Song title logo bundle generated.");
+            }
+            else
+            {
+                Console.WriteLine("\nSkipping song title logo bundle generation as no path was provided.");
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("\nBundle generation completed successfully!");
+            Console.ResetColor();
+        }
+        catch (Exception e)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"\nAn error occurred during bundle generation: {e.Message}");
+            Console.ResetColor();
+            Logger.Log($"Trivial bundle generation failed: {e.Message}", LogLevel.Fatal);
         }
     }
 

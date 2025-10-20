@@ -45,6 +45,7 @@ internal class Program
                 "Convert UbiArt Map to Unity (Standard)",
                 "Convert UbiArt Map to Unity (Advanced Options)",
                 "Batch Convert All Songs in a Folder",
+                "Trivially Generate Cover and SongTitleLogo Bundles",
                 "Extract IPK Archive File",
                 "Generate a New Cache Structure",
                 "Optimize Cache Folders for exFAT (Spread Caches equally)"
@@ -69,14 +70,18 @@ internal class Program
                     ConverterDialogue.ConvertAllSongsInFolder();
                     break;
                 case 4:
+                    Console.WriteLine("--- Trivial Bundle Generation ---");
+                    ConverterDialogue.GenerateTrivialBundles();
+                    break;
+                case 5:
                     Console.WriteLine("--- Extract IPK Archive ---");
                     ExtractorDialogue.ExtractDialogue();
                     break;
-                case 5:
+                case 6:
                     Console.WriteLine("--- Generate New Cache ---");
                     CacheDialogue.GenerateCacheDialogue();
                     break;
-                case 6:
+                case 7:
                     Console.WriteLine("--- Spread Cache for exFAT ---");
                     CacheDialogue.SpreadCacheDialogue();
                     break;
