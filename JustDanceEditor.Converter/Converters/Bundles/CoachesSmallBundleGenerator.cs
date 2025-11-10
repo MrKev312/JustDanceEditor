@@ -1,5 +1,5 @@
-﻿using AssetsTools.NET.Extra;
-using AssetsTools.NET;
+﻿using AssetsTools.NET;
+using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Unity;

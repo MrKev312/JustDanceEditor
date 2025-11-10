@@ -7,6 +7,7 @@ using System.Diagnostics;
 using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Converter.Converters.Video;
+
 public static class VideoConverter
 {
     public async static Task ConvertVideoAsync(ConversionContext context) =>
@@ -155,7 +156,7 @@ public static class VideoConverter
 
         IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(input).Result;
 
-        VideoCodec videoCodec = mediaInfo.VideoStreams.First().Codec == "vp8" 
+        VideoCodec videoCodec = mediaInfo.VideoStreams.First().Codec == "vp8"
             ? VideoCodec.vp8 // VP8 is fine, don't need to convert
             : VideoCodec.vp9; // Else we'll convert to VP9, warning: this is slowwww
 

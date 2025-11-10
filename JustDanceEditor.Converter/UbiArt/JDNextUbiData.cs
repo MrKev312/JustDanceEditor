@@ -48,4 +48,3 @@ public class Assets
     public string coverSmall { get; set; } = "";
     public string songTitleLogo { get; set; } = "";
 }
-

@@ -51,7 +51,7 @@ public class Structure
 
 public class Signature
 {
-    public string __class { get; set; }  = "";
+    public string __class { get; set; } = "";
     public float marker { get; set; }
     public int beats { get; set; }
 }

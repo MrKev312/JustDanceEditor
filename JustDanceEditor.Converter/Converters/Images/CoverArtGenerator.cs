@@ -1,11 +1,11 @@
 ﻿using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Logging;
 
+using SixLabors.Fonts;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.Fonts;
 
 using System.Text.Json;
 
@@ -92,7 +92,7 @@ public static class CoverArtGenerator
         Dictionary<string, string[]> covers = JsonSerializer.Deserialize<Dictionary<string, string[]>>(json)!;
 
         string? codename = covers.Where(x => x.Value.Contains(context.SongData.Name)).Select(x => x.Key).FirstOrDefault();
-       if (codename is null)
+        if (codename is null)
             return null;
 
         // Now we can try to fetch the cover from the web

@@ -1,8 +1,8 @@
-﻿using System.Diagnostics;
-using System.IO.Compression;
-
-using JustDanceEditor.Converter.Helpers;
+﻿using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Logging;
+
+using System.Diagnostics;
+using System.IO.Compression;
 
 namespace JustDanceEditor.Converter.Resources;
 

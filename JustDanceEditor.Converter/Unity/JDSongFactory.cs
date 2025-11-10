@@ -122,7 +122,7 @@ public class JDSongFactory
         return song;
     }
 
-	public static void UpdateSong(JDSong songData, uint cacheNumber)
+    public static void UpdateSong(JDSong songData, uint cacheNumber)
     {
         songData.AssetFilesDict.CoachesSmall.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/CoachesSmall/{songData.AssetFilesDict.CoachesSmall.Hash}";
         songData.AssetFilesDict.CoachesLarge.FilePath = $"/CacheStorage_{cacheNumber}/{songData.SongDatabaseEntry.MapId}/CoachesLarge/{songData.AssetFilesDict.CoachesLarge.Hash}";

@@ -46,14 +46,14 @@ public static partial class MenuArtConverter
         {
             string fileName = Path.GetFileNameWithoutExtension(pngFile);
             // If {song}_coachx.png or {song}_coach_x.png exists, rename it to {song}_Coach_x.png
-			if (CoachMatch().IsMatch(fileName))
-			{
-				string newFileName = CoachMatch().Replace(fileName, "_Coach_");
-				Logger.Log($"Renaming {fileName} to {newFileName}", LogLevel.Warning);
-				string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
-				if (!File.Exists(newFilePath))
-					File.Move(pngFile, newFilePath);
-			}
+            if (CoachMatch().IsMatch(fileName))
+            {
+                string newFileName = CoachMatch().Replace(fileName, "_Coach_");
+                Logger.Log($"Renaming {fileName} to {newFileName}", LogLevel.Warning);
+                string newFilePath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, newFileName + ".png");
+                if (!File.Exists(newFilePath))
+                    File.Move(pngFile, newFilePath);
+            }
 
             // If {song}_AlbumCoach.png exists, rename it to {song}_Cover_AlbumCoach.png
             if (fileName.Contains("_AlbumCoach", StringComparison.OrdinalIgnoreCase) && !fileName.Contains("_Cover_AlbumCoach", StringComparison.OrdinalIgnoreCase))

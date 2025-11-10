@@ -1,4 +1,5 @@
 ﻿using JustDanceEditor.Logging;
+
 using System.Globalization;
 
 namespace JustDanceEditor.Converter.Files;
@@ -57,21 +58,21 @@ public class OutputFolders
 
     public string OutputFolder { get; private set; }
 
-	public string PreviewFolder { get; private set; }
-	public string CoverFolder { get; private set; }
-	public string PreviewAudioFolder { get; private set; }
-	public string PreviewVideoFolder { get; private set; }
-	public string SongTitleLogoFolder { get; private set; }
+    public string PreviewFolder { get; private set; }
+    public string CoverFolder { get; private set; }
+    public string PreviewAudioFolder { get; private set; }
+    public string PreviewVideoFolder { get; private set; }
+    public string SongTitleLogoFolder { get; private set; }
 
-	public string MapFolder { get; private set; }
-	public string AudioFolder { get; private set; }
-	public string CoachesLargeFolder { get; private set; }
-	public string CoachesSmallFolder { get; private set; }
-	public string MapPackageFolder { get; private set; }
-	public string VideoFolder { get; private set; }
+    public string MapFolder { get; private set; }
+    public string AudioFolder { get; private set; }
+    public string CoachesLargeFolder { get; private set; }
+    public string CoachesSmallFolder { get; private set; }
+    public string MapPackageFolder { get; private set; }
+    public string VideoFolder { get; private set; }
 
-	public string CachingStatusPath { get; private set; }
-	public string CachePath { get; private set; }
+    public string CachingStatusPath { get; private set; }
+    public string CachePath { get; private set; }
 
     private uint InitializeCacheNumber()
     {

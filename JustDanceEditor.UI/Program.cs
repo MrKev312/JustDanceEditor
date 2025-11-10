@@ -1,8 +1,8 @@
-﻿using System.Reflection;
-
-using JustDanceEditor.UI.Helpers;
+﻿using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Converting;
-using JustDanceEditor.Logging;
+using JustDanceEditor.UI.Helpers;
+
+using System.Reflection;
 
 namespace JustDanceEditor.UI;
 

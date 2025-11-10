@@ -3,6 +3,7 @@ using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
+
 internal class ExtractorDialogue
 {
     public static void ExtractDialogue()

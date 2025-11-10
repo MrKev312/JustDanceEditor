@@ -92,10 +92,10 @@ public class JustDanceIPKParser
         return entry;
     }
 
-	private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool ShowInfo = false)
-	{
-		(string fileName, string folderPath) = entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name);
-		BinaryReader reader = new(fileStream);
+    private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool ShowInfo = false)
+    {
+        (string fileName, string folderPath) = entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name);
+        BinaryReader reader = new(fileStream);
 
         folderPath = Path.Combine(outputDirectory, folderPath);
         string fullPath = Path.Combine(folderPath, fileName);
@@ -104,8 +104,8 @@ public class JustDanceIPKParser
         if (ShowInfo)
             old = Console.ForegroundColor;
 
-		if (entry.ZSize == 0)
-		{
+        if (entry.ZSize == 0)
+        {
             // Uncompressed file
             if (ShowInfo)
             {
@@ -114,16 +114,16 @@ public class JustDanceIPKParser
                 Console.WriteLine($"File: {fileName}");
             }
 
-			// Create the directory if it doesn't exist
-			Directory.CreateDirectory(folderPath);
-			using FileStream file = new($"{fullPath}", FileMode.Create, FileAccess.Write);
-			// Set reader to the correct position
-			fileStream.Seek(entry.Offset, SeekOrigin.Begin);
-			byte[] buffer = reader.ReadBytes(entry.Size);
-			file.Write(buffer, 0, buffer.Length);
-		}
-		else
-		{
+            // Create the directory if it doesn't exist
+            Directory.CreateDirectory(folderPath);
+            using FileStream file = new($"{fullPath}", FileMode.Create, FileAccess.Write);
+            // Set reader to the correct position
+            fileStream.Seek(entry.Offset, SeekOrigin.Begin);
+            byte[] buffer = reader.ReadBytes(entry.Size);
+            file.Write(buffer, 0, buffer.Length);
+        }
+        else
+        {
             // Compressed file
             if (ShowInfo)
             {
@@ -135,9 +135,9 @@ public class JustDanceIPKParser
             // Create the directory if it doesn't exist
             Directory.CreateDirectory(folderPath);
             using FileStream file = new($"{fullPath}", FileMode.Create, FileAccess.Write);
-			// Set reader to the correct position
-			fileStream.Seek(entry.Offset, SeekOrigin.Begin);
-			byte[] buffer = reader.ReadBytes(entry.ZSize);
+            // Set reader to the correct position
+            fileStream.Seek(entry.Offset, SeekOrigin.Begin);
+            byte[] buffer = reader.ReadBytes(entry.ZSize);
             // Decompress the buffer using zlib
             buffer = Decompressor.Decompress(buffer);
             file.Write(buffer, 0, buffer.Length);
@@ -145,5 +145,5 @@ public class JustDanceIPKParser
 
         if (ShowInfo)
             Console.ForegroundColor = old;
-	}
+    }
 }

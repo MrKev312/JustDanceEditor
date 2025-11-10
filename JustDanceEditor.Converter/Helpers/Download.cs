@@ -3,6 +3,7 @@
 using System.Security.Cryptography;
 
 namespace JustDanceEditor.Converter.Helpers;
+
 public static class Download
 {
     /// <summary>

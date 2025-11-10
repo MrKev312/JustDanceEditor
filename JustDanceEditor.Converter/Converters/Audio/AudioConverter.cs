@@ -10,6 +10,7 @@ using System.Diagnostics;
 using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Converter.Converters.Audio;
+
 public static class AudioConverter
 {
     // Interface to make it easier to switch between different audio converters

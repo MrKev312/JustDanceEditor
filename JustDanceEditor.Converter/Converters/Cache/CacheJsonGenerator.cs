@@ -10,7 +10,8 @@ namespace JustDanceEditor.Converter.Converters.Cache;
 
 public static class CacheJsonGenerator
 {
-    static readonly JsonSerializerOptions options = new() { 
+    static readonly JsonSerializerOptions options = new()
+    {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         WriteIndented = true
     };

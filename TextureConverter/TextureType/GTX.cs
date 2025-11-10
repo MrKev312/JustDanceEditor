@@ -1,9 +1,11 @@
-﻿using SixLabors.ImageSharp.PixelFormats;
+﻿using Pfim;
+
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
+
 using static TextureConverter.TextureType.DDS;
-using Pfim;
 
 namespace TextureConverter.TextureType;
 
@@ -310,7 +312,7 @@ public class GTX
 
         byte[][] result = new byte[texInfo.MipCount][];
 
-        for (int level = 0; level < texInfo.MipCount; level++) 
+        for (int level = 0; level < texInfo.MipCount; level++)
         {
             uint mipWidth = Math.Max(1, texInfo.Width >> level);
             uint mipHeight = Math.Max(1, texInfo.Height >> level);
@@ -417,10 +419,10 @@ public class GTX
         }
 
         uint elemOffset = sampleOffset + pixelOffset;
-        
+
         uint numSampleSplits;
         uint sampleSlice;
-        
+
         if (numSamples <= 1 || microTileBytes <= 2048)
         {
             numSampleSplits = 1;
@@ -638,8 +640,8 @@ public class GTX
         {
             numSamples = (uint)(1 << (int)surfaceAA);
 
-            blockSize = (uint)(hwFormat is < 0x31 or > 0x35 
-                ? 1 
+            blockSize = (uint)(hwFormat is < 0x31 or > 0x35
+                ? 1
                 : 4);
 
             width = ~(blockSize - 1) & (Math.Max(1, surfaceWidth >> level) + blockSize - 1);
@@ -687,8 +689,8 @@ public class GTX
             pSurfOut.Height = pSurfOut.PixelHeight / blockSize;
             pSurfOut.SurfSize = (pSurfOut.Bpp * numSamples * pSurfOut.Depth * pSurfOut.Height * pSurfOut.Pitch) >> 3;
 
-            pSurfOut.SliceSize = (uint)(surfaceDim == 2 
-                ? pSurfOut.SurfSize 
+            pSurfOut.SliceSize = (uint)(surfaceDim == 2
+                ? pSurfOut.SurfSize
                 : pSurfOut.SurfSize / pSurfOut.Depth);
 
             pSurfOut.PitchTileMax = (pSurfOut.Pitch >> 3) - 1;
@@ -1000,8 +1002,8 @@ public class GTX
         pOut.HeightAlign = pHeightAlign;
         pOut.DepthAlign = pDepthAlign;
 
-        return (uint)(valid == 0 
-            ? 3 
+        return (uint)(valid == 0
+            ? 3
             : 0);
     }
 
@@ -1180,8 +1182,8 @@ public class GTX
             {
                 expNumSlices = numSlices;
 
-                padDims = numSlices <= 1 
-                    ? 2 
+                padDims = numSlices <= 1
+                    ? 2
                     : (uint)0;
             }
             else
@@ -1357,8 +1359,8 @@ public class GTX
             {
                 expNumSlices = numSlices;
 
-                padDims = numSlices <= 1 
-                    ? 2 
+                padDims = numSlices <= 1
+                    ? 2
                     : (uint)0;
             }
 
@@ -1470,8 +1472,8 @@ public class GTX
             {
                 expNumSlices = numSlices;
 
-                padDims = numSlices <= 1 
-                    ? 2 
+                padDims = numSlices <= 1
+                    ? 2
                     : (uint)0;
             }
             else

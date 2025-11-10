@@ -6,4 +6,3 @@ public enum TextureFormat
     DXT1Crunched = 28,
     DXT5Crunched = 29,
 }
-

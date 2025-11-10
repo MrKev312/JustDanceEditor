@@ -1,4 +1,5 @@
 ﻿namespace JustDanceEditor.UI.Helpers;
+
 internal class Question
 {
     // Version that takes in a list of options and an optional start index

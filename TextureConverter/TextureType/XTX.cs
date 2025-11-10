@@ -1,11 +1,13 @@
 ﻿using Pfim;
 
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
-using static TextureConverter.TextureType.DDS;
+
 using TextureConverter.TextureConverterHelpers;
+
+using static TextureConverter.TextureType.DDS;
 
 namespace TextureConverter.TextureType;
 

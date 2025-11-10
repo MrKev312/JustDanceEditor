@@ -1,4 +1,5 @@
 ﻿namespace JustDanceEditor.IPK;
+
 public static class Extensions
 {
     // Extend the BinaryReader to read stuff in Big Endian

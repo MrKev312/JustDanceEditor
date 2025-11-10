@@ -1,20 +1,21 @@
-﻿using AssetsTools.NET.Extra;
-using AssetsTools.NET;
+﻿using AssetsTools.NET;
+using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.UbiArt.Tapes;
 using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
 using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
 
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp;
-using JustDanceEditor.Converter.Core;
-
 namespace JustDanceEditor.Converter.Converters.Bundles;
+
 public static class MapPackageBundleGenerator
 {
     public async static Task GenerateMapPackageAsync(ConversionContext context) =>
@@ -640,7 +641,7 @@ public static class MapPackageBundleGenerator
 
         // Clear existing counters
         handCoachCounters.Children.Clear();
-        bodyCoachCounters.Children.Clear(); 
+        bodyCoachCounters.Children.Clear();
 
         // Initialize counters for each coach
         for (int i = 0; i < context.SongData.CoachCount; i++)
