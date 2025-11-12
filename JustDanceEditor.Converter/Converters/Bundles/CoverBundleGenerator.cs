@@ -46,7 +46,7 @@ public static class CoverBundleGenerator
     {
         try
         {
-            Logger.Log($"Starting trivial generation for cover: {codename}");
+            Logger.Log($"Starting generation for cover: {codename}");
 
             // Resize the image to 640x360
             coverImage.Mutate(x => x.Resize(640, 360));
@@ -64,11 +64,11 @@ public static class CoverBundleGenerator
             // Apply all changes to the AssetBundle and save the modified bundle file
             FinalizeAndSaveBundle(outputFolderPath, forCustomServer, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
 
-            Logger.Log($"Finished generating trivial cover for {codename}");
+            Logger.Log($"Finished generating cover for {codename}");
         }
         catch (Exception e)
         {
-            Logger.Log($"Failed to generate trivial cover for {codename}: {e.Message}", LogLevel.Error);
+            Logger.Log($"Failed to generate cover for {codename}: {e.Message}", LogLevel.Error);
             throw;
         }
     }
@@ -122,7 +122,7 @@ public static class CoverBundleGenerator
     {
         Image<Rgba32>? coverImage = null;
         if (context.Request.OnlineCover)
-            coverImage ??= CoverArtGenerator.TryImageWeb(context, "Cover");
+            coverImage ??= CoverArtGenerator.TryImageWeb(context.SongData.Name, "Cover");
         coverImage ??= CoverArtGenerator.ExistingCover(context);
         coverImage ??= CoverArtGenerator.GenerateOwnCover(context);
 

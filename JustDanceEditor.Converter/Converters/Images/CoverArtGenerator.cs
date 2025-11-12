@@ -71,14 +71,14 @@ public static class CoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? TryImageWeb(ConversionContext context, string imageType)
+    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType)
     {
         string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
 
         Image<Rgba32>? FetchCoverFromWeb(string name)
             => LoadFromUrl($"{baseUrl}/Covers/{name}/{imageType}.webp");
 
-        Image<Rgba32>? coverImage = FetchCoverFromWeb(context.SongData.Name);
+        Image<Rgba32>? coverImage = FetchCoverFromWeb(mapName);
 
         if (coverImage is not null)
         {
@@ -91,7 +91,7 @@ public static class CoverArtGenerator
         string json = httpClient.GetStringAsync(coversJsonUrl).Result;
         Dictionary<string, string[]> covers = JsonSerializer.Deserialize<Dictionary<string, string[]>>(json)!;
 
-        string? codename = covers.Where(x => x.Value.Contains(context.SongData.Name)).Select(x => x.Key).FirstOrDefault();
+        string? codename = covers.Where(x => x.Value.Contains(mapName)).Select(x => x.Key).FirstOrDefault();
         if (codename is null)
             return null;
 

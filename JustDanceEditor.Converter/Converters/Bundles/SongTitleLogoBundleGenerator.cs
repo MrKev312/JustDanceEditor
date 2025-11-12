@@ -46,7 +46,7 @@ public static class SongTitleBundleGenerator
     {
         try
         {
-            Logger.Log($"Starting trivial generation for song title logo: {codename}");
+            Logger.Log($"Starting generation for song title logo: {codename}");
 
             // Initialize AssetsManager and load bundle data
             var (Manager, BunInst, AFileInst, AFile, AssetBundleInfo, AssetBundleBase, TextureInfo, SpriteInfo) =
@@ -61,11 +61,11 @@ public static class SongTitleBundleGenerator
             // Apply all changes to the AssetBundle and save the modified bundle file
             FinalizeAndSaveBundle(outputFolderPath, forCustomServer, BunInst.file, AFile, AssetBundleBase, AssetBundleInfo.SetNewData);
 
-            Logger.Log($"Finished generating trivial song title logo for {codename}");
+            Logger.Log($"Finished generating song title logo for {codename}");
         }
         catch (Exception e)
         {
-            Logger.Log($"Failed to generate trivial song title logo for {codename}: {e.Message}", LogLevel.Error);
+            Logger.Log($"Failed to generate song title logo for {codename}: {e.Message}", LogLevel.Error);
             throw;
         }
     }
@@ -96,7 +96,7 @@ public static class SongTitleBundleGenerator
     {
         Image<Rgba32>? image = null;
         if (context.Request.OnlineCover)
-            image = CoverArtGenerator.TryImageWeb(context, "Title");
+            image = CoverArtGenerator.TryImageWeb(context.SongData.Name, "Title");
         image ??= CoverArtGenerator.ExistingSongTitleLogo(context);
 
         // No generation step for song title if not found, unlike cover.

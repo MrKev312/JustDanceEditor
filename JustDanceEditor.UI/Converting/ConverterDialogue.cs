@@ -1,6 +1,7 @@
 ﻿using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Converters;
 using JustDanceEditor.Converter.Converters.Bundles;
+using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
@@ -81,64 +82,94 @@ public class ConverterDialogue
         }
     }
 
-    // Currently requires user to provide both images, would be nice to use the online database to fetch all missing one in a loop?
-    public static void GenerateTrivialBundles()
+    public static void UpdateCovers()
     {
         try
         {
             if (!CheckTemplate())
                 return;
 
-            Console.WriteLine("This tool will generate a cover bundle and, optionally, a song title logo bundle from images.");
+            Console.WriteLine("This tool will update covers and song title logos for maps.");
 
-            Console.WriteLine("Please enter the codename for the song (e.g., 'MySong'):");
-            string codename = Console.ReadLine() ?? "";
-            while (string.IsNullOrWhiteSpace(codename))
+            int choice = Question.Ask([
+                "Update all songs",
+                "Update only songs with missing song title logos"
+            ], 0, "Please select an update mode:");
+
+            bool updateOnlyMissing = choice == 1;
+
+            string inputFolder = Question.AskFolder("Please enter the path to the folder containing the song folders to update.", true);
+
+            string[] mapFolders = Directory.GetDirectories(inputFolder);
+
+            if (updateOnlyMissing)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Codename cannot be empty. Please enter a codename:");
-                Console.ResetColor();
-                codename = Console.ReadLine() ?? "";
+                mapFolders = [.. mapFolders.Where(mapFolder => !Directory.Exists(Path.Combine(mapFolder, "songTitleLogo")))];
+                Console.WriteLine($"Found {mapFolders.Length} map(s) with missing song title logos.");
             }
 
-            string coverImagePath = Question.AskFile("Please enter the full path to the cover image file", true);
-            string titleLogoImagePath = Question.AskFile("Please enter the full path to the song title logo image file (leave empty to skip)", false);
-            string outputFolder = AskOutputFolder();
-
-            // Generate Cover
-            string templateCoverPath = Directory.GetFiles(Path.Combine("./Template", "Cover"))[0];
-            string outputCoverFolder = Path.Combine(outputFolder, codename, "Cover");
-            using Image<Rgba32> coverImage = TextureImportExport.TryLoadImage(coverImagePath) ?? throw new FileNotFoundException("Cover image could not be loaded.");
-            Console.WriteLine($"\nGenerating cover bundle for '{codename}'...");
-            CoverBundleGenerator.GenerateCover(codename, coverImage, templateCoverPath, outputCoverFolder, true);
-            Console.WriteLine("Cover bundle generated.");
-
-            // Generate SongTitleLogo if path is provided
-            if (!string.IsNullOrWhiteSpace(titleLogoImagePath))
+            if (mapFolders.Length == 0)
             {
-                string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
-                string outputLogoFolder = Path.Combine(outputFolder, codename, "songTitleLogo");
-                using Image<Rgba32> titleLogoImage = TextureImportExport.TryLoadImage(titleLogoImagePath) ?? throw new FileNotFoundException("Song title logo image could not be loaded.");
+                Console.WriteLine("No map folders to update.");
+                return;
+            }
 
-                Console.WriteLine($"\nGenerating song title logo bundle for '{codename}'...");
-                SongTitleBundleGenerator.GenerateSongTitleLogo(codename, titleLogoImage, templateLogoPath, outputLogoFolder, true);
-                Console.WriteLine("Song title logo bundle generated.");
-            }
-            else
+            Console.WriteLine($"\nFound {mapFolders.Length} potential map(s). Starting processing...");
+            int updatedCovers = 0;
+            int updatedLogos = 0;
+
+            Parallel.ForEach(mapFolders, new ParallelOptions { MaxDegreeOfParallelism = 4 }, mapFolder =>
             {
-                Console.WriteLine("\nSkipping song title logo bundle generation as no path was provided.");
-            }
+                string mapName = Path.GetFileName(mapFolder);
+
+                int found = 0;
+
+                // Update cover
+                using (Image<Rgba32>? coverImage = CoverArtGenerator.TryImageWeb(mapName, "Cover"))
+                {
+                    if (coverImage is not null)
+                    {
+                        string templateCoverPath = Directory.GetFiles(Path.Combine("./Template", "Cover"))[0];
+                        string outputCoverFolder = Path.Combine(inputFolder, mapName, "Cover");
+                        if (Directory.Exists(outputCoverFolder))
+                            Directory.Delete(outputCoverFolder, true);
+                        CoverBundleGenerator.GenerateCover(mapName, coverImage, templateCoverPath, outputCoverFolder, true);
+                        Interlocked.Increment(ref updatedCovers);
+                        found++;
+                    }
+                }
+
+                // Update song title logo
+                using Image<Rgba32>? titleLogoImage = CoverArtGenerator.TryImageWeb(mapName, "Title");
+                if (titleLogoImage is not null)
+                {
+                    string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
+                    string outputLogoFolder = Path.Combine(inputFolder, mapName, "songTitleLogo");
+                    if (Directory.Exists(outputLogoFolder))
+                        Directory.Delete(outputLogoFolder, true);
+                    SongTitleBundleGenerator.GenerateSongTitleLogo(mapName, titleLogoImage, templateLogoPath, outputLogoFolder, true);
+                    Interlocked.Increment(ref updatedLogos);
+                    found++;
+                }
+
+                if (found == 0)
+                    Logger.Log($"No online cover or title logo found for map '{mapName}'.", LogLevel.Info);
+                else if (found == 2)
+                    Logger.Log($"Updated both cover and title logo for map '{mapName}'.", LogLevel.Important);
+                else
+                    Logger.Log($"Somehow only one of cover or title logo was updated for map '{mapName}'.", LogLevel.Warning);
+            });
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\nBundle generation completed successfully!");
+            Console.WriteLine($"\nUpdate process finished. Updated covers: {updatedCovers}. Updated song title logos: {updatedLogos}.");
             Console.ResetColor();
         }
         catch (Exception e)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\nAn error occurred during bundle generation: {e.Message}");
+            Console.WriteLine($"\nAn error occurred during cover update: {e.Message}");
             Console.ResetColor();
-            Logger.Log($"Trivial bundle generation failed: {e.Message}", LogLevel.Fatal);
+            Logger.Log($"Cover update failed: {e.Message}", LogLevel.Fatal);
         }
     }
 
