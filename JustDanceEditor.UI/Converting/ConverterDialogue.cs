@@ -2,7 +2,7 @@
 using JustDanceEditor.Converter.Converters;
 using JustDanceEditor.Converter.Converters.Bundles;
 using JustDanceEditor.Converter.Converters.Images;
-using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
@@ -10,8 +10,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text.Json;
-
-using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -324,7 +322,7 @@ public class ConverterDialogue
         }
     }
 
-    private static ConversionRequest CreateConversionRequest()
+    internal static ConversionRequest CreateConversionRequest()
     {
         (string inputPath, string songName) = AskInputFolder();
         string outputPath = AskOutputFolder();

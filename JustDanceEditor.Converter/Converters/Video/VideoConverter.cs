@@ -8,13 +8,22 @@ using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Converter.Converters.Video;
 
+public sealed class VideoConversionOptions
+{
+    public string? VideoOutputFolder { get; init; }
+    public string? PreviewOutputFolder { get; init; }
+}
+
 public static class VideoConverter
 {
-    public async static Task ConvertVideoAsync(ConversionContext context) =>
-        await Task.Run(() => ConvertVideo(context));
+    public async static Task ConvertVideoAsync(ConversionContext context, VideoConversionOptions? options = null) =>
+        await Task.Run(() => ConvertVideo(context, options));
 
-    public static void ConvertVideo(ConversionContext context)
+    public static void ConvertVideo(ConversionContext context, VideoConversionOptions? options = null)
     {
+        string videoOutputFolder = options?.VideoOutputFolder ?? context.FileSystem.OutputFolders.VideoFolder;
+        string previewOutputFolder = options?.PreviewOutputFolder ?? context.FileSystem.OutputFolders.PreviewVideoFolder;
+
         try
         {
             string videoFile = GetVideoFile(context);
@@ -50,17 +59,15 @@ public static class VideoConverter
             string md5 = Download.GetFileMD5(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "output.webm"));
             if (context.Request.ExportType == ExportType.CustomServer)
                 md5 += ".webm";
-            string outputVideoPath = context.FileSystem.OutputFolders.VideoFolder;
-            Directory.CreateDirectory(outputVideoPath);
-            File.Move(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "output.webm"), Path.Combine(outputVideoPath, md5), true);
+            Directory.CreateDirectory(videoOutputFolder);
+            File.Move(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "output.webm"), Path.Combine(videoOutputFolder, md5), true);
 
             // Move the preview video to the output folder
             md5 = Download.GetFileMD5(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "preview.webm"));
             if (context.Request.ExportType == ExportType.CustomServer)
                 md5 += ".webm";
-            string previewVideoPath = context.FileSystem.OutputFolders.PreviewVideoFolder;
-            Directory.CreateDirectory(previewVideoPath);
-            File.Move(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "preview.webm"), Path.Combine(previewVideoPath, md5));
+            Directory.CreateDirectory(previewOutputFolder);
+            File.Move(Path.Combine(context.FileSystem.TempFolders.VideoFolder, "preview.webm"), Path.Combine(previewOutputFolder, md5));
         }
         catch (Exception e)
         {

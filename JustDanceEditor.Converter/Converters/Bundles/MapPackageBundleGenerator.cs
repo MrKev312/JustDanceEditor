@@ -3,8 +3,8 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Converters.Images;
 using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Formats.UbiArt.Tapes;
+using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 

@@ -1,11 +1,12 @@
 ﻿using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Helpers;
-using JustDanceEditor.Converter.UbiArt;
-using JustDanceEditor.Converter.UbiArt.Tapes;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Tapes;
+using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 using JustDanceEditor.Logging;
 
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace JustDanceEditor.Converter.Services;
@@ -79,14 +80,14 @@ public class SongDataLoader : ISongDataLoader
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
         ClipTape mainSequenceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath), options)!;
-        songData.Clips.AddRange(mainSequenceTape.Clips);
+        songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
 
         // Load DanceTape
         Logger.Log("Loading DanceTape");
         string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
         CookedFile danceTapePath = fileSystem.GetFilePath(danceTapeRelativePath);
         ClipTape danceTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(danceTapePath), options)!;
-        songData.Clips.AddRange(danceTape.Clips);
+        songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
 
         // Load KaraokeTape (if exists)
         string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
@@ -103,7 +104,7 @@ public class SongDataLoader : ISongDataLoader
             {
                 Logger.Log("Loading KaraokeTape");
                 ClipTape karaokeTape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeTapePathCooked), options)!;
-                songData.Clips.AddRange(karaokeTape.Clips);
+                songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
             else
             {
@@ -116,5 +117,70 @@ public class SongDataLoader : ISongDataLoader
         }
 
         return songData;
+    }
+
+    private static IEnumerable<IClip> ExpandClips(IEnumerable<IClip> clips, FileSystem fileSystem, JsonSerializerOptions options)
+    {
+        HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
+        return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
+    }
+
+    private static IEnumerable<IClip> ExpandClipsInternal(
+        IEnumerable<IClip> clips,
+        FileSystem fileSystem,
+        JsonSerializerOptions options,
+        HashSet<string> recursionGuard,
+        int timeOffset)
+    {
+        foreach (IClip clip in clips)
+        {
+            if (clip is TapeReferenceClip reference)
+            {
+                foreach (IClip nested in LoadReferenceClips(reference, fileSystem, options, recursionGuard, timeOffset))
+                    yield return nested;
+                continue;
+            }
+
+            if (timeOffset != 0)
+                clip.StartTime += timeOffset;
+            yield return clip;
+        }
+    }
+
+    private static IEnumerable<IClip> LoadReferenceClips(
+        TapeReferenceClip reference,
+        FileSystem fileSystem,
+        JsonSerializerOptions options,
+        HashSet<string> recursionGuard,
+        int parentOffset)
+    {
+        if (string.IsNullOrWhiteSpace(reference.Path))
+            yield break;
+
+        string normalizedPath = reference.Path.Replace('\\', '/');
+        bool added = recursionGuard.Add(normalizedPath);
+        if (!added)
+        {
+            Logger.Log($"Detected recursive tape reference '{reference.Path}', skipping to avoid infinite loop.", LogLevel.Warning);
+            yield break;
+        }
+
+        try
+        {
+            if (!fileSystem.GetFilePath(reference.Path, out CookedFile? tapePath))
+            {
+                Logger.Log($"Referenced tape '{reference.Path}' was not found.", LogLevel.Warning);
+                yield break;
+            }
+
+            ClipTape tape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(tapePath), options)!;
+            int offset = parentOffset + reference.StartTime;
+            foreach (IClip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))
+                yield return clip;
+        }
+        finally
+        {
+            recursionGuard.Remove(normalizedPath);
+        }
     }
 }

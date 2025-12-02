@@ -2,7 +2,7 @@
 using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Converter.Resources;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
 
 using System.Diagnostics;
@@ -11,19 +11,25 @@ using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Converter.Converters.Audio;
 
+public sealed class AudioConversionOptions
+{
+    public string? MasterOutputFolder { get; init; }
+    public string? PreviewOutputFolder { get; init; }
+}
+
 public static class AudioConverter
 {
     // Interface to make it easier to switch between different audio converters
     static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
 
-    public async static Task ConvertAudioAsync(ConversionContext context) =>
-        await Task.Run(() => Convert(context));
+    public async static Task ConvertAudioAsync(ConversionContext context, AudioConversionOptions? options = null) =>
+        await Task.Run(() => Convert(context, options));
 
-    public static void ConvertAudio(ConversionContext context)
+    public static void ConvertAudio(ConversionContext context, AudioConversionOptions? options = null)
     {
         try
         {
-            Convert(context);
+            Convert(context, options);
         }
         catch (Exception e)
         {
@@ -31,8 +37,11 @@ public static class AudioConverter
         }
     }
 
-    static void Convert(ConversionContext context)
+    static void Convert(ConversionContext context, AudioConversionOptions? options)
     {
+        string masterOutputFolder = options?.MasterOutputFolder ?? context.FileSystem.OutputFolders.AudioFolder;
+        string previewOutputFolder = options?.PreviewOutputFolder ?? context.FileSystem.OutputFolders.PreviewAudioFolder;
+
         Logger.Log("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
         SoundSetClip[] audioClips = GetAudioClips([.. context.SongData.Clips]);
@@ -55,12 +64,12 @@ public static class AudioConverter
         string opusPath = ConvertToOpus(context);
 
         // Now we quickly generate the preview audio file
-        GeneratePreviewAudio(context, opusPath);
+        GeneratePreviewAudio(context, opusPath, previewOutputFolder);
 
-        MoveOpusToOutput(context, opusPath);
+        MoveOpusToOutput(context, opusPath, masterOutputFolder);
     }
 
-    static void GeneratePreviewAudio(ConversionContext context, string opusPath)
+    static void GeneratePreviewAudio(ConversionContext context, string opusPath, string previewOutputFolder)
     {
         float startTime = context.SongData.GetPreviewStartTime();
 
@@ -69,14 +78,7 @@ public static class AudioConverter
 
         GeneratePreviewAudioFFMpeg(opusPath, previewOpusPath, startTime);
 
-        // Move the preview audio file to the output folder
-        string md5 = Download.GetFileMD5(previewOpusPath);
-        if (context.Request.ExportType == ExportType.CustomServer)
-            md5 += ".opus";
-        string outputFolder = context.FileSystem.OutputFolders.PreviewAudioFolder;
-        Directory.CreateDirectory(outputFolder);
-        string outputOpusPath = Path.Combine(outputFolder, md5);
-        File.Move(previewOpusPath, outputOpusPath, true);
+        MoveHashedAudio(previewOpusPath, previewOutputFolder, context.Request.ExportType == ExportType.CustomServer);
     }
 
     static void GeneratePreviewAudioFFMpeg(string opusPath, string previewOpusPath, float startTime)
@@ -101,16 +103,20 @@ public static class AudioConverter
         Logger.Log($"Generated preview audio with \"{result.Arguments}\"", LogLevel.Debug);
     }
 
-    static void MoveOpusToOutput(ConversionContext context, string opusPath)
+    static void MoveOpusToOutput(ConversionContext context, string opusPath, string masterOutputFolder)
     {
-        // Copy the Opus file to the output folder
-        string md5 = Download.GetFileMD5(opusPath);
-        if (context.Request.ExportType == ExportType.CustomServer)
-            md5 += ".opus";
-        string outputFolder = context.FileSystem.OutputFolders.AudioFolder;
-        Directory.CreateDirectory(outputFolder);
-        string outputOpusPath = Path.Combine(outputFolder, md5);
-        File.Move(opusPath, outputOpusPath, true);
+        MoveHashedAudio(opusPath, masterOutputFolder, context.Request.ExportType == ExportType.CustomServer);
+    }
+
+    static void MoveHashedAudio(string sourcePath, string destinationFolder, bool appendExtension)
+    {
+        string md5 = Download.GetFileMD5(sourcePath);
+        if (appendExtension)
+            md5 += Path.GetExtension(sourcePath);
+
+        Directory.CreateDirectory(destinationFolder);
+        string target = Path.Combine(destinationFolder, md5);
+        File.Move(sourcePath, target, true);
     }
 
     static string ConvertToOpus(ConversionContext context)

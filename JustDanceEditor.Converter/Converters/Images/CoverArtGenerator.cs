@@ -1,4 +1,5 @@
 ﻿using JustDanceEditor.Converter.Core;
+using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
 using SixLabors.Fonts;
@@ -17,11 +18,12 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32>? ExistingCover(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         string[] paths =
         [
             Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, "cover.png"),
-            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_online.png"),
-            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_generic.png")
+            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_cover_online.png"),
+            Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_cover_generic.png")
         ];
 
         foreach (string path in paths)
@@ -123,14 +125,15 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32> GenerateOwnCover(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         // Manually create the cover
         // Now we gotta make a custom texture from the scraps we have in the menu art folder
         Image<Rgba32>? coverImage = GetBackground(context);
 
         // Then we load in the albumcoach
-        string albumCoachPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_cover_albumcoach.png");
+        string albumCoachPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.png");
         Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath);
-        albumCoach ??= TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_Coach_1.png"));
+        albumCoach ??= TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_Coach_1.png"));
         albumCoach ??= new Image<Rgba32>(1024, 1024);
 
         albumCoach.Mutate(x => x.Resize(1024, 1024));
@@ -151,8 +154,9 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32> GetBackground(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         // Try either the map or banner background
-        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_map_bkg.png"));
+        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_map_bkg.png"));
         coverImage ??= ProcessBanner(context);
 
         if (coverImage is null)
@@ -172,7 +176,9 @@ public static class CoverArtGenerator
 
     public static Image<Rgba32>? ProcessBanner(ConversionContext context)
     {
-        string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{context.SongData.Name}_banner_bkg.png");
+        UnityExportData song = context.RequireUnityData();
+        UnityExportMetadata meta = song.Metadata;
+        string path = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"{song.Name}_banner_bkg.png");
         using Image<Rgba32>? banner = TryLoadImage(path);
         if (banner is null)
             return null;
@@ -184,16 +190,11 @@ public static class CoverArtGenerator
         // Arrays of Argb values
         float[] colorsA;
         float[] colorsB;
-        if (context.SongData.EngineVersion >= 2019)
-        {
-            colorsA = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1a;
-            colorsB = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_1b;
-        }
-        else
-        {
-            colorsA = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2a;
-            colorsB = context.SongData.SongDesc.COMPONENTS[0].DefaultColors.songcolor_2b;
-        }
+        Rgba32 primaryColor = ParseColor(meta.LyricsColor, new Rgba32(255, 255, 255, 255));
+        float boost = meta.EngineVersion >= 2019 ? 0.2f : -0.1f;
+        Rgba32 secondaryColor = AdjustBrightness(primaryColor, boost);
+        colorsA = [primaryColor.A / 255f, primaryColor.R / 255f, primaryColor.G / 255f, primaryColor.B / 255f];
+        colorsB = [secondaryColor.A / 255f, secondaryColor.R / 255f, secondaryColor.G / 255f, secondaryColor.B / 255f];
 
         // Create a new image with the same size
         Rgba32 colorA = new((byte)(colorsA[1] * 255), (byte)(colorsA[2] * 255), (byte)(colorsA[3] * 255), (byte)(colorsA[0] * 255));
@@ -241,5 +242,32 @@ public static class CoverArtGenerator
                 color.A // Keep the alpha channel unchanged
             );
         }
+    }
+
+    private static Rgba32 ParseColor(string? hex, Rgba32 fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return fallback;
+
+        string value = hex.TrimStart('#');
+        if (value.Length is not (6 or 8))
+            return fallback;
+
+        byte r = Convert.ToByte(value.Substring(0, 2), 16);
+        byte g = Convert.ToByte(value.Substring(2, 2), 16);
+        byte b = Convert.ToByte(value.Substring(4, 2), 16);
+        byte a = value.Length == 8 ? Convert.ToByte(value.Substring(6, 2), 16) : (byte)255;
+        return new Rgba32(r, g, b, a);
+    }
+
+    private static Rgba32 AdjustBrightness(Rgba32 color, float delta)
+    {
+        static byte Clamp(float value) => (byte)Math.Clamp(value, 0, 255);
+        float factor = 1 + delta;
+        return new Rgba32(
+            Clamp(color.R * factor),
+            Clamp(color.G * factor),
+            Clamp(color.B * factor),
+            color.A);
     }
 }

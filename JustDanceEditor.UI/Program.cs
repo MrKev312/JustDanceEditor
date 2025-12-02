@@ -44,6 +44,7 @@ internal class Program
                 "Exit Program",
                 "Convert UbiArt Map to Unity (Standard)",
                 "Convert UbiArt Map to Unity (Advanced Options)",
+                "Convert Between Formats (Experimental)",
                 "Batch Convert All Songs in a Folder",
                 "Update All Covers",
                 "Extract IPK Archive File",
@@ -66,22 +67,26 @@ internal class Program
                     ConverterDialogue.ConvertSingleDialogueAdvanced();
                     break;
                 case 3:
+                    Console.WriteLine("--- Format Conversion ---");
+                    FormatConversionDialogue.Start();
+                    break;
+                case 4:
                     Console.WriteLine("--- Batch Convert Songs ---");
                     ConverterDialogue.ConvertAllSongsInFolder();
                     break;
-                case 4:
+                case 5:
                     Console.WriteLine("--- Update Covers ---");
                     ConverterDialogue.UpdateCovers();
                     break;
-                case 5:
+                case 6:
                     Console.WriteLine("--- Extract IPK Archive ---");
                     ExtractorDialogue.ExtractDialogue();
                     break;
-                case 6:
+                case 7:
                     Console.WriteLine("--- Generate New Cache ---");
                     CacheDialogue.GenerateCacheDialogue();
                     break;
-                case 7:
+                case 8:
                     Console.WriteLine("--- Spread Cache for exFAT ---");
                     CacheDialogue.SpreadCacheDialogue();
                     break;

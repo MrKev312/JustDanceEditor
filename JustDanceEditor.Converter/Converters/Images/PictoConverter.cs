@@ -1,6 +1,6 @@
 ﻿using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Files;
-using JustDanceEditor.Converter.UbiArt.Tapes.Clips;
+using JustDanceEditor.Converter.Unity;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -144,7 +144,8 @@ public static class PictoConverter
     private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, ConversionContext context, string pictoTempFolder)
     {
         int targetWidth, targetHeight;
-        if (context.SongData.CoachCount > 1)
+        UnityExportData song = context.RequireUnityData();
+        if (song.Metadata.CoachCount > 1)
         {
             targetWidth = 512;
             targetHeight = 354;
@@ -173,15 +174,12 @@ public static class PictoConverter
     /// </summary>
     private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, string montageBaseName, ConversionContext context, string pictoTempFolder)
     {
-        List<string> pictoNamesFromClips = [];
-        foreach (PictogramClip clip in context.SongData.Clips.OfType<PictogramClip>())
-        {
-            string pictoNameForFile = Path.GetFileNameWithoutExtension(clip.PictoPath);
-            if (!pictoNamesFromClips.Contains(pictoNameForFile)) // Ensure uniqueness
-                pictoNamesFromClips.Add(pictoNameForFile);
-        }
-
-        pictoNamesFromClips.Sort(); // Sort alphabetically for consistent processing order
+        UnityExportData song = context.RequireUnityData();
+        List<string> pictoNamesFromClips = song.PictogramClips
+            .Select(clip => Path.GetFileNameWithoutExtension(clip.PictoPath))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         int pictoCount = pictoNamesFromClips.Count;
 
         if (pictoCount == 0)
@@ -190,7 +188,7 @@ public static class PictoConverter
             return;
         }
 
-        int columns = context.SongData.CoachCount == 1 ? 8 : 4;
+        int columns = song.Metadata.CoachCount == 1 ? 8 : 4;
         int rows = 1;
         while (columns * rows < pictoCount)
         {

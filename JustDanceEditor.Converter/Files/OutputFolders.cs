@@ -50,6 +50,10 @@ public class OutputFolders
             CachingStatusPath = Path.Combine(OutputFolder);
             CachePath = Path.Combine(OutputFolder, "SongInfo.json");
         }
+
+        IntermediateFolder = Path.Combine(OutputFolder, "Intermediate");
+        IntermediateTimelinesFolder = Path.Combine(IntermediateFolder, "timelines");
+        IntermediateNotesFolder = Path.Combine(IntermediateFolder, "notes");
     }
 
     readonly FileSystem fileSystem;
@@ -73,6 +77,10 @@ public class OutputFolders
 
     public string CachingStatusPath { get; private set; }
     public string CachePath { get; private set; }
+
+    public string IntermediateFolder { get; }
+    public string IntermediateTimelinesFolder { get; }
+    public string IntermediateNotesFolder { get; }
 
     private uint InitializeCacheNumber()
     {

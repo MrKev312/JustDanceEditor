@@ -1,6 +1,7 @@
 ﻿using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
 
 using System.Text.Encodings.Web;
@@ -148,7 +149,8 @@ public static class CacheJsonGenerator
         }
 
         string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
-        JDSong jdSong = JDSongFactory.CreateSong((SongDatabaseEntry)context, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, context.SongID);
+        SongDatabaseEntry songEntry = UnityFormatMapper.BuildSongDatabaseEntry(context);
+        JDSong jdSong = JDSongFactory.CreateSong(songEntry, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, context.SongID);
 
         Dictionary<Guid, JDSong> caching = new()
         {
@@ -166,7 +168,7 @@ public static class CacheJsonGenerator
         string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
 
         // Convert the songdatabase
-        ServerSongJSON serverSong = (ServerSongJSON)context;
+        ServerSongJSON serverSong = UnityFormatMapper.BuildServerSong(context);
         string serverSongJSON = JsonSerializer.Serialize(serverSong, optionsCamelCase);
 
         File.WriteAllText(cachingStatusPath, serverSongJSON);

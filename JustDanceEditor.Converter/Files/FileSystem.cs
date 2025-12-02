@@ -41,6 +41,40 @@ public partial class FileSystem
     public OutputFolders OutputFolders { get; private set; }
     public TemplateFiles TemplateFiles { get; private set; }
 
+    public void UpdateSongName(string? newSongName)
+    {
+        if (string.IsNullOrWhiteSpace(newSongName))
+            return;
+
+        if (string.Equals(SongName, newSongName, StringComparison.Ordinal))
+            return;
+
+        string previousTempFolder = TempFolders.MapFolder;
+
+        SongName = newSongName;
+        ConversionRequest.SongName = newSongName;
+
+        OutputFolders = new(this);
+        TempFolders.CreateTempFolders();
+
+        if (!string.Equals(previousTempFolder, TempFolders.MapFolder, StringComparison.OrdinalIgnoreCase)
+            && Directory.Exists(previousTempFolder))
+        {
+            try
+            {
+                Directory.Delete(previousTempFolder, true);
+            }
+            catch (IOException ex)
+            {
+                Logger.Log($"Failed to remove old temp folder '{previousTempFolder}': {ex.Message}", LogLevel.Warning);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Log($"Failed to remove old temp folder '{previousTempFolder}': {ex.Message}", LogLevel.Warning);
+            }
+        }
+    }
+
     private void InitializeSongID()
     {
         if (ConversionRequest.SongName != null)

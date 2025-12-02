@@ -73,10 +73,10 @@ public static class CoverBundleGenerator
         }
     }
 
-
     private static void GenerateCoverInternal(ConversionContext context)
     {
         Logger.Log("Converting Cover...");
+        UnityExportData song = context.RequireUnityData();
 
         // Prepare the cover image from various sources
         using Image<Rgba32>? coverImage = PrepareCoverImage(context);
@@ -88,7 +88,7 @@ public static class CoverBundleGenerator
 
         // Generate the cover bundle using the prepared image
         GenerateCover(
-            context.SongData.Name,
+            song.Name,
             coverImage,
             context.FileSystem.TemplateFiles.Cover,
             context.FileSystem.OutputFolders.CoverFolder,
@@ -120,9 +120,10 @@ public static class CoverBundleGenerator
 
     private static Image<Rgba32>? PrepareCoverImage(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         Image<Rgba32>? coverImage = null;
         if (context.Request.OnlineCover)
-            coverImage ??= CoverArtGenerator.TryImageWeb(context.SongData.Name, "Cover");
+            coverImage ??= CoverArtGenerator.TryImageWeb(song.Name, "Cover");
         coverImage ??= CoverArtGenerator.ExistingCover(context);
         coverImage ??= CoverArtGenerator.GenerateOwnCover(context);
 
@@ -133,7 +134,7 @@ public static class CoverBundleGenerator
         }
 
         // Save the image in the temp folder
-        string tempCoverPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"Cover_{context.SongData.Name}.png");
+        string tempCoverPath = Path.Combine(context.FileSystem.TempFolders.MenuArtFolder, $"Cover_{song.Name}.png");
         coverImage.Mutate(x => x.Resize(640, 360));
         coverImage.Save(tempCoverPath);
         Logger.Log($"Cover image prepared and saved to: {tempCoverPath}", LogLevel.Debug);

@@ -12,4 +12,13 @@ public partial class PInvoke
     {
         return EncodeByCrunchUnity(out returnLength, data, mode, level, width, height, ver, mips);
     }
+
+    [LibraryImport("DLLs/TexToolWrap.dll")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial IntPtr DecodeByCrunchUnity(out uint returnLength, IntPtr data, uint byteSize);
+
+    public static IntPtr DecodeByCrunchUnitySafe(out uint returnLength, IntPtr data, uint byteSize)
+    {
+        return DecodeByCrunchUnity(out returnLength, data, byteSize);
+    }
 }

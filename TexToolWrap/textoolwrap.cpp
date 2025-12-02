@@ -92,3 +92,45 @@ EXPORT unsigned char* EncodeByCrunchUnity(unsigned int& returnLength, void* data
 
 	return newData;
 }
+
+EXPORT unsigned char* DecodeByCrunchUnity(unsigned int& returnLength, void* data, unsigned int byteSize) {
+	crnd::crn_texture_info tex_info;
+	tex_info.m_struct_size = sizeof(crnd::crn_texture_info);
+	if (!crnd_get_texture_info(data, byteSize, &tex_info)) {
+		returnLength = 0;
+		return nullptr;
+	}
+
+	crnd::crnd_unpack_context context = crnd::crnd_unpack_begin(data, byteSize);
+	if (!context) {
+		returnLength = 0;
+		return nullptr;
+	}
+
+	const crnd::uint level_width = crnd::math::maximum<crnd::uint>(1U, tex_info.m_width);
+	const crnd::uint level_height = crnd::math::maximum<crnd::uint>(1U, tex_info.m_height);
+	const crnd::uint num_blocks_x = (level_width + 3U) >> 2U;
+	const crnd::uint num_blocks_y = (level_height + 3U) >> 2U;
+	const crnd::uint row_pitch = num_blocks_x * tex_info.m_bytes_per_block;
+	const crnd::uint size_of_face = num_blocks_y * row_pitch;
+
+	unsigned char* decodedData = static_cast<unsigned char*>(CoTaskMemAlloc(size_of_face));
+	if (decodedData == nullptr) {
+		crnd::crnd_unpack_end(context);
+		returnLength = 0;
+		return nullptr;
+	}
+
+	void* destination = decodedData;
+	bool success = crnd::crnd_unpack_level(context, &destination, size_of_face, row_pitch, 0);
+	crnd::crnd_unpack_end(context);
+
+	if (!success) {
+		CoTaskMemFree(decodedData);
+		returnLength = 0;
+		return nullptr;
+	}
+
+	returnLength = size_of_face;
+	return decodedData;
+}

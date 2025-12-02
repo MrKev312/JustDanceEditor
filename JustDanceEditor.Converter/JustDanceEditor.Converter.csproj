@@ -25,6 +25,9 @@
 	<ItemGroup>
 		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
 		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Formats.Unity\JustDanceEditor.Formats.Unity.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Formats.Intermediate\JustDanceEditor.Formats.Intermediate.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

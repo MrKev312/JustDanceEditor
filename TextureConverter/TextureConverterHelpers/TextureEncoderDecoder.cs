@@ -54,4 +54,32 @@ public class TextureEncoderDecoder
 
         return dest;
     }
+
+    public static byte[] DecodeCrunch(byte[] data)
+    {
+        if (data == null || data.Length == 0)
+            throw new ArgumentException("Crunch payload cannot be null or empty.", nameof(data));
+
+        byte[] dest;
+        GCHandle dataHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+
+        try
+        {
+            IntPtr dataPtr = dataHandle.AddrOfPinnedObject();
+            IntPtr decodedPtr = PInvoke.DecodeByCrunchUnitySafe(out uint size, dataPtr, (uint)data.Length);
+            if (decodedPtr == IntPtr.Zero || size == 0)
+                throw new InvalidOperationException("Failed to decode Crunch payload.");
+
+            dest = new byte[size];
+            Marshal.Copy(decodedPtr, dest, 0, (int)size);
+            Marshal.FreeCoTaskMem(decodedPtr);
+        }
+        finally
+        {
+            if (dataHandle.IsAllocated)
+                dataHandle.Free();
+        }
+
+        return dest;
+    }
 }

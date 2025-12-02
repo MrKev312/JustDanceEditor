@@ -72,6 +72,7 @@ public static class SongTitleBundleGenerator
 
     private static void GenerateSongTitleLogoInternal(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         // Attempt to load or find the song title image
         using Image<Rgba32>? titleImage = PrepareSongTitleImage(context);
         if (titleImage == null)
@@ -84,7 +85,7 @@ public static class SongTitleBundleGenerator
 
         // Call the original GenerateSongTitleLogo function
         GenerateSongTitleLogo(
-            context.SongData.Name,
+            song.Name,
             titleImage,
             context.FileSystem.TemplateFiles.SongTitleLogo,
             context.FileSystem.OutputFolders.SongTitleLogoFolder,
@@ -94,9 +95,10 @@ public static class SongTitleBundleGenerator
 
     private static Image<Rgba32>? PrepareSongTitleImage(ConversionContext context)
     {
+        UnityExportData song = context.RequireUnityData();
         Image<Rgba32>? image = null;
         if (context.Request.OnlineCover)
-            image = CoverArtGenerator.TryImageWeb(context.SongData.Name, "Title");
+            image = CoverArtGenerator.TryImageWeb(song.Name, "Title");
         image ??= CoverArtGenerator.ExistingSongTitleLogo(context);
 
         // No generation step for song title if not found, unlike cover.
