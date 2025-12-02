@@ -213,7 +213,26 @@ public static class AudioConverter
                 continue;
 
             // Calculate the offset
-            float offset = clip.StartTime / 50f;
+            double markerIndex = clip.StartTime / 24f;
+            // If the marker index is between two markers, we interpolate the time
+            int lowerMarker = (int)Math.Floor(Math.Abs(markerIndex));
+            int upperMarker = (int)Math.Ceiling(Math.Abs(markerIndex));
+            float offset = 0f;
+            if (lowerMarker == upperMarker)
+            {
+                offset = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[lowerMarker] / 48f / 1000f;
+            }
+            else
+            {
+                float lowerTime = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[lowerMarker] / 48f / 1000f;
+                float upperTime = context.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers[upperMarker] / 48f / 1000f;
+                float t = (float)(Math.Abs(markerIndex) - lowerMarker);
+                offset = lowerTime + (t * (upperTime - lowerTime));
+            }
+
+            // If the original marker index was negative, negate the offset
+            if (markerIndex < 0)
+                offset *= -1;
             offset += mainSongOffset;
             audioFiles.Add((wavPath, offset));
         }
