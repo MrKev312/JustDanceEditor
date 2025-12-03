@@ -367,7 +367,7 @@ public static class MapPackageBundleBuilder
     private static void AddPictoSpriteAssets(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
         AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray)
     {
-        List<string> sortedPictoNames = imageDict.Keys.ToList();
+        List<string> sortedPictoNames = [.. imageDict.Keys];
         sortedPictoNames.Sort(StringComparer.InvariantCulture);
 
         int coachCount = Math.Max(1, request.UnityData.Metadata.CoachCount);

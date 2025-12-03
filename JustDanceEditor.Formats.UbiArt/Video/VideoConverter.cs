@@ -74,10 +74,9 @@ public static class VideoConverter
         }
 
         string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
-        string[] coachVideos = fileSystem
+        string[] coachVideos = [.. fileSystem
             .GetAllFiles(videosCoachFolder, "*.webm")
-            .Select(file => (string)file)
-            .ToArray();
+            .Select(file => (string)file)];
 
         if (coachVideos.Length > 0)
             return coachVideos[0];

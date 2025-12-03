@@ -1,7 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
-using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
+
 using System.Text.Encodings.Web;
 using System.Text.Json;
 

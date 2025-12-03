@@ -59,7 +59,7 @@ public class IntermediateMetadata
     public int CountInProgression { get; set; }
 
     [JsonPropertyName("additionalMetadata")]
-    public Dictionary<string, string> AdditionalMetadata { get; set; } = new();
+    public Dictionary<string, string> AdditionalMetadata { get; set; } = [];
 
     public void Validate()
     {

@@ -10,7 +10,7 @@ namespace JustDanceEditor.Formats.Unity.Bundles.Generation;
 public sealed record UnityCoverGenerationRequest(
     string SongName,
     UnityExportData UnityData,
-    string MenuArtFolder,
+    UnityMenuArtSource MenuArt,
     bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolder,
@@ -26,11 +26,10 @@ public static class UnityCoverGenerator
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
         ArgumentNullException.ThrowIfNull(request.UnityData);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.MenuArtFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolder);
 
-        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArtFolder);
+        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
 
         using Image<Rgba32>? coverImage = PrepareCoverImage(request, coverRequest);
         if (coverImage == null)
@@ -51,22 +50,17 @@ public static class UnityCoverGenerator
 
     private static Image<Rgba32>? PrepareCoverImage(UnityCoverGenerationRequest request, UnityCoverArtRequest coverRequest)
     {
-        Directory.CreateDirectory(request.MenuArtFolder);
-
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
             image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Cover");
 
-        image ??= UnityCoverArtGenerator.ExistingCover(coverRequest);
-        image ??= UnityCoverArtGenerator.GenerateOwnCover(coverRequest);
+        image ??= UnityCoverArtGenerator.TryLoadCover(coverRequest);
 
         if (image == null)
             return null;
 
-        string tempCoverPath = Path.Combine(request.MenuArtFolder, $"Cover_{request.SongName}.png");
         image.Mutate(o => o.Resize(640, 360));
-        image.Save(tempCoverPath);
-        Logger.Log($"Cover image prepared at {tempCoverPath}", LogLevel.Debug);
+        Logger.Log("Cover image prepared from intermediate assets.", LogLevel.Debug);
         return image;
     }
 }

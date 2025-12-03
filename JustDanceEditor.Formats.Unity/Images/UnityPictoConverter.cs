@@ -11,7 +11,6 @@ namespace JustDanceEditor.Formats.Unity.Images;
 public sealed record UnityPictoConversionRequest(
     UnityExportData UnityData,
     IReadOnlyList<string> SourceFiles,
-    string PictoTempFolder,
     string PictoAtlasFolder);
 
 public sealed record UnityPictoConversionResult(
@@ -23,9 +22,7 @@ public static class UnityPictoConverter
     public static UnityPictoConversionResult Convert(UnityPictoConversionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        UnityExportData unityData = request.UnityData ?? throw new ArgumentNullException(nameof(request.UnityData));
         ArgumentNullException.ThrowIfNull(request.SourceFiles);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoTempFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoAtlasFolder);
 
         string[] pictoFiles = [.. request.SourceFiles];
@@ -37,24 +34,12 @@ public static class UnityPictoConverter
 
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        ResetDirectory(request.PictoTempFolder);
+        ResetDirectory(request.PictoAtlasFolder);
+        Array.Sort(pictoFiles);
 
         Logger.Log($"Found {pictoFiles.Length} raw picto source files to process.");
-        ProcessAndSaveRawPictoFiles(unityData, pictoFiles, request.PictoTempFolder);
 
-        string[] convertedPngPaths = Directory.GetFiles(request.PictoTempFolder, "*.png");
-        Array.Sort(convertedPngPaths);
-        if (convertedPngPaths.Length == 0)
-        {
-            Logger.Log("No pictos were processed into PNGs; skipping atlas creation.", LogLevel.Warning);
-            stopwatch.Stop();
-            Logger.Log($"Picto conversion finished early after {stopwatch.ElapsedMilliseconds}ms.");
-            return new UnityPictoConversionResult([], []);
-        }
-
-        Logger.Log($"Successfully processed raw files into {convertedPngPaths.Length} individual PNG pictos.");
-
-        (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)>? imageDict, List<Image<Rgba32>>? atlasPics) = BuildPictoAtlases(convertedPngPaths);
+        (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)>? imageDict, List<Image<Rgba32>>? atlasPics) = BuildPictoAtlases(pictoFiles, request.UnityData.Metadata.CoachCount > 1);
         SaveAtlasImagesToDisk(atlasPics, request.PictoAtlasFolder);
 
         stopwatch.Stop();
@@ -69,102 +54,28 @@ public static class UnityPictoConverter
         Directory.CreateDirectory(folder);
     }
 
-    private static void ProcessAndSaveRawPictoFiles(UnityExportData unityData, string[] pictoFiles, string pictoTempFolder)
+    private static void ResizePicto(Image<Rgba32> pictoImage, bool multipleCoaches)
     {
-        Logger.Log($"Processing {pictoFiles.Length} raw picto files...");
-        Parallel.For(0, pictoFiles.Length, i =>
-        {
-            string rawPictoPath = pictoFiles[i];
-            string baseName = Path.GetFileName(rawPictoPath).Split('.')[0];
-
-            using Image<Bgra32> pictoImage = TextureConverter.TextureConverter.ConvertToImage(rawPictoPath);
-
-            if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
-            {
-                SplitAndSaveMontageParts(pictoImage, unityData, pictoTempFolder);
-            }
-            else
-            {
-                ResizeAndSaveIndividualPicto(pictoImage, baseName, unityData, pictoTempFolder);
-            }
-        });
-        Logger.Log("Finished processing raw picto files into temporary PNGs.");
-    }
-
-    private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, UnityExportData unityData, string pictoTempFolder)
-    {
-        int coachCount = unityData.Metadata.CoachCount;
         int targetWidth = 512;
-        int targetHeight = coachCount > 1 ? 354 : 512;
+        int targetHeight = multipleCoaches ? 354 : 512;
 
         if (pictoImage.Width != targetWidth || pictoImage.Height != targetHeight)
         {
             pictoImage.Mutate(x => x.Resize(new ResizeOptions
             {
                 Size = new Size(targetWidth, targetHeight),
-                Mode = ResizeMode.Stretch
+                Mode = ResizeMode.Max
             }));
         }
-
-        pictoImage.Save(Path.Combine(pictoTempFolder, name + ".png"));
-    }
-
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, UnityExportData unityData, string pictoTempFolder)
-    {
-        List<string> pictoNamesFromClips = unityData.PictogramClips
-            .Select(clip => Path.GetFileNameWithoutExtension(clip.PictoPath))
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        int pictoCount = pictoNamesFromClips.Count;
-        if (pictoCount == 0)
-        {
-            Logger.Log("Montage processing skipped; no pictogram names found in song clips.", LogLevel.Warning);
-            return;
-        }
-
-        int columns = unityData.Metadata.CoachCount == 1 ? 8 : 4;
-        int rows = Math.Max(1, (int)Math.Ceiling(pictoCount / (double)columns));
-
-        int montageWidth = montageImage.Width;
-        int montageHeight = montageImage.Height;
-
-        if (montageWidth < columns || montageHeight < rows)
-        {
-            Logger.Log("Montage dimensions too small for expected pictogram grid.", LogLevel.Error);
-            return;
-        }
-
-        int cellWidth = montageWidth / columns;
-        int cellHeight = montageHeight / rows;
-        if (cellWidth == 0 || cellHeight == 0)
-        {
-            Logger.Log("Calculated montage cell dimensions are zero; cannot split montage.", LogLevel.Error);
-            return;
-        }
-
-        for (int i = 0; i < pictoCount; i++)
-        {
-            int rowIndex = i / columns;
-            int colIndex = i % columns;
-
-            Rectangle cropRectangle = new(colIndex * cellWidth, rowIndex * cellHeight, cellWidth, cellHeight);
-            using Image<Bgra32> pictoPart = montageImage.Clone(x => x.Crop(cropRectangle));
-            ResizeAndSaveIndividualPicto(pictoPart, pictoNamesFromClips[i], unityData, pictoTempFolder);
-        }
-
-        Logger.Log("Finished splitting montage into individual pictos.");
     }
 
     private static (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)> ImageDictionary, List<Image<Rgba32>> AtlasImages)
-        BuildPictoAtlases(string[] convertedPictoPngPaths)
+        BuildPictoAtlases(string[] convertedPictoPngPaths, bool multipleCoaches = false)
     {
         Logger.Log($"Creating atlasses from {convertedPictoPngPaths.Length} PNG pictos...");
 
         Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)> imageDict = new(StringComparer.OrdinalIgnoreCase);
-        List<Image<Rgba32>> atlasPics = new();
+        List<Image<Rgba32>> atlasPics = [];
         Image<Rgba32>? currentAtlasImage = null;
 
         const int imagesPerAtlas = 16;
@@ -184,6 +95,7 @@ public static class UnityPictoConverter
             string pictoFilePath = convertedPictoPngPaths[i];
             string pictoName = Path.GetFileNameWithoutExtension(pictoFilePath);
             using Image<Rgba32> imageToDraw = Image.Load<Rgba32>(pictoFilePath);
+            ResizePicto(imageToDraw, multipleCoaches);
 
             int gridX = indexInCurrentAtlas % 4;
             int gridY = indexInCurrentAtlas / 4;

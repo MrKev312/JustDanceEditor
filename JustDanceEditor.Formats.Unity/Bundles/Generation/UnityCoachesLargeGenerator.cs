@@ -4,12 +4,15 @@ using JustDanceEditor.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
+using System.Collections.Generic;
+using System.IO;
+
 namespace JustDanceEditor.Formats.Unity.Bundles.Generation;
 
 public sealed record UnityCoachesLargeGenerationRequest(
     string SongName,
     int CoachCount,
-    string MenuArtFolder,
+    UnityMenuArtSource MenuArt,
     UnityExportData UnityData,
     string TemplatePath,
     string OutputFolder,
@@ -29,7 +32,6 @@ public static class UnityCoachesLargeGenerator
             throw new ArgumentException("Song name is required", nameof(request));
         if (request.CoachCount <= 0)
             throw new ArgumentException("Coach count must be greater than zero", nameof(request));
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.MenuArtFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolder);
 
@@ -40,17 +42,10 @@ public static class UnityCoachesLargeGenerator
 
         try
         {
-            for (int i = 1; i <= request.CoachCount; i++)
-            {
-                string imagePath = Path.Combine(request.MenuArtFolder, $"{request.SongName}_Coach_{i}.png");
-                if (!File.Exists(imagePath))
-                    throw new FileNotFoundException($"Coach image not found: {imagePath}");
+            LoadCoachImages(request, coachImages);
 
-                coachImages.Add(Image.Load<Rgba32>(imagePath));
-            }
-
-            UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArtFolder);
-            background = UnityCoverArtGenerator.GetBackground(coverRequest);
+            UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
+            background = UnityCoverArtGenerator.TryLoadBackground(coverRequest) ?? CreateFallbackBackground();
 
             UnityCoachesLargeBundleRequest builderRequest = new(
                 request.SongName,
@@ -71,4 +66,22 @@ public static class UnityCoachesLargeGenerator
 
         Logger.Log("Finished generating CoachesLarge");
     }
+
+    private static void LoadCoachImages(UnityCoachesLargeGenerationRequest request, List<Image<Rgba32>> destination)
+    {
+        IReadOnlyList<string> coachFiles = request.MenuArt.CoachImagePaths;
+        if (coachFiles.Count == 0)
+            throw new FileNotFoundException("No coach images defined in the intermediate package.");
+
+        for (int i = 0; i < request.CoachCount; i++)
+        {
+            if (i >= coachFiles.Count)
+                throw new InvalidOperationException($"Not enough coach images available. Needed {request.CoachCount}, found {coachFiles.Count}.");
+
+            string file = coachFiles[i];
+            destination.Add(Image.Load<Rgba32>(file));
+        }
+    }
+
+    private static Image<Rgba32> CreateFallbackBackground() => new(2048, 1024, Color.Magenta);
 }

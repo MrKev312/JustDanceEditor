@@ -140,8 +140,8 @@ public static class IntermediatePackageSerializer
 
         if (existingPointers.Count == documents.Count)
         {
-            List<CoachTimelinePointer> orderedPointers = existingPointers.OrderBy(p => p.CoachId).ToList();
-            List<CoachTimelineDocument> orderedDocs = documents.OrderBy(c => c.CoachId).ToList();
+            List<CoachTimelinePointer> orderedPointers = [.. existingPointers.OrderBy(p => p.CoachId)];
+            List<CoachTimelineDocument> orderedDocs = [.. documents.OrderBy(c => c.CoachId)];
             bool matches = true;
             for (int i = 0; i < orderedDocs.Count; i++)
             {
@@ -156,14 +156,13 @@ public static class IntermediatePackageSerializer
                 return existingPointers;
         }
 
-        return documents
+        return [.. documents
             .OrderBy(ct => ct.CoachId)
             .Select(ct => new CoachTimelinePointer
             {
                 CoachId = ct.CoachId,
                 File = CombineManifestPath(manifestFolder, fileFactory(ct.CoachId))
-            })
-            .ToList();
+            })];
     }
 
     private static void WriteCoachMovesIfNeeded(

@@ -1,4 +1,3 @@
-using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Formats;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.Unity;

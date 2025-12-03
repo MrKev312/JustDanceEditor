@@ -15,7 +15,7 @@ public static class UnityCacheBuilder
 {
     public static Dictionary<Guid, JDSong> BuildOfflineCache(UnityExportData songData, Guid songId, uint cacheNumber, OfflineCacheAssets assets, string songTitleLogoFolder)
     {
-        SongDatabaseEntry songEntry = UnityFormatMapper.BuildSongDatabaseEntry(songData, songId, songTitleLogoFolder);
+        SongDatabaseEntry songEntry = UnityFormatMapper.BuildCacheSong(songData, songId, songTitleLogoFolder);
         JDSong jdSong = JDSongFactory.CreateSong(
             songEntry,
             cacheNumber,

@@ -35,7 +35,6 @@ public static class UnityMapPackageGenerator
         UnityPictoConversionRequest pictoRequest = new(
             request.UnityData,
             request.PictoFiles ?? Array.Empty<string>(),
-            request.PictoTempFolder,
             request.PictoAtlasFolder);
 
         Logger.Log($"Converting MapPackage for {request.SongName}...");

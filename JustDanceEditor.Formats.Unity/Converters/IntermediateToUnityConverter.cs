@@ -9,9 +9,6 @@ using JustDanceEditor.Formats.Unity.Core;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Logging;
 
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
@@ -91,8 +88,8 @@ internal sealed class IntermediateToUnityConverter
             PrepareSyntheticInputScaffold(patchRoot, platform);
             PopulateSyntheticInputAssets(patchRoot);
             context = BuildSyntheticConversionContext(patchRoot);
-            PopulateMenuArtAssets(context);
-            await GenerateUnityBundlesAsync(context);
+            UnityMenuArtSource menuArt = BuildMenuArtSource();
+            await GenerateUnityBundlesAsync(context, menuArt);
         }
         finally
         {
@@ -303,7 +300,7 @@ internal sealed class IntermediateToUnityConverter
         return "nx";
     }
 
-    private static async Task GenerateUnityBundlesAsync(UnityConversionContext context)
+    private static async Task GenerateUnityBundlesAsync(UnityConversionContext context, UnityMenuArtSource menuArt)
     {
         UnityExportData unityData = context.RequireUnityData();
         string songName = context.ResolveSongName();
@@ -313,7 +310,7 @@ internal sealed class IntermediateToUnityConverter
         UnityCoverGenerationRequest coverRequest = new(
             songName,
             unityData,
-            context.FileSystem.TempFolders.MenuArtFolder,
+            menuArt,
             context.Request.OnlineCover,
             context.FileSystem.TemplateFiles.Cover,
             context.FileSystem.OutputFolders.CoverFolder,
@@ -322,7 +319,7 @@ internal sealed class IntermediateToUnityConverter
         UnitySongTitleGenerationRequest songTitleRequest = new(
             songName,
             unityData,
-            context.FileSystem.TempFolders.MenuArtFolder,
+            menuArt,
             context.Request.OnlineCover,
             context.FileSystem.TemplateFiles.SongTitleLogo,
             context.FileSystem.OutputFolders.SongTitleLogoFolder,
@@ -331,7 +328,7 @@ internal sealed class IntermediateToUnityConverter
         UnityCoachesLargeGenerationRequest coachesLargeRequest = new(
             songName,
             coachCount,
-            context.FileSystem.TempFolders.MenuArtFolder,
+            menuArt,
             unityData,
             context.FileSystem.TemplateFiles.CoachesLarge,
             context.FileSystem.OutputFolders.CoachesLargeFolder,
@@ -340,7 +337,7 @@ internal sealed class IntermediateToUnityConverter
         UnityCoachesSmallGenerationRequest coachesSmallRequest = new(
             songName,
             coachCount,
-            context.FileSystem.TempFolders.MenuArtFolder,
+            menuArt,
             context.FileSystem.TemplateFiles.CoachesSmall,
             context.FileSystem.OutputFolders.CoachesSmallFolder,
             forCustomServer);
@@ -370,29 +367,60 @@ internal sealed class IntermediateToUnityConverter
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
     }
 
-    private void PopulateMenuArtAssets(UnityConversionContext context)
+    private UnityMenuArtSource BuildMenuArtSource()
     {
-        string menuArtFolder = context.FileSystem.TempFolders.MenuArtFolder;
-        Directory.CreateDirectory(menuArtFolder);
+        string? coverPath = TryResolveAssetFile("image/cover", out string? cover) ? cover : null;
+        string? titlePath = TryResolveAssetFile("image/songTitleLogo", out string? title) ? title : null;
+        string? backgroundPath = ResolveCoachBackground();
+        IReadOnlyList<string> coachImages = ResolveCoachImages();
 
-        if (TryResolveAssetFile("image/cover", out string? coverPath))
-            ExportImageAsset(coverPath, Path.Combine(menuArtFolder, "cover.png"));
-        else
+        if (coverPath == null)
             Logger.Log("Cover art asset missing from intermediate package.", LogLevel.Warning);
-
-        if (TryResolveAssetFile("image/songTitleLogo", out string? titlePath))
-            ExportImageAsset(titlePath, Path.Combine(menuArtFolder, "songTitleLogo.png"));
-        else
+        if (titlePath == null)
             Logger.Log("Song title logo asset missing from intermediate package.", LogLevel.Warning);
-
-        if (TryResolveAssetDirectory("image/coachLarge", out string? coachesDir))
-        {
-            string coachArtName = context.UnityData?.Name ?? _songFolderName;
-            int coachCount = context.UnityData?.Metadata.CoachCount ?? _package.Metadata.CoachCount;
-            CopyCoachArt(coachesDir, menuArtFolder, coachArtName, coachCount);
-        }
-        else
+        if (coachImages.Count == 0)
             Logger.Log("Coach art assets missing from intermediate package.", LogLevel.Warning);
+        if (backgroundPath == null)
+            Logger.Log("Coach background asset missing from intermediate package.", LogLevel.Warning);
+
+        return new UnityMenuArtSource(coverPath, titlePath, backgroundPath, coachImages);
+    }
+
+    private IReadOnlyList<string> ResolveCoachImages()
+    {
+        if (!TryResolveAssetDirectory("image/coachLarge", out string? coachesDir))
+            return Array.Empty<string>();
+
+        string[] candidates = Directory.EnumerateFiles(coachesDir, "*", SearchOption.TopDirectoryOnly)
+            .Where(file => !IsCoachBackgroundAsset(file))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return candidates;
+    }
+
+    private string? ResolveCoachBackground()
+    {
+        string[] patterns =
+        [
+            $"{_songFolderName}_map_bkg.*",
+            "coachesBackground.*",
+            "coachBackground.*",
+            "*map_bkg.*"
+        ];
+
+        if (TryResolveAssetFile("image/coachBackground", out string? background))
+            return background;
+
+        string brandingFolder = GetAssetsSubfolder("branding");
+        if (TryFindFileInFolder(brandingFolder, out string? brandingMatch, patterns))
+            return brandingMatch;
+
+        string coachesFolder = GetAssetsSubfolder("coaches");
+        if (TryFindFileInFolder(coachesFolder, out string? coachesMatch, patterns))
+            return coachesMatch;
+
+        return null;
     }
 
     private void CopyAssetDirectoryTo(string role, string destination, bool logWhenMissing)
@@ -410,85 +438,12 @@ internal sealed class IntermediateToUnityConverter
         CopyDirectoryRecursive(source, destination);
     }
 
-    private static void ExportImageAsset(string? sourcePath, string destinationPath)
-    {
-        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
-            return;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-
-        try
-        {
-            using Image<Rgba32> image = Image.Load<Rgba32>(sourcePath);
-            image.SaveAsPng(destinationPath);
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"Failed to materialize image '{sourcePath}': {ex.Message}", LogLevel.Warning);
-        }
-    }
-
-    private void CopyCoachArt(string sourceDir, string destination, string songName, int coachCount)
-    {
-        string[] candidates = Directory.EnumerateFiles(sourceDir, "*", SearchOption.TopDirectoryOnly)
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (candidates.Length == 0)
-        {
-            Logger.Log("Coach art directory is empty.", LogLevel.Warning);
-            return;
-        }
-
-        for (int i = 0; i < coachCount; i++)
-        {
-            if (i >= candidates.Length)
-            {
-                Logger.Log($"Not enough coach images available. Needed {coachCount}, found {candidates.Length}.", LogLevel.Warning);
-                break;
-            }
-
-            string target = Path.Combine(destination, $"{songName}_Coach_{i + 1}.png");
-            ExportImageAsset(candidates[i], target);
-        }
-
-        string? background = candidates.FirstOrDefault(IsCoachBackgroundAsset) ?? ResolveCoachBackgroundFromCoaches();
-        if (background != null)
-        {
-            ExportImageAsset(background, Path.Combine(destination, $"{songName}_map_bkg.png"));
-        }
-        else
-        {
-            Logger.Log("Coach background asset missing from intermediate package.", LogLevel.Warning);
-        }
-    }
-
     private static bool IsCoachBackgroundAsset(string path)
     {
         string name = Path.GetFileNameWithoutExtension(path);
         return name.Contains("map_bkg", StringComparison.OrdinalIgnoreCase) ||
                name.Contains("coachesbackground", StringComparison.OrdinalIgnoreCase) ||
                name.Contains("coachbackground", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private string? ResolveCoachBackgroundFromCoaches()
-    {
-        string[] patterns =
-        [
-            $"{_songFolderName}_map_bkg.*",
-            "coachesBackground.*",
-            "coachBackground.*",
-            "*map_bkg.*"
-        ];
-
-        string coachesFolder = GetAssetsSubfolder("coaches");
-        if (Directory.Exists(coachesFolder) &&
-            TryFindFileInFolder(coachesFolder, out string? backgroundPath, patterns))
-        {
-            return backgroundPath;
-        }
-
-        return null;
     }
 
     private static void TryDeleteDirectorySafe(string path)

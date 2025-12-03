@@ -2,7 +2,7 @@ namespace JustDanceEditor.Formats.Unity;
 
 public static class UnityFormatMapper
 {
-    public static SongDatabaseEntry BuildSongDatabaseEntry(UnityExportData song, Guid songId, string songTitleLogoFolder)
+    public static SongDatabaseEntry BuildCacheSong(UnityExportData song, Guid songId, string songTitleLogoFolder)
     {
         UnityExportMetadata meta = song.Metadata;
         bool songTitleLogo = ContainsAssets(songTitleLogoFolder);
@@ -21,7 +21,7 @@ public static class UnityFormatMapper
             CoachCount = meta.CoachCount,
             Difficulty = meta.Difficulty,
             SweatDifficulty = (uint)Math.Clamp((int)meta.SweatDifficulty + 1, 1, 3),
-            Tags = meta.Tags.ToList(),
+            Tags = [.. meta.Tags],
             TagIds = [],
             SearchTagsLocIds = [],
             CoachNamesLocIds = [],
@@ -52,8 +52,8 @@ public static class UnityFormatMapper
             CoachCount = meta.CoachCount,
             Difficulty = meta.Difficulty,
             SweatDifficulty = (uint)Math.Clamp((int)meta.SweatDifficulty + 1, 1, 3),
-            Tags = tags.ToArray(),
-            TagIds = additionalTags.ToArray(),
+            Tags = [.. tags],
+            TagIds = [.. additionalTags],
             CoachNamesLocIds = [],
             HasSongTitleInCover = songTitleLogo
         };

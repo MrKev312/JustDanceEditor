@@ -537,8 +537,8 @@ internal static class UnityServerIntermediateBuilder
         Dictionary<string, CoachMoveDefinition> HandMoves,
         Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(IEnumerable<UnityMotionClip> clips)
     {
-        Dictionary<int, CoachTimelineDocument> handTimelines = new();
-        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = new();
+        Dictionary<int, CoachTimelineDocument> handTimelines = [];
+        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
         Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
 
@@ -849,7 +849,7 @@ internal static class UnityServerIntermediateBuilder
             if (reader.TokenType != JsonTokenType.StartArray)
                 throw new JsonException("coachNamesLocIds must be an array.");
 
-            List<string> values = new();
+            List<string> values = [];
             while (reader.Read())
             {
                 if (reader.TokenType == JsonTokenType.EndArray)
@@ -878,7 +878,7 @@ internal static class UnityServerIntermediateBuilder
                 }
             }
 
-            return values.ToArray();
+            return [.. values];
         }
 
         public override void Write(Utf8JsonWriter writer, string[]? value, JsonSerializerOptions options)

@@ -73,7 +73,7 @@ public static class AudioConverter
 
     private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, FileSystem fileSystem)
     {
-        SoundSetClip[] audioClips = songData.Clips.OfType<SoundSetClip>().ToArray();
+        SoundSetClip[] audioClips = [.. songData.Clips.OfType<SoundSetClip>()];
         List<UbiArtAudioClipSource> clipSources = new(audioClips.Length);
 
         foreach (SoundSetClip clip in audioClips)

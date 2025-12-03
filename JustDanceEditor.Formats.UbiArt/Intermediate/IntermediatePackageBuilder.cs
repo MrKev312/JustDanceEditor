@@ -3,7 +3,6 @@ using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
@@ -292,8 +291,8 @@ internal static class IntermediatePackageBuilder
         Dictionary<string, CoachMoveDefinition> HandMoves,
         Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(ConversionContext context, TimelineMath timelineMath)
     {
-        Dictionary<int, CoachTimelineDocument> handTimelines = new();
-        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = new();
+        Dictionary<int, CoachTimelineDocument> handTimelines = [];
+        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
         Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
 

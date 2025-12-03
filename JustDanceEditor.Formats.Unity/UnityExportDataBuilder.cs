@@ -356,17 +356,14 @@ public static class UnityExportDataBuilder
                 previewLoopStart = (int)Math.Round(document.PreviewLoopStartBeat),
                 previewLoopEnd = (int)Math.Round(document.PreviewLoopEndBeat),
                 markers = BuildMarkers(document),
-                signatures = document.Signatures
-                    .Select(s => new UnitySignature { marker = (float)s.StartBeat, beats = s.Numerator })
-                    .ToArray(),
-                sections = document.Sections
+                signatures = [.. document.Signatures.Select(s => new UnitySignature { marker = (float)s.StartBeat, beats = s.Numerator })],
+                sections = [.. document.Sections
                     .Select(s => new UnitySection
                     {
                         marker = (float)s.StartBeat,
                         sectionType = ParseInt(s.SectionType),
                         comment = s.Comment ?? string.Empty
-                    })
-                    .ToArray()
+                    })]
             };
 
             if (document.FadeIn != null)
@@ -402,9 +399,7 @@ public static class UnityExportDataBuilder
                 return [(int)Math.Round(-ticks * 48d), 0];
             }
 
-            List<TimelineMarker> ordered = document.Markers
-                .OrderBy(m => m.BeatIndex)
-                .ToList();
+            List<TimelineMarker> ordered = [.. document.Markers.OrderBy(m => m.BeatIndex)];
 
             int[] markers = new int[ordered.Count];
             for (int i = 0; i < ordered.Count; i++)

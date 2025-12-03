@@ -28,14 +28,16 @@ public sealed class UnityExportData
         GameplayEventClips = gameplayEventClips;
         VibrationClips = vibrationClips;
 
-        List<IUnityClip> combined = new();
-        combined.AddRange(KaraokeClips);
-        combined.AddRange(PictogramClips);
-        combined.AddRange(MotionClips);
-        combined.AddRange(GoldEffectClips);
-        combined.AddRange(HideHudClips);
-        combined.AddRange(GameplayEventClips);
-        combined.AddRange(VibrationClips);
+        List<IUnityClip> combined =
+        [
+            .. KaraokeClips,
+            .. PictogramClips,
+            .. MotionClips,
+            .. GoldEffectClips,
+            .. HideHudClips,
+            .. GameplayEventClips,
+            .. VibrationClips,
+        ];
         Clips = new ReadOnlyCollection<IUnityClip>(combined);
     }
 

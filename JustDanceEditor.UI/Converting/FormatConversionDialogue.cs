@@ -1,4 +1,3 @@
-using JustDanceEditor.Converter;
 using JustDanceEditor.Converter.Formats;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
@@ -22,8 +21,8 @@ internal static class FormatConversionDialogue
             return;
         }
 
-        IJdiFormat[] sourceCandidates = formats.Where(f => f.CanImport).ToArray();
-        IJdiFormat[] targetCandidates = formats.Where(f => f.CanExport).ToArray();
+        IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
+        IJdiFormat[] targetCandidates = [.. formats.Where(f => f.CanExport)];
 
         if (sourceCandidates.Length == 0 || targetCandidates.Length == 0)
         {
@@ -74,15 +73,14 @@ internal static class FormatConversionDialogue
     private static string AskFormat(string prompt, IEnumerable<IJdiFormat> candidates)
     {
         // Order by DisplayName, but prioritize "JDI" to be first if present
-        IJdiFormat[] options = candidates
+        IJdiFormat[] options = [.. candidates
             .OrderBy(f => f.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(f => f.DisplayName)
-            .ToArray();
+            .ThenBy(f => f.DisplayName)];
 
         if (options.Length == 0)
             throw new InvalidOperationException("No formats satisfy the requested capability.");
 
-        string[] labels = options.Select(f => f.DisplayName).ToArray();
+        string[] labels = [.. options.Select(f => f.DisplayName)];
         int selection = Question.Ask(labels, 0, prompt);
         return options[selection].DisplayName;
     }

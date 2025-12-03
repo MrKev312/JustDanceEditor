@@ -149,7 +149,7 @@ public static class UnityAssetMaterializer
 
         Directory.CreateDirectory(dirs.Pictograms);
         AssetsManager manager = new();
-        Dictionary<long, Image<Rgba32>> atlasImages = new();
+        Dictionary<long, Image<Rgba32>> atlasImages = [];
         try
         {
             BundleFileInstance bundle = manager.LoadBundleFile(bundlePath, true);
@@ -279,10 +279,9 @@ public static class UnityAssetMaterializer
             return false;
 
         string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
-        List<string> sources = Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)
+        List<string> sources = [.. Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)
             .Where(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
-            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
 
         if (sources.Count == 0)
             return false;
@@ -462,7 +461,7 @@ public static class UnityAssetMaterializer
 
     private static List<RenderEntry> LoadSpriteAtlasEntries(AssetsManager manager, AssetsFileInstance assetsFile, AssetsFile afile)
     {
-        List<RenderEntry> entries = new();
+        List<RenderEntry> entries = [];
         foreach (AssetFileInfo atlasInfo in afile.AssetInfos.Where(i => i.TypeId == (int)AssetClassID.SpriteAtlas))
         {
             AssetTypeValueField atlasBase = manager.GetBaseField(assetsFile, atlasInfo);

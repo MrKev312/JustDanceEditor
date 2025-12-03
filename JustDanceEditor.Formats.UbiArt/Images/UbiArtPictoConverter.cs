@@ -90,13 +90,12 @@ public static class UbiArtPictoConverter
 
     private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder)
     {
-        List<string> pictoNamesFromClips = songData.Clips
+        List<string> pictoNamesFromClips = [.. songData.Clips
             .OfType<PictogramClip>()
             .Select(clip => Path.GetFileNameWithoutExtension(clip.PictoPath))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
 
         int pictoCount = pictoNamesFromClips.Count;
         if (pictoCount == 0)

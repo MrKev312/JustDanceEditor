@@ -9,7 +9,7 @@ namespace JustDanceEditor.Formats.Unity.Bundles.Generation;
 public sealed record UnitySongTitleGenerationRequest(
     string SongName,
     UnityExportData UnityData,
-    string MenuArtFolder,
+    UnityMenuArtSource MenuArt,
     bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolder,
@@ -28,7 +28,7 @@ public static class UnitySongTitleGenerator
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolder);
 
-        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArtFolder);
+        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
         using Image<Rgba32>? titleImage = PrepareSongTitleImage(request, coverRequest);
         if (titleImage == null)
         {
@@ -48,13 +48,10 @@ public static class UnitySongTitleGenerator
 
     private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleGenerationRequest request, UnityCoverArtRequest coverRequest)
     {
-        Directory.CreateDirectory(request.MenuArtFolder);
-
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
             image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Title");
 
-        image ??= UnityCoverArtGenerator.ExistingSongTitleLogo(coverRequest);
-        return image;
+        return image ?? UnityCoverArtGenerator.TryLoadSongTitleLogo(coverRequest);
     }
 }

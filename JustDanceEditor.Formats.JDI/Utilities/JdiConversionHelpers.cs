@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 
 namespace JustDanceEditor.Formats.JDI.Utilities;

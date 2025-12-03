@@ -67,7 +67,7 @@ internal static class IntermediateAssetWriter
     private static async Task PreparePictogramsAsync(ConversionContext context)
     {
         CookedFile[] pictoFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.PictosFolder);
-        string[] pictoPaths = pictoFiles.Select(file => (string)file).ToArray();
+        string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
         
         UbiArtPictoConversionRequest request = new(
             context.SongData,
@@ -162,10 +162,9 @@ internal static class IntermediateAssetWriter
 
         Directory.CreateDirectory(dirs.Coaches);
 
-        string[] coachFiles = Directory.EnumerateFiles(menuArtFolder, $"{context.SongData.Name}_Coach_*.png", SearchOption.TopDirectoryOnly)
+        string[] coachFiles = [.. Directory.EnumerateFiles(menuArtFolder, $"{context.SongData.Name}_Coach_*.png", SearchOption.TopDirectoryOnly)
             .Where(path => !Path.GetFileNameWithoutExtension(path).EndsWith("_phone", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)];
 
         if (coachFiles.Length == 0)
         {

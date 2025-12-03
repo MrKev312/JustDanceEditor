@@ -39,7 +39,7 @@ public class IntermediateAsset
     public string? Variant { get; set; }
 
     [JsonPropertyName("attributes")]
-    public Dictionary<string, string> Attributes { get; set; } = new();
+    public Dictionary<string, string> Attributes { get; set; } = [];
 
     [JsonPropertyName("required")]
     public bool Required { get; set; } = true;
