@@ -1,19 +1,19 @@
-﻿using JustDanceEditor.Converter.Converters.Audio;
-using JustDanceEditor.Converter.Converters.Bundles;
 using JustDanceEditor.Converter.Converters.Cache;
-using JustDanceEditor.Converter.Converters.Images;
-using JustDanceEditor.Converter.Converters.Video;
 using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Intermediate;
 using JustDanceEditor.Converter.Services;
-using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Formats.JDI.Serialization;
+using JustDanceEditor.Formats.UbiArt.Audio;
+using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Images;
+using JustDanceEditor.Formats.UbiArt.Video;
+using JustDanceEditor.Formats.Unity;
+using JustDanceEditor.Formats.Unity.Bundles.Generation;
 using JustDanceEditor.Logging;
 
 using System.Diagnostics;
 
 using Xabe.FFmpeg.Downloader;
-using JustDanceEditor.Formats.Intermediate.Serialization;
 
 namespace JustDanceEditor.Converter.Converters;
 
@@ -83,7 +83,7 @@ public class UbiArtToUnityConverter
         Logger.Log("Started conversion");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        _requestValidator.ValidateTemplateFolder(_context.Request.TemplatePath); // Or _context.FileSystem.TemplateFiles.TemplateFolder
+        _requestValidator.ValidateTemplateFolder(_context.Request.TemplatePath);
         _requestValidator.ValidateConversionRequest(_context.Request);
 
         if (_context.SongData == null)
@@ -166,7 +166,7 @@ public class UbiArtToUnityConverter
         if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg")) // Check for OS variations
             await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
 
-        Task mapPackageTask = MapPackageBundleGenerator.GenerateMapPackageAsync(_context);
+        Task mapPackageTask = GenerateMapPackageBundleAsync();
         Task mediaConversionTask = ConvertMediaAsync(); // Internal method using _context
         Task menuArtAndAssetsTask = ConvertMenuArtAndGenerateBundlesAsync(); // Internal method using _context
 
@@ -180,7 +180,7 @@ public class UbiArtToUnityConverter
         try
         {
             _context.IntermediatePackage ??= IntermediatePackageBuilder.FromUbiArt(_context);
-            _context.UnityData ??= UnityExportDataBuilder.Create(_context.IntermediatePackage);
+            EnsureUnityExportData();
             string targetFolder = _context.FileSystem.OutputFolders.IntermediateFolder;
             IntermediatePackageSerializer.WriteToFolder(_context.IntermediatePackage, targetFolder);
             Logger.Log($"Intermediate package exported to '{targetFolder}'.", LogLevel.Debug);
@@ -194,21 +194,117 @@ public class UbiArtToUnityConverter
 
     private async Task ConvertMediaAsync()
     {
+        var songData = _context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
+
         await Task.WhenAll(
-            AudioConverter.ConvertAudioAsync(_context),
-            VideoConverter.ConvertVideoAsync(_context)
+            AudioConverter.ConvertAudioAsync(songData, _context.FileSystem, _context.Request),
+            VideoConverter.ConvertVideoAsync(songData, _context.FileSystem, _context.Request)
         );
     }
 
     private async Task ConvertMenuArtAndGenerateBundlesAsync()
     {
-        await MenuArtConverter.ConvertMenuArtAsync(_context);
+        await ConvertMenuArtAsync();
 
-        await Task.WhenAll(
-            CoachesLargeBundleGenerator.GenerateCoachesLargeAsync(_context),
-            CoachesSmallBundleGenerator.GenerateCoachesSmallAsync(_context),
-            CoverBundleGenerator.GenerateCoverAsync(_context),
-            SongTitleBundleGenerator.GenerateSongTitleLogoAsync(_context)
+        string songName = _context.ResolveSongName();
+        int coachCount = _context.ResolveCoachCount();
+        bool allowOnlineLookup = _context.Request.OnlineCover;
+        bool forCustomServer = _context.Request.ExportType == ExportType.CustomServer;
+
+        await GenerateUnityMenuAssetsAsync(songName, coachCount, allowOnlineLookup, forCustomServer);
+    }
+
+    private async Task ConvertMenuArtAsync()
+    {
+        CookedFile[] menuArtFiles = _context.FileSystem.GetAllFiles(_context.FileSystem.InputFolders.MenuArtFolder);
+        UbiArtMenuArtConversionRequest menuRequest = new(menuArtFiles, _context.FileSystem.TempFolders.MenuArtFolder);
+        await UbiArtMenuArtConverter.ConvertMenuArtAsync(menuRequest);
+    }
+
+    private static async Task RunGeneratorSafely(Func<Task> generatorCall, string assetName)
+    {
+        try
+        {
+            await generatorCall();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Failed to generate {assetName}: {ex.Message}", LogLevel.Error);
+        }
+    }
+
+    private void EnsureUnityExportData()
+    {
+        if (_context.IntermediatePackage == null)
+            throw new InvalidOperationException("Intermediate package must be created before initializing Unity export data.");
+
+        _context.UnityData ??= UnityExportDataBuilder.Create(_context.IntermediatePackage);
+    }
+
+    private Task GenerateUnityMenuAssetsAsync(string songName, int coachCount, bool allowOnlineLookup, bool forCustomServer)
+    {
+        UnityExportData unityData = _context.RequireUnityData();
+        string menuArtFolder = _context.FileSystem.TempFolders.MenuArtFolder;
+
+        UnityCoachesLargeGenerationRequest largeRequest = new(
+            songName,
+            coachCount,
+            menuArtFolder,
+            unityData,
+            _context.FileSystem.TemplateFiles.CoachesLarge,
+            _context.FileSystem.OutputFolders.CoachesLargeFolder,
+            forCustomServer);
+
+        UnityCoachesSmallGenerationRequest smallRequest = new(
+            songName,
+            coachCount,
+            menuArtFolder,
+            _context.FileSystem.TemplateFiles.CoachesSmall,
+            _context.FileSystem.OutputFolders.CoachesSmallFolder,
+            forCustomServer);
+
+        UnityCoverGenerationRequest coverRequest = new(
+            songName,
+            unityData,
+            menuArtFolder,
+            allowOnlineLookup,
+            _context.FileSystem.TemplateFiles.Cover,
+            _context.FileSystem.OutputFolders.CoverFolder,
+            forCustomServer);
+
+        UnitySongTitleGenerationRequest songTitleRequest = new(
+            songName,
+            unityData,
+            menuArtFolder,
+            allowOnlineLookup,
+            _context.FileSystem.TemplateFiles.SongTitleLogo,
+            _context.FileSystem.OutputFolders.SongTitleLogoFolder,
+            forCustomServer);
+
+        return Task.WhenAll(
+            RunGeneratorSafely(() => UnityCoachesLargeGenerator.GenerateAsync(largeRequest), "CoachesLarge"),
+            RunGeneratorSafely(() => UnityCoachesSmallGenerator.GenerateAsync(smallRequest), "CoachesSmall"),
+            RunGeneratorSafely(() => UnityCoverGenerator.GenerateAsync(coverRequest), "cover"),
+            RunGeneratorSafely(() => UnitySongTitleGenerator.GenerateAsync(songTitleRequest), "song title logo")
         );
+    }
+
+    private Task GenerateMapPackageBundleAsync()
+    {
+        var rawPictoFiles = _context.FileSystem.GetAllFiles(_context.FileSystem.InputFolders.PictosFolder);
+        string[] pictoFiles = rawPictoFiles.Select(file => (string)file).ToArray();
+
+        UnityMapPackageGenerationRequest request = new(
+            _context.ResolveSongName(),
+            _context.RequireUnityData(),
+            pictoFiles,
+            _context.FileSystem.TempFolders.PictoFolder,
+            _context.FileSystem.TempFolders.PictoAtlasFolder,
+            _context.TryGetMovesFolder(),
+            _context.FileSystem.TemplateFiles.MapPackage,
+            _context.FileSystem.OutputFolders.MapPackageFolder,
+            _context.Request.ExportType == ExportType.CustomServer);
+
+        return RunGeneratorSafely(() => UnityMapPackageGenerator.GenerateAsync(request), "map package");
     }
 }

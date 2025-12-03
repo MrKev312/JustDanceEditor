@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.IPK;
+namespace JustDanceEditor.IPK;
 
 internal class Program
 {

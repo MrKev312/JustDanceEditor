@@ -1,8 +1,9 @@
-﻿using JustDanceEditor.Converter;
-using JustDanceEditor.Converter.Converters;
-using JustDanceEditor.Converter.Converters.Bundles;
-using JustDanceEditor.Converter.Converters.Images;
+using JustDanceEditor.Converter;
+using JustDanceEditor.Converter.Formats;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.Unity;
+using JustDanceEditor.Formats.Unity.Bundles;
+using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
@@ -26,8 +27,7 @@ public class ConverterDialogue
             ConversionRequest conversionRequest = CreateConversionRequest();
             Console.WriteLine("\nProcessing conversion request...");
 
-            UbiArtToUnityConverter converter = new(conversionRequest);
-            converter.Convert();
+            RunFormatConversion(conversionRequest);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\nConversion completed successfully!");
@@ -64,8 +64,7 @@ public class ConverterDialogue
 
             Console.WriteLine("\nProcessing advanced conversion request...");
 
-            UbiArtToUnityConverter converter = new(conversionRequest);
-            converter.Convert();
+            RunFormatConversion(conversionRequest);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\nAdvanced conversion completed successfully!");
@@ -123,7 +122,7 @@ public class ConverterDialogue
                 int found = 0;
 
                 // Update cover
-                using (Image<Rgba32>? coverImage = CoverArtGenerator.TryImageWeb(mapName, "Cover"))
+                using (Image<Rgba32>? coverImage = UnityCoverArtGenerator.TryImageWeb(mapName, "Cover"))
                 {
                     if (coverImage is not null)
                     {
@@ -131,21 +130,33 @@ public class ConverterDialogue
                         string outputCoverFolder = Path.Combine(inputFolder, mapName, "Cover");
                         if (Directory.Exists(outputCoverFolder))
                             Directory.Delete(outputCoverFolder, true);
-                        CoverBundleGenerator.GenerateCover(mapName, coverImage, templateCoverPath, outputCoverFolder, true);
+                        UnityCoverBundleRequest coverRequest = new(
+                            mapName,
+                            coverImage,
+                            templateCoverPath,
+                            outputCoverFolder,
+                            true);
+                        CoverBundleBuilder.GenerateCoverBundle(coverRequest);
                         Interlocked.Increment(ref updatedCovers);
                         found++;
                     }
                 }
 
                 // Update song title logo
-                using Image<Rgba32>? titleLogoImage = CoverArtGenerator.TryImageWeb(mapName, "Title");
+                using Image<Rgba32>? titleLogoImage = UnityCoverArtGenerator.TryImageWeb(mapName, "Title");
                 if (titleLogoImage is not null)
                 {
                     string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
                     string outputLogoFolder = Path.Combine(inputFolder, mapName, "songTitleLogo");
                     if (Directory.Exists(outputLogoFolder))
                         Directory.Delete(outputLogoFolder, true);
-                    SongTitleBundleGenerator.GenerateSongTitleLogo(mapName, titleLogoImage, templateLogoPath, outputLogoFolder, true);
+                    UnitySongTitleBundleRequest titleRequest = new(
+                        mapName,
+                        titleLogoImage,
+                        templateLogoPath,
+                        outputLogoFolder,
+                        true);
+                    SongTitleBundleBuilder.GenerateSongTitleLogo(titleRequest);
                     Interlocked.Increment(ref updatedLogos);
                     found++;
                 }
@@ -302,8 +313,7 @@ public class ConverterDialogue
                         OnlineCover = onlineCover,
                         SongName = songName
                     };
-                    UbiArtToUnityConverter converter = new(conversionRequest);
-                    converter.Convert();
+                    RunFormatConversion(conversionRequest);
                     convertedCount++;
                     Console.WriteLine($"   Conversion of '{songName}' finished.");
                 }
@@ -392,6 +402,12 @@ public class ConverterDialogue
         }
 
         return inputPath;
+    }
+
+    private static void RunFormatConversion(ConversionRequest request)
+    {
+        FormatConversionService service = new();
+        service.ConvertAsync(JdiFormatKind.UbiArt, JdiFormatKind.Unity, request).GetAwaiter().GetResult();
     }
 
     private static (string inputPath, string songName) AskInputFolder()

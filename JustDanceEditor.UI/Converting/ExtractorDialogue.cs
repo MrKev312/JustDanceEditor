@@ -1,4 +1,4 @@
-﻿using JustDanceEditor.IPK;
+using JustDanceEditor.IPK;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 

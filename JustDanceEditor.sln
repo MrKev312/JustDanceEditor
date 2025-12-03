@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34309.116
@@ -13,7 +13,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextureConverter", "Texture
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Logging", "JustDanceEditor.Logging\JustDanceEditor.Logging.csproj", "{6D98BCD7-A35E-45A6-B566-95502FE287FC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Formats.Intermediate", "JustDanceEditor.Formats.Intermediate\JustDanceEditor.Formats.Intermediate.csproj", "{7A2A9340-2E3B-4B9A-95E9-6B69F35A278E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Formats.JDI", "JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj", "{7A2A9340-2E3B-4B9A-95E9-6B69F35A278E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JustDanceEditor.Formats.UbiArt", "JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj", "{0DFB3DF4-AE1E-4589-AB46-94C4D0D28F32}"
 EndProject

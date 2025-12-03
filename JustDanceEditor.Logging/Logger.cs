@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.Logging;
+namespace JustDanceEditor.Logging;
 
 public static class Logger
 {

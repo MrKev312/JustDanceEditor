@@ -1,5 +1,5 @@
-﻿using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Files;
 
 namespace JustDanceEditor.Converter.Services;
 

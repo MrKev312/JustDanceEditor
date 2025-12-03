@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.Converter.Helpers;
+namespace JustDanceEditor.Converter.Helpers;
 
 public static class Copy
 {

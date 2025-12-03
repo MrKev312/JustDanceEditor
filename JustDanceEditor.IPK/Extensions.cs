@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.IPK;
+namespace JustDanceEditor.IPK;
 
 public static class Extensions
 {

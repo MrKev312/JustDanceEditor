@@ -1,4 +1,4 @@
-﻿namespace TextureConverter;
+namespace TextureConverter;
 
 public enum TextureFormat
 {

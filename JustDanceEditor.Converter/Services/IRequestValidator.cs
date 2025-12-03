@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.Converter.Services;
+namespace JustDanceEditor.Converter.Services;
 
 public interface IRequestValidator
 {

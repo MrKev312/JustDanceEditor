@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.Logging;
+namespace JustDanceEditor.Logging;
 
 public enum LogLevel
 {

@@ -1,4 +1,4 @@
-﻿namespace JustDanceEditor.UI.Helpers;
+namespace JustDanceEditor.UI.Helpers;
 
 internal class Question
 {

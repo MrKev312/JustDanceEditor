@@ -1,12 +1,11 @@
-﻿using JustDanceEditor.Converter.Files;
 using JustDanceEditor.Converter.Helpers;
 using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 using JustDanceEditor.Logging;
 
-using System.Collections.Generic;
 using System.Text.Json;
 
 namespace JustDanceEditor.Converter.Services;

@@ -1,4 +1,4 @@
-﻿using JustDanceEditor.Formats.Unity;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 

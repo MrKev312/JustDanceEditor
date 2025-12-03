@@ -1,6 +1,4 @@
-﻿using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.Files;
-using JustDanceEditor.Converter.Unity;
+using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
 
@@ -125,7 +123,7 @@ public static class CacheJsonGenerator
 
     static void GenerateOfflineCacheJson(ConversionContext context)
     {
-        OutputFolders outputFolders = context.FileSystem.OutputFolders;
+        var outputFolders = context.FileSystem.OutputFolders;
 
         // Generate the json.cache file
         string cachexJsonPath = Path.Combine(outputFolders.MapFolder, "json.cache");
@@ -149,13 +147,24 @@ public static class CacheJsonGenerator
         }
 
         string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
-        SongDatabaseEntry songEntry = UnityFormatMapper.BuildSongDatabaseEntry(context);
-        JDSong jdSong = JDSongFactory.CreateSong(songEntry, cacheNumber, coverName, coachesSmallName, coachesLargeName, audioPreviewName, videoPreviewName, audioName, videoName, mapPackageName, songTitleLogoName, context.SongID);
+        UnityExportData songData = context.RequireUnityData();
+        OfflineCacheAssets assets = new(
+            coverName,
+            coachesSmallName,
+            coachesLargeName,
+            audioPreviewName,
+            videoPreviewName,
+            audioName,
+            videoName,
+            mapPackageName,
+            songTitleLogoName);
 
-        Dictionary<Guid, JDSong> caching = new()
-        {
-            { context.SongID, jdSong }
-        };
+        Dictionary<Guid, JDSong> caching = UnityCacheBuilder.BuildOfflineCache(
+            songData,
+            context.SongID,
+            cacheNumber,
+            assets,
+            context.FileSystem.OutputFolders.SongTitleLogoFolder);
 
         // Generate the cachingStatus.json file
         string cachingStatus = JsonSerializer.Serialize(caching, options);
@@ -168,7 +177,11 @@ public static class CacheJsonGenerator
         string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
 
         // Convert the songdatabase
-        ServerSongJSON serverSong = UnityFormatMapper.BuildServerSong(context);
+        UnityExportData songData = context.RequireUnityData();
+        ServerSongJSON serverSong = UnityCacheBuilder.BuildServerCache(
+            songData,
+            context.SongID,
+            context.FileSystem.OutputFolders.SongTitleLogoFolder);
         string serverSongJSON = JsonSerializer.Serialize(serverSong, optionsCamelCase);
 
         File.WriteAllText(cachingStatusPath, serverSongJSON);

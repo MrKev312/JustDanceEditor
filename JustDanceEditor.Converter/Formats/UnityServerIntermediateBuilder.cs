@@ -1,20 +1,20 @@
-using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Converter.Intermediate;
-using JustDanceEditor.Formats.Intermediate;
-using JustDanceEditor.Formats.Intermediate.Assets;
-using JustDanceEditor.Formats.Intermediate.Manifests;
-using JustDanceEditor.Formats.Intermediate.Metadata;
-using JustDanceEditor.Formats.Intermediate.Timelines;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Assets;
+using JustDanceEditor.Formats.JDI.Manifests;
+using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-using IntermediateKaraokeClip = JustDanceEditor.Formats.Intermediate.Timelines.KaraokeClip;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 
 namespace JustDanceEditor.Converter.Formats;
 

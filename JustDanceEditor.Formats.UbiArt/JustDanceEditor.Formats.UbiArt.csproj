@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Text.Json" Version="9.0.8" />
+    <PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
+    <ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
+    <ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
   </ItemGroup>
 </Project>

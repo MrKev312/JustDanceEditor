@@ -1,26 +1,17 @@
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-
-using JustDanceEditor.Converter.Converters.Audio;
-using JustDanceEditor.Converter.Converters.Images;
-using JustDanceEditor.Converter.Converters.Video;
 using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.Files;
-using JustDanceEditor.Converter.Unity;
-using JustDanceEditor.Formats.Intermediate;
-using JustDanceEditor.Formats.Intermediate.Assets;
-using JustDanceEditor.Logging;
-
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Assets;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Audio;
+using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Images;
+using JustDanceEditor.Formats.UbiArt.Video;
 
 using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Converter.Intermediate;
 
-internal static class IntermediateAssetWriter
+internal static partial class IntermediateAssetWriter
 {
     public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot)
     {
@@ -29,19 +20,21 @@ internal static class IntermediateAssetWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
 
         context.IntermediatePackage ??= package;
-        context.UnityData ??= UnityExportDataBuilder.Create(package);
+        EnsureUnityDataInitialized(context, package);
 
         AssetStagingArea staging = AssetStagingArea.Create(Path.Combine(context.FileSystem.TempFolders.MapFolder, "intermediateAssetStage"));
         staging.Reset();
 
         await EnsurePrerequisitesAsync();
         await PrepareVisualAssetsAsync(context);
-        await AudioConverter.ConvertAudioAsync(context, new AudioConversionOptions
+        JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
+
+        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, context.Request, new AudioConversionOptions
         {
             MasterOutputFolder = staging.AudioMaster,
             PreviewOutputFolder = staging.AudioPreview,
         });
-        await VideoConverter.ConvertVideoAsync(context, new VideoConversionOptions
+        await VideoConverter.ConvertVideoAsync(songData, context.FileSystem, context.Request, new VideoConversionOptions
         {
             VideoOutputFolder = staging.Video,
             PreviewOutputFolder = staging.PreviewVideo,
@@ -58,13 +51,15 @@ internal static class IntermediateAssetWriter
 
     private static async Task PrepareVisualAssetsAsync(ConversionContext context)
     {
-        await MenuArtConverter.ConvertMenuArtAsync(context);
-        var (_, atlases) = await Task.Run(() => PictoConverter.ConvertPictos(context));
-        if (atlases != null)
-        {
-            foreach (Image<Rgba32> image in atlases)
-                image.Dispose();
-        }
+        await PrepareMenuArtFromUbiArtAsync(context);
+        await PrepareUnityPictogramsAsync(context);
+    }
+
+    private static async Task PrepareMenuArtFromUbiArtAsync(ConversionContext context)
+    {
+        CookedFile[] menuArtFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder);
+        UbiArtMenuArtConversionRequest menuRequest = new(menuArtFiles, context.FileSystem.TempFolders.MenuArtFolder);
+        await UbiArtMenuArtConverter.ConvertMenuArtAsync(menuRequest);
     }
 
     private static void CopyAssetsToPackage(ConversionContext context, IntermediateAssetCatalog catalog, string packageRoot, AssetStagingArea staging)
@@ -96,45 +91,6 @@ internal static class IntermediateAssetWriter
 
         string? previewFolder = CopyDirectoryContent(staging.PreviewVideo, dirs.PreviewVideo);
         UpdateAssetReference(catalog, "video/preview", previewFolder, dirs, treatAsDirectory: true);
-    }
-
-    private static void AttachBrandingAssets(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)
-    {
-        string? cover = ExportCoverImage(context, Path.Combine(dirs.Branding, "thumbnail.png"));
-        UpdateAssetReference(catalog, "image/cover", cover, dirs, mimeType: "image/png");
-
-        string? title = ExportSongTitleLogo(context, Path.Combine(dirs.Branding, "songTitleLogo.png"));
-        UpdateAssetReference(catalog, "image/songTitleLogo", title, dirs, mimeType: "image/png");
-    }
-
-    private static string? ExportCoverImage(ConversionContext context, string destination)
-    {
-        using Image<Rgba32>? cover = CoverArtGenerator.ExistingCover(context)
-            ?? (context.Request.OnlineCover ? CoverArtGenerator.TryImageWeb(context.SongData.Name, "Cover") : null)
-            ?? CoverArtGenerator.GenerateOwnCover(context);
-
-        if (cover == null)
-        {
-            Logger.Log("Cover art could not be prepared for intermediate export.", LogLevel.Warning);
-            return null;
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        cover.Save(destination);
-        return destination;
-    }
-
-    private static string? ExportSongTitleLogo(ConversionContext context, string destination)
-    {
-        using Image<Rgba32>? title = CoverArtGenerator.ExistingSongTitleLogo(context)
-            ?? (context.Request.OnlineCover ? CoverArtGenerator.TryImageWeb(context.SongData.Name, "Title") : null);
-
-        if (title == null)
-            return null;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        title.Save(destination);
-        return destination;
     }
 
     private static void AttachCoachAssets(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)

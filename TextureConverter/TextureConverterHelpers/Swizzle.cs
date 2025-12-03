@@ -1,4 +1,4 @@
-﻿using TextureConverter.TextureType;
+using TextureConverter.TextureType;
 
 namespace TextureConverter.TextureConverterHelpers;
 

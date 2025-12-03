@@ -1,4 +1,4 @@
-﻿using Pfim;
+using Pfim;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;

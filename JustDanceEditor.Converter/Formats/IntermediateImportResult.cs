@@ -1,9 +1,10 @@
 using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Formats.Intermediate;
+using JustDanceEditor.Formats.JDI;
 
 namespace JustDanceEditor.Converter.Formats;
 
 internal sealed record IntermediateImportResult(
 	IntermediateSongPackage Package,
 	ConversionContext? Context,
-	string? PackageRoot);
+	string? PackageRoot,
+	bool PackageRootIsTemporary = false);
