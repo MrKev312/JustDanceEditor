@@ -1,4 +1,4 @@
-using JustDanceEditor.Converter;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Logging;
 
 using System.Diagnostics.CodeAnalysis;

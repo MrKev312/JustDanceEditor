@@ -1,11 +1,11 @@
-using JustDanceEditor.Converter.Core;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
-
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace JustDanceEditor.Converter.Converters.Cache;
+namespace JustDanceEditor.Formats.Unity.Converters.Cache;
 
 public static class CacheJsonGenerator
 {
@@ -22,11 +22,11 @@ public static class CacheJsonGenerator
         WriteIndented = true
     };
 
-    public static bool MergeCaches(ConversionContext context)
+    public static bool MergeCaches(OutputFolders outputFolders, string outputPath, Guid songID)
     {
         try
         {
-            MergeCachesInternal(context);
+            MergeCachesInternal(outputFolders, outputPath, songID);
             return true;
         }
         catch (Exception e)
@@ -37,36 +37,36 @@ public static class CacheJsonGenerator
         return false;
     }
 
-    static void MergeCachesInternal(ConversionContext context)
+    static void MergeCachesInternal(OutputFolders outputFolders, string outputPath, Guid songID)
     {
         // First we load the generated JSON
-        string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
+        string cachingStatusPath = outputFolders.CachePath;
         Dictionary<Guid, JDSong> caching = JsonSerializer.Deserialize<Dictionary<Guid, JDSong>>(File.ReadAllText(cachingStatusPath), options)!;
 
         // The one we'll add to is in the existing SD_0000 folder
-        string cachingStatusPath0 = context.FileSystem.OutputFolders.CachingStatusPath;
+        string cachingStatusPath0 = outputFolders.CachingStatusPath;
         JDCacheJSON caching0 = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(cachingStatusPath0), options)!;
 
         // Merge the two dictionaries
-        if (caching0.MapsDict.ContainsKey(context.SongID))
+        if (caching0.MapsDict.ContainsKey(songID))
         {
             throw new Exception("Song already exists in the cache");
         }
 
-        caching0.MapsDict.Add(context.SongID, caching[context.SongID]);
+        caching0.MapsDict.Add(songID, caching[songID]);
 
         // Now we move the files first and after that we write the new cachingStatus.json
         // This is in case we crash while moving the files, we don't want to have the cache.json updated without the files
         // Moving the SD_Cache.0000 folder
-        string sd0000Path = context.FileSystem.OutputFolders.PreviewFolder;
-        string sd0000PathDest = Path.Combine(context.Request.OutputPath, "SD_Cache.0000", "MapBaseCache", context.SongID.ToString());
+        string sd0000Path = outputFolders.PreviewFolder;
+        string sd0000PathDest = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", songID.ToString());
         Directory.Move(sd0000Path, sd0000PathDest);
 
         // Moving the SD_Cache.xxxx folder
-        string sdXFolder = context.FileSystem.OutputFolders.MapFolder;
-        uint cacheNumber = context.FileSystem.OutputFolders.CacheNumber;
-        string sdXFolderDest = Path.Combine(context.Request.OutputPath, $"SD_Cache.{cacheNumber:X4}", context.SongID.ToString());
-        Directory.CreateDirectory(Path.Combine(context.Request.OutputPath, $"SD_Cache.{cacheNumber:X4}"));
+        string sdXFolder = outputFolders.MapFolder;
+        uint cacheNumber = outputFolders.CacheNumber;
+        string sdXFolderDest = Path.Combine(outputPath, $"SD_Cache.{cacheNumber:X4}", songID.ToString());
+        Directory.CreateDirectory(Path.Combine(outputPath, $"SD_Cache.{cacheNumber:X4}"));
         Directory.Move(sdXFolder, sdXFolderDest);
 
         // Write the new cachingStatus.json
@@ -77,7 +77,7 @@ public static class CacheJsonGenerator
         File.Delete(cachingStatusPath);
 
         // Recursively remove empty directories
-        string outputFolder = context.FileSystem.OutputFolders.OutputFolder;
+        string outputFolder = outputFolders.OutputFolder;
         RecursivelyRemoveEmptyDirectories(outputFolder);
 
         // If the output folder is empty, remove it
@@ -97,11 +97,11 @@ public static class CacheJsonGenerator
         }
     }
 
-    public static void GenerateCacheJson(ConversionContext context)
+    public static void GenerateCacheJson(OutputFolders outputFolders, Guid songID, ExportType exportType, UnityExportData unityData)
     {
         try
         {
-            GenerateCacheJsonInternal(context);
+            GenerateCacheJsonInternal(outputFolders, songID, exportType, unityData);
         }
         catch (Exception e)
         {
@@ -109,26 +109,24 @@ public static class CacheJsonGenerator
         }
     }
 
-    static void GenerateCacheJsonInternal(ConversionContext context)
+    static void GenerateCacheJsonInternal(OutputFolders outputFolders, Guid songID, ExportType exportType, UnityExportData unityData)
     {
-        if (context.Request.ExportType == ExportType.OfflineCache)
+        if (exportType == ExportType.OfflineCache)
         {
-            GenerateOfflineCacheJson(context);
+            GenerateOfflineCacheJson(outputFolders, songID, unityData);
         }
         else
         {
-            GenerateServerCacheJson(context);
+            GenerateServerCacheJson(outputFolders, songID, unityData);
         }
     }
 
-    static void GenerateOfflineCacheJson(ConversionContext context)
+    static void GenerateOfflineCacheJson(OutputFolders outputFolders, Guid songID, UnityExportData unityData)
     {
-        var outputFolders = context.FileSystem.OutputFolders;
-
         // Generate the json.cache file
         string cachexJsonPath = Path.Combine(outputFolders.MapFolder, "json.cache");
         uint cacheNumber = outputFolders.CacheNumber;
-        string cachexJson = JDSongFactory.CacheJson(cacheNumber, context.SongID);
+        string cachexJson = JDSongFactory.CacheJson(cacheNumber, songID);
         File.WriteAllText(cachexJsonPath, cachexJson);
 
         string audioName = Path.GetFileName(Directory.GetFiles(outputFolders.AudioFolder)[0]);
@@ -146,8 +144,7 @@ public static class CacheJsonGenerator
             songTitleLogoName = Path.GetFileName(Directory.GetFiles(outputFolders.SongTitleLogoFolder)[0]);
         }
 
-        string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
-        UnityExportData songData = context.RequireUnityData();
+        string cachingStatusPath = outputFolders.CachePath;
         OfflineCacheAssets assets = new(
             coverName,
             coachesSmallName,
@@ -160,11 +157,11 @@ public static class CacheJsonGenerator
             songTitleLogoName);
 
         Dictionary<Guid, JDSong> caching = UnityCacheBuilder.BuildOfflineCache(
-            songData,
-            context.SongID,
+            unityData,
+            songID,
             cacheNumber,
             assets,
-            context.FileSystem.OutputFolders.SongTitleLogoFolder);
+            outputFolders.SongTitleLogoFolder);
 
         // Generate the cachingStatus.json file
         string cachingStatus = JsonSerializer.Serialize(caching, options);
@@ -172,16 +169,15 @@ public static class CacheJsonGenerator
         File.WriteAllText(cachingStatusPath, cachingStatus);
     }
 
-    static void GenerateServerCacheJson(ConversionContext context)
+    static void GenerateServerCacheJson(OutputFolders outputFolders, Guid songID, UnityExportData unityData)
     {
-        string cachingStatusPath = context.FileSystem.OutputFolders.CachePath;
+        string cachingStatusPath = outputFolders.CachePath;
 
         // Convert the songdatabase
-        UnityExportData songData = context.RequireUnityData();
         ServerSongJSON serverSong = UnityCacheBuilder.BuildServerCache(
-            songData,
-            context.SongID,
-            context.FileSystem.OutputFolders.SongTitleLogoFolder);
+            unityData,
+            songID,
+            outputFolders.SongTitleLogoFolder);
         string serverSongJSON = JsonSerializer.Serialize(serverSong, optionsCamelCase);
 
         File.WriteAllText(cachingStatusPath, serverSongJSON);

@@ -61,10 +61,10 @@ public static class UnityFormatMapper
 
     private static double ResolveMapLength(UnityExportData data)
     {
-        if (data.Metadata.MapLengthSeconds > 0)
-            return data.Metadata.MapLengthSeconds;
+        if (data.Metadata.MapLength > 0)
+            return data.Metadata.MapLength;
 
-        int[] markers = data.Structure.markers ?? Array.Empty<int>();
+        int[] markers = data.Structure.markers ?? [];
         if (markers.Length < 2)
             return Math.Max(0, data.Structure.endBeat - data.Structure.startBeat);
 

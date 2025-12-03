@@ -4,15 +4,15 @@ namespace JustDanceEditor.Converter.Formats;
 
 public class FormatConversionService
 {
-    public async Task ConvertAsync(JdiFormatKind source, JdiFormatKind target, ConversionRequest request)
+    public static async Task ConvertAsync(string sourceFormatName, string targetFormatName, ConversionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (source == target)
+        if (string.Equals(sourceFormatName, targetFormatName, StringComparison.OrdinalIgnoreCase))
             return;
 
-        IJdiFormat sourceFormat = ResolveFormat(source);
-        IJdiFormat targetFormat = ResolveFormat(target);
+        IJdiFormat sourceFormat = ResolveFormat(sourceFormatName);
+        IJdiFormat targetFormat = ResolveFormat(targetFormatName);
 
         if (!sourceFormat.CanImport)
             throw new NotSupportedException($"Format '{sourceFormat.DisplayName}' cannot be used as a conversion source.");
@@ -25,18 +25,27 @@ public class FormatConversionService
         {
             await targetFormat.ExportAsync(importResult, request);
         }
+        catch
+        {
+            // If export fails, we still want to clean up any temporary materialized roots.
+            throw;
+        }
         finally
         {
-            if (importResult.MaterializedRootIsTemporary)
-                JdiConversionHelpers.TryDeleteDirectory(importResult.MaterializedRoot);
+            if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null
+                && Directory.Exists(importResult.MaterializedRoot))
+                Directory.Delete(importResult.MaterializedRoot, true);
         }
     }
 
-    private static IJdiFormat ResolveFormat(JdiFormatKind kind)
+    private static IJdiFormat ResolveFormat(string formatName)
     {
-        if (JdiFormatRegistry.TryGetFormat(kind, out IJdiFormat? format))
+        IJdiFormat? format = JdiFormatRegistry.GetFormats()
+            .FirstOrDefault(f => string.Equals(f.DisplayName, formatName, StringComparison.OrdinalIgnoreCase));
+
+        if (format != null)
             return format;
 
-        throw new NotSupportedException($"No converter registered for format '{kind}'.");
+        throw new NotSupportedException($"No converter registered for format '{formatName}'.");
     }
 }

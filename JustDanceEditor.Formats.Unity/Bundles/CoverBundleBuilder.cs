@@ -32,7 +32,7 @@ public static class CoverBundleBuilder
 
             request.CoverImage.Mutate(x => x.Resize(640, 360));
 
-            var (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, coverTextureInfo, coverSpriteInfo) =
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? coverTextureInfo, AssetFileInfo? coverSpriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
 
             UpdateCoverTexture(request.Codename, manager, afileInst, coverTextureInfo, request.CoverImage);

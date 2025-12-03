@@ -1,4 +1,4 @@
-using JustDanceEditor.Converter;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;

@@ -24,20 +24,23 @@ public static class UnityExportDataBuilder
         UnityExportMetadata exportMetadata = new()
         {
             SongId = metadata.SongId,
-            MapName = metadata.MapName ?? string.Empty,
-            ParentMapName = metadata.ParentMapName ?? string.Empty,
-            Title = metadata.Title ?? string.Empty,
             Artist = metadata.Artist ?? string.Empty,
-            Credits = metadata.Credits ?? string.Empty,
-            LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor!,
-            MapLengthSeconds = metadata.MapLengthSeconds,
-            EngineVersion = metadata.EngineVersion,
-            OriginalJdVersion = metadata.OriginalJdVersion,
             CoachCount = metadata.CoachCount,
+            CoachNamesLocIds = metadata.CoachNames?.ToArray() ?? [],
+            Credits = metadata.Credits ?? string.Empty,
+            DanceVersionLocId = 0,
             Difficulty = metadata.Difficulty,
+            // Todo: DoubleScoringType: do we have gestures?
+            HasSongTitleInCover = metadata.HasSongTitleInCover,
+            LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor!,
+            MapLength = metadata.MapLengthSeconds,
+            MapName = metadata.MapName,
+            OriginalJdVersion = metadata.OriginalJdVersion,
+            ParentMapName = metadata.ParentMapName,
             SweatDifficulty = metadata.SweatDifficulty,
-            Tags = metadata.Tags?.ToArray() ?? Array.Empty<string>(),
-            HasSongTitleInCover = metadata.HasSongTitleInCover
+            TagIds = [],
+            Tags = metadata.Tags?.ToArray() ?? [],
+            Title = metadata.Title ?? string.Empty,
         };
 
         UnityClipAssembler assembler = new(package);
@@ -66,24 +69,17 @@ public static class UnityExportDataBuilder
             vibrations);
     }
 
-    private sealed class UnityClipAssembler
+    private sealed class UnityClipAssembler(IntermediateSongPackage package)
     {
-        private readonly IntermediateSongPackage _package;
-        private long _nextClipId;
-
-        public UnityClipAssembler(IntermediateSongPackage package)
-        {
-            _package = package;
-            _nextClipId = Math.Max(1_000_000, DetermineMaxId(package) + 1);
-        }
+        private long _nextClipId = Math.Max(1_000_000, DetermineMaxId(package) + 1);
 
         public IReadOnlyList<UnityKaraokeClip> BuildKaraokeClips()
         {
             List<UnityKaraokeClip> clips = [];
-            if (_package.Lyrics?.Clips == null)
+            if (package.Lyrics?.Clips == null)
                 return clips;
 
-            foreach (var clip in _package.Lyrics.Clips.OrderBy(c => c.StartTime))
+            foreach (KaraokeClip? clip in package.Lyrics.Clips.OrderBy(c => c.StartTime))
             {
                 long id = AllocateClipId(clip.Id);
 
@@ -116,10 +112,10 @@ public static class UnityExportDataBuilder
         public IReadOnlyList<UnityPictogramClip> BuildPictogramClips()
         {
             List<UnityPictogramClip> clips = [];
-            if (_package.Pictograms?.Entries == null)
+            if (package.Pictograms?.Entries == null)
                 return clips;
 
-            foreach (var entry in _package.Pictograms.Entries.OrderBy(e => e.StartTime))
+            foreach (PictogramEntry? entry in package.Pictograms.Entries.OrderBy(e => e.StartTime))
             {
                 long id = AllocateClipId(entry.Id);
 
@@ -145,7 +141,7 @@ public static class UnityExportDataBuilder
         public IReadOnlyList<UnityMotionClip> BuildMotionClips()
         {
             List<UnityMotionClip> clips = [];
-            if (_package.CoachTimelines == null && _package.FullBodyCoachTimelines == null)
+            if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
                 return clips;
 
             IEnumerable<(CoachTimelineDocument Timeline, CoachMoveType MoveType)> timelines = EnumerateCoachTimelines()
@@ -187,15 +183,15 @@ public static class UnityExportDataBuilder
 
         private IEnumerable<(CoachTimelineDocument Timeline, CoachMoveType MoveType)> EnumerateCoachTimelines()
         {
-            if (_package.CoachTimelines != null)
+            if (package.CoachTimelines != null)
             {
-                foreach (CoachTimelineDocument timeline in _package.CoachTimelines)
+                foreach (CoachTimelineDocument timeline in package.CoachTimelines)
                     yield return (timeline, CoachMoveType.HandTracking);
             }
 
-            if (_package.FullBodyCoachTimelines != null)
+            if (package.FullBodyCoachTimelines != null)
             {
-                foreach (CoachTimelineDocument timeline in _package.FullBodyCoachTimelines)
+                foreach (CoachTimelineDocument timeline in package.FullBodyCoachTimelines)
                     yield return (timeline, CoachMoveType.FullBodyTracking);
             }
         }
@@ -218,8 +214,8 @@ public static class UnityExportDataBuilder
         private CoachMoveDefinition? TryLookupMoveDefinition(string moveId, CoachMoveType moveType)
         {
             Dictionary<string, CoachMoveDefinition>? catalog = moveType == CoachMoveType.FullBodyTracking
-                ? _package.FullBodyCoachMoves
-                : _package.HandCoachMoves;
+                ? package.FullBodyCoachMoves
+                : package.HandCoachMoves;
 
             if (catalog != null && catalog.TryGetValue(moveId, out CoachMoveDefinition? definition))
                 return definition;
@@ -257,10 +253,10 @@ public static class UnityExportDataBuilder
             where TClip : UnityClip, new()
         {
             List<TClip> clips = [];
-            if (_package.Events?.Events == null)
+            if (package.Events?.Events == null)
                 return clips;
 
-            foreach (TimelineEvent evt in _package.Events.Events.OrderBy(e => e.StartTime))
+            foreach (TimelineEvent evt in package.Events.Events.OrderBy(e => e.StartTime))
             {
                 if (!string.Equals(evt.Type, typeName, StringComparison.OrdinalIgnoreCase))
                     continue;

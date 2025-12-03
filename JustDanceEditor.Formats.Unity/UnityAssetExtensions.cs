@@ -81,6 +81,7 @@ public static class UnityAssetExtensions
 
             reader.BaseStream.Seek(-markerBytes.Length + 1, SeekOrigin.Current);
         }
+
         throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
     }
 

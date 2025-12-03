@@ -1,4 +1,4 @@
-using JustDanceEditor.Converter;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Logging;
 
@@ -89,11 +89,9 @@ public static class VideoConverter
     {
         public IVideoConversionProgress Create(string stageName) => new ProgressAdapter(stageName);
 
-        private sealed class ProgressAdapter : IVideoConversionProgress
+        private sealed class ProgressAdapter(string stageName) : IVideoConversionProgress
         {
-            private readonly FFMpegProgress progress;
-
-            public ProgressAdapter(string stageName) => progress = new FFMpegProgress(stageName);
+            private readonly FFMpegProgress progress = new FFMpegProgress(stageName);
 
             public void Update(Xabe.FFmpeg.Events.ConversionProgressEventArgs args) => progress.Update(args);
 

@@ -1,25 +1,18 @@
-using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.Intermediate;
-using JustDanceEditor.Converter.Services;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
+using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Intermediate;
+using JustDanceEditor.Formats.UbiArt.Services;
 
-namespace JustDanceEditor.Converter.Formats;
+namespace JustDanceEditor.Formats.UbiArt;
 
-internal sealed partial class UbiArtJdiFormat : IJdiFormat
+public sealed class UbiArtJdiFormat(IRequestValidator requestValidator, ISongDataLoader songDataLoader) : IJdiFormat
 {
-    private readonly IRequestValidator _requestValidator;
-    private readonly ISongDataLoader _songDataLoader;
-
-    public UbiArtJdiFormat(IRequestValidator requestValidator, ISongDataLoader songDataLoader)
-    {
-        _requestValidator = requestValidator;
-        _songDataLoader = songDataLoader;
-    }
+    public UbiArtJdiFormat() : this(new RequestValidator(), new SongDataLoader()) { }
 
     public string DisplayName => "UbiArt";
-    public JdiFormatKind Kind => JdiFormatKind.UbiArt;
     public bool CanImport => true;
     public bool CanExport => false;
 
@@ -30,19 +23,17 @@ internal sealed partial class UbiArtJdiFormat : IJdiFormat
         FileSystem fileSystem = new(request);
         ConversionContext context = new(request, fileSystem);
 
-        _requestValidator.ValidateTemplateFolder(request.TemplatePath);
-        _requestValidator.ValidateConversionRequest(request);
+        requestValidator.ValidateConversionRequest(request);
 
-        context.SongData = _songDataLoader.LoadSongData(request, fileSystem);
+        context.SongData = songDataLoader.LoadSongData(request, fileSystem);
         context.FileSystem.UpdateSongName(context.SongData.Name);
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
-        InitializeUnityData(context);
 
         string stagingRoot = await MaterializeUbiArtIntermediateAsync(context, context.IntermediatePackage);
 
         return new JdiImportResult(
             context.IntermediatePackage,
-            JdiFormatKind.UbiArt,
+            "UbiArt",
             stagingRoot,
             MaterializedRootIsTemporary: true,
             SuggestedOutputFolder: context.FileSystem.OutputFolders.OutputFolder);
@@ -54,7 +45,8 @@ internal sealed partial class UbiArtJdiFormat : IJdiFormat
     private static async Task<string> MaterializeUbiArtIntermediateAsync(ConversionContext context, IntermediateSongPackage package)
     {
         string stagingRoot = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "IntermediateStaging", Guid.NewGuid().ToString("N"));
-        JdiConversionHelpers.TryDeleteDirectory(stagingRoot);
+        if (Directory.Exists(stagingRoot))
+            Directory.Delete(stagingRoot, true);
         Directory.CreateDirectory(stagingRoot);
 
         await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, package, stagingRoot);

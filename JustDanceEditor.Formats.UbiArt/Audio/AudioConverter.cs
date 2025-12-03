@@ -1,4 +1,4 @@
-using JustDanceEditor.Converter;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;

@@ -1,10 +1,10 @@
-using JustDanceEditor.Converter.Core;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
@@ -13,7 +13,7 @@ using System.Text.Json;
 using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.KaraokeClip;
 
-namespace JustDanceEditor.Converter.Intermediate;
+namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
 internal static class IntermediatePackageBuilder
 {
@@ -74,7 +74,6 @@ internal static class IntermediatePackageBuilder
             Credits = info.Credits,
             LyricsColor = lyricsColor,
             MapLengthSeconds = mapLengthSeconds,
-            EngineVersion = context.SongData.EngineVersion,
             OriginalJdVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
             CoachNames = BuildCoachNames(info.NumCoach),
@@ -387,7 +386,7 @@ internal static class IntermediatePackageBuilder
     private static string[] BuildCoachNames(int coachCount)
     {
         if (coachCount <= 0)
-            return Array.Empty<string>();
+            return [];
 
         string[] names = new string[coachCount];
         for (int i = 0; i < coachCount; i++)
@@ -402,5 +401,4 @@ internal static class IntermediatePackageBuilder
             return Directory.EnumerateFiles(folder).Any();
         return false;
     }
-
 }

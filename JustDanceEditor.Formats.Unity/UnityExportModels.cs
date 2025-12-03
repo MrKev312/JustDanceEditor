@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.Unity;
 
@@ -53,21 +54,59 @@ public sealed class UnityExportData
 
 public sealed class UnityExportMetadata
 {
+    [JsonPropertyName("songID")]
     public required Guid SongId { get; init; }
-    public required string MapName { get; init; }
-    public required string ParentMapName { get; init; }
-    public required string Title { get; init; }
+
+    [JsonPropertyName("artist")]
     public required string Artist { get; init; }
-    public required string Credits { get; init; }
-    public required string LyricsColor { get; init; }
-    public required double MapLengthSeconds { get; init; }
-    public required uint EngineVersion { get; init; }
-    public required uint OriginalJdVersion { get; init; }
+
+    [JsonPropertyName("coachCount")]
     public required int CoachCount { get; init; }
+
+    [JsonPropertyName("coachNamesLocIds")]
+    public required IReadOnlyList<string> CoachNamesLocIds { get; init; }
+
+    [JsonPropertyName("credits")]
+    public required string Credits { get; init; }
+
+    [JsonPropertyName("danceVersionLocId")]
+    public required int DanceVersionLocId { get; init; }
+
+    [JsonPropertyName("difficulty")]
     public required uint Difficulty { get; init; }
-    public required uint SweatDifficulty { get; init; }
-    public required IReadOnlyList<string> Tags { get; init; }
+
+    [JsonPropertyName("doubleScoringType")]
+    public string? DoubleScoringType { get; init; }
+
+    [JsonPropertyName("hasSongTitleInCover")]
     public bool HasSongTitleInCover { get; init; }
+
+    [JsonPropertyName("lyricsColor")]
+    public required string LyricsColor { get; init; }
+
+    [JsonPropertyName("mapLength")]
+    public required double MapLength { get; init; }
+
+    [JsonPropertyName("mapName")]
+    public required string MapName { get; init; }
+
+    [JsonPropertyName("originalJDVersion")]
+    public required uint OriginalJdVersion { get; init; }
+
+    [JsonPropertyName("parentMapName")]
+    public required string ParentMapName { get; init; }
+
+    [JsonPropertyName("sweatDifficulty")]
+    public required uint SweatDifficulty { get; init; }
+
+    [JsonPropertyName("tagIds")]
+    public required IReadOnlyList<Guid> TagIds { get; init; }
+
+    [JsonPropertyName("tags")]
+    public required IReadOnlyList<string> Tags { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
 }
 
 public sealed class UnityTrackStructure
@@ -78,9 +117,9 @@ public sealed class UnityTrackStructure
     public double previewEntry { get; init; }
     public double previewLoopStart { get; init; }
     public double previewLoopEnd { get; init; }
-    public int[] markers { get; init; } = Array.Empty<int>();
-    public UnitySignature[] signatures { get; init; } = Array.Empty<UnitySignature>();
-    public UnitySection[] sections { get; init; } = Array.Empty<UnitySection>();
+    public int[] markers { get; init; } = [];
+    public UnitySignature[] signatures { get; init; } = [];
+    public UnitySection[] sections { get; init; } = [];
     public bool useFadeStartBeat { get; set; }
     public int fadeStartBeat { get; set; }
     public int fadeInType { get; set; }

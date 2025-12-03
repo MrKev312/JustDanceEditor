@@ -310,7 +310,7 @@ public static class UnityAssetMaterializer
             return destinationFile;
 
         string? rasterSource = Directory.EnumerateFiles(sourceFolder)
-            .FirstOrDefault(f => HasImageExtension(f));
+            .FirstOrDefault(HasImageExtension);
         if (rasterSource == null)
             return null;
 
@@ -429,7 +429,7 @@ public static class UnityAssetMaterializer
         AssetTypeValueField scriptField = baseField["m_Script"];
         if (!scriptField.IsDummy && scriptField.Value?.ValueType == AssetValueType.String)
             return scriptField.AsByteArray;
-        return Array.Empty<byte>();
+        return [];
     }
 
     private static bool TryParseCoachIndex(string name, out int index)

@@ -54,7 +54,7 @@ public static class UnityPictoConverter
 
         Logger.Log($"Successfully processed raw files into {convertedPngPaths.Length} individual PNG pictos.");
 
-        var (imageDict, atlasPics) = BuildPictoAtlases(convertedPngPaths);
+        (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)>? imageDict, List<Image<Rgba32>>? atlasPics) = BuildPictoAtlases(convertedPngPaths);
         SaveAtlasImagesToDisk(atlasPics, request.PictoAtlasFolder);
 
         stopwatch.Stop();

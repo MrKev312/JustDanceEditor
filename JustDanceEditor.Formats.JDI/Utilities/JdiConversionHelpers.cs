@@ -1,9 +1,9 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 
-namespace JustDanceEditor.Converter.Formats;
+namespace JustDanceEditor.Formats.JDI.Utilities;
 
-internal static class JdiConversionHelpers
+public static class JdiConversionHelpers
 {
     public static void EnsureSongName(ConversionRequest request, IntermediateSongPackage package, bool allowFallbackToMetadata = false)
     {

@@ -27,25 +27,22 @@ public interface IVideoProgressFactory
     IVideoConversionProgress Create(string stageName);
 }
 
-public sealed class ConsoleVideoProgress : IVideoConversionProgress
+public sealed class ConsoleVideoProgress(string name) : IVideoConversionProgress
 {
     private (TimeSpan current, TimeSpan finish) previous = (TimeSpan.Zero, TimeSpan.Zero);
-    private readonly string progressName;
-
-    public ConsoleVideoProgress(string name) => progressName = name;
 
     public void Update(ConversionProgressEventArgs args)
     {
         (TimeSpan, TimeSpan) current = (args.Duration, args.TotalLength);
         if (previous != current)
-            Console.WriteLine($"{progressName}: {args.Duration}/{args.TotalLength}");
+            Console.WriteLine($"{name}: {args.Duration}/{args.TotalLength}");
         previous = current;
     }
 
     public void Finish()
     {
         if (previous.current != previous.finish)
-            Console.WriteLine($"{progressName}: {previous.finish}/{previous.finish}");
+            Console.WriteLine($"{name}: {previous.finish}/{previous.finish}");
     }
 }
 

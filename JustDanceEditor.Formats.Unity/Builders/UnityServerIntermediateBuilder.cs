@@ -1,12 +1,12 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
-using JustDanceEditor.Converter.Intermediate;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.UbiArt.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
@@ -16,7 +16,7 @@ using System.Text.Json.Serialization;
 
 using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 
-namespace JustDanceEditor.Converter.Formats;
+namespace JustDanceEditor.Formats.Unity.Builders;
 
 internal static class UnityServerIntermediateBuilder
 {
@@ -50,7 +50,7 @@ internal static class UnityServerIntermediateBuilder
         IntermediateSongPackage package = new()
         {
             Manifest = new IntermediatePackageManifest(),
-            Metadata = BuildMetadata(songInfo, mapData.Structure, songInfoPath, mapData.MapPackagePath),
+            Metadata = BuildMetadata(songInfo, mapData.Structure),
             AssetCatalog = BuildAssetCatalog(mapRoot, mapData.MapPackagePath),
             TimelineStructure = BuildTimelineStructure(mapData.Structure, timelineMath),
             Lyrics = BuildLyricsDocument(mapData.KaraokeClips),
@@ -69,9 +69,7 @@ internal static class UnityServerIntermediateBuilder
     private static UnitySongInfo LoadSongInfo(string songInfoPath)
     {
         string json = File.ReadAllText(songInfoPath);
-        UnitySongInfo? info = JsonSerializer.Deserialize<UnitySongInfo>(json, JsonOptions);
-        if (info == null)
-            throw new InvalidDataException($"Failed to deserialize SongInfo.json located at '{songInfoPath}'.");
+        UnitySongInfo info = JsonSerializer.Deserialize<UnitySongInfo>(json, JsonOptions) ?? throw new InvalidDataException($"Failed to deserialize SongInfo.json located at '{songInfoPath}'.");
         return info;
     }
 
@@ -286,7 +284,7 @@ internal static class UnityServerIntermediateBuilder
         return clips;
     }
 
-    private static IntermediateMetadata BuildMetadata(UnitySongInfo info, Structure structure, string songInfoPath, string mapPackagePath)
+    private static IntermediateMetadata BuildMetadata(UnitySongInfo info, Structure structure)
     {
         double mapLengthSeconds = CalculateMapLengthSeconds(structure);
 
@@ -300,7 +298,6 @@ internal static class UnityServerIntermediateBuilder
             Credits = info.Credits ?? string.Empty,
             LyricsColor = string.IsNullOrWhiteSpace(info.LyricsColor) ? "#FFFFFFFF" : info.LyricsColor,
             MapLengthSeconds = mapLengthSeconds > 0 ? mapLengthSeconds : info.MapLength,
-            EngineVersion = info.OriginalJdVersion,
             OriginalJdVersion = info.OriginalJdVersion,
             CoachCount = info.CoachCount,
             Difficulty = info.Difficulty,
@@ -315,8 +312,8 @@ internal static class UnityServerIntermediateBuilder
         if (info.CoachNames is { Length: > 0 })
             metadata.CoachNames = info.CoachNames;
 
-        metadata.AdditionalMetadata["unity.tagIds"] = string.Join(',', info.TagIds ?? Array.Empty<string>());
-        metadata.AdditionalMetadata["unity.coachNamesLocIds"] = string.Join(',', info.CoachNamesLocIds ?? Array.Empty<string>());
+        metadata.AdditionalMetadata["unity.tagIds"] = string.Join(',', info.TagIds ?? []);
+        metadata.AdditionalMetadata["unity.coachNamesLocIds"] = string.Join(',', info.CoachNamesLocIds ?? []);
         metadata.AdditionalMetadata["unity.danceVersionLocId"] = info.DanceVersionLocId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         metadata.AdditionalMetadata["unity.doubleScoringType"] = info.DoubleScoringType ?? string.Empty;
 
@@ -712,7 +709,7 @@ internal static class UnityServerIntermediateBuilder
     private static T[] ReadArray<T>(AssetTypeValueField? arrayField, Func<AssetTypeValueField, T> selector)
     {
         if (arrayField == null || arrayField.IsDummy)
-            return Array.Empty<T>();
+            return [];
 
         T[] result = new T[arrayField.Children.Count];
         for (int i = 0; i < arrayField.Children.Count; i++)

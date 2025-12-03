@@ -6,20 +6,16 @@ using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using System.Text.Json;
+namespace JustDanceEditor.Formats.UbiArt.Images;
 
-namespace JustDanceEditor.Formats.Unity.Images;
+public sealed record UbiArtCoverRequest(JDUbiArtSong SongData, string MenuArtFolder);
 
-public sealed record UnityCoverArtRequest(UnityExportData UnityData, string MenuArtFolder);
-
-public static class UnityCoverArtGenerator
+public static class UbiArtCoverGenerator
 {
-    private static readonly HttpClient HttpClient = new();
-
-    public static Image<Rgba32>? ExistingCover(UnityCoverArtRequest request)
+    public static Image<Rgba32>? ExistingCover(UbiArtCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        UnityExportData song = request.UnityData ?? throw new ArgumentNullException(nameof(request.UnityData));
+        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
         if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
             throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
 
@@ -54,7 +50,7 @@ public static class UnityCoverArtGenerator
         return null;
     }
 
-    public static Image<Rgba32>? ExistingSongTitleLogo(UnityCoverArtRequest request)
+    public static Image<Rgba32>? ExistingSongTitleLogo(UbiArtCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
@@ -63,35 +59,10 @@ public static class UnityCoverArtGenerator
         return TryLoadImage(Path.Combine(request.MenuArtFolder, "songTitleLogo.png"));
     }
 
-    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType)
-    {
-        string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
-
-        Image<Rgba32>? FetchCoverFromWeb(string name)
-            => LoadFromUrl($"{baseUrl}/Covers/{name}/{imageType}.webp");
-
-        Image<Rgba32>? coverImage = FetchCoverFromWeb(mapName);
-        if (coverImage is not null)
-        {
-            Logger.Log($"Found {imageType} on the web", LogLevel.Important);
-            return coverImage;
-        }
-
-        string coversJsonUrl = $"{baseUrl}/Covers.json";
-        string json = HttpClient.GetStringAsync(coversJsonUrl).Result;
-        Dictionary<string, string[]> covers = JsonSerializer.Deserialize<Dictionary<string, string[]>>(json)!;
-
-        string? codename = covers.Where(x => x.Value.Contains(mapName)).Select(x => x.Key).FirstOrDefault();
-        if (codename is null)
-            return null;
-
-        return FetchCoverFromWeb(codename);
-    }
-
-    public static Image<Rgba32> GenerateOwnCover(UnityCoverArtRequest request)
+    public static Image<Rgba32> GenerateOwnCover(UbiArtCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        UnityExportData song = request.UnityData ?? throw new ArgumentNullException(nameof(request.UnityData));
+        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
 
         Image<Rgba32> coverImage = GetBackground(request);
 
@@ -110,10 +81,10 @@ public static class UnityCoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32> GetBackground(UnityCoverArtRequest request)
+    public static Image<Rgba32> GetBackground(UbiArtCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        UnityExportData song = request.UnityData ?? throw new ArgumentNullException(nameof(request.UnityData));
+        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
         if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
             throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
 
@@ -133,10 +104,10 @@ public static class UnityCoverArtGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? ProcessBanner(UnityCoverArtRequest request)
+    public static Image<Rgba32>? ProcessBanner(UbiArtCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        UnityExportData song = request.UnityData ?? throw new ArgumentNullException(nameof(request.UnityData));
+        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
         if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
             throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
 
@@ -148,10 +119,11 @@ public static class UnityCoverArtGenerator
         int width = banner.Width;
         int height = banner.Height;
 
-        UnityExportMetadata meta = song.Metadata;
-        Rgba32 primaryColor = ParseColor(meta.LyricsColor, new Rgba32(255, 255, 255, 255));
-        //float boost = meta.EngineVersion >= 2019 ? 0.2f : -0.1f;
-        float boost = 0.2f;
+        // Extract colors from SongDesc
+        Defaultcolors? colors = song.SongDesc.COMPONENTS.FirstOrDefault()?.DefaultColors;
+        Rgba32 primaryColor = ParseColor(colors?.lyrics, new Rgba32(255, 255, 255, 255));
+        
+        float boost = song.EngineVersion >= 2019 ? 0.2f : -0.1f;
         Rgba32 secondaryColor = AdjustBrightness(primaryColor, boost);
         float[] colorsA = [primaryColor.A / 255f, primaryColor.R / 255f, primaryColor.G / 255f, primaryColor.B / 255f];
         float[] colorsB = [secondaryColor.A / 255f, secondaryColor.R / 255f, secondaryColor.G / 255f, secondaryColor.B / 255f];
@@ -202,34 +174,23 @@ public static class UnityCoverArtGenerator
         return Image.Load<Rgba32>(path);
     }
 
-    private static Image<Rgba32>? LoadFromUrl(string url)
+    private static Rgba32 ParseColor(float[]? colorValues, Rgba32 fallback)
     {
-        if (string.IsNullOrEmpty(url))
-            return null;
-
-        using HttpResponseMessage response = HttpClient.GetAsync(url).Result;
-        if (!response.IsSuccessStatusCode)
-            return null;
-
-        byte[] imageData = response.Content.ReadAsByteArrayAsync().Result;
-        using MemoryStream stream = new(imageData);
-        return Image.Load<Rgba32>(stream);
-    }
-
-    private static Rgba32 ParseColor(string? hex, Rgba32 fallback)
-    {
-        if (string.IsNullOrWhiteSpace(hex))
+        if (colorValues == null || colorValues.Length < 4)
             return fallback;
 
-        string value = hex.TrimStart('#');
-        if (value.Length is not (6 or 8))
-            return fallback;
-
-        byte r = Convert.ToByte(value.Substring(0, 2), 16);
-        byte g = Convert.ToByte(value.Substring(2, 2), 16);
-        byte b = Convert.ToByte(value.Substring(4, 2), 16);
-        byte a = value.Length == 8 ? Convert.ToByte(value.Substring(6, 2), 16) : (byte)255;
-        return new Rgba32(r, g, b, a);
+        // UbiArt colors are usually float 0-1. Order might be RGBA or ARGB?
+        // DefaultColors class has float[] lyrics.
+        // Assuming RGBA or ARGB. Let's assume RGBA based on usage in UnityCoverArtGenerator (it parsed hex).
+        // Wait, UnityCoverArtGenerator parsed hex. UbiArt usually stores as float[4].
+        // Let's assume R, G, B, A.
+        
+        return new Rgba32(
+            (byte)(colorValues[0] * 255),
+            (byte)(colorValues[1] * 255),
+            (byte)(colorValues[2] * 255),
+            (byte)(colorValues[3] * 255)
+        );
     }
 
     private static Rgba32 AdjustBrightness(Rgba32 color, float delta)

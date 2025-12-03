@@ -1,4 +1,6 @@
-namespace JustDanceEditor.Converter.Services;
+using JustDanceEditor.Formats.JDI;
+
+namespace JustDanceEditor.Formats.JDI.Services;
 
 public class RequestValidator : IRequestValidator
 {

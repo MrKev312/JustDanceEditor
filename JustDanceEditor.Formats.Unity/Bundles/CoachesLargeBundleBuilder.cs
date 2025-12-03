@@ -30,9 +30,9 @@ public static class CoachesLargeBundleBuilder
         Logger.Log($"Converting CoachesLarge bundle for {request.Codename}...");
         try
         {
-            var (manager, bunInst, afileInst, afile, sortedAssetInfos, assetBundleBase) = InitializeBundle(request);
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, List<AssetFileInfo>? sortedAssetInfos, AssetTypeValueField? assetBundleBase) = InitializeBundle(request);
 
-            var (coachTextureTpl, coachSpriteTpl, backgroundTextureTpl, backgroundSpriteTpl, textureIds, spriteIds) =
+            (AssetFileInfo? coachTextureTpl, AssetFileInfo? coachSpriteTpl, AssetFileInfo? backgroundTextureTpl, AssetFileInfo? backgroundSpriteTpl, long[]? textureIds, long[]? spriteIds) =
                 ClearBundleAndIdentifyTemplates(request, manager, afileInst, afile, assetBundleBase);
 
             ProcessCoachAssets(request, manager, afileInst, afile, coachTextureTpl, coachSpriteTpl, textureIds, spriteIds);

@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Converter;
+namespace JustDanceEditor.Formats.JDI;
 
 public enum ExportType
 {

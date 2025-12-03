@@ -2,18 +2,13 @@ using Xabe.FFmpeg.Events;
 
 namespace JustDanceEditor.Formats.UbiArt.Video;
 
-public sealed class FFMpegProgress
+public sealed class FFMpegProgress(string name)
 {
     private (TimeSpan current, TimeSpan finish) previous = (TimeSpan.Zero, TimeSpan.Zero);
-    private readonly string progressName;
+    private readonly string progressName = string.IsNullOrWhiteSpace(name) ? "Progress" : $"{name} progress";
 
     public FFMpegProgress() : this("Progress")
     {
-    }
-
-    public FFMpegProgress(string name)
-    {
-        progressName = string.IsNullOrWhiteSpace(name) ? "Progress" : $"{name} progress";
     }
 
     public void Update(ConversionProgressEventArgs args)

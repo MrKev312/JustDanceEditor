@@ -406,8 +406,7 @@ public class ConverterDialogue
 
     private static void RunFormatConversion(ConversionRequest request)
     {
-        FormatConversionService service = new();
-        service.ConvertAsync(JdiFormatKind.UbiArt, JdiFormatKind.Unity, request).GetAwaiter().GetResult();
+        FormatConversionService.ConvertAsync("UbiArt", "Unity", request).GetAwaiter().GetResult();
     }
 
     private static (string inputPath, string songName) AskInputFolder()

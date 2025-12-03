@@ -33,8 +33,8 @@ public static class MapPackageBundleBuilder
         Logger.Log($"Converting MapPackage bundle for {request.Codename}...");
         try
         {
-            var (manager, bunInst, afileInst, afile, bunFile, sortedAssetInfos, musicTrackInfo, mapInfo) = InitializeBundle(request);
-            var (musicTrackBase, mapBase, assetBundleInfo, assetBundleBase) = IdentifyAndPrepareMonoBehavioursAndAssetBundle(request, manager, afileInst, sortedAssetInfos);
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetBundleFile? bunFile, List<AssetFileInfo>? sortedAssetInfos, AssetFileInfo? musicTrackInfo, AssetFileInfo? mapInfo) = InitializeBundle(request);
+            (AssetTypeValueField? musicTrackBase, AssetTypeValueField? mapBase, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase) = IdentifyAndPrepareMonoBehavioursAndAssetBundle(request, manager, afileInst, sortedAssetInfos);
             AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
             AssetFileInfo spriteTemplate = ClearExistingMapAssets(manager, afileInst, afile, sortedAssetInfos, assetBundleArray);
@@ -52,7 +52,7 @@ public static class MapPackageBundleBuilder
             PopulateDanceDataClips(request, mapBase, request.PictoLookup);
             UpdateCoachCounters(request, mapBase);
 
-            FinalizeAndSaveBundle(request, bunFile, afile, musicTrackBase, mapBase, assetBundleBase,
+            FinalizeAndSaveBundle(request, bunFile, afile, musicTrackBase, assetBundleBase,
                 () => musicTrackInfo.SetNewData(musicTrackBase),
                 () => mapInfo.SetNewData(mapBase),
                 () => assetBundleInfo.SetNewData(assetBundleBase));
@@ -220,7 +220,7 @@ public static class MapPackageBundleBuilder
 
         AssetTypeValueField signaturesArray = structureField["signatures"]["Array"];
         signaturesArray.Children.Clear();
-        foreach (UnitySignature signature in trackStructure.signatures ?? Array.Empty<UnitySignature>())
+        foreach (UnitySignature signature in trackStructure.signatures ?? [])
         {
             AssetTypeValueField newSig = ValueBuilder.DefaultValueFieldFromArrayTemplate(signaturesArray);
             newSig["MusicSignature"]["beats"].AsInt = signature.beats;
@@ -231,7 +231,7 @@ public static class MapPackageBundleBuilder
 
         AssetTypeValueField markersArray = structureField["markers"]["Array"];
         markersArray.Children.Clear();
-        foreach (int marker in trackStructure.markers ?? Array.Empty<int>())
+        foreach (int marker in trackStructure.markers ?? [])
         {
             AssetTypeValueField newMarker = ValueBuilder.DefaultValueFieldFromArrayTemplate(markersArray);
             newMarker["VAL"].AsLong = marker;
@@ -240,7 +240,7 @@ public static class MapPackageBundleBuilder
 
         AssetTypeValueField sectionsArray = structureField["sections"]["Array"];
         sectionsArray.Children.Clear();
-        foreach (UnitySection section in trackStructure.sections ?? Array.Empty<UnitySection>())
+        foreach (UnitySection section in trackStructure.sections ?? [])
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
             newSection["MusicSection"]["sectionType"].AsInt = section.sectionType;
@@ -313,7 +313,7 @@ public static class MapPackageBundleBuilder
     private static long[] AddPictoAtlasTextureAssets(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleArray)
     {
         if (request.AtlasImages.Count == 0)
-            return Array.Empty<long>();
+            return [];
 
         byte[][] encodedAtlasBytes = new byte[request.AtlasImages.Count][];
         Parallel.For(0, request.AtlasImages.Count, i =>
@@ -375,7 +375,7 @@ public static class MapPackageBundleBuilder
         for (int i = 0; i < sortedPictoNames.Count; i++)
         {
             string pictoName = sortedPictoNames[i];
-            var (atlasPageIndex, size) = imageDict[pictoName];
+            (int atlasPageIndex, (int Width, int Height) size) = imageDict[pictoName];
 
             long spriteId = afile.GetRandomId();
             AssetTypeValueField spriteBaseField = manager.GetBaseField(afileInst, spriteTemplate);
@@ -614,7 +614,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static void FinalizeAndSaveBundle(UnityMapPackageBundleRequest request, AssetBundleFile bun, AssetsFile afile,
-        AssetTypeValueField musicTrackBase, AssetTypeValueField mapBase, AssetTypeValueField assetBundleBase,
+        AssetTypeValueField musicTrackBase, AssetTypeValueField assetBundleBase,
         Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
     {
         setMusicTrackData();

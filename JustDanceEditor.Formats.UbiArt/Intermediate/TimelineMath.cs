@@ -1,8 +1,8 @@
 using JustDanceEditor.Formats.UbiArt.Tapes;
 
-namespace JustDanceEditor.Converter.Intermediate;
+namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
-internal sealed class TimelineMath
+public sealed class TimelineMath
 {
     private readonly Structure structure;
     private readonly int[] markers;

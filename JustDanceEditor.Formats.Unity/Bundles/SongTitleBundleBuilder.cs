@@ -30,7 +30,7 @@ public static class SongTitleBundleBuilder
         {
             Logger.Log($"Starting generation for song title logo: {request.Codename}");
 
-            var (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, textureInfo, spriteInfo) =
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? textureInfo, AssetFileInfo? spriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
 
             UpdateSongTitleTexture(request.Codename, manager, afileInst, textureInfo, request.TitleImage);

@@ -28,9 +28,6 @@ public class IntermediateMetadata
     [JsonPropertyName("mapLengthSeconds")]
     public double MapLengthSeconds { get; set; }
 
-    [JsonPropertyName("engineVersion")]
-    public uint EngineVersion { get; set; }
-
     [JsonPropertyName("originalJdVersion")]
     public uint OriginalJdVersion { get; set; }
 

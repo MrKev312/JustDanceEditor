@@ -29,8 +29,8 @@ public static class CoachesSmallBundleBuilder
         Logger.Log($"Converting CoachesSmall bundle for {request.Codename}...");
         try
         {
-            var (manager, bunInst, afileInst, afile, sortedAssetInfos, assetBundleBase) = InitializeBundle(request);
-            var (coachTextureTpl, coachSpriteTpl, textureIds, spriteIds) = ClearBundleAndIdentifyTemplates(request, manager, afileInst, afile, assetBundleBase);
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, List<AssetFileInfo>? sortedAssetInfos, AssetTypeValueField? assetBundleBase) = InitializeBundle(request);
+            (AssetFileInfo? coachTextureTpl, AssetFileInfo? coachSpriteTpl, long[]? textureIds, long[]? spriteIds) = ClearBundleAndIdentifyTemplates(request, manager, afileInst, afile, assetBundleBase);
 
             ProcessCoachAssets(request, manager, afileInst, afile, coachTextureTpl, coachSpriteTpl, textureIds, spriteIds);
             PopulatePreloadTable(assetBundleBase["m_PreloadTable"]["Array"], textureIds, spriteIds);

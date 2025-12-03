@@ -33,10 +33,10 @@ internal static class FormatConversionDialogue
             return;
         }
 
-        JdiFormatKind source = AskFormat("Select the source format", sourceCandidates);
-        JdiFormatKind target = AskFormat("Select the target format", targetCandidates);
+        string source = AskFormat("Select the source format", sourceCandidates);
+        string target = AskFormat("Select the target format", targetCandidates);
 
-        if (source == target)
+        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("Source and target formats are identical. No conversion will be performed.");
@@ -50,7 +50,7 @@ internal static class FormatConversionDialogue
 
         try
         {
-            service.ConvertAsync(source, target, request).GetAwaiter().GetResult();
+            FormatConversionService.ConvertAsync(source, target, request).GetAwaiter().GetResult();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"Conversion {source} → {target} completed successfully.");
             Console.ResetColor();
@@ -71,30 +71,33 @@ internal static class FormatConversionDialogue
         }
     }
 
-    private static JdiFormatKind AskFormat(string prompt, IEnumerable<IJdiFormat> candidates)
+    private static string AskFormat(string prompt, IEnumerable<IJdiFormat> candidates)
     {
-        IJdiFormat[] options = candidates.OrderBy(f => f.Kind).ToArray();
+        // Order by DisplayName, but prioritize "JDI" to be first if present
+        IJdiFormat[] options = candidates
+            .OrderBy(f => f.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(f => f.DisplayName)
+            .ToArray();
+
         if (options.Length == 0)
             throw new InvalidOperationException("No formats satisfy the requested capability.");
 
-        string[] labels = options.Select(f => $"{f.Kind} ({f.DisplayName})").ToArray();
+        string[] labels = options.Select(f => f.DisplayName).ToArray();
         int selection = Question.Ask(labels, 0, prompt);
-        return options[selection].Kind;
+        return options[selection].DisplayName;
     }
 
-    private static ConversionRequest CreateConversionRequest(JdiFormatKind source, JdiFormatKind target)
+    private static ConversionRequest CreateConversionRequest(string source, string target)
     {
         ConversionRequest request = source switch
         {
-            JdiFormatKind.UbiArt => ConverterDialogue.CreateConversionRequest(),
+            "UbiArt" => ConverterDialogue.CreateConversionRequest(),
             _ => CreateGenericRequest(source, target)
         };
 
-        switch (source, target)
+        if (source == "UbiArt" && target == "Unity")
         {
-            case (JdiFormatKind.UbiArt, JdiFormatKind.Unity):
-                ConfigureUbiArtToUnityRequest(request);
-                break;
+            ConfigureUbiArtToUnityRequest(request);
         }
 
         return request;
@@ -111,12 +114,12 @@ internal static class FormatConversionDialogue
         request.JDVersion = version == 0 ? null : version;
     }
 
-    private static ConversionRequest CreateGenericRequest(JdiFormatKind source, JdiFormatKind target)
+    private static ConversionRequest CreateGenericRequest(string source, string target)
     {
         string inputPrompt = source switch
         {
-            JdiFormatKind.Unity => "Enter the Unity Custom Server export folder (must contain SongInfo.json)",
-            JdiFormatKind.JDI => "Enter the folder that contains manifest.json for the JDI package",
+            "Unity" => "Enter the Unity Custom Server export folder (must contain SongInfo.json)",
+            "JDI" => "Enter the folder that contains manifest.json for the JDI package",
             _ => "Enter the input folder for this conversion"
         };
 
@@ -124,8 +127,8 @@ internal static class FormatConversionDialogue
 
         string outputPrompt = target switch
         {
-            JdiFormatKind.JDI => "Enter the folder where the JDI package should be written",
-            JdiFormatKind.Unity => "Enter the Unity output root (existing cache/custom server structure)",
+            "JDI" => "Enter the folder where the JDI package should be written",
+            "Unity" => "Enter the Unity output root (existing cache/custom server structure)",
             _ => "Enter the destination folder for the converted files"
         };
 
@@ -134,7 +137,7 @@ internal static class FormatConversionDialogue
 
         ExportType exportType = ExportType.CustomServer;
 
-        if (target == JdiFormatKind.Unity)
+        if (target == "Unity")
         {
             Console.WriteLine("Unity conversions currently support only the Custom Server folder layout.");
             WarnIfOfflineCacheDetected(outputPath);
@@ -146,10 +149,10 @@ internal static class FormatConversionDialogue
             OutputPath = outputPath,
             TemplatePath = ResolveTemplatePath(),
             ExportType = exportType,
-            OnlineCover = target == JdiFormatKind.Unity && Question.AskYesNo("Attempt to download missing covers from the internet?")
+            OnlineCover = target == "Unity" && Question.AskYesNo("Attempt to download missing covers from the internet?")
         };
 
-        if (source == JdiFormatKind.JDI)
+        if (source == "JDI")
         {
             string? inferredName = TryInferSongNameFromIntermediate(inputPath);
             if (!string.IsNullOrWhiteSpace(inferredName))
@@ -157,7 +160,7 @@ internal static class FormatConversionDialogue
             else
                 request.SongName = AskSongName();
         }
-        else if (source != JdiFormatKind.Unity)
+        else if (source != "Unity")
         {
             request.SongName = AskSongName();
         }

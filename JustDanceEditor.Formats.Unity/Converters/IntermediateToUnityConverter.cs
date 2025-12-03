@@ -1,12 +1,12 @@
-using JustDanceEditor.Converter.Core;
-using JustDanceEditor.Converter.Services;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.UbiArt.Files;
-using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Bundles.Generation;
+using JustDanceEditor.Formats.Unity.Core;
+using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -15,9 +15,9 @@ using SixLabors.ImageSharp.PixelFormats;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
-namespace JustDanceEditor.Converter.Converters;
+namespace JustDanceEditor.Formats.Unity.Converters;
 
-internal sealed partial class IntermediateToUnityConverter
+internal sealed class IntermediateToUnityConverter
 {
     private readonly IntermediateSongPackage _package;
     private readonly string _packageRoot;
@@ -84,7 +84,7 @@ internal sealed partial class IntermediateToUnityConverter
         string workspaceRoot = PrepareWorkspaceRoot();
         string platform = ResolvePlatform();
         string patchRoot = Path.Combine(workspaceRoot, $"patch_{platform}");
-        ConversionContext? context = null;
+        UnityConversionContext? context = null;
 
         try
         {
@@ -303,7 +303,7 @@ internal sealed partial class IntermediateToUnityConverter
         return "nx";
     }
 
-    private static async Task GenerateUnityBundlesAsync(ConversionContext context)
+    private static async Task GenerateUnityBundlesAsync(UnityConversionContext context)
     {
         UnityExportData unityData = context.RequireUnityData();
         string songName = context.ResolveSongName();
@@ -370,7 +370,7 @@ internal sealed partial class IntermediateToUnityConverter
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
     }
 
-    private void PopulateMenuArtAssets(ConversionContext context)
+    private void PopulateMenuArtAssets(UnityConversionContext context)
     {
         string menuArtFolder = context.FileSystem.TempFolders.MenuArtFolder;
         Directory.CreateDirectory(menuArtFolder);
@@ -517,9 +517,7 @@ internal sealed partial class IntermediateToUnityConverter
                 string folder = Path.Combine(root, name);
                 if (!Directory.Exists(folder))
                     throw new DirectoryNotFoundException($"Missing template folder '{folder}'.");
-                string? file = Directory.EnumerateFiles(folder).OrderBy(f => f).FirstOrDefault();
-                if (file == null)
-                    throw new FileNotFoundException($"Template folder '{folder}' does not contain any files.");
+                string file = Directory.EnumerateFiles(folder).OrderBy(f => f).FirstOrDefault() ?? throw new FileNotFoundException($"Template folder '{folder}' does not contain any files.");
                 return file;
             }
 
@@ -587,7 +585,7 @@ internal sealed partial class IntermediateToUnityConverter
                 CoachNames = metadata.CoachNames,
                 HasSongTitleInCover = metadata.HasSongTitleInCover,
                 LyricsColor = metadata.LyricsColor,
-                Tags = metadata.Tags?.ToArray() ?? Array.Empty<string>(),
+                Tags = metadata.Tags?.ToArray() ?? [],
                 TagIds = SplitCsv(tagIdsRaw),
                 OriginalJDVersion = metadata.OriginalJdVersion,
                 MapLength = metadata.MapLengthSeconds,
@@ -605,12 +603,12 @@ internal sealed partial class IntermediateToUnityConverter
         }
     }
 
-    private void InitializeUnityDataForContext(ConversionContext context)
+    private void InitializeUnityDataForContext(UnityConversionContext context)
     {
         context.UnityData = UnityExportDataBuilder.Create(_package);
     }
 
-    private ConversionContext BuildSyntheticConversionContext(string patchRoot)
+    private UnityConversionContext BuildSyntheticConversionContext(string patchRoot)
     {
         ConversionRequest syntheticRequest = new()
         {
@@ -622,14 +620,14 @@ internal sealed partial class IntermediateToUnityConverter
             SongName = _songFolderName,
             SongGUID = ResolveSongGuid(),
             CacheNumber = _request.CacheNumber,
-            JDVersion = _request.JDVersion ?? _package.Metadata.EngineVersion
+            JDVersion = _request.JDVersion
         };
 
         FileSystem fileSystem = new(syntheticRequest);
         if (_package.Metadata.SongId == Guid.Empty)
             _package.Metadata.SongId = syntheticRequest.SongGUID;
 
-        ConversionContext context = new(syntheticRequest, fileSystem)
+        UnityConversionContext context = new(syntheticRequest, fileSystem)
         {
             IntermediatePackage = _package
         };

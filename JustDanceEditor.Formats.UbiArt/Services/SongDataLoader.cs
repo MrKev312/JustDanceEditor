@@ -1,4 +1,4 @@
-using JustDanceEditor.Converter;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Formats.UbiArt.Tapes;
@@ -31,7 +31,7 @@ public class SongDataLoader : ISongDataLoader
         {
             Logger.Log("Loading songdesc from jddb.json (root)");
             string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json"));
-            var onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
             if (onlineDesc != null)
                 songData.SongDesc = (SongDesc)onlineDesc;
         }
@@ -39,7 +39,7 @@ public class SongDataLoader : ISongDataLoader
         {
             Logger.Log("Loading songdesc from jddb.json (parent)");
             string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json"));
-            var onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
             if (onlineDesc != null)
                 songData.SongDesc = (SongDesc)onlineDesc;
         }

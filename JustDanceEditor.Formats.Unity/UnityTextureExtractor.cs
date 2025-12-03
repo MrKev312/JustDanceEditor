@@ -117,7 +117,7 @@ internal static class UnityTextureExtractor
     {
         string searchPath = streamInfo.Path ?? string.Empty;
         if (searchPath.StartsWith("archive:/", StringComparison.OrdinalIgnoreCase))
-            searchPath = searchPath.Substring(9);
+            searchPath = searchPath[9..];
         searchPath = Path.GetFileName(searchPath) ?? string.Empty;
 
         AssetBundleFile bundle = fileInst.parentBundle.file;
@@ -189,7 +189,7 @@ internal static class UnityTextureExtractor
                     colors[3] = new Rgba32(0, 0, 0, 0);
                 }
 
-                WriteColorBlock(destination, colors, code, bx, by, width, height, ReadOnlySpan<byte>.Empty, false, 0);
+                WriteColorBlock(destination, colors, code, bx, by, width, height, [], false, 0);
             }
         }
     }
@@ -309,7 +309,7 @@ internal static class UnityTextureExtractor
             int width = baseField["m_Width"].AsInt;
             int height = baseField["m_Height"].AsInt;
             UnityTextureFormat format = (UnityTextureFormat)baseField["m_TextureFormat"].AsInt;
-            byte[] imageData = baseField["image data"].AsByteArray ?? Array.Empty<byte>();
+            byte[] imageData = baseField["image data"].AsByteArray ?? [];
 
             AssetTypeValueField streamField = baseField["m_StreamData"];
             StreamingInfoData streamInfo = new(
