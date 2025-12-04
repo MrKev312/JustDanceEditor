@@ -4,9 +4,6 @@ using JustDanceEditor.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Collections.Generic;
-using System.IO;
-
 namespace JustDanceEditor.Formats.Unity.Bundles.Generation;
 
 public sealed record UnityCoachesSmallGenerationRequest(

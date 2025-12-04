@@ -3,10 +3,9 @@ using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Utilities;
-using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.Unity.Bundles.Generation;
-using JustDanceEditor.Formats.Unity.Core;
 using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using System.Diagnostics.CodeAnalysis;
@@ -78,26 +77,76 @@ internal sealed class IntermediateToUnityConverter
 
     private async Task BuildUnityBundlesAsync()
     {
-        string workspaceRoot = PrepareWorkspaceRoot();
-        string platform = ResolvePlatform();
-        string patchRoot = Path.Combine(workspaceRoot, $"patch_{platform}");
-        UnityConversionContext? context = null;
+        UnityExportData unityData = UnityExportDataBuilder.Create(_package);
+        UnityMenuArtSource menuArt = BuildMenuArtSource();
+        string songName = ResolveSongName(unityData);
+        int coachCount = Math.Max(1, unityData.Metadata.CoachCount);
+        bool forCustomServer = _request.ExportType == ExportType.CustomServer;
 
-        try
-        {
-            PrepareSyntheticInputScaffold(patchRoot, platform);
-            PopulateSyntheticInputAssets(patchRoot);
-            context = BuildSyntheticConversionContext(patchRoot);
-            UnityMenuArtSource menuArt = BuildMenuArtSource();
-            await GenerateUnityBundlesAsync(context, menuArt);
-        }
-        finally
-        {
-            if (context != null)
-                TryDeleteDirectorySafe(context.FileSystem.TempFolders.MapFolder);
+        using UnityBundleWorkspace workspace = new(_songFolderName);
 
-            TryDeleteDirectorySafe(workspaceRoot);
-        }
+        string coverFolder = EnsureOutputFolder("Cover");
+        string songTitleFolder = EnsureOutputFolder("songTitleLogo");
+        string coachesLargeFolder = EnsureOutputFolder("CoachesLarge");
+        string coachesSmallFolder = EnsureOutputFolder("CoachesSmall");
+        string mapPackageFolder = EnsureOutputFolder("MapPackage");
+
+        string[] pictoFiles = ResolvePictoFiles();
+        string? movesFolder = ResolveMovesFolder();
+
+        UnityCoverGenerationRequest coverRequest = new(
+            songName,
+            unityData,
+            menuArt,
+            _request.OnlineCover,
+            _templates.Cover,
+            coverFolder,
+            forCustomServer);
+
+        UnitySongTitleGenerationRequest songTitleRequest = new(
+            songName,
+            unityData,
+            menuArt,
+            _request.OnlineCover,
+            _templates.SongTitleLogo,
+            songTitleFolder,
+            forCustomServer);
+
+        UnityCoachesLargeGenerationRequest coachesLargeRequest = new(
+            songName,
+            coachCount,
+            menuArt,
+            unityData,
+            _templates.CoachesLarge,
+            coachesLargeFolder,
+            forCustomServer);
+
+        UnityCoachesSmallGenerationRequest coachesSmallRequest = new(
+            songName,
+            coachCount,
+            menuArt,
+            _templates.CoachesSmall,
+            coachesSmallFolder,
+            forCustomServer);
+
+        UnityMapPackageGenerationRequest mapPackageRequest = new(
+            songName,
+            unityData,
+            pictoFiles,
+            workspace.PictoTempFolder,
+            workspace.PictoAtlasFolder,
+            movesFolder,
+            _templates.MapPackage,
+            mapPackageFolder,
+            forCustomServer);
+
+        Task coverTask = UnityCoverGenerator.GenerateAsync(coverRequest);
+        Task titleTask = UnitySongTitleGenerator.GenerateAsync(songTitleRequest);
+        Task coachesLargeTask = UnityCoachesLargeGenerator.GenerateAsync(coachesLargeRequest);
+        Task coachesSmallTask = UnityCoachesSmallGenerator.GenerateAsync(coachesSmallRequest);
+        Task mapPackageTask = UnityMapPackageGenerator.GenerateAsync(mapPackageRequest);
+
+        await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
     }
 
     private void CopyHashedAsset(string role, string destinationFolder, string extension)
@@ -228,15 +277,6 @@ internal sealed class IntermediateToUnityConverter
         return hash;
     }
 
-    private static void CopyDirectoryRecursive(string source, string destination)
-    {
-        Directory.CreateDirectory(destination);
-        foreach (string file in Directory.GetFiles(source))
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), true);
-        foreach (string dir in Directory.GetDirectories(source))
-            CopyDirectoryRecursive(dir, Path.Combine(destination, Path.GetFileName(dir)));
-    }
-
     private static string BuildSongFolderName(IntermediateMetadata metadata)
     {
         string? codeName = string.IsNullOrWhiteSpace(metadata.MapName) ? metadata.Title : metadata.MapName;
@@ -246,125 +286,6 @@ internal sealed class IntermediateToUnityConverter
         foreach (char c in Path.GetInvalidFileNameChars())
             codeName = codeName.Replace(c, '_');
         return codeName.Trim();
-    }
-
-    private static string PrepareWorkspaceRoot()
-    {
-        string root = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "IntermediateUnity", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
-    }
-
-    private void PrepareSyntheticInputScaffold(string patchRoot, string platform)
-    {
-        TryDeleteDirectorySafe(patchRoot);
-        Directory.CreateDirectory(Path.Combine(patchRoot, "world", "maps", _songFolderName));
-        Directory.CreateDirectory(Path.Combine(patchRoot, "cache", "itf_cooked", platform));
-    }
-
-    private void PopulateSyntheticInputAssets(string patchRoot)
-    {
-        string mapRoot = Path.Combine(patchRoot, "world", "maps", _songFolderName);
-        string timelineRoot = Path.Combine(mapRoot, "timeline");
-        string pictosFolder = Path.Combine(timelineRoot, "pictos");
-        string movesFolder = Path.Combine(timelineRoot, "moves", "wiiu");
-        string gesturesFolder = Path.Combine(timelineRoot, "gestures");
-
-        Directory.CreateDirectory(pictosFolder);
-        Directory.CreateDirectory(movesFolder);
-        Directory.CreateDirectory(gesturesFolder);
-
-        CopyAssetDirectoryTo("atlas/pictograms", pictosFolder, logWhenMissing: true);
-        CopyAssetDirectoryTo("motion/msm", movesFolder, logWhenMissing: true);
-        CopyAssetDirectoryTo("motion/gestures", gesturesFolder, logWhenMissing: false);
-    }
-
-    private Guid ResolveSongGuid()
-    {
-        if (_package.Metadata.SongId != Guid.Empty)
-            return _package.Metadata.SongId;
-        if (_request.SongGUID != Guid.Empty)
-            return _request.SongGUID;
-        return Guid.NewGuid();
-    }
-
-    private string ResolvePlatform()
-    {
-        if (_package.Metadata.AdditionalMetadata != null &&
-            _package.Metadata.AdditionalMetadata.TryGetValue("platformType", out string? platform) &&
-            !string.IsNullOrWhiteSpace(platform))
-        {
-            return platform.Trim();
-        }
-
-        return "nx";
-    }
-
-    private static async Task GenerateUnityBundlesAsync(UnityConversionContext context, UnityMenuArtSource menuArt)
-    {
-        UnityExportData unityData = context.RequireUnityData();
-        string songName = context.ResolveSongName();
-        int coachCount = context.ResolveCoachCount();
-        bool forCustomServer = context.Request.ExportType == ExportType.CustomServer;
-
-        UnityCoverGenerationRequest coverRequest = new(
-            songName,
-            unityData,
-            menuArt,
-            context.Request.OnlineCover,
-            context.FileSystem.TemplateFiles.Cover,
-            context.FileSystem.OutputFolders.CoverFolder,
-            forCustomServer);
-
-        UnitySongTitleGenerationRequest songTitleRequest = new(
-            songName,
-            unityData,
-            menuArt,
-            context.Request.OnlineCover,
-            context.FileSystem.TemplateFiles.SongTitleLogo,
-            context.FileSystem.OutputFolders.SongTitleLogoFolder,
-            forCustomServer);
-
-        UnityCoachesLargeGenerationRequest coachesLargeRequest = new(
-            songName,
-            coachCount,
-            menuArt,
-            unityData,
-            context.FileSystem.TemplateFiles.CoachesLarge,
-            context.FileSystem.OutputFolders.CoachesLargeFolder,
-            forCustomServer);
-
-        UnityCoachesSmallGenerationRequest coachesSmallRequest = new(
-            songName,
-            coachCount,
-            menuArt,
-            context.FileSystem.TemplateFiles.CoachesSmall,
-            context.FileSystem.OutputFolders.CoachesSmallFolder,
-            forCustomServer);
-
-        string[] pictoFiles = context.FileSystem
-            .GetAllFiles(context.FileSystem.InputFolders.PictosFolder)
-            .Select(file => (string)file)
-            .ToArray();
-
-        UnityMapPackageGenerationRequest mapPackageRequest = new(
-            songName,
-            unityData,
-            pictoFiles,
-            context.FileSystem.TempFolders.PictoFolder,
-            context.FileSystem.TempFolders.PictoAtlasFolder,
-            context.TryGetMovesFolder(),
-            context.FileSystem.TemplateFiles.MapPackage,
-            context.FileSystem.OutputFolders.MapPackageFolder,
-            forCustomServer);
-
-        Task coverTask = UnityCoverGenerator.GenerateAsync(coverRequest);
-        Task titleTask = UnitySongTitleGenerator.GenerateAsync(songTitleRequest);
-        Task coachesLargeTask = UnityCoachesLargeGenerator.GenerateAsync(coachesLargeRequest);
-        Task coachesSmallTask = UnityCoachesSmallGenerator.GenerateAsync(coachesSmallRequest);
-        Task mapPackageTask = UnityMapPackageGenerator.GenerateAsync(mapPackageRequest);
-
-        await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
     }
 
     private UnityMenuArtSource BuildMenuArtSource()
@@ -423,19 +344,49 @@ internal sealed class IntermediateToUnityConverter
         return null;
     }
 
-    private void CopyAssetDirectoryTo(string role, string destination, bool logWhenMissing)
+    private string ResolveSongName(UnityExportData unityData)
     {
-        if (!TryResolveAssetDirectory(role, out string? source))
+        if (!string.IsNullOrWhiteSpace(unityData?.Name))
+            return unityData.Name;
+        if (!string.IsNullOrWhiteSpace(_request.SongName))
+            return _request.SongName!;
+        return _songFolderName;
+    }
+
+    private string EnsureOutputFolder(string relativePath)
+    {
+        string path = Path.Combine(_outputRoot, relativePath);
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private string[] ResolvePictoFiles()
+    {
+        if (TryResolveAssetDirectory("atlas/pictograms", out string? folder) && Directory.Exists(folder))
         {
-            if (logWhenMissing)
-                Logger.Log($"Intermediate asset '{role}' could not be resolved; skipping synthetic input copy.", LogLevel.Warning);
-            return;
+            return Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
-        if (Directory.Exists(destination))
-            Directory.Delete(destination, true);
+        string fallback = GetAssetsSubfolder("pictograms");
+        if (Directory.Exists(fallback))
+        {
+            return Directory.EnumerateFiles(fallback, "*", SearchOption.TopDirectoryOnly)
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
 
-        CopyDirectoryRecursive(source, destination);
+        return Array.Empty<string>();
+    }
+
+    private string? ResolveMovesFolder()
+    {
+        if (TryResolveAssetDirectory("motion/msm", out string? folder) && Directory.Exists(folder))
+            return folder;
+
+        string fallback = GetAssetsSubfolder("moves");
+        return Directory.Exists(fallback) ? fallback : null;
     }
 
     private static bool IsCoachBackgroundAsset(string path)
@@ -463,6 +414,25 @@ internal sealed class IntermediateToUnityConverter
         }
     }
 
+    private sealed class UnityBundleWorkspace : IDisposable
+    {
+        public UnityBundleWorkspace(string songFolder)
+        {
+            Root = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "Unity", songFolder, "Bundles", Guid.NewGuid().ToString("N"));
+            PictoTempFolder = Path.Combine(Root, "PictosWork");
+            PictoAtlasFolder = Path.Combine(Root, "PictosAtlas");
+
+            Directory.CreateDirectory(PictoTempFolder);
+            Directory.CreateDirectory(PictoAtlasFolder);
+        }
+
+        public string Root { get; }
+        public string PictoTempFolder { get; }
+        public string PictoAtlasFolder { get; }
+
+        public void Dispose() => TryDeleteDirectorySafe(Root);
+    }
+
     private sealed class TemplateSet
     {
         public TemplateSet(string root)
@@ -479,12 +449,14 @@ internal sealed class IntermediateToUnityConverter
             Cover = Resolve("Cover");
             SongTitleLogo = Resolve("SongTitleLogo");
             CoachesLarge = Resolve("CoachesLarge");
+            CoachesSmall = Resolve("CoachesSmall");
             MapPackage = Resolve("MapPackage");
         }
 
         public string Cover { get; }
         public string SongTitleLogo { get; }
         public string CoachesLarge { get; }
+        public string CoachesSmall { get; }
         public string MapPackage { get; }
     }
 
@@ -558,37 +530,4 @@ internal sealed class IntermediateToUnityConverter
         }
     }
 
-    private void InitializeUnityDataForContext(UnityConversionContext context)
-    {
-        context.UnityData = UnityExportDataBuilder.Create(_package);
-    }
-
-    private UnityConversionContext BuildSyntheticConversionContext(string patchRoot)
-    {
-        ConversionRequest syntheticRequest = new()
-        {
-            InputPath = patchRoot,
-            OutputPath = _request.OutputPath,
-            TemplatePath = _request.TemplatePath,
-            ExportType = _request.ExportType,
-            OnlineCover = _request.OnlineCover,
-            SongName = _songFolderName,
-            SongGUID = ResolveSongGuid(),
-            CacheNumber = _request.CacheNumber,
-            JDVersion = _request.JDVersion
-        };
-
-        FileSystem fileSystem = new(syntheticRequest);
-        if (_package.Metadata.SongId == Guid.Empty)
-            _package.Metadata.SongId = syntheticRequest.SongGUID;
-
-        UnityConversionContext context = new(syntheticRequest, fileSystem)
-        {
-            IntermediatePackage = _package
-        };
-
-        InitializeUnityDataForContext(context);
-
-        return context;
-    }
 }

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace JustDanceEditor.Formats.Unity;
+namespace JustDanceEditor.Formats.Unity.Models;
 
 public class JDCacheJSON
 {

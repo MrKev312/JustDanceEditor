@@ -1,8 +1,8 @@
 using JustDanceEditor.Converter.Formats;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 

@@ -1,12 +1,9 @@
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Images;

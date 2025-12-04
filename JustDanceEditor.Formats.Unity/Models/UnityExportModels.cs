@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
-namespace JustDanceEditor.Formats.Unity;
+namespace JustDanceEditor.Formats.Unity.Models;
 
 public sealed class UnityExportData
 {
@@ -28,7 +28,7 @@ public sealed class UnityExportData
         GameplayEventClips = gameplayEventClips;
         VibrationClips = vibrationClips;
 
-        List<IUnityClip> combined =
+        List<UnityClip> combined =
         [
             .. KaraokeClips,
             .. PictogramClips,
@@ -38,7 +38,7 @@ public sealed class UnityExportData
             .. GameplayEventClips,
             .. VibrationClips,
         ];
-        Clips = new ReadOnlyCollection<IUnityClip>(combined);
+        Clips = new ReadOnlyCollection<UnityClip>(combined);
     }
 
     public string Name { get; }
@@ -51,7 +51,7 @@ public sealed class UnityExportData
     public IReadOnlyList<UnityHideHudClip> HideHudClips { get; }
     public IReadOnlyList<UnityGameplayEventClip> GameplayEventClips { get; }
     public IReadOnlyList<UnityVibrationClip> VibrationClips { get; }
-    public IReadOnlyList<IUnityClip> Clips { get; }
+    public IReadOnlyList<UnityClip> Clips { get; }
 }
 
 public sealed class UnityExportMetadata
@@ -143,16 +143,7 @@ public sealed class UnitySection
     public string comment { get; init; } = string.Empty;
 }
 
-public interface IUnityClip
-{
-    long Id { get; set; }
-    long TrackId { get; set; }
-    int IsActive { get; set; }
-    int StartTime { get; set; }
-    int Duration { get; set; }
-}
-
-public abstract class UnityClip : IUnityClip
+public abstract class UnityClip
 {
     public long Id { get; set; }
     public long TrackId { get; set; }

@@ -1,6 +1,7 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -497,7 +498,7 @@ public static class MapPackageBundleBuilder
 
         int coachCount = Math.Max(1, request.UnityData.Metadata.CoachCount);
 
-        foreach (IUnityClip clip in request.UnityData.Clips.OrderBy(c => c.StartTime))
+        foreach (UnityClip clip in request.UnityData.Clips.OrderBy(c => c.StartTime))
         {
             switch (clip)
             {

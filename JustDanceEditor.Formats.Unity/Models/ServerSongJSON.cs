@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Formats.Unity;
+namespace JustDanceEditor.Formats.Unity.Models;
 
 public class ServerSongJSON
 {

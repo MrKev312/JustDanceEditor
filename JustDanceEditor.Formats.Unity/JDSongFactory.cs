@@ -1,3 +1,5 @@
+using JustDanceEditor.Formats.Unity.Models;
+
 namespace JustDanceEditor.Formats.Unity;
 
 public class JDSongFactory

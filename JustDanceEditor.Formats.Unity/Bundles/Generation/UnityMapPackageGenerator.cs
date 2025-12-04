@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;

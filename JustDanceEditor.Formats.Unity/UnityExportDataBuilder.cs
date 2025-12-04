@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.Unity.Models;
 
 using System.Globalization;
 using System.Text.Json;
