@@ -26,6 +26,7 @@ public class KaraokeClip
     public float Pitch { get; set; }
 
     [JsonPropertyName("isEndOfLine")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsEndOfLine { get; set; }
 
     [JsonPropertyName("contentType")]

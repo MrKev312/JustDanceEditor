@@ -29,13 +29,13 @@ public sealed class UbiArtJdiFormat(IRequestValidator requestValidator, ISongDat
         context.FileSystem.UpdateSongName(context.SongData.Name);
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
 
-        string stagingRoot = await MaterializeUbiArtIntermediateAsync(context, context.IntermediatePackage);
+        string materializedRoot = await MaterializeUbiArtIntermediateAsync(context, context.IntermediatePackage);
 
         return new JdiImportResult(
             context.IntermediatePackage,
             "UbiArt",
-            stagingRoot,
-            MaterializedRootIsTemporary: true,
+            materializedRoot,
+            MaterializedRootIsTemporary: false,
             SuggestedOutputFolder: context.FileSystem.OutputFolders.OutputFolder);
     }
 
@@ -44,13 +44,18 @@ public sealed class UbiArtJdiFormat(IRequestValidator requestValidator, ISongDat
 
     private static async Task<string> MaterializeUbiArtIntermediateAsync(ConversionContext context, IntermediateSongPackage package)
     {
-        string stagingRoot = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "IntermediateStaging", Guid.NewGuid().ToString("N"));
-        if (Directory.Exists(stagingRoot))
-            Directory.Delete(stagingRoot, true);
-        Directory.CreateDirectory(stagingRoot);
+        string outputFolder = context.FileSystem.OutputFolders.OutputFolder;
+        PrepareMaterializedDirectory(outputFolder);
 
-        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, package, stagingRoot);
-        IntermediatePackageSerializer.WriteToFolder(package, stagingRoot);
-        return stagingRoot;
+        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, package, outputFolder);
+        IntermediatePackageSerializer.WriteToFolder(package, outputFolder);
+        return outputFolder;
+    }
+
+    private static void PrepareMaterializedDirectory(string targetFolder)
+    {
+        if (Directory.Exists(targetFolder))
+            Directory.Delete(targetFolder, true);
+        Directory.CreateDirectory(targetFolder);
     }
 }

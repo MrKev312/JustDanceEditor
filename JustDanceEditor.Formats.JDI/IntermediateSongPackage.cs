@@ -1,5 +1,3 @@
-using JustDanceEditor.Formats.JDI.Assets;
-using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -7,11 +5,7 @@ namespace JustDanceEditor.Formats.JDI;
 
 public class IntermediateSongPackage
 {
-    public IntermediatePackageManifest Manifest { get; init; } = new();
-
     public IntermediateMetadata Metadata { get; init; } = new();
-
-    public IntermediateAssetCatalog AssetCatalog { get; init; } = new();
 
     public TimelineStructureDocument TimelineStructure { get; init; } = new();
 

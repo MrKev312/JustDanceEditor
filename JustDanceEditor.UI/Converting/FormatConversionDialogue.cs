@@ -117,7 +117,7 @@ internal static class FormatConversionDialogue
         string inputPrompt = source switch
         {
             "Unity" => "Enter the Unity Custom Server export folder (must contain SongInfo.json)",
-            "JDI" => "Enter the folder that contains manifest.json for the JDI package",
+            "JDI" => "Enter the folder that contains metadata.json for the JDI package",
             _ => "Enter the input folder for this conversion"
         };
 
@@ -156,41 +156,17 @@ internal static class FormatConversionDialogue
             if (!string.IsNullOrWhiteSpace(inferredName))
                 request.SongName = inferredName;
             else
-                request.SongName = AskSongName();
-        }
-        else if (source != "Unity")
-        {
-            request.SongName = AskSongName();
+                throw new Exception("Failed to infer song name from JDI metadata. Please ensure metadata.json is present and valid.");
         }
 
         return request;
-    }
-
-    private static string AskSongName()
-    {
-        Console.Write("Enter the song/map codename (e.g., mapname_00): ");
-        string? value = Console.ReadLine()?.Trim();
-        while (string.IsNullOrWhiteSpace(value))
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Song/map codename cannot be empty.");
-            Console.ResetColor();
-            Console.Write("Enter the song/map codename: ");
-            value = Console.ReadLine()?.Trim();
-        }
-
-        return value;
     }
 
     private static string? TryInferSongNameFromIntermediate(string inputPath)
     {
         try
         {
-            string? folder = LocateIntermediateFolder(inputPath);
-            if (folder == null)
-                return null;
-
-            string metadataPath = Path.Combine(folder, "metadata.json");
+            string metadataPath = Path.Combine(inputPath, "metadata.json");
             if (!File.Exists(metadataPath))
                 return null;
 
@@ -206,40 +182,6 @@ internal static class FormatConversionDialogue
             Logger.Log($"Failed to infer map name from intermediate metadata: {ex.Message}", LogLevel.Warning);
             return null;
         }
-    }
-
-    private static string? LocateIntermediateFolder(string inputPath)
-    {
-        if (string.IsNullOrWhiteSpace(inputPath))
-            return null;
-
-        string manifestPath = Path.Combine(inputPath, "manifest.json");
-        if (File.Exists(manifestPath))
-            return inputPath;
-
-        string nested = Path.Combine(inputPath, "Intermediate");
-        if (File.Exists(Path.Combine(nested, "manifest.json")))
-            return nested;
-
-        try
-        {
-            foreach (string manifest in Directory.EnumerateFiles(inputPath, "manifest.json", SearchOption.AllDirectories))
-            {
-                string? folder = Path.GetDirectoryName(manifest);
-                if (!string.IsNullOrEmpty(folder))
-                    return folder;
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Ignore folders we cannot read.
-        }
-        catch (DirectoryNotFoundException)
-        {
-            return null;
-        }
-
-        return null;
     }
 
     private static void WarnIfOfflineCacheDetected(string outputPath)

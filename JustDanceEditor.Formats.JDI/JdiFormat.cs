@@ -43,15 +43,22 @@ public sealed class JdiFormat : IJdiFormat
         if (importResult.MaterializedRoot == request.OutputPath)
             throw new InvalidOperationException("Input and output paths cannot be the same");
 
+        string? suggestedOutput = importResult.SuggestedOutputFolder;
+        if (string.IsNullOrWhiteSpace(suggestedOutput))
+            throw new InvalidOperationException("Suggested output folder is required for JDI exports.");
+
+        if (string.Equals(importResult.MaterializedRoot, suggestedOutput, StringComparison.OrdinalIgnoreCase))
+            return Task.CompletedTask;
+
         // If the input is temporary, we can move it directly
         if (importResult.MaterializedRootIsTemporary)
         {
-            Directory.Move(importResult.MaterializedRoot, importResult.SuggestedOutputFolder!);
+            Directory.Move(importResult.MaterializedRoot, suggestedOutput);
         }
         // Else we'll need to copy the files
         else
         {
-            CopyDirectory(importResult.MaterializedRoot, importResult.SuggestedOutputFolder!);
+            CopyDirectory(importResult.MaterializedRoot, suggestedOutput);
         }
 
         return Task.CompletedTask;

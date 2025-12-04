@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.UbiArt.Audio;
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
@@ -8,6 +7,7 @@ using JustDanceEditor.Formats.UbiArt.Video;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
 using Xabe.FFmpeg.Downloader;
@@ -16,6 +16,12 @@ namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
 internal static class IntermediateAssetWriter
 {
+    private static readonly WebpEncoder LosslessWebpEncoder = new()
+    {
+        FileFormat = WebpFileFormatType.Lossless,
+        Quality = 100
+    };
+
     public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -42,7 +48,7 @@ internal static class IntermediateAssetWriter
             PreviewOutputFolder = staging.PreviewVideo,
         });
 
-        CopyAssetsToPackage(context, package.AssetCatalog, packageRoot, staging);
+        CopyAssetsToPackage(context, packageRoot, staging);
     }
 
     private static async Task EnsurePrerequisitesAsync()
@@ -77,44 +83,38 @@ internal static class IntermediateAssetWriter
         await Task.Run(() => UbiArtPictoConverter.Convert(request));
     }
 
-    private static void CopyAssetsToPackage(ConversionContext context, IntermediateAssetCatalog catalog, string packageRoot, AssetStagingArea staging)
+    private static void CopyAssetsToPackage(ConversionContext context, string packageRoot, AssetStagingArea staging)
     {
-        AssetDirectories dirs = AssetDirectories.Create(packageRoot);
-        dirs.Reset();
+        ResetAssetsRoot(packageRoot);
 
-        AttachAudioAssets(catalog, dirs, staging);
-        AttachVideoAssets(catalog, dirs, staging);
-        AttachBrandingAssets(context, catalog, dirs);
-        AttachCoachAssets(context, catalog, dirs);
-        AttachPictograms(context, catalog, dirs);
-        AttachMotionAssets(context, catalog, dirs);
+        AttachAudioAssets(packageRoot, staging);
+        AttachVideoAssets(packageRoot, staging);
+        AttachBrandingAssets(context, packageRoot);
+        AttachCoachAssets(context, packageRoot);
+        AttachPictograms(context, packageRoot);
+        AttachMotionAssets(context, packageRoot);
     }
 
-    private static void AttachAudioAssets(IntermediateAssetCatalog catalog, AssetDirectories dirs, AssetStagingArea staging)
+    private static void AttachAudioAssets(string packageRoot, AssetStagingArea staging)
     {
-        string? master = CopyFirstFile(staging.AudioMaster, "*.opus", Path.Combine(dirs.Audio, "master.opus"));
-        UpdateAssetReference(catalog, "audio/master", master, dirs, mimeType: "audio/ogg");
-
-        string? preview = CopyFirstFile(staging.AudioPreview, "*.opus", Path.Combine(dirs.Audio, "preview.opus"));
-        UpdateAssetReference(catalog, "audio/preview", preview, dirs, mimeType: "audio/ogg");
+        CopyFirstFile(staging.AudioMaster, "*.opus", ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioMasterFile));
+        CopyFirstFile(staging.AudioPreview, "*.opus", ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioPreviewFile));
     }
 
-    private static void AttachVideoAssets(IntermediateAssetCatalog catalog, AssetDirectories dirs, AssetStagingArea staging)
+    private static void AttachVideoAssets(string packageRoot, AssetStagingArea staging)
     {
-        string? videoFolder = CopyDirectoryContent(staging.Video, dirs.Video);
-        UpdateAssetReference(catalog, "video/background", videoFolder, dirs, treatAsDirectory: true);
+        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string previewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
 
-        string? previewFolder = CopyDirectoryContent(staging.PreviewVideo, dirs.PreviewVideo);
-        UpdateAssetReference(catalog, "video/preview", previewFolder, dirs, treatAsDirectory: true);
+        CopyDirectoryContent(staging.Video, videoFolder);
+        CopyDirectoryContent(staging.PreviewVideo, previewFolder);
     }
 
-    private static void AttachBrandingAssets(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)
+    private static void AttachBrandingAssets(ConversionContext context, string packageRoot)
     {
-        string? cover = ExportCoverImage(context, Path.Combine(dirs.Branding, "thumbnail.png"));
-        UpdateAssetReference(catalog, "image/cover", cover, dirs, mimeType: "image/png");
-
-        string? title = ExportSongTitleLogo(context, Path.Combine(dirs.Branding, "songTitleLogo.png"));
-        UpdateAssetReference(catalog, "image/songTitleLogo", title, dirs, mimeType: "image/png");
+        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BrandingFolder);
+        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingCoverFile));
+        ExportSongTitleLogo(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingSongTitleFile));
     }
 
     private static string? ExportCoverImage(ConversionContext context, string destination)
@@ -133,7 +133,7 @@ internal static class IntermediateAssetWriter
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        cover.Save(destination);
+        cover.Save(destination, LosslessWebpEncoder);
         return destination;
     }
 
@@ -147,20 +147,20 @@ internal static class IntermediateAssetWriter
             return null;
 
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        title.Save(destination);
+        title.Save(destination, LosslessWebpEncoder);
         return destination;
     }
 
-    private static void AttachCoachAssets(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)
+    private static void AttachCoachAssets(ConversionContext context, string packageRoot)
     {
         string menuArtFolder = context.FileSystem.TempFolders.MenuArtFolder;
         if (!Directory.Exists(menuArtFolder))
         {
-            UpdateAssetReference(catalog, "image/coachLarge", null, dirs);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder));
             return;
         }
 
-        Directory.CreateDirectory(dirs.Coaches);
+        string coachesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder);
 
         string[] coachFiles = [.. Directory.EnumerateFiles(menuArtFolder, $"{context.SongData.Name}_Coach_*.png", SearchOption.TopDirectoryOnly)
             .Where(path => !Path.GetFileNameWithoutExtension(path).EndsWith("_phone", StringComparison.OrdinalIgnoreCase))
@@ -168,62 +168,61 @@ internal static class IntermediateAssetWriter
 
         if (coachFiles.Length == 0)
         {
-            UpdateAssetReference(catalog, "image/coachLarge", null, dirs);
+            TryDeleteDirectory(coachesFolder);
+            return;
         }
-        else
+
+        for (int i = 0; i < coachFiles.Length; i++)
         {
-            for (int i = 0; i < coachFiles.Length; i++)
-            {
-                string destination = Path.Combine(dirs.Coaches, $"coach_{i + 1:D2}.png");
-                File.Copy(coachFiles[i], destination, true);
-            }
+            string destination = Path.Combine(coachesFolder, $"coach_{i + 1:D2}.webp");
+            using Image<Rgba32> coach = Image.Load<Rgba32>(coachFiles[i]);
+            SaveAsWebp(coach, destination);
+        }
 
-            string? background = Directory.EnumerateFiles(menuArtFolder, "*map_bkg*.png", SearchOption.TopDirectoryOnly)
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
+        string? background = Directory.EnumerateFiles(menuArtFolder, "*map_bkg*.png", SearchOption.TopDirectoryOnly)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
 
-            if (background != null)
-                File.Copy(background, Path.Combine(dirs.Coaches, "coachesBackground.png"), true);
-
-            UpdateAssetReference(catalog, "image/coachLarge", dirs.Coaches, dirs, treatAsDirectory: true, mimeType: "image/png");
+        if (background != null)
+        {
+            using Image<Rgba32> backgroundImage = Image.Load<Rgba32>(background);
+            SaveAsWebp(backgroundImage, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile));
         }
     }
 
-    private static void AttachPictograms(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)
+    private static void AttachPictograms(ConversionContext context, string packageRoot)
     {
         string pictoFolder = context.FileSystem.TempFolders.PictoFolder;
         if (!Directory.Exists(pictoFolder))
         {
-            UpdateAssetReference(catalog, "atlas/pictograms", null, dirs);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder));
             return;
         }
 
-        Directory.CreateDirectory(dirs.Pictograms);
+        string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
         foreach (string file in Directory.EnumerateFiles(pictoFolder, "*.png", SearchOption.TopDirectoryOnly))
         {
             if (Path.GetFileName(file).StartsWith("atlas_", StringComparison.OrdinalIgnoreCase))
                 continue;
-            string destination = Path.Combine(dirs.Pictograms, Path.GetFileName(file));
-            File.Copy(file, destination, true);
+            string destination = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(file) + ".webp");
+            using Image<Rgba32> picto = Image.Load<Rgba32>(file);
+            SaveAsWebp(picto, destination);
         }
 
-        if (!Directory.EnumerateFiles(dirs.Pictograms).Any())
-        {
-            UpdateAssetReference(catalog, "atlas/pictograms", null, dirs);
-            return;
-        }
+        if (!Directory.EnumerateFiles(outputFolder).Any())
+            TryDeleteDirectory(outputFolder);
 
-        UpdateAssetReference(catalog, "atlas/pictograms", dirs.Pictograms, dirs, treatAsDirectory: true, mimeType: "image/png");
     }
 
-    private static void AttachMotionAssets(ConversionContext context, IntermediateAssetCatalog catalog, AssetDirectories dirs)
+    private static void AttachMotionAssets(ConversionContext context, string packageRoot)
     {
-        string? movesPath = CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", dirs.Moves);
-        UpdateAssetReference(catalog, "motion/msm", movesPath, dirs, treatAsDirectory: true);
+        string movesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
+        string gesturesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
+
+        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder);
 
         string gesturesRelative = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "gestures");
-        string? gesturesPath = CopyCookedFiles(context, gesturesRelative, "*.gesture", dirs.Gestures);
-        UpdateAssetReference(catalog, "motion/gestures", gesturesPath, dirs, treatAsDirectory: true);
+        CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder);
     }
 
     private static string? CopyCookedFiles(ConversionContext context, string relativeFolder, string pattern, string destinationFolder)
@@ -288,70 +287,48 @@ internal static class IntermediateAssetWriter
         return Directory.EnumerateFiles(destinationFolder).Any() ? destinationFolder : null;
     }
 
-    private static void UpdateAssetReference(IntermediateAssetCatalog catalog, string role, string? absolutePath, AssetDirectories dirs, string? mimeType = null, bool treatAsDirectory = false)
+    private static void TryDeleteDirectory(string folder)
     {
-        IntermediateAsset? asset = catalog.Assets.FirstOrDefault(a => string.Equals(a.Role, role, StringComparison.OrdinalIgnoreCase));
-        if (asset == null)
-            return;
-
-        if (absolutePath == null)
+        try
         {
-            asset.Required = false;
-            asset.SourcePath = null;
-            asset.SizeBytes = null;
-            asset.MimeType = null;
-            return;
-        }
+            if (!Directory.Exists(folder))
+                return;
 
-        asset.SourcePath = dirs.ToRelative(absolutePath);
-        asset.MimeType = mimeType;
-        asset.Required = true;
-        asset.SizeBytes = treatAsDirectory
-            ? Directory.EnumerateFiles(absolutePath, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length)
-            : new FileInfo(absolutePath).Length;
+            if (Directory.EnumerateFileSystemEntries(folder).Any())
+                return;
+
+            Directory.Delete(folder);
+        }
+        catch
+        {
+            // Best-effort cleanup; leftover folders do not block conversion.
+        }
     }
 
-    private sealed class AssetDirectories
+    private static void ResetAssetsRoot(string packageRoot)
     {
-        private AssetDirectories(string packageRoot)
-        {
-            PackageRoot = packageRoot;
-            Root = Path.Combine(packageRoot, "assets");
-            Audio = Path.Combine(Root, "audio");
-            Video = Path.Combine(Root, "video");
-            PreviewVideo = Path.Combine(Root, "previewVideo");
-            Branding = Path.Combine(Root, "branding");
-            Coaches = Path.Combine(Root, "coaches");
-            Pictograms = Path.Combine(Root, "pictograms");
-            Moves = Path.Combine(Root, "moves");
-            Gestures = Path.Combine(Root, "gestures");
-        }
+        string assetsRoot = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.Root);
+        if (Directory.Exists(assetsRoot))
+            Directory.Delete(assetsRoot, true);
+        Directory.CreateDirectory(assetsRoot);
+    }
 
-        public static AssetDirectories Create(string packageRoot) => new(packageRoot);
+    private static string EnsureFolder(string packageRoot, string relativeFolder)
+    {
+        string path = ResolvePackagePath(packageRoot, relativeFolder);
+        Directory.CreateDirectory(path);
+        return path;
+    }
 
-        public string PackageRoot { get; }
-        public string Root { get; }
-        public string Audio { get; }
-        public string Video { get; }
-        public string PreviewVideo { get; }
-        public string Branding { get; }
-        public string Coaches { get; }
-        public string Pictograms { get; }
-        public string Moves { get; }
-        public string Gestures { get; }
+    private static string ResolvePackagePath(string packageRoot, string relative)
+    {
+        return IntermediatePackageLayout.Resolve(packageRoot, relative);
+    }
 
-        public void Reset()
-        {
-            if (Directory.Exists(Root))
-                Directory.Delete(Root, true);
-            Directory.CreateDirectory(Root);
-        }
-
-        public string ToRelative(string absolutePath)
-        {
-            string relative = Path.GetRelativePath(PackageRoot, absolutePath);
-            return relative.Replace('\\', '/');
-        }
+    private static void SaveAsWebp(Image<Rgba32> image, string destination)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        image.Save(destination, LosslessWebpEncoder);
     }
 
     private sealed class AssetStagingArea

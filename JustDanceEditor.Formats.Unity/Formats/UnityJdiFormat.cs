@@ -24,19 +24,17 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
         JdiConversionHelpers.EnsureSongName(request, package, allowFallbackToMetadata: true);
 
         string songName = DetermineSongName(request, package);
-        string stagingRoot = CreateStagingRoot(songName);
-        PrepareStagingDirectory(stagingRoot);
-
-        UnityAssetMaterializer.Materialize(package, request.InputPath, stagingRoot);
-        IntermediatePackageSerializer.WriteToFolder(package, stagingRoot);
-
         string suggestedOutput = BuildSuggestedOutputFolder(request, songName);
+        PrepareMaterializedDirectory(suggestedOutput);
+
+        UnityAssetMaterializer.Materialize(package, request.InputPath, suggestedOutput);
+        IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
 
         JdiImportResult result = new(
             package,
             "Unity",
-            stagingRoot,
-            MaterializedRootIsTemporary: true,
+            suggestedOutput,
+            MaterializedRootIsTemporary: false,
             SuggestedOutputFolder: suggestedOutput);
 
         return Task.FromResult(result);
@@ -69,17 +67,11 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
             return "UnitySong";
         }
 
-        private static string CreateStagingRoot(string songName)
+        private static void PrepareMaterializedDirectory(string materializedRoot)
         {
-            string tempRoot = Path.Combine(Path.GetTempPath(), "JustDanceEditor", songName, "IntermediateStaging");
-            return Path.Combine(tempRoot, Guid.NewGuid().ToString("N"));
-        }
-
-        private static void PrepareStagingDirectory(string stagingRoot)
-        {
-            if (Directory.Exists(stagingRoot))
-                Directory.Delete(stagingRoot, true);
-            Directory.CreateDirectory(stagingRoot);
+            if (Directory.Exists(materializedRoot))
+                Directory.Delete(materializedRoot, true);
+            Directory.CreateDirectory(materializedRoot);
         }
 
         private static string BuildSuggestedOutputFolder(ConversionRequest request, string songName)

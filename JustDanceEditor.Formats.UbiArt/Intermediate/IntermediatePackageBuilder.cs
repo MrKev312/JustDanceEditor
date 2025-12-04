@@ -1,6 +1,4 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Assets;
-using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Core;
@@ -40,7 +38,6 @@ internal static class IntermediatePackageBuilder
         IntermediateSongPackage package = new()
         {
             Metadata = BuildMetadata(context, structure),
-            AssetCatalog = BuildAssetCatalog(context),
             TimelineStructure = BuildTimelineStructure(context, structure, timelineMath),
             Lyrics = BuildLyricsDocument(context, timelineMath),
             Pictograms = BuildPictogramDocument(context, timelineMath),
@@ -48,8 +45,7 @@ internal static class IntermediatePackageBuilder
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
-            FullBodyCoachMoves = fullBodyMoves,
-            Manifest = new IntermediatePackageManifest()
+            FullBodyCoachMoves = fullBodyMoves
         };
 
         package.Metadata.Validate();
@@ -89,49 +85,6 @@ internal static class IntermediatePackageBuilder
         metadata.AdditionalMetadata["videoPreviewPath"] = info.VideoPreviewPath;
 
         return metadata;
-    }
-
-    private static IntermediateAssetCatalog BuildAssetCatalog(ConversionContext context)
-    {
-        IntermediateAssetCatalog catalog = new();
-        Trackdata trackData = context.SongData.MusicTrack.COMPONENTS.FirstOrDefault()?.trackData ?? new();
-
-        IntermediateAsset masterAudio = catalog.Add("audio/master");
-        masterAudio.SourcePath = trackData.path;
-        masterAudio.Attributes["format"] = "ogg";
-
-        IntermediateAsset previewAudio = catalog.Add("audio/preview");
-        previewAudio.GeneratedPath = context.FileSystem.OutputFolders.PreviewAudioFolder;
-        previewAudio.Required = false;
-
-        IntermediateAsset videoAsset = catalog.Add("video/background");
-        videoAsset.Attributes["expectedFolder"] = context.FileSystem.OutputFolders.VideoFolder;
-        videoAsset.Required = false;
-
-        IntermediateAsset coverAsset = catalog.Add("image/cover");
-        coverAsset.SourcePath = Path.Combine(context.FileSystem.InputFolders.MenuArtFolder, $"{context.SongData.Name}_cover.png");
-        coverAsset.GeneratedPath = context.FileSystem.OutputFolders.CoverFolder;
-
-        IntermediateAsset titleLogoAsset = catalog.Add("image/songTitleLogo");
-        titleLogoAsset.SourcePath = Path.Combine(context.FileSystem.InputFolders.MapWorldFolder, "songTitleLogo");
-        titleLogoAsset.GeneratedPath = context.FileSystem.OutputFolders.SongTitleLogoFolder;
-        titleLogoAsset.Required = false;
-
-        IntermediateAsset coachLargeAsset = catalog.Add("image/coachLarge");
-        coachLargeAsset.GeneratedPath = context.FileSystem.OutputFolders.CoachesLargeFolder;
-
-        IntermediateAsset pictogramAtlas = catalog.Add("atlas/pictograms");
-        pictogramAtlas.GeneratedPath = context.FileSystem.OutputFolders.MapPackageFolder;
-
-        IntermediateAsset motionScripts = catalog.Add("motion/msm");
-        motionScripts.GeneratedPath = Path.Combine(context.FileSystem.OutputFolders.MapPackageFolder, "moves");
-        motionScripts.Required = false;
-
-        IntermediateAsset gestureScripts = catalog.Add("motion/gestures");
-        gestureScripts.GeneratedPath = Path.Combine(context.FileSystem.OutputFolders.MapPackageFolder, "gestures");
-        gestureScripts.Required = false;
-
-        return catalog;
     }
 
     private static TimelineStructureDocument BuildTimelineStructure(ConversionContext context, Structure structure, TimelineMath timelineMath)

@@ -1,8 +1,8 @@
-using JustDanceEditor.Formats.JDI.Assets;
-using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -27,169 +27,108 @@ public static class IntermediatePackageSerializer
         ArgumentException.ThrowIfNullOrWhiteSpace(targetFolder);
 
         Directory.CreateDirectory(targetFolder);
-        NormalizeCoachTimelinePointers(package);
-        NormalizeCoachMoveFiles(package);
+        ResetTimelineFolder(targetFolder);
 
-        WriteDocument(Path.Combine(targetFolder, "manifest.json"), package.Manifest);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.MetadataFile), package.Metadata);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.AssetsFile), package.AssetCatalog);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.Timelines.StructureFile), package.TimelineStructure);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.Timelines.LyricsFile), package.Lyrics);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.Timelines.PictogramsFile), package.Pictograms);
-        WriteDocument(ResolvePath(targetFolder, package.Manifest.Timelines.EventsFile), package.Events);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.MetadataFile), package.Metadata);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.StructureFile), package.TimelineStructure);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.LyricsFile), package.Lyrics);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.PictogramsFile), package.Pictograms);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.EventsFile), package.Events);
 
-        foreach (CoachTimelinePointer pointer in package.Manifest.Timelines.CoachTimelines)
-        {
-            CoachTimelineDocument? document = package.CoachTimelines.FirstOrDefault(ct => ct.CoachId == pointer.CoachId);
-            if (document != null)
-                WriteDocument(ResolvePath(targetFolder, pointer.File), document);
-        }
+        WriteCoachTimelines(targetFolder, package.CoachTimelines, isFullBody: false);
+        WriteCoachTimelines(targetFolder, package.FullBodyCoachTimelines, isFullBody: true);
 
-        foreach (CoachTimelinePointer pointer in package.Manifest.Timelines.FullBodyCoachTimelines)
-        {
-            CoachTimelineDocument? document = package.FullBodyCoachTimelines.FirstOrDefault(ct => ct.CoachId == pointer.CoachId);
-            if (document != null)
-                WriteDocument(ResolvePath(targetFolder, pointer.File), document);
-        }
-
-        WriteCoachMovesIfNeeded(targetFolder, package.Manifest.Timelines.HandMovesFile, package.HandCoachMoves);
-        WriteCoachMovesIfNeeded(targetFolder, package.Manifest.Timelines.FullBodyMovesFile, package.FullBodyCoachMoves);
+        WriteCoachMovesIfNeeded(targetFolder, IntermediatePackageLayout.Timelines.HandMovesFile, package.HandCoachMoves);
+        WriteCoachMovesIfNeeded(targetFolder, IntermediatePackageLayout.Timelines.FullBodyMovesFile, package.FullBodyCoachMoves);
     }
 
     public static IntermediateSongPackage LoadFromFolder(string folder)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);
-        string manifestPath = Path.Combine(folder, "manifest.json");
-        IntermediatePackageManifest manifest = ReadDocument<IntermediatePackageManifest>(manifestPath);
 
         IntermediateSongPackage package = new()
         {
-            Manifest = manifest,
-            Metadata = ReadDocument<IntermediateMetadata>(ResolvePath(folder, manifest.MetadataFile)),
-            AssetCatalog = ReadDocument<IntermediateAssetCatalog>(ResolvePath(folder, manifest.AssetsFile)),
-            TimelineStructure = ReadDocument<TimelineStructureDocument>(ResolvePath(folder, manifest.Timelines.StructureFile)),
-            Lyrics = ReadDocument<LyricsTimelineDocument>(ResolvePath(folder, manifest.Timelines.LyricsFile)),
-            Pictograms = ReadDocument<PictogramTimelineDocument>(ResolvePath(folder, manifest.Timelines.PictogramsFile)),
-            Events = ReadDocument<EventTimelineDocument>(ResolvePath(folder, manifest.Timelines.EventsFile))
+            Metadata = ReadDocument<IntermediateMetadata>(Resolve(folder, IntermediatePackageLayout.MetadataFile)),
+            TimelineStructure = ReadDocument<TimelineStructureDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.StructureFile)),
+            Lyrics = ReadDocument<LyricsTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.LyricsFile)),
+            Pictograms = ReadDocument<PictogramTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
+            Events = ReadDocument<EventTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.EventsFile))
         };
 
-        foreach (CoachTimelinePointer pointer in manifest.Timelines.CoachTimelines)
-        {
-            CoachTimelineDocument doc = ReadDocument<CoachTimelineDocument>(ResolvePath(folder, pointer.File));
-            package.CoachTimelines.Add(doc);
-        }
+        LoadCoachTimelinesInto(package.CoachTimelines, folder, isFullBody: false);
+        LoadCoachTimelinesInto(package.FullBodyCoachTimelines, folder, isFullBody: true);
 
-        foreach (CoachTimelinePointer pointer in manifest.Timelines.FullBodyCoachTimelines)
-        {
-            CoachTimelineDocument doc = ReadDocument<CoachTimelineDocument>(ResolvePath(folder, pointer.File));
-            package.FullBodyCoachTimelines.Add(doc);
-        }
-
-        LoadCoachMovesInto(package.HandCoachMoves, folder, manifest.Timelines.HandMovesFile);
-        LoadCoachMovesInto(package.FullBodyCoachMoves, folder, manifest.Timelines.FullBodyMovesFile);
+        LoadCoachMovesInto(package.HandCoachMoves, folder, IntermediatePackageLayout.Timelines.HandMovesFile);
+        LoadCoachMovesInto(package.FullBodyCoachMoves, folder, IntermediatePackageLayout.Timelines.FullBodyMovesFile);
 
         return package;
     }
 
-    private static void NormalizeCoachTimelinePointers(IntermediateSongPackage package)
+    private static void ResetTimelineFolder(string root)
     {
-        TimelineManifest manifest = package.Manifest.Timelines;
-        manifest.CoachTimelines = NormalizePointers(
-            package.CoachTimelines,
-            manifest.CoachTimelines,
-            manifest.Folder,
-            coachId => $"coach_{coachId:D2}.json");
-
-        manifest.FullBodyCoachTimelines = NormalizePointers(
-            package.FullBodyCoachTimelines,
-            manifest.FullBodyCoachTimelines,
-            manifest.Folder,
-            coachId => $"coach_{coachId:D2}_fullBody.json");
+        string folder = Resolve(root, IntermediatePackageLayout.Timelines.Folder);
+        if (Directory.Exists(folder))
+            Directory.Delete(folder, true);
+        Directory.CreateDirectory(folder);
     }
 
-    private static void NormalizeCoachMoveFiles(IntermediateSongPackage package)
+    private static void WriteCoachTimelines(string root, List<CoachTimelineDocument> documents, bool isFullBody)
     {
-        TimelineManifest manifest = package.Manifest.Timelines;
-        manifest.HandMovesFile = NormalizeMovesPath(manifest.HandMovesFile, manifest.Folder, "coach_moves_hand.json", package.HandCoachMoves);
-        manifest.FullBodyMovesFile = NormalizeMovesPath(manifest.FullBodyMovesFile, manifest.Folder, "coach_moves_fullBody.json", package.FullBodyCoachMoves);
-    }
-
-    private static string? NormalizeMovesPath(
-        string? existingPath,
-        string manifestFolder,
-        string defaultFileName,
-        Dictionary<string, CoachMoveDefinition> moves)
-    {
-        if (moves == null || moves.Count == 0)
-            return null;
-
-        if (!string.IsNullOrWhiteSpace(existingPath))
-            return existingPath;
-
-        return CombineManifestPath(manifestFolder, defaultFileName);
-    }
-
-    private static List<CoachTimelinePointer> NormalizePointers(
-        List<CoachTimelineDocument> documents,
-        List<CoachTimelinePointer> existingPointers,
-        string manifestFolder,
-        Func<int, string> fileFactory)
-    {
-        if (documents.Count == 0)
-            return [];
-
-        if (existingPointers.Count == documents.Count)
+        foreach (CoachTimelineDocument document in documents.OrderBy(doc => doc.CoachId))
         {
-            List<CoachTimelinePointer> orderedPointers = [.. existingPointers.OrderBy(p => p.CoachId)];
-            List<CoachTimelineDocument> orderedDocs = [.. documents.OrderBy(c => c.CoachId)];
-            bool matches = true;
-            for (int i = 0; i < orderedDocs.Count; i++)
-            {
-                if (orderedPointers[i].CoachId != orderedDocs[i].CoachId)
-                {
-                    matches = false;
-                    break;
-                }
-            }
-
-            if (matches)
-                return existingPointers;
+            string relative = isFullBody
+                ? IntermediatePackageLayout.Timelines.FullBodyCoachTimelineFile(document.CoachId)
+                : IntermediatePackageLayout.Timelines.CoachTimelineFile(document.CoachId);
+            WriteDocument(Resolve(root, relative), document);
         }
-
-        return [.. documents
-            .OrderBy(ct => ct.CoachId)
-            .Select(ct => new CoachTimelinePointer
-            {
-                CoachId = ct.CoachId,
-                File = CombineManifestPath(manifestFolder, fileFactory(ct.CoachId))
-            })];
     }
 
-    private static void WriteCoachMovesIfNeeded(
-        string root,
-        string? relativePath,
-        Dictionary<string, CoachMoveDefinition> moves)
+    private static void LoadCoachTimelinesInto(List<CoachTimelineDocument> target, string root, bool isFullBody)
     {
-        if (string.IsNullOrWhiteSpace(relativePath) || moves.Count == 0)
+        string folder = Resolve(root, IntermediatePackageLayout.Timelines.Folder);
+        if (!Directory.Exists(folder))
             return;
+
+        string pattern = isFullBody
+            ? IntermediatePackageLayout.Timelines.FullBodyPattern
+            : IntermediatePackageLayout.Timelines.CoachPattern;
+
+        IEnumerable<string> files = Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly);
+        if (!isFullBody)
+            files = files.Where(file => !Path.GetFileName(file).Contains("_fullBody", StringComparison.OrdinalIgnoreCase));
+
+        foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+        {
+            CoachTimelineDocument document = ReadDocument<CoachTimelineDocument>(file);
+            target.Add(document);
+        }
+    }
+
+    private static void WriteCoachMovesIfNeeded(string root, string relativePath, Dictionary<string, CoachMoveDefinition> moves)
+    {
+        string resolved = Resolve(root, relativePath);
+        if (moves.Count == 0)
+        {
+            if (File.Exists(resolved))
+                File.Delete(resolved);
+            return;
+        }
 
         Dictionary<string, CoachMoveDefinition> ordered = moves
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-        WriteDocument(ResolvePath(root, relativePath), ordered);
+        WriteDocument(resolved, ordered);
     }
 
-    private static void LoadCoachMovesInto(
-        Dictionary<string, CoachMoveDefinition> target,
-        string root,
-        string? relativePath)
+    private static void LoadCoachMovesInto(Dictionary<string, CoachMoveDefinition> target, string root, string relativePath)
     {
         target.Clear();
-        if (string.IsNullOrWhiteSpace(relativePath))
+        string resolved = Resolve(root, relativePath);
+        if (!File.Exists(resolved))
             return;
 
-        Dictionary<string, CoachMoveDefinition> moves = ReadDocument<Dictionary<string, CoachMoveDefinition>>(ResolvePath(root, relativePath));
+        Dictionary<string, CoachMoveDefinition> moves = ReadDocument<Dictionary<string, CoachMoveDefinition>>(resolved);
         foreach ((string key, CoachMoveDefinition value) in moves)
             target[key] = value;
     }
@@ -211,17 +150,5 @@ public static class IntermediatePackageSerializer
         return JsonSerializer.Deserialize<T>(stream, ReadOptions)!;
     }
 
-    private static string ResolvePath(string root, string relative)
-    {
-        string normalized = relative.Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(root, normalized);
-    }
-
-    private static string CombineManifestPath(string folder, string file)
-    {
-        string normalizedFolder = folder.TrimEnd('/', '\\');
-        if (string.IsNullOrEmpty(normalizedFolder))
-            return file.Replace('\\', '/');
-        return $"{normalizedFolder}/{file.Replace('\\', '/')}";
-    }
+    private static string Resolve(string root, string relative) => IntermediatePackageLayout.Resolve(root, relative);
 }

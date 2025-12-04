@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Utilities;
@@ -8,7 +7,7 @@ using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
-using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Converters;
@@ -20,7 +19,6 @@ internal sealed class IntermediateToUnityConverter
     private readonly ConversionRequest _request;
     private readonly IRequestValidator _validator;
     private readonly TemplateSet _templates;
-    private readonly Dictionary<string, IntermediateAsset> _assetsByRole;
     private readonly string _songFolderName;
     private readonly string _outputRoot;
 
@@ -38,33 +36,38 @@ internal sealed class IntermediateToUnityConverter
             throw new ArgumentException("Template path must be provided for Unity exports.");
 
         _templates = new TemplateSet(request.TemplatePath);
-        _assetsByRole = _package.AssetCatalog.Assets.ToDictionary(a => a.Role, StringComparer.OrdinalIgnoreCase);
         _songFolderName = BuildSongFolderName(_package.Metadata);
         _outputRoot = Path.Combine(request.OutputPath, _songFolderName);
     }
 
     public async Task ConvertAsync()
     {
+        Logger.Log($"Starting JDI → Unity conversion for '{_songFolderName}'.", LogLevel.Info);
         _validator.ValidateTemplateFolder(_request.TemplatePath);
         _validator.ValidateConversionRequest(_request);
 
         Directory.CreateDirectory(_outputRoot);
+        Logger.Log("Copying audio assets into Unity workspace...", LogLevel.Debug);
         CopyAudioAssets();
+        Logger.Log("Copying video assets into Unity workspace...", LogLevel.Debug);
         CopyVideoAssets();
+        Logger.Log("Generating SongInfo.json...", LogLevel.Debug);
         await GenerateSongInfoAsync();
+        Logger.Log("Building Unity bundles...", LogLevel.Debug);
         await BuildUnityBundlesAsync();
+        Logger.Log($"Unity conversion for '{_songFolderName}' completed.", LogLevel.Info);
     }
 
     private void CopyAudioAssets()
     {
-        CopyHashedAsset("audio/master", Path.Combine(_outputRoot, "Audio_opus"), ".opus");
-        CopyHashedAsset("audio/preview", Path.Combine(_outputRoot, "AudioPreview_opus"), ".opus");
+        CopyHashedFile(IntermediatePackageLayout.Assets.AudioMasterFile, Path.Combine(_outputRoot, "Audio_opus"), ".opus");
+        CopyHashedFile(IntermediatePackageLayout.Assets.AudioPreviewFile, Path.Combine(_outputRoot, "AudioPreview_opus"), ".opus");
     }
 
     private void CopyVideoAssets()
     {
-        CopyHashedDirectory("video/background", Path.Combine(_outputRoot, "video"), ".webm");
-        CopyHashedDirectory("video/preview", Path.Combine(_outputRoot, "videoPreview"), ".webm");
+        CopyHashedDirectory(IntermediatePackageLayout.Assets.VideoFolder, Path.Combine(_outputRoot, "video"), ".webm");
+        CopyHashedDirectory(IntermediatePackageLayout.Assets.PreviewVideoFolder, Path.Combine(_outputRoot, "videoPreview"), ".webm");
     }
 
     private async Task GenerateSongInfoAsync()
@@ -140,6 +143,7 @@ internal sealed class IntermediateToUnityConverter
             mapPackageFolder,
             forCustomServer);
 
+        Logger.Log("Dispatching Unity bundle builders (cover, title, coaches, map package)...", LogLevel.Debug);
         Task coverTask = CoverBundleBuilder.GenerateAsync(coverRequest);
         Task titleTask = SongTitleBundleBuilder.GenerateAsync(songTitleRequest);
         Task coachesLargeTask = CoachesLargeBundleBuilder.GenerateAsync(coachesLargeRequest);
@@ -147,126 +151,79 @@ internal sealed class IntermediateToUnityConverter
         Task mapPackageTask = MapPackageBundleBuilder.GenerateAsync(mapPackageRequest);
 
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
+        Logger.Log("Unity bundle generation finished.", LogLevel.Debug);
     }
 
-    private void CopyHashedAsset(string role, string destinationFolder, string extension)
+    private void CopyHashedFile(string relativeSourceFile, string destinationFolder, string extension)
     {
-        if (!TryResolveAssetFile(role, out string? source))
+        string source = ResolvePackagePath(relativeSourceFile);
+        if (!File.Exists(source))
+        {
+            Logger.Log($"Expected asset '{relativeSourceFile}' does not exist; skipping copy.", LogLevel.Warning);
             return;
+        }
 
         Directory.CreateDirectory(destinationFolder);
         string hashName = BuildHashedFileName(source, extension);
         File.Copy(source, Path.Combine(destinationFolder, hashName), true);
+        Logger.Log($"Copied '{relativeSourceFile}' to '{destinationFolder}'.", LogLevel.Debug);
     }
 
-    private void CopyHashedDirectory(string role, string destinationFolder, string extension)
+    private void CopyHashedDirectory(string relativeSourceFolder, string destinationFolder, string extension)
     {
-        if (!TryResolveAssetDirectory(role, out string? sourceDir))
+        string sourceDir = ResolvePackagePath(relativeSourceFolder);
+        if (!Directory.Exists(sourceDir))
+        {
+            Logger.Log($"Expected asset folder '{relativeSourceFolder}' does not exist; skipping copy.", LogLevel.Warning);
             return;
+        }
 
         Directory.CreateDirectory(destinationFolder);
+        bool copiedAny = false;
         foreach (string file in Directory.EnumerateFiles(sourceDir))
         {
             string hashName = BuildHashedFileName(file, extension);
             File.Copy(file, Path.Combine(destinationFolder, hashName), true);
-        }
-    }
-
-    private bool TryResolveAssetFile(string role, [NotNullWhen(true)] out string? path)
-    {
-        if (_assetsByRole.TryGetValue(role, out IntermediateAsset? asset) &&
-            !string.IsNullOrWhiteSpace(asset.SourcePath))
-        {
-            string resolved = ResolveRelativePath(asset.SourcePath);
-            if (File.Exists(resolved))
-            {
-                path = resolved;
-                return true;
-            }
+            copiedAny = true;
         }
 
-        return TryResolveFallbackAssetFile(role, out path);
+        if (!copiedAny)
+            Logger.Log($"Asset folder '{relativeSourceFolder}' is empty; nothing copied to '{destinationFolder}'.", LogLevel.Warning);
+        else
+            Logger.Log($"Copied assets from '{relativeSourceFolder}' to '{destinationFolder}'.", LogLevel.Debug);
     }
 
-    private bool TryResolveAssetDirectory(string role, [NotNullWhen(true)] out string? folder)
+    private string ResolvePackagePath(string relativePath) => IntermediatePackageLayout.Resolve(_packageRoot, relativePath);
+
+    private string? GetAssetFileIfExists(string relativeFile)
     {
-        if (_assetsByRole.TryGetValue(role, out IntermediateAsset? asset) &&
-            !string.IsNullOrWhiteSpace(asset.SourcePath))
+        string path = ResolvePackagePath(relativeFile);
+        return File.Exists(path) ? path : null;
+    }
+
+    private string? GetAssetFolder(string relativeFolder)
+    {
+        string path = ResolvePackagePath(relativeFolder);
+        return Directory.Exists(path) ? path : null;
+    }
+
+    private string? FindFirstFileInFolder(string relativeFolder, params string[] patterns)
+    {
+        string? folder = GetAssetFolder(relativeFolder);
+        if (folder == null)
+            return null;
+
+        string[] searchPatterns = patterns.Length == 0 ? new[] { "*" } : patterns;
+        foreach (string pattern in searchPatterns)
         {
-            string resolved = ResolveRelativePath(asset.SourcePath);
-            if (Directory.Exists(resolved))
-            {
-                folder = resolved;
-                return true;
-            }
+            string? match = Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly)
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (match != null)
+                return match;
         }
 
-        return TryResolveFallbackAssetDirectory(role, out folder);
-    }
-
-    private bool TryResolveFallbackAssetFile(string role, [NotNullWhen(true)] out string? path)
-    {
-        path = null;
-        string brandingFolder = GetAssetsSubfolder("branding");
-        return role switch
-        {
-            "image/cover" => TryFindFileInFolder(brandingFolder, out path, "thumbnail.*", "cover.*"),
-            "image/songTitleLogo" => TryFindFileInFolder(brandingFolder, out path, "songTitleLogo.*", "song_title_logo.*"),
-            _ => false
-        };
-    }
-
-    private bool TryResolveFallbackAssetDirectory(string role, [NotNullWhen(true)] out string? folder)
-    {
-        folder = role switch
-        {
-            "image/coachLarge" => GetAssetsSubfolder("coaches"),
-            "atlas/pictograms" => GetAssetsSubfolder("pictograms"),
-            "motion/msm" => GetAssetsSubfolder("moves"),
-            "motion/gestures" => GetAssetsSubfolder("gestures"),
-            _ => null
-        };
-
-        if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
-            return true;
-
-        folder = null;
-        return false;
-    }
-
-    private static bool TryFindFileInFolder(string folder, [NotNullWhen(true)] out string? path, params string[] patterns)
-    {
-        path = null;
-        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-            return false;
-
-        foreach (string pattern in patterns)
-        {
-            foreach (string match in Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly))
-            {
-                path = match;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private string GetAssetsSubfolder(string segment)
-    {
-        string assetsRoot = Path.Combine(_packageRoot, "assets");
-        string preferred = Path.Combine(assetsRoot, segment);
-        if (Directory.Exists(preferred))
-            return preferred;
-
-        string fallback = Path.Combine(_packageRoot, segment);
-        return fallback;
-    }
-
-    private string ResolveRelativePath(string relative)
-    {
-        string normalized = relative.Replace('/', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.Combine(_packageRoot, normalized));
+        return null;
     }
 
     private string BuildHashedFileName(string sourceFile, string extension)
@@ -290,8 +247,8 @@ internal sealed class IntermediateToUnityConverter
 
     private UnityMenuArtSource BuildMenuArtSource()
     {
-        string? coverPath = TryResolveAssetFile("image/cover", out string? cover) ? cover : null;
-        string? titlePath = TryResolveAssetFile("image/songTitleLogo", out string? title) ? title : null;
+        string? coverPath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.BrandingCoverFile);
+        string? titlePath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.BrandingSongTitleFile);
         string? backgroundPath = ResolveCoachBackground();
         IReadOnlyList<string> coachImages = ResolveCoachImages();
 
@@ -309,7 +266,8 @@ internal sealed class IntermediateToUnityConverter
 
     private IReadOnlyList<string> ResolveCoachImages()
     {
-        if (!TryResolveAssetDirectory("image/coachLarge", out string? coachesDir))
+        string? coachesDir = GetAssetFolder(IntermediatePackageLayout.Assets.CoachesFolder);
+        if (coachesDir == null)
             return Array.Empty<string>();
 
         string[] candidates = Directory.EnumerateFiles(coachesDir, "*", SearchOption.TopDirectoryOnly)
@@ -324,24 +282,15 @@ internal sealed class IntermediateToUnityConverter
     {
         string[] patterns =
         [
-            $"{_songFolderName}_map_bkg.*",
-            "coachesBackground.*",
-            "coachBackground.*",
-            "*map_bkg.*"
+            $"{_songFolderName}_map_bkg*.*",
+            "coachesBackground*.*",
+            "coachBackground*.*",
+            "*map_bkg*.*"
         ];
 
-        if (TryResolveAssetFile("image/coachBackground", out string? background))
-            return background;
-
-        string brandingFolder = GetAssetsSubfolder("branding");
-        if (TryFindFileInFolder(brandingFolder, out string? brandingMatch, patterns))
-            return brandingMatch;
-
-        string coachesFolder = GetAssetsSubfolder("coaches");
-        if (TryFindFileInFolder(coachesFolder, out string? coachesMatch, patterns))
-            return coachesMatch;
-
-        return null;
+        return GetAssetFileIfExists(IntermediatePackageLayout.Assets.CoachesBackgroundFile)
+            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.CoachesFolder, patterns)
+            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.BrandingFolder, patterns);
     }
 
     private string ResolveSongName(UnityExportData unityData)
@@ -362,31 +311,29 @@ internal sealed class IntermediateToUnityConverter
 
     private string[] ResolvePictoFiles()
     {
-        if (TryResolveAssetDirectory("atlas/pictograms", out string? folder) && Directory.Exists(folder))
+        string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.PictogramsFolder);
+        if (folder == null)
         {
-            return Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            Logger.Log("Intermediate package missing pictogram folder; map package may lack pictos.", LogLevel.Warning);
+            return Array.Empty<string>();
         }
 
-        string fallback = GetAssetsSubfolder("pictograms");
-        if (Directory.Exists(fallback))
-        {
-            return Directory.EnumerateFiles(fallback, "*", SearchOption.TopDirectoryOnly)
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-        }
+        string[] files = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        return Array.Empty<string>();
+        if (files.Length == 0)
+            Logger.Log("Intermediate pictogram folder is empty; map package may lack pictos.", LogLevel.Warning);
+
+        return files;
     }
 
     private string? ResolveMovesFolder()
     {
-        if (TryResolveAssetDirectory("motion/msm", out string? folder) && Directory.Exists(folder))
-            return folder;
-
-        string fallback = GetAssetsSubfolder("moves");
-        return Directory.Exists(fallback) ? fallback : null;
+        string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.MovesFolder);
+        if (folder == null)
+            Logger.Log("Intermediate package missing moves folder; MSM scripts will be omitted.", LogLevel.Warning);
+        return folder;
     }
 
     private static bool IsCoachBackgroundAsset(string path)

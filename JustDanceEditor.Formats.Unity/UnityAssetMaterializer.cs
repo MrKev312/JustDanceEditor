@@ -2,7 +2,6 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -16,8 +15,6 @@ namespace JustDanceEditor.Formats.Unity;
 
 public static class UnityAssetMaterializer
 {
-    private const string MotionScriptsRole = "motion/msm";
-    private const string GestureScriptsRole = "motion/gestures";
 
     private static readonly WebpEncoder LosslessWebpEncoder = new()
     {
@@ -31,18 +28,32 @@ public static class UnityAssetMaterializer
         ArgumentException.ThrowIfNullOrWhiteSpace(unityRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
 
-        AssetDirectories dirs = AssetDirectories.Create(targetRoot);
-        Directory.CreateDirectory(dirs.Root);
+        string assetsRoot = ResolvePackagePath(targetRoot, IntermediatePackageLayout.Assets.Root);
+        Directory.CreateDirectory(assetsRoot);
+        Logger.Log($"Materializing Unity assets from '{unityRoot}' into '{assetsRoot}'.", LogLevel.Info);
 
         try
         {
-            CopyAudio(package.AssetCatalog, unityRoot, dirs);
-            CopyVideo(package.AssetCatalog, unityRoot, dirs);
-            ExtractBrandingAssets(package.AssetCatalog, unityRoot, dirs);
-            ExtractCoachAssets(package.AssetCatalog, unityRoot, dirs);
-            ExtractPictograms(package.AssetCatalog, unityRoot, dirs);
-            ExtractMotionScripts(package.AssetCatalog, unityRoot, dirs);
-            ExtractGestureFiles(package.AssetCatalog, unityRoot, dirs);
+            Logger.Log("Copying audio assets...", LogLevel.Debug);
+            CopyAudio(unityRoot, targetRoot);
+
+            Logger.Log("Copying video assets...", LogLevel.Debug);
+            CopyVideo(unityRoot, targetRoot);
+
+            Logger.Log("Extracting branding imagery...", LogLevel.Debug);
+            ExtractBrandingAssets(unityRoot, targetRoot);
+
+            Logger.Log("Extracting coach imagery...", LogLevel.Debug);
+            ExtractCoachAssets(unityRoot, targetRoot);
+
+            Logger.Log("Extracting pictograms...", LogLevel.Debug);
+            ExtractPictograms(unityRoot, targetRoot);
+
+            Logger.Log("Extracting motion scripts...", LogLevel.Debug);
+            ExtractMotionScripts(unityRoot, targetRoot);
+
+            Logger.Log("Extracting gesture files...", LogLevel.Debug);
+            ExtractGestureFiles(unityRoot, targetRoot);
         }
         catch (Exception ex)
         {
@@ -50,55 +61,111 @@ public static class UnityAssetMaterializer
             throw;
         }
 
-        CleanupCatalog(package.AssetCatalog);
+        Logger.Log("Unity asset extraction complete.", LogLevel.Info);
     }
 
-    private static void CopyAudio(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void CopyAudio(string unityRoot, string packageRoot)
     {
+        string audioFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
+
+        string masterDestination = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioMasterFile);
         string masterSource = Path.Combine(unityRoot, "Audio_opus");
-        string? masterPath = CopyFirstMatch(masterSource, "*.opus", dirs.Audio, "master.opus");
-        UpdateAssetReference(catalog, "audio/master", masterPath, dirs);
+        string? masterPath = CopyFirstMatch(masterSource, "*.opus", audioFolder, Path.GetFileName(masterDestination));
 
+        string previewDestination = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioPreviewFile);
         string previewSource = Path.Combine(unityRoot, "AudioPreview_opus");
-        string? previewPath = CopyFirstMatch(previewSource, "*.opus", dirs.Audio, "preview.opus");
-        UpdateAssetReference(catalog, "audio/preview", previewPath, dirs);
+        string? previewPath = CopyFirstMatch(previewSource, "*.opus", audioFolder, Path.GetFileName(previewDestination));
+
+        if (masterPath == null)
+        {
+            Logger.Log("No master audio track found in Unity export; 'master.opus' will be missing.", LogLevel.Warning);
+            TryDeleteFile(masterDestination);
+        }
+        else
+        {
+            Logger.Log("Copied master audio track to assets/audio/master.opus.", LogLevel.Info);
+        }
+        if (previewPath == null)
+        {
+            Logger.Log("No preview audio track found in Unity export; 'preview.opus' will be missing.", LogLevel.Warning);
+            TryDeleteFile(previewDestination);
+        }
+        else
+        {
+            Logger.Log("Copied preview audio track to assets/audio/preview.opus.", LogLevel.Info);
+        }
     }
 
-    private static void CopyVideo(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void CopyVideo(string unityRoot, string packageRoot)
     {
-        string videoSource = Path.Combine(unityRoot, "video");
-        bool hasBackground = CopyAllVideoVariants(videoSource, dirs.Video);
-        UpdateAssetReference(catalog, "video/background", hasBackground ? dirs.Video : null, dirs, treatAsDirectory: true);
+        string videoDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        int backgroundCount = CopyAllVideoVariants(Path.Combine(unityRoot, "video"), videoDestination);
 
-        string previewSource = Path.Combine(unityRoot, "videoPreview");
-        bool hasPreview = CopyAllVideoVariants(previewSource, dirs.PreviewVideo);
-        UpdateAssetReference(catalog, "video/preview", hasPreview ? dirs.PreviewVideo : null, dirs, treatAsDirectory: true);
+        string previewDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
+        int previewCount = CopyAllVideoVariants(Path.Combine(unityRoot, "videoPreview"), previewDestination);
+
+        if (backgroundCount == 0)
+        {
+            Logger.Log("No background video files found in Unity export.", LogLevel.Warning);
+            TryDeleteDirectory(videoDestination);
+        }
+        else
+        {
+            Logger.Log($"Copied {backgroundCount} video background file(s).", LogLevel.Info);
+        }
+        if (previewCount == 0)
+        {
+            Logger.Log("No preview video files found in Unity export.", LogLevel.Warning);
+            TryDeleteDirectory(previewDestination);
+        }
+        else
+        {
+            Logger.Log($"Copied {previewCount} video preview file(s).", LogLevel.Info);
+        }
     }
 
-    private static void ExtractBrandingAssets(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void ExtractBrandingAssets(string unityRoot, string packageRoot)
     {
-        Directory.CreateDirectory(dirs.Branding);
+        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BrandingFolder);
 
-        string coverDest = Path.Combine(dirs.Branding, "thumbnail.webp");
+        string coverDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingCoverFile);
         string? coverPath = ExtractSingleImage(Path.Combine(unityRoot, "Cover"), coverDest);
-        UpdateAssetReference(catalog, "image/cover", coverPath, dirs, mimeType: "image/webp");
 
-        string logoDest = Path.Combine(dirs.Branding, "songTitleLogo.webp");
+        string logoDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingSongTitleFile);
         string? logoPath = ExtractSingleImage(Path.Combine(unityRoot, "songTitleLogo"), logoDest);
-        UpdateAssetReference(catalog, "image/songTitleLogo", logoPath, dirs, mimeType: "image/webp");
+
+        if (coverPath == null)
+        {
+            Logger.Log("Unity export does not contain cover art; 'thumbnail.webp' will be empty.", LogLevel.Warning);
+            TryDeleteFile(coverDest);
+        }
+        else
+        {
+            Logger.Log("Extracted cover art to assets/branding/thumbnail.webp.", LogLevel.Info);
+        }
+        if (logoPath == null)
+        {
+            Logger.Log("Unity export does not contain a song title logo; 'songTitleLogo.webp' will be empty.", LogLevel.Warning);
+            TryDeleteFile(logoDest);
+        }
+        else
+        {
+            Logger.Log("Extracted song title logo to assets/branding/songTitleLogo.webp.", LogLevel.Info);
+        }
     }
 
-    private static void ExtractCoachAssets(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void ExtractCoachAssets(string unityRoot, string packageRoot)
     {
         string coachFolder = Path.Combine(unityRoot, "CoachesLarge");
         if (!Directory.Exists(coachFolder))
         {
-            UpdateAssetReference(catalog, "image/coachLarge", null, dirs);
+            Logger.Log("Unity export does not include coach textures; 'assets/coaches' will be empty.", LogLevel.Warning);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder));
             return;
         }
 
-        Directory.CreateDirectory(dirs.Coaches);
-        string backgroundDest = Path.Combine(dirs.Coaches, "coachesBackground.webp");
+        string coachesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder);
+        string backgroundDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile);
         bool backgroundExported = false;
         int exportedCoaches = 0;
 
@@ -113,7 +180,7 @@ public static class UnityAssetMaterializer
 
             if (TryParseCoachIndex(name, out int index))
             {
-                string destination = Path.Combine(dirs.Coaches, $"coach_{index:D2}.webp");
+                string destination = Path.Combine(coachesFolder, $"coach_{index:D2}.webp");
                 SaveAsWebp(image, destination);
                 exportedCoaches++;
             }
@@ -125,29 +192,34 @@ public static class UnityAssetMaterializer
         {
             Logger.Log($"Saved coaches background to {backgroundDest}", LogLevel.Debug);
         }
-
-        if (exportedCoaches > 0)
+        else
         {
-            Directory.CreateDirectory(dirs.Coaches);
-            UpdateAssetReference(catalog, "image/coachLarge", dirs.Coaches, dirs, treatAsDirectory: true, mimeType: "image/webp");
+            Logger.Log("Coach background image not found in Unity export.", LogLevel.Warning);
+        }
+
+        if (exportedCoaches == 0)
+        {
+            Logger.Log("No coach imagery decoded from Unity export.", LogLevel.Warning);
+            TryDeleteDirectory(coachesFolder);
         }
         else
         {
-            UpdateAssetReference(catalog, "image/coachLarge", null, dirs);
+            Logger.Log($"Extracted {exportedCoaches} coach image(s).", LogLevel.Info);
         }
     }
 
-    private static void ExtractPictograms(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void ExtractPictograms(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
         if (bundlePath == null)
         {
-            UpdateAssetReference(catalog, "atlas/pictograms", null, dirs);
+            Logger.Log("No pictogram bundle found in Unity export.", LogLevel.Warning);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder));
             return;
         }
 
-        Directory.CreateDirectory(dirs.Pictograms);
+        string pictogramsFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
         AssetsManager manager = new();
         Dictionary<long, Image<Rgba32>> atlasImages = [];
         try
@@ -194,18 +266,19 @@ public static class UnityAssetMaterializer
                 if (string.IsNullOrEmpty(safeName) || !exported.Add(safeName))
                     continue;
 
-                string destination = Path.Combine(dirs.Pictograms, $"{safeName}.webp");
+                string destination = Path.Combine(pictogramsFolder, $"{safeName}.webp");
                 using Image<Rgba32> cropped = atlas.Clone(ctx => ctx.Crop(cropRect));
                 SaveAsWebp(cropped, destination);
             }
 
-            if (exported.Count > 0)
+            if (exported.Count == 0)
             {
-                UpdateAssetReference(catalog, "atlas/pictograms", dirs.Pictograms, dirs, treatAsDirectory: true, mimeType: "image/webp");
+                Logger.Log("No pictograms could be decoded from Unity export.", LogLevel.Warning);
+                TryDeleteDirectory(pictogramsFolder);
             }
             else
             {
-                UpdateAssetReference(catalog, "atlas/pictograms", null, dirs);
+                Logger.Log($"Extracted {exported.Count} pictogram(s).", LogLevel.Info);
             }
         }
         finally
@@ -216,42 +289,43 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractMotionScripts(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void ExtractMotionScripts(string unityRoot, string packageRoot)
     {
-        EnsureAssetRole(catalog, MotionScriptsRole);
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            dirs.Moves,
+            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
             name => name.EndsWith(".msm", StringComparison.OrdinalIgnoreCase),
             ".msm");
 
-        string? referencePath = exported > 0 ? dirs.Moves : null;
-        UpdateAssetReference(catalog, MotionScriptsRole, referencePath, dirs, treatAsDirectory: true);
+        if (exported == 0)
+        {
+            Logger.Log("No motion scripts (*.msm) were exported from the Unity map package.", LogLevel.Warning);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder));
+        }
+        else
+        {
+            Logger.Log($"Extracted {exported} motion script(s).", LogLevel.Info);
+        }
     }
 
-    private static void ExtractGestureFiles(IntermediateAssetCatalog catalog, string unityRoot, AssetDirectories dirs)
+    private static void ExtractGestureFiles(string unityRoot, string packageRoot)
     {
-        EnsureAssetRole(catalog, GestureScriptsRole);
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            dirs.Gestures,
+            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder),
             name => name.EndsWith(".gesture", StringComparison.OrdinalIgnoreCase),
             ".gesture");
 
-        string? referencePath = exported > 0 ? dirs.Gestures : null;
-        UpdateAssetReference(catalog, GestureScriptsRole, referencePath, dirs, treatAsDirectory: true);
-    }
-
-    private static void CleanupCatalog(IntermediateAssetCatalog catalog)
-    {
-        catalog.Assets.RemoveAll(asset => asset.Role.StartsWith("bundle/", StringComparison.OrdinalIgnoreCase));
-        foreach (IntermediateAsset asset in catalog.Assets)
+        if (exported == 0)
         {
-            asset.Attributes.Clear();
-            if (!string.IsNullOrWhiteSpace(asset.SourcePath))
-                asset.SourcePath = NormalizePath(asset.SourcePath);
+            Logger.Log("No gesture assets (*.gesture) were exported from the Unity map package.", LogLevel.Warning);
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder));
+        }
+        else
+        {
+            Logger.Log($"Extracted {exported} gesture asset(s).", LogLevel.Info);
         }
     }
 
@@ -273,10 +347,10 @@ public static class UnityAssetMaterializer
         return destination;
     }
 
-    private static bool CopyAllVideoVariants(string sourceFolder, string destinationFolder)
+    private static int CopyAllVideoVariants(string sourceFolder, string destinationFolder)
     {
         if (!Directory.Exists(sourceFolder))
-            return false;
+            return 0;
 
         string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
         List<string> sources = [.. Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)
@@ -284,7 +358,7 @@ public static class UnityAssetMaterializer
             .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
 
         if (sources.Count == 0)
-            return false;
+            return 0;
 
         Directory.CreateDirectory(destinationFolder);
         foreach (string source in sources)
@@ -293,7 +367,7 @@ public static class UnityAssetMaterializer
             File.Copy(source, destination, true);
         }
 
-        return true;
+        return sources.Count;
     }
 
     private static string? ExtractSingleImage(string sourceFolder, string destinationFile)
@@ -531,13 +605,17 @@ public static class UnityAssetMaterializer
         return candidate;
     }
 
-    private static void EnsureAssetRole(IntermediateAssetCatalog catalog, string role)
+    private static void TryDeleteFile(string path)
     {
-        if (catalog.Assets.Any(asset => asset.Role == role))
-            return;
-
-        IntermediateAsset newAsset = catalog.Add(role);
-        newAsset.Required = false;
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Best-effort cleanup.
+        }
     }
 
     private static void TryDeleteDirectory(string folder)
@@ -558,34 +636,22 @@ public static class UnityAssetMaterializer
         }
     }
 
+    private static string ResolvePackagePath(string packageRoot, string relativePath)
+    {
+        return IntermediatePackageLayout.Resolve(packageRoot, relativePath);
+    }
+
+    private static string EnsureFolder(string packageRoot, string relativeFolder)
+    {
+        string path = ResolvePackagePath(packageRoot, relativeFolder);
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
     private static bool HasImageExtension(string path)
     {
         string extension = Path.GetExtension(path).ToLowerInvariant();
         return extension is ".png" or ".jpg" or ".jpeg" or ".webp";
-    }
-
-    private static void UpdateAssetReference(IntermediateAssetCatalog catalog, string role, string? absolutePath, AssetDirectories dirs, string? mimeType = null, bool treatAsDirectory = false)
-    {
-        IntermediateAsset? asset = catalog.Assets.FirstOrDefault(a => a.Role == role);
-        if (asset == null)
-            return;
-
-        if (absolutePath == null)
-        {
-            asset.Required = false;
-            asset.SourcePath = null;
-            asset.SizeBytes = null;
-            asset.MimeType = null;
-            return;
-        }
-
-        string relativePath = dirs.ToRelative(absolutePath);
-        asset.SourcePath = relativePath;
-        asset.SizeBytes = treatAsDirectory
-            ? (Directory.Exists(absolutePath) ? Directory.EnumerateFiles(absolutePath, "*", SearchOption.AllDirectories).Sum(file => new FileInfo(file).Length) : null)
-            : new FileInfo(absolutePath).Length;
-        asset.MimeType = mimeType;
-        asset.Required = true;
     }
 
     private sealed record SpriteInfo(string Name);
@@ -625,37 +691,4 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private sealed class AssetDirectories
-    {
-        public string TargetRoot { get; }
-        public string Root { get; }
-        public string Audio { get; }
-        public string Video { get; }
-        public string PreviewVideo { get; }
-        public string Coaches { get; }
-        public string Pictograms { get; }
-        public string Branding { get; }
-        public string Moves { get; }
-        public string Gestures { get; }
-
-        private AssetDirectories(string targetRoot)
-        {
-            TargetRoot = targetRoot;
-            Root = Path.Combine(targetRoot, "assets");
-            Audio = Path.Combine(Root, "audio");
-            Video = Path.Combine(Root, "video");
-            PreviewVideo = Path.Combine(Root, "previewVideo");
-            Coaches = Path.Combine(Root, "coaches");
-            Pictograms = Path.Combine(Root, "pictograms");
-            Branding = Path.Combine(Root, "branding");
-            Moves = Path.Combine(Root, "moves");
-            Gestures = Path.Combine(Root, "gestures");
-        }
-
-        public static AssetDirectories Create(string targetRoot) => new(targetRoot);
-
-        public string ToRelative(string absolutePath) => NormalizePath(Path.GetRelativePath(TargetRoot, absolutePath));
-    }
-
-    private static string NormalizePath(string path) => path.Replace('\\', '/');
 }

@@ -2,8 +2,6 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Assets;
-using JustDanceEditor.Formats.JDI.Manifests;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -46,9 +44,7 @@ internal static class UnityServerIntermediateBuilder
 
         IntermediateSongPackage package = new()
         {
-            Manifest = new IntermediatePackageManifest(),
             Metadata = BuildMetadata(songInfo, mapData.Structure),
-            AssetCatalog = BuildAssetCatalog(mapRoot, mapData.MapPackagePath),
             TimelineStructure = BuildTimelineStructure(mapData.Structure, timelineMath),
             Lyrics = BuildLyricsDocument(mapData.KaraokeClips),
             Pictograms = BuildPictogramDocument(mapData.PictogramClips),
@@ -308,28 +304,6 @@ internal static class UnityServerIntermediateBuilder
         metadata.AdditionalMetadata["unity.doubleScoringType"] = info.DoubleScoringType ?? string.Empty;
 
         return metadata;
-    }
-
-    private static IntermediateAssetCatalog BuildAssetCatalog(string mapRoot, string mapPackagePath)
-    {
-        IntermediateAssetCatalog catalog = new();
-
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "Audio_opus"), "*.opus", "audio/master");
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "AudioPreview_opus"), "*.opus", "audio/preview", required: false);
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "video"), "*.webm", "video/background", required: false, allowFallback: true);
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "videoPreview"), "*.webm", "video/preview", required: false, allowFallback: true);
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "Cover"), "*.bundle", "image/cover");
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "songTitleLogo"), "*.bundle", "image/songTitleLogo", required: false);
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "CoachesLarge"), "*.bundle", "image/coachLarge");
-        AddSingleFileAsset(catalog, Path.Combine(mapRoot, "MapPackage"), "*.bundle", "bundle/mapPackage", allowFallback: true, explicitPath: mapPackagePath);
-
-        IntermediateAsset motionScripts = catalog.Add("motion/msm");
-        motionScripts.Required = false;
-
-        IntermediateAsset gestureScripts = catalog.Add("motion/gestures");
-        gestureScripts.Required = false;
-
-        return catalog;
     }
 
     private static TimelineStructureDocument BuildTimelineStructure(Structure structure, TimelineMath timelineMath)
@@ -609,40 +583,6 @@ internal static class UnityServerIntermediateBuilder
             throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
 
         return bundle;
-    }
-
-    private static void AddSingleFileAsset(
-        IntermediateAssetCatalog catalog,
-        string folder,
-        string searchPattern,
-        string role,
-        bool required = true,
-        bool allowFallback = false,
-        string? explicitPath = null)
-    {
-        string? file = explicitPath ?? TryFirstFile(folder, searchPattern, allowFallback);
-        if (file == null || !File.Exists(file))
-            return;
-
-        IntermediateAsset asset = catalog.Add(role);
-        asset.SourcePath = file;
-        asset.SizeBytes = new FileInfo(file).Length;
-        asset.Required = required;
-    }
-
-    private static string? TryFirstFile(string folder, string searchPattern, bool allowFallback)
-    {
-        if (!Directory.Exists(folder))
-            return null;
-
-        string? match = Directory.EnumerateFiles(folder, searchPattern).OrderBy(f => f).FirstOrDefault();
-        if (match != null)
-            return match;
-
-        if (!allowFallback)
-            return null;
-
-        return Directory.EnumerateFiles(folder).OrderBy(f => f).FirstOrDefault();
     }
 
     private static double ComputeSongStartOffset(Structure structure)
