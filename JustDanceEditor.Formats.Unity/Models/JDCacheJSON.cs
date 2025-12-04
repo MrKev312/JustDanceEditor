@@ -8,10 +8,10 @@ public class JDCacheJSON
     public uint SchemaVersion { get; set; } = 1;
 
     [JsonPropertyName("mapsDict")]
-    public Dictionary<Guid, JDSong> MapsDict { get; set; } = [];
+    public Dictionary<Guid, JDCacheSong> MapsDict { get; set; } = [];
 }
 
-public class JDSong
+public class JDCacheSong
 {
     [JsonPropertyName("songDatabaseEntry")]
     public SongDatabaseEntry SongDatabaseEntry { get; set; } = new();

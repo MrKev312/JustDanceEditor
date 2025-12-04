@@ -36,12 +36,12 @@ internal class CacheDialogue
 
             // Create addresables's json.cache
             string addressablesJsonCachePath = Path.Combine(addressablesPath, "json.cache");
-            File.WriteAllText(addressablesJsonCachePath, JDSongFactory.AddressablesJson());
+            File.WriteAllText(addressablesJsonCachePath, JDSongJSONBuilder.AddressablesJson());
             Console.WriteLine($"Created: {addressablesJsonCachePath}");
 
             // Create mapbasecache's json.cache
             string mapBaseCacheJsonCachePath = Path.Combine(mapBaseCachePath, "json.cache");
-            File.WriteAllText(mapBaseCacheJsonCachePath, JDSongFactory.MapBaseCacheJson());
+            File.WriteAllText(mapBaseCacheJsonCachePath, JDSongJSONBuilder.MapBaseCacheJson());
             Console.WriteLine($"Created: {mapBaseCacheJsonCachePath}");
 
             // Get a blank cachingStatus json
@@ -148,7 +148,7 @@ internal class CacheDialogue
                 {
                     Guid songFolderName = Guid.Parse(Path.GetFileName(songFolder));
 
-                    JDSong jDSong = jDCacheJSON.MapsDict[songFolderName];
+                    JDCacheSong jDSong = jDCacheJSON.MapsDict[songFolderName];
 
                     if (!cacheOutputFolderSizes.TryDequeue(out string? songFolderOutput, out long priority))
                     {
@@ -163,7 +163,7 @@ internal class CacheDialogue
                     Console.WriteLine($"   - Moving song '{songFolderName}' to '{songFolderOutput}' (Cache {folderNumber:X4})");
 
                     // First update the CachingStatus.json
-                    JDSongFactory.UpdateSong(jDSong, folderNumber);
+                    JDSongJSONBuilder.UpdateSong(jDSong, folderNumber);
                     jDCacheJSON.MapsDict[songFolderName] = jDSong;
 
                     // Get the size of the song folder and re-enqueue the target folder with updated size
@@ -175,7 +175,7 @@ internal class CacheDialogue
 
                     // Overwrite the json.cache
                     string jsonCachePath = Path.Combine(fullSongFolderOutput, "json.cache");
-                    string jsonCache = JDSongFactory.CacheJson(folderNumber, songFolderName);
+                    string jsonCache = JDSongJSONBuilder.CacheJson(folderNumber, songFolderName);
                     File.WriteAllText(jsonCachePath, jsonCache);
                 }
 

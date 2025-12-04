@@ -5,7 +5,7 @@ using JustDanceEditor.Formats.Unity.Models;
 
 using System.Globalization;
 
-namespace JustDanceEditor.Formats.Unity;
+namespace JustDanceEditor.Formats.Unity.Builders;
 
 public static class UnityExportDataBuilder
 {

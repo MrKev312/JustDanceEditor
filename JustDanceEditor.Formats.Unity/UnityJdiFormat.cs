@@ -5,7 +5,7 @@ using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Converters;
 
-namespace JustDanceEditor.Formats.Unity.Formats;
+namespace JustDanceEditor.Formats.Unity;
 
 public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFormat
 {
