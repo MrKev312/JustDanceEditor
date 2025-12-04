@@ -690,5 +690,4 @@ public static class UnityAssetMaterializer
                    x <= 1.1f && y <= 1.1f;
         }
     }
-
 }

@@ -1,8 +1,6 @@
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -33,7 +31,10 @@ public static class IntermediatePackageSerializer
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.StructureFile), package.TimelineStructure);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.LyricsFile), package.Lyrics);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.PictogramsFile), package.Pictograms);
-        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.EventsFile), package.Events);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.GoldEffectsFile), package.GoldEffects);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile), package.HideUserInterface);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.GameplayEventsFile), package.GameplayEvents);
+        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.VibrationsFile), package.Vibrations);
 
         WriteCoachTimelines(targetFolder, package.CoachTimelines, isFullBody: false);
         WriteCoachTimelines(targetFolder, package.FullBodyCoachTimelines, isFullBody: true);
@@ -52,7 +53,10 @@ public static class IntermediatePackageSerializer
             TimelineStructure = ReadDocument<TimelineStructureDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.StructureFile)),
             Lyrics = ReadDocument<LyricsTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.LyricsFile)),
             Pictograms = ReadDocument<PictogramTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
-            Events = ReadDocument<EventTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.EventsFile))
+            GoldEffects = ReadDocumentOrDefault<GoldEffectTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.GoldEffectsFile)),
+            HideUserInterface = ReadDocumentOrDefault<HideUserInterfaceTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile)),
+            GameplayEvents = ReadDocumentOrDefault<GameplayEventTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.GameplayEventsFile)),
+            Vibrations = ReadDocumentOrDefault<VibrationTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.VibrationsFile))
         };
 
         LoadCoachTimelinesInto(package.CoachTimelines, folder, isFullBody: false);
@@ -148,6 +152,15 @@ public static class IntermediatePackageSerializer
             throw new FileNotFoundException($"Missing intermediate document: {path}");
         using FileStream stream = File.OpenRead(path);
         return JsonSerializer.Deserialize<T>(stream, ReadOptions)!;
+    }
+
+    private static T ReadDocumentOrDefault<T>(string path)
+        where T : new()
+    {
+        if (!File.Exists(path))
+            return new T();
+        using FileStream stream = File.OpenRead(path);
+        return JsonSerializer.Deserialize<T>(stream, ReadOptions) ?? new T();
     }
 
     private static string Resolve(string root, string relative) => IntermediatePackageLayout.Resolve(root, relative);

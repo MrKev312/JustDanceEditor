@@ -13,7 +13,13 @@ public class IntermediateSongPackage
 
     public PictogramTimelineDocument Pictograms { get; init; } = new();
 
-    public EventTimelineDocument Events { get; init; } = new();
+    public GoldEffectTimelineDocument GoldEffects { get; init; } = new();
+
+    public HideUserInterfaceTimelineDocument HideUserInterface { get; init; } = new();
+
+    public GameplayEventTimelineDocument GameplayEvents { get; init; } = new();
+
+    public VibrationTimelineDocument Vibrations { get; init; } = new();
 
     public List<CoachTimelineDocument> CoachTimelines { get; init; } = [];
 

@@ -87,5 +87,4 @@ public sealed class JdiFormat : IJdiFormat
             CopyDirectory(subDir.FullName, newDest, overwrite);
         }
     }
-
 }

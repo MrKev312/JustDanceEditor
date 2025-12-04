@@ -7,7 +7,6 @@ using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
-using System.Linq;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Converters;
@@ -476,5 +475,4 @@ internal sealed class IntermediateToUnityConverter
             return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
     }
-
 }

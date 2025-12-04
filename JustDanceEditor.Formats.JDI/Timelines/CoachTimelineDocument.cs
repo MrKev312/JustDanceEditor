@@ -8,7 +8,7 @@ public class CoachTimelineDocument
     public int CoachId { get; set; }
 
     [JsonPropertyName("trackId")]
-    public long? TrackId { get; set; }
+    public long TrackId { get; set; }
 
     [JsonPropertyName("clips")]
     public List<CoachTimelineClip> Clips { get; set; } = [];

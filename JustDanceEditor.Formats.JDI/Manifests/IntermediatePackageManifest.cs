@@ -33,8 +33,17 @@ public class TimelineManifest
     [JsonPropertyName("pictogramsFile")]
     public string PictogramsFile { get; set; } = "timelines/pictograms.json";
 
-    [JsonPropertyName("eventsFile")]
-    public string EventsFile { get; set; } = "timelines/events.json";
+    [JsonPropertyName("goldEffectsFile")]
+    public string GoldEffectsFile { get; set; } = "timelines/gold_effects.json";
+
+    [JsonPropertyName("hideUserInterfaceFile")]
+    public string HideUserInterfaceFile { get; set; } = "timelines/hide_user_interface.json";
+
+    [JsonPropertyName("gameplayEventsFile")]
+    public string GameplayEventsFile { get; set; } = "timelines/gameplay_events.json";
+
+    [JsonPropertyName("vibrationsFile")]
+    public string VibrationsFile { get; set; } = "timelines/vibrations.json";
 
     [JsonPropertyName("coachTimelines")]
     public List<CoachTimelinePointer> CoachTimelines { get; set; } = [];

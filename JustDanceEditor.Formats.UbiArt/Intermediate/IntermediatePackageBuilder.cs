@@ -5,8 +5,6 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-using System.Text.Json;
-
 using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.KaraokeClip;
 
@@ -14,10 +12,6 @@ namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
 internal static class IntermediatePackageBuilder
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = false
-    };
 
     public static IntermediateSongPackage FromUbiArt(ConversionContext context)
     {
@@ -41,7 +35,10 @@ internal static class IntermediatePackageBuilder
             TimelineStructure = BuildTimelineStructure(context, structure, timelineMath),
             Lyrics = BuildLyricsDocument(context, timelineMath),
             Pictograms = BuildPictogramDocument(context, timelineMath),
-            Events = BuildEventDocument(context, timelineMath),
+            GoldEffects = BuildGoldEffectDocument(context),
+            HideUserInterface = BuildHideUserInterfaceDocument(context),
+            GameplayEvents = BuildGameplayEventsDocument(context),
+            Vibrations = BuildVibrationDocument(context),
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
@@ -197,24 +194,81 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static EventTimelineDocument BuildEventDocument(ConversionContext context, TimelineMath timelineMath)
+    private static GoldEffectTimelineDocument BuildGoldEffectDocument(ConversionContext context)
     {
-        EventTimelineDocument document = new();
+        GoldEffectTimelineDocument document = new();
 
-        IEnumerable<IClip> eventClips = context.SongData.Clips.Where(clip => clip is GoldEffectClip or HideUserInterfaceClip or GameplayEventClip or VibrationClip);
-
-        foreach (IClip clip in eventClips.OrderBy(c => c.StartTime))
+        foreach (GoldEffectClip clip in context.SongData.Clips.OfType<GoldEffectClip>().OrderBy(c => c.StartTime))
         {
-            TimelineEvent timelineEvent = new()
+            document.Clips.Add(new GoldEffectTimelineClip
             {
                 Id = clip.Id,
-                Type = clip.__class,
+                TrackId = clip.TrackId,
+                IsActive = clip.IsActive > 0,
                 StartTime = clip.StartTime,
                 Duration = clip.Duration,
-                Payload = JsonSerializer.SerializeToElement(clip, JsonOptions)
-            };
+                EffectType = clip.EffectType
+            });
+        }
 
-            document.Events.Add(timelineEvent);
+        return document;
+    }
+
+    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(ConversionContext context)
+    {
+        HideUserInterfaceTimelineDocument document = new();
+
+        foreach (HideUserInterfaceClip clip in context.SongData.Clips.OfType<HideUserInterfaceClip>().OrderBy(c => c.StartTime))
+        {
+            document.Clips.Add(new HideUserInterfaceTimelineClip
+            {
+                Id = clip.Id,
+                TrackId = clip.TrackId,
+                IsActive = clip.IsActive > 0,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration,
+                EventType = clip.EventType,
+                CustomParam = clip.CustomParam ?? string.Empty
+            });
+        }
+
+        return document;
+    }
+
+    private static GameplayEventTimelineDocument BuildGameplayEventsDocument(ConversionContext context)
+    {
+        GameplayEventTimelineDocument document = new();
+
+        foreach (GameplayEventClip clip in context.SongData.Clips.OfType<GameplayEventClip>().OrderBy(c => c.StartTime))
+        {
+            document.Clips.Add(new GameplayEventTimelineClip
+            {
+                Id = clip.Id,
+                TrackId = clip.TrackId,
+                IsActive = clip.IsActive > 0,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration,
+                EventName = clip.CustomParam ?? string.Empty
+            });
+        }
+
+        return document;
+    }
+
+    private static VibrationTimelineDocument BuildVibrationDocument(ConversionContext context)
+    {
+        VibrationTimelineDocument document = new();
+
+        foreach (VibrationClip clip in context.SongData.Clips.OfType<VibrationClip>().OrderBy(c => c.StartTime))
+        {
+            document.Clips.Add(new VibrationTimelineClip
+            {
+                Id = clip.Id,
+                TrackId = clip.TrackId,
+                IsActive = clip.IsActive > 0,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration
+            });
         }
 
         return document;

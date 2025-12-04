@@ -48,7 +48,10 @@ internal static class UnityServerIntermediateBuilder
             TimelineStructure = BuildTimelineStructure(mapData.Structure, timelineMath),
             Lyrics = BuildLyricsDocument(mapData.KaraokeClips),
             Pictograms = BuildPictogramDocument(mapData.PictogramClips),
-            Events = BuildEventDocument(mapData),
+            GoldEffects = BuildGoldEffectDocument(mapData.GoldEffectClips),
+            HideUserInterface = BuildHideUserInterfaceDocument(mapData.HideHudClips),
+            GameplayEvents = BuildGameplayEventDocument(),
+            Vibrations = BuildVibrationDocument(),
             CoachTimelines = handTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
@@ -426,59 +429,52 @@ internal static class UnityServerIntermediateBuilder
         return document;
     }
 
-    private static EventTimelineDocument BuildEventDocument(UnityMapPackageData data)
+    private static GoldEffectTimelineDocument BuildGoldEffectDocument(IEnumerable<UnityGoldEffectClip> clips)
     {
-        EventTimelineDocument document = new();
+        GoldEffectTimelineDocument document = new();
 
-        foreach (UnityGoldEffectClip clip in data.GoldEffectClips.OrderBy(c => c.StartTime))
+        foreach (UnityGoldEffectClip clip in clips.OrderBy(c => c.StartTime))
         {
-            int duration = Math.Max(0, clip.Duration);
-            GoldEffectClip payload = new()
-            {
-                EffectType = clip.GoldEffectType,
-                Id = clip.Id,
-                TrackId = clip.TrackId,
-                IsActive = clip.IsActive ? 1 : 0,
-                StartTime = clip.StartTime,
-                Duration = clip.Duration
-            };
-
-            document.Events.Add(new TimelineEvent
-            {
-                Id = clip.Id,
-                Type = nameof(GoldEffectClip),
-                StartTime = clip.StartTime,
-                Duration = duration,
-                Payload = JsonSerializer.SerializeToElement(payload, JsonOptions)
-            });
-        }
-
-        foreach (UnityHideHudClip clip in data.HideHudClips.OrderBy(c => c.StartTime))
-        {
-            int duration = Math.Max(0, clip.Duration);
-            HideUserInterfaceClip payload = new()
+            document.Clips.Add(new GoldEffectTimelineClip
             {
                 Id = clip.Id,
                 TrackId = clip.TrackId,
-                IsActive = clip.IsActive ? 1 : 0,
+                IsActive = clip.IsActive,
                 StartTime = clip.StartTime,
-                Duration = clip.Duration,
-                EventType = clip.EventType,
-                CustomParam = clip.CustomParam
-            };
-
-            document.Events.Add(new TimelineEvent
-            {
-                Id = clip.Id,
-                Type = nameof(HideUserInterfaceClip),
-                StartTime = clip.StartTime,
-                Duration = duration,
-                Payload = JsonSerializer.SerializeToElement(payload, JsonOptions)
+                Duration = Math.Max(0, clip.Duration),
+                EffectType = clip.GoldEffectType
             });
         }
 
         return document;
     }
+
+    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(IEnumerable<UnityHideHudClip> clips)
+    {
+        HideUserInterfaceTimelineDocument document = new();
+
+        foreach (UnityHideHudClip clip in clips.OrderBy(c => c.StartTime))
+        {
+            document.Clips.Add(new HideUserInterfaceTimelineClip
+            {
+                Id = clip.Id,
+                TrackId = clip.TrackId,
+                IsActive = clip.IsActive,
+                StartTime = clip.StartTime,
+                Duration = Math.Max(0, clip.Duration),
+                EventType = clip.EventType,
+                CustomParam = clip.CustomParam ?? string.Empty
+            });
+        }
+
+        return document;
+    }
+
+    private static GameplayEventTimelineDocument BuildGameplayEventDocument()
+        => new GameplayEventTimelineDocument();
+
+    private static VibrationTimelineDocument BuildVibrationDocument()
+        => new VibrationTimelineDocument();
 
     private static (
         List<CoachTimelineDocument> HandTracking,
@@ -503,17 +499,7 @@ internal static class UnityServerIntermediateBuilder
                 timelines[clip.CoachId] = doc;
             }
 
-            if (clip.TrackId != 0)
-            {
-                if (doc.TrackId == null)
-                {
-                    doc.TrackId = clip.TrackId;
-                }
-                else if (doc.TrackId != clip.TrackId)
-                {
-                    doc.TrackId = null;
-                }
-            }
+            doc.TrackId = clip.TrackId;
 
             int duration = Math.Max(0, clip.Duration);
             string moveId = (clip.MoveName ?? string.Empty).ToLowerInvariant();
@@ -786,29 +772,6 @@ internal static class UnityServerIntermediateBuilder
                 writer.WriteStringValue(item);
             writer.WriteEndArray();
         }
-    }
-
-    private sealed class GoldEffectClip
-    {
-        public string __class { get; set; } = "GoldEffectClip";
-        public int EffectType { get; set; }
-        public long Id { get; set; }
-        public long TrackId { get; set; }
-        public int IsActive { get; set; }
-        public int StartTime { get; set; }
-        public int Duration { get; set; }
-    }
-
-    private sealed class HideUserInterfaceClip
-    {
-        public string __class { get; set; } = "HideUserInterfaceClip";
-        public long Id { get; set; }
-        public long TrackId { get; set; }
-        public int IsActive { get; set; }
-        public int StartTime { get; set; }
-        public int Duration { get; set; }
-        public int EventType { get; set; }
-        public string CustomParam { get; set; } = string.Empty;
     }
 
     private sealed class TimelineMath

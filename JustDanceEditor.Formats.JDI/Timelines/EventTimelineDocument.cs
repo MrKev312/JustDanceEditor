@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.JDI.Timelines;
@@ -23,6 +22,6 @@ public class TimelineEvent
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
 
-    [JsonPropertyName("payload")]
-    public JsonElement Payload { get; set; }
+    [JsonPropertyName("eventName")]
+    public string? EventName { get; set; }
 }

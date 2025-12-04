@@ -4,17 +4,11 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
 
 using System.Globalization;
-using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity;
 
 public static class UnityExportDataBuilder
 {
-    private static readonly JsonSerializerOptions EventSerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     public static UnityExportData Create(IntermediateSongPackage package)
     {
         IntermediateMetadata metadata = package.Metadata;
@@ -167,7 +161,7 @@ public static class UnityExportDataBuilder
                     clips.Add(new UnityMotionClip
                     {
                         Id = id,
-                        TrackId = Timeline.TrackId ?? id,
+                        TrackId = Timeline.TrackId,
                         IsActive = 1,
                         StartTime = clip.StartTime,
                         Duration = definition?.Duration ?? 48,
@@ -226,70 +220,96 @@ public static class UnityExportDataBuilder
 
         public IReadOnlyList<UnityGoldEffectClip> BuildGoldEffectClips()
         {
-            return BuildEventClips<GoldEffectClipPayload, UnityGoldEffectClip>(nameof(UnityGoldEffectClip), payload => new UnityGoldEffectClip
-            {
-                EffectType = payload?.EffectType ?? 0
-            });
-        }
-
-        public IReadOnlyList<UnityHideHudClip> BuildHideHudClips()
-        {
-            return BuildEventClips<HideHudPayload, UnityHideHudClip>(nameof(UnityHideHudClip), _ => new UnityHideHudClip());
-        }
-
-        public IReadOnlyList<UnityGameplayEventClip> BuildGameplayEvents()
-        {
-            return BuildEventClips<GameplayEventPayload, UnityGameplayEventClip>(nameof(UnityGameplayEventClip), payload => new UnityGameplayEventClip
-            {
-                Payload = payload?.EventName ?? string.Empty
-            });
-        }
-
-        public IReadOnlyList<UnityVibrationClip> BuildVibrationClips()
-        {
-            return BuildEventClips<VibrationPayload, UnityVibrationClip>(nameof(UnityVibrationClip), _ => new UnityVibrationClip());
-        }
-
-        private IReadOnlyList<TClip> BuildEventClips<TPayload, TClip>(string typeName, Func<TPayload?, TClip> factory)
-            where TClip : UnityClip, new()
-        {
-            List<TClip> clips = [];
-            if (package.Events?.Events == null)
+            List<UnityGoldEffectClip> clips = [];
+            if (package.GoldEffects?.Clips == null)
                 return clips;
 
-            foreach (TimelineEvent evt in package.Events.Events.OrderBy(e => e.StartTime))
+            foreach (GoldEffectTimelineClip entry in package.GoldEffects.Clips.OrderBy(c => c.StartTime))
             {
-                if (!string.Equals(evt.Type, typeName, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                long id = AllocateClipId(entry.Id);
 
-                TPayload? payload = Deserialize<TPayload>(evt.Payload);
-                TClip clip = factory(payload);
-
-                long id = AllocateClipId(evt.Id);
-
-                clip.Id = id;
-                clip.TrackId = clip.TrackId != 0 ? clip.TrackId : id;
-                clip.IsActive = clip.IsActive == 0 ? 1 : clip.IsActive;
-                clip.StartTime = clip.StartTime;
-                clip.Duration = clip.Duration;
-                clips.Add(clip);
+                clips.Add(new UnityGoldEffectClip
+                {
+                    Id = id,
+                    TrackId = entry.TrackId,
+                    IsActive = entry.IsActive ? 1 : 0,
+                    StartTime = entry.StartTime,
+                    Duration = entry.Duration,
+                    EffectType = entry.EffectType
+                });
             }
 
             return clips;
         }
 
-        private static T? Deserialize<T>(JsonElement element)
+        public IReadOnlyList<UnityHideHudClip> BuildHideHudClips()
         {
-            try
+            List<UnityHideHudClip> clips = [];
+            if (package.HideUserInterface?.Clips == null)
+                return clips;
+
+            foreach (HideUserInterfaceTimelineClip entry in package.HideUserInterface.Clips.OrderBy(c => c.StartTime))
             {
-                return element.ValueKind == JsonValueKind.Undefined
-                    ? default
-                    : element.Deserialize<T>(EventSerializerOptions);
+                long id = AllocateClipId(entry.Id);
+
+                clips.Add(new UnityHideHudClip
+                {
+                    Id = id,
+                    TrackId = entry.TrackId,
+                    IsActive = entry.IsActive ? 1 : 0,
+                    StartTime = entry.StartTime,
+                    Duration = entry.Duration
+                });
             }
-            catch
+
+            return clips;
+        }
+
+        public IReadOnlyList<UnityGameplayEventClip> BuildGameplayEvents()
+        {
+            List<UnityGameplayEventClip> clips = [];
+            if (package.GameplayEvents?.Clips == null)
+                return clips;
+
+            foreach (GameplayEventTimelineClip entry in package.GameplayEvents.Clips.OrderBy(c => c.StartTime))
             {
-                return default;
+                long id = AllocateClipId(entry.Id);
+
+                clips.Add(new UnityGameplayEventClip
+                {
+                    Id = id,
+                    TrackId = entry.TrackId,
+                    IsActive = entry.IsActive ? 1 : 0,
+                    StartTime = entry.StartTime,
+                    Duration = entry.Duration,
+                    Payload = entry.EventName ?? string.Empty
+                });
             }
+
+            return clips;
+        }
+
+        public IReadOnlyList<UnityVibrationClip> BuildVibrationClips()
+        {
+            List<UnityVibrationClip> clips = [];
+            if (package.Vibrations?.Clips == null)
+                return clips;
+
+            foreach (VibrationTimelineClip entry in package.Vibrations.Clips.OrderBy(c => c.StartTime))
+            {
+                long id = AllocateClipId(entry.Id);
+
+                clips.Add(new UnityVibrationClip
+                {
+                    Id = id,
+                    TrackId = entry.TrackId,
+                    IsActive = entry.IsActive ? 1 : 0,
+                    StartTime = entry.StartTime,
+                    Duration = entry.Duration
+                });
+            }
+
+            return clips;
         }
 
         private long AllocateClipId(long requested)
@@ -319,28 +339,16 @@ public static class UnityExportDataBuilder
                 max = Math.Max(max, MaxId(package.CoachTimelines.SelectMany(t => t.Clips), c => c.Id));
             if (package.FullBodyCoachTimelines != null)
                 max = Math.Max(max, MaxId(package.FullBodyCoachTimelines.SelectMany(t => t.Clips), c => c.Id));
-            if (package.Events?.Events != null)
-                max = Math.Max(max, MaxId(package.Events.Events, e => e.Id));
+            if (package.GoldEffects?.Clips != null)
+                max = Math.Max(max, MaxId(package.GoldEffects.Clips, c => c.Id));
+            if (package.HideUserInterface?.Clips != null)
+                max = Math.Max(max, MaxId(package.HideUserInterface.Clips, c => c.Id));
+            if (package.GameplayEvents?.Clips != null)
+                max = Math.Max(max, MaxId(package.GameplayEvents.Clips, c => c.Id));
+            if (package.Vibrations?.Clips != null)
+                max = Math.Max(max, MaxId(package.Vibrations.Clips, c => c.Id));
 
             return max;
-        }
-
-        private sealed class GoldEffectClipPayload
-        {
-            public int EffectType { get; set; }
-        }
-
-        private sealed class HideHudPayload
-        {
-        }
-
-        private sealed class GameplayEventPayload
-        {
-            public string EventName { get; set; } = string.Empty;
-        }
-
-        private sealed class VibrationPayload
-        {
         }
     }
 
