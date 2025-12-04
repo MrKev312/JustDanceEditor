@@ -132,7 +132,7 @@ public static class UnityExportDataBuilder
                     StartTime = entry.StartTime,
                     Duration = entry.Duration,
                     PictoPath = pictoName + ".png",
-                    CoachCount = entry.CoachCount
+                    CoachCount = (uint)entry.CoachCount
                 });
             }
 
@@ -350,8 +350,8 @@ public static class UnityExportDataBuilder
         {
             UnityTrackStructure structure = new()
             {
-                startBeat = document.Markers.Count > 0 ? document.Markers.Min(m => m.BeatIndex) : 0,
-                endBeat = document.Markers.Count > 0 ? document.Markers.Max(m => m.BeatIndex) : 0,
+                startBeat = document.StartBeat,
+                endBeat = document.EndBeat,
                 videoStartTime = document.VideoStartOffset,
                 previewEntry = (int)Math.Round(document.PreviewEntryBeat),
                 previewLoopStart = (int)Math.Round(document.PreviewLoopStartBeat),

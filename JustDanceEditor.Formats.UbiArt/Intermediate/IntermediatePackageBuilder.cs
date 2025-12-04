@@ -92,7 +92,8 @@ internal static class IntermediatePackageBuilder
         TimelineStructureDocument document = new()
         {
             TimeBaseMsPerBeat = timelineMath.EstimateMsPerBeat(),
-            AudioStartOffset = context.SongData.GetSongStartTime(),
+            StartBeat = structure.startBeat,
+            EndBeat = structure.endBeat,
             VideoStartOffset = structure.videoStartTime,
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,

@@ -12,7 +12,7 @@ public class ServerSongJSON
     public object? DoubleScoringType { get; set; }
     public bool HasSongTitleInCover { get; set; }
     public string LyricsColor { get; set; } = "#FFFFFFFF";
-    public float MapLength { get; set; }
+    public double MapLength { get; set; }
     public string MapName { get; set; } = string.Empty;
     public uint OriginalJDVersion { get; set; }
     public string ParentMapName { get; set; } = string.Empty;

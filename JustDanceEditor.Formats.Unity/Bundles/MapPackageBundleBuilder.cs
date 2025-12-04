@@ -602,7 +602,7 @@ public static class MapPackageBundleBuilder
                     newPicto["TrackId"].AsLong = picto.TrackId;
                     newPicto["IsActive"].AsUInt = (uint)picto.IsActive;
                     newPicto["PictoPath"].AsString = pictoName;
-                    newPicto["CoachCount"].AsUInt = (uint)Math.Clamp(picto.CoachCount, 1, coachCount);
+                    newPicto["CoachCount"].AsUInt = picto.CoachCount;
                     pictoClipsArray.Children.Add(newPicto);
                     break;
 

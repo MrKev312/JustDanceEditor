@@ -19,8 +19,11 @@ public class TimelineStructureDocument
     [JsonPropertyName("sections")]
     public List<SectionSegment> Sections { get; set; } = [];
 
-    [JsonPropertyName("audioStartOffset")]
-    public double AudioStartOffset { get; set; }
+    [JsonPropertyName("startBeat")]
+    public int StartBeat { get; set; }
+
+    [JsonPropertyName("endBeat")]
+    public int EndBeat { get; set; }
 
     [JsonPropertyName("videoStartOffset")]
     public double VideoStartOffset { get; set; }

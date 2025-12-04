@@ -153,6 +153,10 @@ internal static class UnityServerIntermediateBuilder
             })
         };
 
+        // If the duration is 0, set it to 30, as not all bundles have it set correctly
+        if (structure.previewDuration == 0)
+            structure.previewDuration = 30;
+
         return structure;
     }
 
@@ -272,18 +276,16 @@ internal static class UnityServerIntermediateBuilder
 
     private static IntermediateMetadata BuildMetadata(UnitySongInfo info, Structure structure)
     {
-        double mapLengthSeconds = CalculateMapLengthSeconds(structure);
-
         IntermediateMetadata metadata = new()
         {
             SongId = info.SongId == Guid.Empty ? Guid.NewGuid() : info.SongId,
             MapName = info.MapName ?? string.Empty,
-            ParentMapName = string.IsNullOrWhiteSpace(info.ParentMapName) ? info.MapName ?? string.Empty : info.ParentMapName,
+            ParentMapName = info.ParentMapName ?? string.Empty,
             Title = info.Title ?? string.Empty,
             Artist = info.Artist ?? string.Empty,
             Credits = info.Credits ?? string.Empty,
             LyricsColor = string.IsNullOrWhiteSpace(info.LyricsColor) ? "#FFFFFFFF" : info.LyricsColor,
-            MapLengthSeconds = mapLengthSeconds > 0 ? mapLengthSeconds : info.MapLength,
+            MapLengthSeconds = info.MapLength,
             OriginalJdVersion = info.OriginalJdVersion,
             CoachCount = info.CoachCount,
             Difficulty = info.Difficulty,
@@ -298,6 +300,7 @@ internal static class UnityServerIntermediateBuilder
         if (info.CoachNames is { Length: > 0 })
             metadata.CoachNames = info.CoachNames;
 
+        // TODO: Don't use AdditionalMetadata at all
         metadata.AdditionalMetadata["unity.tagIds"] = string.Join(',', info.TagIds ?? []);
         metadata.AdditionalMetadata["unity.coachNamesLocIds"] = string.Join(',', info.CoachNamesLocIds ?? []);
         metadata.AdditionalMetadata["unity.danceVersionLocId"] = info.DanceVersionLocId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -311,7 +314,8 @@ internal static class UnityServerIntermediateBuilder
         TimelineStructureDocument document = new()
         {
             TimeBaseMsPerBeat = timelineMath.EstimateMsPerBeat(),
-            AudioStartOffset = ComputeSongStartOffset(structure),
+            StartBeat = structure.startBeat,
+            EndBeat = structure.endBeat,
             VideoStartOffset = structure.videoStartTime,
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,
@@ -583,29 +587,6 @@ internal static class UnityServerIntermediateBuilder
             throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
 
         return bundle;
-    }
-
-    private static double ComputeSongStartOffset(Structure structure)
-    {
-        if (structure.markers == null || structure.markers.Length == 0)
-            return 0;
-
-        int index = Math.Clamp(Math.Abs(structure.startBeat), 0, structure.markers.Length - 1);
-        double time = structure.markers[index] / 48d / 1000d;
-        return structure.startBeat > 0 ? -time : time;
-    }
-
-    private static double CalculateMapLengthSeconds(Structure structure)
-    {
-        if (structure?.markers == null || structure.markers.Length == 0)
-            return 0;
-
-        int startIndex = Math.Clamp(Math.Abs(structure.startBeat), 0, structure.markers.Length - 1);
-        int endIndex = Math.Clamp(structure.markers.Length - 1, 0, structure.markers.Length - 1);
-
-        double startTime = structure.markers[startIndex] / 48d / 1000d;
-        double endTime = structure.markers[endIndex] / 48d / 1000d;
-        return Math.Max(0, endTime - startTime);
     }
 
     private static IEnumerable<AssetTypeValueField> Enumerate(AssetTypeValueField? arrayField)

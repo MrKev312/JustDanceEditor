@@ -161,7 +161,7 @@ public sealed class UnityKaraokeClip : UnityClip
 public sealed class UnityPictogramClip : UnityClip
 {
     public string PictoPath { get; set; } = string.Empty;
-    public int CoachCount { get; set; }
+    public uint CoachCount { get; set; }
 }
 
 public sealed class UnityMotionClip : UnityClip
