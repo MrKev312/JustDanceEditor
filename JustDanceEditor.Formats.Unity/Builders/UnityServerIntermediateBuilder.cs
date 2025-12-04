@@ -132,7 +132,6 @@ internal static class UnityServerIntermediateBuilder
 
         static int ReadInt(AssetTypeValueField parent, string name) => parent[name].IsDummy ? 0 : parent[name].AsInt;
         static double ReadDouble(AssetTypeValueField parent, string name) => parent[name].IsDummy ? 0 : parent[name].AsDouble;
-        static bool ReadBool(AssetTypeValueField parent, string name) => !parent[name].IsDummy && parent[name].AsBool;
 
         Structure structure = new()
         {
@@ -142,27 +141,21 @@ internal static class UnityServerIntermediateBuilder
             previewEntry = (int)Math.Round(ReadDouble(structureField, "previewEntry")),
             previewLoopStart = (int)Math.Round(ReadDouble(structureField, "previewLoopStart")),
             previewLoopEnd = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
-            fadeStartBeat = ReadInt(structureField, "fadeStartBeat"),
-            fadeEndBeat = ReadInt(structureField, "fadeEndBeat"),
-            useFadeStartBeat = ReadBool(structureField, "useFadeStartBeat"),
-            useFadeEndBeat = ReadBool(structureField, "useFadeEndBeat"),
-            fadeInType = (float)ReadDouble(structureField, "fadeInType"),
-            fadeOutType = ReadInt(structureField, "fadeOutType")
+            previewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration")),
+            markers = ReadArray(structureField["markers"]["Array"], field => (int)field["VAL"].AsLong),
+            signatures = ReadArray(structureField["signatures"]["Array"], field => new Signature
+            {
+                beats = field["MusicSignature"]["beats"].AsInt,
+                marker = (float)field["MusicSignature"]["marker"].AsDouble
+            }),
+
+            sections = ReadArray(structureField["sections"]["Array"], field => new Section
+            {
+                sectionType = field["MusicSection"]["sectionType"].AsInt,
+                marker = (float)field["MusicSection"]["marker"].AsDouble,
+                comment = field["MusicSection"]["comment"].AsString
+            })
         };
-
-        structure.markers = ReadArray(structureField["markers"]["Array"], field => (int)field["VAL"].AsLong);
-        structure.signatures = ReadArray(structureField["signatures"]["Array"], field => new Signature
-        {
-            beats = field["MusicSignature"]["beats"].AsInt,
-            marker = (float)field["MusicSignature"]["marker"].AsDouble
-        });
-
-        structure.sections = ReadArray(structureField["sections"]["Array"], field => new Section
-        {
-            sectionType = field["MusicSection"]["sectionType"].AsInt,
-            marker = (float)field["MusicSection"]["marker"].AsDouble,
-            comment = field["MusicSection"]["comment"].AsString
-        });
 
         return structure;
     }
@@ -348,7 +341,8 @@ internal static class UnityServerIntermediateBuilder
             VideoStartOffset = structure.videoStartTime,
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,
-            PreviewLoopEndBeat = structure.previewLoopEnd
+            PreviewLoopEndBeat = structure.previewLoopEnd,
+            PrevewDuration = structure.previewDuration
         };
 
         if (structure.markers is { Length: > 0 })
@@ -393,26 +387,6 @@ internal static class UnityServerIntermediateBuilder
                     Comment = section.comment
                 });
             }
-        }
-
-        if (structure.useFadeStartBeat)
-        {
-            document.FadeIn = new FadeRegion
-            {
-                StartBeat = structure.fadeStartBeat,
-                Duration = Math.Max(0, structure.fadeEndBeat - structure.fadeStartBeat),
-                CurveType = structure.fadeInType == 0 ? "linear" : "custom"
-            };
-        }
-
-        if (structure.useFadeEndBeat)
-        {
-            document.FadeOut = new FadeRegion
-            {
-                StartBeat = structure.fadeEndBeat,
-                Duration = Math.Max(0, structure.endBeat - structure.fadeEndBeat),
-                CurveType = structure.fadeOutType == 0 ? "linear" : "custom"
-            };
         }
 
         return document;

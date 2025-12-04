@@ -1,6 +1,8 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -12,19 +14,49 @@ using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
-public sealed record UnitySongTitleBundleRequest(
-    string Codename,
-    Image<Rgba32> TitleImage,
+public sealed record UnitySongTitleRequest(
+    string SongName,
+    UnityExportData? UnityData,
+    UnityMenuArtSource? MenuArt,
+    bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolderPath,
-    bool ForCustomServer);
+    bool ForCustomServer,
+    Image<Rgba32>? OverrideTitleImage = null);
 
 public static class SongTitleBundleBuilder
 {
-    public static void GenerateSongTitleLogo(UnitySongTitleBundleRequest request)
+    public static Task GenerateAsync(UnitySongTitleRequest request) =>
+        Task.Run(() => Generate(request));
+
+    public static void Generate(UnitySongTitleRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateRequest(request);
+        ValidateInput(request);
+
+        using Image<Rgba32>? titleImage = PrepareSongTitleImage(request);
+        if (titleImage == null)
+        {
+            Logger.Log("No song title logo image found, skipping song title bundle generation.", LogLevel.Important);
+            return;
+        }
+
+        NormalizeSongTitleImage(titleImage);
+
+        BundleContext internalRequest = new(
+            request.SongName,
+            titleImage,
+            request.TemplatePath,
+            request.OutputFolderPath,
+            request.ForCustomServer);
+
+        GenerateBundle(internalRequest);
+    }
+
+    private static void GenerateBundle(BundleContext request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateBundleRequest(request);
 
         try
         {
@@ -47,16 +79,55 @@ public static class SongTitleBundleBuilder
         }
     }
 
-    private static void ValidateRequest(UnitySongTitleBundleRequest request)
+    private static void ValidateInput(UnitySongTitleRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
+        if (request.OverrideTitleImage == null && (request.UnityData == null || request.MenuArt == null))
+            throw new ArgumentException("Either an override song title image or Unity data with menu art must be provided.");
+    }
+
+    private static void ValidateBundleRequest(BundleContext request)
     {
         if (string.IsNullOrWhiteSpace(request.Codename))
             throw new ArgumentException("Codename must be provided.", nameof(request));
+        if (request.TitleImage == null)
+            throw new ArgumentException("Title image must be provided.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.TemplatePath))
             throw new ArgumentException("Template path must be provided.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.OutputFolderPath))
             throw new ArgumentException("Output folder path must be provided.", nameof(request));
         if (!File.Exists(request.TemplatePath))
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
+    }
+
+    private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleRequest request)
+    {
+        if (request.OverrideTitleImage is not null)
+            return request.OverrideTitleImage.CloneAs<Rgba32>();
+
+        if (request.UnityData == null || request.MenuArt == null)
+            return null;
+
+        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
+
+        Image<Rgba32>? image = null;
+        if (request.AllowOnlineLookup)
+            image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Title");
+
+        return image ?? UnityCoverArtGenerator.TryLoadSongTitleLogo(coverRequest);
+    }
+
+    private static void NormalizeSongTitleImage(Image<Rgba32> image)
+    {
+        if (image.Width / (float)image.Height != 2f)
+        {
+            int newWidth = image.Height * 2;
+            image.Mutate(x => x.Pad(newWidth, image.Height));
+        }
+
+        image.Mutate(x => x.Resize(1024, 512));
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo TextureInfo, AssetFileInfo SpriteInfo)
@@ -86,14 +157,6 @@ public static class SongTitleBundleBuilder
         AssetTypeValueField textureBase = manager.GetBaseField(afileInst, textureInfo);
         textureBase["m_Name"].AsString = $"{codename}_Title";
 
-        if (image.Width / (float)image.Height != 2f)
-        {
-            int newWidth = image.Height * 2;
-            image.Mutate(x => x.Pad(newWidth, image.Height));
-        }
-
-        image.Mutate(x => x.Resize(1024, 512));
-
         TextureFormat fmt = TextureFormat.DXT5Crunched;
         int mips = 1;
         byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode song title image!");
@@ -120,4 +183,11 @@ public static class SongTitleBundleBuilder
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
         bun.SaveAndCompress(outputFolderPath, forCustomServer);
     }
+
+    private sealed record BundleContext(
+        string Codename,
+        Image<Rgba32> TitleImage,
+        string TemplatePath,
+        string OutputFolderPath,
+        bool ForCustomServer);
 }

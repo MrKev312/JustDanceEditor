@@ -129,13 +129,16 @@ public class ConverterDialogue
                         string outputCoverFolder = Path.Combine(inputFolder, mapName, "Cover");
                         if (Directory.Exists(outputCoverFolder))
                             Directory.Delete(outputCoverFolder, true);
-                        UnityCoverBundleRequest coverRequest = new(
+                        UnityCoverRequest coverRequest = new(
                             mapName,
-                            coverImage,
+                            null,
+                            null,
+                            false,
                             templateCoverPath,
                             outputCoverFolder,
-                            true);
-                        CoverBundleBuilder.GenerateCoverBundle(coverRequest);
+                            true,
+                            coverImage);
+                        CoverBundleBuilder.Generate(coverRequest);
                         Interlocked.Increment(ref updatedCovers);
                         found++;
                     }
@@ -149,13 +152,16 @@ public class ConverterDialogue
                     string outputLogoFolder = Path.Combine(inputFolder, mapName, "songTitleLogo");
                     if (Directory.Exists(outputLogoFolder))
                         Directory.Delete(outputLogoFolder, true);
-                    UnitySongTitleBundleRequest titleRequest = new(
+                    UnitySongTitleRequest titleRequest = new(
                         mapName,
-                        titleLogoImage,
+                        null,
+                        null,
+                        false,
                         templateLogoPath,
                         outputLogoFolder,
-                        true);
-                    SongTitleBundleBuilder.GenerateSongTitleLogo(titleRequest);
+                        true,
+                        titleLogoImage);
+                    SongTitleBundleBuilder.Generate(titleRequest);
                     Interlocked.Increment(ref updatedLogos);
                     found++;
                 }

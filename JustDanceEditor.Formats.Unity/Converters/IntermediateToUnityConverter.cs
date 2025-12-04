@@ -3,7 +3,7 @@ using JustDanceEditor.Formats.JDI.Assets;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Utilities;
-using JustDanceEditor.Formats.Unity.Bundles.Generation;
+using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
@@ -94,7 +94,7 @@ internal sealed class IntermediateToUnityConverter
         string[] pictoFiles = ResolvePictoFiles();
         string? movesFolder = ResolveMovesFolder();
 
-        UnityCoverGenerationRequest coverRequest = new(
+        UnityCoverRequest coverRequest = new(
             songName,
             unityData,
             menuArt,
@@ -103,7 +103,7 @@ internal sealed class IntermediateToUnityConverter
             coverFolder,
             forCustomServer);
 
-        UnitySongTitleGenerationRequest songTitleRequest = new(
+        UnitySongTitleRequest songTitleRequest = new(
             songName,
             unityData,
             menuArt,
@@ -112,7 +112,7 @@ internal sealed class IntermediateToUnityConverter
             songTitleFolder,
             forCustomServer);
 
-        UnityCoachesLargeGenerationRequest coachesLargeRequest = new(
+        UnityCoachesLargeRequest coachesLargeRequest = new(
             songName,
             coachCount,
             menuArt,
@@ -121,7 +121,7 @@ internal sealed class IntermediateToUnityConverter
             coachesLargeFolder,
             forCustomServer);
 
-        UnityCoachesSmallGenerationRequest coachesSmallRequest = new(
+        UnityCoachesSmallRequest coachesSmallRequest = new(
             songName,
             coachCount,
             menuArt,
@@ -129,7 +129,7 @@ internal sealed class IntermediateToUnityConverter
             coachesSmallFolder,
             forCustomServer);
 
-        UnityMapPackageGenerationRequest mapPackageRequest = new(
+        UnityMapPackageRequest mapPackageRequest = new(
             songName,
             unityData,
             pictoFiles,
@@ -140,11 +140,11 @@ internal sealed class IntermediateToUnityConverter
             mapPackageFolder,
             forCustomServer);
 
-        Task coverTask = UnityCoverGenerator.GenerateAsync(coverRequest);
-        Task titleTask = UnitySongTitleGenerator.GenerateAsync(songTitleRequest);
-        Task coachesLargeTask = UnityCoachesLargeGenerator.GenerateAsync(coachesLargeRequest);
-        Task coachesSmallTask = UnityCoachesSmallGenerator.GenerateAsync(coachesSmallRequest);
-        Task mapPackageTask = UnityMapPackageGenerator.GenerateAsync(mapPackageRequest);
+        Task coverTask = CoverBundleBuilder.GenerateAsync(coverRequest);
+        Task titleTask = SongTitleBundleBuilder.GenerateAsync(songTitleRequest);
+        Task coachesLargeTask = CoachesLargeBundleBuilder.GenerateAsync(coachesLargeRequest);
+        Task coachesSmallTask = CoachesSmallBundleBuilder.GenerateAsync(coachesSmallRequest);
+        Task mapPackageTask = MapPackageBundleBuilder.GenerateAsync(mapPackageRequest);
 
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
     }

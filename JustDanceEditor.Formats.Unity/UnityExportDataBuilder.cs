@@ -367,28 +367,6 @@ public static class UnityExportDataBuilder
                     })]
             };
 
-            if (document.FadeIn != null)
-            {
-                structure.useFadeStartBeat = true;
-                structure.fadeStartBeat = (int)Math.Round(document.FadeIn.StartBeat);
-                structure.fadeInType = string.Equals(document.FadeIn.CurveType, "linear", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
-            }
-
-            if (document.FadeOut != null)
-            {
-                structure.useFadeEndBeat = true;
-                structure.fadeEndBeat = (int)Math.Round(document.FadeOut.StartBeat);
-                structure.fadeOutType = string.Equals(document.FadeOut.CurveType, "linear", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
-            }
-            else if (document.FadeIn != null)
-            {
-                structure.fadeEndBeat = (int)Math.Round(document.FadeIn.StartBeat + document.FadeIn.Duration);
-            }
-            else if (structure.markers.Length > 0)
-            {
-                structure.fadeEndBeat = structure.endBeat;
-            }
-
             return structure;
         }
 

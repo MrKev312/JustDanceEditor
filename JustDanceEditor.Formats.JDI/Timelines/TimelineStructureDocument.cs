@@ -33,12 +33,8 @@ public class TimelineStructureDocument
 
     [JsonPropertyName("previewLoopEndBeat")]
     public double PreviewLoopEndBeat { get; set; }
-
-    [JsonPropertyName("fadeIn")]
-    public FadeRegion? FadeIn { get; set; }
-
-    [JsonPropertyName("fadeOut")]
-    public FadeRegion? FadeOut { get; set; }
+    [JsonPropertyName("previewDuration")]
+    public double PrevewDuration { get; set; }
 }
 
 public class TimelineMarker
@@ -83,14 +79,3 @@ public class SectionSegment
     public string Comment { get; set; } = string.Empty;
 }
 
-public class FadeRegion
-{
-    [JsonPropertyName("startBeat")]
-    public double StartBeat { get; set; }
-
-    [JsonPropertyName("duration")]
-    public int Duration { get; set; }
-
-    [JsonPropertyName("curveType")]
-    public string CurveType { get; set; } = "linear";
-}

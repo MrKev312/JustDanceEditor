@@ -119,15 +119,10 @@ public sealed class UnityTrackStructure
     public double previewEntry { get; init; }
     public double previewLoopStart { get; init; }
     public double previewLoopEnd { get; init; }
+    public double previewDuration { get; init; }
     public int[] markers { get; init; } = [];
     public UnitySignature[] signatures { get; init; } = [];
     public UnitySection[] sections { get; init; } = [];
-    public bool useFadeStartBeat { get; set; }
-    public int fadeStartBeat { get; set; }
-    public int fadeInType { get; set; }
-    public bool useFadeEndBeat { get; set; }
-    public int fadeEndBeat { get; set; }
-    public int fadeOutType { get; set; }
 }
 
 public sealed class UnitySignature

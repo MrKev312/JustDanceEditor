@@ -16,7 +16,4 @@
     <ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
     <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Core\" />
-  </ItemGroup>
 </Project>

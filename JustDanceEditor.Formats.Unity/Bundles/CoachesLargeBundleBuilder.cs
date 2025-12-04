@@ -1,6 +1,8 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -12,20 +14,57 @@ using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
-public sealed record UnityCoachesLargeBundleRequest(
-    string Codename,
-    IReadOnlyList<Image<Rgba32>> CoachImages,
-    Image<Rgba32> BackgroundImage,
+public sealed record UnityCoachesLargeRequest(
+    string SongName,
+    int CoachCount,
+    UnityMenuArtSource MenuArt,
+    UnityExportData UnityData,
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer);
 
 public static class CoachesLargeBundleBuilder
 {
-    public static void Generate(UnityCoachesLargeBundleRequest request)
+    public static Task GenerateAsync(UnityCoachesLargeRequest request) =>
+        Task.Run(() => Generate(request));
+
+    public static void Generate(UnityCoachesLargeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateRequest(request);
+        ValidateInput(request);
+
+        List<Image<Rgba32>> coachImages = [];
+        Image<Rgba32>? background = null;
+
+        try
+        {
+            LoadCoachImages(request, coachImages);
+
+            UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
+            background = UnityCoverArtGenerator.TryLoadBackground(coverRequest) ?? CreateFallbackBackground();
+
+            BundleContext internalRequest = new(
+                request.SongName,
+                coachImages,
+                background,
+                request.TemplatePath,
+                request.OutputFolderPath,
+                request.ForCustomServer);
+
+            GenerateBundle(internalRequest);
+        }
+        finally
+        {
+            foreach (Image<Rgba32> image in coachImages)
+                image.Dispose();
+            background?.Dispose();
+        }
+    }
+
+    private static void GenerateBundle(BundleContext request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateBundleRequest(request);
 
         Logger.Log($"Converting CoachesLarge bundle for {request.Codename}...");
         try
@@ -52,7 +91,36 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void ValidateRequest(UnityCoachesLargeBundleRequest request)
+    private static void ValidateInput(UnityCoachesLargeRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
+        if (request.CoachCount <= 0)
+            throw new ArgumentException("Coach count must be greater than zero.", nameof(request));
+        ArgumentNullException.ThrowIfNull(request.MenuArt);
+        ArgumentNullException.ThrowIfNull(request.UnityData);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
+    }
+
+    private static void LoadCoachImages(UnityCoachesLargeRequest request, List<Image<Rgba32>> destination)
+    {
+        IReadOnlyList<string> coachFiles = request.MenuArt.CoachImagePaths;
+        if (coachFiles.Count == 0)
+            throw new FileNotFoundException("No coach images defined in the intermediate package.");
+
+        for (int i = 0; i < request.CoachCount; i++)
+        {
+            if (i >= coachFiles.Count)
+                throw new InvalidOperationException($"Not enough coach images available. Needed {request.CoachCount}, found {coachFiles.Count}.");
+
+            string file = coachFiles[i];
+            destination.Add(Image.Load<Rgba32>(file));
+        }
+    }
+
+    private static Image<Rgba32> CreateFallbackBackground() => new(2048, 1024, Color.Magenta);
+
+    private static void ValidateBundleRequest(BundleContext request)
     {
         if (string.IsNullOrWhiteSpace(request.Codename))
             throw new ArgumentException("Codename must be provided.", nameof(request));
@@ -67,7 +135,7 @@ public static class CoachesLargeBundleBuilder
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, List<AssetFileInfo> SortedAssetInfos, AssetTypeValueField AssetBundleBase)
-        InitializeBundle(UnityCoachesLargeBundleRequest request)
+        InitializeBundle(BundleContext request)
     {
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(request.TemplatePath, true);
@@ -86,7 +154,7 @@ public static class CoachesLargeBundleBuilder
     }
 
     private static (AssetFileInfo coachTexture, AssetFileInfo coachSprite, AssetFileInfo backgroundTexture, AssetFileInfo backgroundSprite, long[] textureIds, long[] spriteIds)
-        ClearBundleAndIdentifyTemplates(UnityCoachesLargeBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleBase)
+        ClearBundleAndIdentifyTemplates(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleBase)
     {
         AssetFileInfo? coachTexture = null;
         AssetFileInfo? coachSprite = null;
@@ -154,7 +222,7 @@ public static class CoachesLargeBundleBuilder
         return (coachTexture, coachSprite, backgroundTexture, backgroundSprite, textureIds, spriteIds);
     }
 
-    private static void ProcessCoachAssets(UnityCoachesLargeBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile,
+    private static void ProcessCoachAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile,
         AssetFileInfo coachTextureTpl, AssetFileInfo coachSpriteTpl, long[] textureIds, long[] spriteIds)
     {
         TextureFormat fmt = TextureFormat.DXT5Crunched;
@@ -210,7 +278,7 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void ProcessBackgroundAsset(UnityCoachesLargeBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo backgroundTexture, AssetFileInfo backgroundSprite)
+    private static void ProcessBackgroundAsset(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo backgroundTexture, AssetFileInfo backgroundSprite)
     {
         AssetTypeValueField backgroundTextureBase = manager.GetBaseField(afileInst, backgroundTexture);
         AssetTypeValueField backgroundSpriteBase = manager.GetBaseField(afileInst, backgroundSprite);
@@ -243,7 +311,7 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void PopulateAssetContainer(UnityCoachesLargeBundleRequest request, AssetTypeValueField containerArray, long[] textureIds, long[] spriteIds)
+    private static void PopulateAssetContainer(BundleContext request, AssetTypeValueField containerArray, long[] textureIds, long[] spriteIds)
     {
         int coachCount = request.CoachImages.Count;
         for (int i = 0; i < coachCount + 1; i++)
@@ -266,10 +334,18 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void FinalizeAndSaveBundle(UnityCoachesLargeBundleRequest request, AssetBundleFile bundle, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
+    private static void FinalizeAndSaveBundle(BundleContext request, AssetBundleFile bundle, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
     {
         setAssetBundleData(assetBundleBase);
         bundle.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
         bundle.SaveAndCompress(request.OutputFolderPath, request.ForCustomServer);
     }
+
+    private sealed record BundleContext(
+        string Codename,
+        IReadOnlyList<Image<Rgba32>> CoachImages,
+        Image<Rgba32> BackgroundImage,
+        string TemplatePath,
+        string OutputFolderPath,
+        bool ForCustomServer);
 }

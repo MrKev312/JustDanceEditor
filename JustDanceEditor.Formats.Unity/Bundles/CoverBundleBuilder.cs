@@ -1,6 +1,8 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.Unity.Images;
+using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -12,25 +14,53 @@ using TextureConverter.TextureConverterHelpers;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
-public sealed record UnityCoverBundleRequest(
-    string Codename,
-    Image<Rgba32> CoverImage,
+public sealed record UnityCoverRequest(
+    string SongName,
+    UnityExportData? UnityData,
+    UnityMenuArtSource? MenuArt,
+    bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolderPath,
-    bool ForCustomServer);
+    bool ForCustomServer,
+    Image<Rgba32>? OverrideCoverImage = null);
 
 public static class CoverBundleBuilder
 {
-    public static void GenerateCoverBundle(UnityCoverBundleRequest request)
+    public static Task GenerateAsync(UnityCoverRequest request) =>
+        Task.Run(() => Generate(request));
+
+    public static void Generate(UnityCoverRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateRequest(request);
+        ValidateInput(request);
+
+        using Image<Rgba32>? coverImage = PrepareCoverImage(request);
+        if (coverImage == null)
+        {
+            Logger.Log("Cover image could not be prepared, skipping cover bundle generation.", LogLevel.Warning);
+            return;
+        }
+
+        coverImage.Mutate(x => x.Resize(640, 360));
+
+        BundleContext internalRequest = new(
+            request.SongName,
+            coverImage,
+            request.TemplatePath,
+            request.OutputFolderPath,
+            request.ForCustomServer);
+
+        GenerateBundle(internalRequest);
+    }
+
+    private static void GenerateBundle(BundleContext request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateBundleRequest(request);
 
         try
         {
             Logger.Log($"Starting generation for cover: {request.Codename}");
-
-            request.CoverImage.Mutate(x => x.Resize(640, 360));
 
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? coverTextureInfo, AssetFileInfo? coverSpriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
@@ -49,16 +79,48 @@ public static class CoverBundleBuilder
         }
     }
 
-    private static void ValidateRequest(UnityCoverBundleRequest request)
+    private static void ValidateInput(UnityCoverRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
+        if (request.OverrideCoverImage == null && (request.UnityData == null || request.MenuArt == null))
+            throw new ArgumentException("Either an override cover image or Unity data with menu art must be provided.");
+    }
+
+    private static void ValidateBundleRequest(BundleContext request)
     {
         if (string.IsNullOrWhiteSpace(request.Codename))
             throw new ArgumentException("Codename must be provided.", nameof(request));
+        if (request.CoverImage == null)
+            throw new ArgumentException("Cover image must be provided.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.TemplatePath))
             throw new ArgumentException("Template path must be provided.", nameof(request));
         if (string.IsNullOrWhiteSpace(request.OutputFolderPath))
             throw new ArgumentException("Output folder path must be provided.", nameof(request));
         if (!File.Exists(request.TemplatePath))
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
+    }
+
+    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request)
+    {
+        if (request.OverrideCoverImage is not null)
+            return request.OverrideCoverImage.CloneAs<Rgba32>();
+
+        if (request.UnityData == null || request.MenuArt == null)
+            return null;
+
+        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
+
+        Image<Rgba32>? image = null;
+        if (request.AllowOnlineLookup)
+            image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Cover");
+
+        image ??= UnityCoverArtGenerator.TryLoadCover(coverRequest);
+        if (image != null)
+            Logger.Log("Cover image prepared from intermediate assets.", LogLevel.Debug);
+
+        return image;
     }
 
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo CoverTextureInfo, AssetFileInfo CoverSpriteInfo)
@@ -114,4 +176,11 @@ public static class CoverBundleBuilder
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
         bun.SaveAndCompress(outputFolderPath, forCustomServer);
     }
+
+    private sealed record BundleContext(
+        string Codename,
+        Image<Rgba32> CoverImage,
+        string TemplatePath,
+        string OutputFolderPath,
+        bool ForCustomServer);
 }

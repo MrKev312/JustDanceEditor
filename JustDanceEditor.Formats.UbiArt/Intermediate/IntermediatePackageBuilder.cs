@@ -143,7 +143,8 @@ internal static class IntermediatePackageBuilder
             VideoStartOffset = structure.videoStartTime,
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,
-            PreviewLoopEndBeat = structure.previewLoopEnd
+            PreviewLoopEndBeat = structure.previewLoopEnd,
+            PrevewDuration = structure.previewDuration
         };
 
         foreach ((int index, int marker) in structure.markers.Select((marker, index) => (index, marker)))
@@ -186,26 +187,6 @@ internal static class IntermediatePackageBuilder
             StartBeat = structure.startBeat,
             BeatsPerMinute = timelineMath.EstimateBpm()
         });
-
-        if (structure.useFadeStartBeat)
-        {
-            document.FadeIn = new FadeRegion
-            {
-                StartBeat = structure.fadeStartBeat,
-                Duration = Math.Max(0, structure.fadeEndBeat - structure.fadeStartBeat),
-                CurveType = structure.fadeInType == 0 ? "linear" : "custom"
-            };
-        }
-
-        if (structure.useFadeEndBeat)
-        {
-            document.FadeOut = new FadeRegion
-            {
-                StartBeat = structure.fadeEndBeat,
-                Duration = Math.Max(0, structure.endBeat - structure.fadeEndBeat),
-                CurveType = structure.fadeOutType == 0 ? "linear" : "custom"
-            };
-        }
 
         return document;
     }

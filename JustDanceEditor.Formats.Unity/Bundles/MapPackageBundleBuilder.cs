@@ -1,6 +1,7 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
@@ -14,22 +15,62 @@ namespace JustDanceEditor.Formats.Unity.Bundles;
 
 public sealed record UnityMoveFile(string FileName, byte[] Content);
 
-public sealed record UnityMapPackageBundleRequest(
-    string Codename,
+public sealed record UnityMapPackageRequest(
+    string SongName,
     UnityExportData UnityData,
-    IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> PictoLookup,
-    IReadOnlyList<Image<Rgba32>> AtlasImages,
-    IReadOnlyList<UnityMoveFile> MoveFiles,
+    IReadOnlyList<string> PictoFiles,
+    string PictoTempFolder,
+    string PictoAtlasFolder,
+    string? MovesFolder,
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer);
 
 public static class MapPackageBundleBuilder
 {
-    public static void Generate(UnityMapPackageBundleRequest request)
+    public static Task GenerateAsync(UnityMapPackageRequest request) =>
+        Task.Run(() => Generate(request));
+
+    public static void Generate(UnityMapPackageRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateRequest(request);
+        ValidateInput(request);
+
+        UnityPictoConversionRequest pictoRequest = new(
+            request.UnityData,
+            request.PictoFiles ?? Array.Empty<string>(),
+            request.PictoAtlasFolder);
+
+        Logger.Log($"Converting MapPackage for {request.SongName}...");
+
+        UnityPictoConversionResult pictoResult = UnityPictoConverter.Convert(pictoRequest);
+        List<UnityMoveFile> moveFiles = LoadMoveFiles(request.MovesFolder);
+
+        try
+        {
+            BundleContext internalRequest = new(
+                request.SongName,
+                request.UnityData,
+                pictoResult.ImageDictionary,
+                pictoResult.AtlasImages,
+                moveFiles,
+                request.TemplatePath,
+                request.OutputFolderPath,
+                request.ForCustomServer);
+
+            GenerateBundle(internalRequest);
+        }
+        finally
+        {
+            foreach (Image<Rgba32> atlas in pictoResult.AtlasImages)
+                atlas.Dispose();
+        }
+    }
+
+    private static void GenerateBundle(BundleContext request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ValidateBundleRequest(request);
 
         Logger.Log($"Converting MapPackage bundle for {request.Codename}...");
         try
@@ -67,7 +108,19 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void ValidateRequest(UnityMapPackageBundleRequest request)
+    private static void ValidateInput(UnityMapPackageRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
+        ArgumentNullException.ThrowIfNull(request.UnityData);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoTempFolder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoAtlasFolder);
+        ArgumentNullException.ThrowIfNull(request.PictoFiles);
+        ArgumentNullException.ThrowIfNull(request.UnityData.Metadata);
+    }
+
+    private static void ValidateBundleRequest(BundleContext request)
     {
         if (string.IsNullOrWhiteSpace(request.Codename))
             throw new ArgumentException("Codename must be provided.", nameof(request));
@@ -85,8 +138,26 @@ public static class MapPackageBundleBuilder
             throw new ArgumentException("Move files collection must not be null.", nameof(request));
     }
 
+    private static List<UnityMoveFile> LoadMoveFiles(string? movesFolder)
+    {
+        List<UnityMoveFile> moves = [];
+        if (string.IsNullOrWhiteSpace(movesFolder) || !Directory.Exists(movesFolder))
+        {
+            Logger.Log("Moves folder not found, skipping dance move asset addition.", LogLevel.Info);
+            return moves;
+        }
+
+        foreach (string path in Directory.GetFiles(movesFolder, "*.msm"))
+        {
+            byte[] content = File.ReadAllBytes(path);
+            moves.Add(new UnityMoveFile(Path.GetFileName(path), content));
+        }
+
+        return moves;
+    }
+
     private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetBundleFile BunFile, List<AssetFileInfo> SortedAssetInfos, AssetFileInfo MusicTrackInfo, AssetFileInfo MapInfo)
-        InitializeBundle(UnityMapPackageBundleRequest request)
+        InitializeBundle(BundleContext request)
     {
         AssetsManager manager = new();
         BundleFileInstance bunInst = manager.LoadBundleFile(request.TemplatePath, true);
@@ -112,7 +183,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static (AssetTypeValueField musicTrackBase, AssetTypeValueField mapBase, AssetFileInfo assetBundleInfo, AssetTypeValueField assetBundleBase)
-        IdentifyAndPrepareMonoBehavioursAndAssetBundle(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, List<AssetFileInfo> sortedAssetInfos)
+        IdentifyAndPrepareMonoBehavioursAndAssetBundle(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, List<AssetFileInfo> sortedAssetInfos)
     {
         AssetFileInfo[] monoBehaviourInfos = [.. sortedAssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour)];
         AssetTypeValueField track1 = manager.GetBaseField(afileInst, monoBehaviourInfos[0]);
@@ -194,7 +265,7 @@ public static class MapPackageBundleBuilder
         return spriteTemplate;
     }
 
-    private static AssetTypeValueField PrepareSpriteAtlas(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo spriteAtlasInfo)
+    private static AssetTypeValueField PrepareSpriteAtlas(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo spriteAtlasInfo)
     {
         AssetTypeValueField spriteAtlasBase = manager.GetBaseField(afileInst, spriteAtlasInfo);
         spriteAtlasBase["m_Name"].AsString = request.Codename;
@@ -217,7 +288,7 @@ public static class MapPackageBundleBuilder
         structureField["previewLoopStart"].AsDouble = trackStructure.previewLoopStart;
         structureField["previewLoopEnd"].AsDouble = trackStructure.previewLoopEnd;
         if (!structureField["previewDuration"].IsDummy)
-            structureField["previewDuration"].AsDouble = trackStructure.previewLoopEnd - trackStructure.previewLoopStart;
+            structureField["previewDuration"].AsDouble = trackStructure.previewDuration;
 
         AssetTypeValueField signaturesArray = structureField["signatures"]["Array"];
         signaturesArray.Children.Clear();
@@ -277,7 +348,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void AddDanceMoveAssets(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray)
+    private static void AddDanceMoveAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray)
     {
         if (request.MoveFiles.Count == 0)
         {
@@ -311,7 +382,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static long[] AddPictoAtlasTextureAssets(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleArray)
+    private static long[] AddPictoAtlasTextureAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleArray)
     {
         if (request.AtlasImages.Count == 0)
             return [];
@@ -365,7 +436,7 @@ public static class MapPackageBundleBuilder
         return atlasIds;
     }
 
-    private static void AddPictoSpriteAssets(UnityMapPackageBundleRequest request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
+    private static void AddPictoSpriteAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
         AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray)
     {
         List<string> sortedPictoNames = [.. imageDict.Keys];
@@ -484,7 +555,7 @@ public static class MapPackageBundleBuilder
         afile.AssetInfos.Remove(spriteTemplate);
     }
 
-    private static void PopulateDanceDataClips(UnityMapPackageBundleRequest request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict)
+    private static void PopulateDanceDataClips(BundleContext request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict)
     {
         AssetTypeValueField motionClipsArray = mapBase["DanceData"]["MotionClips"]["Array"];
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];
@@ -563,7 +634,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void UpdateCoachCounters(UnityMapPackageBundleRequest request, AssetTypeValueField mapBase)
+    private static void UpdateCoachCounters(BundleContext request, AssetTypeValueField mapBase)
     {
         AssetTypeValueField handCoachCounters = mapBase["HandOnlyCoachDatas"]["Array"];
         AssetTypeValueField bodyCoachCounters = mapBase["FullBodyCoachDatas"]["Array"];
@@ -614,7 +685,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void FinalizeAndSaveBundle(UnityMapPackageBundleRequest request, AssetBundleFile bun, AssetsFile afile,
+    private static void FinalizeAndSaveBundle(BundleContext request, AssetBundleFile bun, AssetsFile afile,
         AssetTypeValueField musicTrackBase, AssetTypeValueField assetBundleBase,
         Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
     {
@@ -633,4 +704,15 @@ public static class MapPackageBundleBuilder
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
         bun.SaveAndCompress(request.OutputFolderPath, request.ForCustomServer);
     }
+
+    private sealed record BundleContext(
+        string Codename,
+        UnityExportData UnityData,
+        IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> PictoLookup,
+        IReadOnlyList<Image<Rgba32>> AtlasImages,
+        IReadOnlyList<UnityMoveFile> MoveFiles,
+        string TemplatePath,
+        string OutputFolderPath,
+        bool ForCustomServer);
 }
+
