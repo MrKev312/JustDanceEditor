@@ -110,13 +110,11 @@ public static class CoverBundleBuilder
         if (request.UnityData == null || request.MenuArt == null)
             return null;
 
-        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
-
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
-            image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Cover");
+            image = ImageLoader.TryImageWeb(request.SongName, "Cover");
 
-        image ??= UnityCoverArtGenerator.TryLoadCover(coverRequest);
+        image ??= ImageLoader.TryLoadImage(request.MenuArt.CoverPath);
         if (image != null)
             Logger.Log("Cover image prepared from intermediate assets.", LogLevel.Debug);
 

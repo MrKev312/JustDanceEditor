@@ -162,6 +162,13 @@ internal static class FormatConversionDialogue
         return request;
     }
 
+    static readonly JsonSerializerOptions IntermediateJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
+    };
+
     private static string? TryInferSongNameFromIntermediate(string inputPath)
     {
         try
@@ -171,7 +178,7 @@ internal static class FormatConversionDialogue
                 return null;
 
             using FileStream json = File.OpenRead(metadataPath);
-            IntermediateMetadata? metadata = JsonSerializer.Deserialize<IntermediateMetadata>(json);
+            IntermediateMetadata? metadata = JsonSerializer.Deserialize<IntermediateMetadata>(json, IntermediateJsonOptions);
             if (metadata == null)
                 return null;
 

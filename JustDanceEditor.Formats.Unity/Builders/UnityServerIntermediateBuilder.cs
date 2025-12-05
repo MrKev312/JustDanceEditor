@@ -4,16 +4,13 @@ using AssetsTools.NET.Extra;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.Unity.Models;
 
-using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-
-using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 
 namespace JustDanceEditor.Formats.Unity.Builders;
 
-internal static class UnityServerIntermediateBuilder
+internal static partial class UnityServerIntermediateBuilder
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -32,45 +29,10 @@ internal static class UnityServerIntermediateBuilder
         if (!File.Exists(songInfoPath))
             throw new FileNotFoundException($"Unity server export missing SongInfo.json at '{songInfoPath}'.");
 
-        UnitySongInfo songInfo = LoadSongInfo(songInfoPath);
-        UnityMapPackageData mapData = LoadMapPackageData(mapRoot);
-        TimelineMath timelineMath = new(mapData.Structure);
+        // 1. Load basic info
+        ServerSongJSON songInfo = LoadSongInfo(songInfoPath);
 
-        (
-            List<CoachTimelineDocument> handTimelines,
-            List<CoachTimelineDocument> fullBodyTimelines,
-            Dictionary<string, CoachMoveDefinition> handMoves,
-            Dictionary<string, CoachMoveDefinition> fullBodyMoves) =
-            BuildCoachTimelines(mapData.MotionClips);
-
-        IntermediateSongPackage package = new()
-        {
-            Metadata = BuildMetadata(songInfo, mapData.Structure),
-            TimelineStructure = BuildTimelineStructure(mapData.Structure, timelineMath),
-            Lyrics = BuildLyricsDocument(mapData.KaraokeClips),
-            Pictograms = BuildPictogramDocument(mapData.PictogramClips),
-            GoldEffects = BuildGoldEffectDocument(mapData.GoldEffectClips),
-            HideUserInterface = BuildHideUserInterfaceDocument(mapData.HideHudClips),
-            Vibrations = new(),
-            CoachTimelines = handTimelines,
-            FullBodyCoachTimelines = fullBodyTimelines,
-            HandCoachMoves = handMoves,
-            FullBodyCoachMoves = fullBodyMoves
-        };
-
-        package.Metadata.Validate();
-        return package;
-    }
-
-    private static UnitySongInfo LoadSongInfo(string songInfoPath)
-    {
-        string json = File.ReadAllText(songInfoPath);
-        UnitySongInfo info = JsonSerializer.Deserialize<UnitySongInfo>(json, JsonOptions) ?? throw new InvalidDataException($"Failed to deserialize SongInfo.json located at '{songInfoPath}'.");
-        return info;
-    }
-
-    private static UnityMapPackageData LoadMapPackageData(string mapRoot)
-    {
+        // 2. Load Bundle and find MonoBehaviours
         string mapPackagePath = LocateMapPackageBundle(mapRoot);
         AssetsManager manager = new();
 
@@ -81,48 +43,264 @@ internal static class UnityServerIntermediateBuilder
             AssetsFile assets = assetsFile.file;
             assets.GenerateQuickLookup();
 
-            AssetFileInfo[] monoInfos = [.. assets.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour)];
-            if (monoInfos.Length < 2)
-                throw new InvalidDataException("MapPackage bundle does not contain the required MonoBehaviours.");
+            (AssetTypeValueField musicTrackBase, AssetTypeValueField mapBehaviourBase) = FindRequiredMonoBehaviours(manager, assetsFile);
 
-            AssetTypeValueField? musicTrack = null;
-            AssetTypeValueField? mapBehaviour = null;
+            // 3. Parse Structure
+            Structure structure = ParseStructure(musicTrackBase);
+            TimelineMath timelineMath = new(structure);
 
-            foreach (AssetFileInfo info in monoInfos)
+            // 4. Parse Motion/Coach Data directly into JDI models
+            (
+                List<CoachTimelineDocument> handTimelines,
+                List<CoachTimelineDocument> fullBodyTimelines,
+                Dictionary<string, CoachMoveDefinition> handMoves,
+                Dictionary<string, CoachMoveDefinition> fullBodyMoves
+            ) = BuildCoachTimelinesAndMoves(mapBehaviourBase);
+
+            // 5. Build final package
+            IntermediateSongPackage package = new()
             {
-                AssetTypeValueField field = manager.GetBaseField(assetsFile, info);
-                if (string.IsNullOrWhiteSpace(field["m_Name"].AsString) && musicTrack == null)
-                {
-                    musicTrack = field;
-                    continue;
-                }
+                Metadata = (IntermediateMetadata)songInfo,
+                TimelineStructure = BuildTimelineStructure(structure, timelineMath),
 
-                if (!string.IsNullOrWhiteSpace(field["m_Name"].AsString))
-                {
-                    mapBehaviour ??= field;
-                }
+                Lyrics = BuildLyricsDocument(mapBehaviourBase),
+                Pictograms = BuildPictogramDocument(mapBehaviourBase),
+                GoldEffects = BuildGoldEffectDocument(mapBehaviourBase),
+                HideUserInterface = BuildHideUserInterfaceDocument(mapBehaviourBase),
 
-                if (musicTrack != null && mapBehaviour != null)
-                    break;
-            }
+                Vibrations = new(), // Vibration clips don't exist in Unity
+                CoachTimelines = handTimelines,
+                FullBodyCoachTimelines = fullBodyTimelines,
+                HandCoachMoves = handMoves,
+                FullBodyCoachMoves = fullBodyMoves
+            };
 
-            if (musicTrack == null || mapBehaviour == null)
-                throw new InvalidDataException("Could not locate MusicTrack and MapBehaviour MonoBehaviours inside the MapPackage.");
-
-            Structure structure = ParseStructure(musicTrack);
-
-            List<UnityKaraokeClip> karaoke = ParseKaraokeClips(mapBehaviour);
-            List<UnityMotionClip> motions = ParseMotionClips(mapBehaviour);
-            List<UnityPictoClip> pictos = ParsePictoClips(mapBehaviour);
-            List<UnityGoldEffectClip> goldEffects = ParseGoldEffects(mapBehaviour);
-            List<UnityHideHudClip> hideHud = ParseHideHudClips(mapBehaviour);
-
-            return new UnityMapPackageData(mapPackagePath, structure, karaoke, motions, pictos, goldEffects, hideHud);
+            package.Metadata.Validate();
+            return package;
         }
         finally
         {
             manager.UnloadAll();
         }
+    }
+
+    private static (AssetTypeValueField MusicTrack, AssetTypeValueField MapBehaviour) FindRequiredMonoBehaviours(AssetsManager manager, AssetsFileInstance assetsFile)
+    {
+        AssetFileInfo[] monoInfos = [.. assetsFile.file.AssetInfos.Where(x => x.TypeId == (int)AssetClassID.MonoBehaviour)];
+        if (monoInfos.Length < 2)
+            throw new InvalidDataException("MapPackage bundle does not contain the required MonoBehaviours.");
+
+        AssetTypeValueField? musicTrack = null;
+        AssetTypeValueField? mapBehaviour = null;
+
+        foreach (AssetFileInfo info in monoInfos)
+        {
+            AssetTypeValueField field = manager.GetBaseField(assetsFile, info);
+            string name = field["m_Name"].AsString;
+
+            if (string.IsNullOrWhiteSpace(name) && musicTrack == null)
+            {
+                musicTrack = field;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                mapBehaviour ??= field;
+            }
+
+            if (musicTrack != null && mapBehaviour != null)
+                break;
+        }
+
+        if (musicTrack == null || mapBehaviour == null)
+            throw new InvalidDataException("Could not locate MusicTrack and MapBehaviour MonoBehaviours inside the MapPackage.");
+
+        return (musicTrack, mapBehaviour);
+    }
+
+    private static LyricsTimelineDocument BuildLyricsDocument(AssetTypeValueField mapBehaviour)
+    {
+        LyricsTimelineDocument document = new();
+        AssetTypeValueField clipsArray = mapBehaviour["KaraokeData"]["Clips"]["Array"];
+
+        // Helper to safely enumerate
+        foreach (AssetTypeValueField entry in Enumerate(clipsArray))
+        {
+            // Note: Structure in bundle is usually Container -> KaraokeClip
+            AssetTypeValueField clipField = entry["KaraokeClip"];
+
+            KaraokeClip jdiClip = new()
+            {
+                Id = clipField["Id"].AsLong,
+                StartTime = clipField["StartTime"].AsInt,
+                Duration = clipField["Duration"].AsInt,
+                Lyrics = clipField["Lyrics"].AsString,
+                Pitch = clipField["Pitch"].AsFloat,
+                IsEndOfLine = clipField["IsEndOfLine"].AsUInt > 0,
+                ContentType = clipField["ContentType"].AsInt,
+                Tolerances = BuildTolerance(clipField)
+            };
+
+            document.Clips.Add(jdiClip);
+        }
+
+        // Sort by start time just to be safe
+        document.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        return document;
+    }
+
+    private static KaraokeTolerance? BuildTolerance(AssetTypeValueField clipField)
+    {
+        int startTol = clipField["StartTimeTolerance"].IsDummy ? 0 : clipField["StartTimeTolerance"].AsInt;
+        int endTol = clipField["EndTimeTolerance"].IsDummy ? 0 : clipField["EndTimeTolerance"].AsInt;
+        float semiTol = clipField["SemitoneTolerance"].IsDummy ? 0 : clipField["SemitoneTolerance"].AsFloat;
+
+        if (startTol == 0 && endTol == 0 && semiTol == 0)
+            return null;
+
+        return new KaraokeTolerance
+        {
+            StartTimeTolerance = Math.Abs(startTol),
+            EndTimeTolerance = Math.Abs(endTol),
+            SemitoneTolerance = semiTol
+        };
+    }
+
+    private static PictogramTimelineDocument BuildPictogramDocument(AssetTypeValueField mapBehaviour)
+    {
+        PictogramTimelineDocument document = new();
+        AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["PictoClips"]["Array"];
+
+        foreach (AssetTypeValueField entry in Enumerate(clipsArray))
+        {
+            document.Entries.Add(new PictogramEntry
+            {
+                Id = entry["Id"].AsLong,
+                StartTime = entry["StartTime"].AsInt,
+                Duration = Math.Max(0, entry["Duration"].AsInt),
+                PictogramId = entry["PictoPath"].AsString,
+                CoachCount = (int)entry["CoachCount"].AsUInt
+            });
+        }
+
+        document.Entries.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        return document;
+    }
+
+    private static GoldEffectTimelineDocument BuildGoldEffectDocument(AssetTypeValueField mapBehaviour)
+    {
+        GoldEffectTimelineDocument document = new();
+        AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["GoldEffectClips"]["Array"];
+
+        foreach (AssetTypeValueField entry in Enumerate(clipsArray))
+        {
+            document.Clips.Add(new GoldEffectTimelineClip
+            {
+                Id = entry["Id"].AsLong,
+                TrackId = entry["TrackId"].AsLong,
+                IsActive = entry["IsActive"].AsUInt > 0,
+                StartTime = entry["StartTime"].AsInt,
+                Duration = Math.Max(0, entry["Duration"].AsInt),
+                EffectType = entry["GoldEffectType"].AsInt
+            });
+        }
+
+        document.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        return document;
+    }
+
+    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(AssetTypeValueField mapBehaviour)
+    {
+        HideUserInterfaceTimelineDocument document = new();
+        AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["HideHudClips"]["Array"];
+
+        foreach (AssetTypeValueField entry in Enumerate(clipsArray))
+        {
+            document.Clips.Add(new HideUserInterfaceTimelineClip
+            {
+                IsActive = entry["IsActive"].AsUInt > 0,
+                StartTime = entry["StartTime"].AsInt,
+                Duration = Math.Max(0, entry["Duration"].AsInt),
+            });
+        }
+
+        document.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        return document;
+    }
+
+    private static (
+        List<CoachTimelineDocument> HandTracking,
+        List<CoachTimelineDocument> FullBodyTracking,
+        Dictionary<string, CoachMoveDefinition> HandMoves,
+        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour)
+    {
+        Dictionary<int, CoachTimelineDocument> handTimelines = [];
+        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
+        Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
+
+        AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["MotionClips"]["Array"];
+
+        // Iterate raw AssetsTools fields
+        foreach (AssetTypeValueField entry in Enumerate(clipsArray))
+        {
+            int startTime = entry["StartTime"].AsInt;
+
+            // Determine type
+            // 0 = Hand, 1 = FullBody
+            int moveTypeRaw = entry["MoveType"].AsInt;
+            bool isFullBody = moveTypeRaw == 1;
+
+            Dictionary<int, CoachTimelineDocument> timelines = isFullBody ? fullBodyTimelines : handTimelines;
+            Dictionary<string, CoachMoveDefinition> moveCatalog = isFullBody ? fullBodyMoves : handMoves;
+
+            // Get Coach Document
+            int coachId = entry["CoachId"].AsInt;
+            if (!timelines.TryGetValue(coachId, out CoachTimelineDocument? doc))
+            {
+                doc = new CoachTimelineDocument { CoachId = coachId };
+                timelines[coachId] = doc;
+            }
+
+            // Track ID Logic
+            long trackId = entry["TrackId"].AsLong;
+            doc.TrackId = trackId;
+
+            // Create Clip
+            int duration = Math.Max(0, entry["Duration"].AsInt);
+            string moveName = entry["MoveName"].AsString;
+            string moveId = (moveName ?? string.Empty).ToLowerInvariant();
+
+            CoachTimelineClip timelineClip = new()
+            {
+                Id = entry["Id"].AsLong,
+                StartTime = startTime,
+                MoveId = moveId,
+                IsGoldMove = entry["GoldMove"].AsUInt > 0
+            };
+
+            doc.Clips.Add(timelineClip);
+
+            // Update Move Definition
+            AddOrUpdateMoveDefinition(
+                moveCatalog,
+                moveId,
+                duration,
+                isFullBody ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking);
+        }
+
+        // Sort clips within timelines
+        foreach (var t in handTimelines.Values)
+            t.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        foreach (var t in fullBodyTimelines.Values)
+            t.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+
+        return (
+            handTimelines.Values.OrderBy(t => t.CoachId).ToList(),
+            fullBodyTimelines.Values.OrderBy(t => t.CoachId).ToList(),
+            handMoves,
+            fullBodyMoves);
     }
 
     private static Structure ParseStructure(AssetTypeValueField musicTrackBase)
@@ -156,156 +334,10 @@ internal static class UnityServerIntermediateBuilder
             })
         };
 
-        // If the duration is 0, set it to 30, as not all bundles have it set correctly
         if (structure.previewDuration == 0)
             structure.previewDuration = 30;
 
         return structure;
-    }
-
-    private static List<UnityKaraokeClip> ParseKaraokeClips(AssetTypeValueField mapBehaviour)
-    {
-        AssetTypeValueField array = mapBehaviour["KaraokeData"]["Clips"]["Array"];
-        List<UnityKaraokeClip> clips = new(array?.Children.Count ?? 0);
-
-        foreach (AssetTypeValueField entry in Enumerate(array))
-        {
-            AssetTypeValueField clipField = entry["KaraokeClip"];
-            clips.Add(new UnityKaraokeClip(
-                clipField["StartTime"].AsInt,
-                clipField["Duration"].AsInt,
-                clipField["Lyrics"].AsString,
-                clipField["Pitch"].AsFloat,
-                clipField["IsEndOfLine"].AsUInt > 0,
-                clipField["ContentType"].AsInt,
-                clipField["Id"].AsLong,
-                clipField["TrackId"].AsLong,
-                clipField["IsActive"].AsUInt > 0,
-                clipField["SemitoneTolerance"].IsDummy ? 0 : clipField["SemitoneTolerance"].AsInt,
-                clipField["StartTimeTolerance"].IsDummy ? 0 : clipField["StartTimeTolerance"].AsInt,
-                clipField["EndTimeTolerance"].IsDummy ? 0 : clipField["EndTimeTolerance"].AsInt
-            ));
-        }
-
-        return clips;
-    }
-
-    private static List<UnityMotionClip> ParseMotionClips(AssetTypeValueField mapBehaviour)
-    {
-        AssetTypeValueField array = mapBehaviour["DanceData"]["MotionClips"]["Array"];
-        List<UnityMotionClip> clips = new(array?.Children.Count ?? 0);
-
-        foreach (AssetTypeValueField entry in Enumerate(array))
-        {
-            string color = entry["Color"].IsDummy ? string.Empty : entry["Color"].AsString;
-            clips.Add(new UnityMotionClip(
-                entry["StartTime"].AsInt,
-                entry["Duration"].AsInt,
-                entry["MoveName"].AsString,
-                entry["CoachId"].AsInt,
-                entry["GoldMove"].AsUInt > 0,
-                entry["MoveType"].AsInt,
-                entry["Id"].AsLong,
-                entry["TrackId"].AsLong,
-                entry["IsActive"].AsUInt > 0,
-                color
-            ));
-        }
-
-        return clips;
-    }
-
-    private static List<UnityPictoClip> ParsePictoClips(AssetTypeValueField mapBehaviour)
-    {
-        AssetTypeValueField array = mapBehaviour["DanceData"]["PictoClips"]["Array"];
-        List<UnityPictoClip> clips = new(array?.Children.Count ?? 0);
-
-        foreach (AssetTypeValueField entry in Enumerate(array))
-        {
-            clips.Add(new UnityPictoClip(
-                entry["StartTime"].AsInt,
-                entry["Duration"].AsInt,
-                entry["PictoPath"].AsString,
-                (int)entry["CoachCount"].AsUInt,
-                entry["Id"].AsLong,
-                entry["TrackId"].AsLong,
-                entry["IsActive"].AsUInt > 0
-            ));
-        }
-
-        return clips;
-    }
-
-    private static List<UnityGoldEffectClip> ParseGoldEffects(AssetTypeValueField mapBehaviour)
-    {
-        AssetTypeValueField array = mapBehaviour["DanceData"]["GoldEffectClips"]["Array"];
-        List<UnityGoldEffectClip> clips = new(array?.Children.Count ?? 0);
-
-        foreach (AssetTypeValueField entry in Enumerate(array))
-        {
-            clips.Add(new UnityGoldEffectClip(
-                entry["StartTime"].AsInt,
-                entry["Duration"].AsInt,
-                entry["GoldEffectType"].AsInt,
-                entry["Id"].AsLong,
-                entry["TrackId"].AsLong,
-                entry["IsActive"].AsUInt > 0
-            ));
-        }
-
-        return clips;
-    }
-
-    private static List<UnityHideHudClip> ParseHideHudClips(AssetTypeValueField mapBehaviour)
-    {
-        AssetTypeValueField array = mapBehaviour["DanceData"]["HideHudClips"]["Array"];
-        List<UnityHideHudClip> clips = new(array?.Children.Count ?? 0);
-
-        foreach (AssetTypeValueField entry in Enumerate(array))
-        {
-            clips.Add(new UnityHideHudClip(
-                entry["StartTime"].AsInt,
-                entry["Duration"].AsInt,
-                entry["IsActive"].AsUInt > 0
-            ));
-        }
-
-        return clips;
-    }
-
-    private static IntermediateMetadata BuildMetadata(UnitySongInfo info, Structure structure)
-    {
-        IntermediateMetadata metadata = new()
-        {
-            SongId = info.SongID == Guid.Empty ? Guid.NewGuid() : info.SongID,
-            MapName = info.MapName ?? string.Empty,
-            ParentMapName = info.ParentMapName ?? string.Empty,
-            Title = info.Title ?? string.Empty,
-            Artist = info.Artist ?? string.Empty,
-            Credits = info.Credits ?? string.Empty,
-            LyricsColor = string.IsNullOrWhiteSpace(info.LyricsColor) ? "#FFFFFFFF" : info.LyricsColor,
-            MapLengthSeconds = info.MapLength,
-            OriginalJdVersion = info.OriginalJdVersion,
-            CoachCount = info.CoachCount,
-            Difficulty = info.Difficulty,
-            SweatDifficulty = info.SweatDifficulty,
-            Tags = info.Tags?.ToList() ?? [],
-            Status = 1f,
-            HasSongTitleInCover = info.HasSongTitleInCover,
-            MojoValue = 0,
-            CountInProgression = 0
-        };
-
-        if (info.CoachNames is { Length: > 0 })
-            metadata.CoachNames = info.CoachNames;
-
-        // TODO: Don't use AdditionalMetadata at all
-        metadata.AdditionalMetadata["unity.tagIds"] = string.Join(',', info.TagIds ?? []);
-        metadata.AdditionalMetadata["unity.coachNamesLocIds"] = string.Join(',', info.CoachNamesLocIds ?? []);
-        metadata.AdditionalMetadata["unity.danceVersionLocId"] = info.DanceVersionLocId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
-        metadata.AdditionalMetadata["unity.doubleScoringType"] = info.DoubleScoringType ?? string.Empty;
-
-        return metadata;
     }
 
     private static TimelineStructureDocument BuildTimelineStructure(Structure structure, TimelineMath timelineMath)
@@ -358,149 +390,11 @@ internal static class UnityServerIntermediateBuilder
         return document;
     }
 
-    private static LyricsTimelineDocument BuildLyricsDocument(IEnumerable<UnityKaraokeClip> clips)
+    private static ServerSongJSON LoadSongInfo(string songInfoPath)
     {
-        LyricsTimelineDocument document = new();
-
-        foreach (UnityKaraokeClip clip in clips.OrderBy(c => c.StartTime))
-        {
-            IntermediateKaraokeClip entry = new()
-            {
-                Id = clip.Id,
-                StartTime = clip.StartTime,
-                Duration = clip.Duration,
-                Lyrics = clip.Lyrics,
-                Pitch = clip.Pitch,
-                IsEndOfLine = clip.IsEndOfLine,
-                ContentType = clip.ContentType,
-                Tolerances = BuildTolerance(clip)
-            };
-
-            document.Clips.Add(entry);
-        }
-
-        return document;
-    }
-
-    private static KaraokeTolerance? BuildTolerance(UnityKaraokeClip clip)
-    {
-        if (clip.StartTimeTolerance == 0 && clip.EndTimeTolerance == 0 && clip.SemitoneTolerance == 0)
-            return null;
-
-        return new KaraokeTolerance
-        {
-            StartTimeTolerance = Math.Abs(clip.StartTimeTolerance),
-            EndTimeTolerance = Math.Abs(clip.EndTimeTolerance),
-            SemitoneTolerance = clip.SemitoneTolerance
-        };
-    }
-
-    private static PictogramTimelineDocument BuildPictogramDocument(IEnumerable<UnityPictoClip> clips)
-    {
-        PictogramTimelineDocument document = new();
-
-        foreach (UnityPictoClip clip in clips.OrderBy(c => c.StartTime))
-        {
-            document.Entries.Add(new PictogramEntry
-            {
-                Id = clip.Id,
-                StartTime = clip.StartTime,
-                Duration = Math.Max(0, clip.Duration),
-                PictogramId = clip.PictoPath,
-                CoachCount = clip.CoachCount
-            });
-        }
-
-        return document;
-    }
-
-    private static GoldEffectTimelineDocument BuildGoldEffectDocument(IEnumerable<UnityGoldEffectClip> clips)
-    {
-        GoldEffectTimelineDocument document = new();
-
-        foreach (UnityGoldEffectClip clip in clips.OrderBy(c => c.StartTime))
-        {
-            document.Clips.Add(new GoldEffectTimelineClip
-            {
-                Id = clip.Id,
-                TrackId = clip.TrackId,
-                IsActive = clip.IsActive,
-                StartTime = clip.StartTime,
-                Duration = Math.Max(0, clip.Duration),
-                EffectType = clip.GoldEffectType
-            });
-        }
-
-        return document;
-    }
-
-    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(IEnumerable<UnityHideHudClip> clips)
-    {
-        HideUserInterfaceTimelineDocument document = new();
-
-        foreach (UnityHideHudClip clip in clips.OrderBy(c => c.StartTime))
-        {
-            document.Clips.Add(new HideUserInterfaceTimelineClip
-            {
-                IsActive = clip.IsActive,
-                StartTime = clip.StartTime,
-                Duration = Math.Max(0, clip.Duration),
-            });
-        }
-
-        return document;
-    }
-
-    private static (
-        List<CoachTimelineDocument> HandTracking,
-        List<CoachTimelineDocument> FullBodyTracking,
-        Dictionary<string, CoachMoveDefinition> HandMoves,
-        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(IEnumerable<UnityMotionClip> clips)
-    {
-        Dictionary<int, CoachTimelineDocument> handTimelines = [];
-        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
-        Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
-
-        foreach (UnityMotionClip clip in clips.OrderBy(c => c.StartTime))
-        {
-            bool isFullBody = clip.MoveType == 1;
-            Dictionary<int, CoachTimelineDocument> timelines = isFullBody ? fullBodyTimelines : handTimelines;
-            Dictionary<string, CoachMoveDefinition> moveCatalog = isFullBody ? fullBodyMoves : handMoves;
-
-            if (!timelines.TryGetValue(clip.CoachId, out CoachTimelineDocument? doc))
-            {
-                doc = new CoachTimelineDocument { CoachId = clip.CoachId };
-                timelines[clip.CoachId] = doc;
-            }
-
-            doc.TrackId = clip.TrackId;
-
-            int duration = Math.Max(0, clip.Duration);
-            string moveId = (clip.MoveName ?? string.Empty).ToLowerInvariant();
-
-            CoachTimelineClip timelineClip = new()
-            {
-                Id = clip.Id,
-                StartTime = clip.StartTime,
-                MoveId = moveId,
-                IsGoldMove = clip.IsGoldMove
-            };
-
-            doc.Clips.Add(timelineClip);
-
-            AddOrUpdateMoveDefinition(
-                moveCatalog,
-                moveId,
-                duration,
-                isFullBody ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking);
-        }
-
-        return (
-            handTimelines.Values.OrderBy(t => t.CoachId).ToList(),
-            fullBodyTimelines.Values.OrderBy(t => t.CoachId).ToList(),
-            handMoves,
-            fullBodyMoves);
+        string json = File.ReadAllText(songInfoPath);
+        ServerSongJSON info = JsonSerializer.Deserialize<ServerSongJSON>(json, JsonOptions) ?? throw new InvalidDataException($"Failed to deserialize SongInfo.json located at '{songInfoPath}'.");
+        return info;
     }
 
     private static void AddOrUpdateMoveDefinition(
@@ -569,187 +463,4 @@ internal static class UnityServerIntermediateBuilder
             result[i] = selector(arrayField.Children[i]);
         return result;
     }
-
-    private sealed record UnityMapPackageData(
-        string MapPackagePath,
-        Structure Structure,
-        List<UnityKaraokeClip> KaraokeClips,
-        List<UnityMotionClip> MotionClips,
-        List<UnityPictoClip> PictogramClips,
-        List<UnityGoldEffectClip> GoldEffectClips,
-        List<UnityHideHudClip> HideHudClips);
-
-    private sealed record UnityKaraokeClip(
-        int StartTime,
-        int Duration,
-        string Lyrics,
-        float Pitch,
-        bool IsEndOfLine,
-        int ContentType,
-        long Id,
-        long TrackId,
-        bool IsActive,
-        int SemitoneTolerance,
-        int StartTimeTolerance,
-        int EndTimeTolerance);
-
-    private sealed record UnityMotionClip(
-        int StartTime,
-        int Duration,
-        string MoveName,
-        int CoachId,
-        bool IsGoldMove,
-        int MoveType,
-        long Id,
-        long TrackId,
-        bool IsActive,
-        string Color);
-
-    private sealed record UnityPictoClip(
-        int StartTime,
-        int Duration,
-        string PictoPath,
-        int CoachCount,
-        long Id,
-        long TrackId,
-        bool IsActive);
-
-    private sealed record UnityGoldEffectClip(
-        int StartTime,
-        int Duration,
-        int GoldEffectType,
-        long Id,
-        long TrackId,
-        bool IsActive);
-
-    private sealed record UnityHideHudClip(
-        int StartTime,
-        int Duration,
-        bool IsActive);
-
-    private sealed class UnitySongInfo
-    {
-        public Guid SongID { get; set; }
-        public string? Artist { get; set; }
-        public int CoachCount { get; set; }
-        public string[]? CoachNames { get; set; }
-        [JsonConverter(typeof(FlexibleStringListConverter))]
-        public string[]? CoachNamesLocIds { get; set; }
-        public string? Credits { get; set; }
-        public int? DanceVersionLocId { get; set; }
-        public uint Difficulty { get; set; }
-        public string? DoubleScoringType { get; set; }
-        public bool HasSongTitleInCover { get; set; }
-        public string? LyricsColor { get; set; }
-        public double MapLength { get; set; }
-        public string? MapName { get; set; }
-        public uint OriginalJdVersion { get; set; }
-        public string? ParentMapName { get; set; }
-        public uint SweatDifficulty { get; set; }
-        public string[]? TagIds { get; set; }
-        public string[]? Tags { get; set; }
-        public string? Title { get; set; }
-    }
-
-    private sealed class TimelineMath
-    {
-        private readonly Structure _structure;
-        private readonly int[] _markers;
-        private readonly double _defaultMsPerBeat;
-
-        public TimelineMath(Structure structure)
-        {
-            _structure = structure ?? new Structure();
-            _markers = _structure.markers ?? [];
-            _defaultMsPerBeat = EstimateMsPerBeat();
-        }
-
-        public double ToBeat(int timelineValue)
-        {
-            if (_markers.Length == 0)
-                return timelineValue / 48d;
-
-            int index = Array.BinarySearch(_markers, timelineValue);
-            if (index >= 0)
-                return _structure.startBeat + index;
-
-            int nextIndex = ~index;
-            if (nextIndex <= 0)
-            {
-                double deltaBeats = (timelineValue - _markers[0]) / (_defaultMsPerBeat * 48d);
-                return _structure.startBeat + deltaBeats;
-            }
-
-            if (nextIndex >= _markers.Length)
-            {
-                double deltaBeats = (timelineValue - _markers[^1]) / (_defaultMsPerBeat * 48d);
-                return _structure.startBeat + _markers.Length - 1 + deltaBeats;
-            }
-
-            int prevIndex = nextIndex - 1;
-            int prevMarker = _markers[prevIndex];
-            int nextMarker = _markers[nextIndex];
-            double fraction = (double)(timelineValue - prevMarker) / (nextMarker - prevMarker);
-            return _structure.startBeat + prevIndex + fraction;
-        }
-
-        public double EstimateMsPerBeat()
-        {
-            if (_markers.Length < 2)
-                return 500;
-
-            double total = 0;
-            for (int i = 1; i < _markers.Length; i++)
-                total += (_markers[i] - _markers[i - 1]) / 48d;
-            return total / (_markers.Length - 1);
-        }
-
-        public double EstimateBpm()
-        {
-            double ms = _defaultMsPerBeat;
-            return ms > 0 ? 60000d / ms : 120d;
-        }
-    }
-
-    public sealed class FlexibleStringListConverter : JsonConverter<string[]>
-    {
-        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            if (reader.TokenType == JsonTokenType.StartArray)
-            {
-                var list = new List<string>();
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.EndArray)
-                        break;
-                    else if (reader.TokenType == JsonTokenType.String)
-                        list.Add(reader.GetString()!);
-                    else if (reader.TokenType == JsonTokenType.Number)
-                        list.Add(reader.GetInt32().ToString());
-                    else
-                    {
-                        throw new JsonException("Expected string value in array.");
-                    }
-                }
-
-                return list.ToArray();
-            }
-            else
-            {
-                return reader.TokenType == JsonTokenType.String
-                    ? [reader.GetString()!]
-                    : [reader.GetInt32().ToString()];
-            }
-        }
-        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
-        {
-            writer.WriteStartArray();
-            foreach (var str in value)
-            {
-                writer.WriteStringValue(str);
-            }
-            writer.WriteEndArray();
-        }
-    }
-
 }

@@ -40,8 +40,7 @@ public static class CoachesLargeBundleBuilder
         {
             LoadCoachImages(request, coachImages);
 
-            UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
-            background = UnityCoverArtGenerator.TryLoadBackground(coverRequest) ?? CreateFallbackBackground();
+            background = ImageLoader.TryLoadImage(request.MenuArt.CoachesBackgroundPath) ?? CreateFallbackBackground();
 
             BundleContext internalRequest = new(
                 request.SongName,

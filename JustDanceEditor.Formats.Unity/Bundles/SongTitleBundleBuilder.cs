@@ -110,13 +110,11 @@ public static class SongTitleBundleBuilder
         if (request.UnityData == null || request.MenuArt == null)
             return null;
 
-        UnityCoverArtRequest coverRequest = new(request.UnityData, request.MenuArt);
-
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
-            image = UnityCoverArtGenerator.TryImageWeb(request.SongName, "Title");
+            image = ImageLoader.TryImageWeb(request.SongName, "Title");
 
-        return image ?? UnityCoverArtGenerator.TryLoadSongTitleLogo(coverRequest);
+        return image ?? ImageLoader.TryLoadImage(request.MenuArt.SongTitleLogoPath);
     }
 
     private static void NormalizeSongTitleImage(Image<Rgba32> image)

@@ -22,6 +22,11 @@ internal sealed class IntermediateToUnityConverter
     private readonly string _songFolderName;
     private readonly string _outputRoot;
 
+    static readonly JsonSerializerOptions serializerOptions = new()
+    {
+        WriteIndented = true
+    };
+
     public IntermediateToUnityConverter(
         IntermediateSongPackage package,
         string packageRoot,
@@ -72,10 +77,10 @@ internal sealed class IntermediateToUnityConverter
 
     private async Task GenerateSongInfoAsync()
     {
-        UnitySongInfoDocument doc = UnitySongInfoDocument.FromMetadata(_package.Metadata);
+        ServerSongJSON doc = (ServerSongJSON)_package.Metadata;
         string jsonPath = Path.Combine(_outputRoot, "SongInfo.json");
         await using FileStream stream = File.Create(jsonPath);
-        await JsonSerializer.SerializeAsync(stream, doc, UnitySongInfoDocument.SerializerOptions);
+        await JsonSerializer.SerializeAsync(stream, doc, serializerOptions);
     }
 
     private async Task BuildUnityBundlesAsync()
@@ -270,10 +275,9 @@ internal sealed class IntermediateToUnityConverter
         if (coachesDir == null)
             return Array.Empty<string>();
 
-        string[] candidates = Directory.EnumerateFiles(coachesDir, "*", SearchOption.TopDirectoryOnly)
+        string[] candidates = [.. Directory.EnumerateFiles(coachesDir, "*", SearchOption.TopDirectoryOnly)
             .Where(file => !IsCoachBackgroundAsset(file))
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];
 
         return candidates;
     }
@@ -318,9 +322,7 @@ internal sealed class IntermediateToUnityConverter
             return Array.Empty<string>();
         }
 
-        string[] files = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        string[] files = [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];
 
         if (files.Length == 0)
             Logger.Log("Intermediate pictogram folder is empty; map package may lack pictos.", LogLevel.Warning);
@@ -405,75 +407,5 @@ internal sealed class IntermediateToUnityConverter
         public string CoachesLarge { get; }
         public string CoachesSmall { get; }
         public string MapPackage { get; }
-    }
-
-    private sealed class UnitySongInfoDocument
-    {
-        private UnitySongInfoDocument() { }
-
-        public required Guid SongID { get; init; }
-        public required string MapName { get; init; }
-        public string? ParentMapName { get; init; }
-        public string? Title { get; init; }
-        public string? Artist { get; init; }
-        public string? Credits { get; init; }
-        public uint Difficulty { get; init; }
-        public uint SweatDifficulty { get; init; }
-        public int CoachCount { get; init; }
-        public string[]? CoachNames { get; init; }
-        public bool HasSongTitleInCover { get; init; }
-        public string? LyricsColor { get; init; }
-        public string[]? Tags { get; init; }
-        public string[]? TagIds { get; init; }
-        public uint OriginalJDVersion { get; init; }
-        public double MapLength { get; init; }
-        public string? DoubleScoringType { get; init; }
-        public string[]? CoachNamesLocIds { get; init; }
-        public int? DanceVersionLocId { get; init; }
-
-        public static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            WriteIndented = true
-        };
-
-        public static UnitySongInfoDocument FromMetadata(IntermediateMetadata metadata)
-        {
-            metadata.Validate();
-            metadata.AdditionalMetadata ??= new();
-            metadata.AdditionalMetadata.TryGetValue("unity.tagIds", out string? tagIdsRaw);
-            metadata.AdditionalMetadata.TryGetValue("unity.coachNamesLocIds", out string? namesLocRaw);
-            metadata.AdditionalMetadata.TryGetValue("unity.danceVersionLocId", out string? danceLocRaw);
-            metadata.AdditionalMetadata.TryGetValue("unity.doubleScoringType", out string? doubleScoreType);
-
-            return new UnitySongInfoDocument
-            {
-                SongID = metadata.SongId,
-                MapName = metadata.MapName,
-                ParentMapName = metadata.ParentMapName,
-                Title = metadata.Title,
-                Artist = metadata.Artist,
-                Credits = metadata.Credits,
-                Difficulty = metadata.Difficulty,
-                SweatDifficulty = metadata.SweatDifficulty,
-                CoachCount = metadata.CoachCount,
-                CoachNames = metadata.CoachNames,
-                HasSongTitleInCover = metadata.HasSongTitleInCover,
-                LyricsColor = metadata.LyricsColor,
-                Tags = metadata.Tags?.ToArray() ?? [],
-                TagIds = SplitCsv(tagIdsRaw),
-                OriginalJDVersion = metadata.OriginalJdVersion,
-                MapLength = metadata.MapLengthSeconds,
-                DoubleScoringType = string.IsNullOrWhiteSpace(doubleScoreType) ? null : doubleScoreType,
-                CoachNamesLocIds = SplitCsv(namesLocRaw),
-                DanceVersionLocId = int.TryParse(danceLocRaw, out int parsed) ? parsed : null
-            };
-        }
-
-        private static string[]? SplitCsv(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return null;
-            return value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        }
     }
 }

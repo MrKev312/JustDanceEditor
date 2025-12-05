@@ -12,21 +12,19 @@ public static class UnityExportDataBuilder
         IntermediateMetadata metadata = package.Metadata;
         metadata.Validate();
 
-        UnityExportMetadata exportMetadata = new()
+        ServerSongJSON exportMetadata = new()
         {
-            SongId = metadata.SongId,
+            SongID = metadata.SongID,
             Artist = metadata.Artist ?? string.Empty,
             CoachCount = metadata.CoachCount,
             CoachNamesLocIds = metadata.CoachNames?.ToArray() ?? [],
             Credits = metadata.Credits ?? string.Empty,
             DanceVersionLocId = 0,
             Difficulty = metadata.Difficulty,
-            // Todo: DoubleScoringType: do we have gestures?
-            HasSongTitleInCover = metadata.HasSongTitleInCover,
             LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor!,
             MapLength = metadata.MapLengthSeconds,
             MapName = metadata.MapName,
-            OriginalJdVersion = metadata.OriginalJdVersion,
+            OriginalJDVersion = metadata.OriginalJDVersion,
             ParentMapName = metadata.ParentMapName,
             SweatDifficulty = metadata.SweatDifficulty,
             TagIds = [],

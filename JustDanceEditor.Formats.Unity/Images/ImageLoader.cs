@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -8,29 +7,9 @@ using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Images;
 
-// TODO: remove this
-public sealed record UnityCoverArtRequest(UnityExportData UnityData, UnityMenuArtSource MenuArt);
-
-public static class UnityCoverArtGenerator
+public static class ImageLoader
 {
     private static readonly HttpClient HttpClient = new();
-    public static Image<Rgba32>? TryLoadCover(UnityCoverArtRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return TryLoadImage(request.MenuArt.CoverPath);
-    }
-
-    public static Image<Rgba32>? TryLoadSongTitleLogo(UnityCoverArtRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return TryLoadImage(request.MenuArt.SongTitleLogoPath);
-    }
-
-    public static Image<Rgba32>? TryLoadBackground(UnityCoverArtRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return TryLoadImage(request.MenuArt.CoachesBackgroundPath);
-    }
 
     public static Image<Rgba32>? TryImageWeb(string mapName, string imageType)
     {
@@ -57,7 +36,7 @@ public static class UnityCoverArtGenerator
         return FetchCoverFromWeb(codename);
     }
 
-    private static Image<Rgba32>? TryLoadImage(string? path)
+    public static Image<Rgba32>? TryLoadImage(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return null;

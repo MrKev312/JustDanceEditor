@@ -57,7 +57,7 @@ internal static class IntermediatePackageBuilder
 
         IntermediateMetadata metadata = new()
         {
-            SongId = context.SongID,
+            SongID = context.SongID,
             MapName = info.MapName,
             ParentMapName = info.MapName,
             Title = info.Title,
@@ -65,14 +65,13 @@ internal static class IntermediatePackageBuilder
             Credits = info.Credits,
             LyricsColor = lyricsColor,
             MapLengthSeconds = mapLengthSeconds,
-            OriginalJdVersion = context.SongData.JDVersion,
+            OriginalJDVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
             CoachNames = BuildCoachNames(info.NumCoach),
             Difficulty = info.Difficulty,
             SweatDifficulty = info.SweatDifficulty,
             Tags = info.Tags?.ToList() ?? [],
             Status = info.Status,
-            HasSongTitleInCover = DetectSongTitleLogo(context),
             MojoValue = info.MojoValue,
             CountInProgression = info.CountInProgression
         };
@@ -348,13 +347,5 @@ internal static class IntermediatePackageBuilder
         for (int i = 0; i < coachCount; i++)
             names[i] = $"Coach {i + 1}";
         return names;
-    }
-
-    private static bool DetectSongTitleLogo(ConversionContext context)
-    {
-        string relative = Path.Combine(context.FileSystem.InputFolders.MapWorldFolder, "songTitleLogo");
-        if (context.FileSystem.GetFolderPath(relative, out string? folder) && Directory.Exists(folder))
-            return Directory.EnumerateFiles(folder).Any();
-        return false;
     }
 }

@@ -2,7 +2,7 @@ namespace JustDanceEditor.Formats.JDI.Metadata;
 
 public class IntermediateMetadata
 {
-    public Guid SongId { get; set; }
+    public Guid SongID { get; set; }
     public string MapName { get; set; } = string.Empty;
     public string ParentMapName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
@@ -10,14 +10,13 @@ public class IntermediateMetadata
     public string Credits { get; set; } = string.Empty;
     public string LyricsColor { get; set; } = "#FFFFFFFF";
     public double MapLengthSeconds { get; set; }
-    public uint OriginalJdVersion { get; set; }
+    public uint OriginalJDVersion { get; set; }
     public int CoachCount { get; set; }
     public string[]? CoachNames { get; set; }
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }
     public List<string> Tags { get; set; } = [];
     public float Status { get; set; }
-    public bool HasSongTitleInCover { get; set; }
     public int MojoValue { get; set; }
     public int CountInProgression { get; set; }
     public Dictionary<string, string> AdditionalMetadata { get; set; } = [];

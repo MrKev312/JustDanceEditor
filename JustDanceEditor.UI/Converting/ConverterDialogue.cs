@@ -121,7 +121,7 @@ public class ConverterDialogue
                 int found = 0;
 
                 // Update cover
-                using (Image<Rgba32>? coverImage = UnityCoverArtGenerator.TryImageWeb(mapName, "Cover"))
+                using (Image<Rgba32>? coverImage = ImageLoader.TryImageWeb(mapName, "Cover"))
                 {
                     if (coverImage is not null)
                     {
@@ -145,7 +145,7 @@ public class ConverterDialogue
                 }
 
                 // Update song title logo
-                using Image<Rgba32>? titleLogoImage = UnityCoverArtGenerator.TryImageWeb(mapName, "Title");
+                using Image<Rgba32>? titleLogoImage = ImageLoader.TryImageWeb(mapName, "Title");
                 if (titleLogoImage is not null)
                 {
                     string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];

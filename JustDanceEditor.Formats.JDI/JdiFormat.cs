@@ -66,7 +66,7 @@ public sealed class JdiFormat : IJdiFormat
 
     static void CopyDirectory(string sourceDir, string destDir, bool overwrite = true)
     {
-        var dir = new DirectoryInfo(sourceDir);
+        DirectoryInfo dir = new(sourceDir);
 
         if (!dir.Exists)
             throw new DirectoryNotFoundException($"Source directory not found: {dir.FullName}");

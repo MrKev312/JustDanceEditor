@@ -1,7 +1,6 @@
 using AssetsTools.NET;
 
-using JustDanceEditor.Formats.JDI.Utilities;
-
+using System.Security.Cryptography;
 using System.Text;
 
 namespace JustDanceEditor.Formats.Unity;
@@ -26,63 +25,110 @@ public static class UnityAssetExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        if (File.Exists(outputPath))
-            throw new IOException($"The file '{outputPath}' already exists.");
+        // 1. Write Uncompressed to Memory
+        // We use the wrapper here so AssetsFileWriter doesn't kill our stream
+        using MemoryStream uncompressedMs = new();
+        using (AssetsFileWriter writer = new(new NonClosingStreamWrapper(uncompressedMs)))
+        {
+            assetBundleFile.Write(writer);
+        }
 
-        Directory.CreateDirectory(outputPath);
-        string uncompressedPath = Path.Combine(outputPath, "temp.mod.uncompressed");
-        string compressedPath = Path.Combine(outputPath, "temp.mod");
+        // Reset position to read it back
+        uncompressedMs.Position = 0;
 
-        using (AssetsFileWriter assetWriter = new(uncompressedPath))
-            assetBundleFile.Write(assetWriter);
-
+        // 2. Load into new instance
         AssetBundleFile newUncompressedBundle = new();
-        newUncompressedBundle.Read(new AssetsFileReader(File.OpenRead(uncompressedPath)));
+        newUncompressedBundle.Read(new AssetsFileReader(uncompressedMs));
 
-        using (AssetsFileWriter compressedWriter = new(compressedPath))
+        // 3. Pack (Compress) to Memory
+        // Here we don't need the wrapper because MemoryStream.ToArray() works even if closed
+        using MemoryStream compressedMs = new();
+        using (AssetsFileWriter compressedWriter = new(compressedMs))
+        {
             newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+        }
 
-        newUncompressedBundle.Close();
-        File.Delete(uncompressedPath);
+        // 4. Get raw bytes (works on closed MemoryStream)
+        byte[] compressedData = compressedMs.ToArray();
 
-        string hash = FileHashing.GetFileMD5(compressedPath);
-        string newPath = Path.Combine(outputPath, hash);
+        // 5. Calculate Hash & Patch CAB (In-Memory)
+        string hash = ComputeMd5Hash(compressedData);
+        UpdateCabHashInMemory(compressedData, hash);
+
+        // 6. Write Final File
+        Directory.CreateDirectory(outputPath);
+
+        string fileName = hash;
         if (keepExtension)
-            newPath += ".bundle";
+            fileName += ".bundle";
 
-        if (File.Exists(newPath))
-            File.Delete(newPath);
+        string finalPath = Path.Combine(outputPath, fileName);
 
-        File.Move(compressedPath, newPath);
-        UpdateCabHash(newPath, hash);
+        if (File.Exists(finalPath))
+            File.Delete(finalPath);
+
+        File.WriteAllBytes(finalPath, compressedData);
+
+        // Explicit cleanup of the reader's stream if needed, though GC handles it.
+        newUncompressedBundle.Close();
     }
 
-    private static void UpdateCabHash(string bundlePath, string hash)
+    private static string ComputeMd5Hash(byte[] data)
     {
-        using BinaryReader reader = new(File.OpenRead(bundlePath));
-        const string marker = "CAB-";
-        byte[] markerBytes = Encoding.UTF8.GetBytes(marker);
-        long startPosition = Math.Max(0, reader.BaseStream.Length - 0x40);
-        reader.BaseStream.Seek(startPosition, SeekOrigin.Begin);
+        byte[] hashBytes = MD5.HashData(data);
+        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
 
-        while (reader.BaseStream.Position < reader.BaseStream.Length)
+    private static void UpdateCabHashInMemory(byte[] data, string hash)
+    {
+        // "CAB-" in UTF8 bytes
+        ReadOnlySpan<byte> marker = "CAB-"u8;
+        byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
+
+        // We search the last 1KB (or less)
+        // Original logic: reader.BaseStream.Length - 0x40
+        int startSearch = Math.Max(0, data.Length - 0x400);
+
+        Span<byte> searchArea = data.AsSpan(startSearch);
+        int index = searchArea.IndexOf(marker);
+
+        if (index != -1)
         {
-            byte[] buffer = reader.ReadBytes(markerBytes.Length);
-            if (buffer.SequenceEqual(markerBytes))
-            {
-                long offset = reader.BaseStream.Position - markerBytes.Length + 4;
-                reader.Close();
+            // Absolute position of the start of "CAB-"
+            int absoluteIndex = startSearch + index;
 
-                using BinaryWriter writer = new(File.OpenWrite(bundlePath));
-                writer.BaseStream.Seek(offset, SeekOrigin.Begin);
-                writer.Write(Encoding.UTF8.GetBytes(hash));
+            // We want to write immediately after "CAB-"
+            int writePos = absoluteIndex + marker.Length;
+
+            // Safety check
+            if (writePos + hashBytes.Length <= data.Length)
+            {
+                hashBytes.CopyTo(data.AsSpan(writePos));
                 return;
             }
-
-            reader.BaseStream.Seek(-markerBytes.Length + 1, SeekOrigin.Current);
         }
 
         throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
+    }
+
+    private class NonClosingStreamWrapper(Stream baseStream) : Stream
+    {
+
+        // Ignore disposal
+        protected override void Dispose(bool disposing) { }
+        public override void Close() { }
+
+        // Forwarding logic
+        public override bool CanRead => baseStream.CanRead;
+        public override bool CanSeek => baseStream.CanSeek;
+        public override bool CanWrite => baseStream.CanWrite;
+        public override long Length => baseStream.Length;
+        public override long Position { get => baseStream.Position; set => baseStream.Position = value; }
+        public override void Flush() => baseStream.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => baseStream.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => baseStream.Seek(offset, origin);
+        public override void SetLength(long value) => baseStream.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => baseStream.Write(buffer, offset, count);
     }
 
     public static long GetRandomId(this AssetsFile afile)

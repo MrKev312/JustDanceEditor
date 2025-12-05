@@ -2,6 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.Unity.Models;
 
+// TOD: deprecate offline caches?
+
 public class JDCacheJSON
 {
     [JsonPropertyName("schemaVersion")]

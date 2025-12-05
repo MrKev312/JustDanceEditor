@@ -13,7 +13,7 @@ public class SongDataLoader : ISongDataLoader
 {
     public JDUbiArtSong LoadSongData(ConversionRequest request, FileSystem fileSystem)
     {
-        var songData = new JDUbiArtSong();
+        JDUbiArtSong songData = new();
         Logger.Log("Loading song info...");
 
         JsonSerializerOptions options = new();
