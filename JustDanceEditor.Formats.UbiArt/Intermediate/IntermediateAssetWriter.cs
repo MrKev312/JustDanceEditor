@@ -112,9 +112,9 @@ internal static class IntermediateAssetWriter
 
     private static void AttachBrandingAssets(ConversionContext context, string packageRoot)
     {
-        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BrandingFolder);
-        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingCoverFile));
-        ExportSongTitleLogo(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingSongTitleFile));
+        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
+        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile));
+        ExportSongTitleLogo(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SongTitleFile));
     }
 
     private static string? ExportCoverImage(ConversionContext context, string destination)

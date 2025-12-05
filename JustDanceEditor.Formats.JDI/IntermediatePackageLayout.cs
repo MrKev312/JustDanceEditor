@@ -12,7 +12,6 @@ public static class IntermediatePackageLayout
         public const string PictogramsFile = "timelines/pictograms.json";
         public const string GoldEffectsFile = "timelines/gold_effects.json";
         public const string HideUserInterfaceFile = "timelines/hide_user_interface.json";
-        public const string GameplayEventsFile = "timelines/gameplay_events.json";
         public const string VibrationsFile = "timelines/vibrations.json";
         public const string HandMovesFile = "timelines/coach_moves_hand.json";
         public const string FullBodyMovesFile = "timelines/coach_moves_fullBody.json";
@@ -34,9 +33,9 @@ public static class IntermediatePackageLayout
         public const string VideoFolder = $"{Root}/video";
         public const string PreviewVideoFolder = $"{Root}/previewVideo";
 
-        public const string BrandingFolder = $"{Root}/branding";
-        public const string BrandingCoverFile = $"{BrandingFolder}/thumbnail.webp";
-        public const string BrandingSongTitleFile = $"{BrandingFolder}/songTitleLogo.webp";
+        public const string CoverAssetsFolder = $"{Root}/coverAssets";
+        public const string CoverFile = $"{CoverAssetsFolder}/cover.webp";
+        public const string SongTitleFile = $"{CoverAssetsFolder}/songTitleLogo.webp";
 
         public const string CoachesFolder = $"{Root}/coaches";
         public const string CoachesBackgroundFile = $"{CoachesFolder}/coachesBackground.webp";

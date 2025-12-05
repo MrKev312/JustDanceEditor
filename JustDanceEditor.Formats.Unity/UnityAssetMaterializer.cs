@@ -126,12 +126,12 @@ public static class UnityAssetMaterializer
 
     private static void ExtractBrandingAssets(string unityRoot, string packageRoot)
     {
-        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BrandingFolder);
+        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
 
-        string coverDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingCoverFile);
+        string coverDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile);
         string? coverPath = ExtractSingleImage(Path.Combine(unityRoot, "Cover"), coverDest);
 
-        string logoDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BrandingSongTitleFile);
+        string logoDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SongTitleFile);
         string? logoPath = ExtractSingleImage(Path.Combine(unityRoot, "songTitleLogo"), logoDest);
 
         if (coverPath == null)

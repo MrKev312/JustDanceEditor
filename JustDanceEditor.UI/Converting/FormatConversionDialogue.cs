@@ -170,7 +170,7 @@ internal static class FormatConversionDialogue
             if (!File.Exists(metadataPath))
                 return null;
 
-            string json = File.ReadAllText(metadataPath);
+            using FileStream json = File.OpenRead(metadataPath);
             IntermediateMetadata? metadata = JsonSerializer.Deserialize<IntermediateMetadata>(json);
             if (metadata == null)
                 return null;

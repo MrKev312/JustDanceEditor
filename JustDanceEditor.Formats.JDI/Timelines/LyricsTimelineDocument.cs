@@ -4,49 +4,29 @@ namespace JustDanceEditor.Formats.JDI.Timelines;
 
 public abstract class TimelineClipBase
 {
-    [JsonPropertyName("id")]
     public long Id { get; set; }
-
-    [JsonPropertyName("startBeat")]
     public int StartTime { get; set; }
 }
 
 public class LyricsTimelineDocument
 {
-    [JsonPropertyName("clips")]
     public List<KaraokeClip> Clips { get; set; } = [];
 }
 
 public class KaraokeClip : TimelineClipBase
 {
-    [JsonPropertyName("duration")]
     public int Duration { get; set; }
-
-    [JsonPropertyName("lyrics")]
     public string Lyrics { get; set; } = string.Empty;
-
-    [JsonPropertyName("pitch")]
     public float Pitch { get; set; }
-
-    [JsonPropertyName("isEndOfLine")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsEndOfLine { get; set; }
-
-    [JsonPropertyName("contentType")]
     public int ContentType { get; set; }
-
-    [JsonPropertyName("tolerances")]
     public KaraokeTolerance? Tolerances { get; set; }
 }
 
 public class KaraokeTolerance
 {
-    [JsonPropertyName("startBeatTolerance")]
     public int StartTimeTolerance { get; set; }
-
-    [JsonPropertyName("endBeatTolerance")]
     public int EndTimeTolerance { get; set; }
-
-    [JsonPropertyName("semitoneTolerance")]
     public double SemitoneTolerance { get; set; }
 }

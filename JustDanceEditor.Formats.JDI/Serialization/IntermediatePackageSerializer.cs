@@ -8,14 +8,11 @@ namespace JustDanceEditor.Formats.JDI.Serialization;
 
 public static class IntermediatePackageSerializer
 {
-    private static readonly JsonSerializerOptions WriteOptions = new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    private static readonly JsonSerializerOptions ReadOptions = new()
-    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
     };
 
@@ -33,7 +30,6 @@ public static class IntermediatePackageSerializer
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.PictogramsFile), package.Pictograms);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.GoldEffectsFile), package.GoldEffects);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile), package.HideUserInterface);
-        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.GameplayEventsFile), package.GameplayEvents);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.VibrationsFile), package.Vibrations);
 
         WriteCoachTimelines(targetFolder, package.CoachTimelines, isFullBody: false);
@@ -55,7 +51,6 @@ public static class IntermediatePackageSerializer
             Pictograms = ReadDocument<PictogramTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
             GoldEffects = ReadDocumentOrDefault<GoldEffectTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.GoldEffectsFile)),
             HideUserInterface = ReadDocumentOrDefault<HideUserInterfaceTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile)),
-            GameplayEvents = ReadDocumentOrDefault<GameplayEventTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.GameplayEventsFile)),
             Vibrations = ReadDocumentOrDefault<VibrationTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.VibrationsFile))
         };
 
@@ -143,7 +138,7 @@ public static class IntermediatePackageSerializer
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
         using FileStream stream = File.Create(path);
-        JsonSerializer.Serialize(stream, document, WriteOptions);
+        JsonSerializer.Serialize(stream, document, JsonOptions);
     }
 
     private static T ReadDocument<T>(string path)
@@ -151,7 +146,7 @@ public static class IntermediatePackageSerializer
         if (!File.Exists(path))
             throw new FileNotFoundException($"Missing intermediate document: {path}");
         using FileStream stream = File.OpenRead(path);
-        return JsonSerializer.Deserialize<T>(stream, ReadOptions)!;
+        return JsonSerializer.Deserialize<T>(stream, JsonOptions)!;
     }
 
     private static T ReadDocumentOrDefault<T>(string path)
@@ -160,7 +155,7 @@ public static class IntermediatePackageSerializer
         if (!File.Exists(path))
             return new T();
         using FileStream stream = File.OpenRead(path);
-        return JsonSerializer.Deserialize<T>(stream, ReadOptions) ?? new T();
+        return JsonSerializer.Deserialize<T>(stream, JsonOptions) ?? new T();
     }
 
     private static string Resolve(string root, string relative) => IntermediatePackageLayout.Resolve(root, relative);

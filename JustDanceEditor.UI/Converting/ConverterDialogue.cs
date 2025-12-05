@@ -207,7 +207,7 @@ public class ConverterDialogue
             if (File.Exists(cacheStatusPath))
             {
                 Console.WriteLine("Detected existing Offline Cache structure in output folder.");
-                string json = File.ReadAllText(cacheStatusPath);
+                using FileStream json = File.OpenRead(cacheStatusPath);
                 existingSongs = [.. JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId)];
                 exportType = ExportType.OfflineCache;
             }

@@ -37,7 +37,6 @@ internal static class IntermediatePackageBuilder
             Pictograms = BuildPictogramDocument(context, timelineMath),
             GoldEffects = BuildGoldEffectDocument(context),
             HideUserInterface = BuildHideUserInterfaceDocument(context),
-            GameplayEvents = BuildGameplayEventsDocument(context),
             Vibrations = BuildVibrationDocument(context),
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
@@ -223,32 +222,9 @@ internal static class IntermediatePackageBuilder
             document.Clips.Add(new HideUserInterfaceTimelineClip
             {
                 Id = clip.Id,
-                TrackId = clip.TrackId,
                 IsActive = clip.IsActive > 0,
                 StartTime = clip.StartTime,
-                Duration = clip.Duration,
-                EventType = clip.EventType,
-                CustomParam = clip.CustomParam ?? string.Empty
-            });
-        }
-
-        return document;
-    }
-
-    private static GameplayEventTimelineDocument BuildGameplayEventsDocument(ConversionContext context)
-    {
-        GameplayEventTimelineDocument document = new();
-
-        foreach (GameplayEventClip clip in context.SongData.Clips.OfType<GameplayEventClip>().OrderBy(c => c.StartTime))
-        {
-            document.Clips.Add(new GameplayEventTimelineClip
-            {
-                Id = clip.Id,
-                TrackId = clip.TrackId,
-                IsActive = clip.IsActive > 0,
-                StartTime = clip.StartTime,
-                Duration = clip.Duration,
-                EventName = clip.CustomParam ?? string.Empty
+                Duration = clip.Duration
             });
         }
 

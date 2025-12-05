@@ -213,7 +213,7 @@ internal sealed class IntermediateToUnityConverter
         if (folder == null)
             return null;
 
-        string[] searchPatterns = patterns.Length == 0 ? new[] { "*" } : patterns;
+        string[] searchPatterns = patterns.Length == 0 ? ["*"] : patterns;
         foreach (string pattern in searchPatterns)
         {
             string? match = Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly)
@@ -247,8 +247,8 @@ internal sealed class IntermediateToUnityConverter
 
     private UnityMenuArtSource BuildMenuArtSource()
     {
-        string? coverPath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.BrandingCoverFile);
-        string? titlePath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.BrandingSongTitleFile);
+        string? coverPath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.CoverFile);
+        string? titlePath = GetAssetFileIfExists(IntermediatePackageLayout.Assets.SongTitleFile);
         string? backgroundPath = ResolveCoachBackground();
         IReadOnlyList<string> coachImages = ResolveCoachImages();
 
@@ -290,7 +290,7 @@ internal sealed class IntermediateToUnityConverter
 
         return GetAssetFileIfExists(IntermediatePackageLayout.Assets.CoachesBackgroundFile)
             ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.CoachesFolder, patterns)
-            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.BrandingFolder, patterns);
+            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.CoverAssetsFolder, patterns);
     }
 
     private string ResolveSongName(UnityExportData unityData)

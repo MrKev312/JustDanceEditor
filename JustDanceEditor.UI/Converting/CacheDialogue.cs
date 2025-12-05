@@ -14,6 +14,7 @@ internal class CacheDialogue
     static readonly JsonSerializerOptions options = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
 
@@ -105,7 +106,8 @@ internal class CacheDialogue
         try
         {
             Console.WriteLine("\nAnalyzing cache structure...");
-            JDCacheJSON jDCacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(File.ReadAllText(cachingStatusJsonPath))!;
+            using FileStream json = File.OpenRead(cachingStatusJsonPath);
+            JDCacheJSON jDCacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json)!;
 
             // Get every folder in the cache folder
             string[] folders = Directory.GetDirectories(cachePath);

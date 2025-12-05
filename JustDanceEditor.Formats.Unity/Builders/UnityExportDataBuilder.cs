@@ -49,9 +49,7 @@ public static class UnityExportDataBuilder
             BuildOrderedClips(package.Pictograms?.Entries),
             BuildMotionClips(package),
             BuildOrderedClips(package.GoldEffects?.Clips),
-            BuildOrderedClips(package.HideUserInterface?.Clips),
-            BuildOrderedClips(package.GameplayEvents?.Clips),
-            BuildOrderedClips(package.Vibrations?.Clips));
+            BuildOrderedClips(package.HideUserInterface?.Clips));
     }
 
     private static IReadOnlyList<T> BuildOrderedClips<T>(List<T>? clips) where T : TimelineClipBase

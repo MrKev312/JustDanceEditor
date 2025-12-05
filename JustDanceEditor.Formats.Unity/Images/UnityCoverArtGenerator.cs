@@ -8,6 +8,7 @@ using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Images;
 
+// TODO: remove this
 public sealed record UnityCoverArtRequest(UnityExportData UnityData, UnityMenuArtSource MenuArt);
 
 public static class UnityCoverArtGenerator

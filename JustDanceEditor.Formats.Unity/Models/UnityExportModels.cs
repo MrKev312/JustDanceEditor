@@ -1,47 +1,30 @@
-using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
+
 using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Formats.Unity.Models;
 
-public sealed class UnityExportData
+public sealed class UnityExportData(
+    string name,
+    UnityExportMetadata metadata,
+    TimelineStructureDocument structure,
+    IReadOnlyList<KaraokeClip> karaokeClips,
+    IReadOnlyList<PictogramEntry> pictogramClips,
+    IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> motionClips,
+    IReadOnlyList<GoldEffectTimelineClip> goldEffectClips,
+    IReadOnlyList<HideUserInterfaceTimelineClip> hideHudClips)
 {
-    public UnityExportData(
-        string name,
-        UnityExportMetadata metadata,
-        TimelineStructureDocument structure,
-        IReadOnlyList<KaraokeClip> karaokeClips,
-        IReadOnlyList<PictogramEntry> pictogramClips,
-        IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> motionClips,
-        IReadOnlyList<GoldEffectTimelineClip> goldEffectClips,
-        IReadOnlyList<HideUserInterfaceTimelineClip> hideHudClips,
-        IReadOnlyList<GameplayEventTimelineClip> gameplayEventClips,
-        IReadOnlyList<VibrationTimelineClip> vibrationClips)
-    {
-        Name = name;
-        Metadata = metadata;
-        Structure = structure;
-        KaraokeClips = karaokeClips;
-        PictogramClips = pictogramClips;
-        MotionClips = motionClips;
-        GoldEffectClips = goldEffectClips;
-        HideHudClips = hideHudClips;
-        GameplayEventClips = gameplayEventClips;
-        VibrationClips = vibrationClips;
-    }
-
-    public string Name { get; }
-    public UnityExportMetadata Metadata { get; }
-    public TimelineStructureDocument Structure { get; }
-    public IReadOnlyList<KaraokeClip> KaraokeClips { get; }
-    public IReadOnlyList<PictogramEntry> PictogramClips { get; }
-    public IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> MotionClips { get; }
-    public IReadOnlyList<GoldEffectTimelineClip> GoldEffectClips { get; }
-    public IReadOnlyList<HideUserInterfaceTimelineClip> HideHudClips { get; }
-    public IReadOnlyList<GameplayEventTimelineClip> GameplayEventClips { get; }
-    public IReadOnlyList<VibrationTimelineClip> VibrationClips { get; }
+    public string Name { get; } = name;
+    public UnityExportMetadata Metadata { get; } = metadata;
+    public TimelineStructureDocument Structure { get; } = structure;
+    public IReadOnlyList<KaraokeClip> KaraokeClips { get; } = karaokeClips;
+    public IReadOnlyList<PictogramEntry> PictogramClips { get; } = pictogramClips;
+    public IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> MotionClips { get; } = motionClips;
+    public IReadOnlyList<GoldEffectTimelineClip> GoldEffectClips { get; } = goldEffectClips;
+    public IReadOnlyList<HideUserInterfaceTimelineClip> HideHudClips { get; } = hideHudClips;
 }
 
+// TODO: is this needed? Can't we just use UnitySongInfo?
 public sealed class UnityExportMetadata
 {
     [JsonPropertyName("songID")]

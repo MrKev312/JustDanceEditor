@@ -17,9 +17,10 @@ internal static class UnityServerIntermediateBuilder
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
+        AllowTrailingCommas = true,
         PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReadCommentHandling = JsonCommentHandling.Skip
     };
 
     public static IntermediateSongPackage FromServerExport(string mapRoot)
@@ -50,8 +51,7 @@ internal static class UnityServerIntermediateBuilder
             Pictograms = BuildPictogramDocument(mapData.PictogramClips),
             GoldEffects = BuildGoldEffectDocument(mapData.GoldEffectClips),
             HideUserInterface = BuildHideUserInterfaceDocument(mapData.HideHudClips),
-            GameplayEvents = BuildGameplayEventDocument(),
-            Vibrations = BuildVibrationDocument(),
+            Vibrations = new(),
             CoachTimelines = handTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
@@ -266,11 +266,7 @@ internal static class UnityServerIntermediateBuilder
             clips.Add(new UnityHideHudClip(
                 entry["StartTime"].AsInt,
                 entry["Duration"].AsInt,
-                entry["Id"].IsDummy ? 0 : entry["Id"].AsLong,
-                entry["TrackId"].IsDummy ? 0 : entry["TrackId"].AsLong,
-                entry["IsActive"].AsUInt > 0,
-                entry["EventType"].IsDummy ? 0 : entry["EventType"].AsInt,
-                entry["CustomParam"].IsDummy ? string.Empty : entry["CustomParam"].AsString
+                entry["IsActive"].AsUInt > 0
             ));
         }
 
@@ -281,7 +277,7 @@ internal static class UnityServerIntermediateBuilder
     {
         IntermediateMetadata metadata = new()
         {
-            SongId = info.SongId == Guid.Empty ? Guid.NewGuid() : info.SongId,
+            SongId = info.SongID == Guid.Empty ? Guid.NewGuid() : info.SongID,
             MapName = info.MapName ?? string.Empty,
             ParentMapName = info.ParentMapName ?? string.Empty,
             Title = info.Title ?? string.Empty,
@@ -421,7 +417,7 @@ internal static class UnityServerIntermediateBuilder
                 Id = clip.Id,
                 StartTime = clip.StartTime,
                 Duration = Math.Max(0, clip.Duration),
-                PictogramId = clip.PictoName,
+                PictogramId = clip.PictoPath,
                 CoachCount = clip.CoachCount
             });
         }
@@ -457,24 +453,14 @@ internal static class UnityServerIntermediateBuilder
         {
             document.Clips.Add(new HideUserInterfaceTimelineClip
             {
-                Id = clip.Id,
-                TrackId = clip.TrackId,
                 IsActive = clip.IsActive,
                 StartTime = clip.StartTime,
                 Duration = Math.Max(0, clip.Duration),
-                EventType = clip.EventType,
-                CustomParam = clip.CustomParam ?? string.Empty
             });
         }
 
         return document;
     }
-
-    private static GameplayEventTimelineDocument BuildGameplayEventDocument()
-        => new GameplayEventTimelineDocument();
-
-    private static VibrationTimelineDocument BuildVibrationDocument()
-        => new VibrationTimelineDocument();
 
     private static (
         List<CoachTimelineDocument> HandTracking,
@@ -633,7 +619,7 @@ internal static class UnityServerIntermediateBuilder
     private sealed record UnityPictoClip(
         int StartTime,
         int Duration,
-        string PictoName,
+        string PictoPath,
         int CoachCount,
         long Id,
         long TrackId,
@@ -650,128 +636,30 @@ internal static class UnityServerIntermediateBuilder
     private sealed record UnityHideHudClip(
         int StartTime,
         int Duration,
-        long Id,
-        long TrackId,
-        bool IsActive,
-        int EventType,
-        string CustomParam);
+        bool IsActive);
 
     private sealed class UnitySongInfo
     {
-        [JsonPropertyName("songID")]
-        public Guid SongId { get; set; }
-
-        [JsonPropertyName("artist")]
+        public Guid SongID { get; set; }
         public string? Artist { get; set; }
-
-        [JsonPropertyName("coachCount")]
         public int CoachCount { get; set; }
-
-        [JsonPropertyName("coachNames")]
         public string[]? CoachNames { get; set; }
-
-        [JsonPropertyName("coachNamesLocIds")]
-        [JsonConverter(typeof(FlexibleStringArrayConverter))]
+        [JsonConverter(typeof(FlexibleStringListConverter))]
         public string[]? CoachNamesLocIds { get; set; }
-
-        [JsonPropertyName("credits")]
         public string? Credits { get; set; }
-
-        [JsonPropertyName("danceVersionLocId")]
         public int? DanceVersionLocId { get; set; }
-
-        [JsonPropertyName("difficulty")]
         public uint Difficulty { get; set; }
-
-        [JsonPropertyName("doubleScoringType")]
         public string? DoubleScoringType { get; set; }
-
-        [JsonPropertyName("hasSongTitleInCover")]
         public bool HasSongTitleInCover { get; set; }
-
-        [JsonPropertyName("lyricsColor")]
         public string? LyricsColor { get; set; }
-
-        [JsonPropertyName("mapLength")]
         public double MapLength { get; set; }
-
-        [JsonPropertyName("mapName")]
         public string? MapName { get; set; }
-
-        [JsonPropertyName("originalJDVersion")]
         public uint OriginalJdVersion { get; set; }
-
-        [JsonPropertyName("parentMapName")]
         public string? ParentMapName { get; set; }
-
-        [JsonPropertyName("sweatDifficulty")]
         public uint SweatDifficulty { get; set; }
-
-        [JsonPropertyName("tagIds")]
         public string[]? TagIds { get; set; }
-
-        [JsonPropertyName("tags")]
         public string[]? Tags { get; set; }
-
-        [JsonPropertyName("title")]
         public string? Title { get; set; }
-    }
-
-    private sealed class FlexibleStringArrayConverter : JsonConverter<string[]?>
-    {
-        public override string[]? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            if (reader.TokenType == JsonTokenType.Null)
-                return null;
-
-            if (reader.TokenType != JsonTokenType.StartArray)
-                throw new JsonException("coachNamesLocIds must be an array.");
-
-            List<string> values = [];
-            while (reader.Read())
-            {
-                if (reader.TokenType == JsonTokenType.EndArray)
-                    break;
-
-                switch (reader.TokenType)
-                {
-                    case JsonTokenType.Null:
-                        values.Add(string.Empty);
-                        break;
-                    case JsonTokenType.String:
-                        values.Add(reader.GetString() ?? string.Empty);
-                        break;
-                    case JsonTokenType.Number:
-                        values.Add(reader.TryGetInt64(out long number)
-                            ? number.ToString(CultureInfo.InvariantCulture)
-                            : reader.GetDouble().ToString(CultureInfo.InvariantCulture));
-                        break;
-                    default:
-                        using (JsonDocument doc = JsonDocument.ParseValue(ref reader))
-                        {
-                            values.Add(doc.RootElement.ToString());
-                        }
-
-                        break;
-                }
-            }
-
-            return [.. values];
-        }
-
-        public override void Write(Utf8JsonWriter writer, string[]? value, JsonSerializerOptions options)
-        {
-            if (value == null)
-            {
-                writer.WriteNullValue();
-                return;
-            }
-
-            writer.WriteStartArray();
-            foreach (string item in value)
-                writer.WriteStringValue(item);
-            writer.WriteEndArray();
-        }
     }
 
     private sealed class TimelineMath
@@ -833,4 +721,46 @@ internal static class UnityServerIntermediateBuilder
             return ms > 0 ? 60000d / ms : 120d;
         }
     }
+
+    public sealed class FlexibleStringListConverter : JsonConverter<string[]>
+    {
+        public override string[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                var list = new List<string>();
+                while (reader.Read())
+                {
+                    if (reader.TokenType == JsonTokenType.EndArray)
+                        break;
+                    else if (reader.TokenType == JsonTokenType.String)
+                        list.Add(reader.GetString()!);
+                    else if (reader.TokenType == JsonTokenType.Number)
+                        list.Add(reader.GetInt32().ToString());
+                    else
+                    {
+                        throw new JsonException("Expected string value in array.");
+                    }
+                }
+
+                return list.ToArray();
+            }
+            else
+            {
+                return reader.TokenType == JsonTokenType.String
+                    ? [reader.GetString()!]
+                    : [reader.GetInt32().ToString()];
+            }
+        }
+        public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (var str in value)
+            {
+                writer.WriteStringValue(str);
+            }
+            writer.WriteEndArray();
+        }
+    }
+
 }

@@ -90,7 +90,7 @@ public static class VideoConverter
 
         private sealed class ProgressAdapter(string stageName) : IVideoConversionProgress
         {
-            private readonly FFMpegProgress progress = new FFMpegProgress(stageName);
+            private readonly FFMpegProgress progress = new(stageName);
 
             public void Update(Xabe.FFmpeg.Events.ConversionProgressEventArgs args) => progress.Update(args);
 
