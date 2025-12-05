@@ -8,14 +8,8 @@ public class PictogramTimelineDocument
     public List<PictogramEntry> Entries { get; set; } = [];
 }
 
-public class PictogramEntry
+public class PictogramEntry : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("startBeat")]
-    public int StartTime { get; set; }
-
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
 

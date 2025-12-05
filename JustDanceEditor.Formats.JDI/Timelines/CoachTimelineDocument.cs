@@ -14,16 +14,11 @@ public class CoachTimelineDocument
     public List<CoachTimelineClip> Clips { get; set; } = [];
 }
 
-public class CoachTimelineClip
+public class CoachTimelineClip : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
-    [JsonPropertyName("startBeat")]
-    public int StartTime { get; set; }
-
     [JsonPropertyName("moveId")]
     public string MoveId { get; set; } = string.Empty;
+
     [JsonPropertyName("isGoldMove")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsGoldMove { get; set; } = false;

@@ -1,12 +1,15 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using System.Globalization;
 
 using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
@@ -278,46 +281,46 @@ public static class MapPackageBundleBuilder
 
     private static void UpdateMusicTrackData(UnityExportData unityData, AssetTypeValueField musicTrackBase)
     {
-        UnityTrackStructure trackStructure = unityData.Structure ?? new UnityTrackStructure();
+        TimelineStructureDocument trackStructure = unityData.Structure ?? new TimelineStructureDocument();
         AssetTypeValueField structureField = musicTrackBase["m_structure"]["MusicTrackStructure"];
 
-        structureField["startBeat"].AsInt = trackStructure.startBeat;
-        structureField["endBeat"].AsInt = trackStructure.endBeat;
-        structureField["videoStartTime"].AsDouble = trackStructure.videoStartTime;
-        structureField["previewEntry"].AsDouble = trackStructure.previewEntry;
-        structureField["previewLoopStart"].AsDouble = trackStructure.previewLoopStart;
-        structureField["previewLoopEnd"].AsDouble = trackStructure.previewLoopEnd;
+        structureField["startBeat"].AsInt = trackStructure.StartBeat;
+        structureField["endBeat"].AsInt = trackStructure.EndBeat;
+        structureField["videoStartTime"].AsDouble = trackStructure.VideoStartOffset;
+        structureField["previewEntry"].AsDouble = trackStructure.PreviewEntryBeat;
+        structureField["previewLoopStart"].AsDouble = trackStructure.PreviewLoopStartBeat;
+        structureField["previewLoopEnd"].AsDouble = trackStructure.PreviewLoopEndBeat;
         if (!structureField["previewDuration"].IsDummy)
-            structureField["previewDuration"].AsDouble = trackStructure.previewDuration;
+            structureField["previewDuration"].AsDouble = trackStructure.PrevewDuration;
 
         AssetTypeValueField signaturesArray = structureField["signatures"]["Array"];
         signaturesArray.Children.Clear();
-        foreach (UnitySignature signature in trackStructure.signatures ?? [])
+        foreach (SignatureSegment signature in trackStructure.Signatures ?? [])
         {
             AssetTypeValueField newSig = ValueBuilder.DefaultValueFieldFromArrayTemplate(signaturesArray);
-            newSig["MusicSignature"]["beats"].AsInt = signature.beats;
-            newSig["MusicSignature"]["marker"].AsDouble = signature.marker;
+            newSig["MusicSignature"]["beats"].AsInt = signature.Numerator;
+            newSig["MusicSignature"]["marker"].AsDouble = signature.StartBeat;
             newSig["MusicSignature"]["comment"].AsString = string.Empty;
             signaturesArray.Children.Add(newSig);
         }
 
         AssetTypeValueField markersArray = structureField["markers"]["Array"];
         markersArray.Children.Clear();
-        foreach (int marker in trackStructure.markers ?? [])
+        foreach (TimelineMarker marker in trackStructure.Markers ?? [])
         {
             AssetTypeValueField newMarker = ValueBuilder.DefaultValueFieldFromArrayTemplate(markersArray);
-            newMarker["VAL"].AsLong = marker;
+            newMarker["VAL"].AsLong = (int)Math.Round(marker.TimeMs * 48d);
             markersArray.Children.Add(newMarker);
         }
 
         AssetTypeValueField sectionsArray = structureField["sections"]["Array"];
         sectionsArray.Children.Clear();
-        foreach (UnitySection section in trackStructure.sections ?? [])
+        foreach (SectionSegment section in trackStructure.Sections ?? [])
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
-            newSection["MusicSection"]["sectionType"].AsInt = section.sectionType;
-            newSection["MusicSection"]["marker"].AsDouble = section.marker;
-            newSection["MusicSection"]["comment"].AsString = section.comment ?? string.Empty;
+            newSection["MusicSection"]["sectionType"].AsInt = int.TryParse(section.SectionType, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ? parsed : 0;
+            newSection["MusicSection"]["marker"].AsDouble = section.StartBeat;
+            newSection["MusicSection"]["comment"].AsString = section.Comment ?? string.Empty;
             sectionsArray.Children.Add(newSection);
         }
     }
@@ -326,7 +329,7 @@ public static class MapPackageBundleBuilder
     {
         AssetTypeValueField karaokeArray = mapBase["KaraokeData"]["Clips"]["Array"];
         karaokeArray.Children.Clear();
-        foreach (UnityKaraokeClip clip in unityData.KaraokeClips.OrderBy(c => c.StartTime))
+        foreach (KaraokeClip clip in unityData.KaraokeClips.OrderBy(c => c.StartTime))
         {
             AssetTypeValueField newClipContainer = ValueBuilder.DefaultValueFieldFromArrayTemplate(karaokeArray);
             AssetTypeValueField karaokeClipField = newClipContainer["KaraokeClip"];
@@ -334,15 +337,15 @@ public static class MapPackageBundleBuilder
             karaokeClipField["StartTime"].AsInt = clip.StartTime;
             karaokeClipField["Duration"].AsInt = clip.Duration;
             karaokeClipField["Lyrics"].AsString = clip.Lyrics ?? string.Empty;
-            karaokeClipField["IsActive"].AsUInt = (uint)clip.IsActive;
-            karaokeClipField["TrackId"].AsLong = clip.TrackId;
+            karaokeClipField["IsActive"].AsUInt = 1;
+            karaokeClipField["TrackId"].AsLong = clip.Id;
             karaokeClipField["Pitch"].AsFloat = clip.Pitch;
-            karaokeClipField["IsEndOfLine"].AsUInt = (uint)clip.IsEndOfLine;
+            karaokeClipField["IsEndOfLine"].AsUInt = clip.IsEndOfLine ? 1u : 0u;
             karaokeClipField["ContentType"].AsInt = clip.ContentType;
             karaokeClipField["Id"].AsLong = clip.Id;
-            karaokeClipField["SemitoneTolerance"].AsFloat = clip.SemitoneTolerance;
-            karaokeClipField["StartTimeTolerance"].AsInt = clip.StartTimeTolerance;
-            karaokeClipField["EndTimeTolerance"].AsInt = clip.EndTimeTolerance;
+            karaokeClipField["SemitoneTolerance"].AsFloat = (float)((clip.Tolerances?.SemitoneTolerance) ?? 0);
+            karaokeClipField["StartTimeTolerance"].AsInt = clip.Tolerances?.StartTimeTolerance ?? 0;
+            karaokeClipField["EndTimeTolerance"].AsInt = clip.Tolerances?.EndTimeTolerance ?? 0;
 
             karaokeArray.Children.Add(newClipContainer);
         }
@@ -569,68 +572,71 @@ public static class MapPackageBundleBuilder
 
         int coachCount = Math.Max(1, request.UnityData.Metadata.CoachCount);
 
-        foreach (UnityClip clip in request.UnityData.Clips.OrderBy(c => c.StartTime))
+        foreach (GoldEffectTimelineClip gold in request.UnityData.GoldEffectClips.OrderBy(c => c.StartTime))
         {
-            switch (clip)
+            AssetTypeValueField newGold = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
+            newGold["StartTime"].AsInt = gold.StartTime;
+            newGold["Duration"].AsInt = gold.Duration;
+            newGold["GoldEffectType"].AsInt = gold.EffectType;
+            newGold["Id"].AsLong = gold.Id;
+            newGold["TrackId"].AsLong = gold.TrackId;
+            newGold["IsActive"].AsUInt = gold.IsActive ? 1u : 0u;
+            goldEffectClipsArray.Children.Add(newGold);
+        }
+
+        foreach (PictogramEntry picto in request.UnityData.PictogramClips.OrderBy(c => c.StartTime))
+        {
+            AssetTypeValueField newPicto = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClipsArray);
+            string pictoName = string.IsNullOrWhiteSpace(picto.PictogramId) ? $"picto_{picto.Id}" : picto.PictogramId;
+            if (!imageDict.ContainsKey(pictoName))
             {
-                case UnityGoldEffectClip gold:
-                    AssetTypeValueField newGold = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
-                    newGold["StartTime"].AsInt = gold.StartTime;
-                    newGold["Duration"].AsInt = gold.Duration;
-                    newGold["GoldEffectType"].AsInt = gold.EffectType;
-                    newGold["Id"].AsLong = gold.Id;
-                    newGold["TrackId"].AsLong = gold.TrackId;
-                    newGold["IsActive"].AsUInt = (uint)gold.IsActive;
-                    goldEffectClipsArray.Children.Add(newGold);
-                    break;
-
-                case UnityPictogramClip picto:
-                    AssetTypeValueField newPicto = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClipsArray);
-                    string pictoName = Path.GetFileNameWithoutExtension(picto.PictoPath);
-                    if (!imageDict.ContainsKey(pictoName))
-                    {
-                        string? foundKey = imageDict.Keys.FirstOrDefault(k => k.Equals(pictoName, StringComparison.InvariantCultureIgnoreCase));
-                        if (foundKey != null)
-                            pictoName = foundKey;
-                        else
-                            Logger.Log($"Pictogram '{pictoName}' for clip not found in image dictionary. Clip might not display correctly.", LogLevel.Warning);
-                    }
-
-                    newPicto["StartTime"].AsInt = picto.StartTime;
-                    newPicto["Duration"].AsInt = picto.Duration == 0 ? 16 : picto.Duration;
-                    newPicto["Id"].AsLong = picto.Id;
-                    newPicto["TrackId"].AsLong = picto.TrackId;
-                    newPicto["IsActive"].AsUInt = (uint)picto.IsActive;
-                    newPicto["PictoPath"].AsString = pictoName;
-                    newPicto["CoachCount"].AsUInt = picto.CoachCount;
-                    pictoClipsArray.Children.Add(newPicto);
-                    break;
-
-                case UnityMotionClip motion:
-                    if (motion.CoachId < 0 || motion.CoachId >= coachCount)
-                        continue;
-                    AssetTypeValueField newMotion = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
-                    newMotion["StartTime"].AsInt = motion.StartTime;
-                    newMotion["Duration"].AsInt = motion.Duration;
-                    newMotion["Id"].AsLong = motion.Id;
-                    newMotion["TrackId"].AsLong = motion.TrackId;
-                    newMotion["IsActive"].AsUInt = (uint)motion.IsActive;
-                    newMotion["MoveName"].AsString = (motion.MoveName ?? string.Empty).ToLowerInvariant();
-                    newMotion["GoldMove"].AsUInt = (uint)motion.GoldMove;
-                    newMotion["CoachId"].AsInt = motion.CoachId;
-                    newMotion["MoveType"].AsInt = motion.MoveType;
-                    newMotion["Color"].AsString = string.Empty;
-                    motionClipsArray.Children.Add(newMotion);
-                    break;
-
-                case UnityHideHudClip hideHud:
-                    AssetTypeValueField newHideHud = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClipsArray);
-                    newHideHud["StartTime"].AsInt = hideHud.StartTime;
-                    newHideHud["Duration"].AsInt = hideHud.Duration;
-                    newHideHud["IsActive"].AsUInt = (uint)hideHud.IsActive;
-                    hideHudClipsArray.Children.Add(newHideHud);
-                    break;
+                string? foundKey = imageDict.Keys.FirstOrDefault(k => k.Equals(pictoName, StringComparison.InvariantCultureIgnoreCase));
+                if (foundKey != null)
+                    pictoName = foundKey;
+                else
+                    Logger.Log($"Pictogram '{pictoName}' for clip not found in image dictionary. Clip might not display correctly.", LogLevel.Warning);
             }
+
+            newPicto["StartTime"].AsInt = picto.StartTime;
+            newPicto["Duration"].AsInt = picto.Duration == 0 ? 16 : picto.Duration;
+            newPicto["Id"].AsLong = picto.Id;
+            newPicto["TrackId"].AsLong = picto.Id;
+            newPicto["IsActive"].AsUInt = 1;
+            newPicto["PictoPath"].AsString = pictoName;
+            newPicto["CoachCount"].AsUInt = (uint)picto.CoachCount;
+            pictoClipsArray.Children.Add(newPicto);
+        }
+
+        foreach ((CoachTimelineClip clip, int coachId, long trackId, int moveType, int duration) in request.UnityData.MotionClips.OrderBy(m => m.Clip.StartTime))
+        {
+            if (coachId < 0 || coachId >= coachCount)
+                continue;
+
+            string moveName = string.IsNullOrWhiteSpace(clip.MoveId)
+                ? $"move_{coachId}"
+                : clip.MoveId.ToLowerInvariant();
+
+            AssetTypeValueField newMotion = ValueBuilder.DefaultValueFieldFromArrayTemplate(motionClipsArray);
+            newMotion["StartTime"].AsInt = clip.StartTime;
+            newMotion["Duration"].AsInt = duration;
+            newMotion["Id"].AsLong = clip.Id;
+            newMotion["TrackId"].AsLong = trackId;
+            newMotion["IsActive"].AsUInt = 1;
+            newMotion["MoveName"].AsString = moveName;
+            newMotion["GoldMove"].AsUInt = clip.IsGoldMove ? 1u : 0u;
+            newMotion["CoachId"].AsInt = coachId;
+            newMotion["MoveType"].AsInt = moveType;
+            newMotion["Color"].AsString = string.Empty;
+            motionClipsArray.Children.Add(newMotion);
+        }
+
+        foreach (HideUserInterfaceTimelineClip hideHud in request.UnityData.HideHudClips.OrderBy(c => c.StartTime))
+        {
+            AssetTypeValueField newHideHud = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClipsArray);
+            newHideHud["StartTime"].AsInt = hideHud.StartTime;
+            newHideHud["Duration"].AsInt = hideHud.Duration;
+            newHideHud["IsActive"].AsUInt = hideHud.IsActive ? 1u : 0u;
+            hideHudClipsArray.Children.Add(newHideHud);
         }
     }
 

@@ -8,19 +8,13 @@ public class GoldEffectTimelineDocument
     public List<GoldEffectTimelineClip> Clips { get; set; } = [];
 }
 
-public class GoldEffectTimelineClip
+public class GoldEffectTimelineClip : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
     [JsonPropertyName("trackId")]
     public long TrackId { get; set; }
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
-
-    [JsonPropertyName("startTime")]
-    public int StartTime { get; set; }
 
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
@@ -35,19 +29,13 @@ public class HideUserInterfaceTimelineDocument
     public List<HideUserInterfaceTimelineClip> Clips { get; set; } = [];
 }
 
-public class HideUserInterfaceTimelineClip
+public class HideUserInterfaceTimelineClip : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
     [JsonPropertyName("trackId")]
     public long TrackId { get; set; }
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
-
-    [JsonPropertyName("startTime")]
-    public int StartTime { get; set; }
 
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
@@ -65,19 +53,13 @@ public class GameplayEventTimelineDocument
     public List<GameplayEventTimelineClip> Clips { get; set; } = [];
 }
 
-public class GameplayEventTimelineClip
+public class GameplayEventTimelineClip : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
     [JsonPropertyName("trackId")]
     public long TrackId { get; set; }
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
-
-    [JsonPropertyName("startTime")]
-    public int StartTime { get; set; }
 
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
@@ -92,19 +74,13 @@ public class VibrationTimelineDocument
     public List<VibrationTimelineClip> Clips { get; set; } = [];
 }
 
-public class VibrationTimelineClip
+public class VibrationTimelineClip : TimelineClipBase
 {
-    [JsonPropertyName("id")]
-    public long Id { get; set; }
-
     [JsonPropertyName("trackId")]
     public long TrackId { get; set; }
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; set; }
-
-    [JsonPropertyName("startTime")]
-    public int StartTime { get; set; }
 
     [JsonPropertyName("duration")]
     public int Duration { get; set; }

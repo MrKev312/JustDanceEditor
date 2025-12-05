@@ -2,20 +2,23 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.JDI.Timelines;
 
-public class LyricsTimelineDocument
-{
-    [JsonPropertyName("clips")]
-    public List<KaraokeClip> Clips { get; set; } = [];
-}
-
-public class KaraokeClip
+public abstract class TimelineClipBase
 {
     [JsonPropertyName("id")]
     public long Id { get; set; }
 
     [JsonPropertyName("startBeat")]
     public int StartTime { get; set; }
+}
 
+public class LyricsTimelineDocument
+{
+    [JsonPropertyName("clips")]
+    public List<KaraokeClip> Clips { get; set; } = [];
+}
+
+public class KaraokeClip : TimelineClipBase
+{
     [JsonPropertyName("duration")]
     public int Duration { get; set; }
 
