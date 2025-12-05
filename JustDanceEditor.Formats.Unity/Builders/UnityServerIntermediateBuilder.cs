@@ -319,20 +319,9 @@ internal static class UnityServerIntermediateBuilder
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,
             PreviewLoopEndBeat = structure.previewLoopEnd,
-            PrevewDuration = structure.previewDuration
+            PrevewDuration = structure.previewDuration,
+            Markers = [.. structure.markers.Select(m => (int)Math.Round(m / 48d))]
         };
-
-        if (structure.markers is { Length: > 0 })
-        {
-            for (int i = 0; i < structure.markers.Length; i++)
-            {
-                document.Markers.Add(new TimelineMarker
-                {
-                    BeatIndex = i,
-                    TimeMs = (int)Math.Round(structure.markers[i] / 48d)
-                });
-            }
-        }
 
         document.TempoSegments.Add(new TempoSegment
         {
@@ -346,9 +335,9 @@ internal static class UnityServerIntermediateBuilder
             {
                 document.Signatures.Add(new SignatureSegment
                 {
-                    StartBeat = signature.marker,
-                    Numerator = signature.beats,
-                    Denominator = 4
+                    Beats = signature.beats,
+                    Marker = signature.marker,
+                    Comment = signature.comment
                 });
             }
         }
@@ -360,7 +349,7 @@ internal static class UnityServerIntermediateBuilder
                 document.Sections.Add(new SectionSegment
                 {
                     StartBeat = section.marker,
-                    SectionType = section.sectionType.ToString(CultureInfo.InvariantCulture),
+                    SectionType = section.sectionType,
                     Comment = section.comment
                 });
             }

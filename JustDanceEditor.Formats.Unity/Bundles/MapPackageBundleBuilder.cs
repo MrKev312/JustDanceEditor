@@ -298,18 +298,18 @@ public static class MapPackageBundleBuilder
         foreach (SignatureSegment signature in trackStructure.Signatures ?? [])
         {
             AssetTypeValueField newSig = ValueBuilder.DefaultValueFieldFromArrayTemplate(signaturesArray);
-            newSig["MusicSignature"]["beats"].AsInt = signature.Numerator;
-            newSig["MusicSignature"]["marker"].AsDouble = signature.StartBeat;
-            newSig["MusicSignature"]["comment"].AsString = string.Empty;
+            newSig["MusicSignature"]["beats"].AsInt = signature.Beats;
+            newSig["MusicSignature"]["marker"].AsDouble = signature.Marker;
+            newSig["MusicSignature"]["comment"].AsString = signature.Comment;
             signaturesArray.Children.Add(newSig);
         }
 
         AssetTypeValueField markersArray = structureField["markers"]["Array"];
         markersArray.Children.Clear();
-        foreach (TimelineMarker marker in trackStructure.Markers ?? [])
+        foreach (int marker in trackStructure.Markers ?? [])
         {
             AssetTypeValueField newMarker = ValueBuilder.DefaultValueFieldFromArrayTemplate(markersArray);
-            newMarker["VAL"].AsLong = (int)Math.Round(marker.TimeMs * 48d);
+            newMarker["VAL"].AsLong = (int)Math.Round(marker * 48d);
             markersArray.Children.Add(newMarker);
         }
 
@@ -318,7 +318,7 @@ public static class MapPackageBundleBuilder
         foreach (SectionSegment section in trackStructure.Sections ?? [])
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
-            newSection["MusicSection"]["sectionType"].AsInt = int.TryParse(section.SectionType, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) ? parsed : 0;
+            newSection["MusicSection"]["sectionType"].AsInt = section.SectionType;
             newSection["MusicSection"]["marker"].AsDouble = section.StartBeat;
             newSection["MusicSection"]["comment"].AsString = section.Comment ?? string.Empty;
             sectionsArray.Children.Add(newSection);

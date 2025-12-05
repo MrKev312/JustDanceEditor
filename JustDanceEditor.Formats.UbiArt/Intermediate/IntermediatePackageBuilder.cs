@@ -32,9 +32,9 @@ internal static class IntermediatePackageBuilder
         IntermediateSongPackage package = new()
         {
             Metadata = BuildMetadata(context, structure),
-            TimelineStructure = BuildTimelineStructure(context, structure, timelineMath),
-            Lyrics = BuildLyricsDocument(context, timelineMath),
-            Pictograms = BuildPictogramDocument(context, timelineMath),
+            TimelineStructure = BuildTimelineStructure(structure, timelineMath),
+            Lyrics = BuildLyricsDocument(context),
+            Pictograms = BuildPictogramDocument(context),
             GoldEffects = BuildGoldEffectDocument(context),
             HideUserInterface = BuildHideUserInterfaceDocument(context),
             Vibrations = BuildVibrationDocument(context),
@@ -83,7 +83,7 @@ internal static class IntermediatePackageBuilder
         return metadata;
     }
 
-    private static TimelineStructureDocument BuildTimelineStructure(ConversionContext context, Structure structure, TimelineMath timelineMath)
+    private static TimelineStructureDocument BuildTimelineStructure(Structure structure, TimelineMath timelineMath)
     {
         TimelineStructureDocument document = new()
         {
@@ -94,17 +94,9 @@ internal static class IntermediatePackageBuilder
             PreviewEntryBeat = structure.previewEntry,
             PreviewLoopStartBeat = structure.previewLoopStart,
             PreviewLoopEndBeat = structure.previewLoopEnd,
-            PrevewDuration = structure.previewDuration
+            PrevewDuration = structure.previewDuration,
+            Markers = [.. structure.markers.Select(m => (int)Math.Round(timelineMath.ToBeat(m)))]
         };
-
-        foreach ((int index, int marker) in structure.markers.Select((marker, index) => (index, marker)))
-        {
-            document.Markers.Add(new TimelineMarker
-            {
-                BeatIndex = index,
-                TimeMs = (int)Math.Round(marker / 48d)
-            });
-        }
 
         if (structure.signatures is { Length: > 0 })
         {
@@ -112,9 +104,9 @@ internal static class IntermediatePackageBuilder
             {
                 document.Signatures.Add(new SignatureSegment
                 {
-                    StartBeat = signature.marker,
-                    Numerator = signature.beats,
-                    Denominator = 4
+                    Beats = signature.beats,
+                    Marker = signature.marker,
+                    Comment = signature.comment
                 });
             }
         }
@@ -126,7 +118,7 @@ internal static class IntermediatePackageBuilder
                 document.Sections.Add(new SectionSegment
                 {
                     StartBeat = section.marker,
-                    SectionType = section.sectionType.ToString(),
+                    SectionType = section.sectionType,
                     Comment = section.comment
                 });
             }
@@ -141,7 +133,7 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static LyricsTimelineDocument BuildLyricsDocument(ConversionContext context, TimelineMath timelineMath)
+    private static LyricsTimelineDocument BuildLyricsDocument(ConversionContext context)
     {
         LyricsTimelineDocument document = new();
 
@@ -174,7 +166,7 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static PictogramTimelineDocument BuildPictogramDocument(ConversionContext context, TimelineMath timelineMath)
+    private static PictogramTimelineDocument BuildPictogramDocument(ConversionContext context)
     {
         PictogramTimelineDocument document = new();
 

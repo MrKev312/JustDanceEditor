@@ -19,8 +19,9 @@ public class Structure
 
 public class Signature
 {
-    public float marker { get; set; }
     public int beats { get; set; }
+    public float marker { get; set; }
+    public string comment { get; set; } = string.Empty;
 }
 
 public class Section
