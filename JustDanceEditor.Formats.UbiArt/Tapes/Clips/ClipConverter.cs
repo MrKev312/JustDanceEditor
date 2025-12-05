@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-public class ClipConverter : JsonConverter<IClip>
+public class ClipConverter : JsonConverter<Clip>
 {
-    public override IClip Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override Clip Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         using JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
@@ -18,10 +18,10 @@ public class ClipConverter : JsonConverter<IClip>
 
         return type == null
             ? throw new JsonException($"Unknown clip type: {className}")
-            : (IClip)JsonSerializer.Deserialize(root.GetRawText(), type, options)!;
+            : (Clip)JsonSerializer.Deserialize(root.GetRawText(), type, options)!;
     }
 
-    public override void Write(Utf8JsonWriter writer, IClip value, JsonSerializerOptions? options = null)
+    public override void Write(Utf8JsonWriter writer, Clip value, JsonSerializerOptions? options = null)
     {
         JsonSerializer.Serialize(writer, value, value.GetType(), options);
     }

@@ -7,8 +7,8 @@ namespace JustDanceEditor.Formats.UbiArt.Audio;
 
 public sealed class AudioConversionOptions
 {
-    public string? MasterOutputFolder { get; init; }
-    public string? PreviewOutputFolder { get; init; }
+    public required string MasterOutputFolder { get; init; }
+    public required string PreviewOutputFolder { get; init; }
 }
 
 public static class AudioConverter
@@ -19,14 +19,14 @@ public static class AudioConverter
         JDUbiArtSong songData,
         FileSystem fileSystem,
         ConversionRequest request,
-        AudioConversionOptions? options = null) =>
+        AudioConversionOptions options) =>
         Task.Run(() => ConvertAudio(songData, fileSystem, request, options));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
         FileSystem fileSystem,
         ConversionRequest request,
-        AudioConversionOptions? options = null)
+        AudioConversionOptions options)
     {
         ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(fileSystem);
@@ -47,17 +47,15 @@ public static class AudioConverter
         JDUbiArtSong songData,
         FileSystem fileSystem,
         ConversionRequest request,
-        AudioConversionOptions? options)
+        AudioConversionOptions options)
     {
-        string masterOutputFolder = options?.MasterOutputFolder ?? fileSystem.OutputFolders.AudioFolder;
-        string previewOutputFolder = options?.PreviewOutputFolder ?? fileSystem.OutputFolders.PreviewAudioFolder;
+        string masterOutputFolder = options.MasterOutputFolder;
+        string previewOutputFolder = options.PreviewOutputFolder;
         string tempAudioFolder = fileSystem.TempFolders.AudioFolder;
 
         IReadOnlyList<UbiArtAudioClipSource> clipSources = BuildClipSources(songData, fileSystem);
 
         CookedFile mainSongPath = GetMainSongPath(songData, fileSystem, out bool isPreMerged);
-
-        bool appendExtension = request.ExportType == ExportType.CustomServer;
 
         return new UbiArtAudioConversionRequest(
             songData,
@@ -66,7 +64,6 @@ public static class AudioConverter
             tempAudioFolder,
             masterOutputFolder,
             previewOutputFolder,
-            appendExtension,
             isPreMerged,
             audioConverter);
     }

@@ -29,30 +29,24 @@ public sealed class UbiArtJdiFormat(IRequestValidator requestValidator, ISongDat
         context.FileSystem.UpdateSongName(context.SongData.Name);
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
 
-        string materializedRoot = await MaterializeUbiArtIntermediateAsync(context, context.IntermediatePackage);
+        string outputFolder = Path.Combine(request.OutputPath, context.SongData.Name);
+        PrepareOutputDirectory(outputFolder);
+
+        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder);
+        IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
 
         return new JdiImportResult(
             context.IntermediatePackage,
             "UbiArt",
-            materializedRoot,
+            outputFolder,
             MaterializedRootIsTemporary: false,
-            SuggestedOutputFolder: context.FileSystem.OutputFolders.OutputFolder);
+            SuggestedOutputFolder: outputFolder);
     }
 
     public Task ExportAsync(JdiImportResult importResult, ConversionRequest request, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Exporting to UbiArt is not supported.");
 
-    private static async Task<string> MaterializeUbiArtIntermediateAsync(ConversionContext context, IntermediateSongPackage package)
-    {
-        string outputFolder = context.FileSystem.OutputFolders.OutputFolder;
-        PrepareMaterializedDirectory(outputFolder);
-
-        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, package, outputFolder);
-        IntermediatePackageSerializer.WriteToFolder(package, outputFolder);
-        return outputFolder;
-    }
-
-    private static void PrepareMaterializedDirectory(string targetFolder)
+    private static void PrepareOutputDirectory(string targetFolder)
     {
         if (Directory.Exists(targetFolder))
             Directory.Delete(targetFolder, true);

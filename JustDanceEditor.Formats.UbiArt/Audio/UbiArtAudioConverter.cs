@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
@@ -21,7 +20,6 @@ public sealed record UbiArtAudioConversionRequest(
     string TempAudioFolder,
     string MasterOutputFolder,
     string PreviewOutputFolder,
-    bool AppendExtensionToHashedAudio,
     bool IsMainSongPreMerged,
     IAudioConverter AudioConverter);
 
@@ -185,23 +183,21 @@ public static class UbiArtAudioConverter
 
         Logger.Log($"Generated preview audio with \"{result.Arguments}\"", LogLevel.Debug);
 
-        MoveHashedAudio(previewOpusPath, request.PreviewOutputFolder, request.AppendExtensionToHashedAudio);
+        MoveAudioToOutput(previewOpusPath, request.PreviewOutputFolder, "preview.opus");
     }
 
     private static void MoveOpusToOutput(UbiArtAudioConversionRequest request, string opusPath)
     {
-        MoveHashedAudio(opusPath, request.MasterOutputFolder, request.AppendExtensionToHashedAudio);
+        MoveAudioToOutput(opusPath, request.MasterOutputFolder, "master.opus");
     }
 
-    private static void MoveHashedAudio(string sourcePath, string destinationFolder, bool appendExtension)
+    private static void MoveAudioToOutput(string sourcePath, string destinationFolder, string targetFileName)
     {
-        string md5 = FileHashing.GetFileMD5(sourcePath);
-        if (appendExtension)
-            md5 += Path.GetExtension(sourcePath);
-
         Directory.CreateDirectory(destinationFolder);
-        string target = Path.Combine(destinationFolder, md5);
-        File.Move(sourcePath, target, true);
+        
+        string targetPath = Path.Combine(destinationFolder, targetFileName);
+        
+        File.Move(sourcePath, targetPath, true);
     }
 
     private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath)

@@ -1,13 +1,8 @@
 namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-public class PictogramClip : IClip
+public sealed record PictogramClip : Clip
 {
-    public string __class { get; set; } = "PictogramClip";
-    public long Id { get; set; }
-    public long TrackId { get; set; }
-    public int IsActive { get; set; }
-    public int StartTime { get; set; }
-    public int Duration { get; set; }
+    public override string __class { get; } = "PictogramClip";
     public string PictoPath { get; set; } = string.Empty;
     public long CoachCount { get; set; }
 }

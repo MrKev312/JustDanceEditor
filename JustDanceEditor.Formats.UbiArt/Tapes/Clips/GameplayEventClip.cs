@@ -1,13 +1,8 @@
 namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-public class GameplayEventClip : IClip
+public sealed record GameplayEventClip : Clip
 {
-    public string __class { get; set; } = "GameplayEventClip";
-    public long Id { get; set; }
-    public long TrackId { get; set; }
-    public int IsActive { get; set; }
-    public int StartTime { get; set; }
-    public int Duration { get; set; }
+    public override string __class { get; } = "GameplayEventClip";
     public int[] ActorIndices { get; set; } = [];
     public int EventType { get; set; }
     public string CustomParam { get; set; } = string.Empty;

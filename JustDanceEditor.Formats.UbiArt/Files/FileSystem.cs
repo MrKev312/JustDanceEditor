@@ -18,8 +18,6 @@ public class FileSystem
         TempFolders = new(this);
         TempFolders.CreateTempFolders();
 
-        OutputFolders = new(this);
-        TemplateFiles = new(this);
         InputFolders = new(this);
     }
 
@@ -30,8 +28,6 @@ public class FileSystem
 
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
-    public OutputFolders OutputFolders { get; private set; }
-    public TemplateFiles TemplateFiles { get; private set; }
 
     public void UpdateSongName(string? newSongName)
     {
@@ -46,7 +42,6 @@ public class FileSystem
         SongName = newSongName;
         ConversionRequest.SongName = newSongName;
 
-        OutputFolders = new(this);
         TempFolders.CreateTempFolders();
 
         if (!string.Equals(previousTempFolder, TempFolders.MapFolder, StringComparison.OrdinalIgnoreCase)

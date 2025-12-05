@@ -7,10 +7,6 @@ public sealed class FFMpegProgress(string name)
     private (TimeSpan current, TimeSpan finish) previous = (TimeSpan.Zero, TimeSpan.Zero);
     private readonly string progressName = string.IsNullOrWhiteSpace(name) ? "Progress" : $"{name} progress";
 
-    public FFMpegProgress() : this("Progress")
-    {
-    }
-
     public void Update(ConversionProgressEventArgs args)
     {
         (TimeSpan, TimeSpan) current = (args.Duration, args.TotalLength);

@@ -7,7 +7,7 @@ using JustDanceEditor.Formats.UbiArt.Video;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Webp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 
 using Xabe.FFmpeg.Downloader;
@@ -16,11 +16,7 @@ namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
 internal static class IntermediateAssetWriter
 {
-    private static readonly WebpEncoder LosslessWebpEncoder = new()
-    {
-        FileFormat = WebpFileFormatType.Lossless,
-        Quality = 100
-    };
+    static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
     public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot)
     {
@@ -30,25 +26,43 @@ internal static class IntermediateAssetWriter
 
         context.IntermediatePackage ??= package;
 
-        AssetStagingArea staging = AssetStagingArea.Create(Path.Combine(context.FileSystem.TempFolders.MapFolder, "intermediateAssetStage"));
-        staging.Reset();
+        ResetAssetsRoot(packageRoot);
 
         await EnsurePrerequisitesAsync();
-        await PrepareVisualAssetsAsync(context);
+        await ConvertPictogramsAsync(context, packageRoot);
         JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
 
-        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, context.Request, new AudioConversionOptions
+        string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
+        string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
+
+        ConversionRequest jdiRequest = new()
         {
-            MasterOutputFolder = staging.AudioMaster,
-            PreviewOutputFolder = staging.AudioPreview,
-        });
-        await VideoConverter.ConvertVideoAsync(songData, context.FileSystem, context.Request, new VideoConversionOptions
+            InputPath = context.Request.InputPath,
+            OutputPath = context.Request.OutputPath,
+            TemplatePath = context.Request.TemplatePath,
+            OnlineCover = context.Request.OnlineCover,
+            SongName = context.Request.SongName,
+            SongGUID = context.Request.SongGUID,
+            CacheNumber = context.Request.CacheNumber,
+            JDVersion = context.Request.JDVersion
+        };
+
+        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, jdiRequest, new AudioConversionOptions
         {
-            VideoOutputFolder = staging.Video,
-            PreviewOutputFolder = staging.PreviewVideo,
+            MasterOutputFolder = audioMasterFolder,
+            PreviewOutputFolder = audioPreviewFolder,
         });
 
-        CopyAssetsToPackage(context, packageRoot, staging);
+        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string previewVideoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
+
+        await VideoConverter.ConvertVideoAsync(songData, context.FileSystem, new VideoConversionOptions
+        {
+            VideoOutputFolder = videoFolder,
+            PreviewOutputFolder = previewVideoFolder,
+        });
+
+        CopyAssetsToPackage(context, packageRoot);
     }
 
     private static async Task EnsurePrerequisitesAsync()
@@ -57,74 +71,49 @@ internal static class IntermediateAssetWriter
             await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
     }
 
-    private static async Task PrepareVisualAssetsAsync(ConversionContext context)
-    {
-        await PrepareMenuArtFromUbiArtAsync(context);
-        await PreparePictogramsAsync(context);
-    }
-
-    private static async Task PrepareMenuArtFromUbiArtAsync(ConversionContext context)
-    {
-        CookedFile[] menuArtFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder);
-        UbiArtMenuArtConversionRequest menuRequest = new(menuArtFiles, context.FileSystem.TempFolders.MenuArtFolder);
-        await UbiArtMenuArtConverter.ConvertMenuArtAsync(menuRequest);
-    }
-
-    private static async Task PreparePictogramsAsync(ConversionContext context)
+    private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot)
     {
         CookedFile[] pictoFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.PictosFolder);
         string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
 
+        string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
+
         UbiArtPictoConversionRequest request = new(
             context.SongData,
             pictoPaths,
-            context.FileSystem.TempFolders.PictoFolder);
+            outputFolder);
 
         await Task.Run(() => UbiArtPictoConverter.Convert(request));
     }
 
-    private static void CopyAssetsToPackage(ConversionContext context, string packageRoot, AssetStagingArea staging)
+    private static void CopyAssetsToPackage(ConversionContext context, string packageRoot)
     {
-        ResetAssetsRoot(packageRoot);
-
-        AttachAudioAssets(packageRoot, staging);
-        AttachVideoAssets(packageRoot, staging);
         AttachBrandingAssets(context, packageRoot);
         AttachCoachAssets(context, packageRoot);
-        AttachPictograms(context, packageRoot);
         AttachMotionAssets(context, packageRoot);
-    }
-
-    private static void AttachAudioAssets(string packageRoot, AssetStagingArea staging)
-    {
-        CopyFirstFile(staging.AudioMaster, "*.opus", ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioMasterFile));
-        CopyFirstFile(staging.AudioPreview, "*.opus", ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AudioPreviewFile));
-    }
-
-    private static void AttachVideoAssets(string packageRoot, AssetStagingArea staging)
-    {
-        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string previewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
-
-        CopyDirectoryContent(staging.Video, videoFolder);
-        CopyDirectoryContent(staging.PreviewVideo, previewFolder);
     }
 
     private static void AttachBrandingAssets(ConversionContext context, string packageRoot)
     {
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
         ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile));
-        ExportSongTitleLogo(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SongTitleFile));
     }
 
     private static string? ExportCoverImage(ConversionContext context, string destination)
     {
-        UbiArtCoverRequest coverRequest = new(context.SongData, context.FileSystem.TempFolders.MenuArtFolder);
+        Logger.Log($"Attempting to export cover image from menu art folder: {context.FileSystem.InputFolders.MenuArtFolder}", LogLevel.Debug);
 
-        // Note: Online cover fetching removed for now to avoid external dependencies in core format logic.
-        // Can be re-added if needed via a service.
-        using Image<Rgba32>? cover = UbiArtCoverGenerator.ExistingCover(coverRequest)
-            ?? UbiArtCoverGenerator.GenerateOwnCover(coverRequest);
+        Image<Bgra32>? cover = UbiArtCoverGenerator.ExistingCover(context);
+        
+        if (cover != null)
+        {
+            Logger.Log("Using existing cover image", LogLevel.Info);
+        }
+        else
+        {
+            Logger.Log("No existing cover found, generating own cover", LogLevel.Info);
+            cover = UbiArtCoverGenerator.GenerateOwnCover(context);
+        }
 
         if (cover == null)
         {
@@ -132,92 +121,45 @@ internal static class IntermediateAssetWriter
             return null;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        cover.Save(destination, LosslessWebpEncoder);
-        return destination;
-    }
-
-    private static string? ExportSongTitleLogo(ConversionContext context, string destination)
-    {
-        UbiArtCoverRequest coverRequest = new(context.SongData, context.FileSystem.TempFolders.MenuArtFolder);
-
-        using Image<Rgba32>? title = UbiArtCoverGenerator.ExistingSongTitleLogo(coverRequest);
-
-        if (title == null)
-            return null;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        title.Save(destination, LosslessWebpEncoder);
+        using (cover)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            cover.Save(destination, Encoder);
+            Logger.Log($"Saved cover image to: {destination}", LogLevel.Info);
+        }
+        
         return destination;
     }
 
     private static void AttachCoachAssets(ConversionContext context, string packageRoot)
     {
-        string menuArtFolder = context.FileSystem.TempFolders.MenuArtFolder;
-        if (!Directory.Exists(menuArtFolder))
+        CookedFile[] coachFilesCooked = [.. context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{context.SongData.Name}_coach_*")
+            .Where(file => !file.Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
+
+        if (coachFilesCooked.Length == 0)
         {
-            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder));
+            Logger.Log($"No coach files found matching pattern '{context.SongData.Name}_coach_*' in {context.FileSystem.InputFolders.MenuArtFolder}", LogLevel.Info);
             return;
         }
 
-        string coachesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder);
-
-        string[] coachFiles = [.. Directory.EnumerateFiles(menuArtFolder, $"{context.SongData.Name}_Coach_*.png", SearchOption.TopDirectoryOnly)
-            .Where(path => !Path.GetFileNameWithoutExtension(path).EndsWith("_phone", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)];
-
-        if (coachFiles.Length == 0)
+        Logger.Log($"Found {coachFilesCooked.Length} coach file(s) to process", LogLevel.Info);
+        for (int i = 0; i < coachFilesCooked.Length; i++)
         {
-            TryDeleteDirectory(coachesFolder);
-            return;
-        }
-
-        for (int i = 0; i < coachFiles.Length; i++)
-        {
-            string destination = Path.Combine(coachesFolder, $"coach_{i + 1:D2}.webp");
-            using Image<Rgba32> coach = Image.Load<Rgba32>(coachFiles[i]);
+            string destination = Path.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
+            using Image<Bgra32> coach = TextureConverter.TextureConverter.ConvertToImage(coachFilesCooked[i]);
             SaveAsWebp(coach, destination);
+            Logger.Log($"Saved coach asset: {Path.GetFileName(destination)}", LogLevel.Debug);
         }
 
-        string? background = Directory.EnumerateFiles(menuArtFolder, "*map_bkg*.png", SearchOption.TopDirectoryOnly)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        if (background != null)
-        {
-            using Image<Rgba32> backgroundImage = Image.Load<Rgba32>(background);
-            SaveAsWebp(backgroundImage, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile));
-        }
-    }
-
-    private static void AttachPictograms(ConversionContext context, string packageRoot)
-    {
-        string pictoFolder = context.FileSystem.TempFolders.PictoFolder;
-        if (!Directory.Exists(pictoFolder))
-        {
-            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder));
-            return;
-        }
-
-        string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
-        foreach (string file in Directory.EnumerateFiles(pictoFolder, "*.png", SearchOption.TopDirectoryOnly))
-        {
-            if (Path.GetFileName(file).StartsWith("atlas_", StringComparison.OrdinalIgnoreCase))
-                continue;
-            string destination = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(file) + ".webp");
-            using Image<Rgba32> picto = Image.Load<Rgba32>(file);
-            SaveAsWebp(picto, destination);
-        }
-
-        if (!Directory.EnumerateFiles(outputFolder).Any())
-            TryDeleteDirectory(outputFolder);
-
+        using Image<Bgra32> backgroundImage = UbiArtCoverGenerator.GetBackground(context);
+        SaveAsWebp(backgroundImage, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile));
+        Logger.Log($"Saved coaches background", LogLevel.Info);
     }
 
     private static void AttachMotionAssets(ConversionContext context, string packageRoot)
     {
-        string movesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
-        string gesturesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
+        string movesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
+        string gesturesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
 
         CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder);
 
@@ -255,56 +197,6 @@ internal static class IntermediateAssetWriter
         return destinationFolder;
     }
 
-    private static string? CopyFirstFile(string? sourceFolder, string searchPattern, string destinationPath)
-    {
-        if (string.IsNullOrWhiteSpace(sourceFolder) || !Directory.Exists(sourceFolder))
-            return null;
-
-        string? source = Directory.EnumerateFiles(sourceFolder, searchPattern, SearchOption.TopDirectoryOnly)
-            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        if (source == null)
-            return null;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-        File.Copy(source, destinationPath, true);
-        return destinationPath;
-    }
-
-    private static string? CopyDirectoryContent(string? sourceFolder, string destinationFolder)
-    {
-        if (string.IsNullOrWhiteSpace(sourceFolder) || !Directory.Exists(sourceFolder))
-            return null;
-
-        Directory.CreateDirectory(destinationFolder);
-        foreach (string file in Directory.EnumerateFiles(sourceFolder))
-        {
-            string destination = Path.Combine(destinationFolder, Path.GetFileName(file));
-            File.Copy(file, destination, true);
-        }
-
-        return Directory.EnumerateFiles(destinationFolder).Any() ? destinationFolder : null;
-    }
-
-    private static void TryDeleteDirectory(string folder)
-    {
-        try
-        {
-            if (!Directory.Exists(folder))
-                return;
-
-            if (Directory.EnumerateFileSystemEntries(folder).Any())
-                return;
-
-            Directory.Delete(folder);
-        }
-        catch
-        {
-            // Best-effort cleanup; leftover folders do not block conversion.
-        }
-    }
-
     private static void ResetAssetsRoot(string packageRoot)
     {
         string assetsRoot = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.Root);
@@ -325,40 +217,9 @@ internal static class IntermediateAssetWriter
         return IntermediatePackageLayout.Resolve(packageRoot, relative);
     }
 
-    private static void SaveAsWebp(Image<Rgba32> image, string destination)
+    private static void SaveAsWebp(Image<Bgra32> image, string destination)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        image.Save(destination, LosslessWebpEncoder);
-    }
-
-    private sealed class AssetStagingArea
-    {
-        private AssetStagingArea(string root)
-        {
-            Root = root;
-            AudioMaster = Path.Combine(root, "audioMaster");
-            AudioPreview = Path.Combine(root, "audioPreview");
-            Video = Path.Combine(root, "video");
-            PreviewVideo = Path.Combine(root, "previewVideo");
-        }
-
-        public static AssetStagingArea Create(string root) => new(root);
-
-        public string Root { get; }
-        public string AudioMaster { get; }
-        public string AudioPreview { get; }
-        public string Video { get; }
-        public string PreviewVideo { get; }
-
-        public void Reset()
-        {
-            if (Directory.Exists(Root))
-                Directory.Delete(Root, true);
-
-            Directory.CreateDirectory(AudioMaster);
-            Directory.CreateDirectory(AudioPreview);
-            Directory.CreateDirectory(Video);
-            Directory.CreateDirectory(PreviewVideo);
-        }
+        image.Save(destination, Encoder);
     }
 }

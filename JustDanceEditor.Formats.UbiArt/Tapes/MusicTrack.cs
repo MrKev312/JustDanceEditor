@@ -2,7 +2,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Formats.UbiArt.Tapes;
 
-public class MusicTrack
+public sealed record MusicTrack
 {
     public string __class { get; set; } = string.Empty;
     public int WIP { get; set; }
@@ -14,13 +14,13 @@ public class MusicTrack
     public TrackDataHolder[] COMPONENTS { get; set; } = [];
 }
 
-public class TrackDataHolder
+public sealed record TrackDataHolder
 {
     public string __class { get; set; } = string.Empty;
     public Trackdata trackData { get; set; } = new();
 }
 
-public class Trackdata
+public sealed record Trackdata
 {
     public string __class { get; set; } = string.Empty;
     public Structure structure { get; set; } = new();

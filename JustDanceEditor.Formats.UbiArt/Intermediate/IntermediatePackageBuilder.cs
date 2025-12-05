@@ -57,7 +57,7 @@ internal static class IntermediatePackageBuilder
 
         IntermediateMetadata metadata = new()
         {
-            SongID = context.SongID,
+            SongID = context.Request.SongGUID,
             MapName = info.MapName,
             ParentMapName = info.MapName,
             Title = info.Title,
@@ -67,7 +67,7 @@ internal static class IntermediatePackageBuilder
             MapLengthSeconds = mapLengthSeconds,
             OriginalJDVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
-            CoachNames = BuildCoachNames(info.NumCoach),
+            CoachNames = null, // UbiArt does not store coach names
             Difficulty = info.Difficulty,
             SweatDifficulty = info.SweatDifficulty,
             Tags = info.Tags?.ToList() ?? [],
@@ -336,16 +336,5 @@ internal static class IntermediatePackageBuilder
         int g = (int)(rgba[2] * 255);
         int b = (int)(rgba[3] * 255);
         return $"#{r:X2}{g:X2}{b:X2}{a:X2}";
-    }
-
-    private static string[] BuildCoachNames(int coachCount)
-    {
-        if (coachCount <= 0)
-            return [];
-
-        string[] names = new string[coachCount];
-        for (int i = 0; i < coachCount; i++)
-            names[i] = $"Coach {i + 1}";
-        return names;
     }
 }

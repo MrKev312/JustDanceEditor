@@ -1,13 +1,8 @@
 namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-public class SoundSetClip : IClip
+public sealed record SoundSetClip : Clip
 {
-    public string __class { get; set; } = "SoundSetClip";
-    public long Id { get; set; }
-    public long TrackId { get; set; }
-    public int IsActive { get; set; }
-    public int StartTime { get; set; }
-    public int Duration { get; set; }
+    public override string __class { get; } = "SoundSetClip";
     public string SoundSetPath { get; set; } = string.Empty;
     public int SoundChannel { get; set; }
     public int StartOffset { get; set; }

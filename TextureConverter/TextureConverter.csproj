@@ -10,8 +10,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Pfim" Version="0.11.3" />
-	  <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+	  <PackageReference Include="Pfim" Version="0.11.4" />
+	  <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -21,9 +21,5 @@
 	  <None Update="DLLs\TexToolWrap.dll">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
 	</ItemGroup>
 </Project>

@@ -1,3 +1,5 @@
+using JustDanceEditor.Formats.UbiArt.Core;
+using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Logging;
 
 using SixLabors.Fonts;
@@ -8,31 +10,22 @@ using SixLabors.ImageSharp.Processing;
 
 namespace JustDanceEditor.Formats.UbiArt.Images;
 
-public sealed record UbiArtCoverRequest(JDUbiArtSong SongData, string MenuArtFolder);
-
 public static class UbiArtCoverGenerator
 {
-    public static Image<Rgba32>? ExistingCover(UbiArtCoverRequest request)
+    public static Image<Bgra32>? ExistingCover(ConversionContext context)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
-        if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
-            throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
+        JDUbiArtSong song = context.SongData;
 
-        string folder = request.MenuArtFolder;
-        string[] paths =
-        [
-            Path.Combine(folder, "cover.png"),
-            Path.Combine(folder, $"{song.Name}_cover_online.png"),
-            Path.Combine(folder, $"{song.Name}_cover_generic.png")
-        ];
+        string[] paths = [.. context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_*.webp")
+            .OrderBy(path => path.FullPath, StringComparer.OrdinalIgnoreCase)
+            .Select(path => path.FullPath)];
 
         foreach (string path in paths)
         {
             if (!File.Exists(path))
                 continue;
 
-            Image<Rgba32>? image = TryLoadImage(path);
+            Image<Bgra32>? image = TextureConverter.TextureConverter.ConvertToImage(path);
             if (image is null)
                 continue;
 
@@ -50,51 +43,49 @@ public static class UbiArtCoverGenerator
         return null;
     }
 
-    public static Image<Rgba32>? ExistingSongTitleLogo(UbiArtCoverRequest request)
+    public static Image<Bgra32> GenerateOwnCover(ConversionContext context)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
-            throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
+        JDUbiArtSong song = context.SongData;
 
-        return TryLoadImage(Path.Combine(request.MenuArtFolder, "songTitleLogo.png"));
-    }
+        Image<Bgra32> coverImage = GetBackground(context);
 
-    public static Image<Rgba32> GenerateOwnCover(UbiArtCoverRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
+        string? coachFilesCooked = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
+            .Select(path => path.FullPath)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
 
-        Image<Rgba32> coverImage = GetBackground(request);
+        if (coachFilesCooked is not null)
+        {
+            Image<Bgra32> albumCoach = TextureConverter.TextureConverter.ConvertToImage(coachFilesCooked);
 
-        string folder = request.MenuArtFolder;
-        string albumCoachPath = Path.Combine(folder, $"{song.Name}_cover_albumcoach.png");
-        Image<Rgba32>? albumCoach = TryLoadImage(albumCoachPath)
-            ?? TryLoadImage(Path.Combine(folder, $"{song.Name}_Coach_1.png"))
-            ?? new Image<Rgba32>(1024, 1024);
-
-        albumCoach.Mutate(x => x.Resize(1024, 1024));
-        coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
-        albumCoach.Dispose();
+            albumCoach.Mutate(x => x.Resize(1024, 1024));
+            coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+            albumCoach.Dispose();
+        }
+        else
+            Logger.Log($"Album/Coach art not found for song '{song.Name}'.", LogLevel.Warning);
 
         coverImage.Mutate(x => x.Resize(720, 360));
         coverImage.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));
         return coverImage;
     }
 
-    public static Image<Rgba32> GetBackground(UbiArtCoverRequest request)
+    public static Image<Bgra32> GetBackground(ConversionContext context)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
-        if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
-            throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
 
-        string folder = request.MenuArtFolder;
-        Image<Rgba32>? coverImage = TryLoadImage(Path.Combine(folder, $"{song.Name}_map_bkg.png"));
-        coverImage ??= ProcessBanner(request);
+        Image<Bgra32>? coverImage = null;
+        CookedFile? background = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_map_bkg.*")
+            .FirstOrDefault();
+
+        if (background is not null)
+            coverImage ??= TextureConverter.TextureConverter.ConvertToImage(background.FullPath);
+
+        coverImage ??= ProcessBanner(context);
 
         if (coverImage is null)
         {
-            coverImage = new Image<Rgba32>(2048, 1024);
+            coverImage = new Image<Bgra32>(2048, 1024);
             coverImage.Mutate(x => x.BackgroundColor(Color.Magenta));
             Font font = SystemFonts.CreateFont("Segoe UI", 150, FontStyle.Regular);
             coverImage.Mutate(x => x.DrawText("Background not found", font, Color.FloralWhite, new PointF(200, 512)));
@@ -104,41 +95,41 @@ public static class UbiArtCoverGenerator
         return coverImage;
     }
 
-    public static Image<Rgba32>? ProcessBanner(UbiArtCoverRequest request)
+    public static Image<Bgra32>? ProcessBanner(ConversionContext context)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        JDUbiArtSong song = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
-        if (string.IsNullOrWhiteSpace(request.MenuArtFolder))
-            throw new ArgumentException("Menu art folder path is required.", nameof(request.MenuArtFolder));
+        JDUbiArtSong song = context.SongData;
 
-        string path = Path.Combine(request.MenuArtFolder, $"{song.Name}_banner_bkg.png");
-        using Image<Rgba32>? banner = TryLoadImage(path);
-        if (banner is null)
+        CookedFile? background = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_banner_bkg.*")
+            .FirstOrDefault();
+
+        if (background is null)
             return null;
+
+        Image<Bgra32> banner = TextureConverter.TextureConverter.ConvertToImage(background.FullPath);
 
         int width = banner.Width;
         int height = banner.Height;
 
         // Extract colors from SongDesc
         Defaultcolors? colors = song.SongDesc.COMPONENTS.FirstOrDefault()?.DefaultColors;
-        Rgba32 primaryColor = ParseColor(colors?.lyrics, new Rgba32(255, 255, 255, 255));
+        Bgra32 primaryColor = ParseColor(colors?.lyrics, new Bgra32(255, 255, 255, 255));
 
         float boost = song.EngineVersion >= 2019 ? 0.2f : -0.1f;
-        Rgba32 secondaryColor = AdjustBrightness(primaryColor, boost);
+        Bgra32 secondaryColor = AdjustBrightness(primaryColor, boost);
         float[] colorsA = [primaryColor.A / 255f, primaryColor.R / 255f, primaryColor.G / 255f, primaryColor.B / 255f];
         float[] colorsB = [secondaryColor.A / 255f, secondaryColor.R / 255f, secondaryColor.G / 255f, secondaryColor.B / 255f];
 
-        Rgba32 colorA = new((byte)(colorsA[1] * 255), (byte)(colorsA[2] * 255), (byte)(colorsA[3] * 255), (byte)(colorsA[0] * 255));
-        Rgba32 colorB = new((byte)(colorsB[1] * 255), (byte)(colorsB[2] * 255), (byte)(colorsB[3] * 255), (byte)(colorsB[0] * 255));
+        Bgra32 colorA = new((byte)(colorsA[1] * 255), (byte)(colorsA[2] * 255), (byte)(colorsA[3] * 255), (byte)(colorsA[0] * 255));
+        Bgra32 colorB = new((byte)(colorsB[1] * 255), (byte)(colorsB[2] * 255), (byte)(colorsB[3] * 255), (byte)(colorsB[0] * 255));
 
-        Image<Rgba32> resultImage = new(width, height);
+        Image<Bgra32> resultImage = new(width, height);
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                Rgba32 pixel = banner[x, y];
+                Bgra32 pixel = banner[x, y];
                 float weight = pixel.B / 255f;
-                Rgba32 newColor = GetWeightedAverage(colorA, colorB, weight);
+                Bgra32 newColor = GetWeightedAverage(colorA, colorB, weight);
                 newColor = AddGreenChannel(newColor, pixel.G);
                 resultImage[x, y] = newColor;
             }
@@ -146,7 +137,7 @@ public static class UbiArtCoverGenerator
 
         return resultImage;
 
-        static Rgba32 GetWeightedAverage(Rgba32 colorA, Rgba32 colorB, float weight)
+        static Bgra32 GetWeightedAverage(Bgra32 colorA, Bgra32 colorB, float weight)
         {
             return new(
                 (byte)((colorA.R * weight) + (colorB.R * (1 - weight))),
@@ -156,7 +147,7 @@ public static class UbiArtCoverGenerator
             );
         }
 
-        static Rgba32 AddGreenChannel(Rgba32 color, byte greenValue)
+        static Bgra32 AddGreenChannel(Bgra32 color, byte greenValue)
         {
             return new(
                 (byte)Math.Min(color.R + greenValue, byte.MaxValue),
@@ -166,15 +157,7 @@ public static class UbiArtCoverGenerator
         }
     }
 
-    private static Image<Rgba32>? TryLoadImage(string path)
-    {
-        if (!File.Exists(path))
-            return null;
-
-        return Image.Load<Rgba32>(path);
-    }
-
-    private static Rgba32 ParseColor(float[]? colorValues, Rgba32 fallback)
+    private static Bgra32 ParseColor(float[]? colorValues, Bgra32 fallback)
     {
         if (colorValues == null || colorValues.Length < 4)
             return fallback;
@@ -185,7 +168,7 @@ public static class UbiArtCoverGenerator
         // Wait, UnityCoverArtGenerator parsed hex. UbiArt usually stores as float[4].
         // Let's assume R, G, B, A.
 
-        return new Rgba32(
+        return new Bgra32(
             (byte)(colorValues[0] * 255),
             (byte)(colorValues[1] * 255),
             (byte)(colorValues[2] * 255),
@@ -193,11 +176,11 @@ public static class UbiArtCoverGenerator
         );
     }
 
-    private static Rgba32 AdjustBrightness(Rgba32 color, float delta)
+    private static Bgra32 AdjustBrightness(Bgra32 color, float delta)
     {
         static byte Clamp(float value) => (byte)Math.Clamp(value, 0, 255);
         float factor = 1 + delta;
-        return new Rgba32(
+        return new Bgra32(
             Clamp(color.R * factor),
             Clamp(color.G * factor),
             Clamp(color.B * factor),

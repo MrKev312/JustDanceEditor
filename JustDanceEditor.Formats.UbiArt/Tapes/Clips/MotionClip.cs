@@ -1,13 +1,8 @@
 namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-public class MotionClip : IClip
+public sealed record MotionClip : Clip
 {
-    public string __class { get; set; } = "MotionClip";
-    public long Id { get; set; }
-    public long TrackId { get; set; }
-    public int IsActive { get; set; }
-    public int StartTime { get; set; }
-    public int Duration { get; set; }
+    public override string __class { get; } = "MotionClip";
     public string ClassifierPath { get; set; } = string.Empty;
     public int GoldMove { get; set; }
     public int CoachId { get; set; }

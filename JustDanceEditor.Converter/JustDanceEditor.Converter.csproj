@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
@@ -6,30 +6,12 @@
 		<Nullable>enable</Nullable>
 		<RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<PackageReference Include="AssetsTools.NET" Version="3.0.1" />
-		<PackageReference Include="HtmlAgilityPack" Version="1.12.2" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-		<PackageReference Include="Pfim" Version="0.11.3" />
-		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
-		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
-		<PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
-		<PackageReference Include="System.Drawing.Common" Version="9.0.8" />
-		<PackageReference Include="System.Text.Json" Version="9.0.8" />
-		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
-		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
-	</ItemGroup>
-
+	
 	<ItemGroup>
 		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
 		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.Unity\JustDanceEditor.Formats.Unity.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.7.115" />
 	</ItemGroup>
 </Project>

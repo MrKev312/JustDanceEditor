@@ -110,24 +110,24 @@ public class SongDataLoader : ISongDataLoader
         return songData;
     }
 
-    private static IEnumerable<IClip> ExpandClips(IEnumerable<IClip> clips, FileSystem fileSystem, JsonSerializerOptions options)
+    private static IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, FileSystem fileSystem, JsonSerializerOptions options)
     {
         HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
         return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
     }
 
-    private static IEnumerable<IClip> ExpandClipsInternal(
-        IEnumerable<IClip> clips,
+    private static IEnumerable<Clip> ExpandClipsInternal(
+        IEnumerable<Clip> clips,
         FileSystem fileSystem,
         JsonSerializerOptions options,
         HashSet<string> recursionGuard,
         int timeOffset)
     {
-        foreach (IClip clip in clips)
+        foreach (Clip clip in clips)
         {
             if (clip is TapeReferenceClip reference)
             {
-                foreach (IClip nested in LoadReferenceClips(reference, fileSystem, options, recursionGuard, timeOffset))
+                foreach (Clip nested in LoadReferenceClips(reference, fileSystem, options, recursionGuard, timeOffset))
                     yield return nested;
                 continue;
             }
@@ -138,7 +138,7 @@ public class SongDataLoader : ISongDataLoader
         }
     }
 
-    private static IEnumerable<IClip> LoadReferenceClips(
+    private static IEnumerable<Clip> LoadReferenceClips(
         TapeReferenceClip reference,
         FileSystem fileSystem,
         JsonSerializerOptions options,
@@ -166,7 +166,7 @@ public class SongDataLoader : ISongDataLoader
 
             ClipTape tape = JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(tapePath), options)!;
             int offset = parentOffset + reference.StartTime;
-            foreach (IClip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))
+            foreach (Clip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))
                 yield return clip;
         }
         finally

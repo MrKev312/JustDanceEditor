@@ -2,7 +2,7 @@ using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 namespace JustDanceEditor.Formats.UbiArt.Tapes;
 
-public class ClipTape
+public sealed record ClipTape
 {
-    public IClip[] Clips { get; set; } = [];
+    public Clip[] Clips { get; set; } = [];
 }

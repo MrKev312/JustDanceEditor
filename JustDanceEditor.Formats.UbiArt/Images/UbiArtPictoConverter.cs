@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -16,6 +17,8 @@ public sealed record UbiArtPictoConversionRequest(
 
 public static class UbiArtPictoConverter
 {
+    static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
+
     public static void Convert(UbiArtPictoConversionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -34,7 +37,7 @@ public static class UbiArtPictoConverter
 
         ResetDirectory(request.PictoTempFolder);
 
-        Logger.Log($"Found {pictoFiles.Length} raw picto source files to process.");
+        Logger.Log($"Found {pictoFiles.Length} cooked pictograms to process.");
         ProcessAndSaveRawPictoFiles(songData, pictoFiles, request.PictoTempFolder);
 
         stopwatch.Stop();
@@ -50,7 +53,7 @@ public static class UbiArtPictoConverter
 
     private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, string[] pictoFiles, string pictoTempFolder)
     {
-        Logger.Log($"Processing {pictoFiles.Length} raw picto files...");
+        Logger.Log($"Processing {pictoFiles.Length} pictograms...");
         Parallel.For(0, pictoFiles.Length, i =>
         {
             string rawPictoPath = pictoFiles[i];
@@ -67,7 +70,7 @@ public static class UbiArtPictoConverter
                 ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder);
             }
         });
-        Logger.Log("Finished processing raw picto files into temporary PNGs.");
+        Logger.Log("Finished processing pictograms.");
     }
 
     private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, JDUbiArtSong songData, string pictoTempFolder)
@@ -85,7 +88,7 @@ public static class UbiArtPictoConverter
             }));
         }
 
-        pictoImage.Save(Path.Combine(pictoTempFolder, name + ".png"));
+        pictoImage.Save(Path.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
     private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder)

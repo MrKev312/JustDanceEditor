@@ -15,7 +15,7 @@ public class ConversionRequest
     // Folder where the template is located
     public required string TemplatePath { get; set; }
     // Type of export
-    public required ExportType ExportType { get; set; }
+    public ExportType ExportType { get; set; } = ExportType.CustomServer;
     // Should the cover be looked up online
     public bool OnlineCover { get; set; } = true;
     // Name of the song (optional)
