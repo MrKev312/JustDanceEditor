@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
-
 using JustDanceEditor.Formats.JDI.Timelines;
+
+using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.Unity.Models;
 

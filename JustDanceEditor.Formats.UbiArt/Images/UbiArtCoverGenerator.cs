@@ -122,7 +122,7 @@ public static class UbiArtCoverGenerator
         // Extract colors from SongDesc
         Defaultcolors? colors = song.SongDesc.COMPONENTS.FirstOrDefault()?.DefaultColors;
         Rgba32 primaryColor = ParseColor(colors?.lyrics, new Rgba32(255, 255, 255, 255));
-        
+
         float boost = song.EngineVersion >= 2019 ? 0.2f : -0.1f;
         Rgba32 secondaryColor = AdjustBrightness(primaryColor, boost);
         float[] colorsA = [primaryColor.A / 255f, primaryColor.R / 255f, primaryColor.G / 255f, primaryColor.B / 255f];
@@ -184,7 +184,7 @@ public static class UbiArtCoverGenerator
         // Assuming RGBA or ARGB. Let's assume RGBA based on usage in UnityCoverArtGenerator (it parsed hex).
         // Wait, UnityCoverArtGenerator parsed hex. UbiArt usually stores as float[4].
         // Let's assume R, G, B, A.
-        
+
         return new Rgba32(
             (byte)(colorValues[0] * 255),
             (byte)(colorValues[1] * 255),

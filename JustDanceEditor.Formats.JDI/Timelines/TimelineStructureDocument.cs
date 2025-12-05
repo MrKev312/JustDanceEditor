@@ -41,4 +41,3 @@ public class SectionSegment
     public double StartBeat { get; set; }
     public string Comment { get; set; } = string.Empty;
 }
-

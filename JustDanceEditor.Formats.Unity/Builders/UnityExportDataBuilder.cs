@@ -34,10 +34,10 @@ public static class UnityExportDataBuilder
             Title = metadata.Title ?? string.Empty,
         };
 
-        string name = string.IsNullOrWhiteSpace(metadata.MapName) 
-            ? metadata.Title ?? string.Empty 
+        string name = string.IsNullOrWhiteSpace(metadata.MapName)
+            ? metadata.Title ?? string.Empty
             : metadata.MapName;
-        
+
         if (string.IsNullOrWhiteSpace(name))
             name = "Song";
 
@@ -69,7 +69,7 @@ public static class UnityExportDataBuilder
             foreach (CoachTimelineClip clip in timeline.Clips.OrderBy(c => c.StartTime))
             {
                 CoachMoveDefinition? definition = FindMoveDefinition(package, clip.MoveId, moveType);
-                
+
                 if (definition == null)
                     Logging.Logger.Log($"Move definition not found for move ID '{clip.MoveId}' (Coach ID: {timeline.CoachId}). Using default duration.", Logging.LogLevel.Warning);
 
@@ -107,10 +107,10 @@ public static class UnityExportDataBuilder
         if (definition != null)
             return definition;
 
-        CoachMoveType alternate = preferredType == CoachMoveType.FullBodyTracking 
-            ? CoachMoveType.HandTracking 
+        CoachMoveType alternate = preferredType == CoachMoveType.FullBodyTracking
+            ? CoachMoveType.HandTracking
             : CoachMoveType.FullBodyTracking;
-        
+
         return TryLookupMoveDefinition(package, moveId, alternate);
     }
 

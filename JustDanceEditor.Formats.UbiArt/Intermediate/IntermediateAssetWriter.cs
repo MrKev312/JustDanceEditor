@@ -74,7 +74,7 @@ internal static class IntermediateAssetWriter
     {
         CookedFile[] pictoFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.PictosFolder);
         string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
-        
+
         UbiArtPictoConversionRequest request = new(
             context.SongData,
             pictoPaths,
@@ -120,7 +120,7 @@ internal static class IntermediateAssetWriter
     private static string? ExportCoverImage(ConversionContext context, string destination)
     {
         UbiArtCoverRequest coverRequest = new(context.SongData, context.FileSystem.TempFolders.MenuArtFolder);
-        
+
         // Note: Online cover fetching removed for now to avoid external dependencies in core format logic.
         // Can be re-added if needed via a service.
         using Image<Rgba32>? cover = UbiArtCoverGenerator.ExistingCover(coverRequest)

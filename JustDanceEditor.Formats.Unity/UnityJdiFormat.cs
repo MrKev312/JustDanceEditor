@@ -58,44 +58,44 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
         await converter.ConvertAsync();
     }
 
-        private static string DetermineSongName(ConversionRequest request, IntermediateSongPackage package)
-        {
-            if (!string.IsNullOrWhiteSpace(package.Metadata.MapName))
-                return SanitizePathSegment(package.Metadata.MapName);
-            if (!string.IsNullOrWhiteSpace(request.SongName))
-                return SanitizePathSegment(request.SongName);
+    private static string DetermineSongName(ConversionRequest request, IntermediateSongPackage package)
+    {
+        if (!string.IsNullOrWhiteSpace(package.Metadata.MapName))
+            return SanitizePathSegment(package.Metadata.MapName);
+        if (!string.IsNullOrWhiteSpace(request.SongName))
+            return SanitizePathSegment(request.SongName);
+        return "UnitySong";
+    }
+
+    private static void PrepareMaterializedDirectory(string materializedRoot)
+    {
+        if (Directory.Exists(materializedRoot))
+            Directory.Delete(materializedRoot, true);
+        Directory.CreateDirectory(materializedRoot);
+    }
+
+    private static string BuildSuggestedOutputFolder(ConversionRequest request, string songName)
+    {
+        string baseOutput = string.IsNullOrWhiteSpace(request.OutputPath)
+            ? Path.Combine(Path.GetTempPath(), "JustDanceEditor", "Exports")
+            : request.OutputPath;
+        return Path.Combine(baseOutput, songName);
+    }
+
+    private static string SanitizePathSegment(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
             return "UnitySong";
-        }
 
-        private static void PrepareMaterializedDirectory(string materializedRoot)
+        char[] invalid = Path.GetInvalidFileNameChars();
+        char[] chars = value.Trim().ToCharArray();
+        for (int i = 0; i < chars.Length; i++)
         {
-            if (Directory.Exists(materializedRoot))
-                Directory.Delete(materializedRoot, true);
-            Directory.CreateDirectory(materializedRoot);
+            if (Array.IndexOf(invalid, chars[i]) >= 0)
+                chars[i] = '_';
         }
 
-        private static string BuildSuggestedOutputFolder(ConversionRequest request, string songName)
-        {
-            string baseOutput = string.IsNullOrWhiteSpace(request.OutputPath)
-                ? Path.Combine(Path.GetTempPath(), "JustDanceEditor", "Exports")
-                : request.OutputPath;
-            return Path.Combine(baseOutput, songName);
-        }
-
-        private static string SanitizePathSegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "UnitySong";
-
-            char[] invalid = Path.GetInvalidFileNameChars();
-            char[] chars = value.Trim().ToCharArray();
-            for (int i = 0; i < chars.Length; i++)
-            {
-                if (Array.IndexOf(invalid, chars[i]) >= 0)
-                    chars[i] = '_';
-            }
-
-            string sanitized = new string(chars).Trim();
-            return string.IsNullOrWhiteSpace(sanitized) ? "UnitySong" : sanitized;
-        }
+        string sanitized = new string(chars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "UnitySong" : sanitized;
+    }
 }
