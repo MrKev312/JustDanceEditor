@@ -81,22 +81,8 @@ public class OnlineSongDesc
     }
 }
 
-// TODO: check wtf? This is from Unity why it here???
+// TODO: check wtf? Is there stuff missing?
 public class Assets
 {
-    public string audioPreviewopus { get; set; } = string.Empty;
-    public string videoPreview_HIGHvp8webm { get; set; } = string.Empty;
     public string videoPreview_HIGHvp9webm { get; set; } = string.Empty;
-    public string videoPreview_LOWvp8webm { get; set; } = string.Empty;
-    public string videoPreview_LOWvp9webm { get; set; } = string.Empty;
-    public string videoPreview_MIDvp8webm { get; set; } = string.Empty;
-    public string videoPreview_MIDvp9webm { get; set; } = string.Empty;
-    public string videoPreview_ULTRAvp8webm { get; set; } = string.Empty;
-    public string videoPreview_ULTRAvp9webm { get; set; } = string.Empty;
-    public string coachesLarge { get; set; } = string.Empty;
-    public string coachesSmall { get; set; } = string.Empty;
-    public string cover { get; set; } = string.Empty;
-    public string cover1024 { get; set; } = string.Empty;
-    public string coverSmall { get; set; } = string.Empty;
-    public string songTitleLogo { get; set; } = string.Empty;
 }

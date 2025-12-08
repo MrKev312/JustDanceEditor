@@ -45,8 +45,6 @@ internal static class IntermediatePackageBuilder
             Pictograms = BuildPictogramDocument(context),
             GoldEffects = BuildGoldEffectDocument(context),
             HideUserInterface = BuildHideUserInterfaceDocument(context),
-            //Vibrations = BuildVibrationDocument(context), TODO: finish vibration clip support
-            Vibrations = new(),
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,

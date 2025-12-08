@@ -7,7 +7,9 @@ public enum ExportType
 }
 
 // TODO: Entirely rethink this class, it has Unity and UbiArt specific stuff in it
-// which breaks the separation of concerns
+// which breaks the separation of concerns. Maybe tie in the UI layer more closely
+// by having both formats have their own specific request types that are filled in
+// by the UI layer.
 public class ConversionRequest
 {
     // Folder where the input files are located

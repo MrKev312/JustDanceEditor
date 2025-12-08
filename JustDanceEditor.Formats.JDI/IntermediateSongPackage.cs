@@ -11,7 +11,6 @@ public class IntermediateSongPackage
     public Timeline<PictogramClip> Pictograms { get; init; } = new();
     public Timeline<GoldEffectClip> GoldEffects { get; init; } = new();
     public Timeline<HideUserInterfaceClip> HideUserInterface { get; init; } = new();
-    public Timeline<VibrationClip> Vibrations { get; init; } = new();
     public List<MoveTimeline> CoachTimelines { get; init; } = [];
     public List<MoveTimeline> FullBodyCoachTimelines { get; init; } = [];
     public Dictionary<string, CoachMoveDefinition> HandCoachMoves { get; init; } =

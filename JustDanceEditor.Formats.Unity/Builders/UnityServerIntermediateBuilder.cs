@@ -68,7 +68,6 @@ internal static partial class UnityServerIntermediateBuilder
                 GoldEffects = BuildGoldEffectDocument(mapBehaviourBase),
                 HideUserInterface = BuildHideUserInterfaceDocument(mapBehaviourBase),
 
-                Vibrations = new(), // Vibration clips don't exist in Unity
                 CoachTimelines = handTimelines,
                 FullBodyCoachTimelines = fullBodyTimelines,
                 HandCoachMoves = handMoves,

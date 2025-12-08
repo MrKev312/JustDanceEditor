@@ -50,6 +50,10 @@ public sealed class ConsoleVideoProgress(string name) : IVideoConversionProgress
     }
 }
 
+// TODO: Rewrite this such that it's a part of the JDI format project. Remove the preview audio/video generation from here.
+// And only generate these when exporting to Unity. ALSO put them in the output/scratch/video/(video/previewVideo). Put the
+// VideoQualityProfile definitions in there too and have the JDI function take in an array. Put them in the scratch folder
+// with like a little manifest such that it's known which qualities are cached and can simply be copied over.
 public static class UbiArtVideoConverter
 {
     // --- Configuration Profiles ---

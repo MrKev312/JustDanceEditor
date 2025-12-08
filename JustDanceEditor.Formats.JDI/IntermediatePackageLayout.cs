@@ -12,7 +12,6 @@ public static class IntermediatePackageLayout
         public const string PictogramsFile = "timelines/pictograms.json";
         public const string GoldEffectsFile = "timelines/gold_effects.json";
         public const string HideUserInterfaceFile = "timelines/hide_user_interface.json";
-        public const string VibrationsFile = "timelines/vibrations.json";
         public const string HandMovesFile = "timelines/coach_moves_hand.json";
         public const string FullBodyMovesFile = "timelines/coach_moves_fullBody.json";
         public const string CoachPattern = "coach_*.json";

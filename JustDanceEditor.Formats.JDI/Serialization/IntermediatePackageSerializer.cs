@@ -30,7 +30,6 @@ public static class IntermediatePackageSerializer
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.PictogramsFile), package.Pictograms);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.GoldEffectsFile), package.GoldEffects);
         WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile), package.HideUserInterface);
-        WriteDocument(Resolve(targetFolder, IntermediatePackageLayout.Timelines.VibrationsFile), package.Vibrations);
 
         WriteCoachTimelines(targetFolder, package.CoachTimelines, isFullBody: false);
         WriteCoachTimelines(targetFolder, package.FullBodyCoachTimelines, isFullBody: true);
@@ -50,8 +49,7 @@ public static class IntermediatePackageSerializer
             Lyrics = ReadDocument<Timeline<KaraokeClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.LyricsFile)),
             Pictograms = ReadDocument<Timeline<PictogramClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
             GoldEffects = ReadDocumentOrDefault<Timeline<GoldEffectClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.GoldEffectsFile)),
-            HideUserInterface = ReadDocumentOrDefault<Timeline<HideUserInterfaceClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile)),
-            Vibrations = ReadDocumentOrDefault<Timeline<VibrationClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.VibrationsFile))
+            HideUserInterface = ReadDocumentOrDefault<Timeline<HideUserInterfaceClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile))
         };
 
         LoadCoachTimelinesInto(package.CoachTimelines, folder, isFullBody: false);
