@@ -5,8 +5,16 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-using IntermediateKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
+using JDIKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
 using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.KaraokeClip;
+using JDIPictogramClip = JustDanceEditor.Formats.JDI.Timelines.PictogramClip;
+using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.PictogramClip;
+using JDIGoldEffectClip = JustDanceEditor.Formats.JDI.Timelines.GoldEffectClip;
+using UbiArtGoldEffectClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.GoldEffectClip;
+using JDIHideUserInterfaceClip = JustDanceEditor.Formats.JDI.Timelines.HideUserInterfaceClip;
+using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.HideUserInterfaceClip;
+using JDIVibrationClip = JustDanceEditor.Formats.JDI.Timelines.VibrationClip;
+using UbiArtVibrationClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.VibrationClip;
 
 namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
@@ -23,8 +31,8 @@ internal static class IntermediatePackageBuilder
         TimelineMath timelineMath = new(structure);
 
         (
-            List<CoachTimelineDocument> coachTimelines,
-            List<CoachTimelineDocument> fullBodyTimelines,
+            List<MoveTimeline> coachTimelines,
+            List<MoveTimeline> fullBodyTimelines,
             Dictionary<string, CoachMoveDefinition> handMoves,
             Dictionary<string, CoachMoveDefinition> fullBodyMoves) =
             BuildCoachTimelines(context, timelineMath);
@@ -37,7 +45,8 @@ internal static class IntermediatePackageBuilder
             Pictograms = BuildPictogramDocument(context),
             GoldEffects = BuildGoldEffectDocument(context),
             HideUserInterface = BuildHideUserInterfaceDocument(context),
-            Vibrations = BuildVibrationDocument(context),
+            //Vibrations = BuildVibrationDocument(context), TODO: finish vibration clip support
+            Vibrations = new(),
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
@@ -94,7 +103,7 @@ internal static class IntermediatePackageBuilder
             PreviewLoopStartBeat = structure.previewLoopStart,
             PreviewLoopEndBeat = structure.previewLoopEnd,
             PrevewDuration = structure.previewDuration,
-            Markers = [.. structure.markers.Select(m => (int)Math.Round(timelineMath.ToBeat(m)))]
+            Markers = [.. structure.markers]
         };
 
         if (structure.signatures is { Length: > 0 })
@@ -132,13 +141,13 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static LyricsTimelineDocument BuildLyricsDocument(ConversionContext context)
+    private static Timeline<JDIKaraokeClip> BuildLyricsDocument(ConversionContext context)
     {
-        LyricsTimelineDocument document = new();
+        Timeline<JDIKaraokeClip> document = new();
 
         foreach (UbiArtKaraokeClip clip in context.SongData.Clips.OfType<UbiArtKaraokeClip>().OrderBy(c => c.StartTime))
         {
-            IntermediateKaraokeClip entry = new()
+            JDIKaraokeClip entry = new()
             {
                 Id = clip.Id,
                 StartTime = clip.StartTime,
@@ -165,13 +174,13 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static PictogramTimelineDocument BuildPictogramDocument(ConversionContext context)
+    private static Timeline<JDIPictogramClip> BuildPictogramDocument(ConversionContext context)
     {
-        PictogramTimelineDocument document = new();
+        Timeline<JDIPictogramClip> document = new();
 
-        foreach (PictogramClip clip in context.SongData.Clips.OfType<PictogramClip>().OrderBy(c => c.StartTime))
+        foreach (UbiArtPictogramClip clip in context.SongData.Clips.OfType<UbiArtPictogramClip>().OrderBy(c => c.StartTime))
         {
-            document.Entries.Add(new PictogramEntry
+            document.Clips.Add(new JDIPictogramClip
             {
                 Id = clip.Id,
                 StartTime = clip.StartTime,
@@ -184,13 +193,13 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static GoldEffectTimelineDocument BuildGoldEffectDocument(ConversionContext context)
+    private static Timeline<JDIGoldEffectClip> BuildGoldEffectDocument(ConversionContext context)
     {
-        GoldEffectTimelineDocument document = new();
+        Timeline<JDIGoldEffectClip> document = new();
 
-        foreach (GoldEffectClip clip in context.SongData.Clips.OfType<GoldEffectClip>().OrderBy(c => c.StartTime))
+        foreach (UbiArtGoldEffectClip clip in context.SongData.Clips.OfType<UbiArtGoldEffectClip>().OrderBy(c => c.StartTime))
         {
-            document.Clips.Add(new GoldEffectTimelineClip
+            document.Clips.Add(new JDIGoldEffectClip
             {
                 Id = clip.Id,
                 TrackId = clip.TrackId,
@@ -204,13 +213,13 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(ConversionContext context)
+    private static Timeline<JDIHideUserInterfaceClip> BuildHideUserInterfaceDocument(ConversionContext context)
     {
-        HideUserInterfaceTimelineDocument document = new();
+        Timeline<JDIHideUserInterfaceClip> document = new();
 
-        foreach (HideUserInterfaceClip clip in context.SongData.Clips.OfType<HideUserInterfaceClip>().OrderBy(c => c.StartTime))
+        foreach (UbiArtHideUserInterfaceClip clip in context.SongData.Clips.OfType<UbiArtHideUserInterfaceClip>().OrderBy(c => c.StartTime))
         {
-            document.Clips.Add(new HideUserInterfaceTimelineClip
+            document.Clips.Add(new JDIHideUserInterfaceClip
             {
                 Id = clip.Id,
                 IsActive = clip.IsActive > 0,
@@ -222,13 +231,13 @@ internal static class IntermediatePackageBuilder
         return document;
     }
 
-    private static VibrationTimelineDocument BuildVibrationDocument(ConversionContext context)
+    private static Timeline<JDIVibrationClip> BuildVibrationDocument(ConversionContext context)
     {
-        VibrationTimelineDocument document = new();
+        Timeline<JDIVibrationClip> document = new();
 
-        foreach (VibrationClip clip in context.SongData.Clips.OfType<VibrationClip>().OrderBy(c => c.StartTime))
+        foreach (UbiArtVibrationClip clip in context.SongData.Clips.OfType<UbiArtVibrationClip>().OrderBy(c => c.StartTime))
         {
-            document.Clips.Add(new VibrationTimelineClip
+            document.Clips.Add(new JDIVibrationClip
             {
                 Id = clip.Id,
                 TrackId = clip.TrackId,
@@ -242,13 +251,13 @@ internal static class IntermediatePackageBuilder
     }
 
     private static (
-        List<CoachTimelineDocument> HandTracking,
-        List<CoachTimelineDocument> FullBodyTracking,
+        List<MoveTimeline> HandTracking,
+        List<MoveTimeline> FullBodyTracking,
         Dictionary<string, CoachMoveDefinition> HandMoves,
         Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(ConversionContext context, TimelineMath timelineMath)
     {
-        Dictionary<int, CoachTimelineDocument> handTimelines = [];
-        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
+        Dictionary<int, MoveTimeline> handTimelines = [];
+        Dictionary<int, MoveTimeline> fullBodyTimelines = [];
         Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
 
@@ -258,18 +267,18 @@ internal static class IntermediatePackageBuilder
                 continue;
 
             bool isFullBody = clip.MoveType == 1;
-            Dictionary<int, CoachTimelineDocument> target = isFullBody ? fullBodyTimelines : handTimelines;
+            Dictionary<int, MoveTimeline> target = isFullBody ? fullBodyTimelines : handTimelines;
             Dictionary<string, CoachMoveDefinition> moveCatalog = isFullBody ? fullBodyMoves : handMoves;
 
-            if (!target.TryGetValue(clip.CoachId, out CoachTimelineDocument? timeline))
+            if (!target.TryGetValue(clip.CoachId, out MoveTimeline? timeline))
             {
-                timeline = new CoachTimelineDocument { CoachId = clip.CoachId };
+                timeline = new MoveTimeline { CoachId = clip.CoachId };
                 target[clip.CoachId] = timeline;
             }
 
             string moveId = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
-            timeline.Clips.Add(new CoachTimelineClip
+            timeline.Clips.Add(new MoveClip
             {
                 Id = clip.Id,
                 StartTime = clip.StartTime,

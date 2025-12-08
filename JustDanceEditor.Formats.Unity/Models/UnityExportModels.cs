@@ -7,17 +7,17 @@ public sealed class UnityExportData(
     ServerSongJSON metadata,
     TimelineStructureDocument structure,
     IReadOnlyList<KaraokeClip> karaokeClips,
-    IReadOnlyList<PictogramEntry> pictogramClips,
-    IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> motionClips,
-    IReadOnlyList<GoldEffectTimelineClip> goldEffectClips,
-    IReadOnlyList<HideUserInterfaceTimelineClip> hideHudClips)
+    IReadOnlyList<PictogramClip> pictogramClips,
+    IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> motionClips,
+    IReadOnlyList<GoldEffectClip> goldEffectClips,
+    IReadOnlyList<HideUserInterfaceClip> hideHudClips)
 {
     public string Name { get; } = name;
     public ServerSongJSON Metadata { get; } = metadata;
     public TimelineStructureDocument Structure { get; } = structure;
     public IReadOnlyList<KaraokeClip> KaraokeClips { get; } = karaokeClips;
-    public IReadOnlyList<PictogramEntry> PictogramClips { get; } = pictogramClips;
-    public IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> MotionClips { get; } = motionClips;
-    public IReadOnlyList<GoldEffectTimelineClip> GoldEffectClips { get; } = goldEffectClips;
-    public IReadOnlyList<HideUserInterfaceTimelineClip> HideHudClips { get; } = hideHudClips;
+    public IReadOnlyList<PictogramClip> PictogramClips { get; } = pictogramClips;
+    public IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> MotionClips { get; } = motionClips;
+    public IReadOnlyList<GoldEffectClip> GoldEffectClips { get; } = goldEffectClips;
+    public IReadOnlyList<HideUserInterfaceClip> HideHudClips { get; } = hideHudClips;
 }

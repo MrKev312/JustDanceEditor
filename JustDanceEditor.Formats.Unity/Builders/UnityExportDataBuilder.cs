@@ -44,7 +44,7 @@ public static class UnityExportDataBuilder
             exportMetadata,
             package.TimelineStructure ?? new(),
             BuildOrderedClips(package.Lyrics?.Clips),
-            BuildOrderedClips(package.Pictograms?.Entries),
+            BuildOrderedClips(package.Pictograms?.Clips),
             BuildMotionClips(package),
             BuildOrderedClips(package.GoldEffects?.Clips),
             BuildOrderedClips(package.HideUserInterface?.Clips));
@@ -55,16 +55,16 @@ public static class UnityExportDataBuilder
         return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
     }
 
-    private static IReadOnlyList<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> BuildMotionClips(IntermediateSongPackage package)
+    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> BuildMotionClips(IntermediateSongPackage package)
     {
         if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
             return [];
 
-        List<(CoachTimelineClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> clips = [];
+        List<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> clips = [];
 
-        foreach ((CoachTimelineDocument timeline, CoachMoveType moveType) in EnumerateCoachTimelines(package).OrderBy(entry => entry.Timeline.CoachId))
+        foreach ((MoveTimeline timeline, CoachMoveType moveType) in EnumerateCoachTimelines(package).OrderBy(entry => entry.Timeline.CoachId))
         {
-            foreach (CoachTimelineClip clip in timeline.Clips.OrderBy(c => c.StartTime))
+            foreach (MoveClip clip in timeline.Clips.OrderBy(c => c.StartTime))
             {
                 CoachMoveDefinition? definition = FindMoveDefinition(package, clip.MoveId, moveType);
 
@@ -81,17 +81,17 @@ public static class UnityExportDataBuilder
         return clips;
     }
 
-    private static IEnumerable<(CoachTimelineDocument Timeline, CoachMoveType MoveType)> EnumerateCoachTimelines(IntermediateSongPackage package)
+    private static IEnumerable<(MoveTimeline Timeline, CoachMoveType MoveType)> EnumerateCoachTimelines(IntermediateSongPackage package)
     {
         if (package.CoachTimelines != null)
         {
-            foreach (CoachTimelineDocument timeline in package.CoachTimelines)
+            foreach (MoveTimeline timeline in package.CoachTimelines)
                 yield return (timeline, CoachMoveType.HandTracking);
         }
 
         if (package.FullBodyCoachTimelines != null)
         {
-            foreach (CoachTimelineDocument timeline in package.FullBodyCoachTimelines)
+            foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
                 yield return (timeline, CoachMoveType.FullBodyTracking);
         }
     }

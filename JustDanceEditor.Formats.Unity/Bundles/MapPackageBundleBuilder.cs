@@ -570,7 +570,7 @@ public static class MapPackageBundleBuilder
 
         int coachCount = Math.Max(1, request.UnityData.Metadata.CoachCount);
 
-        foreach (GoldEffectTimelineClip gold in request.UnityData.GoldEffectClips.OrderBy(c => c.StartTime))
+        foreach (GoldEffectClip gold in request.UnityData.GoldEffectClips.OrderBy(c => c.StartTime))
         {
             AssetTypeValueField newGold = ValueBuilder.DefaultValueFieldFromArrayTemplate(goldEffectClipsArray);
             newGold["StartTime"].AsInt = gold.StartTime;
@@ -582,7 +582,7 @@ public static class MapPackageBundleBuilder
             goldEffectClipsArray.Children.Add(newGold);
         }
 
-        foreach (PictogramEntry picto in request.UnityData.PictogramClips.OrderBy(c => c.StartTime))
+        foreach (PictogramClip picto in request.UnityData.PictogramClips.OrderBy(c => c.StartTime))
         {
             AssetTypeValueField newPicto = ValueBuilder.DefaultValueFieldFromArrayTemplate(pictoClipsArray);
             string pictoName = string.IsNullOrWhiteSpace(picto.PictogramId) ? $"picto_{picto.Id}" : picto.PictogramId;
@@ -605,7 +605,7 @@ public static class MapPackageBundleBuilder
             pictoClipsArray.Children.Add(newPicto);
         }
 
-        foreach ((CoachTimelineClip clip, int coachId, long trackId, int moveType, int duration) in request.UnityData.MotionClips.OrderBy(m => m.Clip.StartTime))
+        foreach ((MoveClip clip, int coachId, long trackId, int moveType, int duration) in request.UnityData.MotionClips.OrderBy(m => m.Clip.StartTime))
         {
             if (coachId < 0 || coachId >= coachCount)
                 continue;
@@ -628,7 +628,7 @@ public static class MapPackageBundleBuilder
             motionClipsArray.Children.Add(newMotion);
         }
 
-        foreach (HideUserInterfaceTimelineClip hideHud in request.UnityData.HideHudClips.OrderBy(c => c.StartTime))
+        foreach (HideUserInterfaceClip hideHud in request.UnityData.HideHudClips.OrderBy(c => c.StartTime))
         {
             AssetTypeValueField newHideHud = ValueBuilder.DefaultValueFieldFromArrayTemplate(hideHudClipsArray);
             newHideHud["StartTime"].AsInt = hideHud.StartTime;

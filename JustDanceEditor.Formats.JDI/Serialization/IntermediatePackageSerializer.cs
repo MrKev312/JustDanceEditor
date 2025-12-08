@@ -47,11 +47,11 @@ public static class IntermediatePackageSerializer
         {
             Metadata = ReadDocument<IntermediateMetadata>(Resolve(folder, IntermediatePackageLayout.MetadataFile)),
             TimelineStructure = ReadDocument<TimelineStructureDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.StructureFile)),
-            Lyrics = ReadDocument<LyricsTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.LyricsFile)),
-            Pictograms = ReadDocument<PictogramTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
-            GoldEffects = ReadDocumentOrDefault<GoldEffectTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.GoldEffectsFile)),
-            HideUserInterface = ReadDocumentOrDefault<HideUserInterfaceTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile)),
-            Vibrations = ReadDocumentOrDefault<VibrationTimelineDocument>(Resolve(folder, IntermediatePackageLayout.Timelines.VibrationsFile))
+            Lyrics = ReadDocument<Timeline<KaraokeClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.LyricsFile)),
+            Pictograms = ReadDocument<Timeline<PictogramClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.PictogramsFile)),
+            GoldEffects = ReadDocumentOrDefault<Timeline<GoldEffectClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.GoldEffectsFile)),
+            HideUserInterface = ReadDocumentOrDefault<Timeline<HideUserInterfaceClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.HideUserInterfaceFile)),
+            Vibrations = ReadDocumentOrDefault<Timeline<VibrationClip>>(Resolve(folder, IntermediatePackageLayout.Timelines.VibrationsFile))
         };
 
         LoadCoachTimelinesInto(package.CoachTimelines, folder, isFullBody: false);
@@ -71,9 +71,9 @@ public static class IntermediatePackageSerializer
         Directory.CreateDirectory(folder);
     }
 
-    private static void WriteCoachTimelines(string root, List<CoachTimelineDocument> documents, bool isFullBody)
+    private static void WriteCoachTimelines(string root, List<MoveTimeline> documents, bool isFullBody)
     {
-        foreach (CoachTimelineDocument document in documents.OrderBy(doc => doc.CoachId))
+        foreach (MoveTimeline document in documents.OrderBy(doc => doc.CoachId))
         {
             string relative = isFullBody
                 ? IntermediatePackageLayout.Timelines.FullBodyCoachTimelineFile(document.CoachId)
@@ -82,7 +82,7 @@ public static class IntermediatePackageSerializer
         }
     }
 
-    private static void LoadCoachTimelinesInto(List<CoachTimelineDocument> target, string root, bool isFullBody)
+    private static void LoadCoachTimelinesInto(List<MoveTimeline> target, string root, bool isFullBody)
     {
         string folder = Resolve(root, IntermediatePackageLayout.Timelines.Folder);
         if (!Directory.Exists(folder))
@@ -98,7 +98,7 @@ public static class IntermediatePackageSerializer
 
         foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
         {
-            CoachTimelineDocument document = ReadDocument<CoachTimelineDocument>(file);
+            MoveTimeline document = ReadDocument<MoveTimeline>(file);
             target.Add(document);
         }
     }

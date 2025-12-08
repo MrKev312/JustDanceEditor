@@ -51,8 +51,8 @@ internal static partial class UnityServerIntermediateBuilder
 
             // 4. Parse Motion/Coach Data directly into JDI models
             (
-                List<CoachTimelineDocument> handTimelines,
-                List<CoachTimelineDocument> fullBodyTimelines,
+                List<MoveTimeline> handTimelines,
+                List<MoveTimeline> fullBodyTimelines,
                 Dictionary<string, CoachMoveDefinition> handMoves,
                 Dictionary<string, CoachMoveDefinition> fullBodyMoves
             ) = BuildCoachTimelinesAndMoves(mapBehaviourBase);
@@ -119,9 +119,9 @@ internal static partial class UnityServerIntermediateBuilder
         return (musicTrack, mapBehaviour);
     }
 
-    private static LyricsTimelineDocument BuildLyricsDocument(AssetTypeValueField mapBehaviour)
+    private static Timeline<KaraokeClip> BuildLyricsDocument(AssetTypeValueField mapBehaviour)
     {
-        LyricsTimelineDocument document = new();
+        Timeline<KaraokeClip> document = new();
         AssetTypeValueField clipsArray = mapBehaviour["KaraokeData"]["Clips"]["Array"];
 
         // Helper to safely enumerate
@@ -167,14 +167,14 @@ internal static partial class UnityServerIntermediateBuilder
         };
     }
 
-    private static PictogramTimelineDocument BuildPictogramDocument(AssetTypeValueField mapBehaviour)
+    private static Timeline<PictogramClip> BuildPictogramDocument(AssetTypeValueField mapBehaviour)
     {
-        PictogramTimelineDocument document = new();
+        Timeline<PictogramClip> document = new();
         AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["PictoClips"]["Array"];
 
         foreach (AssetTypeValueField entry in Enumerate(clipsArray))
         {
-            document.Entries.Add(new PictogramEntry
+            document.Clips.Add(new PictogramClip
             {
                 Id = entry["Id"].AsLong,
                 StartTime = entry["StartTime"].AsInt,
@@ -184,18 +184,18 @@ internal static partial class UnityServerIntermediateBuilder
             });
         }
 
-        document.Entries.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        document.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
         return document;
     }
 
-    private static GoldEffectTimelineDocument BuildGoldEffectDocument(AssetTypeValueField mapBehaviour)
+    private static Timeline<GoldEffectClip> BuildGoldEffectDocument(AssetTypeValueField mapBehaviour)
     {
-        GoldEffectTimelineDocument document = new();
+        Timeline<GoldEffectClip> document = new();
         AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["GoldEffectClips"]["Array"];
 
         foreach (AssetTypeValueField entry in Enumerate(clipsArray))
         {
-            document.Clips.Add(new GoldEffectTimelineClip
+            document.Clips.Add(new GoldEffectClip
             {
                 Id = entry["Id"].AsLong,
                 TrackId = entry["TrackId"].AsLong,
@@ -210,14 +210,14 @@ internal static partial class UnityServerIntermediateBuilder
         return document;
     }
 
-    private static HideUserInterfaceTimelineDocument BuildHideUserInterfaceDocument(AssetTypeValueField mapBehaviour)
+    private static Timeline<HideUserInterfaceClip> BuildHideUserInterfaceDocument(AssetTypeValueField mapBehaviour)
     {
-        HideUserInterfaceTimelineDocument document = new();
+        Timeline<HideUserInterfaceClip> document = new();
         AssetTypeValueField clipsArray = mapBehaviour["DanceData"]["HideHudClips"]["Array"];
 
         foreach (AssetTypeValueField entry in Enumerate(clipsArray))
         {
-            document.Clips.Add(new HideUserInterfaceTimelineClip
+            document.Clips.Add(new HideUserInterfaceClip
             {
                 IsActive = entry["IsActive"].AsUInt > 0,
                 StartTime = entry["StartTime"].AsInt,
@@ -230,13 +230,13 @@ internal static partial class UnityServerIntermediateBuilder
     }
 
     private static (
-        List<CoachTimelineDocument> HandTracking,
-        List<CoachTimelineDocument> FullBodyTracking,
+        List<MoveTimeline> HandTracking,
+        List<MoveTimeline> FullBodyTracking,
         Dictionary<string, CoachMoveDefinition> HandMoves,
         Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour)
     {
-        Dictionary<int, CoachTimelineDocument> handTimelines = [];
-        Dictionary<int, CoachTimelineDocument> fullBodyTimelines = [];
+        Dictionary<int, MoveTimeline> handTimelines = [];
+        Dictionary<int, MoveTimeline> fullBodyTimelines = [];
         Dictionary<string, CoachMoveDefinition> handMoves = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, CoachMoveDefinition> fullBodyMoves = new(StringComparer.OrdinalIgnoreCase);
 
@@ -252,14 +252,14 @@ internal static partial class UnityServerIntermediateBuilder
             int moveTypeRaw = entry["MoveType"].AsInt;
             bool isFullBody = moveTypeRaw == 1;
 
-            Dictionary<int, CoachTimelineDocument> timelines = isFullBody ? fullBodyTimelines : handTimelines;
+            Dictionary<int, MoveTimeline> timelines = isFullBody ? fullBodyTimelines : handTimelines;
             Dictionary<string, CoachMoveDefinition> moveCatalog = isFullBody ? fullBodyMoves : handMoves;
 
             // Get Coach Document
             int coachId = entry["CoachId"].AsInt;
-            if (!timelines.TryGetValue(coachId, out CoachTimelineDocument? doc))
+            if (!timelines.TryGetValue(coachId, out MoveTimeline? doc))
             {
-                doc = new CoachTimelineDocument { CoachId = coachId };
+                doc = new MoveTimeline { CoachId = coachId };
                 timelines[coachId] = doc;
             }
 
@@ -272,7 +272,7 @@ internal static partial class UnityServerIntermediateBuilder
             string moveName = entry["MoveName"].AsString;
             string moveId = (moveName ?? string.Empty).ToLowerInvariant();
 
-            CoachTimelineClip timelineClip = new()
+            MoveClip timelineClip = new()
             {
                 Id = entry["Id"].AsLong,
                 StartTime = startTime,

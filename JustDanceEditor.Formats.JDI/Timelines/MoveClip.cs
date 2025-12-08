@@ -2,18 +2,17 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.JDI.Timelines;
 
-public class CoachTimelineDocument
-{
-    public int CoachId { get; set; }
-    public long TrackId { get; set; }
-    public List<CoachTimelineClip> Clips { get; set; } = [];
-}
-
-public class CoachTimelineClip : TimelineClipBase
+public class MoveClip : TimelineClipBase
 {
     public string MoveId { get; set; } = string.Empty;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsGoldMove { get; set; } = false;
+}
+
+public class MoveTimeline : Timeline<MoveClip>
+{
+    public int CoachId { get; set; }
+    public long TrackId { get; set; }
 }
 
 public class CoachMoveDefinition
