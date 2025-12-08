@@ -352,7 +352,7 @@ internal static partial class UnityServerIntermediateBuilder
             PreviewLoopStartBeat = structure.previewLoopStart,
             PreviewLoopEndBeat = structure.previewLoopEnd,
             PrevewDuration = structure.previewDuration,
-            Markers = [.. structure.markers.Select(m => (int)Math.Round(m / 48d))]
+            Markers = [.. structure.markers]
         };
 
         document.TempoSegments.Add(new TempoSegment

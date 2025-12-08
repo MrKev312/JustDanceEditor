@@ -6,6 +6,8 @@ public enum ExportType
     CustomServer
 }
 
+// TODO: Entirely rethink this class, it has Unity and UbiArt specific stuff in it
+// which breaks the separation of concerns
 public class ConversionRequest
 {
     // Folder where the input files are located

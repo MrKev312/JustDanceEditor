@@ -2,6 +2,9 @@ using JustDanceEditor.Formats.JDI;
 
 namespace JustDanceEditor.Converter.Formats;
 
+// TODO: remove this, rather just hardcode supported conversions somewhere else
+// Maybe in the future we can have a more dynamic way of handling supported conversions
+// through some plugin system.
 public class FormatConversionService
 {
     public static async Task ConvertAsync(string sourceFormatName, string targetFormatName, ConversionRequest request)
