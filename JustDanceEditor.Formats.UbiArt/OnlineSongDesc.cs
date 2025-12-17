@@ -81,7 +81,7 @@ public class OnlineSongDesc
     }
 }
 
-// TODO: check wtf? Is there stuff missing?
+// TODO: check what stuff is missing as this doesn't seem right. Will have to use real data to verify.
 public class Assets
 {
     public string videoPreview_HIGHvp9webm { get; set; } = string.Empty;

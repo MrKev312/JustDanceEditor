@@ -1,5 +1,7 @@
 namespace JustDanceEditor.Formats.JDI.Services;
 
+// TODO: Remove this from here, as this is all format specific validation logic.
+// Each format should implement a RequestValidator of its own.
 public class RequestValidator : IRequestValidator
 {
     public void ValidateConversionRequest(ConversionRequest request)

@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.Unity.Models;
 
-// TOD: deprecate offline caches?
+// TODO: Currently not supported but will re-implement after rewrite.
 
 public class JDCacheJSON
 {

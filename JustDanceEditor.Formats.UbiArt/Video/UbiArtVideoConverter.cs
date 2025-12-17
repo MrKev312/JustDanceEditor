@@ -54,6 +54,7 @@ public sealed class ConsoleVideoProgress(string name) : IVideoConversionProgress
 // And only generate these when exporting to Unity. ALSO put them in the output/scratch/video/(video/previewVideo). Put the
 // VideoQualityProfile definitions in there too and have the JDI function take in an array. Put them in the scratch folder
 // with like a little manifest such that it's known which qualities are cached and can simply be copied over.
+// A match is a match with the same format, resolution, all 3 bitrates.
 public static class UbiArtVideoConverter
 {
     // --- Configuration Profiles ---
@@ -100,8 +101,6 @@ public static class UbiArtVideoConverter
         // Ultra (~22.0 MB)
         new VideoQualityProfile("preview_ultra.webm", new Size(768, 432), "6000k", "7000k", "12000k")
     ];
-
-    // ------------------------------
 
     public static void ConvertVideo(UbiArtVideoConversionRequest request)
     {
