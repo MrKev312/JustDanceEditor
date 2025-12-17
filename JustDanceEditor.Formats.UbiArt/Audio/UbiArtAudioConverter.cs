@@ -61,7 +61,6 @@ public static class UbiArtAudioConverter
         }
 
         string opusPath = ConvertToOpus(request, mergedWavPath);
-        GeneratePreviewAudio(request, opusPath);
         MoveOpusToOutput(request, opusPath);
     }
 
@@ -158,32 +157,6 @@ public static class UbiArtAudioConverter
 
         Logger.Log($"Converted song audio with \"{result.Arguments}\"", LogLevel.Debug);
         return opusPath;
-    }
-
-    private static void GeneratePreviewAudio(UbiArtAudioConversionRequest request, string opusPath)
-    {
-        float startTime = request.SongData.GetPreviewStartTime();
-        string previewOpusPath = Path.Combine(request.TempAudioFolder, "preview.opus");
-
-        IConversion conversion = FFmpeg.Conversions.New();
-
-        IStream stream = FFmpeg.GetMediaInfo(opusPath).Result.AudioStreams.First()
-            .SetCodec(AudioCodec.libopus)
-            .SetSampleRate(48000);
-
-        IConversionResult result = conversion.AddStream(stream)
-            .SetOverwriteOutput(true)
-            .UseMultiThread(true)
-            .SetSeek(TimeSpan.FromSeconds(startTime))
-            .AddParameter($"-af \"afade=t=in:st={startTime}:d=1,afade=t=out:st={startTime + 30 - 1}:d=1\"")
-            .AddParameter("-t 30")
-            .SetOutput(previewOpusPath)
-            .SetOverwriteOutput(true)
-            .Start().Result;
-
-        Logger.Log($"Generated preview audio with \"{result.Arguments}\"", LogLevel.Debug);
-
-        MoveAudioToOutput(previewOpusPath, request.PreviewOutputFolder, "preview.opus");
     }
 
     private static void MoveOpusToOutput(UbiArtAudioConversionRequest request, string opusPath)

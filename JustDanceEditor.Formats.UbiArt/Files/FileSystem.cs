@@ -8,7 +8,7 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 
 public class FileSystem
 {
-    public FileSystem(ConversionRequest conversionRequest)
+    public FileSystem(UbiArtConversionRequest conversionRequest)
     {
         ConversionRequest = conversionRequest;
 
@@ -21,7 +21,7 @@ public class FileSystem
         InputFolders = new(this);
     }
 
-    public ConversionRequest ConversionRequest { get; private set; }
+    public UbiArtConversionRequest ConversionRequest { get; private set; }
 
     public string SongName { get; private set; } = "";
     public string PlatformType { get; private set; } = "";

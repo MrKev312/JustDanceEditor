@@ -290,9 +290,9 @@ internal static partial class UnityServerIntermediateBuilder
         }
 
         // Sort clips within timelines
-        foreach (var t in handTimelines.Values)
+        foreach (MoveTimeline t in handTimelines.Values)
             t.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
-        foreach (var t in fullBodyTimelines.Values)
+        foreach (MoveTimeline t in fullBodyTimelines.Values)
             t.Clips.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
 
         return (

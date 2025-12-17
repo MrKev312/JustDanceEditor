@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
-using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
@@ -10,14 +11,15 @@ using JustDanceEditor.Logging;
 
 using System.Text.Json;
 
+using Xabe.FFmpeg;
+
 namespace JustDanceEditor.Formats.Unity.Converters;
 
 internal sealed class IntermediateToUnityConverter
 {
     private readonly IntermediateSongPackage _package;
     private readonly string _packageRoot;
-    private readonly ConversionRequest _request;
-    private readonly IRequestValidator _validator;
+    private readonly UnityConversionRequest _request;
     private readonly TemplateSet _templates;
     private readonly string _songFolderName;
     private readonly string _outputRoot;
@@ -30,13 +32,11 @@ internal sealed class IntermediateToUnityConverter
     public IntermediateToUnityConverter(
         IntermediateSongPackage package,
         string packageRoot,
-        ConversionRequest request,
-        IRequestValidator validator)
+        UnityConversionRequest request)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
         _request = request ?? throw new ArgumentNullException(nameof(request));
-        _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         if (string.IsNullOrWhiteSpace(request.TemplatePath))
             throw new ArgumentException("Template path must be provided for Unity exports.");
 
@@ -48,14 +48,12 @@ internal sealed class IntermediateToUnityConverter
     public async Task ConvertAsync()
     {
         Logger.Log($"Starting JDI → Unity conversion for '{_songFolderName}'.", LogLevel.Info);
-        _validator.ValidateTemplateFolder(_request.TemplatePath);
-        _validator.ValidateConversionRequest(_request);
 
         Directory.CreateDirectory(_outputRoot);
         Logger.Log("Copying audio assets into Unity workspace...", LogLevel.Debug);
-        CopyAudioAssets();
+        await CopyAudioAssetsAsync();
         Logger.Log("Copying video assets into Unity workspace...", LogLevel.Debug);
-        CopyVideoAssets();
+        await CopyVideoAssetsAsync();
         Logger.Log("Generating SongInfo.json...", LogLevel.Debug);
         await GenerateSongInfoAsync();
         Logger.Log("Building Unity bundles...", LogLevel.Debug);
@@ -63,16 +61,82 @@ internal sealed class IntermediateToUnityConverter
         Logger.Log($"Unity conversion for '{_songFolderName}' completed.", LogLevel.Info);
     }
 
-    private void CopyAudioAssets()
+    private async Task CopyAudioAssetsAsync()
     {
+        await EnsurePreviewAudioAsync();
+
+        // Master audio always comes from assets (original)
         CopyHashedFile(IntermediatePackageLayout.Assets.AudioMasterFile, Path.Combine(_outputRoot, "Audio_opus"), ".opus");
-        CopyHashedFile(IntermediatePackageLayout.Assets.AudioPreviewFile, Path.Combine(_outputRoot, "AudioPreview_opus"), ".opus");
+        
+        // Preview audio: check assets first, then scratch
+        string assetsPreviewPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioPreviewFile);
+        string scratchPreviewPath = Path.Combine(GetScratchAudioFolder(), "preview.opus");
+        
+        string? sourcePreviewPath = null;
+        if (File.Exists(assetsPreviewPath))
+            sourcePreviewPath = assetsPreviewPath;
+        else if (File.Exists(scratchPreviewPath))
+            sourcePreviewPath = scratchPreviewPath;
+
+        if (sourcePreviewPath != null)
+        {
+            string hashName = BuildHashedFileName(sourcePreviewPath, ".opus");
+            string destinationPath = Path.Combine(_outputRoot, "AudioPreview_opus", hashName);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.Copy(sourcePreviewPath, destinationPath, true);
+        }
+        else
+        {
+            Logger.Log("Preview audio not found in assets or scratch; Unity export may be incomplete.", LogLevel.Warning);
+        }
     }
 
-    private void CopyVideoAssets()
+    private async Task CopyVideoAssetsAsync()
     {
-        CopyHashedDirectory(IntermediatePackageLayout.Assets.VideoFolder, Path.Combine(_outputRoot, "video"), ".webm");
-        CopyHashedDirectory(IntermediatePackageLayout.Assets.PreviewVideoFolder, Path.Combine(_outputRoot, "videoPreview"), ".webm");
+        await JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot);
+        await JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot);
+        CopyBackgroundVideos(Path.Combine(_outputRoot, "video"));
+        CopyPreviewVideos(Path.Combine(_outputRoot, "videoPreview"));
+    }
+
+    private async Task EnsurePreviewAudioAsync()
+    {
+        await JdiVideoConverter.EnsureFFmpegInitializedAsync();
+
+        string assetsPreviewPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioPreviewFile);
+        string scratchPreviewPath = Path.Combine(GetScratchAudioFolder(), "preview.opus");
+
+        // Check if original exists in assets (source-of-truth)
+        if (File.Exists(assetsPreviewPath))
+        {
+            Logger.Log("Source-of-truth preview audio found in assets.", LogLevel.Debug);
+            return;
+        }
+
+        // Check if already generated in scratch
+        if (File.Exists(scratchPreviewPath))
+        {
+            Logger.Log("Preview audio already exists in scratch.", LogLevel.Debug);
+            return;
+        }
+
+        // Generate in scratch from master audio
+        string masterPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioMasterFile);
+        if (!File.Exists(masterPath))
+        {
+            Logger.Log("Cannot generate preview audio because master.opus is missing.", LogLevel.Warning);
+            return;
+        }
+
+        string scratchFolder = GetScratchAudioFolder();
+        Directory.CreateDirectory(scratchFolder);
+        (TimeSpan start, TimeSpan duration) = _package.TimelineStructure.GetAudioPreviewTiming();
+
+        string args = FormattableString.Invariant($"-ss {start.TotalSeconds} -i \"{masterPath}\" -c:a libopus -ar 48000 -t {duration.TotalSeconds} -af \"afade=t=in:st=0:d=1,afade=t=out:st={Math.Max(0, duration.TotalSeconds - 1)}:d=1\" -y \"{scratchPreviewPath}\"");
+
+        IConversion conversion = FFmpeg.Conversions.New();
+        await conversion.Start(args);
+        Logger.Log("Generated preview audio in scratch from master.opus.", LogLevel.Info);
     }
 
     private async Task GenerateSongInfoAsync()
@@ -174,28 +238,103 @@ internal sealed class IntermediateToUnityConverter
         Logger.Log($"Copied '{relativeSourceFile}' to '{destinationFolder}'.", LogLevel.Debug);
     }
 
-    private void CopyHashedDirectory(string relativeSourceFolder, string destinationFolder, string extension)
+    private void CopyBackgroundVideos(string destinationFolder)
     {
-        string sourceDir = ResolvePackagePath(relativeSourceFolder);
-        if (!Directory.Exists(sourceDir))
+        string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.VideoFolder);
+        string[] assetSources = GetVideoFiles(assetsDir);
+        
+        // If assets has 4 master videos, they're source-of-truth originals
+        string[] assetMasters = assetSources
+            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+            
+        if (assetMasters.Length == 4)
         {
-            Logger.Log($"Expected asset folder '{relativeSourceFolder}' does not exist; skipping copy.", LogLevel.Warning);
+            Directory.CreateDirectory(destinationFolder);
+            foreach (string source in assetMasters)
+                CopyHashedAsset(source, destinationFolder, ".webm");
+            Logger.Log("Detected source-of-truth background videos (4 variants) in assets. Copied all variants.", LogLevel.Info);
             return;
         }
 
-        Directory.CreateDirectory(destinationFolder);
-        bool copiedAny = false;
-        foreach (string file in Directory.EnumerateFiles(sourceDir))
+        // Otherwise check scratch for generated master videos
+        string scratchDir = GetScratchVideoFolder();
+        string[] scratchSources = GetVideoFiles(scratchDir);
+        string[] scratchMasters = scratchSources
+            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+            
+        if (scratchMasters.Length == 4)
         {
-            string hashName = BuildHashedFileName(file, extension);
-            File.Copy(file, Path.Combine(destinationFolder, hashName), true);
-            copiedAny = true;
+            Directory.CreateDirectory(destinationFolder);
+            foreach (string source in scratchMasters)
+                CopyHashedAsset(source, destinationFolder, ".webm");
+            Logger.Log("Using generated background videos (4 variants) from scratch.", LogLevel.Info);
+            return;
         }
 
-        if (!copiedAny)
-            Logger.Log($"Asset folder '{relativeSourceFolder}' is empty; nothing copied to '{destinationFolder}'.", LogLevel.Warning);
-        else
-            Logger.Log($"Copied assets from '{relativeSourceFolder}' to '{destinationFolder}'.", LogLevel.Debug);
+        // Fallback: copy largest available from assets
+        if (assetSources.Length > 0)
+        {
+            Directory.CreateDirectory(destinationFolder);
+            string largest = assetSources.OrderByDescending(f => new FileInfo(f).Length).First();
+            File.Copy(largest, Path.Combine(destinationFolder, "master.webm"), true);
+            Logger.Log("Background videos incomplete; exported single master.webm from largest available file in assets.", LogLevel.Warning);
+            return;
+        }
+
+        Logger.Log("No background videos found in assets or scratch; Unity export will lack video assets.", LogLevel.Warning);
+    }
+
+    private void CopyPreviewVideos(string destinationFolder)
+    {
+        int expectedCount = UnityVideoProfiles.Previews.Length;
+        
+        string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.PreviewVideoFolder);
+        string[] assetSources = GetVideoFiles(assetsDir);
+        
+        // If assets has expected preview videos, they're source-of-truth originals
+        if (assetSources.Length == expectedCount)
+        {
+            Directory.CreateDirectory(destinationFolder);
+            foreach (string source in assetSources)
+                CopyHashedAsset(source, destinationFolder, ".webm");
+            Logger.Log($"Detected source-of-truth preview videos ({expectedCount} variants) in assets. Copied all variants.", LogLevel.Info);
+            return;
+        }
+
+        // Otherwise use scratch for generated previews (filter by preview_ prefix)
+        string scratchDir = GetScratchVideoFolder();
+        string[] scratchSources = GetVideoFiles(scratchDir)
+            .Where(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+            
+        if (scratchSources.Length == expectedCount)
+        {
+            Directory.CreateDirectory(destinationFolder);
+            foreach (string source in scratchSources)
+                CopyHashedAsset(source, destinationFolder, ".webm");
+            Logger.Log($"Using generated preview videos ({expectedCount} variants) from scratch.", LogLevel.Info);
+            return;
+        }
+
+        Logger.Log($"Preview videos not found in assets or scratch (expected {expectedCount}, found {scratchSources.Length} in scratch); Unity export may be incomplete.", LogLevel.Warning);
+    }
+
+    private void CopyHashedAsset(string sourceFile, string destinationFolder, string extension)
+    {
+        string hashName = BuildHashedFileName(sourceFile, extension);
+        string destinationPath = Path.Combine(destinationFolder, hashName);
+
+        if (File.Exists(destinationPath))
+        {
+            string name = Path.GetFileNameWithoutExtension(hashName);
+            string ext = Path.GetExtension(hashName);
+            hashName = $"{name}_{Guid.NewGuid():N}{ext}";
+            destinationPath = Path.Combine(destinationFolder, hashName);
+        }
+
+        File.Copy(sourceFile, destinationPath, true);
     }
 
     private string ResolvePackagePath(string relativePath) => IntermediatePackageLayout.Resolve(_packageRoot, relativePath);
@@ -237,6 +376,21 @@ internal sealed class IntermediateToUnityConverter
         if (_request.ExportType == ExportType.CustomServer && !string.IsNullOrEmpty(extension))
             hash += extension;
         return hash;
+    }
+
+    private string GetScratchAudioFolder() => Path.Combine(_packageRoot, "scratch", "audio");
+
+    private string GetScratchVideoFolder() => Path.Combine(_packageRoot, "scratch", "video");
+
+    private static string[] GetVideoFiles(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+            return Array.Empty<string>();
+
+        string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
+        return [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .Where(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static string BuildSongFolderName(IntermediateMetadata metadata)
@@ -301,8 +455,6 @@ internal sealed class IntermediateToUnityConverter
     {
         if (!string.IsNullOrWhiteSpace(unityData?.Name))
             return unityData.Name;
-        if (!string.IsNullOrWhiteSpace(_request.SongName))
-            return _request.SongName!;
         return _songFolderName;
     }
 

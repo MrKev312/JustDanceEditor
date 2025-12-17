@@ -100,7 +100,7 @@ public sealed class FlexibleStringListConverter : JsonConverter<string[]>
     {
         if (reader.TokenType == JsonTokenType.StartArray)
         {
-            List<string> list = new();
+            List<string> list = [];
             while (reader.Read())
             {
                 if (reader.TokenType == JsonTokenType.EndArray)

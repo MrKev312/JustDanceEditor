@@ -3,7 +3,6 @@ using JustDanceEditor.Formats.UbiArt.Audio;
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Images;
-using JustDanceEditor.Formats.UbiArt.Video;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
@@ -35,32 +34,17 @@ internal static class IntermediateAssetWriter
         string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
         string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
 
-        ConversionRequest jdiRequest = new()
-        {
-            InputPath = context.Request.InputPath,
-            OutputPath = context.Request.OutputPath,
-            TemplatePath = context.Request.TemplatePath,
-            OnlineCover = context.Request.OnlineCover,
-            SongName = context.Request.SongName,
-            SongGUID = context.Request.SongGUID,
-            CacheNumber = context.Request.CacheNumber,
-            JDVersion = context.Request.JDVersion
-        };
-
-        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, jdiRequest, new AudioConversionOptions
+        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, new AudioConversionOptions
         {
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
         });
 
         string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string previewVideoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
+        CopyMasterVideo(context.FileSystem, videoFolder);
 
-        await VideoConverter.ConvertVideoAsync(songData, context.FileSystem, new VideoConversionOptions
-        {
-            VideoOutputFolder = videoFolder,
-            PreviewOutputFolder = previewVideoFolder,
-        });
+        string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
+        TryDeleteDirectory(previewVideoFolder);
 
         CopyAssetsToPackage(context, packageRoot);
     }
@@ -205,11 +189,67 @@ internal static class IntermediateAssetWriter
         Directory.CreateDirectory(assetsRoot);
     }
 
+    private static void CopyMasterVideo(FileSystem fileSystem, string destinationFolder)
+    {
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
+        string? source = GetVideoFile(fileSystem);
+        if (source == null)
+        {
+            Logger.Log("No video file found in UbiArt input; skipping video copy.", LogLevel.Warning);
+            return;
+        }
+
+        Directory.CreateDirectory(destinationFolder);
+        string destination = Path.Combine(destinationFolder, Path.GetFileName(source));
+        File.Copy(source, destination, true);
+        Logger.Log("Copied master video into intermediate package without conversion.", LogLevel.Info);
+    }
+
+    private static string? GetVideoFile(FileSystem fileSystem)
+    {
+        if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
+        {
+            string[] mediaVideos = Directory.GetFiles(mediaFolder, "*.webm", SearchOption.AllDirectories);
+            if (mediaVideos.Length > 0)
+                return mediaVideos[0];
+        }
+
+        string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
+        string[] coachVideos = [.. fileSystem
+            .GetAllFiles(videosCoachFolder, "*.webm")
+            .Select(file => (string)file)];
+
+        if (coachVideos.Length > 0)
+            return coachVideos[0];
+
+        return null;
+    }
+
     private static string EnsureFolder(string packageRoot, string relativeFolder)
     {
         string path = ResolvePackagePath(packageRoot, relativeFolder);
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return;
+
+        try
+        {
+            Directory.Delete(path, true);
+        }
+        catch (IOException ex)
+        {
+            Logger.Log($"Failed to delete directory '{path}': {ex.Message}", LogLevel.Warning);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Log($"Failed to delete directory '{path}': {ex.Message}", LogLevel.Warning);
+        }
     }
 
     private static string ResolvePackagePath(string packageRoot, string relative)

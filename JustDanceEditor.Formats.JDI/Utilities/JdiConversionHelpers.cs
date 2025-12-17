@@ -4,24 +4,6 @@ namespace JustDanceEditor.Formats.JDI.Utilities;
 
 public static class JdiConversionHelpers
 {
-    public static void EnsureSongName(ConversionRequest request, IntermediateSongPackage package, bool allowFallbackToMetadata = false)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(package);
-
-        if (!string.IsNullOrWhiteSpace(request.SongName))
-            return;
-
-        if (!string.IsNullOrWhiteSpace(package.Metadata.MapName))
-        {
-            request.SongName = package.Metadata.MapName;
-            return;
-        }
-
-        if (allowFallbackToMetadata)
-            request.SongName = package.Metadata.Title;
-    }
-
     public static string BuildSongOutputFolder(string baseOutput, IntermediateMetadata metadata)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(baseOutput);

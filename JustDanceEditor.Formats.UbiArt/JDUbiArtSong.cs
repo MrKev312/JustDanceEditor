@@ -13,26 +13,6 @@ public class JDUbiArtSong
     public MusicTrack MusicTrack { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
 
-    public float GetPreviewStartTime(bool isAudio = true)
-    {
-        float songOffsetAudio = -GetSongStartTime();
-        float songOffsetVideo = MusicTrack.COMPONENTS[0].trackData.structure.videoStartTime;
-
-        float startTimeAudio = -1;
-        float startTimeVideo = -1;
-
-        for (int beatOffset = 0; startTimeAudio < 0 || startTimeVideo < 0; beatOffset++)
-        {
-            int startBeat = MusicTrack.COMPONENTS[0].trackData.structure.previewLoopStart;
-            float startTime = MusicTrack.COMPONENTS[0].trackData.structure.markers[startBeat + beatOffset] / 48f / 1000f;
-
-            startTimeAudio = startTime - songOffsetAudio;
-            startTimeVideo = startTime - songOffsetVideo;
-        }
-
-        return isAudio ? startTimeAudio : startTimeVideo;
-    }
-
     public float GetSongStartTime()
     {
         int beat = MusicTrack.COMPONENTS[0].trackData.structure.startBeat;

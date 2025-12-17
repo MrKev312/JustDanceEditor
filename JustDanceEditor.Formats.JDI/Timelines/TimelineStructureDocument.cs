@@ -3,12 +3,6 @@ namespace JustDanceEditor.Formats.JDI.Timelines;
 public class TimelineStructureDocument
 {
     public double TimeBaseMsPerBeat { get; set; } = 500;
-    /// <summary>
-    /// This is a list of beats in milliseconds where markers are placed.
-    /// </summary>
-    /// <remarks>
-    /// Converting to beat markers is multiplying by 48
-    /// </remarks>
     public List<int> Markers { get; set; } = [];
     public List<TempoSegment> TempoSegments { get; set; } = [];
     public List<SignatureSegment> Signatures { get; set; } = [];
@@ -16,10 +10,78 @@ public class TimelineStructureDocument
     public int StartBeat { get; set; }
     public int EndBeat { get; set; }
     public double VideoStartOffset { get; set; }
-    public double PreviewEntryBeat { get; set; }
-    public double PreviewLoopStartBeat { get; set; }
-    public double PreviewLoopEndBeat { get; set; }
-    public double PrevewDuration { get; set; }
+    public int PreviewEntryBeat { get; set; }
+    public int PreviewLoopStartBeat { get; set; }
+    public int PreviewLoopEndBeat { get; set; }
+    public int PrevewDuration { get; set; }
+
+    /// <summary>
+    /// returns (TimeSpan Start, TimeSpan Duration) adjusted for Video timing.
+    /// </summary>
+    public (TimeSpan start, TimeSpan duration) GetVideoPreviewTiming()
+    {
+        // Old logic: startTime - songOffsetVideo
+        // songOffsetVideo was simply videoStartTime
+        return GetPreviewTimingInternal(VideoStartOffset);
+    }
+
+    /// <summary>
+    /// returns (TimeSpan Start, TimeSpan Duration) adjusted for Audio timing.
+    /// </summary>
+    public (TimeSpan start, TimeSpan duration) GetAudioPreviewTiming()
+    {
+        // Old logic: startTime - songOffsetAudio
+        // songOffsetAudio was -GetSongStartTime()
+        // Therefore: startTime - (-GetSongStartTime()) => startTime + GetSongStartTime()
+        // To keep the subtractive pattern in the helper, we pass negative SongStart.
+        return GetPreviewTimingInternal(-GetSongStartTime());
+    }
+
+    /// <summary>
+    /// Shared private logic to calculate start and duration based on markers.
+    /// Replaces the loop logic from the old GetPreviewStartTime.
+    /// </summary>
+    private (TimeSpan start, TimeSpan duration) GetPreviewTimingInternal(double offsetSeconds)
+    {
+        // Safety check to ensure markers exist
+        if (Markers.Count == 0 || PreviewLoopStartBeat >= Markers.Count || PreviewLoopEndBeat >= Markers.Count)
+        {
+            return (TimeSpan.Zero, TimeSpan.Zero);
+        }
+
+        // 1. Get Raw Start Time (UbiArt Unit Conversion: Ticks / 48 / 1000)
+        double rawStartTime = Markers[PreviewLoopStartBeat] / 48.0 / 1000.0;
+
+        // 2. Apply Offset to start time
+        double calculatedStartTime = rawStartTime - offsetSeconds;
+
+        // 3. Hardcoded 30 second duration for now
+        return (TimeSpan.FromSeconds(calculatedStartTime), TimeSpan.FromSeconds(30));
+    }
+
+    /// <summary>
+    /// Reuses logic from Old: GetSongStartTime()
+    /// Determines the time of the start beat relative to the timeline.
+    /// </summary>
+    private double GetSongStartTime()
+    {
+        if (Markers.Count == 0)
+            return 0;
+
+        int beatIndex = Math.Abs(StartBeat);
+
+        // Safety check for index
+        if (beatIndex >= Markers.Count)
+            return 0;
+
+        double time = Markers[beatIndex] / 48.0 / 1000.0;
+
+        // Set opposite sign if startBeat is positive (Old logic)
+        if (StartBeat > 0)
+            time = -time;
+
+        return time;
+    }
 }
 
 public class TempoSegment

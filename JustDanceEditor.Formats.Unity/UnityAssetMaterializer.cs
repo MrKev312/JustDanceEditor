@@ -98,29 +98,36 @@ public static class UnityAssetMaterializer
 
     private static void CopyVideo(string unityRoot, string packageRoot)
     {
-        string videoDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        int backgroundCount = CopyAllVideoVariants(Path.Combine(unityRoot, "video"), videoDestination);
+        string backgroundSource = Path.Combine(unityRoot, "video");
+        string backgroundDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        int backgroundCount = CopyBackgroundVideos(backgroundSource, backgroundDestination);
 
+        string previewSource = Path.Combine(unityRoot, "videoPreview");
         string previewDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
-        int previewCount = CopyAllVideoVariants(Path.Combine(unityRoot, "videoPreview"), previewDestination);
+        int previewCount = CopyPreviewVideos(previewSource, previewDestination);
 
         if (backgroundCount == 0)
         {
             Logger.Log("No background video files found in Unity export.", LogLevel.Warning);
-            TryDeleteDirectory(videoDestination);
+            TryDeleteDirectory(backgroundDestination);
+        }
+        else if (backgroundCount == 4)
+        {
+            Logger.Log("Detected source-of-truth background videos (4 variants). Copied all variants.", LogLevel.Info);
         }
         else
         {
-            Logger.Log($"Copied {backgroundCount} video background file(s).", LogLevel.Info);
+            Logger.Log("Using single master background video from Unity export.", LogLevel.Info);
         }
+
         if (previewCount == 0)
         {
-            Logger.Log("No preview video files found in Unity export.", LogLevel.Warning);
+            Logger.Log("Preview videos missing or incomplete; they will be regenerated during export.", LogLevel.Warning);
             TryDeleteDirectory(previewDestination);
         }
         else
         {
-            Logger.Log($"Copied {previewCount} video preview file(s).", LogLevel.Info);
+            Logger.Log("Detected source-of-truth preview videos (4 variants). Copied all variants.", LogLevel.Info);
         }
     }
 
@@ -347,17 +354,38 @@ public static class UnityAssetMaterializer
         return destination;
     }
 
-    private static int CopyAllVideoVariants(string sourceFolder, string destinationFolder)
+    private static int CopyBackgroundVideos(string sourceFolder, string destinationFolder)
     {
-        if (!Directory.Exists(sourceFolder))
+        string[] sources = GetVideoFiles(sourceFolder);
+        if (sources.Length == 0)
             return 0;
 
-        string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
-        List<string> sources = [.. Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)
-            .Where(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
-            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
+        Directory.CreateDirectory(destinationFolder);
 
-        if (sources.Count == 0)
+        if (sources.Length == 4)
+        {
+            foreach (string source in sources)
+            {
+                string destination = Path.Combine(destinationFolder, Path.GetFileName(source));
+                File.Copy(source, destination, true);
+            }
+
+            return 4;
+        }
+
+        string largest = sources.OrderByDescending(f => new FileInfo(f).Length).First();
+        string masterPath = Path.Combine(destinationFolder, "master.webm");
+        File.Copy(largest, masterPath, true);
+        return 1;
+    }
+
+    private static int CopyPreviewVideos(string sourceFolder, string destinationFolder)
+    {
+        string[] sources = GetVideoFiles(sourceFolder);
+        if (sources.Length == 0)
+            return 0;
+
+        if (sources.Length != 4)
             return 0;
 
         Directory.CreateDirectory(destinationFolder);
@@ -367,7 +395,18 @@ public static class UnityAssetMaterializer
             File.Copy(source, destination, true);
         }
 
-        return sources.Count;
+        return 4;
+    }
+
+    private static string[] GetVideoFiles(string sourceFolder)
+    {
+        if (!Directory.Exists(sourceFolder))
+            return Array.Empty<string>();
+
+        string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
+        return [.. Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)
+            .Where(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static string? ExtractSingleImage(string sourceFolder, string destinationFile)

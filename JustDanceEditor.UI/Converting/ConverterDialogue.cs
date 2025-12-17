@@ -1,15 +1,13 @@
-using JustDanceEditor.Converter.Formats;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
-using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-
-using System.Text.Json;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -23,10 +21,10 @@ public class ConverterDialogue
                 return;
 
             Console.WriteLine("Starting standard conversion process...");
-            ConversionRequest conversionRequest = CreateConversionRequest();
+            (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) = CreateUbiArtToUnityRequests();
             Console.WriteLine("\nProcessing conversion request...");
 
-            RunFormatConversion(conversionRequest);
+            RunUbiArtToUnityConversion(importRequest, exportRequest);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\nConversion completed successfully!");
@@ -52,18 +50,11 @@ public class ConverterDialogue
                 return;
 
             Console.WriteLine("Starting advanced conversion process...");
-            ConversionRequest conversionRequest = CreateConversionRequest();
-
-            // Ask for the cache number
-            conversionRequest.CacheNumber = (uint)Question.AskNumber("Enter the target cache number for this song (e.g., 1, 123)", 1);
-
-            // Ask for the JD version
-            uint version = (uint)Question.AskNumber("Optionally, force a specific JDVersion for compatibility (e.g., 2019, 2022). Enter 0 for automatic detection.", 0);
-            conversionRequest.JDVersion = version == 0 ? null : version;
+            (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) = CreateUbiArtToUnityRequests();
 
             Console.WriteLine("\nProcessing advanced conversion request...");
 
-            RunFormatConversion(conversionRequest);
+            RunUbiArtToUnityConversion(importRequest, exportRequest);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\nAdvanced conversion completed successfully!");
@@ -198,29 +189,9 @@ public class ConverterDialogue
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
             bool onlineCover = AskOnlineCover();
-            ExportType exportType;
-
-            List<string> existingSongs = [];
-
-            // Determine export type and populate existing songs list
-            string cacheStatusPath = Path.Combine(outputFolder, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
-            if (File.Exists(cacheStatusPath))
-            {
-                Console.WriteLine("Detected existing Offline Cache structure in output folder.");
-                using FileStream json = File.OpenRead(cacheStatusPath);
-                existingSongs = [.. JsonSerializer.Deserialize<JDCacheJSON>(json)!.MapsDict.Select(x => x.Value.SongDatabaseEntry.ParentMapId)];
-                exportType = ExportType.OfflineCache;
-            }
-            else
-            {
-                Console.WriteLine("Assuming Custom Server export type (no Offline Cache structure found in output folder).");
-                exportType = ExportType.CustomServer;
-                if (Directory.Exists(outputFolder))
-                {
-                    string[] outputSongs = Directory.GetDirectories(outputFolder);
-                    existingSongs = outputSongs.Select(Path.GetFileName).ToList()!;
-                }
-            }
+            List<string> existingSongs = Directory.Exists(outputFolder)
+                ? Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!).ToList()
+                : [];
 
             string[] inputSongParentFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
                 ? [inputFolder] // The provided path is a single song's root
@@ -309,16 +280,13 @@ public class ConverterDialogue
                     }
 
                     Console.WriteLine($"   Converting '{songName}'...");
-                    ConversionRequest conversionRequest = new()
+                    UbiArtConversionRequest importRequest = new(songParentFolder, outputFolder, songName);
+                    UnityConversionRequest exportRequest = new(outputFolder, outputFolder, "./Template")
                     {
-                        TemplatePath = "./Template", // Assuming template is in current dir
-                        InputPath = songParentFolder,
-                        OutputPath = outputFolder,
-                        ExportType = exportType,
-                        OnlineCover = onlineCover,
-                        SongName = songName
+                        ExportType = ExportType.CustomServer,
+                        OnlineCover = onlineCover
                     };
-                    RunFormatConversion(conversionRequest);
+                    RunUbiArtToUnityConversion(importRequest, exportRequest);
                     convertedCount++;
                     Console.WriteLine($"   Conversion of '{songName}' finished.");
                 }
@@ -337,35 +305,22 @@ public class ConverterDialogue
         }
     }
 
-    internal static ConversionRequest CreateConversionRequest()
+    private static (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) CreateUbiArtToUnityRequests()
     {
         (string inputPath, string songName) = AskInputFolder();
         string outputPath = AskOutputFolder();
         bool onlineCover = AskOnlineCover();
 
-        Directory.CreateDirectory(outputPath); // Ensure output directory exists
+        Directory.CreateDirectory(outputPath);
 
-        // Determine export type based on output folder content
-        string cacheStatusPath = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
-        ExportType exportType = File.Exists(cacheStatusPath)
-            ? ExportType.OfflineCache
-            : ExportType.CustomServer;
-
-        Console.WriteLine(exportType == ExportType.OfflineCache
-            ? "Detected Offline Cache structure. Exporting for offline cache."
-            : "No Offline Cache structure found. Exporting for custom server.");
-
-        ConversionRequest conversionRequest = new()
+        UbiArtConversionRequest importRequest = new(inputPath, outputPath, songName);
+        UnityConversionRequest exportRequest = new(outputPath, outputPath, "./Template")
         {
-            TemplatePath = "./Template", // Assuming template is in current dir
-            InputPath = inputPath,
-            OutputPath = outputPath,
-            ExportType = exportType,
-            OnlineCover = onlineCover,
-            SongName = songName
+            ExportType = ExportType.CustomServer,
+            OnlineCover = onlineCover
         };
 
-        return conversionRequest;
+        return (importRequest, exportRequest);
     }
 
     static string AskMultiInputFolder()
@@ -409,9 +364,22 @@ public class ConverterDialogue
         return inputPath;
     }
 
-    private static void RunFormatConversion(ConversionRequest request)
+    private static void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest)
     {
-        FormatConversionService.ConvertAsync("UbiArt", "Unity", request).GetAwaiter().GetResult();
+        IJdiFormat sourceFormat = new UbiArtJdiFormat();
+        IJdiFormat targetFormat = new UnityJdiFormat();
+
+        JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+
+        try
+        {
+            targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
+                Directory.Delete(importResult.MaterializedRoot, true);
+        }
     }
 
     private static (string inputPath, string songName) AskInputFolder()

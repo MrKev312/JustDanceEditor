@@ -64,7 +64,7 @@ internal static class IntermediatePackageBuilder
 
         IntermediateMetadata metadata = new()
         {
-            SongID = context.Request.SongGUID,
+            SongID = Guid.NewGuid(),
             MapName = info.MapName,
             ParentMapName = info.MapName,
             Title = info.Title,

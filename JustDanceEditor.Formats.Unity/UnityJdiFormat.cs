@@ -1,33 +1,30 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
-using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Converters;
 
 namespace JustDanceEditor.Formats.Unity;
 
-public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFormat
+public sealed class UnityJdiFormat : IJdiFormat
 {
-    public UnityJdiFormat() : this(new RequestValidator()) { }
-
     public string DisplayName => "Unity";
     public bool CanImport => true;
     public bool CanExport => true;
 
-    public Task<JdiImportResult> ImportAsync(ConversionRequest request, CancellationToken cancellationToken = default)
+    public Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.InputPath);
+        if (request is not UnityConversionRequest unityRequest)
+            throw new ArgumentException("Unity import expects a UnityConversionRequest.", nameof(request));
 
-        IntermediateSongPackage package = UnityServerIntermediateBuilder.FromServerExport(request.InputPath);
-        JdiConversionHelpers.EnsureSongName(request, package, allowFallbackToMetadata: true);
+        ValidateUnityImport(unityRequest);
 
-        string songName = DetermineSongName(request, package);
-        string suggestedOutput = BuildSuggestedOutputFolder(request, songName);
+        IntermediateSongPackage package = UnityServerIntermediateBuilder.FromServerExport(unityRequest.InputPath);
+
+        string songName = DetermineSongName(package);
+        string suggestedOutput = BuildSuggestedOutputFolder(unityRequest.OutputPath, songName);
         PrepareMaterializedDirectory(suggestedOutput);
 
-        UnityAssetMaterializer.Materialize(package, request.InputPath, suggestedOutput);
+        UnityAssetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput);
         IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
 
         JdiImportResult result = new(
@@ -40,30 +37,26 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
         return Task.FromResult(result);
     }
 
-    public async Task ExportAsync(JdiImportResult importResult, ConversionRequest request, CancellationToken cancellationToken = default)
+    public async Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(importResult);
-        ArgumentNullException.ThrowIfNull(request);
+        if (request is not UnityConversionRequest unityRequest)
+            throw new ArgumentException("Unity export expects a UnityConversionRequest.", nameof(request));
 
-        if (request.ExportType != ExportType.CustomServer)
-            throw new NotSupportedException("Unity exports currently support only the Custom Server folder layout.");
+        ArgumentNullException.ThrowIfNull(importResult);
+
+        ValidateUnityExport(unityRequest);
 
         if (string.IsNullOrWhiteSpace(importResult.MaterializedRoot))
             throw new NotSupportedException("Unity exports require a materialized intermediate package.");
 
-        if (!string.IsNullOrWhiteSpace(importResult.Package.Metadata.MapName))
-            request.SongName = importResult.Package.Metadata.MapName;
-
-        IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, request, requestValidator);
+        IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, unityRequest);
         await converter.ConvertAsync();
     }
 
-    private static string DetermineSongName(ConversionRequest request, IntermediateSongPackage package)
+    private static string DetermineSongName(IntermediateSongPackage package)
     {
         if (!string.IsNullOrWhiteSpace(package.Metadata.MapName))
             return SanitizePathSegment(package.Metadata.MapName);
-        if (!string.IsNullOrWhiteSpace(request.SongName))
-            return SanitizePathSegment(request.SongName);
         return "UnitySong";
     }
 
@@ -74,11 +67,11 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
         Directory.CreateDirectory(materializedRoot);
     }
 
-    private static string BuildSuggestedOutputFolder(ConversionRequest request, string songName)
+    private static string BuildSuggestedOutputFolder(string outputPath, string songName)
     {
-        string baseOutput = string.IsNullOrWhiteSpace(request.OutputPath)
+        string baseOutput = string.IsNullOrWhiteSpace(outputPath)
             ? Path.Combine(Path.GetTempPath(), "JustDanceEditor", "Exports")
-            : request.OutputPath;
+            : outputPath;
         return Path.Combine(baseOutput, songName);
     }
 
@@ -97,5 +90,57 @@ public sealed class UnityJdiFormat(IRequestValidator requestValidator) : IJdiFor
 
         string sanitized = new string(chars).Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "UnitySong" : sanitized;
+    }
+
+    private static void ValidateUnityImport(UnityConversionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.InputPath);
+
+        if (!Directory.Exists(request.InputPath))
+            throw new FileNotFoundException("Unity input folder not found.", request.InputPath);
+
+        string songInfoPath = Path.Combine(request.InputPath, "SongInfo.json");
+        if (!File.Exists(songInfoPath))
+            throw new FileNotFoundException("SongInfo.json is required in the Unity input folder.", songInfoPath);
+    }
+
+    private static void ValidateUnityExport(UnityConversionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.ExportType != ExportType.CustomServer)
+            throw new NotSupportedException("Unity exports currently support only the Custom Server folder layout.");
+
+        if (string.IsNullOrWhiteSpace(request.OutputPath))
+            throw new ArgumentException("Output path is required for Unity exports.", nameof(request.OutputPath));
+
+        ValidateTemplateFolder(request.TemplatePath);
+    }
+
+    private static void ValidateTemplateFolder(string templatePath)
+    {
+        if (string.IsNullOrWhiteSpace(templatePath))
+            throw new ArgumentException("Template path is required for Unity exports.", nameof(templatePath));
+
+        if (!Directory.Exists(templatePath))
+            throw new DirectoryNotFoundException($"Template path '{templatePath}' does not exist.");
+
+        string[] foldersToValidate = [
+            Path.Combine(templatePath, "Cover"),
+            Path.Combine(templatePath, "MapPackage"),
+            Path.Combine(templatePath, "CoachesLarge"),
+            Path.Combine(templatePath, "CoachesSmall"),
+            Path.Combine(templatePath, "SongTitleLogo")
+        ];
+
+        foreach (string folder in foldersToValidate)
+        {
+            if (!Directory.Exists(folder))
+                throw new DirectoryNotFoundException($"The template subfolder {folder} is missing. Please ensure the template structure is correct.");
+
+            if (!Directory.EnumerateFileSystemEntries(folder).Any())
+                throw new FileNotFoundException($"The template folder {folder} is empty. Please put a template file in the folder.");
+        }
     }
 }

@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Logging;
@@ -18,23 +17,21 @@ public static class AudioConverter
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,
         FileSystem fileSystem,
-        ConversionRequest request,
         AudioConversionOptions options) =>
-        Task.Run(() => ConvertAudio(songData, fileSystem, request, options));
+        Task.Run(() => ConvertAudio(songData, fileSystem, options));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
         FileSystem fileSystem,
-        ConversionRequest request,
         AudioConversionOptions options)
     {
         ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(fileSystem);
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(options);
 
         try
         {
-            UbiArtAudioConversionRequest conversionRequest = BuildRequest(songData, fileSystem, request, options);
+            UbiArtAudioConversionRequest conversionRequest = BuildRequest(songData, fileSystem, options);
             UbiArtAudioConverter.ConvertAudio(conversionRequest);
         }
         catch (Exception e)
@@ -46,7 +43,6 @@ public static class AudioConverter
     private static UbiArtAudioConversionRequest BuildRequest(
         JDUbiArtSong songData,
         FileSystem fileSystem,
-        ConversionRequest request,
         AudioConversionOptions options)
     {
         string masterOutputFolder = options.MasterOutputFolder;

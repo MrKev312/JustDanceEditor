@@ -11,7 +11,7 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public class SongDataLoader : ISongDataLoader
 {
-    public JDUbiArtSong LoadSongData(ConversionRequest request, FileSystem fileSystem)
+    public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, FileSystem fileSystem)
     {
         JDUbiArtSong songData = new();
         Logger.Log("Loading song info...");

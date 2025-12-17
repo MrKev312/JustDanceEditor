@@ -15,8 +15,8 @@ public interface IJdiFormat
     string DisplayName { get; }
     bool CanImport { get; }
     bool CanExport { get; }
-    Task<JdiImportResult> ImportAsync(ConversionRequest request, CancellationToken cancellationToken = default);
-    Task ExportAsync(JdiImportResult importResult, ConversionRequest request, CancellationToken cancellationToken = default);
+    Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default);
+    Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default);
 }
 
 public static class JdiFormatRegistry

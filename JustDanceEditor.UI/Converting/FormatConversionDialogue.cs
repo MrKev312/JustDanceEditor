@@ -1,10 +1,8 @@
-using JustDanceEditor.Converter.Formats;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Logging;
 using JustDanceEditor.UI.Helpers;
-
-using System.Text.Json;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -12,14 +10,12 @@ internal static class FormatConversionDialogue
 {
     public static void Start()
     {
-        IReadOnlyCollection<IJdiFormat> formats = JdiFormatRegistry.GetFormats();
-        if (formats.Count == 0)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("No format adapters are registered. Please ensure the converter assemblies are referenced correctly.");
-            Console.ResetColor();
-            return;
-        }
+        IJdiFormat[] formats =
+        [
+            new UbiArtJdiFormat(),
+            new UnityJdiFormat(),
+            new JdiFormat()
+        ];
 
         IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
         IJdiFormat[] targetCandidates = [.. formats.Where(f => f.CanExport)];
@@ -32,10 +28,10 @@ internal static class FormatConversionDialogue
             return;
         }
 
-        string source = AskFormat("Select the source format", sourceCandidates);
-        string target = AskFormat("Select the target format", targetCandidates);
+        string sourceName = AskFormat("Select the source format", sourceCandidates);
+        string targetName = AskFormat("Select the target format", targetCandidates);
 
-        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine("Source and target formats are identical. No conversion will be performed.");
@@ -43,23 +39,27 @@ internal static class FormatConversionDialogue
             return;
         }
 
-        ConversionRequest request = CreateConversionRequest(source, target);
+        IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
+        IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        FormatConversionService service = new();
+        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, targetName);
 
         try
         {
-            FormatConversionService.ConvertAsync(source, target, request).GetAwaiter().GetResult();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"Conversion {source} → {target} completed successfully.");
-            Console.ResetColor();
-        }
-        catch (NotImplementedException nie)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(nie.Message);
-            Logger.Log(nie.Message, LogLevel.Warning);
-            Console.ResetColor();
+            JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+
+            try
+            {
+                targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"Conversion {sourceName} -> {targetName} completed successfully.");
+                Console.ResetColor();
+            }
+            finally
+            {
+                if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
+                    Directory.Delete(importResult.MaterializedRoot, true);
+            }
         }
         catch (Exception ex)
         {
@@ -72,7 +72,6 @@ internal static class FormatConversionDialogue
 
     private static string AskFormat(string prompt, IEnumerable<IJdiFormat> candidates)
     {
-        // Order by DisplayName, but prioritize "JDI" to be first if present
         IJdiFormat[] options = [.. candidates
             .OrderBy(f => f.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
             .ThenBy(f => f.DisplayName)];
@@ -85,121 +84,103 @@ internal static class FormatConversionDialogue
         return options[selection].DisplayName;
     }
 
-    private static ConversionRequest CreateConversionRequest(string source, string target)
+    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, string target)
     {
-        ConversionRequest request = source switch
+        string inputPath = AskInputPath(source);
+        string outputPath = AskOutputPath(target);
+
+        ConversionRequestBase importRequest = source switch
         {
-            "UbiArt" => ConverterDialogue.CreateConversionRequest(),
-            _ => CreateGenericRequest(source, target)
+            "UbiArt" => BuildUbiArtImportRequest(inputPath, outputPath),
+            "Unity" => BuildUnityImportRequest(inputPath, outputPath, target),
+            "JDI" => new JdiConversionRequest(inputPath, outputPath),
+            _ => throw new NotSupportedException($"Unknown source format '{source}'.")
         };
 
-        if (source == "UbiArt" && target == "Unity")
+        ConversionRequestBase exportRequest = target switch
         {
-            ConfigureUbiArtToUnityRequest(request);
-        }
-
-        return request;
-    }
-
-    private static void ConfigureUbiArtToUnityRequest(ConversionRequest request)
-    {
-        bool configureAdvanced = Question.AskYesNo("Would you like to configure advanced cache/JD version options?");
-        if (!configureAdvanced)
-            return;
-
-        request.CacheNumber = (uint)Question.AskNumber("Enter the target cache number for this song (e.g., 1, 123)", (int)(request.CacheNumber ?? 1));
-        uint version = (uint)Question.AskNumber("Optionally force a specific JDVersion (e.g., 2019, 2022). Enter 0 for automatic detection.", (int)(request.JDVersion ?? 0));
-        request.JDVersion = version == 0 ? null : version;
-    }
-
-    private static ConversionRequest CreateGenericRequest(string source, string target)
-    {
-        string inputPrompt = source switch
-        {
-            "Unity" => "Enter the Unity Custom Server export folder (must contain SongInfo.json)",
-            "JDI" => "Enter the folder that contains metadata.json for the JDI package",
-            _ => "Enter the input folder for this conversion"
+            "Unity" => BuildUnityExportRequest(outputPath),
+            "JDI" => new JdiConversionRequest(inputPath, outputPath),
+            _ => throw new NotSupportedException("Exporting to the selected target is not supported.")
         };
 
-        string inputPath = Question.AskFolder(inputPrompt, true);
+        return (importRequest, exportRequest);
+    }
 
-        string outputPrompt = target switch
+    private static string AskInputPath(string source)
+    {
+        return source switch
         {
+            "UbiArt" => Question.AskFolder("Enter the extracted UbiArt map folder (contains 'cache' and 'world')", true),
+            "Unity" => Question.AskFolder("Enter the Unity export folder (must contain SongInfo.json)", true),
+            "JDI" => Question.AskFolder("Enter the folder that contains metadata.json for the JDI package", true),
+            _ => Question.AskFolder("Enter the input folder for this conversion", true)
+        };
+    }
+
+    private static string AskOutputPath(string target)
+    {
+        string prompt = target switch
+        {
+            "Unity" => "Enter the Unity output root (custom server layout)",
             "JDI" => "Enter the folder where the JDI package should be written",
-            "Unity" => "Enter the Unity output root (existing cache/custom server structure)",
             _ => "Enter the destination folder for the converted files"
         };
 
-        string outputPath = Question.AskFolder(outputPrompt, false);
-        Directory.CreateDirectory(outputPath);
+        string path = Question.AskFolder(prompt, false);
+        Directory.CreateDirectory(path);
+        return path;
+    }
 
-        ExportType exportType = ExportType.CustomServer;
+    private static ConversionRequestBase BuildUbiArtImportRequest(string inputPath, string outputPath)
+    {
+        string? songName = ResolveUbiArtSongName(inputPath);
+        return new UbiArtConversionRequest(inputPath, outputPath, songName);
+    }
 
-        if (target == "Unity")
+    private static ConversionRequestBase BuildUnityImportRequest(string inputPath, string outputPath, string target)
+    {
+        // Template path is unused during import; supply outputPath to satisfy constructor.
+        UnityConversionRequest request = new(inputPath, outputPath, outputPath)
         {
-            Console.WriteLine("Unity conversions currently support only the Custom Server folder layout.");
-            WarnIfOfflineCacheDetected(outputPath);
-        }
-
-        ConversionRequest request = new()
-        {
-            InputPath = inputPath,
-            OutputPath = outputPath,
-            TemplatePath = ResolveTemplatePath(),
-            ExportType = exportType,
+            ExportType = ExportType.CustomServer,
             OnlineCover = target == "Unity" && Question.AskYesNo("Attempt to download missing covers from the internet?")
         };
-
-        if (source == "JDI")
-        {
-            string? inferredName = TryInferSongNameFromIntermediate(inputPath);
-            if (!string.IsNullOrWhiteSpace(inferredName))
-                request.SongName = inferredName;
-            else
-                throw new Exception("Failed to infer song name from JDI metadata. Please ensure metadata.json is present and valid.");
-        }
 
         return request;
     }
 
-    static readonly JsonSerializerOptions IntermediateJsonOptions = new()
+    private static ConversionRequestBase BuildUnityExportRequest(string outputPath)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true
-    };
+        string templatePath = ResolveTemplatePath();
 
-    private static string? TryInferSongNameFromIntermediate(string inputPath)
-    {
-        try
+        UnityConversionRequest request = new(outputPath, outputPath, templatePath)
         {
-            string metadataPath = Path.Combine(inputPath, "metadata.json");
-            if (!File.Exists(metadataPath))
-                return null;
+            ExportType = ExportType.CustomServer,
+            OnlineCover = Question.AskYesNo("Attempt to download missing covers from the internet?")
+        };
 
-            using FileStream json = File.OpenRead(metadataPath);
-            IntermediateMetadata? metadata = JsonSerializer.Deserialize<IntermediateMetadata>(json, IntermediateJsonOptions);
-            if (metadata == null)
-                return null;
-
-            return string.IsNullOrWhiteSpace(metadata.MapName) ? metadata.Title : metadata.MapName;
-        }
-        catch (Exception ex)
-        {
-            Logger.Log($"Failed to infer map name from intermediate metadata: {ex.Message}", LogLevel.Warning);
-            return null;
-        }
+        return request;
     }
 
-    private static void WarnIfOfflineCacheDetected(string outputPath)
+    private static string? ResolveUbiArtSongName(string inputPath)
     {
-        string cacheStatusPath = Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", "cachingStatus.json");
-        if (File.Exists(cacheStatusPath))
+        string mapsPath = Path.Combine(inputPath, "world", "maps");
+        if (!Directory.Exists(mapsPath))
+            return null;
+
+        string[] maps = Directory.GetDirectories(mapsPath);
+        if (maps.Length == 1)
+            return Path.GetFileName(maps[0]);
+
+        if (maps.Length > 1)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Warning: Offline cache layout detected. Unity conversions currently support only the Custom Server format.");
-            Console.ResetColor();
+            string[] mapNames = [.. maps.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)];
+            int selection = Question.Ask(mapNames, 0, "Multiple maps found. Which one should be converted?");
+            return mapNames[selection];
         }
+
+        return null;
     }
 
     private static string ResolveTemplatePath()

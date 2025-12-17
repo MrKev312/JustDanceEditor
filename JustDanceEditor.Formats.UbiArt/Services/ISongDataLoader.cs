@@ -5,5 +5,5 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public interface ISongDataLoader
 {
-    JDUbiArtSong LoadSongData(ConversionRequest request, FileSystem fileSystem);
+    JDUbiArtSong LoadSongData(UbiArtConversionRequest request, FileSystem fileSystem);
 }

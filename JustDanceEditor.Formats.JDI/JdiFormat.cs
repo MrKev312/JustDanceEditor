@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI.Serialization;
-using JustDanceEditor.Formats.JDI.Utilities;
 
 namespace JustDanceEditor.Formats.JDI;
 
@@ -9,39 +8,35 @@ public sealed class JdiFormat : IJdiFormat
     public bool CanImport => true;
     public bool CanExport => true;
 
-    public Task<JdiImportResult> ImportAsync(ConversionRequest request, CancellationToken cancellationToken = default)
+    public Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        if (request is not JdiConversionRequest jdiRequest)
+            throw new ArgumentException("JDI import expects a JdiConversionRequest.", nameof(request));
 
-        if (string.IsNullOrWhiteSpace(request.InputPath) || !Directory.Exists(request.InputPath))
-            throw new FileNotFoundException("Input folder not found", request.InputPath);
+        if (string.IsNullOrWhiteSpace(jdiRequest.InputPath) || !Directory.Exists(jdiRequest.InputPath))
+            throw new FileNotFoundException("Input folder not found", jdiRequest.InputPath);
 
-        IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(request.InputPath);
-        JdiConversionHelpers.EnsureSongName(request, package, allowFallbackToMetadata: true);
+        IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(jdiRequest.InputPath);
 
         return Task.FromResult(new JdiImportResult(
             package,
             "JDI",
-            request.InputPath,
+            jdiRequest.InputPath,
             MaterializedRootIsTemporary: false));
     }
 
-    public Task ExportAsync(JdiImportResult importResult, ConversionRequest request, CancellationToken cancellationToken = default)
+    public Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
+        if (request is not JdiConversionRequest jdiRequest)
+            throw new ArgumentException("JDI export expects a JdiConversionRequest.", nameof(request));
+
         ArgumentNullException.ThrowIfNull(importResult);
-        ArgumentNullException.ThrowIfNull(request);
 
-        if (string.IsNullOrWhiteSpace(request.OutputPath))
-            throw new ArgumentException("Output path is required", nameof(request.OutputPath));
-
-        string songName = !string.IsNullOrWhiteSpace(importResult.Package.Metadata.MapName)
-            ? importResult.Package.Metadata.MapName
-            : (request.SongName ?? "UnknownSong");
+        if (string.IsNullOrWhiteSpace(jdiRequest.OutputPath))
+            throw new ArgumentException("Output path is required", nameof(jdiRequest.OutputPath));
 
         if (importResult.MaterializedRoot is null)
             throw new InvalidOperationException("Materialized root is null");
-        if (importResult.MaterializedRoot == request.OutputPath)
-            throw new InvalidOperationException("Input and output paths cannot be the same");
 
         string? suggestedOutput = importResult.SuggestedOutputFolder;
         if (string.IsNullOrWhiteSpace(suggestedOutput))
