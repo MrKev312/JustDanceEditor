@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="JustDanceEditor.Formats.JDI/JustDanceEditor.Formats.JDI.csproj" />
+  <Project Path="JustDanceEditor.Formats.UbiArt/JustDanceEditor.Formats.UbiArt.csproj" />
+  <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
+  <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
+  <Project Path="JustDanceEditor.Logging/JustDanceEditor.Logging.csproj" />
+  <Project Path="JustDanceEditor.UI/JustDanceEditor.UI.csproj" />
+  <Project Path="TextureConverter/TextureConverter.csproj" />
+</Solution>
