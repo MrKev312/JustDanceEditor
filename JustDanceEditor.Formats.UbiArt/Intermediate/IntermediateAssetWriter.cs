@@ -28,25 +28,27 @@ internal static class IntermediateAssetWriter
         ResetAssetsRoot(packageRoot);
 
         await EnsurePrerequisitesAsync();
-        await ConvertPictogramsAsync(context, packageRoot);
+        
         JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
-
         string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
         string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
+        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
 
-        await AudioConverter.ConvertAudioAsync(songData, context.FileSystem, new AudioConversionOptions
+        // Parallelize pictogram conversion, audio conversion, and video copy
+        Task pictoTask = ConvertPictogramsAsync(context, packageRoot);
+        Task audioTask = AudioConverter.ConvertAudioAsync(songData, context.FileSystem, new AudioConversionOptions
         {
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
         });
-
-        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        CopyMasterVideo(context.FileSystem, videoFolder);
+        Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder));
+        
+        await Task.WhenAll(pictoTask, audioTask, videoTask);
 
         string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
         TryDeleteDirectory(previewVideoFolder);
 
-        CopyAssetsToPackage(context, packageRoot);
+        await CopyAssetsToPackageAsync(context, packageRoot);
     }
 
     private static async Task EnsurePrerequisitesAsync()
@@ -70,11 +72,14 @@ internal static class IntermediateAssetWriter
         await Task.Run(() => UbiArtPictoConverter.Convert(request));
     }
 
-    private static void CopyAssetsToPackage(ConversionContext context, string packageRoot)
+    private static async Task CopyAssetsToPackageAsync(ConversionContext context, string packageRoot)
     {
-        AttachBrandingAssets(context, packageRoot);
-        AttachCoachAssets(context, packageRoot);
-        AttachMotionAssets(context, packageRoot);
+        // Parallelize branding, coach, and motion asset operations
+        Task brandingTask = Task.Run(() => AttachBrandingAssets(context, packageRoot));
+        Task coachTask = Task.Run(() => AttachCoachAssets(context, packageRoot));
+        Task motionTask = Task.Run(() => AttachMotionAssets(context, packageRoot));
+        
+        await Task.WhenAll(brandingTask, coachTask, motionTask);
     }
 
     private static void AttachBrandingAssets(ConversionContext context, string packageRoot)

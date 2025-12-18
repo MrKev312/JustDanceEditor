@@ -66,14 +66,15 @@ public static class UbiArtAudioConverter
 
     private static void ConvertAudioClips(UbiArtAudioConversionRequest request)
     {
-        foreach (UbiArtAudioClipSource clipSource in request.AudioClips)
+        // Parallelize audio clip conversions
+        Parallel.ForEach(request.AudioClips, clipSource =>
         {
             string targetPath = Path.Combine(request.TempAudioFolder, clipSource.File.Name + clipSource.File.Extension);
             if (File.Exists(targetPath))
-                continue;
+                return;
 
             request.AudioConverter.Convert(clipSource.File, targetPath).GetAwaiter().GetResult();
-        }
+        });
     }
 
     private static string ConvertMainSong(UbiArtAudioConversionRequest request)

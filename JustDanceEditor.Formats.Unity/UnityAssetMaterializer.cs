@@ -34,26 +34,18 @@ public static class UnityAssetMaterializer
 
         try
         {
-            Logger.Log("Copying audio assets...", LogLevel.Debug);
-            CopyAudio(unityRoot, targetRoot);
-
-            Logger.Log("Copying video assets...", LogLevel.Debug);
-            CopyVideo(unityRoot, targetRoot);
-
-            Logger.Log("Extracting branding imagery...", LogLevel.Debug);
-            ExtractBrandingAssets(unityRoot, targetRoot);
-
-            Logger.Log("Extracting coach imagery...", LogLevel.Debug);
-            ExtractCoachAssets(unityRoot, targetRoot);
-
-            Logger.Log("Extracting pictograms...", LogLevel.Debug);
-            ExtractPictograms(unityRoot, targetRoot);
-
-            Logger.Log("Extracting motion scripts...", LogLevel.Debug);
-            ExtractMotionScripts(unityRoot, targetRoot);
-
-            Logger.Log("Extracting gesture files...", LogLevel.Debug);
-            ExtractGestureFiles(unityRoot, targetRoot);
+            Logger.Log("Extracting assets in parallel...", LogLevel.Debug);
+            
+            // Parallelize all independent extraction operations
+            Parallel.Invoke(
+                () => CopyAudio(unityRoot, targetRoot),
+                () => CopyVideo(unityRoot, targetRoot),
+                () => ExtractBrandingAssets(unityRoot, targetRoot),
+                () => ExtractCoachAssets(unityRoot, targetRoot),
+                () => ExtractPictograms(unityRoot, targetRoot),
+                () => ExtractMotionScripts(unityRoot, targetRoot),
+                () => ExtractGestureFiles(unityRoot, targetRoot)
+            );
         }
         catch (Exception ex)
         {

@@ -50,12 +50,14 @@ internal sealed class IntermediateToUnityConverter
         Logger.Log($"Starting JDI → Unity conversion for '{_songFolderName}'.", LogLevel.Info);
 
         Directory.CreateDirectory(_outputRoot);
-        Logger.Log("Copying audio assets into Unity workspace...", LogLevel.Debug);
-        await CopyAudioAssetsAsync();
-        Logger.Log("Copying video assets into Unity workspace...", LogLevel.Debug);
-        await CopyVideoAssetsAsync();
-        Logger.Log("Generating SongInfo.json...", LogLevel.Debug);
-        await GenerateSongInfoAsync();
+        Logger.Log("Preparing assets and metadata in parallel...", LogLevel.Debug);
+        
+        // Run audio, video, and SongInfo generation in parallel
+        Task audioTask = CopyAudioAssetsAsync();
+        Task videoTask = CopyVideoAssetsAsync();
+        Task songInfoTask = GenerateSongInfoAsync();
+        await Task.WhenAll(audioTask, videoTask, songInfoTask);
+        
         Logger.Log("Building Unity bundles...", LogLevel.Debug);
         await BuildUnityBundlesAsync();
         Logger.Log($"Unity conversion for '{_songFolderName}' completed.", LogLevel.Info);
@@ -93,8 +95,11 @@ internal sealed class IntermediateToUnityConverter
 
     private async Task CopyVideoAssetsAsync()
     {
-        await JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot);
-        await JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot);
+        // Generate background and preview videos in parallel
+        Task backgroundTask = JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot);
+        Task previewTask = JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot);
+        await Task.WhenAll(backgroundTask, previewTask);
+        
         CopyBackgroundVideos(Path.Combine(_outputRoot, "video"));
         CopyPreviewVideos(Path.Combine(_outputRoot, "videoPreview"));
     }
