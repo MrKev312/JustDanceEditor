@@ -5,6 +5,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
+using JustDanceEditor.Logging;
 
 using System.Text.Json;
 
@@ -270,6 +271,17 @@ internal static partial class UnityServerIntermediateBuilder
             int duration = Math.Max(0, entry["Duration"].AsInt);
             string moveName = entry["MoveName"].AsString;
             string moveId = (moveName ?? string.Empty).ToLowerInvariant();
+            string color = entry["Color"].AsString;
+
+            if (color != string.Empty)
+            {
+                // This should always be empty, so print a warning
+                Logger.Log($"Coach move color data is not expected to be set in Unity server exports. It's 0x{color}", LogLevel.Warning);
+            }
+            else
+            {
+                color = "#CCCCCC";
+            }
 
             MoveClip timelineClip = new()
             {
@@ -284,6 +296,7 @@ internal static partial class UnityServerIntermediateBuilder
             // Update Move Definition
             AddOrUpdateMoveDefinition(
                 moveCatalog,
+                color,
                 moveId,
                 duration,
                 isFullBody ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking);
@@ -398,6 +411,7 @@ internal static partial class UnityServerIntermediateBuilder
 
     private static void AddOrUpdateMoveDefinition(
         Dictionary<string, CoachMoveDefinition> catalog,
+        string color,
         string moveId,
         int duration,
         CoachMoveType moveType)
@@ -406,6 +420,7 @@ internal static partial class UnityServerIntermediateBuilder
         {
             catalog[moveId] = new CoachMoveDefinition
             {
+                Color = color,
                 Duration = duration,
                 MoveType = moveType
             };

@@ -14,8 +14,8 @@ public static class IntermediatePackageLayout
         public const string HideUserInterfaceFile = "timelines/hide_user_interface.json";
         public const string HandMovesFile = "timelines/coach_moves_hand.json";
         public const string FullBodyMovesFile = "timelines/coach_moves_fullBody.json";
-        public const string CoachPattern = "coach_*.json";
-        public const string FullBodyPattern = "coach_*_fullBody.json";
+        public const string CoachPattern = "coach_??.json";
+        public const string FullBodyPattern = "coach_??_fullBody.json";
 
         public static string CoachTimelineFile(int coachId) => $"timelines/coach_{coachId:D2}.json";
         public static string FullBodyCoachTimelineFile(int coachId) => $"timelines/coach_{coachId:D2}_fullBody.json";

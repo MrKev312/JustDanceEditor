@@ -70,7 +70,14 @@ public class FileSystem
         {
             string mapsFolder = Path.Combine(ConversionRequest.InputPath, "world", "maps");
             if (!Directory.Exists(mapsFolder))
+            {
+                if (ConversionRequest.Type == UbiArtType.Uncooked)
+                {
+                    SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    return;
+                }
                 throw new DirectoryNotFoundException("The maps folder does not exist.");
+            }
 
             string[] songs = Directory.GetDirectories(mapsFolder);
             if (songs.Length < 1)
@@ -89,7 +96,14 @@ public class FileSystem
         string itfCookedFolder = Path.Combine(ConversionRequest.InputPath, "cache", "itf_cooked");
 
         if (!Directory.Exists(itfCookedFolder))
+        {
+            if (ConversionRequest.Type == UbiArtType.Uncooked)
+            {
+                PlatformType = "uncooked";
+                return;
+            }
             throw new DirectoryNotFoundException("The itf_cooked folder does not exist.");
+        }
 
         string[] platformFolders = Directory.GetDirectories(itfCookedFolder);
 
@@ -109,6 +123,30 @@ public class FileSystem
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath)
     {
         filePath = null;
+
+        // For Uncooked, check the relative file path directly under InputPath first
+        if (ConversionRequest.Type == UbiArtType.Uncooked)
+        {
+            string directChild = Path.Combine(ConversionRequest.InputPath, relativeFilePath);
+            if (File.Exists(directChild))
+            {
+                filePath = new(directChild);
+                return true;
+            }
+            
+            // Check if it's world/maps/... but user pointed to the song folder
+            // e.g. relativeFilePath = world/maps/songname/songdesc.tpl
+            // but InputPath = .../songname
+            // We can check the filename directly in InputPath
+            string fileName = Path.GetFileName(relativeFilePath);
+            string rootFile = Path.Combine(ConversionRequest.InputPath, fileName);
+            if (File.Exists(rootFile))
+            {
+                filePath = new(rootFile);
+                return true;
+            }
+        }
+
         string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
         List<string> searchPaths = [Path.Combine(parentFolder, $"patch_{PlatformType}")];
 

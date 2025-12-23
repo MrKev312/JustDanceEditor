@@ -90,9 +90,7 @@ public static class IntermediatePackageSerializer
             ? IntermediatePackageLayout.Timelines.FullBodyPattern
             : IntermediatePackageLayout.Timelines.CoachPattern;
 
-        IEnumerable<string> files = Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly);
-        if (!isFullBody)
-            files = files.Where(file => !Path.GetFileName(file).Contains("_fullBody", StringComparison.OrdinalIgnoreCase));
+        List<string> files = [.. Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly)];
 
         foreach (string file in files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
         {

@@ -89,17 +89,20 @@ internal static class FormatConversionDialogue
         string inputPath = AskInputPath(source);
         string outputPath = AskOutputPath(target);
 
+        string intermediatePath = target == "JDI" ? outputPath : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
+
         ConversionRequestBase importRequest = source switch
         {
-            "UbiArt" => BuildUbiArtImportRequest(inputPath, outputPath),
-            "Unity" => BuildUnityImportRequest(inputPath, outputPath, target),
-            "JDI" => new JdiConversionRequest(inputPath, outputPath),
+            "UbiArt" => BuildUbiArtImportRequest(inputPath, intermediatePath),
+            "Unity" => BuildUnityImportRequest(inputPath, intermediatePath, target),
+            "JDI" => new JdiConversionRequest(inputPath, intermediatePath),
             _ => throw new NotSupportedException($"Unknown source format '{source}'.")
         };
 
         ConversionRequestBase exportRequest = target switch
         {
             "Unity" => BuildUnityExportRequest(outputPath),
+            "UbiArt" => BuildUbiArtExportRequest(inputPath, outputPath),
             "JDI" => new JdiConversionRequest(inputPath, outputPath),
             _ => throw new NotSupportedException("Exporting to the selected target is not supported.")
         };
@@ -161,6 +164,16 @@ internal static class FormatConversionDialogue
         };
 
         return request;
+    }
+
+    private static ConversionRequestBase BuildUbiArtExportRequest(string inputPath, string outputPath)
+    {
+        // For now, default to Uncooked export
+        string? songName = ResolveUbiArtSongName(inputPath);
+        return new UbiArtConversionRequest(inputPath, outputPath, songName)
+        {
+            Type = UbiArtType.Uncooked
+        };
     }
 
     private static string? ResolveUbiArtSongName(string inputPath)

@@ -13,7 +13,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
 
     public string DisplayName => "UbiArt";
     public bool CanImport => true;
-    public bool CanExport => false;
+    public bool CanExport => true;
 
     public async Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
@@ -38,12 +38,32 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
             context.IntermediatePackage,
             "UbiArt",
             outputFolder,
-            MaterializedRootIsTemporary: false,
+            MaterializedRootIsTemporary: outputFolder.Contains(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase),
             SuggestedOutputFolder: outputFolder);
     }
 
-    public Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Exporting to UbiArt is not supported.");
+    public async Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
+    {
+        if (request is not UbiArtConversionRequest ubiRequest)
+            throw new ArgumentException("UbiArt export expects a UbiArtConversionRequest.", nameof(request));
+
+        if (ubiRequest.Type != UbiArtType.Uncooked)
+            throw new NotSupportedException("Only Uncooked export is supported for now.");
+
+        string outputFolder = ubiRequest.OutputPath;
+        if (!string.IsNullOrEmpty(ubiRequest.SongName))
+        {
+            outputFolder = Path.Combine(outputFolder, ubiRequest.SongName);
+        }
+        else if (importResult.Package.Metadata.MapName != null)
+        {
+            outputFolder = Path.Combine(outputFolder, importResult.Package.Metadata.MapName);
+        }
+
+        PrepareOutputDirectory(outputFolder);
+
+        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, ubiRequest);
+    }
 
     private static void PrepareOutputDirectory(string targetFolder)
     {
@@ -64,7 +84,9 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
         if (string.IsNullOrWhiteSpace(request.OutputPath))
             throw new ArgumentException("Output path is required for UbiArt imports.", nameof(request.OutputPath));
 
-        bool hasSongDesc = Directory.EnumerateFiles(request.InputPath, "songdesc.tpl", SearchOption.AllDirectories).Any();
+        // Use filesystem for this
+        new FileSystem(request).GetFilePath($"world/maps/{request.SongName}/songdesc.tpl", out CookedFile? songDesc);
+        bool hasSongDesc = songDesc != null;
         bool hasJddb = Directory.EnumerateFiles(request.InputPath, "jddb.json", SearchOption.AllDirectories).Any();
 
         if (!hasSongDesc && !hasJddb)

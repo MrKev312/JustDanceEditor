@@ -17,6 +17,7 @@ public class MoveTimeline : Timeline<MoveClip>
 
 public class CoachMoveDefinition
 {
+    public string Color { get; set; } = "#CCCCCC";
     public int Duration { get; set; }
     public CoachMoveType MoveType { get; set; }
 }

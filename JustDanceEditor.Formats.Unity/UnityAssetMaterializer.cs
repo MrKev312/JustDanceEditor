@@ -266,8 +266,19 @@ public static class UnityAssetMaterializer
                     continue;
 
                 string destination = Path.Combine(pictogramsFolder, $"{safeName}.webp");
+
                 using Image<Rgba32> cropped = atlas.Clone(ctx => ctx.Crop(cropRect));
-                SaveAsWebp(cropped, destination);
+
+                // Create a transparent canvas of the original m_Rect size
+                using Image<Rgba32> canvas = new((int)Math.Round(sprite.OriginalWidth), (int)Math.Round(sprite.OriginalHeight));
+
+                // Calculate Top-Left position for ImageSharp (Unity uses Bottom-Left)
+                int destX = (int)Math.Round(sprite.OffsetX);
+                int destY = (int)Math.Round(sprite.OriginalHeight - sprite.OffsetY - cropped.Height);
+
+                canvas.Mutate(ctx => ctx.DrawImage(cropped, new Point(destX, destY), 1f));
+
+                SaveAsWebp(canvas, destination);
             }
 
             if (exported.Count == 0)
@@ -555,9 +566,19 @@ public static class UnityAssetMaterializer
             AssetTypeValueField baseField = manager.GetBaseField(assetsFile, spriteInfo);
             AssetTypeValueField keyField = baseField["m_RenderDataKey"]["first"];
             string key = ComposeRenderKey(keyField);
+
             if (!sprites.ContainsKey(key))
             {
-                sprites[key] = new SpriteInfo(baseField["m_Name"].AsString);
+                AssetTypeValueField rect = baseField["m_Rect"];
+                AssetTypeValueField offset = baseField["m_RD"]["textureRectOffset"];
+
+                sprites[key] = new SpriteInfo(
+                    baseField["m_Name"].AsString,
+                    rect["width"].AsFloat,
+                    rect["height"].AsFloat,
+                    offset["x"].AsFloat,
+                    offset["y"].AsFloat
+                );
             }
         }
 
@@ -685,7 +706,7 @@ public static class UnityAssetMaterializer
         return extension is ".png" or ".jpg" or ".jpeg" or ".webp";
     }
 
-    private sealed record SpriteInfo(string Name);
+    private sealed record SpriteInfo(string Name, float OriginalWidth, float OriginalHeight, float OffsetX, float OffsetY);
 
     private sealed record RenderEntry(string RenderDataKey, long TexturePathId, float X, float Y, float Width, float Height)
     {

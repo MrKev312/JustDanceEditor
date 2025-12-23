@@ -16,6 +16,8 @@ using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.H
 using JDIVibrationClip = JustDanceEditor.Formats.JDI.Timelines.VibrationClip;
 using UbiArtVibrationClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.VibrationClip;
 
+using SixLabors.ImageSharp.PixelFormats;
+
 namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
 internal static class IntermediatePackageBuilder
@@ -276,6 +278,10 @@ internal static class IntermediatePackageBuilder
 
             string moveId = Path.GetFileNameWithoutExtension(clip.ClassifierPath).ToLowerInvariant();
 
+            byte r = (byte)(clip.Color[1] * 255f);
+            byte g = (byte)(clip.Color[2] * 255f);
+            byte b = (byte)(clip.Color[3] * 255f);
+
             timeline.Clips.Add(new MoveClip
             {
                 Id = clip.Id,
@@ -286,6 +292,7 @@ internal static class IntermediatePackageBuilder
 
             AddOrUpdateMoveDefinition(
                 moveCatalog,
+                $"#{r:X2}{g:X2}{b:X2}",
                 moveId,
                 clip.Duration,
                 isFullBody ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking);
@@ -300,6 +307,7 @@ internal static class IntermediatePackageBuilder
 
     private static void AddOrUpdateMoveDefinition(
         Dictionary<string, CoachMoveDefinition> catalog,
+        string color,
         string moveId,
         int duration,
         CoachMoveType moveType)
@@ -308,6 +316,7 @@ internal static class IntermediatePackageBuilder
         {
             catalog[moveId] = new CoachMoveDefinition
             {
+                Color = color,
                 Duration = duration,
                 MoveType = moveType
             };

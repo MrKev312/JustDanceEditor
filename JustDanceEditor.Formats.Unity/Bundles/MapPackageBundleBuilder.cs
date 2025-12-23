@@ -9,6 +9,8 @@ using JustDanceEditor.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
+using System.Drawing;
+
 using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
 
@@ -605,7 +607,7 @@ public static class MapPackageBundleBuilder
             pictoClipsArray.Children.Add(newPicto);
         }
 
-        foreach ((MoveClip clip, int coachId, long trackId, int moveType, int duration) in request.UnityData.MotionClips.OrderBy(m => m.Clip.StartTime))
+        foreach ((MoveClip clip, int coachId, long trackId, int moveType, int duration, string color) in request.UnityData.MotionClips.OrderBy(m => m.Clip.StartTime))
         {
             if (coachId < 0 || coachId >= coachCount)
                 continue;
@@ -624,7 +626,7 @@ public static class MapPackageBundleBuilder
             newMotion["GoldMove"].AsUInt = clip.IsGoldMove ? 1u : 0u;
             newMotion["CoachId"].AsInt = coachId;
             newMotion["MoveType"].AsInt = moveType;
-            newMotion["Color"].AsString = string.Empty;
+            newMotion["Color"].AsString = color;
             motionClipsArray.Children.Add(newMotion);
         }
 

@@ -6,6 +6,12 @@ public enum ExportType
     CustomServer
 }
 
+public enum UbiArtType
+{
+    Cooked,
+    Uncooked
+}
+
 public abstract class ConversionRequestBase
 {
     protected ConversionRequestBase(string inputPath, string outputPath)
@@ -24,6 +30,7 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
 {
     // SongName is required to disambiguate if the input folder contains multiple maps
     public string? SongName { get; set; } = songName;
+    public UbiArtType Type { get; set; } = UbiArtType.Cooked;
 }
 
 // Used for JDI -> Unity

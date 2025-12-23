@@ -55,12 +55,12 @@ public static class UnityExportDataBuilder
         return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
     }
 
-    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> BuildMotionClips(IntermediateSongPackage package)
+    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package)
     {
         if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
             return [];
 
-        List<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration)> clips = [];
+        List<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> clips = [];
 
         foreach ((MoveTimeline timeline, CoachMoveType moveType) in EnumerateCoachTimelines(package).OrderBy(entry => entry.Timeline.CoachId))
         {
@@ -73,8 +73,9 @@ public static class UnityExportDataBuilder
 
                 int duration = definition?.Duration ?? 48;
                 int moveTypeValue = moveType == CoachMoveType.FullBodyTracking ? 1 : 0;
+                string color = definition?.Color[1..] ?? "FFFFFF";
 
-                clips.Add((clip, timeline.CoachId, timeline.TrackId, moveTypeValue, duration));
+                clips.Add((clip, timeline.CoachId, timeline.TrackId, moveTypeValue, duration, color));
             }
         }
 

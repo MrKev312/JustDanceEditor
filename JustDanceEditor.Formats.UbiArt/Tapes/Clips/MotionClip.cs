@@ -7,4 +7,5 @@ public sealed record MotionClip : Clip
     public int GoldMove { get; set; }
     public int CoachId { get; set; }
     public int MoveType { get; set; }
+    public float[] Color { get; set; } = new float[4];
 }
