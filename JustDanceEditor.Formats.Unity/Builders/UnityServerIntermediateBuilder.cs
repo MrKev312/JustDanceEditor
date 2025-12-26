@@ -46,11 +46,7 @@ internal static partial class UnityServerIntermediateBuilder
 
             (AssetTypeValueField musicTrackBase, AssetTypeValueField mapBehaviourBase) = FindRequiredMonoBehaviours(manager, assetsFile);
 
-            // 3. Parse Structure
-            Structure structure = ParseStructure(musicTrackBase);
-            TimelineMath timelineMath = new(structure);
-
-            // 4. Parse Motion/Coach Data directly into JDI models
+            // 3. Parse Motion/Coach Data directly into JDI models
             (
                 List<MoveTimeline> handTimelines,
                 List<MoveTimeline> fullBodyTimelines,
@@ -58,11 +54,11 @@ internal static partial class UnityServerIntermediateBuilder
                 Dictionary<string, CoachMoveDefinition> fullBodyMoves
             ) = BuildCoachTimelinesAndMoves(mapBehaviourBase);
 
-            // 5. Build final package
+            // 4. Build final package
             IntermediateSongPackage package = new()
             {
                 Metadata = (IntermediateMetadata)songInfo,
-                TimelineStructure = BuildTimelineStructure(structure, timelineMath),
+                TimelineStructure = BuildTimelineStructure(musicTrackBase),
 
                 Lyrics = BuildLyricsDocument(mapBehaviourBase),
                 Pictograms = BuildPictogramDocument(mapBehaviourBase),
@@ -315,89 +311,64 @@ internal static partial class UnityServerIntermediateBuilder
             fullBodyMoves);
     }
 
-    private static Structure ParseStructure(AssetTypeValueField musicTrackBase)
+    private static TimelineStructureDocument BuildTimelineStructure(AssetTypeValueField musicTrackBase)
     {
         AssetTypeValueField structureField = musicTrackBase["m_structure"]["MusicTrackStructure"];
 
+        // Helper functions to safely read values, returning 0 if the field doesn't exist.
         static int ReadInt(AssetTypeValueField parent, string name) => parent[name].IsDummy ? 0 : parent[name].AsInt;
         static double ReadDouble(AssetTypeValueField parent, string name) => parent[name].IsDummy ? 0 : parent[name].AsDouble;
 
-        Structure structure = new()
+        // An inferred helper to simplify reading arrays with a transform, based on your original code.
+        static List<T> ReadArray<T>(AssetTypeValueField arrayField, Func<AssetTypeValueField, T> selector)
         {
-            startBeat = ReadInt(structureField, "startBeat"),
-            endBeat = ReadInt(structureField, "endBeat"),
-            videoStartTime = (float)ReadDouble(structureField, "videoStartTime"),
-            previewEntry = (int)Math.Round(ReadDouble(structureField, "previewEntry")),
-            previewLoopStart = (int)Math.Round(ReadDouble(structureField, "previewLoopStart")),
-            previewLoopEnd = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
-            previewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration")),
-            markers = ReadArray(structureField["markers"]["Array"], field => (int)field["VAL"].AsLong),
-            signatures = ReadArray(structureField["signatures"]["Array"], field => new Signature
-            {
-                beats = field["MusicSignature"]["beats"].AsInt,
-                marker = (float)field["MusicSignature"]["marker"].AsDouble
-            }),
+            if (arrayField.IsDummy || arrayField.Children.Count == 0)
+                return [];
 
-            sections = ReadArray(structureField["sections"]["Array"], field => new Section
-            {
-                sectionType = field["MusicSection"]["sectionType"].AsInt,
-                marker = (float)field["MusicSection"]["marker"].AsDouble,
-                comment = field["MusicSection"]["comment"].AsString
-            })
-        };
+            return arrayField.Children.Select(selector).ToList();
+        }
 
-        if (structure.previewDuration == 0)
-            structure.previewDuration = 30;
-
-        return structure;
-    }
-
-    private static TimelineStructureDocument BuildTimelineStructure(Structure structure, TimelineMath timelineMath)
-    {
+        // Directly create and populate the final document
         TimelineStructureDocument document = new()
         {
-            TimeBaseMsPerBeat = timelineMath.EstimateMsPerBeat(),
-            StartBeat = structure.startBeat,
-            EndBeat = structure.endBeat,
-            VideoStartOffset = structure.videoStartTime,
-            PreviewEntryBeat = structure.previewEntry,
-            PreviewLoopStartBeat = structure.previewLoopStart,
-            PreviewLoopEndBeat = structure.previewLoopEnd,
-            PrevewDuration = structure.previewDuration,
-            Markers = [.. structure.markers]
+            StartBeat = ReadInt(structureField, "startBeat"),
+            EndBeat = ReadInt(structureField, "endBeat"),
+            VideoStartOffset = (float)ReadDouble(structureField, "videoStartTime"),
+            PreviewEntryBeat = (int)Math.Round(ReadDouble(structureField, "previewEntry")),
+            PreviewLoopStartBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopStart")),
+            PreviewLoopEndBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
+            PrevewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
         };
+        document.TimeBaseMsPerBeat = document.EstimateMsPerBeat();
 
-        document.TempoSegments.Add(new TempoSegment
+        // Apply the default value logic for preview duration
+        if (document.PrevewDuration == 0)
         {
-            StartBeat = structure.startBeat,
-            BeatsPerMinute = timelineMath.EstimateBpm()
-        });
-
-        if (structure.signatures is { Length: > 0 })
-        {
-            foreach (Signature signature in structure.signatures)
-            {
-                document.Signatures.Add(new SignatureSegment
-                {
-                    Beats = signature.beats,
-                    Marker = signature.marker,
-                    Comment = signature.comment
-                });
-            }
+            document.PrevewDuration = 30;
         }
 
-        if (structure.sections is { Length: > 0 })
-        {
-            foreach (Section section in structure.sections)
+        // Parse and transform arrays directly into the document's collections
+        document.Markers.AddRange(ReadArray(structureField["markers"]["Array"],
+            field => (int)field["VAL"].AsLong));
+
+        document.Signatures.AddRange(ReadArray(structureField["signatures"]["Array"],
+            field => new SignatureSegment
             {
-                document.Sections.Add(new SectionSegment
-                {
-                    StartBeat = section.marker,
-                    SectionType = section.sectionType,
-                    Comment = section.comment
-                });
-            }
-        }
+                Beats = field["MusicSignature"]["beats"].AsInt,
+                Marker = (float)field["MusicSignature"]["marker"].AsDouble,
+                // Note: The original 'BuildTimelineStructure' tried to access 'signature.comment',
+                // but the 'Signature' class in 'ParseStructure' didn't have a 'comment' field.
+                // This version assumes there is no comment for signatures.
+                Comment = string.Empty
+            }));
+
+        document.Sections.AddRange(ReadArray(structureField["sections"]["Array"],
+            field => new SectionSegment
+            {
+                StartBeat = (float)field["MusicSection"]["marker"].AsDouble,
+                SectionType = field["MusicSection"]["sectionType"].AsInt,
+                Comment = field["MusicSection"]["comment"].AsString
+            }));
 
         return document;
     }
@@ -465,16 +436,5 @@ internal static partial class UnityServerIntermediateBuilder
 
         foreach (AssetTypeValueField child in arrayField.Children)
             yield return child;
-    }
-
-    private static T[] ReadArray<T>(AssetTypeValueField? arrayField, Func<AssetTypeValueField, T> selector)
-    {
-        if (arrayField == null || arrayField.IsDummy)
-            return [];
-
-        T[] result = new T[arrayField.Children.Count];
-        for (int i = 0; i < arrayField.Children.Count; i++)
-            result[i] = selector(arrayField.Children[i]);
-        return result;
     }
 }

@@ -1,7 +1,9 @@
 using NLua;
-using System.Text.Json;
+
 using System.Collections;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
@@ -29,7 +31,7 @@ public static class LuaTableSerializer
         if (paramsTable == null)
             throw new InvalidDataException("LUA script did not define 'params' table.");
 
-        var dict = LuaTableToDictionary(paramsTable);
+        IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
         Console.WriteLine($"DEBUG JSON: {json}");
         
@@ -49,7 +51,7 @@ public static class LuaTableSerializer
     private static SongDesc MapToSongDesc(JsonElement root)
     {
         JsonElement actorTemplate = default;
-        foreach (var prop in root.EnumerateObject())
+        foreach (JsonProperty prop in root.EnumerateObject())
         {
             if (prop.NameEquals("Actor_Template"))
             {
@@ -64,13 +66,13 @@ public static class LuaTableSerializer
             {
                 foreach (JsonElement component in components.EnumerateArray())
                 {
-                    foreach (var prop in component.EnumerateObject())
+                    foreach (JsonProperty prop in component.EnumerateObject())
                     {
                         if (prop.NameEquals("JD_SongDescTemplate"))
                         {
                             // Create a copy of the component object without DefaultColors to avoid deserialization error
                             var dict = new Dictionary<string, object>();
-                            foreach (var componentProp in prop.Value.EnumerateObject())
+                            foreach (JsonProperty componentProp in prop.Value.EnumerateObject())
                             {
                                 if (!componentProp.NameEquals("DefaultColors"))
                                 {
@@ -79,12 +81,12 @@ public static class LuaTableSerializer
                             }
                             
                             string sanitizedJson = JsonSerializer.Serialize(dict);
-                            var info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+                            InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
                             
                             // Manually map DefaultColors if it was an array
                             if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
                             {
-                                foreach (var item in colors.EnumerateArray())
+                                foreach (JsonElement item in colors.EnumerateArray())
                                 {
                                     if (item.TryGetProperty("KEY", out JsonElement key) && item.TryGetProperty("VAL", out JsonElement val))
                                     {
@@ -191,7 +193,7 @@ public static class LuaTableSerializer
         {
             // Handle anonymous types or classes
             sb.AppendLine("{");
-            foreach (var prop in obj.GetType().GetProperties())
+            foreach (PropertyInfo prop in obj.GetType().GetProperties())
             {
                 if (prop.GetIndexParameters().Length > 0) continue; // Skip indexed properties
                 sb.Append(indentation + "  ");

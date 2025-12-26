@@ -5,18 +5,16 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
-using JDIKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
-using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.KaraokeClip;
-using JDIPictogramClip = JustDanceEditor.Formats.JDI.Timelines.PictogramClip;
-using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.PictogramClip;
 using JDIGoldEffectClip = JustDanceEditor.Formats.JDI.Timelines.GoldEffectClip;
-using UbiArtGoldEffectClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.GoldEffectClip;
 using JDIHideUserInterfaceClip = JustDanceEditor.Formats.JDI.Timelines.HideUserInterfaceClip;
-using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.HideUserInterfaceClip;
+using JDIKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
+using JDIPictogramClip = JustDanceEditor.Formats.JDI.Timelines.PictogramClip;
 using JDIVibrationClip = JustDanceEditor.Formats.JDI.Timelines.VibrationClip;
+using UbiArtGoldEffectClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.GoldEffectClip;
+using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.HideUserInterfaceClip;
+using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.KaraokeClip;
+using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.PictogramClip;
 using UbiArtVibrationClip = JustDanceEditor.Formats.UbiArt.Tapes.Clips.VibrationClip;
-
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace JustDanceEditor.Formats.UbiArt.Intermediate;
 
@@ -30,19 +28,18 @@ internal static class IntermediatePackageBuilder
 
         Trackdata trackData = context.SongData.MusicTrack.COMPONENTS.FirstOrDefault()?.trackData ?? new();
         Structure structure = trackData.structure ?? new();
-        TimelineMath timelineMath = new(structure);
 
         (
             List<MoveTimeline> coachTimelines,
             List<MoveTimeline> fullBodyTimelines,
             Dictionary<string, CoachMoveDefinition> handMoves,
             Dictionary<string, CoachMoveDefinition> fullBodyMoves) =
-            BuildCoachTimelines(context, timelineMath);
+            BuildCoachTimelines(context);
 
         IntermediateSongPackage package = new()
         {
             Metadata = BuildMetadata(context, structure),
-            TimelineStructure = BuildTimelineStructure(structure, timelineMath),
+            TimelineStructure = BuildTimelineStructure(structure),
             Lyrics = BuildLyricsDocument(context),
             Pictograms = BuildPictogramDocument(context),
             GoldEffects = BuildGoldEffectDocument(context),
@@ -91,11 +88,10 @@ internal static class IntermediatePackageBuilder
         return metadata;
     }
 
-    private static TimelineStructureDocument BuildTimelineStructure(Structure structure, TimelineMath timelineMath)
+    private static TimelineStructureDocument BuildTimelineStructure(Structure structure)
     {
         TimelineStructureDocument document = new()
         {
-            TimeBaseMsPerBeat = timelineMath.EstimateMsPerBeat(),
             StartBeat = structure.startBeat,
             EndBeat = structure.endBeat,
             VideoStartOffset = structure.videoStartTime,
@@ -105,6 +101,8 @@ internal static class IntermediatePackageBuilder
             PrevewDuration = structure.previewDuration,
             Markers = [.. structure.markers]
         };
+
+        document.TimeBaseMsPerBeat = document.EstimateMsPerBeat();
 
         if (structure.signatures is { Length: > 0 })
         {
@@ -131,12 +129,6 @@ internal static class IntermediatePackageBuilder
                 });
             }
         }
-
-        document.TempoSegments.Add(new TempoSegment
-        {
-            StartBeat = structure.startBeat,
-            BeatsPerMinute = timelineMath.EstimateBpm()
-        });
 
         return document;
     }
@@ -254,7 +246,7 @@ internal static class IntermediatePackageBuilder
         List<MoveTimeline> HandTracking,
         List<MoveTimeline> FullBodyTracking,
         Dictionary<string, CoachMoveDefinition> HandMoves,
-        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(ConversionContext context, TimelineMath timelineMath)
+        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelines(ConversionContext context)
     {
         Dictionary<int, MoveTimeline> handTimelines = [];
         Dictionary<int, MoveTimeline> fullBodyTimelines = [];

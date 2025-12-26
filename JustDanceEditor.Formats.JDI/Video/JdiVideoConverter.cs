@@ -1,11 +1,8 @@
-using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Logging;
 
 using SixLabors.ImageSharp;
 
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 using Xabe.FFmpeg;
@@ -375,7 +372,7 @@ public static class JdiVideoConverter
     private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType)
     {
         string manifestPath = Path.Combine(scratchFolder, $"manifest_{videoType}.txt");
-        List<string> lines = new();
+        List<string> lines = [];
 
         foreach (VideoQualityProfile profile in profiles)
         {

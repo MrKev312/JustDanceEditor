@@ -4,7 +4,6 @@ public class TimelineStructureDocument
 {
     public double TimeBaseMsPerBeat { get; set; } = 500;
     public List<int> Markers { get; set; } = [];
-    public List<TempoSegment> TempoSegments { get; set; } = [];
     public List<SignatureSegment> Signatures { get; set; } = [];
     public List<SectionSegment> Sections { get; set; } = [];
     public int StartBeat { get; set; }
@@ -14,6 +13,37 @@ public class TimelineStructureDocument
     public int PreviewLoopStartBeat { get; set; }
     public int PreviewLoopEndBeat { get; set; }
     public int PrevewDuration { get; set; }
+
+    /// <summary>
+    /// Calculates the average Milliseconds per Beat based on the current Markers list.
+    /// This was formerly TimelineMath.EstimateMsPerBeat().
+    /// </summary>
+    public double EstimateMsPerBeat()
+    {
+        if (Markers.Count < 2)
+            return 500;
+
+        double total = 0;
+        // Iterate through markers to calculate the average duration
+        for (int i = 1; i < Markers.Count; i++)
+        {
+            total += (Markers[i] - Markers[i - 1]) / 48d;
+        }
+
+        return total / (Markers.Count - 1);
+    }
+
+    /// <summary>
+    /// Estimates BPM based on the current TimeBaseMsPerBeat property.
+    /// This was formerly TimelineMath.EstimateBpm().
+    /// </summary>
+    public double EstimateBpm()
+    {
+        // Uses the property TimeBaseMsPerBeat which should be set 
+        // using EstimateMsPerBeat() during loading.
+        double ms = TimeBaseMsPerBeat;
+        return ms > 0 ? 60000d / ms : 120d;
+    }
 
     /// <summary>
     /// returns (TimeSpan Start, TimeSpan Duration) adjusted for Video timing.

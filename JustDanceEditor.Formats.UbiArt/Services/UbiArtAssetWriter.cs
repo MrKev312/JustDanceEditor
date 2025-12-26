@@ -2,12 +2,15 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Logging;
-using Xabe.FFmpeg; // audio/video conversions
-using System.Globalization; // for invariant number formatting
-using System.Text;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
+
+using System.Globalization; // for invariant number formatting
+using System.Text;
+
+using Xabe.FFmpeg; // audio/video conversions
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
@@ -67,80 +70,19 @@ public static class UbiArtAssetWriter
         Logger.Log("Uncooked export completed.");
     }
 
-    private static object MapToMusicTrackWrapper(IntermediateSongPackage package)
-    {
-        // Mapping package.TimelineStructure back to UbiArt Structure
-        var structure = new Structure
-        {
-            startBeat = package.TimelineStructure.StartBeat,
-            endBeat = package.TimelineStructure.EndBeat,
-            videoStartTime = (float)package.TimelineStructure.VideoStartOffset,
-            previewEntry = package.TimelineStructure.PreviewEntryBeat,
-            previewLoopStart = package.TimelineStructure.PreviewLoopStartBeat,
-            previewLoopEnd = package.TimelineStructure.PreviewLoopEndBeat,
-            previewDuration = package.TimelineStructure.PrevewDuration,
-            markers = package.TimelineStructure.Markers.ToArray(),
-            signatures = package.TimelineStructure.Signatures.Select(s => new Signature
-            {
-                beats = s.Beats,
-                marker = (float)s.Marker,
-                comment = s.Comment
-            }).ToArray(),
-            sections = package.TimelineStructure.Sections.Select(s => new Section
-            {
-                marker = (float)s.StartBeat,
-                sectionType = s.SectionType,
-                comment = s.Comment
-            }).ToArray()
-        };
-
-        var musicTrack = new
-        {
-            NAME = "Actor_Template",
-            Actor_Template = new
-            {
-                COMPONENTS = new[]
-                {
-                    new
-                    {
-                        NAME = "MusicTrackComponent_Template",
-                        MusicTrackComponent_Template = new
-                        {
-                            trackData = new
-                            {
-                                MusicTrackData = new
-                                {
-                                    path = $"audio/{package.Metadata.MapName}.wav",
-                                    structure = structure,
-                                    volume = 0
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        // If we have an actual extension from the copied file, we should use it here.
-        // For now, let's keep it as .wav as per LetItGo example, but maybe it should be dynamic.
-        // Actually, let's make it a separate step to find the actual audio path if possible.
-
-        return musicTrack;
-    }
-
     private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, string cinematicsFolder)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
         // Build all clips: MotionClips + PictogramClips
-        List<object> allClips = new();
+        List<object> allClips = [];
 
         // Add MotionClips
-        foreach (var timeline in package.CoachTimelines)
+        foreach (MoveTimeline timeline in package.CoachTimelines)
         {
-            foreach (var clip in timeline.Clips)
+            foreach (MoveClip clip in timeline.Clips)
             {
-                package.HandCoachMoves.TryGetValue(clip.MoveId, out var move);
+                package.HandCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move);
 
                 if (move == null)
                 {
@@ -155,12 +97,12 @@ public static class UbiArtAssetWriter
                     NAME = "MotionClip",
                     MotionClip = new
                     {
-                        Id = clip.Id,
-                        TrackId = timeline.TrackId,
-                        StartTime = clip.StartTime,
-                        Duration = move.Duration,
+                        clip.Id,
+                        timeline.TrackId,
+                        clip.StartTime,
+                        move.Duration,
                         ClassifierPath = $"world/Maps/{mapNameLower}/timeline/moves/{clip.MoveId}.msm",
-                        CoachId = timeline.CoachId,
+                        timeline.CoachId,
                         Color = $"0xFF{color}",
                         GoldMove = clip.IsGoldMove ? 1 : 0
                     }
@@ -169,27 +111,27 @@ public static class UbiArtAssetWriter
         }
 
         // Add PictogramClips
-        foreach (var pictoClip in package.Pictograms.Clips)
+        foreach (PictogramClip pictoClip in package.Pictograms.Clips)
         {
             allClips.Add(new
             {
                 NAME = "PictogramClip",
                 PictogramClip = new
                 {
-                    Id = pictoClip.Id,
+                    pictoClip.Id,
                     TrackId = PictoTrackId,
-                    StartTime = pictoClip.StartTime,
-                    Duration = pictoClip.Duration,
+                    pictoClip.StartTime,
+                    pictoClip.Duration,
                     PictoPath = $"world/Maps/{mapNameLower}/timeline/pictos/{pictoClip.PictogramId}.png"
                 }
             });
         }
 
         // Build Tracks section
-        List<object> tracks = new();
+        List<object> tracks = [];
 
         // Add MoveTrack for each coach (hand tracking)
-        foreach (var timeline in package.CoachTimelines)
+        foreach (MoveTimeline timeline in package.CoachTimelines)
         {
             tracks.Add(new
             {
@@ -198,13 +140,13 @@ public static class UbiArtAssetWriter
                 {
                     Id = timeline.TrackId,
                     Name = $"Moves{timeline.CoachId + 1}",
-                    CoachId = timeline.CoachId
+                    timeline.CoachId
                 }
             });
         }
 
         // Add MoveTrack for camera moves (full body tracking) if available
-        foreach (var timeline in package.FullBodyCoachTimelines)
+        foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
         {
             tracks.Add(new
             {
@@ -213,7 +155,7 @@ public static class UbiArtAssetWriter
                 {
                     Id = timeline.TrackId,
                     Name = $"CameraMoves{timeline.CoachId + 1}",
-                    CoachId = timeline.CoachId,
+                    timeline.CoachId,
                     MoveType = 1
                 }
             });
@@ -249,7 +191,7 @@ public static class UbiArtAssetWriter
                 Clips = allClips.ToArray(),
                 Tracks = tracks.ToArray(),
                 TapeClock = 0,
-                MapName = package.Metadata.MapName
+                package.Metadata.MapName
             }
         };
 
@@ -268,13 +210,13 @@ public static class UbiArtAssetWriter
                         NAME = "KaraokeClip",
                         KaraokeClip = new
                         {
-                            Id = c.Id,
-                            StartTime = c.StartTime,
-                            Duration = c.Duration,
-                            Lyrics = c.Lyrics,
-                            Pitch = c.Pitch,
+                            c.Id,
+                            c.StartTime,
+                            c.Duration,
+                            c.Lyrics,
+                            c.Pitch,
                             IsEndOfLine = c.IsEndOfLine ? 1 : 0,
-                            ContentType = c.ContentType
+                            c.ContentType
                         }
                     }).ToArray()
                 }
@@ -479,27 +421,6 @@ public static class UbiArtAssetWriter
         await File.WriteAllTextAsync(Path.Combine(cinematicsFolder, $"{mapName}_MainSequence.tape"), tapeContent);
     }
 
-    private static SongDesc MapToSongDesc(IntermediateSongPackage package)
-    {
-        var info = new InfoComponent
-        {
-            MapName = package.Metadata.MapName,
-            Title = package.Metadata.Title,
-            Artist = package.Metadata.Artist,
-            Credits = package.Metadata.Credits,
-            NumCoach = package.Metadata.CoachCount,
-            Difficulty = package.Metadata.Difficulty,
-            SweatDifficulty = package.Metadata.SweatDifficulty,
-            Tags = package.Metadata.Tags.ToArray(),
-            Status = package.Metadata.Status,
-            MojoValue = package.Metadata.MojoValue,
-            CountInProgression = package.Metadata.CountInProgression,
-            JDVersion = (uint)package.Metadata.OriginalJDVersion
-        };
-
-        return new SongDesc { COMPONENTS = new[] { info } };
-    }
-
     /// <summary>
     /// Prepare audio assets for Uncooked export:
     /// - Convert intermediate master audio to WAV (48kHz, 16-bit)
@@ -536,7 +457,7 @@ public static class UbiArtAssetWriter
         {
             Logger.Log("Converting intermediate audio to WAV...");
             // Convert whatever source (likely .opus) to WAV 48kHz stereo
-            var conversion = FFmpeg.Conversions.New();
+            IConversion conversion = FFmpeg.Conversions.New();
             // Place -i before output options so ffmpeg parses options correctly
             conversion.AddParameter($"-y -i \"{audioSource}\" -ar 48000 -ac 2");
             conversion.SetOutput(tempWav);
@@ -546,7 +467,7 @@ public static class UbiArtAssetWriter
             // Determine cut duration from startBeat if negative
             double cutDurationSeconds = 0.0;
             double startBeat = package.TimelineStructure.StartBeat;
-            var markers = package.TimelineStructure.Markers;
+            List<int> markers = package.TimelineStructure.Markers;
 
             if (startBeat < 0 && markers != null && markers.Count > 1)
             {
@@ -563,7 +484,7 @@ public static class UbiArtAssetWriter
                 string ambDest = Path.Combine(audioAmbFolder, ambFileName);
 
                 Logger.Log($"Creating AMB intro slice '{ambFileName}' ({cutDurationSeconds}s)...", LogLevel.Info);
-                var ambConversion = FFmpeg.Conversions.New();
+                IConversion ambConversion = FFmpeg.Conversions.New();
                 ambConversion.AddParameter($"-y -i \"{tempWav}\" -t {cutDurationSeconds.ToString(CultureInfo.InvariantCulture)} -ar 48000 -ac 2");
                 ambConversion.SetOutput(ambDest);
                 ambConversion.SetOverwriteOutput(true);
@@ -592,7 +513,7 @@ public static class UbiArtAssetWriter
             if (cutDurationSeconds > 0.001)
             {
                 Logger.Log($"Creating trimmed master WAV (cut {cutDurationSeconds}s) -> {masterWavDest}", LogLevel.Info);
-                var masterConv = FFmpeg.Conversions.New();
+                IConversion masterConv = FFmpeg.Conversions.New();
                 masterConv.AddParameter($"-y -ss {cutDurationSeconds.ToString(CultureInfo.InvariantCulture)} -i \"{tempWav}\" -ar 48000 -ac 2");
                 masterConv.SetOutput(masterWavDest);
                 masterConv.SetOverwriteOutput(true);
@@ -604,7 +525,7 @@ public static class UbiArtAssetWriter
                 File.Copy(tempWav, masterWavDest, true);
             }
 
-            // Write external .trk file with structure data in the same format as LetItGo
+            // Write external .trk file with structure data
             string trkPath = Path.Combine(audioFolder, $"{package.Metadata.MapName}.trk");
 
             StringBuilder trkBuilder = new();
@@ -620,7 +541,7 @@ public static class UbiArtAssetWriter
 
             // signatures
             trkBuilder.AppendLine("signatures = {");
-            foreach (var s in package.TimelineStructure.Signatures)
+            foreach (SignatureSegment s in package.TimelineStructure.Signatures)
             {
                 string comment = s.Comment ?? string.Empty;
                 string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
@@ -630,7 +551,7 @@ public static class UbiArtAssetWriter
 
             // sections
             trkBuilder.AppendLine("sections = {");
-            foreach (var sec in package.TimelineStructure.Sections)
+            foreach (SectionSegment sec in package.TimelineStructure.Sections)
             {
                 string comment = sec.Comment ?? string.Empty;
                 string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
@@ -665,7 +586,7 @@ public static class UbiArtAssetWriter
 
     private static string BuildMusicTrackTpl(string mapName, string mapNameLower)
     {
-        // Build a MusicTrack template that includes an external .trk and references WAV using world/Maps path (LetItGo-style)
+        // Build a MusicTrack template that includes an external .trk and references WAV using world/Maps path
         return $"includeReference(\"world/Maps/{mapNameLower}/audio/{mapName}.trk\")\n\nparams =\n{{\n\tNAME = \"Actor_Template\",\n\tActor_Template =\n\t{{\n\t\tCOMPONENTS = \n\t\t{{\n\t\t\t{{\n\t\t\t\tNAME = \"MusicTrackComponent_Template\",\n\t\t\t\tMusicTrackComponent_Template =\n\t\t\t\t{{\n\t\t\t\t\ttrackData = {{ MusicTrackData = {{ path = \"world/Maps/{mapNameLower}/audio/{mapName}.wav\", structure = structure, volume = 0 }} }},\n\t\t\t\t}}\n\t\t\t}},\n\t\t}}\n\t}}\n}}\n";
     }
 

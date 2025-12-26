@@ -9,8 +9,6 @@ using JustDanceEditor.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Drawing;
-
 using TextureConverter;
 using TextureConverter.TextureConverterHelpers;
 

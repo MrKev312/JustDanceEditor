@@ -1,8 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
-using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.JDI.Utilities;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
