@@ -64,15 +64,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void BuildDynamicMenu()
     {
-        IEnumerable<Type> toolTypes = Assembly.GetExecutingAssembly().GetTypes()
-            .Where(t => t.GetCustomAttribute<ToolWindowAttribute>() != null);
+        var toolTypes = Assembly.GetExecutingAssembly().GetTypes()
+            .Select(t => new { Type = t, Attr = t.GetCustomAttribute<ToolWindowAttribute>() })
+            .Where(x => x.Attr != null)
+            .OrderBy(x => x.Attr!.Title) // Sort by Title
+            .ToList();
 
-        foreach (Type? type in toolTypes)
+        foreach (var item in toolTypes)
         {
-            ToolWindowAttribute? attr = type.GetCustomAttribute<ToolWindowAttribute>();
-            if (attr == null)
-                continue;
-            AddMenuPath(attr.Category, attr.Title, type);
+            AddMenuPath(item.Attr!.Category, item.Attr!.Title, item.Type);
         }
     }
 

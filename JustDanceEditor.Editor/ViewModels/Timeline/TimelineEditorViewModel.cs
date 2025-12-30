@@ -43,6 +43,7 @@ public partial class TimelineEditorViewModel : Document
     public string PreparedAudioPath { get; private set; } = "";
     public double StartBeatValue { get; private set; }
     public double VideoOffset { get; private set; }
+    public int CoachCount => _package.Metadata.CoachCount;
 
     public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
     {
