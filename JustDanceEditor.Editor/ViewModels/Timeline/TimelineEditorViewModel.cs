@@ -13,6 +13,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
@@ -22,7 +23,10 @@ public partial class TimelineEditorViewModel : Document
     private readonly IntermediateSongPackage _package;
     private readonly string _rootPath;
 
-    [ObservableProperty] private double _pixelsPerBeat = 50.0;
+    [ObservableProperty] private double _pixelsPerBeat = 100.0;
+    [ObservableProperty] private double _zoomPercentage = 100.0;
+    [ObservableProperty] private double _minZoomPercentage = 10.0;
+    [ObservableProperty] private double _maxZoomPercentage = 10000.0;
     [ObservableProperty] private double _scrollOffsetX = 0.0;
     [ObservableProperty] private double _currentBeat = 0.0;
     [ObservableProperty] private int _beatOffset = 0;
@@ -68,7 +72,14 @@ public partial class TimelineEditorViewModel : Document
         {
             var files = Directory.GetFiles(videoDir, "*.webm");
             if (files.Length > 0)
-                VideoPath = files[0];
+            {
+                // Select the largest file (highest quality heuristic)
+                VideoPath = files
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(fi => fi.Length)
+                    .First()
+                    .FullName;
+            }
         }
 
         StartBeatValue = _package.TimelineStructure.StartBeat;
@@ -159,6 +170,33 @@ public partial class TimelineEditorViewModel : Document
     partial void OnPixelsPerBeatChanged(double value)
     {
         UpdateTimelineWidth();
+        _zoomPercentage = value;
+        OnPropertyChanged(nameof(ZoomPercentage));
+    }
+
+    partial void OnZoomPercentageChanged(double value)
+    {
+        if (value < MinZoomPercentage) value = MinZoomPercentage;
+        if (value > MaxZoomPercentage) value = MaxZoomPercentage;
+        PixelsPerBeat = value;
+    }
+
+    partial void OnMinZoomPercentageChanged(double value)
+    {
+        if (ZoomPercentage < value)
+        {
+            ZoomPercentage = value;
+        }
+    }
+
+    public void FitToView(double viewportWidth)
+    {
+        if (MaxBeat <= 0) return;
+        
+        // Calculate the zoom level that fits the whole song
+        double fitPpb = viewportWidth / MaxBeat;
+        MinZoomPercentage = fitPpb;
+        ZoomPercentage = fitPpb;
     }
 
     [RelayCommand]

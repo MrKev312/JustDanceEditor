@@ -37,7 +37,11 @@ public class TimelineStructureDocument
 
         if (i >= count - 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(beat), "Beat exceeds the range of defined markers.");
+            // Linear extrapolation for beats after the last marker
+            // Formula: M_last + (beat - (count - 1)) * (M_last - M_prev)
+            double lastMarker = Markers[count - 1];
+            double prevMarker = Markers[count - 2];
+            return (lastMarker + (beat - (count - 1)) * (lastMarker - prevMarker)) * InvSampleRate;
         }
 
         // Interpolate on raw marker values first, then divide once.

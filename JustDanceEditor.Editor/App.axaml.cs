@@ -14,7 +14,15 @@ namespace JustDanceEditor.Editor;
 public partial class App : Application
 {
     public ITimelineContextService TimelineContext { get; } = new TimelineContextService();
-    public LibVLCSharp.Shared.LibVLC LibVLC { get; } = new();
+    public LibVLCSharp.Shared.LibVLC LibVLC { get; } = new(
+        // Optimization arguments
+        "--avcodec-hw=any",       // Enable hardware acceleration
+        "--no-stats",              // Disable stats for less overhead
+        "--no-video-title-show",   // Disable overlay title
+        "--network-caching=300",  // Lower caching for better sync/latency
+        "--clock-jitter=0",        // Treat clock jitter as zero for timeline sync
+        "--no-osd"                 // Disable on-screen display
+    );
 
     public override void Initialize()
     {

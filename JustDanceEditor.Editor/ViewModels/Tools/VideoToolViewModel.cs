@@ -85,9 +85,17 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     private void Playback_PlayStateChanged(object? sender, EventArgs e)
     {
         if (ActiveTimeline?.Playback.IsPlaying == true)
+        {
+            if (MediaPlayer.State == VLCState.Ended)
+            {
+                MediaPlayer.Stop();
+            }
             MediaPlayer.Play();
+        }
         else
+        {
             MediaPlayer.Pause();
+        }
     }
 
     private void Playback_TimeChanged(object? sender, EventArgs e)
@@ -95,23 +103,64 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         SyncTime();
     }
 
+    private DateTime _lastSyncTime = DateTime.MinValue;
+
     private void SyncTime()
     {
         if (ActiveTimeline == null || MediaPlayer == null) return;
-        
-        // Marker-based sync:
-        // Absolute song time = Current playback time + map's song start offset
-        // Video time = Absolute song time + video specific offset
-        
+
+        bool editorIsPlaying = ActiveTimeline.Playback.IsPlaying;
+
+        // Throttle synchronization while playing to prevent UI thread saturation and jitter.
+        // VLC's internal clock is stable enough that we only need to check for drift every ~250ms.
+        if (editorIsPlaying && (DateTime.UtcNow - _lastSyncTime).TotalMilliseconds < 250)
+            return;
+
+        _lastSyncTime = DateTime.UtcNow;
+
         double currentSeconds = ActiveTimeline.Playback.CurrentTime.TotalSeconds;
         double startOffset = ActiveTimeline.TimelineStructure.GetSongStartOffset();
         
         double targetSeconds = currentSeconds + startOffset + ActiveTimeline.VideoOffset;
         long targetMs = (long)(targetSeconds * 1000);
         
-        if (Math.Abs(MediaPlayer.Time - targetMs) > 100)
+        // Use a much larger tolerance when playing (drift check) than when scrubbing (frame precision)
+        long tolerance = editorIsPlaying ? 500 : 50;
+        long diff = Math.Abs(MediaPlayer.Time - targetMs);
+
+        if (diff > tolerance)
         {
+            if (MediaPlayer.State == VLCState.Ended)
+            {
+                MediaPlayer.Stop();
+            }
+            
+            // Re-start if it was stopped/finished
+            if (MediaPlayer.State == VLCState.Stopped || MediaPlayer.State == VLCState.NothingSpecial)
+            {
+                MediaPlayer.Play();
+            }
+
             MediaPlayer.Time = Math.Max(0, targetMs);
+        }
+
+        // Final state enforcement: only call if there is a mismatch
+        var vlcState = MediaPlayer.State;
+
+        if (editorIsPlaying)
+        {
+            if (vlcState != VLCState.Playing && vlcState != VLCState.Buffering)
+            {
+                MediaPlayer.Play();
+            }
+        }
+        else
+        {
+            // Use Pause() to ensure it stays on the frame during scrubbing
+            if (vlcState != VLCState.Paused && vlcState != VLCState.Stopped && vlcState != VLCState.NothingSpecial)
+            {
+                MediaPlayer.Pause();
+            }
         }
     }
 

@@ -1,6 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
+
+using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 using System;
 using System.Collections.Generic;
@@ -65,6 +68,29 @@ public class AudioBarControl : Control
             else
             {
                 _sectionColors[type] = Colors.Gray;
+            }
+        }
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        
+        if (e.ClickCount == 2 && Sections != null)
+        {
+            var point = e.GetCurrentPoint(this);
+            double ppb = PixelsPerBeat;
+            double offset = BeatOffset;
+            double clickedBeat = (point.Position.X / ppb) + offset;
+
+            // Find the section that contains or starts at this beat
+            var section = Sections.OrderByDescending(s => s.StartBeat)
+                                 .FirstOrDefault(s => s.StartBeat <= clickedBeat);
+            
+            if (section != null && DataContext is TimelineEditorViewModel vm)
+            {
+                vm.Playback.SeekToBeat(section.StartBeat);
+                e.Handled = true;
             }
         }
     }

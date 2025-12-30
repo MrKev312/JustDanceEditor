@@ -23,6 +23,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     private Func<double, double> _secondsToBeat = s => s / 0.5;
     private double _videoStartOffset = 0;
 
+    private TimeSpan _baseTime = TimeSpan.Zero;
     private readonly DispatcherTimer _updateTimer;
     private readonly Stopwatch _stopwatch = new();
     private bool _isPlaying;
@@ -30,7 +31,15 @@ public class PlaybackService : IPlaybackService, IDisposable
     public MediaPlayer? MediaPlayer => null; // Tools now manage their own video
     public bool IsPlaying => _isPlaying;
 
-    public TimeSpan CurrentTime => _stopwatch.Elapsed;
+    public TimeSpan CurrentTime 
+    {
+        get
+        {
+            var time = _baseTime;
+            if (_isPlaying) time += _stopwatch.Elapsed;
+            return time;
+        }
+    }
 
     public double CurrentBeat
         => _secondsToBeat(CurrentTime.TotalSeconds);
@@ -49,9 +58,10 @@ public class PlaybackService : IPlaybackService, IDisposable
             {
                 if (_isPlaying)
                 {
-                    if (_audioFile != null && _audioFile.CurrentTime >= _audioFile.TotalTime)
+                    if (CurrentTime >= Duration)
                     {
                         Pause();
+                        Seek(Duration);
                     }
                     TimeChanged?.Invoke(this, EventArgs.Empty);
                 }
@@ -85,6 +95,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         }
 
         // Reset timing
+        _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
         _updateTimer.Start();
 
@@ -96,20 +107,17 @@ public class PlaybackService : IPlaybackService, IDisposable
         if (_isPlaying)
             return;
 
+        if (CurrentTime >= Duration)
+        {
+            Seek(TimeSpan.Zero);
+        }
+
         _isPlaying = true;
-        _stopwatch.Start();
+        _stopwatch.Restart();
 
         if (_audioFile != null)
         {
-            if (_audioFile.CurrentTime >= _audioFile.TotalTime)
-            {
-                _stopwatch.Restart();
-                _audioFile.CurrentTime = TimeSpan.Zero;
-            }
-            else if (Math.Abs(_audioFile.CurrentTime.TotalSeconds - _stopwatch.Elapsed.TotalSeconds) > 0.1)
-            {
-                _audioFile.CurrentTime = _stopwatch.Elapsed;
-            }
+            _audioFile.CurrentTime = CurrentTime;
         }
 
         _outputDevice?.Play();
@@ -122,6 +130,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         if (!_isPlaying)
             return;
 
+        _baseTime += _stopwatch.Elapsed;
         _stopwatch.Stop();
         _isPlaying = false;
 
@@ -134,16 +143,18 @@ public class PlaybackService : IPlaybackService, IDisposable
     public void Seek(TimeSpan time)
     {
         bool wasPlaying = _isPlaying;
+        if (wasPlaying) Pause();
 
-        if (wasPlaying)
-            _stopwatch.Restart();
-        else
-            _stopwatch.Reset();
+        _baseTime = time;
+        if (_baseTime < TimeSpan.Zero) _baseTime = TimeSpan.Zero;
+        if (_audioFile != null && _baseTime > _audioFile.TotalTime) _baseTime = _audioFile.TotalTime;
 
         if (_audioFile != null)
-            _audioFile.CurrentTime = time;
+            _audioFile.CurrentTime = _baseTime;
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
+
+        if (wasPlaying) Play();
     }
 
     public void SeekToBeat(double beat)

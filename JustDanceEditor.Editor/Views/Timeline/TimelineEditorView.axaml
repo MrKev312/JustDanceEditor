@@ -8,12 +8,17 @@
              xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Timeline"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="JustDanceEditor.Editor.Views.Timeline.TimelineEditorView"
-             x:DataType="vm:TimelineEditorViewModel">
+             x:DataType="vm:TimelineEditorViewModel"
+             Focusable="True">
 
 	<UserControl.Resources>
 		<conv:BeatToPixelConverter x:Key="BeatToPixelConverter"/>
 		<conv:BitmapValueConverter x:Key="BitmapValueConverter"/>
 	</UserControl.Resources>
+
+	<UserControl.KeyBindings>
+		<KeyBinding Gesture="Space" Command="{Binding TogglePlayPauseCommand}"/>
+	</UserControl.KeyBindings>
 
 	<UserControl.Styles>
 		<!-- Styles for the individual clips inside the tracks -->
@@ -54,11 +59,21 @@
 
 	<Grid RowDefinitions="Auto, *, Auto">
 		<!-- 1. Toolbar -->
-		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333">
-			<Button Command="{Binding TogglePlayPauseCommand}" Content="Play/Pause" />
-			<Slider Value="{Binding PixelsPerBeat}" Minimum="10" Maximum="500" Width="150" ToolTip.Tip="Zoom" />
-			<Separator Width="1"/>
-			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White"/>
+		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333" Height="35">
+			
+			<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,0">
+				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
+				<NumericUpDown Value="{Binding ZoomPercentage}" 
+							   Minimum="{Binding MinZoomPercentage}" 
+							   Maximum="{Binding MaxZoomPercentage}" 
+							   Width="120" 
+							   Height="28"
+							   FormatString="{}{0:N2}%"
+							   VerticalAlignment="Center"/>
+			</StackPanel>
+			
+			<Separator Width="1" Background="#555"/>
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
 		</StackPanel>
 
 		<!-- 2. Timeline Main Area -->
@@ -66,6 +81,11 @@
 
 			<!-- LEFT: Fixed Track Headers -->
 			<StackPanel Grid.Column="0" Background="#2d2d2d2d" ZIndex="1">
+				<!-- Spacer for Ruler -->
+				<Border Height="30" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1">
+					<TextBlock Text="Timeline" VerticalAlignment="Center" Margin="10,0" Foreground="Gray" FontSize="10"/>
+				</Border>
+
 				<!-- Spacer for Audio Bar height if needed -->
 				<Border Height="60" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1">
 					<TextBlock Text="Audio" VerticalAlignment="Center" Margin="10,0" Foreground="Gray"/>
@@ -86,9 +106,21 @@
 			</StackPanel>
 
 			<!-- RIGHT: Scrollable Content -->
-			<ScrollViewer Name="TimelineScroll" Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+			<ScrollViewer Name="TimelineScroll" 
+						  Grid.Column="1" 
+						  HorizontalScrollBarVisibility="Auto" 
+						  VerticalScrollBarVisibility="Auto"
+						  PointerWheelChanged="TimelineScroll_PointerWheelChanged">
 				<Grid HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
 					<StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
+
+						<!-- Time Ruler -->
+						<local:TimeRulerControl Height="30"
+											    PixelsPerBeat="{Binding PixelsPerBeat}"
+											    BeatOffset="{Binding BeatOffset}"
+											    MaxBeat="{Binding MaxBeat}"
+											    Signatures="{Binding TimelineStructure.Signatures}"
+											    Width="{Binding TimelineWidth}"/>
 
 						<!-- Audio Waveform -->
 						<local:AudioBarControl Height="60"

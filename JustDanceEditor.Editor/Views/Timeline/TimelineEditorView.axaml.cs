@@ -14,6 +14,8 @@ public partial class TimelineEditorView : UserControl
     {
         InitializeComponent();
         _scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+
+        this.PointerPressed += (s, e) => this.Focus();
         
         DataContextChanged += (s, e) =>
         {
@@ -21,9 +23,46 @@ public partial class TimelineEditorView : UserControl
             {
                 _lastPixelsPerBeat = vm.PixelsPerBeat;
                 vm.PropertyChanged += Vm_PropertyChanged;
+                _isInitialFitNeeded = true;
             }
         };
+
+        if (_scrollViewer != null)
+        {
+            _scrollViewer.EffectiveViewportChanged += (s, e) =>
+            {
+                if (DataContext is TimelineEditorViewModel vm && _scrollViewer != null)
+                {
+                    double viewportWidth = _scrollViewer.Viewport.Width;
+                    if (viewportWidth > 0 && vm.MaxBeat > 0)
+                    {
+                        double fitPpb = viewportWidth / vm.MaxBeat;
+                        vm.MinZoomPercentage = fitPpb;
+                        
+                        if (_isInitialFitNeeded)
+                        {
+                            vm.ZoomPercentage = fitPpb;
+                            _isInitialFitNeeded = false;
+                        }
+                    }
+                }
+            };
+        }
     }
+
+    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Avalonia.Input.Key.Space && DataContext is TimelineEditorViewModel vm)
+        {
+            vm.TogglePlayPause();
+            e.Handled = true;
+        }
+    }
+
+    private bool _isInitialFitNeeded = false;
+
+    private DateTime _lastScrollTime = DateTime.MinValue;
 
     private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -51,7 +90,10 @@ public partial class TimelineEditorView : UserControl
         {
             if (vm.Playback.IsPlaying)
             {
-                // Auto scroll
+                // Throttle auto-scroll to ~10 times per second
+                if ((DateTime.UtcNow - _lastScrollTime).TotalMilliseconds < 100) return;
+                _lastScrollTime = DateTime.UtcNow;
+
                 double ppb = vm.PixelsPerBeat;
                 double x = (vm.CurrentBeat - vm.BeatOffset) * ppb;
                 double viewportWidth = _scrollViewer.Viewport.Width;
@@ -65,6 +107,28 @@ public partial class TimelineEditorView : UserControl
                     _scrollViewer.Offset = new Vector(Math.Max(0, targetOffset), _scrollViewer.Offset.Y);
                 }
             }
+        }
+    }
+
+    private void TimelineScroll_PointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
+    {
+        if (DataContext is not TimelineEditorViewModel vm || _scrollViewer == null) return;
+
+        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+        {
+            // Zooming
+            double zoomFactor = e.Delta.Y > 0 ? 1.1 : 0.9;
+            vm.PixelsPerBeat *= zoomFactor;
+            e.Handled = true;
+        }
+        else
+        {
+            // Horizontal scrolling
+            // Swap vertical wheel to horizontal if no shift is pressed (standard editor behavior)
+            double scrollAmount = e.Delta.Y * -50.0; // Adjust sensitivity
+            double newOffset = _scrollViewer.Offset.X + scrollAmount;
+            _scrollViewer.Offset = new Vector(Math.Max(0, newOffset), _scrollViewer.Offset.Y);
+            e.Handled = true;
         }
     }
 }
