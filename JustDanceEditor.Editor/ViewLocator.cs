@@ -17,11 +17,9 @@ public class ViewLocator : IDataTemplate
             return null;
 
         string name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
-        Type? type = Type.GetType(name);
+        Type? type = Type.GetType(name) ?? throw new InvalidOperationException("Missing view for " + name);
 
-        return type != null 
-            ? (Control)Activator.CreateInstance(type)! 
-            : new TextBlock { Text = "Not Found: " + name };
+        return (Control)Activator.CreateInstance(type)!;
     }
 
     public bool Match(object? data)

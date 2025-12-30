@@ -1,19 +1,18 @@
-﻿using Avalonia.Controls;
-
-using Dock.Avalonia.Controls;
-using Dock.Model.Controls;
+﻿using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Views;
+using JustDanceEditor.Editor.ViewModels;
+using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System;
 using System.Collections.Generic;
 
 namespace JustDanceEditor.Editor.Docking;
 
-public class JustDanceDockFactory(object context) : Factory
+public class JustDanceDockFactory(MainWindowViewModel context) : Factory
 {
     public override IRootDock CreateLayout()
     {
@@ -62,5 +61,30 @@ public class JustDanceDockFactory(object context) : Factory
         };
 
         base.InitLayout(layout);
+    }
+
+    public override void SetActiveDockable(IDockable? dockable)
+    {
+        base.SetActiveDockable(dockable);
+
+        UpdateContext(dockable);
+    }
+
+    public override void SetFocusedDockable(IDock? dock, IDockable? dockable)
+    {
+        base.SetFocusedDockable(dock, dockable);
+
+        UpdateContext(dockable);
+    }
+
+    private void UpdateContext(IDockable? dockable)
+    {
+        if (dockable is TimelineEditorViewModel timeline)
+        {
+            if (Avalonia.Application.Current is App app)
+            {
+                app.TimelineContext.UpdateActiveTimeline(timeline);
+            }
+        }
     }
 }

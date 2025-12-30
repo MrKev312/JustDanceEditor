@@ -14,7 +14,14 @@
         Background="Transparent"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="PreferSystemChrome"
-        ExtendClientAreaTitleBarHeightHint="-1">
+        ExtendClientAreaTitleBarHeightHint="32">
+
+	<Window.Styles>
+		<Style Selector="Window[WindowState=Maximized]">
+			<!-- Windows adds about 8px border on each side -->
+			<Setter Property="Padding" Value="8"/>
+		</Style>
+	</Window.Styles>
 
 	<Grid RowDefinitions="32, *">
 		<!-- Title Bar / Menu Area -->

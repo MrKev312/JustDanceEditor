@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.Views;
 
@@ -12,6 +13,9 @@ namespace JustDanceEditor.Editor;
 
 public partial class App : Application
 {
+    public ITimelineContextService TimelineContext { get; } = new TimelineContextService();
+    public LibVLCSharp.Shared.LibVLC LibVLC { get; } = new();
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

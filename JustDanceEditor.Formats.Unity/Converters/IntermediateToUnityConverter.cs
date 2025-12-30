@@ -389,7 +389,7 @@ internal sealed class IntermediateToUnityConverter
     private static string[] GetVideoFiles(string? folder)
     {
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-            return Array.Empty<string>();
+            return [];
 
         string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
         return [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
@@ -475,7 +475,7 @@ internal sealed class IntermediateToUnityConverter
         if (folder == null)
         {
             Logger.Log("Intermediate package missing pictogram folder; map package may lack pictos.", LogLevel.Warning);
-            return Array.Empty<string>();
+            return [];
         }
 
         string[] files = [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];

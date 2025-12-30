@@ -1,4 +1,7 @@
-﻿using CommunityToolkit.Mvvm.Input;
+﻿using Avalonia.Controls;
+using Avalonia.Platform.Storage;
+
+using CommunityToolkit.Mvvm.Input;
 
 using Dock.Model.Controls;
 using Dock.Model.Core;
@@ -6,24 +9,33 @@ using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Docking;
+using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Serialization;
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IFactory _factory;
+    private readonly ITimelineContextService _timelineContext;
     public IRootDock? Layout { get; set; }
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
 
     public MainWindowViewModel()
     {
+        _timelineContext = ((App)Avalonia.Application.Current!).TimelineContext;
+
         // 1. Initialize Dock Factory
         _factory = new JustDanceDockFactory(this);
 
@@ -34,13 +46,24 @@ public partial class MainWindowViewModel : ViewModelBase
             _factory.InitLayout(Layout);
         }
 
-        // 3. Scan for Tools and Build Menu
+        // 3. Build Menus
+        CreateFileMenu();
         BuildDynamicMenu();
+    }
+
+    private void CreateFileMenu()
+    {
+        MenuItemViewModel fileMenu = new() { Header = "File" };
+        fileMenu.Items.Add(new MenuItemViewModel
+        {
+            Header = "Open Map Folder...",
+            Command = OpenMapCommand
+        });
+        ViewMenu.Add(fileMenu);
     }
 
     private void BuildDynamicMenu()
     {
-        // Find all types in this assembly that have the [ToolWindow] attribute
         IEnumerable<Type> toolTypes = Assembly.GetExecutingAssembly().GetTypes()
             .Where(t => t.GetCustomAttribute<ToolWindowAttribute>() != null);
 
@@ -49,8 +72,6 @@ public partial class MainWindowViewModel : ViewModelBase
             ToolWindowAttribute? attr = type.GetCustomAttribute<ToolWindowAttribute>();
             if (attr == null)
                 continue;
-
-            // Add to menu hierarchy
             AddMenuPath(attr.Category, attr.Title, type);
         }
     }
@@ -58,10 +79,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private void AddMenuPath(string categoryPath, string title, Type toolType)
     {
         string[] parts = categoryPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
-
         ObservableCollection<MenuItemViewModel> currentCollection = ViewMenu;
 
-        // Traverse/Create categories
         foreach (string part in parts)
         {
             MenuItemViewModel? existing = currentCollection.FirstOrDefault(x => x.Header == part);
@@ -74,27 +93,23 @@ public partial class MainWindowViewModel : ViewModelBase
             currentCollection = existing.Items;
         }
 
-        // Add the actual item
-        MenuItemViewModel toolItem = new()
+        currentCollection.Add(new MenuItemViewModel
         {
             Header = title,
             Command = new RelayCommand(() => OpenTool(toolType, title))
-        };
-        currentCollection.Add(toolItem);
+        });
     }
 
     private void OpenTool(Type toolType, string title)
     {
         if (Layout == null)
             return;
-
         if (Activator.CreateInstance(toolType) is not Tool tool)
             return;
 
         tool.Id = title.Replace(" ", "");
         tool.Title = title;
 
-        // We look for our "MainDocumentDock" we defined in the Factory.
         if (_factory?.FindDockable(Layout, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
         {
             _factory?.AddDockable(mainDock, tool);
@@ -102,9 +117,48 @@ public partial class MainWindowViewModel : ViewModelBase
             _factory?.SetFocusedDockable(mainDock, tool);
         }
     }
+
+    [RelayCommand]
+    public async Task OpenMap()
+    {
+        Window? topLevel = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow : null;
+
+        if (topLevel == null)
+            return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Open Map Folder",
+            AllowMultiple = false
+        });
+
+        if (folders.Count == 1)
+        {
+            string path = folders[0].Path.LocalPath;
+            try
+            {
+                var package = IntermediatePackageSerializer.LoadFromFolder(path);
+                var editorVm = new TimelineEditorViewModel(package, path);
+
+                if (_factory?.FindDockable(Layout, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
+                {
+                    _factory?.AddDockable(mainDock, editorVm);
+                    _factory?.SetActiveDockable(editorVm);
+                    _factory?.SetFocusedDockable(mainDock, editorVm);
+
+                    _timelineContext.UpdateActiveTimeline(editorVm);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+        }
+    }
+
 }
 
-// Simple helper for binding the menu
 public class MenuItemViewModel
 {
     public string Header { get; set; } = string.Empty;

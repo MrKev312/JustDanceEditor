@@ -1,0 +1,142 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:JustDanceEditor.Editor.ViewModels.Timeline"
+             xmlns:controls="using:JustDanceEditor.Editor.Views.Timeline"
+             xmlns:conv="using:JustDanceEditor.Editor.Views.Converters"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Timeline"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="JustDanceEditor.Editor.Views.Timeline.TimelineEditorView"
+             x:DataType="vm:TimelineEditorViewModel">
+
+	<UserControl.Resources>
+		<conv:BeatToPixelConverter x:Key="BeatToPixelConverter"/>
+		<conv:BitmapValueConverter x:Key="BitmapValueConverter"/>
+	</UserControl.Resources>
+
+	<UserControl.Styles>
+		<!-- Styles for the individual clips inside the tracks -->
+		<Style Selector="local|ClipControl">
+			<Setter Property="Template">
+				<ControlTemplate x:DataType="vm:ClipViewModel">
+					<Border Background="{TemplateBinding Background}"
+							BorderBrush="Black"
+							BorderThickness="1"
+							CornerRadius="2"
+							ClipToBounds="True">
+						<Grid>
+							<Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}" 
+								   HorizontalAlignment="Center" 
+								   VerticalAlignment="Stretch"
+								   Stretch="Uniform"
+								   Width="500">
+								<Image.IsVisible>
+									<Binding Path="ImagePath" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
+								</Image.IsVisible>
+							</Image>
+							<TextBlock Text="{TemplateBinding Content}"
+									   VerticalAlignment="Center"
+									   HorizontalAlignment="Center"
+									   TextTrimming="CharacterEllipsis"
+									   Foreground="Black"
+									   FontSize="10">
+								<TextBlock.IsVisible>
+									<Binding Path="ImagePath" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
+								</TextBlock.IsVisible>
+							</TextBlock>
+						</Grid>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+	</UserControl.Styles>
+
+	<Grid RowDefinitions="Auto, *, Auto">
+		<!-- 1. Toolbar -->
+		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333">
+			<Button Command="{Binding TogglePlayPauseCommand}" Content="Play/Pause" />
+			<Slider Value="{Binding PixelsPerBeat}" Minimum="10" Maximum="500" Width="150" ToolTip.Tip="Zoom" />
+			<Separator Width="1"/>
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White"/>
+		</StackPanel>
+
+		<!-- 2. Timeline Main Area -->
+		<Grid Grid.Row="1" ColumnDefinitions="200, *">
+
+			<!-- LEFT: Fixed Track Headers -->
+			<StackPanel Grid.Column="0" Background="#2d2d2d2d" ZIndex="1">
+				<!-- Spacer for Audio Bar height if needed -->
+				<Border Height="60" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1">
+					<TextBlock Text="Audio" VerticalAlignment="Center" Margin="10,0" Foreground="Gray"/>
+				</Border>
+
+				<ItemsControl ItemsSource="{Binding Tracks}">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate x:DataType="vm:TrackViewModel">
+							<Border Height="{Binding Height}" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1" Background="#2d2d2d2d">
+								<Grid ColumnDefinitions="5, *">
+									<Border Background="{Binding TrackColor}" Width="5"/>
+									<TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Margin="10,0" Foreground="LightGray"/>
+								</Grid>
+							</Border>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</StackPanel>
+
+			<!-- RIGHT: Scrollable Content -->
+			<ScrollViewer Name="TimelineScroll" Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+				<Grid HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
+					<StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
+
+						<!-- Audio Waveform -->
+						<local:AudioBarControl Height="60"
+											   Samples="{Binding WaveformSamples}"
+											   PixelsPerBeat="{Binding PixelsPerBeat}"
+											   BeatOffset="{Binding BeatOffset}"
+											   Sections="{Binding TimelineStructure.Sections}"
+											   Width="{Binding TimelineWidth}"/>
+
+						<!-- Tracks Panels -->
+						<ItemsControl ItemsSource="{Binding Tracks}">
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:TrackViewModel">
+									<local:TimelineTrackPanel Height="{Binding Height}"
+															  Clips="{Binding Clips}"
+															  PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
+															  BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
+															  MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
+															  Background="#1e1e1e1e">
+									</local:TimelineTrackPanel>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+					</StackPanel>
+
+					<!-- Playhead Overlay -->
+					<Canvas IsHitTestVisible="False" ZIndex="100">
+						<Rectangle Fill="Red" Width="2" Height="2000">
+							<Rectangle.RenderTransform>
+								<TranslateTransform>
+									<TranslateTransform.X>
+										<MultiBinding Converter="{StaticResource BeatToPixelConverter}">
+											<Binding Path="CurrentBeat"/>
+											<Binding Path="PixelsPerBeat"/>
+											<Binding Path="BeatOffset"/>
+										</MultiBinding>
+									</TranslateTransform.X>
+								</TranslateTransform>
+							</Rectangle.RenderTransform>
+						</Rectangle>
+					</Canvas>
+				</Grid>
+			</ScrollViewer>
+		</Grid>
+
+		<!-- 3. Status Bar -->
+		<Border Grid.Row="2" Background="#222" Padding="5">
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" Foreground="White" FontSize="12"/>
+		</Border>
+	</Grid>
+</UserControl>

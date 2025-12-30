@@ -2,7 +2,6 @@ namespace JustDanceEditor.Formats.JDI.Timelines;
 
 public class TimelineStructureDocument
 {
-    public double TimeBaseMsPerBeat { get; set; } = 500;
     public List<int> Markers { get; set; } = [];
     public List<SignatureSegment> Signatures { get; set; } = [];
     public List<SectionSegment> Sections { get; set; } = [];
@@ -14,35 +13,98 @@ public class TimelineStructureDocument
     public int PreviewLoopEndBeat { get; set; }
     public int PrevewDuration { get; set; }
 
-    /// <summary>
-    /// Calculates the average Milliseconds per Beat based on the current Markers list.
-    /// This was formerly TimelineMath.EstimateMsPerBeat().
-    /// </summary>
-    public double EstimateMsPerBeat()
-    {
-        if (Markers.Count < 2)
-            return 500;
+    private const double SampleRate = 48000.0;
+    private const double InvSampleRate = 1.0 / SampleRate;
 
-        double total = 0;
-        // Iterate through markers to calculate the average duration
-        for (int i = 1; i < Markers.Count; i++)
+    /// <summary>
+    /// Converts a beat to absolute song seconds using markers.
+    /// Supports fractional beats via linear interpolation.
+    /// </summary>
+    public double GetSecondsAtBeat(double beat)
+    {
+        int count = Markers.Count;
+        if (count < 2)
+            throw new NotSupportedException("At least two markers are required for beat to seconds conversion.");
+
+        // Linear extrapolation for negative beats
+        if (beat < 0)
         {
-            total += (Markers[i] - Markers[i - 1]) / 48d;
+            // (M0 + beat * (M1 - M0)) / 48000
+            return (Markers[0] + (beat * (Markers[1] - Markers[0]))) * InvSampleRate;
         }
 
-        return total / (Markers.Count - 1);
+        int i = (int)beat; // Faster than Math.Floor for positive numbers
+
+        if (i >= count - 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(beat), "Beat exceeds the range of defined markers.");
+        }
+
+        // Interpolate on raw marker values first, then divide once.
+        // Formula: M_lower + (M_upper - M_lower) * fraction
+        double t = beat - i;
+        return (Markers[i] + ((Markers[i + 1] - Markers[i]) * t)) * InvSampleRate;
     }
 
     /// <summary>
-    /// Estimates BPM based on the current TimeBaseMsPerBeat property.
-    /// This was formerly TimelineMath.EstimateBpm().
+    /// Converts absolute song seconds to a beat index using markers.
     /// </summary>
-    public double EstimateBpm()
+    public double GetBeatAtSeconds(double seconds)
     {
-        // Uses the property TimeBaseMsPerBeat which should be set 
-        // using EstimateMsPerBeat() during loading.
-        double ms = TimeBaseMsPerBeat;
-        return ms > 0 ? 60000d / ms : 120d;
+        int count = Markers.Count;
+        if (count == 0)
+            return 0;
+
+        // Optimization: Convert seconds to marker scale once to avoid division in loops/comparisons
+        double targetSample = seconds * SampleRate;
+        double firstSample = Markers[0];
+
+        // Check before start (Extrapolation)
+        if (targetSample < firstSample)
+        {
+            if (count >= 2)
+            {
+                // (Target - First) / (M1 - M0)
+                return (targetSample - firstSample) / (double)(Markers[1] - firstSample);
+            }
+            // Fallback for single marker: scale 0.5s to samples (24000)
+            return (targetSample - firstSample) / 24000.0;
+        }
+
+        // Check bounds / Extrapolation code here (same as before) ...
+
+        // BUILT-IN BINARY SEARCH
+        // If Markers is List<long>, cast targetSample to (long)
+        int index = Markers.BinarySearch((int)targetSample);
+
+        // BinarySearch returns a negative number if the exact value isn't found.
+        // The bitwise complement (~) gives the index of the next larger item.
+        // We want the item *before* that (the floor), so we subtract 1.
+        if (index < 0)
+        {
+            index = ~index - 1;
+        }
+
+        // Check after end (Extrapolation)
+        if (index >= count - 1)
+        {
+            double lastSample = Markers[count - 1];
+            if (count >= 2)
+            {
+                double prevSample = Markers[count - 2];
+                return count - 1 + ((targetSample - lastSample) / (lastSample - prevSample));
+            }
+
+            return count - 1 + ((targetSample - lastSample) / 24000.0);
+        }
+
+        // Standard Interpolation
+        double lowerSample = Markers[index];
+        double upperSample = Markers[index + 1];
+
+        // (Target - Lower) / (Upper - Lower)
+        // No division by 48000 needed as the ratio is identical
+        return index + ((targetSample - lowerSample) / (upperSample - lowerSample));
     }
 
     /// <summary>
@@ -64,7 +126,7 @@ public class TimelineStructureDocument
         // songOffsetAudio was -GetSongStartTime()
         // Therefore: startTime - (-GetSongStartTime()) => startTime + GetSongStartTime()
         // To keep the subtractive pattern in the helper, we pass negative SongStart.
-        return GetPreviewTimingInternal(-GetSongStartTime());
+        return GetPreviewTimingInternal(-GetSongStartOffset());
     }
 
     /// <summary>
@@ -89,28 +151,25 @@ public class TimelineStructureDocument
         return (TimeSpan.FromSeconds(calculatedStartTime), TimeSpan.FromSeconds(30));
     }
 
+    public double GetBeatLabelFromIndex(double index) => index + StartBeat;
+    public double GetIndexFromBeatLabel(double beatLabel) => beatLabel - StartBeat;
+
     /// <summary>
-    /// Reuses logic from Old: GetSongStartTime()
-    /// Determines the time of the start beat relative to the timeline.
+    /// Calculates the song offset in seconds based on StartBeat index.
+    /// (abs index into the array, convert to ms then set the sign to the input sign)
     /// </summary>
-    private double GetSongStartTime()
+    public double GetSongStartOffset()
     {
-        if (Markers.Count == 0)
-            return 0;
+        if (Markers.Count == 0) return 0;
 
         int beatIndex = Math.Abs(StartBeat);
+        if (beatIndex >= Markers.Count) return 0;
 
-        // Safety check for index
-        if (beatIndex >= Markers.Count)
-            return 0;
-
-        double time = Markers[beatIndex] / 48.0 / 1000.0;
-
-        // Set opposite sign if startBeat is positive (Old logic)
-        if (StartBeat > 0)
-            time = -time;
-
-        return time;
+        double timeMs = Markers[beatIndex] / 48.0;
+        
+        // "set the sign to the input sign"
+        double offsetSeconds = timeMs / 1000.0;
+        return StartBeat < 0 ? -offsetSeconds : offsetSeconds;
     }
 }
 
@@ -129,7 +188,7 @@ public class SignatureSegment
 
 public class SectionSegment
 {
-    public int SectionType { get; set; }
+    public SongSectionType SectionType { get; set; }
     public double StartBeat { get; set; }
     public string Comment { get; set; } = string.Empty;
 }

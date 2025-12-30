@@ -339,7 +339,6 @@ internal static partial class UnityServerIntermediateBuilder
             PreviewLoopEndBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
             PrevewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
         };
-        document.TimeBaseMsPerBeat = document.EstimateMsPerBeat();
 
         // Apply the default value logic for preview duration
         if (document.PrevewDuration == 0)
@@ -366,7 +365,7 @@ internal static partial class UnityServerIntermediateBuilder
             field => new SectionSegment
             {
                 StartBeat = (float)field["MusicSection"]["marker"].AsDouble,
-                SectionType = field["MusicSection"]["sectionType"].AsInt,
+                SectionType = (SongSectionType)field["MusicSection"]["sectionType"].AsInt,
                 Comment = field["MusicSection"]["comment"].AsString
             }));
 

@@ -76,6 +76,7 @@ public class FileSystem
                     SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     return;
                 }
+
                 throw new DirectoryNotFoundException("The maps folder does not exist.");
             }
 
@@ -102,6 +103,7 @@ public class FileSystem
                 PlatformType = "uncooked";
                 return;
             }
+
             throw new DirectoryNotFoundException("The itf_cooked folder does not exist.");
         }
 

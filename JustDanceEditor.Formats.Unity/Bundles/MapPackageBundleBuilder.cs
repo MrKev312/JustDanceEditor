@@ -316,7 +316,7 @@ public static class MapPackageBundleBuilder
         foreach (SectionSegment section in trackStructure.Sections ?? [])
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
-            newSection["MusicSection"]["sectionType"].AsInt = section.SectionType;
+            newSection["MusicSection"]["sectionType"].AsInt = (int)section.SectionType;
             newSection["MusicSection"]["marker"].AsDouble = section.StartBeat;
             newSection["MusicSection"]["comment"].AsString = section.Comment ?? string.Empty;
             sectionsArray.Children.Add(newSection);

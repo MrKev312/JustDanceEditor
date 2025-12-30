@@ -239,7 +239,7 @@ public static class UbiArtAssetWriter
                            package.Metadata.Difficulty == 3 ? "SongDifficulty.Hard" :
                            "SongDifficulty.Extreme";
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("includeReference(\"EngineData/Helpers/SongDatabase.ilu\")");
         sb.AppendLine();
         sb.AppendLine("params =");
@@ -537,6 +537,7 @@ public static class UbiArtAssetWriter
             {
                 trkBuilder.AppendLine($"    {{ VAL = {m} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // signatures
@@ -547,6 +548,7 @@ public static class UbiArtAssetWriter
                 string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
                 trkBuilder.AppendLine($"    {{ MusicSignature = {{ beats = {s.Beats}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // sections
@@ -557,6 +559,7 @@ public static class UbiArtAssetWriter
                 string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
                 trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {sec.SectionType}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // comments
@@ -580,7 +583,11 @@ public static class UbiArtAssetWriter
         }
         finally
         {
-            try { File.Delete(tempWav); } catch { }
+            try
+            {
+                File.Delete(tempWav);
+            }
+            catch { }
         }
     }
 
@@ -657,7 +664,7 @@ public static class UbiArtAssetWriter
                     // Convert WEBP to PNG for the Uncooked export because the editor expects PNG pictograms
                     try
                     {
-                        using var img = Image.Load(file);
+                        using Image img = Image.Load(file);
                         // If we have 1 coach, resize to 512x512 centered
                         if (package.Metadata.CoachCount == 1)
                         {
@@ -686,6 +693,7 @@ public static class UbiArtAssetWriter
                     copied++;
                 }
             }
+
             Logger.Log($"Copied {copied} pictograms to {pictosDestDir}.");
         }
         else
@@ -705,6 +713,7 @@ public static class UbiArtAssetWriter
                 string destFile = Path.Combine(movesDestDir, Path.GetFileName(file));
                 File.Copy(file, destFile, true);
             }
+
             Logger.Log($"Copied {files.Length} MSMs.");
         }
         else
