@@ -37,7 +37,8 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     private void SyncMedia()
     {
         // MediaPlayer might not be initialized yet if called from base constructor
-        if (MediaPlayer == null) return;
+        if (MediaPlayer == null)
+            return;
 
         // Unsubscribe from previous
         if (_lastTimeline != null)
@@ -107,7 +108,8 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
     private void SyncTime()
     {
-        if (ActiveTimeline == null || MediaPlayer == null) return;
+        if (ActiveTimeline == null || MediaPlayer == null)
+            return;
 
         bool editorIsPlaying = ActiveTimeline.Playback.IsPlaying;
 

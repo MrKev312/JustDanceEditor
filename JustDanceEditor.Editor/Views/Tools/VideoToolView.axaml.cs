@@ -37,7 +37,8 @@ public partial class VideoToolView : UserControl
 
     private void UpdateMediaPlayer()
     {
-        if (_videoView == null) return;
+        if (_videoView == null)
+            return;
 
         if (DataContext is VideoToolViewModel vm)
         {

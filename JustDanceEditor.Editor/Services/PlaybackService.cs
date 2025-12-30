@@ -36,7 +36,8 @@ public class PlaybackService : IPlaybackService, IDisposable
         get
         {
             var time = _baseTime;
-            if (_isPlaying) time += _stopwatch.Elapsed;
+            if (_isPlaying)
+                time += _stopwatch.Elapsed;
             return time;
         }
     }
@@ -143,18 +144,22 @@ public class PlaybackService : IPlaybackService, IDisposable
     public void Seek(TimeSpan time)
     {
         bool wasPlaying = _isPlaying;
-        if (wasPlaying) Pause();
+        if (wasPlaying)
+            Pause();
 
         _baseTime = time;
-        if (_baseTime < TimeSpan.Zero) _baseTime = TimeSpan.Zero;
-        if (_audioFile != null && _baseTime > _audioFile.TotalTime) _baseTime = _audioFile.TotalTime;
+        if (_baseTime < TimeSpan.Zero)
+            _baseTime = TimeSpan.Zero;
+        if (_audioFile != null && _baseTime > _audioFile.TotalTime)
+            _baseTime = _audioFile.TotalTime;
 
         if (_audioFile != null)
             _audioFile.CurrentTime = _baseTime;
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
-        if (wasPlaying) Play();
+        if (wasPlaying)
+            Play();
     }
 
     public void SeekToBeat(double beat)

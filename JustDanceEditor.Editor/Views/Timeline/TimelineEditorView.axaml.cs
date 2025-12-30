@@ -66,7 +66,8 @@ public partial class TimelineEditorView : UserControl
 
     private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (sender is not TimelineEditorViewModel vm || _scrollViewer == null) return;
+        if (sender is not TimelineEditorViewModel vm || _scrollViewer == null)
+            return;
 
         if (e.PropertyName == nameof(TimelineEditorViewModel.PixelsPerBeat))
         {
@@ -91,7 +92,8 @@ public partial class TimelineEditorView : UserControl
             if (vm.Playback.IsPlaying)
             {
                 // Throttle auto-scroll to ~10 times per second
-                if ((DateTime.UtcNow - _lastScrollTime).TotalMilliseconds < 100) return;
+                if ((DateTime.UtcNow - _lastScrollTime).TotalMilliseconds < 100)
+                    return;
                 _lastScrollTime = DateTime.UtcNow;
 
                 double ppb = vm.PixelsPerBeat;
@@ -112,7 +114,8 @@ public partial class TimelineEditorView : UserControl
 
     private void TimelineScroll_PointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
     {
-        if (DataContext is not TimelineEditorViewModel vm || _scrollViewer == null) return;
+        if (DataContext is not TimelineEditorViewModel vm || _scrollViewer == null)
+            return;
 
         if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
         {

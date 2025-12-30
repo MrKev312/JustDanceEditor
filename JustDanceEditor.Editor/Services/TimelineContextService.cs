@@ -14,7 +14,8 @@ public partial class TimelineContextService : ObservableObject, ITimelineContext
 
     public void UpdateActiveTimeline(TimelineEditorViewModel? timeline)
     {
-        if (ActiveTimeline == timeline) return;
+        if (ActiveTimeline == timeline)
+            return;
 
         ActiveTimeline = timeline;
         WeakReferenceMessenger.Default.Send(new ActiveTimelineChangedMessage(timeline));

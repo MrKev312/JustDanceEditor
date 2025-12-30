@@ -44,6 +44,7 @@ public partial class TimelineEditorViewModel : Document
     public double StartBeatValue { get; private set; }
     public double VideoOffset { get; private set; }
     public int CoachCount => _package.Metadata.CoachCount;
+    public string LyricsColor => _package.Metadata.LyricsColor;
 
     public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
     {
@@ -177,8 +178,10 @@ public partial class TimelineEditorViewModel : Document
 
     partial void OnZoomPercentageChanged(double value)
     {
-        if (value < MinZoomPercentage) value = MinZoomPercentage;
-        if (value > MaxZoomPercentage) value = MaxZoomPercentage;
+        if (value < MinZoomPercentage)
+            value = MinZoomPercentage;
+        if (value > MaxZoomPercentage)
+            value = MaxZoomPercentage;
         PixelsPerBeat = value;
     }
 
@@ -192,7 +195,8 @@ public partial class TimelineEditorViewModel : Document
 
     public void FitToView(double viewportWidth)
     {
-        if (MaxBeat <= 0) return;
+        if (MaxBeat <= 0)
+            return;
         
         // Calculate the zoom level that fits the whole song
         double fitPpb = viewportWidth / MaxBeat;
@@ -214,7 +218,11 @@ public partial class TimelineEditorViewModel : Document
         Playback.Dispose();
         if (!string.IsNullOrEmpty(PreparedAudioPath) && File.Exists(PreparedAudioPath))
         {
-            try { File.Delete(PreparedAudioPath); } catch { }
+            try
+            {
+                File.Delete(PreparedAudioPath);
+            }
+            catch { }
         }
 
         return base.OnClose();

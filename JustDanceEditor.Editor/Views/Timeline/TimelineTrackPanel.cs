@@ -91,7 +91,8 @@ public class TimelineTrackPanel : Panel
     {
         // Remove old marker lines
         var markerLines = Children.Where(c => c is Border b && (b.Name == "Beat0Line" || b.Name == "EndBeatLine")).ToList();
-        foreach (var line in markerLines) Children.Remove(line);
+        foreach (var line in markerLines)
+            Children.Remove(line);
 
         if (BeatOffset != 0)
         {

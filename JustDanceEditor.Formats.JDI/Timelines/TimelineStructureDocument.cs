@@ -164,10 +164,12 @@ public class TimelineStructureDocument
     /// </summary>
     public double GetSongStartOffset()
     {
-        if (Markers.Count == 0) return 0;
+        if (Markers.Count == 0)
+            return 0;
 
         int beatIndex = Math.Abs(StartBeat);
-        if (beatIndex >= Markers.Count) return 0;
+        if (beatIndex >= Markers.Count)
+            return 0;
 
         double timeMs = Markers[beatIndex] / 48.0;
         

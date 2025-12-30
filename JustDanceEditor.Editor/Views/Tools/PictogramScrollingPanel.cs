@@ -44,14 +44,16 @@ public class PictogramScrollingPanel : Panel
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        if (ActiveTimeline == null) return finalSize;
+        if (ActiveTimeline == null)
+            return finalSize;
 
         var ts = ActiveTimeline.TimelineStructure;
         double currentTime = CurrentBeat;
         int coachCount = ActiveTimeline.CoachCount;
 
         double scrollDuration = GetScrollDurationInBeats(currentTime, ts);
-        if (scrollDuration <= 0) return finalSize;
+        if (scrollDuration <= 0)
+            return finalSize;
 
         foreach (var child in Children)
         {

@@ -140,8 +140,10 @@ public class TimeRulerControl : Control
         for (int i = 0; i <= max; i++)
         {
             double x = i * ppb;
-            if (x < 0) continue;
-            if (x > bounds.Width) break;
+            if (x < 0)
+                continue;
+            if (x > bounds.Width)
+                break;
 
             bool isMajor = (i + offset) % 4 == 0; // Keeping 4 for labels for now, or could sync with signatures too
             double tickHeight = isMajor ? 12 : 6;
@@ -182,8 +184,13 @@ public class TimeRulerControl : Control
             double xStart = (mStart - offset) * ppb;
             double xEnd = (mEnd - offset) * ppb;
 
-            if (xEnd < 0) { measureIndex++; continue; }
-            if (xStart > Bounds.Width) break;
+            if (xEnd < 0)
+            {
+                measureIndex++;
+                continue;
+            }
+            if (xStart > Bounds.Width)
+                break;
 
             var brush = (measureIndex % 2 == 0) ? brushA : brushB;
             context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));

@@ -149,7 +149,8 @@ public class AudioBarControl : Control
             for (int x = 0; x < (int)totalWidth; x++)
             {
                 int sampleIdx = (int)((double)x / totalWidth * Samples.Length);
-                if (sampleIdx >= Samples.Length) break;
+                if (sampleIdx >= Samples.Length)
+                    break;
 
                 float val = Samples[sampleIdx];
                 double h = val * centerY * 0.8;
