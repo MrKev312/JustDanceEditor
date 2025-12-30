@@ -5,6 +5,8 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Specialized;
+using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -25,6 +27,10 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
     private List<LyricLineViewModel> _allLines = [];
 
+    // Lyrics track and per-clip handlers
+    private TrackViewModel? _lyricsTrack;
+    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = new();
+
     public LyricPreviewViewModel()
     {
     }
@@ -34,12 +40,13 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (_lastTimeline != null)
         {
             _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
+            UnsubscribeLyricsTrack();
         }
 
         if (value != null)
         {
             value.Playback.TimeChanged += Playback_TimeChanged;
-            
+
             if (Avalonia.Media.Color.TryParse(value.LyricsColor, out var c))
             {
                 TargetColor = c;
@@ -60,6 +67,80 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         RefreshLyrics();
     }
 
+    private void UnsubscribeLyricsTrack()
+    {
+        if (_lyricsTrack == null) return;
+        _lyricsTrack.Clips.CollectionChanged -= LyricsClips_CollectionChanged;
+        foreach (var kv in _lyricsClipHandlers.ToList())
+        {
+            kv.Key.PropertyChanged -= kv.Value;
+            _lyricsClipHandlers.Remove(kv.Key);
+        }
+        _lyricsTrack = null;
+    }
+
+    private void SubscribeLyricsTrack(TrackViewModel track)
+    {
+        UnsubscribeLyricsTrack();
+        _lyricsTrack = track;
+        _lyricsTrack.Clips.CollectionChanged += LyricsClips_CollectionChanged;
+        foreach (var clip in _lyricsTrack.Clips)
+            AddLyricsClipHandler(clip);
+    }
+
+    private void LyricsClips_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // Subscribe new clips
+        if (e.NewItems != null)
+        {
+            foreach (var item in e.NewItems)
+            {
+                if (item is ClipViewModel clip)
+                    AddLyricsClipHandler(clip);
+            }
+        }
+
+        // Unsubscribe removed clips
+        if (e.OldItems != null)
+        {
+            foreach (var item in e.OldItems)
+            {
+                if (item is ClipViewModel clip)
+                    RemoveLyricsClipHandler(clip);
+            }
+        }
+
+        // Rebuild lines and refresh
+        BuildLines();
+        RefreshLyrics();
+    }
+
+    private void AddLyricsClipHandler(ClipViewModel clip)
+    {
+        if (clip == null || _lyricsClipHandlers.ContainsKey(clip)) return;
+        PropertyChangedEventHandler handler = (s, e) =>
+        {
+            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats))
+            {
+                // When clip timing changes, rebuild and refresh so ordering reflects StartBeat
+                BuildLines();
+                RefreshLyrics();
+            }
+        };
+        clip.PropertyChanged += handler;
+        _lyricsClipHandlers[clip] = handler;
+    }
+
+    private void RemoveLyricsClipHandler(ClipViewModel clip)
+    {
+        if (clip == null) return;
+        if (_lyricsClipHandlers.TryGetValue(clip, out var handler))
+        {
+            clip.PropertyChanged -= handler;
+            _lyricsClipHandlers.Remove(clip);
+        }
+    }
+
     private void BuildLines()
     {
         _allLines.Clear();
@@ -70,8 +151,12 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (pictoTrack == null)
             return;
 
+        // Subscribe to changes on the lyrics track so we update when clips reorder
+        SubscribeLyricsTrack(pictoTrack);
+
         var currentLineClips = new List<ClipViewModel>();
-        foreach (var clip in pictoTrack.Clips)
+        // iterate clips sorted by StartBeat so BuildLines reflects current timing order
+        foreach (var clip in pictoTrack.Clips.OrderBy(c => c.StartBeat))
         {
             currentLineClips.Add(clip);
             if (clip.RawClip is KaraokeClip k && k.IsEndOfLine)

@@ -15,6 +15,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -34,6 +35,12 @@ public partial class TimelineEditorViewModel : Document
     [ObservableProperty] private double _timelineWidth = 0.0;
     [ObservableProperty] private float[] _waveformSamples = [];
 
+    // Snapping options (can be bound to UI toggles)
+    [ObservableProperty] private bool _snapToGrid = false;
+    [ObservableProperty] private bool _snapToCurrentTimeMarker = false;
+    [ObservableProperty] private double _snapGridSize = 1.0; // beats
+    [ObservableProperty] private double _snapThreshold = 0.25; // beats
+
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
     public IPlaybackService Playback { get; }
     public TimelineStructureDocument TimelineStructure => _package.TimelineStructure;
@@ -45,6 +52,10 @@ public partial class TimelineEditorViewModel : Document
     public double VideoOffset { get; private set; }
     public int CoachCount => _package.Metadata.CoachCount;
     public string LyricsColor => _package.Metadata.LyricsColor;
+
+    // Simple undo/redo stack
+    private readonly Stack<(Action Undo, Action Redo)> _undoStack = new();
+    private readonly Stack<(Action Undo, Action Redo)> _redoStack = new();
 
     public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
     {
@@ -232,6 +243,33 @@ public partial class TimelineEditorViewModel : Document
             Playback.Pause();
         else
             Playback.Play();
+    }
+
+    [RelayCommand]
+    private void Undo()
+    {
+        if (_undoStack.Count == 0) return;
+        var item = _undoStack.Pop();
+        try { item.Undo(); }
+        catch { }
+        _redoStack.Push(item);
+    }
+
+    [RelayCommand]
+    private void Redo()
+    {
+        if (_redoStack.Count == 0) return;
+        var item = _redoStack.Pop();
+        try { item.Redo(); }
+        catch { }
+        _undoStack.Push(item);
+    }
+
+    public void PushUndo(Action undo, Action redo)
+    {
+        if (undo == null || redo == null) return;
+        _undoStack.Push((undo, redo));
+        _redoStack.Clear();
     }
 
     public override bool OnClose()

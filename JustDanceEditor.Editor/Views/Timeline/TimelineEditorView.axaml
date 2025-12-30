@@ -61,9 +61,14 @@
 
 	<Grid RowDefinitions="Auto, *, Auto">
 		<!-- 1. Toolbar -->
-		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333" Height="35">
+		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333" Height="44">
 			
-			<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,0">
+			<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="6,4">
+				<Button Content="Undo" Command="{Binding UndoCommand}" MinHeight="24" MinWidth="56" Padding="6,2" />
+				<Button Content="Redo" Command="{Binding RedoCommand}" MinHeight="24" MinWidth="56" Padding="6,2" />
+			</StackPanel>
+
+			<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,4">
 				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
 				<NumericUpDown Value="{Binding ZoomPercentage}" 
 						   Minimum="{Binding MinZoomPercentage}" 
@@ -74,8 +79,13 @@
 						   VerticalAlignment="Center"/>
 			</StackPanel>
 			
+			<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,4">
+				<CheckBox Content="Snap to beat" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Foreground="White"/>
+				<CheckBox Content="Snap to playhead" IsChecked="{Binding SnapToCurrentTimeMarker}" VerticalAlignment="Center" Foreground="White"/>
+			</StackPanel>
+
 			<Separator Width="1" Background="#555"/>
-			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White" FontSize="12" Margin="6,0"/>
 		</StackPanel>
 
 		<!-- 2. Timeline Main Area -->
@@ -113,8 +123,11 @@
 					  HorizontalScrollBarVisibility="Auto" 
 					  VerticalScrollBarVisibility="Auto"
 					  PointerWheelChanged="TimelineScroll_PointerWheelChanged">
-				<Grid HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
-					<StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
+			<Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}"
+			      PointerPressed="TimelineContent_PointerPressed"
+			      PointerMoved="TimelineContent_PointerMoved"
+			      PointerReleased="TimelineContent_PointerReleased">
+				<StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
 
 						<!-- Time Ruler -->
 						<local:TimeRulerControl Height="30"
@@ -149,8 +162,8 @@
 					</StackPanel>
 
 					<!-- Playhead Overlay -->
-					<Canvas IsHitTestVisible="False" ZIndex="100">
-						<Rectangle Fill="Red" Width="2" Height="2000">
+					<Canvas x:Name="OverlayCanvas" IsHitTestVisible="False" ZIndex="100" Width="{Binding TimelineWidth}" Height="{Binding Path=Bounds.Height, ElementName=TracksStack}">
+						<Rectangle Fill="Red" Width="2" Height="{Binding Path=Height, ElementName=OverlayCanvas}">
 							<Rectangle.RenderTransform>
 								<TranslateTransform>
 									<TranslateTransform.X>
@@ -163,6 +176,9 @@
 								</TranslateTransform>
 							</Rectangle.RenderTransform>
 						</Rectangle>
+
+						<!-- Scrub tooltip (hidden by default) -->
+						<TextBlock Name="ScrubTooltip" IsVisible="False" Background="#CC222222" Foreground="White" Padding="4" />
 					</Canvas>
 				</Grid>
 			</ScrollViewer>
