@@ -14,6 +14,8 @@
 	<UserControl.Resources>
 		<conv:BeatToPixelConverter x:Key="BeatToPixelConverter"/>
 		<conv:BitmapValueConverter x:Key="BitmapValueConverter"/>
+		<!-- Uniform track height for all tracks (waveform keeps its own height) -->
+		<x:Double x:Key="TrackHeight">40</x:Double>
 	</UserControl.Resources>
 
 	<UserControl.KeyBindings>
@@ -41,11 +43,11 @@
 								</Image.IsVisible>
 							</Image>
 							<TextBlock Text="{TemplateBinding Content}"
-									   VerticalAlignment="Center"
-									   HorizontalAlignment="Center"
-									   TextTrimming="CharacterEllipsis"
-									   Foreground="Black"
-									   FontSize="10">
+								   VerticalAlignment="Center"
+								   HorizontalAlignment="Center"
+								   TextTrimming="CharacterEllipsis"
+								   Foreground="Black"
+								   FontSize="10">
 								<TextBlock.IsVisible>
 									<Binding Path="ImagePath" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
 								</TextBlock.IsVisible>
@@ -64,12 +66,12 @@
 			<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,0">
 				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
 				<NumericUpDown Value="{Binding ZoomPercentage}" 
-							   Minimum="{Binding MinZoomPercentage}" 
-							   Maximum="{Binding MaxZoomPercentage}" 
-							   Width="120" 
-							   Height="28"
-							   FormatString="{}{0:N2}%"
-							   VerticalAlignment="Center"/>
+						   Minimum="{Binding MinZoomPercentage}" 
+						   Maximum="{Binding MaxZoomPercentage}" 
+						   Width="120" 
+						   Height="28"
+						   FormatString="{}{0:N2}%"
+						   VerticalAlignment="Center"/>
 			</StackPanel>
 			
 			<Separator Width="1" Background="#555"/>
@@ -94,7 +96,7 @@
 				<ItemsControl ItemsSource="{Binding Tracks}">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate x:DataType="vm:TrackViewModel">
-							<Border Height="{Binding Height}" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1" Background="#2d2d2d2d">
+							<Border Height="{StaticResource TrackHeight}" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1" Background="#2d2d2d2d">
 								<Grid ColumnDefinitions="5, *">
 									<Border Background="{Binding TrackColor}" Width="5"/>
 									<TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Margin="10,0" Foreground="LightGray"/>
@@ -107,39 +109,39 @@
 
 			<!-- RIGHT: Scrollable Content -->
 			<ScrollViewer Name="TimelineScroll" 
-						  Grid.Column="1" 
-						  HorizontalScrollBarVisibility="Auto" 
-						  VerticalScrollBarVisibility="Auto"
-						  PointerWheelChanged="TimelineScroll_PointerWheelChanged">
+					  Grid.Column="1" 
+					  HorizontalScrollBarVisibility="Auto" 
+					  VerticalScrollBarVisibility="Auto"
+					  PointerWheelChanged="TimelineScroll_PointerWheelChanged">
 				<Grid HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
 					<StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
 
 						<!-- Time Ruler -->
 						<local:TimeRulerControl Height="30"
-											    PixelsPerBeat="{Binding PixelsPerBeat}"
-											    BeatOffset="{Binding BeatOffset}"
-											    MaxBeat="{Binding MaxBeat}"
-											    Signatures="{Binding TimelineStructure.Signatures}"
-											    Width="{Binding TimelineWidth}"/>
+								    PixelsPerBeat="{Binding PixelsPerBeat}"
+							    BeatOffset="{Binding BeatOffset}"
+							    MaxBeat="{Binding MaxBeat}"
+							    Signatures="{Binding TimelineStructure.Signatures}"
+							    Width="{Binding TimelineWidth}"/>
 
 						<!-- Audio Waveform -->
 						<local:AudioBarControl Height="60"
-											   Samples="{Binding WaveformSamples}"
-											   PixelsPerBeat="{Binding PixelsPerBeat}"
-											   BeatOffset="{Binding BeatOffset}"
-											   Sections="{Binding TimelineStructure.Sections}"
-											   Width="{Binding TimelineWidth}"/>
+								   Samples="{Binding WaveformSamples}"
+							   PixelsPerBeat="{Binding PixelsPerBeat}"
+							   BeatOffset="{Binding BeatOffset}"
+							   Sections="{Binding TimelineStructure.Sections}"
+							   Width="{Binding TimelineWidth}"/>
 
 						<!-- Tracks Panels -->
 						<ItemsControl ItemsSource="{Binding Tracks}">
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="vm:TrackViewModel">
-									<local:TimelineTrackPanel Height="{Binding Height}"
-															  Clips="{Binding Clips}"
-															  PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
-															  BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
-															  MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
-															  Background="#1e1e1e1e">
+									<local:TimelineTrackPanel Height="{StaticResource TrackHeight}"
+									  Clips="{Binding Clips}"
+									  PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
+									  BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
+									  MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
+									  Background="#1e1e1e1e">
 									</local:TimelineTrackPanel>
 								</DataTemplate>
 							</ItemsControl.ItemTemplate>

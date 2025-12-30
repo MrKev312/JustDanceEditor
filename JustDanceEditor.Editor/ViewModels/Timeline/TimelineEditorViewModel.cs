@@ -154,6 +154,27 @@ public partial class TimelineEditorViewModel : Document
             Tracks.Add(coachTrack);
         }
 
+        // 3b. Full-body coaches (if present)
+        foreach (MoveTimeline fullBodyTimeline in _package.FullBodyCoachTimelines)
+        {
+            TrackViewModel fbTrack = new() { Title = $"FullBody Coach {fullBodyTimeline.CoachId}", Height = 60, TrackColor = Colors.SeaGreen };
+            foreach (MoveClip clip in fullBodyTimeline.Clips)
+            {
+                Color color = Colors.LightGray;
+                double duration = 24;
+                if (_package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? def))
+                {
+                    if (Color.TryParse(def.Color, out Color c))
+                        color = c;
+                    duration = def.Duration;
+                }
+
+                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, _rootPath));
+            }
+
+            Tracks.Add(fbTrack);
+        }
+
         // 4. Gold Moves
         TrackViewModel goldTrack = new() { Title = "Gold Effects", Height = 30, TrackColor = Colors.OrangeRed };
         foreach (GoldEffectClip clip in _package.GoldEffects.Clips)
