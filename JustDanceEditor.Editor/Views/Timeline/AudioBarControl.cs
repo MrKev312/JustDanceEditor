@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -145,19 +144,6 @@ public class AudioBarControl : Control
         }
         catch { }
 
-        // Hide tooltip via parent
-        Visual? parent = this.GetVisualParent();
-        while (parent != null)
-        {
-            if (parent is TimelineEditorView tev)
-            {
-                tev.HideScrubTooltipPublic();
-                break;
-            }
-
-            parent = parent.GetVisualParent();
-        }
-
         e.Handled = true;
     }
 
@@ -165,18 +151,6 @@ public class AudioBarControl : Control
     {
         base.OnPointerCaptureLost(e);
         _isScrubbing = false;
-
-        Visual? parent = this.GetVisualParent();
-        while (parent != null)
-        {
-            if (parent is TimelineEditorView tev)
-            {
-                tev.HideScrubTooltipPublic();
-                break;
-            }
-
-            parent = parent.GetVisualParent();
-        }
     }
 
     private void SeekAtPointer(double x, TimelineEditorViewModel vm)
@@ -196,19 +170,6 @@ public class AudioBarControl : Control
         }
 
         vm.Playback.SeekToBeat(beat);
-
-        // Show tooltip via parent if available
-        Visual? parent = this.GetVisualParent();
-        while (parent != null)
-        {
-            if (parent is TimelineEditorView tev)
-            {
-                tev.ShowScrubTooltipAtContentX(x);
-                break;
-            }
-
-            parent = parent.GetVisualParent();
-        }
     }
 
     public override void Render(DrawingContext context)

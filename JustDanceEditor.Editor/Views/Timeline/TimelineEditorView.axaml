@@ -126,10 +126,7 @@
 					      HorizontalScrollBarVisibility="Auto" 
 					      VerticalScrollBarVisibility="Disabled"
 					      PointerWheelChanged="TimelineScroll_PointerWheelChanged">
-			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}"
-			          PointerPressed="TimelineContent_PointerPressed"
-			          PointerMoved="TimelineContent_PointerMoved"
-			          PointerReleased="TimelineContent_PointerReleased">
+			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
 				    <StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
 
 						    <!-- Time Ruler -->
