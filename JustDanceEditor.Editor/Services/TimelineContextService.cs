@@ -27,6 +27,14 @@ public partial class TimelineContextService : ObservableObject, ITimelineContext
         WeakReferenceMessenger.Default.Send(new ActiveTimelineChangedMessage(timeline));
     }
 
+    public void DetachTimeline(TimelineEditorViewModel timeline)
+    {
+        if (ActiveTimeline != timeline)
+            return;
+
+        UpdateActiveTimeline(null);
+    }
+
     partial void OnSelectedObjectsChanged(List<object> value)
     {
         WeakReferenceMessenger.Default.Send(new SelectionChangedMessage(value));

@@ -10,4 +10,5 @@ public interface ITimelineContextService : INotifyPropertyChanged
     TimelineEditorViewModel? ActiveTimeline { get; }
     List<object> SelectedObjects { get; set; }
     void UpdateActiveTimeline(TimelineEditorViewModel? timeline);
+    void DetachTimeline(TimelineEditorViewModel timeline);
 }

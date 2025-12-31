@@ -35,23 +35,23 @@ public partial class TimelineEditorView : UserControl
         };
 
         _scrollViewer?.EffectiveViewportChanged += (s, e) =>
+        {
+            if (DataContext is TimelineEditorViewModel vm && _scrollViewer != null)
             {
-                if (DataContext is TimelineEditorViewModel vm && _scrollViewer != null)
+                double viewportWidth = _scrollViewer.Viewport.Width;
+                if (viewportWidth > 0 && vm.MaxBeat > 0)
                 {
-                    double viewportWidth = _scrollViewer.Viewport.Width;
-                    if (viewportWidth > 0 && vm.MaxBeat > 0)
-                    {
-                        double fitPpb = viewportWidth / vm.MaxBeat;
-                        vm.MinZoomPercentage = fitPpb;
+                    double fitPpb = viewportWidth / vm.MaxBeat;
+                    vm.MinZoomPercentage = fitPpb;
 
-                        if (_isInitialFitNeeded)
-                        {
-                            vm.ZoomPercentage = fitPpb;
-                            _isInitialFitNeeded = false;
-                        }
+                    if (_isInitialFitNeeded)
+                    {
+                        vm.ZoomPercentage = fitPpb;
+                        _isInitialFitNeeded = false;
                     }
                 }
-            };
+            }
+        };
 
         // Ensure we clear scrubbing state if the pointer capture is lost for any reason
         this.PointerCaptureLost += (s, e) =>
@@ -62,6 +62,16 @@ public partial class TimelineEditorView : UserControl
                 HideScrubTooltip();
             }
         };
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (DataContext is TimelineEditorViewModel vm && Application.Current is App app)
+        {
+            app.TimelineContext.DetachTimeline(vm);
+        }
+
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
