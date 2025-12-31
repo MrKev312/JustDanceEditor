@@ -43,6 +43,9 @@ public partial class TimelineTrackPanel
 
         bool drawText = ppb > 10;
 
+        var selectionPen = new Pen(Brushes.Gold, 2.0);
+        var selectionOverlay = new SolidColorBrush(new Color(120, 255, 215, 0));
+
         foreach (var clip in Clips)
         {
             double clipStart = clip.StartBeat;
@@ -63,6 +66,14 @@ public partial class TimelineTrackPanel
 
             var outlinePen = new Pen(Brushes.Black, System.Math.Max(1.0, rect.Height * 0.05), lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             context.DrawRectangle(null, outlinePen, rect);
+
+            // Selection visual
+            if (clip.IsSelected)
+            {
+                // Slight overlay and gold outline
+                context.FillRectangle(selectionOverlay, rect);
+                context.DrawRectangle(null, selectionPen, rect.Deflate(1));
+            }
 
             if (clip.ImagePath != null)
             {

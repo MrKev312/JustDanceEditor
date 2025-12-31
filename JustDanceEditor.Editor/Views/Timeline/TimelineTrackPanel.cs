@@ -85,6 +85,10 @@ public partial class TimelineTrackPanel : Control
     private double _dragOriginalStartBeat;
     private bool _isDragging;
 
+    // Multi-drag
+    private bool _isMultiDragging;
+    private Dictionary<ClipViewModel, double>? _multiDragOriginalStarts;
+
     // Resize state
     private bool _isResizingLeft;
     private bool _isResizingRight;
@@ -92,6 +96,9 @@ public partial class TimelineTrackPanel : Control
     private double _resizeOriginalStart;
     private double _resizeOriginalDuration;
     private const double ResizeHitThreshold = 6.0; // pixels
+
+    // Track last explicitly selected clip for shift-range selection
+    private ClipViewModel? _lastSelectedClip;
 
     static TimelineTrackPanel()
     {
@@ -190,7 +197,7 @@ public partial class TimelineTrackPanel : Control
 
         PropertyChangedEventHandler handler = (s, e) =>
         {
-            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats) || e.PropertyName == nameof(ClipViewModel.ImagePath) || e.PropertyName == nameof(ClipViewModel.Name))
+            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats) || e.PropertyName == nameof(ClipViewModel.ImagePath) || e.PropertyName == nameof(ClipViewModel.Name) || e.PropertyName == nameof(ClipViewModel.IsSelected))
             {
                 // clear text cache for this clip
                 var keys = _textCache.Keys.Where(k => k.clip == clip).ToList();

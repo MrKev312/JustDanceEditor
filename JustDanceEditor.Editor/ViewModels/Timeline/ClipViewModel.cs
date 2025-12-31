@@ -17,6 +17,7 @@ public partial class ClipViewModel : ViewModelBase
     [ObservableProperty] private Color _backgroundColor;
     [ObservableProperty] private object _rawClip;
     [ObservableProperty] private string? _imagePath;
+    [ObservableProperty] private bool _isSelected;
 
     public ClipViewModel(TimelineClipBase clip, double duration, Color color, string name, string? rootPath = null)
     {
