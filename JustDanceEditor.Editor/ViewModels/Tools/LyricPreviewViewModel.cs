@@ -14,7 +14,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Lyrics Preview", "General")]
+[ToolWindow("Lyrics Preview", "View/Preview")]
 public partial class LyricPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]

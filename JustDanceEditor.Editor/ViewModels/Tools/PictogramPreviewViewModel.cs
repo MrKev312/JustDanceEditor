@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Pictogram Preview", "General")]
+[ToolWindow("Pictogram Preview", "View/Preview")]
 public partial class PictogramPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]

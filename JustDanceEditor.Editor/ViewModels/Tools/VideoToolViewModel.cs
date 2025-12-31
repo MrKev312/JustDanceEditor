@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Video Preview", "General")]
+[ToolWindow("Video Preview", "View/Preview")]
 public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 {
     public MediaPlayer MediaPlayer { get; }
