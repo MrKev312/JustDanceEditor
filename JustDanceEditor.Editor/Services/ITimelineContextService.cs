@@ -1,4 +1,5 @@
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
 using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.Services;

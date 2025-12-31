@@ -3,9 +3,9 @@ using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
 
-using JustDanceEditor.Editor.Views;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views;
 
 using System;
 using System.Collections.Generic;

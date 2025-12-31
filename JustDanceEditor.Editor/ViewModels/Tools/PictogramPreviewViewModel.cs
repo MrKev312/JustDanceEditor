@@ -1,12 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
 using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Collections.Specialized;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

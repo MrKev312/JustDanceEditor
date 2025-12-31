@@ -1,7 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using LibVLCSharp.Shared;
 
-using LibVLCSharp.Shared;
+using System;
+using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 

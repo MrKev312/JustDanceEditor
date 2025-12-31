@@ -2,6 +2,7 @@
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
 namespace JustDanceEditor.Editor.Views.Timeline;

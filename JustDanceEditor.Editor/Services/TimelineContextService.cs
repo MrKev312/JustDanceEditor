@@ -1,9 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.Mvvm.Messaging.Messages;
-using JustDanceEditor.Editor.ViewModels.Timeline;
 
-using System;
+using JustDanceEditor.Editor.ViewModels.Timeline;
 
 namespace JustDanceEditor.Editor.Services;
 

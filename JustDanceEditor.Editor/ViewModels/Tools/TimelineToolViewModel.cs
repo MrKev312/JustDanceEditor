@@ -1,8 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
+
 using Dock.Model.Mvvm.Controls;
+
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
 using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;

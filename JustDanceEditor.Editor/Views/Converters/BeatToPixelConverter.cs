@@ -1,9 +1,9 @@
 ﻿// File: .\Views\Converters\BeatToPixelConverter.cs
+using Avalonia.Data.Converters;
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-
-using Avalonia.Data.Converters;
 
 namespace JustDanceEditor.Editor.Views.Converters;
 

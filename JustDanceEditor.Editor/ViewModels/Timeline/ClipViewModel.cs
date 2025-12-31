@@ -4,6 +4,7 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Formats.JDI.Timelines;
+
 using System.IO;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;

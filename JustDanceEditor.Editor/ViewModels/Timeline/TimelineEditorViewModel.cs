@@ -11,11 +11,11 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -40,6 +40,26 @@ public partial class TimelineEditorViewModel : Document
     [ObservableProperty] private bool _snapToCurrentTimeMarker = false;
     [ObservableProperty] private double _snapGridSize = 1.0; // beats
     [ObservableProperty] private double _snapThreshold = 0.25; // beats
+    [ObservableProperty] private bool _snapToClips = false; // snap to other clips on drag/resize (default off)
+
+    // Static synchronization for snapping across all timeline instances
+    private static bool _globalSnapToGrid = false;
+    private static event Action<bool>? SnapToGridChangedGlobal;
+
+    private static bool _globalSnapToPlayhead = false;
+    private static event Action<bool>? SnapToPlayheadChangedGlobal;
+
+    private static double _globalSnapGridSize = 1.0;
+    private static event Action<double>? SnapGridSizeChangedGlobal;
+
+    private static double _globalSnapThreshold = 0.25;
+    private static event Action<double>? SnapThresholdChangedGlobal;
+
+    private static bool _globalSnapToClips = false;
+    private static event Action<bool>? SnapToClipsChangedGlobal;
+
+    // suppress broadcasting when applying remote changes
+    private bool _suppressSnapBroadcast = false;
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
     public IPlaybackService Playback { get; }
@@ -73,6 +93,48 @@ public partial class TimelineEditorViewModel : Document
 
         BuildTimeline();
         _ = InitializeMedia();
+
+        // Initialize snapping states from globals and subscribe to global changes
+        _snapToGrid = _globalSnapToGrid;
+        _snapToCurrentTimeMarker = _globalSnapToPlayhead;
+        _snapGridSize = _globalSnapGridSize;
+        _snapThreshold = _globalSnapThreshold;
+        _snapToClips = _globalSnapToClips;
+
+        SnapToGridChangedGlobal += (v) =>
+        {
+            if (v == SnapToGrid) return;
+            _suppressSnapBroadcast = true;
+            SnapToGrid = v;
+        };
+
+        SnapToPlayheadChangedGlobal += (v) =>
+        {
+            if (v == SnapToCurrentTimeMarker) return;
+            _suppressSnapBroadcast = true;
+            SnapToCurrentTimeMarker = v;
+        };
+
+        SnapGridSizeChangedGlobal += (v) =>
+        {
+            if (Math.Abs(v - SnapGridSize) < 1e-9) return;
+            _suppressSnapBroadcast = true;
+            SnapGridSize = v;
+        };
+
+        SnapThresholdChangedGlobal += (v) =>
+        {
+            if (Math.Abs(v - SnapThreshold) < 1e-9) return;
+            _suppressSnapBroadcast = true;
+            SnapThreshold = v;
+        };
+
+        SnapToClipsChangedGlobal += (v) =>
+        {
+            if (v == SnapToClips) return;
+            _suppressSnapBroadcast = true;
+            SnapToClips = v;
+        };
     }
 
     private async Task InitializeMedia()
@@ -285,5 +347,65 @@ public partial class TimelineEditorViewModel : Document
         }
 
         return base.OnClose();
+    }
+
+    partial void OnSnapToGridChanged(bool value)
+    {
+        if (_suppressSnapBroadcast)
+        {
+            _suppressSnapBroadcast = false;
+            return;
+        }
+
+        _globalSnapToGrid = value;
+        SnapToGridChangedGlobal?.Invoke(value);
+    }
+
+    partial void OnSnapToCurrentTimeMarkerChanged(bool value)
+    {
+        if (_suppressSnapBroadcast)
+        {
+            _suppressSnapBroadcast = false;
+            return;
+        }
+
+        _globalSnapToPlayhead = value;
+        SnapToPlayheadChangedGlobal?.Invoke(value);
+    }
+
+    partial void OnSnapGridSizeChanged(double value)
+    {
+        if (_suppressSnapBroadcast)
+        {
+            _suppressSnapBroadcast = false;
+            return;
+        }
+
+        _globalSnapGridSize = value;
+        SnapGridSizeChangedGlobal?.Invoke(value);
+    }
+
+    partial void OnSnapThresholdChanged(double value)
+    {
+        if (_suppressSnapBroadcast)
+        {
+            _suppressSnapBroadcast = false;
+            return;
+        }
+
+        _globalSnapThreshold = value;
+        SnapThresholdChangedGlobal?.Invoke(value);
+    }
+
+    partial void OnSnapToClipsChanged(bool value)
+    {
+        if (_suppressSnapBroadcast)
+        {
+            _suppressSnapBroadcast = false;
+            return;
+        }
+
+        _globalSnapToClips = value;
+        SnapToClipsChangedGlobal?.Invoke(value);
     }
 }

@@ -1,9 +1,8 @@
 ﻿using Avalonia.Controls;
 
-using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Tools;
+
 using LibVLCSharp.Avalonia;
-using System;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 

@@ -1,8 +1,8 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using JustDanceEditor.Editor.Attributes;
-using JustDanceEditor.Editor.Services;
+﻿using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
 using LibVLCSharp.Shared;
+
 using System;
 using System.Threading.Tasks;
 

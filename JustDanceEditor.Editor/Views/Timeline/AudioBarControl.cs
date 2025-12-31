@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,16 +1,19 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Formats.JDI.Timelines;
+
 using System;
-using System.Linq;
-using System.ComponentModel;
-using Avalonia.Input;
-using Avalonia.VisualTree;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
@@ -309,8 +312,11 @@ public class LyricLineControl : Control
 
         double deltaBeats = deltaX / pixelsPerBeat;
 
-        double newStart = _dragOriginalStartBeat + deltaBeats;
-        if (newStart < 0) newStart = 0;
+        double unconstrained = _dragOriginalStartBeat + deltaBeats;
+        if (unconstrained < 0) unconstrained = 0;
+
+        // Use SnappingService to compute best start
+        double newStart = SnappingService.ChooseBestStart(unconstrained, _draggingClip.DurationBeats, vm ?? TimelineEditorViewModelPlaceholder.Instance, vm?.Tracks.SelectMany(tr => tr.Clips) ?? Enumerable.Empty<ClipViewModel>());
 
         _draggingClip.StartBeat = newStart;
 

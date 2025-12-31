@@ -4,8 +4,6 @@ using LibVLCSharp.Shared;
 
 using NAudio.Wave;
 
-using Xabe.FFmpeg;
-
 using System;
 using System.Diagnostics;
 using System.IO;

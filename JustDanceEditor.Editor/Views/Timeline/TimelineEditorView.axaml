@@ -82,6 +82,7 @@
 			<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,4">
 				<CheckBox Content="Snap to beat" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Foreground="White"/>
 				<CheckBox Content="Snap to playhead" IsChecked="{Binding SnapToCurrentTimeMarker}" VerticalAlignment="Center" Foreground="White"/>
+				<CheckBox Content="Snap to clips" IsChecked="{Binding SnapToClips}" VerticalAlignment="Center" Foreground="White"/>
 			</StackPanel>
 
 			<Separator Width="1" Background="#555"/>

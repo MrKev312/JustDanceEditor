@@ -1,11 +1,11 @@
-﻿using Avalonia.Controls;
-using JustDanceEditor.Editor.ViewModels.Timeline;
-using System;
-using Avalonia;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
-using JustDanceEditor.Editor.ViewModels.Tools;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
+
+using JustDanceEditor.Editor.ViewModels.Timeline;
+
+using System;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 

@@ -1,8 +1,8 @@
-﻿using System.Collections.ObjectModel;
+﻿using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
-using Avalonia.Media;
+using System.Collections.ObjectModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 

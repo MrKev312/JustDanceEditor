@@ -11,13 +11,10 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Docking;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
