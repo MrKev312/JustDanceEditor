@@ -77,7 +77,7 @@ public partial class TimelineTrackPanel
 
             if (clip.ImagePath != null)
             {
-                if (BitmapCache.TryGet(clip.ImagePath, out var bmp))
+                if (BitmapCache.TryGet(clip.ImagePath, out var bmp) && bmp != null)
                 {
                     var aspect = bmp.Size.Width / bmp.Size.Height;
                     var drawHeight = rect.Height;

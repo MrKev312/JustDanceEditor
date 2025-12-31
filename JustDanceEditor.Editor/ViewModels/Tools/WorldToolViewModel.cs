@@ -10,5 +10,5 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class WorldToolViewModel : Tool
 {
     [ObservableProperty]
-    private string _message = "Hello World from the Dock!";
+    public partial string Message { get; set; } = "Hello World from the Dock!";
 }

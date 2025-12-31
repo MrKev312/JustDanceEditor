@@ -24,17 +24,16 @@ public class PlaybackService : IPlaybackService, IDisposable
     private TimeSpan _baseTime = TimeSpan.Zero;
     private readonly DispatcherTimer _updateTimer;
     private readonly Stopwatch _stopwatch = new();
-    private bool _isPlaying;
 
     public MediaPlayer? MediaPlayer => null; // Tools now manage their own video
-    public bool IsPlaying => _isPlaying;
+    public bool IsPlaying { get; private set; }
 
     public TimeSpan CurrentTime 
     {
         get
         {
             var time = _baseTime;
-            if (_isPlaying)
+            if (IsPlaying)
                 time += _stopwatch.Elapsed;
             return time;
         }
@@ -55,7 +54,7 @@ public class PlaybackService : IPlaybackService, IDisposable
             DispatcherPriority.Render,
             (s, e) =>
             {
-                if (_isPlaying)
+                if (IsPlaying)
                 {
                     if (CurrentTime >= Duration)
                     {
@@ -103,7 +102,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Play()
     {
-        if (_isPlaying)
+        if (IsPlaying)
             return;
 
         if (CurrentTime >= Duration)
@@ -111,7 +110,7 @@ public class PlaybackService : IPlaybackService, IDisposable
             Seek(TimeSpan.Zero);
         }
 
-        _isPlaying = true;
+        IsPlaying = true;
         _stopwatch.Restart();
 
         if (_audioFile != null)
@@ -126,12 +125,12 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Pause()
     {
-        if (!_isPlaying)
+        if (!IsPlaying)
             return;
 
         _baseTime += _stopwatch.Elapsed;
         _stopwatch.Stop();
-        _isPlaying = false;
+        IsPlaying = false;
 
         _outputDevice?.Pause();
 
@@ -141,7 +140,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Seek(TimeSpan time)
     {
-        bool wasPlaying = _isPlaying;
+        bool wasPlaying = IsPlaying;
         if (wasPlaying)
             Pause();
 

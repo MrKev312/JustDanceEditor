@@ -8,6 +8,7 @@
 	<Application.Styles>
 		<FluentTheme />
 		<DockFluentTheme />
+		<StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
 	</Application.Styles>
 
 	<Application.DataTemplates>

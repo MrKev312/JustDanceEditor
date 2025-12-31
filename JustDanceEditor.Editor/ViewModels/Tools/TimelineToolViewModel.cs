@@ -6,6 +6,7 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System.ComponentModel;
+using JustDanceEditor.Editor;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -15,19 +16,19 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 /// </summary>
 public abstract partial class TimelineToolViewModel : Tool
 {
-    private readonly ITimelineContextService? _timelineContext;
+    protected readonly ITimelineContextService? TimelineContext;
 
     [ObservableProperty]
-    private TimelineEditorViewModel? _activeTimeline;
+    public partial TimelineEditorViewModel? ActiveTimeline { get; set; }
 
     protected TimelineToolViewModel()
     {
         // Initial state from global context
         if (Avalonia.Application.Current is App app)
         {
-            _timelineContext = app.TimelineContext;
-            _timelineContext.PropertyChanged += Context_PropertyChanged;
-            ActiveTimeline = _timelineContext.ActiveTimeline;
+            TimelineContext = app.TimelineContext;
+            TimelineContext.PropertyChanged += Context_PropertyChanged;
+            ActiveTimeline = TimelineContext.ActiveTimeline;
         }
     }
 
@@ -35,7 +36,7 @@ public abstract partial class TimelineToolViewModel : Tool
     {
         if (e.PropertyName == nameof(ITimelineContextService.ActiveTimeline))
         {
-            ActiveTimeline = _timelineContext?.ActiveTimeline;
+            ActiveTimeline = TimelineContext?.ActiveTimeline;
         }
     }
 

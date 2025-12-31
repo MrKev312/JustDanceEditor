@@ -65,14 +65,14 @@ public class JustDanceDockFactory(MainWindowViewModel context) : Factory
 
     public override void SetActiveDockable(IDockable? dockable)
     {
-        base.SetActiveDockable(dockable);
+        base.SetActiveDockable(dockable!);
 
         UpdateContext(dockable);
     }
 
     public override void SetFocusedDockable(IDock? dock, IDockable? dockable)
     {
-        base.SetFocusedDockable(dock, dockable);
+        base.SetFocusedDockable(dock, dockable!);
 
         UpdateContext(dockable);
     }

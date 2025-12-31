@@ -138,7 +138,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 var package = IntermediatePackageSerializer.LoadFromFolder(path);
                 var editorVm = new TimelineEditorViewModel(package, path);
 
-                if (_factory?.FindDockable(Layout, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
+                if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
                 {
                     _factory?.AddDockable(mainDock, editorVm);
                     _factory?.SetActiveDockable(editorVm);

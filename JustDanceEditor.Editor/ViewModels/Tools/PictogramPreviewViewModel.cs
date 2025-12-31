@@ -16,10 +16,10 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class PictogramPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
-    private ObservableCollection<ClipViewModel> _visiblePictograms = [];
+    public partial ObservableCollection<ClipViewModel> VisiblePictograms { get; set; } = [];
 
     [ObservableProperty]
-    private double _currentBeat;
+    public partial double CurrentBeat { get; set; }
 
     // Track subscriptions
     private TrackViewModel? _pictoTrack;

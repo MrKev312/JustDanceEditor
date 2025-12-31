@@ -16,16 +16,16 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class LyricPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
-    private LyricLineViewModel? _currentLine;
+    public partial LyricLineViewModel? CurrentLine { get; set; }
 
     [ObservableProperty]
-    private LyricLineViewModel? _nextLine;
+    public partial LyricLineViewModel? NextLine { get; set; }
 
     [ObservableProperty]
-    private double _currentBeat;
+    public partial double CurrentBeat { get; set; }
 
     [ObservableProperty]
-    private Avalonia.Media.Color _targetColor = Avalonia.Media.Colors.SkyBlue;
+    public partial Avalonia.Media.Color TargetColor { get; set; } = Avalonia.Media.Colors.SkyBlue;
 
     private List<LyricLineViewModel> _allLines = [];
 
@@ -122,7 +122,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (clip == null || _lyricsClipHandlers.ContainsKey(clip)) return;
         PropertyChangedEventHandler handler = (s, e) =>
         {
-            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats))
+            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats) || e.PropertyName == nameof(ClipViewModel.Name))
             {
                 // When clip timing changes, rebuild and refresh so ordering reflects StartBeat
                 BuildLines();

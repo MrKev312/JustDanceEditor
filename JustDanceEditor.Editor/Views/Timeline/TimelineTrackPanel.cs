@@ -197,15 +197,12 @@ public partial class TimelineTrackPanel : Control
 
         PropertyChangedEventHandler handler = (s, e) =>
         {
-            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats) || e.PropertyName == nameof(ClipViewModel.ImagePath) || e.PropertyName == nameof(ClipViewModel.Name) || e.PropertyName == nameof(ClipViewModel.IsSelected))
-            {
-                // clear text cache for this clip
-                var keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
-                foreach (var k in keys) _textCache.Remove(k);
+            // clear text cache for this clip
+            var keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
+            foreach (var k in keys) _textCache.Remove(k);
 
-                // Ensure arrange/render happens on UI thread
-                Dispatcher.UIThread.Post(() => { InvalidateMeasure(); InvalidateVisual(); });
-            }
+            // Ensure arrange/render happens on UI thread
+            Dispatcher.UIThread.Post(() => { InvalidateMeasure(); InvalidateVisual(); });
         };
 
         clip.PropertyChanged += handler;

@@ -87,6 +87,7 @@ public partial class TimelineTrackPanel
             // If clicked empty space, clear selection (unless Ctrl pressed)
             var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
             var shift = (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
+
             if (targetClip == null)
             {
                 if (!ctrl && contextVm != null)
@@ -94,6 +95,10 @@ public partial class TimelineTrackPanel
                     foreach (var clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
                         clip.IsSelected = false;
                     _lastSelectedClip = null;
+
+                    if (Avalonia.Application.Current is App app)
+                        app.TimelineContext.SelectedObjects = [];
+
                     InvalidateVisual();
                     e.Handled = true;
                     return;
@@ -108,6 +113,7 @@ public partial class TimelineTrackPanel
                 {
                     targetClip.IsSelected = !targetClip.IsSelected;
                     _lastSelectedClip = targetClip.IsSelected ? targetClip : _lastSelectedClip;
+                    UpdateGlobalSelection(contextVm);
                     InvalidateVisual();
                     e.Handled = true;
                     return;
@@ -126,6 +132,7 @@ public partial class TimelineTrackPanel
                     for (int i = 0; i < allClips.Count; i++)
                         allClips[i].IsSelected = i >= start && i <= end;
                     _lastSelectedClip = targetClip;
+                    UpdateGlobalSelection(contextVm);
                     InvalidateVisual();
                     e.Handled = true;
                     return;
@@ -150,6 +157,7 @@ public partial class TimelineTrackPanel
                         clip.IsSelected = false;
                     targetClip.IsSelected = true;
                     _lastSelectedClip = targetClip;
+                    UpdateGlobalSelection(contextVm);
                 }
 
                 double localX = point.X - targetStartX;
@@ -192,6 +200,12 @@ public partial class TimelineTrackPanel
                 }
             }
         }
+    }
+
+    private void UpdateGlobalSelection(TimelineEditorViewModel? vm)
+    {
+        if (vm == null || Avalonia.Application.Current is not App app) return;
+        app.TimelineContext.SelectedObjects = vm.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>().ToList();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)

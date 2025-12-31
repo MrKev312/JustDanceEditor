@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:JustDanceEditor.Editor.ViewModels.Tools"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="JustDanceEditor.Editor.Views.Tools.PropertiesToolView"
+             x:DataType="vm:PropertiesToolViewModel"
+             Focusable="True">
+
+	<Panel>
+		<TextBlock Text="No selection"
+				   HorizontalAlignment="Center"
+				   VerticalAlignment="Center"
+				   Foreground="#888888"
+				   IsVisible="{Binding !Categories.Count}"/>
+
+		<ScrollViewer IsVisible="{Binding Categories.Count}">
+			<ItemsControl ItemsSource="{Binding Categories}">
+				<ItemsControl.ItemTemplate>
+					<DataTemplate>
+						<StackPanel>
+							<Border Background="#2D2D2D" Padding="5">
+								<TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="WhiteSmoke"/>
+							</Border>
+							<ItemsControl ItemsSource="{Binding Properties}">
+								<ItemsControl.ItemTemplate>
+									<DataTemplate>
+										<Grid ColumnDefinitions="140,*" Margin="5,2">
+											<TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#CCCCCC" TextTrimming="CharacterEllipsis"/>
+
+											<Panel Grid.Column="1">
+												<!-- Text/Number -->
+												<TextBox Text="{Binding StringValue, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+														 IsVisible="{Binding ShowTextBox}"
+														 IsReadOnly="{Binding IsReadOnly}"
+														 KeyDown="OnTextBoxKeyDown"
+														 Classes="propEntry"/>
+
+												<!-- ComboBox for options -->
+												<ComboBox ItemsSource="{Binding Options}"
+														  SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
+														  IsVisible="{Binding HasOptions}"
+														  IsEditable="{Binding IsEditable}"
+														  HorizontalAlignment="Stretch"
+														  MaxDropDownHeight="300">
+													<ComboBox.DataTemplates>
+														<DataTemplate DataType="vm:PictogramOptionViewModel">
+															<StackPanel Orientation="Horizontal" Spacing="6">
+																<Image Width="48" Height="48" Source="{Binding PreviewImage}"/>
+																<TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+															</StackPanel>
+														</DataTemplate>
+														<!-- Default string template is implicit -->
+													</ComboBox.DataTemplates>
+												</ComboBox>
+
+												<!-- Bool -->
+												<CheckBox IsChecked="{Binding BoolValue, Mode=TwoWay}" IsVisible="{Binding IsBool}"
+														  IsEnabled="{Binding !IsReadOnly}"/>
+
+												<!-- Color -->
+												<Panel IsVisible="{Binding IsColor}">
+													<Grid ColumnDefinitions="Auto, *" Margin="0,2">
+														<!-- Color Picker Box -->
+														<ColorPicker Grid.Column="0"
+																	 Color="{Binding ColorValue, Mode=TwoWay}"
+																	 IsAlphaEnabled="False"
+																	 IsEnabled="{Binding !IsReadOnly}"
+																	 Margin="0,0,8,0"/>
+
+														<!-- Hex Code -->
+														<!-- Using TextAlignment Left for hex code -->
+														<TextBox Grid.Column="1"
+																 Text="{Binding HexString, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+																 IsEnabled="{Binding !IsReadOnly}"
+																 KeyDown="OnTextBoxKeyDown"
+																 Classes="propEntry"/>
+													</Grid>
+												</Panel>
+											</Panel>
+										</Grid>
+									</DataTemplate>
+								</ItemsControl.ItemTemplate>
+							</ItemsControl>
+						</StackPanel>
+					</DataTemplate>
+				</ItemsControl.ItemTemplate>
+			</ItemsControl>
+		</ScrollViewer>
+	</Panel>
+
+	<UserControl.Styles>
+		<Style Selector="TextBox.propEntry">
+			<Setter Property="MinHeight" Value="24"/>
+			<Setter Property="Padding" Value="4,2"/>
+		</Style>
+	</UserControl.Styles>
+</UserControl>

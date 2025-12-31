@@ -22,25 +22,54 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 public partial class TimelineEditorViewModel : Document
 {
     private readonly IntermediateSongPackage _package;
-    private readonly string _rootPath;
 
-    [ObservableProperty] private double _pixelsPerBeat = 100.0;
-    [ObservableProperty] private double _zoomPercentage = 100.0;
-    [ObservableProperty] private double _minZoomPercentage = 10.0;
-    [ObservableProperty] private double _maxZoomPercentage = 10000.0;
-    [ObservableProperty] private double _scrollOffsetX = 0.0;
-    [ObservableProperty] private double _currentBeat = 0.0;
-    [ObservableProperty] private int _beatOffset = 0;
-    [ObservableProperty] private double _maxBeat = 500.0;
-    [ObservableProperty] private double _timelineWidth = 0.0;
-    [ObservableProperty] private float[] _waveformSamples = [];
+    public string RootPath { get; }
+
+    [ObservableProperty]
+    public partial double PixelsPerBeat { get; set; } = 100.0;
+
+    [ObservableProperty]
+    public partial double ZoomPercentage { get; set; } = 100.0;
+
+    [ObservableProperty]
+    public partial double MinZoomPercentage { get; set; } = 10.0;
+
+    [ObservableProperty]
+    public partial double MaxZoomPercentage { get; set; } = 10000.0;
+
+    [ObservableProperty]
+    public partial double ScrollOffsetX { get; set; } = 0.0;
+
+    [ObservableProperty]
+    public partial double CurrentBeat { get; set; } = 0.0;
+
+    [ObservableProperty]
+    public partial int BeatOffset { get; set; } = 0;
+
+    [ObservableProperty]
+    public partial double MaxBeat { get; set; } = 500.0;
+
+    [ObservableProperty]
+    public partial double TimelineWidth { get; set; } = 0.0;
+
+    [ObservableProperty]
+    public partial float[] WaveformSamples { get; set; } = [];
 
     // Snapping options (can be bound to UI toggles)
-    [ObservableProperty] private bool _snapToGrid = false;
-    [ObservableProperty] private bool _snapToCurrentTimeMarker = false;
-    [ObservableProperty] private double _snapGridSize = 1.0; // beats
-    [ObservableProperty] private double _snapThreshold = 0.25; // beats
-    [ObservableProperty] private bool _snapToClips = false; // snap to other clips on drag/resize (default off)
+    [ObservableProperty]
+    public partial bool SnapToGrid { get; set; } = false;
+
+    [ObservableProperty]
+    public partial bool SnapToCurrentTimeMarker { get; set; } = false;
+
+    [ObservableProperty]
+    public partial double SnapGridSize { get; set; } = 1.0;
+
+    [ObservableProperty]
+    public partial double SnapThreshold { get; set; } = 0.25;
+
+    [ObservableProperty]
+    public partial bool SnapToClips { get; set; } = false;
 
     // Static synchronization for snapping across all timeline instances
     private static bool _globalSnapToGrid = false;
@@ -73,6 +102,21 @@ public partial class TimelineEditorViewModel : Document
     public int CoachCount => _package.Metadata.CoachCount;
     public string LyricsColor => _package.Metadata.LyricsColor;
 
+    public IEnumerable<string> AvailableHandCoachMoves => _package.HandCoachMoves.Keys;
+    public IEnumerable<string> AvailableFullBodyCoachMoves => _package.FullBodyCoachMoves.Keys;
+    public IEnumerable<string> AvailablePictograms 
+    {
+        get 
+        {
+            var dir = Path.Combine(RootPath, "assets", "pictograms");
+            if (!Directory.Exists(dir)) return [];
+            return Directory.GetFiles(dir, "*.*")
+                 .Select(Path.GetFileNameWithoutExtension)
+                 .Where(x => !string.IsNullOrEmpty(x))
+                 .OrderBy(x => x)!;
+        }
+    }
+
     // Simple undo/redo stack
     private readonly Stack<(Action Undo, Action Redo)> _undoStack = new();
     private readonly Stack<(Action Undo, Action Redo)> _redoStack = new();
@@ -80,7 +124,7 @@ public partial class TimelineEditorViewModel : Document
     public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
     {
         _package = package;
-        _rootPath = rootPath;
+        RootPath = rootPath;
         Id = package.Metadata.SongID.ToString();
         Title = package.Metadata.MapName;
 
@@ -93,13 +137,11 @@ public partial class TimelineEditorViewModel : Document
 
         BuildTimeline();
         _ = InitializeMedia();
-
-        // Initialize snapping states from globals and subscribe to global changes
-        _snapToGrid = _globalSnapToGrid;
-        _snapToCurrentTimeMarker = _globalSnapToPlayhead;
-        _snapGridSize = _globalSnapGridSize;
-        _snapThreshold = _globalSnapThreshold;
-        _snapToClips = _globalSnapToClips;
+        SnapToGrid = _globalSnapToGrid;
+        SnapToCurrentTimeMarker = _globalSnapToPlayhead;
+        SnapGridSize = _globalSnapGridSize;
+        SnapThreshold = _globalSnapThreshold;
+        SnapToClips = _globalSnapToClips;
 
         SnapToGridChangedGlobal += (v) =>
         {
@@ -139,8 +181,8 @@ public partial class TimelineEditorViewModel : Document
 
     private async Task InitializeMedia()
     {
-        AudioPath = Path.Combine(_rootPath, IntermediatePackageLayout.Assets.AudioMasterFile);
-        string videoDir = Path.Combine(_rootPath, IntermediatePackageLayout.Assets.VideoFolder);
+        AudioPath = Path.Combine(RootPath, IntermediatePackageLayout.Assets.AudioMasterFile);
+        string videoDir = Path.Combine(RootPath, IntermediatePackageLayout.Assets.VideoFolder);
         VideoPath = "";
 
         if (Directory.Exists(videoDir))
@@ -192,7 +234,7 @@ public partial class TimelineEditorViewModel : Document
         TrackViewModel lyricsTrack = new() { Title = "Lyrics", Height = 40, TrackColor = Colors.Goldenrod };
         foreach (KaraokeClip clip in _package.Lyrics.Clips)
         {
-            lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Yellow, clip.Lyrics, _rootPath));
+            lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Yellow, clip.Lyrics, RootPath));
         }
 
         Tracks.Add(lyricsTrack);
@@ -201,7 +243,7 @@ public partial class TimelineEditorViewModel : Document
         TrackViewModel pictoTrack = new() { Title = "Pictograms", Height = 60, TrackColor = Colors.CornflowerBlue };
         foreach (PictogramClip clip in _package.Pictograms.Clips)
         {
-            pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, _rootPath));
+            pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, RootPath));
         }
 
         Tracks.Add(pictoTrack);
@@ -221,7 +263,7 @@ public partial class TimelineEditorViewModel : Document
                     duration = def.Duration;
                 }
 
-                coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, _rootPath));
+                coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath));
             }
 
             Tracks.Add(coachTrack);
@@ -242,7 +284,7 @@ public partial class TimelineEditorViewModel : Document
                     duration = def.Duration;
                 }
 
-                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, _rootPath));
+                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath));
             }
 
             Tracks.Add(fbTrack);
@@ -252,7 +294,7 @@ public partial class TimelineEditorViewModel : Document
         TrackViewModel goldTrack = new() { Title = "Gold Effects", Height = 30, TrackColor = Colors.OrangeRed };
         foreach (GoldEffectClip clip in _package.GoldEffects.Clips)
         {
-            goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", _rootPath));
+            goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", RootPath));
         }
 
         Tracks.Add(goldTrack);
@@ -266,7 +308,7 @@ public partial class TimelineEditorViewModel : Document
     partial void OnPixelsPerBeatChanged(double value)
     {
         UpdateTimelineWidth();
-        _zoomPercentage = value;
+        ZoomPercentage = value;
         OnPropertyChanged(nameof(ZoomPercentage));
     }
 
