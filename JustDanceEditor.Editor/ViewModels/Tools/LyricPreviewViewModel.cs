@@ -1,3 +1,5 @@
+using Avalonia.Media;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Attributes;
@@ -25,13 +27,13 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     public partial double CurrentBeat { get; set; }
 
     [ObservableProperty]
-    public partial Avalonia.Media.Color TargetColor { get; set; } = Avalonia.Media.Colors.SkyBlue;
+    public partial Color TargetColor { get; set; } = Colors.SkyBlue;
 
     private List<LyricLineViewModel> _allLines = [];
 
     // Lyrics track and per-clip handlers
     private TrackViewModel? _lyricsTrack;
-    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = new();
+    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = [];
 
     public LyricPreviewViewModel()
     {
@@ -49,7 +51,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         {
             value.Playback.TimeChanged += Playback_TimeChanged;
 
-            if (Avalonia.Media.Color.TryParse(value.LyricsColor, out var c))
+            if (Color.TryParse(value.LyricsColor, out Color c))
             {
                 TargetColor = c;
             }
@@ -71,13 +73,15 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
     private void UnsubscribeLyricsTrack()
     {
-        if (_lyricsTrack == null) return;
+        if (_lyricsTrack == null)
+            return;
         _lyricsTrack.Clips.CollectionChanged -= LyricsClips_CollectionChanged;
-        foreach (var kv in _lyricsClipHandlers.ToList())
+        foreach (KeyValuePair<ClipViewModel, PropertyChangedEventHandler> kv in _lyricsClipHandlers.ToList())
         {
             kv.Key.PropertyChanged -= kv.Value;
             _lyricsClipHandlers.Remove(kv.Key);
         }
+
         _lyricsTrack = null;
     }
 
@@ -86,7 +90,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         UnsubscribeLyricsTrack();
         _lyricsTrack = track;
         _lyricsTrack.Clips.CollectionChanged += LyricsClips_CollectionChanged;
-        foreach (var clip in _lyricsTrack.Clips)
+        foreach (ClipViewModel clip in _lyricsTrack.Clips)
             AddLyricsClipHandler(clip);
     }
 
@@ -119,10 +123,11 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
     private void AddLyricsClipHandler(ClipViewModel clip)
     {
-        if (clip == null || _lyricsClipHandlers.ContainsKey(clip)) return;
+        if (clip == null || _lyricsClipHandlers.ContainsKey(clip))
+            return;
         PropertyChangedEventHandler handler = (s, e) =>
         {
-            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats) || e.PropertyName == nameof(ClipViewModel.Name))
+            if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)) or (nameof(ClipViewModel.Name)))
             {
                 // When clip timing changes, rebuild and refresh so ordering reflects StartBeat
                 BuildLines();
@@ -135,8 +140,9 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
     private void RemoveLyricsClipHandler(ClipViewModel clip)
     {
-        if (clip == null) return;
-        if (_lyricsClipHandlers.TryGetValue(clip, out var handler))
+        if (clip == null)
+            return;
+        if (_lyricsClipHandlers.TryGetValue(clip, out PropertyChangedEventHandler? handler))
         {
             clip.PropertyChanged -= handler;
             _lyricsClipHandlers.Remove(clip);
@@ -149,7 +155,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (ActiveTimeline == null)
             return;
 
-        var pictoTrack = ActiveTimeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
+        TrackViewModel? pictoTrack = ActiveTimeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
         if (pictoTrack == null)
             return;
 
@@ -158,7 +164,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
         var currentLineClips = new List<ClipViewModel>();
         // iterate clips sorted by StartBeat so BuildLines reflects current timing order
-        foreach (var clip in pictoTrack.Clips.OrderBy(c => c.StartBeat))
+        foreach (ClipViewModel? clip in pictoTrack.Clips.OrderBy(c => c.StartBeat))
         {
             currentLineClips.Add(clip);
             if (clip.RawClip is KaraokeClip k && k.IsEndOfLine)
@@ -167,6 +173,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
                 currentLineClips.Clear();
             }
         }
+
         if (currentLineClips.Count > 0)
         {
             _allLines.Add(new LyricLineViewModel(currentLineClips.ToList()));
@@ -182,7 +189,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             return;
         }
 
-        var ts = ActiveTimeline.TimelineStructure;
+        TimelineStructureDocument ts = ActiveTimeline.TimelineStructure;
         double currentSeconds = ts.GetSecondsAtBeat(CurrentBeat);
 
         // Find the index of the first line that hasn't finished yet
@@ -195,7 +202,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
         else
         {
-            var targetLine = _allLines[idx];
+            LyricLineViewModel targetLine = _allLines[idx];
             double startSeconds = ts.GetSecondsAtBeat(targetLine.StartBeat);
 
             // If we are currently singing the line OR it starts within the next 2 seconds

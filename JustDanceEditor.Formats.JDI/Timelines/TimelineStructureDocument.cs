@@ -41,7 +41,7 @@ public class TimelineStructureDocument
             // Formula: M_last + (beat - (count - 1)) * (M_last - M_prev)
             double lastMarker = Markers[count - 1];
             double prevMarker = Markers[count - 2];
-            return (lastMarker + (beat - (count - 1)) * (lastMarker - prevMarker)) * InvSampleRate;
+            return (lastMarker + ((beat - (count - 1)) * (lastMarker - prevMarker))) * InvSampleRate;
         }
 
         // Interpolate on raw marker values first, then divide once.

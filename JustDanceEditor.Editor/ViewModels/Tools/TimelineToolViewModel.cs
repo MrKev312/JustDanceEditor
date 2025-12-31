@@ -6,7 +6,6 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System.ComponentModel;
-using JustDanceEditor.Editor;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

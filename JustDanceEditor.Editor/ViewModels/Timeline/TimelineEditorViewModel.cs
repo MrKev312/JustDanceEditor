@@ -17,6 +17,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Xabe.FFmpeg;
+
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class TimelineEditorViewModel : Document
@@ -109,7 +111,8 @@ public partial class TimelineEditorViewModel : Document
         get 
         {
             var dir = Path.Combine(RootPath, "assets", "pictograms");
-            if (!Directory.Exists(dir)) return [];
+            if (!Directory.Exists(dir))
+                return [];
             return Directory.GetFiles(dir, "*.*")
                  .Select(Path.GetFileNameWithoutExtension)
                  .Where(x => !string.IsNullOrEmpty(x))
@@ -145,35 +148,40 @@ public partial class TimelineEditorViewModel : Document
 
         SnapToGridChangedGlobal += (v) =>
         {
-            if (v == SnapToGrid) return;
+            if (v == SnapToGrid)
+                return;
             _suppressSnapBroadcast = true;
             SnapToGrid = v;
         };
 
         SnapToPlayheadChangedGlobal += (v) =>
         {
-            if (v == SnapToCurrentTimeMarker) return;
+            if (v == SnapToCurrentTimeMarker)
+                return;
             _suppressSnapBroadcast = true;
             SnapToCurrentTimeMarker = v;
         };
 
         SnapGridSizeChangedGlobal += (v) =>
         {
-            if (Math.Abs(v - SnapGridSize) < 1e-9) return;
+            if (Math.Abs(v - SnapGridSize) < 1e-9)
+                return;
             _suppressSnapBroadcast = true;
             SnapGridSize = v;
         };
 
         SnapThresholdChangedGlobal += (v) =>
         {
-            if (Math.Abs(v - SnapThreshold) < 1e-9) return;
+            if (Math.Abs(v - SnapThreshold) < 1e-9)
+                return;
             _suppressSnapBroadcast = true;
             SnapThreshold = v;
         };
 
         SnapToClipsChangedGlobal += (v) =>
         {
-            if (v == SnapToClips) return;
+            if (v == SnapToClips)
+                return;
             _suppressSnapBroadcast = true;
             SnapToClips = v;
         };
@@ -209,12 +217,12 @@ public partial class TimelineEditorViewModel : Document
             Directory.CreateDirectory(tempDir);
             PreparedAudioPath = Path.Combine(tempDir, $"{Id}_{Guid.NewGuid():N}.wav");
 
-            var conversion = await Xabe.FFmpeg.FFmpeg.Conversions.FromSnippet.Convert(AudioPath, PreparedAudioPath);
+            IConversion conversion = await FFmpeg.Conversions.FromSnippet.Convert(AudioPath, PreparedAudioPath);
             await conversion.Start();
         }
 
         // Marker-based timing logic
-        var ts = _package.TimelineStructure;
+        TimelineStructureDocument ts = _package.TimelineStructure;
         double startOffset = ts.GetSongStartOffset();
 
         // Ensure this timeline is loaded
@@ -352,26 +360,80 @@ public partial class TimelineEditorViewModel : Document
     [RelayCommand]
     private void Undo()
     {
-        if (_undoStack.Count == 0) return;
-        var item = _undoStack.Pop();
-        try { item.Undo(); }
+        if (_undoStack.Count == 0)
+            return;
+        (Action Undo, Action Redo) item = _undoStack.Pop();
+        try
+        {
+            item.Undo();
+        }
         catch { }
+
         _redoStack.Push(item);
     }
 
     [RelayCommand]
     private void Redo()
     {
-        if (_redoStack.Count == 0) return;
-        var item = _redoStack.Pop();
-        try { item.Redo(); }
+        if (_redoStack.Count == 0)
+            return;
+        (Action Undo, Action Redo) item = _redoStack.Pop();
+        try
+        {
+            item.Redo();
+        }
         catch { }
+
         _undoStack.Push(item);
+    }
+
+    [RelayCommand]
+    public void DeleteSelectedClips()
+    {
+        var toDelete = new List<(TrackViewModel Track, ClipViewModel Clip)>();
+        foreach (TrackViewModel track in Tracks)
+        {
+            foreach (ClipViewModel clip in track.Clips)
+            {
+                if (clip.IsSelected)
+                {
+                    toDelete.Add((track, clip));
+                }
+            }
+        }
+
+        if (toDelete.Count == 0)
+            return;
+
+        PushUndo(
+            undo: () => 
+            {
+                foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+                {
+                    if (!Track.Clips.Contains(Clip))
+                        Track.Clips.Add(Clip);
+                } 
+            },
+            redo: () => 
+            {
+                foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+                {
+                    Track.Clips.Remove(Clip);
+                }
+            }
+        );
+
+        // Execute
+        foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+        {
+            Track.Clips.Remove(Clip);
+        }
     }
 
     public void PushUndo(Action undo, Action redo)
     {
-        if (undo == null || redo == null) return;
+        if (undo == null || redo == null)
+            return;
         _undoStack.Push((undo, redo));
         _redoStack.Clear();
     }

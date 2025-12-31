@@ -91,6 +91,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             {
                 MediaPlayer.Stop();
             }
+
             MediaPlayer.Play();
         }
         else
@@ -138,7 +139,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             }
             
             // Re-start if it was stopped/finished
-            if (MediaPlayer.State == VLCState.Stopped || MediaPlayer.State == VLCState.NothingSpecial)
+            if (MediaPlayer.State is VLCState.Stopped or VLCState.NothingSpecial)
             {
                 MediaPlayer.Play();
             }
@@ -147,11 +148,11 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         }
 
         // Final state enforcement: only call if there is a mismatch
-        var vlcState = MediaPlayer.State;
+        VLCState vlcState = MediaPlayer.State;
 
         if (editorIsPlaying)
         {
-            if (vlcState != VLCState.Playing && vlcState != VLCState.Buffering)
+            if (vlcState is not VLCState.Playing and not VLCState.Buffering)
             {
                 MediaPlayer.Play();
             }
@@ -159,7 +160,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         else
         {
             // Use Pause() to ensure it stays on the frame during scrubbing
-            if (vlcState != VLCState.Paused && vlcState != VLCState.Stopped && vlcState != VLCState.NothingSpecial)
+            if (vlcState is not VLCState.Paused and not VLCState.Stopped and not VLCState.NothingSpecial)
             {
                 MediaPlayer.Pause();
             }
@@ -175,5 +176,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         }
 
         MediaPlayer?.Dispose();
+
+        GC.SuppressFinalize(this);
     }
 }

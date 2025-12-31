@@ -12,16 +12,10 @@ public enum UbiArtType
     Uncooked
 }
 
-public abstract class ConversionRequestBase
+public abstract class ConversionRequestBase(string inputPath, string outputPath)
 {
-    protected ConversionRequestBase(string inputPath, string outputPath)
-    {
-        InputPath = inputPath;
-        OutputPath = outputPath;
-    }
-
-    public string InputPath { get; set; }
-    public string OutputPath { get; set; }
+    public string InputPath { get; set; } = inputPath;
+    public string OutputPath { get; set; } = outputPath;
 }
 
 // Used for UbiArt -> JDI

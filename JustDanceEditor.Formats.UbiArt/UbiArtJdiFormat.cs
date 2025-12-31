@@ -23,9 +23,10 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
         ValidateUbiArtImport(ubiRequest);
 
         FileSystem fileSystem = new(ubiRequest);
-        ConversionContext context = new(ubiRequest, fileSystem);
-
-        context.SongData = songDataLoader.LoadSongData(ubiRequest, fileSystem);
+        ConversionContext context = new(ubiRequest, fileSystem)
+        {
+            SongData = songDataLoader.LoadSongData(ubiRequest, fileSystem)
+        };
         context.FileSystem.UpdateSongName(context.SongData.Name);
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
         string outputFolder = Path.Combine(ubiRequest.OutputPath, context.SongData.Name);

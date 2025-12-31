@@ -26,10 +26,7 @@ public partial class VideoToolView : UserControl
 
     protected override void OnUnloaded(Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (_videoView != null)
-        {
-            _videoView.MediaPlayer = null;
-        }
+        _videoView?.MediaPlayer = null;
 
         base.OnUnloaded(e);
     }

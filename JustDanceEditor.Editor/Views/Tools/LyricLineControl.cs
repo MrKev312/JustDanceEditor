@@ -63,7 +63,7 @@ public class LyricLineControl : Control
     private LyricLineViewModel? _measuredLine;
     private double _measuredBoundsWidth = -1;
     private double _measuredBaseFontSize = -1;
-    private List<(ClipViewModel Clip, string Text, double BaseWidth)> _measuredSyllables = new();
+    private List<(ClipViewModel Clip, string Text, double BaseWidth)> _measuredSyllables = [];
     private double _measuredTotalWidth = 0;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -74,7 +74,7 @@ public class LyricLineControl : Control
         {
             if (_lastLine != null)
             {
-                foreach (var c in _lastLine.Clips)
+                foreach (ClipViewModel c in _lastLine.Clips)
                     c.PropertyChanged -= Clip_PropertyChanged;
             }
 
@@ -82,7 +82,7 @@ public class LyricLineControl : Control
 
             if (_lastLine != null)
             {
-                foreach (var c in _lastLine.Clips)
+                foreach (ClipViewModel c in _lastLine.Clips)
                     c.PropertyChanged += Clip_PropertyChanged;
             }
 
@@ -93,7 +93,7 @@ public class LyricLineControl : Control
 
     private void Clip_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats))
+        if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
         {
             ClearMeasurementCache();
             Dispatcher.UIThread.Post(InvalidateVisual);
@@ -129,7 +129,7 @@ public class LyricLineControl : Control
 
         var typeface = new Typeface("Arial", FontStyle.Normal, FontWeight.Bold);
 
-        foreach (var c in Line.Clips)
+        foreach (ClipViewModel c in Line.Clips)
         {
             string text = (c.RawClip as KaraokeClip)?.Lyrics ?? "";
             var ft = new FormattedText(
@@ -165,7 +165,7 @@ public class LyricLineControl : Control
         // 3. Build final formatted texts using cached text strings
         double scaledWidth = 0;
         var finalSyllables = new List<(ClipViewModel Clip, string Text, FormattedText FT)>();
-        foreach (var s in _measuredSyllables)
+        foreach ((ClipViewModel Clip, string Text, double BaseWidth) s in _measuredSyllables)
         {
             var ft = new FormattedText(
                 s.Text,
@@ -184,7 +184,7 @@ public class LyricLineControl : Control
 
         double beat = CurrentBeat;
 
-        foreach (var s in finalSyllables)
+        foreach ((ClipViewModel Clip, string Text, FormattedText FT) s in finalSyllables)
         {
             double start = s.Clip.StartBeat;
             double end = start + s.Clip.DurationBeats;
@@ -224,7 +224,7 @@ public class LyricLineControl : Control
                 fillBrush
             );
 
-            var textGeometry = finalFt.BuildGeometry(new Point(x, y));
+            Geometry? textGeometry = finalFt.BuildGeometry(new Point(x, y));
             if (textGeometry != null)
             {
                 // Draw outline first
@@ -244,7 +244,7 @@ public class LyricLineControl : Control
         if (Line == null || Line.Clips.Count == 0)
             return;
 
-        var pt = e.GetCurrentPoint(this).Position;
+        Point pt = e.GetCurrentPoint(this).Position;
 
         // Determine layout same as in Render to find which syllable was clicked
         EnsureMeasurements();
@@ -271,6 +271,7 @@ public class LyricLineControl : Control
                 found = s.Clip;
                 break;
             }
+
             x += w;
         }
 
@@ -280,7 +281,12 @@ public class LyricLineControl : Control
             _dragStartPointerX = pt.X;
             _dragOriginalStartBeat = found.StartBeat;
             _isDragging = true;
-            try { e.Pointer.Capture(this); } catch { }
+            try
+            {
+                e.Pointer.Capture(this);
+            }
+            catch { }
+
             e.Handled = true;
         }
     }
@@ -292,11 +298,11 @@ public class LyricLineControl : Control
         if (!_isDragging || _draggingClip == null)
             return;
 
-        var pt = e.GetCurrentPoint(this).Position;
+        Point pt = e.GetCurrentPoint(this).Position;
         double deltaX = pt.X - _dragStartPointerX;
 
         // Find timeline view model to get pixels-per-beat mapping
-        var visualParent = this.GetVisualParent();
+        Visual? visualParent = this.GetVisualParent();
         TimelineEditorViewModel? vm = null;
         while (visualParent != null)
         {
@@ -305,6 +311,7 @@ public class LyricLineControl : Control
                 vm = t;
                 break;
             }
+
             visualParent = visualParent.GetVisualParent();
         }
 
@@ -313,7 +320,8 @@ public class LyricLineControl : Control
         double deltaBeats = deltaX / pixelsPerBeat;
 
         double unconstrained = _dragOriginalStartBeat + deltaBeats;
-        if (unconstrained < 0) unconstrained = 0;
+        if (unconstrained < 0)
+            unconstrained = 0;
 
         // Use SnappingService to compute best start
         double newStart = SnappingService.ChooseBestStart(unconstrained, _draggingClip.DurationBeats, vm ?? TimelineEditorViewModelPlaceholder.Instance, vm?.Tracks.SelectMany(tr => tr.Clips) ?? Enumerable.Empty<ClipViewModel>());
@@ -333,7 +341,12 @@ public class LyricLineControl : Control
         {
             _isDragging = false;
             _draggingClip = null;
-            try { e.Pointer.Capture(null); } catch { }
+            try
+            {
+                e.Pointer.Capture(null);
+            }
+            catch { }
+
             e.Handled = true;
         }
     }

@@ -11,7 +11,7 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel
 {
-    private void HandleResizing(Avalonia.Point point, double ppb, double offset)
+    private void HandleResizing(Point point, double ppb, double offset)
     {
         double deltaX = point.X - _resizeStartPointerX;
         double deltaBeats = deltaX / ppb;
@@ -45,14 +45,16 @@ public partial class TimelineTrackPanel
         }
 
         // snapping
-        var visualParent = this.GetVisualParent();
+        Visual? visualParent = this.GetVisualParent();
         TimelineEditorViewModel? vm = null;
         while (visualParent != null)
         {
             if (visualParent is Control c && c.DataContext is TimelineEditorViewModel t)
             {
-                vm = t; break;
+                vm = t;
+                break;
             }
+
             visualParent = visualParent.GetVisualParent();
         }
 
@@ -81,7 +83,8 @@ public partial class TimelineTrackPanel
                 if (System.Math.Abs(bestEnd - unconstrainedEnd) <= vm.SnapThreshold)
                 {
                     double candidateDuration = bestEnd - _resizeOriginalStart;
-                    if (candidateDuration < minDuration) candidateDuration = minDuration;
+                    if (candidateDuration < minDuration)
+                        candidateDuration = minDuration;
                     newDuration = candidateDuration;
                     newStart = _resizeOriginalStart;
                 }
@@ -90,50 +93,62 @@ public partial class TimelineTrackPanel
 
         _draggingClip.StartBeat = newStart;
         _draggingClip.DurationBeats = newDuration;
-        InvalidateMeasure(); InvalidateVisual();
+        InvalidateMeasure();
+        InvalidateVisual();
     }
 
-    private void UpdateResizeCursor(Avalonia.Point point, double ppb, double offset)
+    private void UpdateResizeCursor(Point point, double ppb, double offset)
     {
         bool cursorSet = false;
         if (Clips != null)
         {
-            foreach (var c in Clips)
+            foreach (ClipViewModel c in Clips)
             {
                 double x = (c.StartBeat - offset) * ppb;
                 double w = c.DurationBeats * ppb;
-                bool isResizableType = c.RawClip is PictogramClip || c.RawClip is KaraokeClip;
+                bool isResizableType = c.RawClip is PictogramClip or KaraokeClip;
                 if (isResizableType && point.X >= x - ResizeHitThreshold && point.X <= x + ResizeHitThreshold)
                 {
                     Cursor = new Cursor(StandardCursorType.SizeWestEast);
-                    cursorSet = true; break;
+                    cursorSet = true;
+                    break;
                 }
+
                 if (isResizableType && point.X >= x + w - ResizeHitThreshold && point.X <= x + w + ResizeHitThreshold)
                 {
                     Cursor = new Cursor(StandardCursorType.SizeWestEast);
-                    cursorSet = true; break;
+                    cursorSet = true;
+                    break;
                 }
             }
         }
-        if (!cursorSet) Cursor = new Cursor(StandardCursorType.Arrow);
+
+        if (!cursorSet)
+            Cursor = new Cursor(StandardCursorType.Arrow);
     }
 
-    private void HandleDragging(Avalonia.Point point, double ppb)
+    private void HandleDragging(Point point, double ppb)
     {
+        if (_draggingClip == null)
+            return;
+
         double deltaX2 = point.X - _dragStartPointerX;
         double deltaBeats2 = deltaX2 / PixelsPerBeat;
 
         double newStart2 = _dragOriginalStartBeat + deltaBeats2;
-        if (newStart2 < 0) newStart2 = 0;
+        if (newStart2 < 0)
+            newStart2 = 0;
 
-        var visualParent2 = this.GetVisualParent();
+        Visual? visualParent2 = this.GetVisualParent();
         TimelineEditorViewModel? vm2 = null;
         while (visualParent2 != null)
         {
             if (visualParent2 is Control c && c.DataContext is TimelineEditorViewModel t)
             {
-                vm2 = t; break;
+                vm2 = t;
+                break;
             }
+
             visualParent2 = visualParent2.GetVisualParent();
         }
 
@@ -145,28 +160,38 @@ public partial class TimelineTrackPanel
         }
 
         _draggingClip.StartBeat = newStart2;
-        InvalidateMeasure(); InvalidateVisual();
+        InvalidateMeasure();
+        InvalidateVisual();
     }
 
     private void CompleteResize()
     {
         _isResizingLeft = _isResizingRight = false;
-        var finalClip = _draggingClip;
+        ClipViewModel? finalClip = _draggingClip;
         var origStart = _resizeOriginalStart;
         var origDur = _resizeOriginalDuration;
         if (finalClip != null)
         {
-            var visualParent = this.GetVisualParent();
+            Visual? visualParent = this.GetVisualParent();
             while (visualParent != null)
             {
                 if (visualParent is Control c && c.DataContext is TimelineEditorViewModel vm)
                 {
                     double newStart = finalClip.StartBeat;
                     double newDur = finalClip.DurationBeats;
-                    vm.PushUndo(() => { finalClip.StartBeat = origStart; finalClip.DurationBeats = origDur; },
-                                 () => { finalClip.StartBeat = newStart; finalClip.DurationBeats = newDur; });
+                    vm.PushUndo(() =>
+                    {
+                        finalClip.StartBeat = origStart;
+                        finalClip.DurationBeats = origDur;
+                    },
+                                 () =>
+                                 {
+                                     finalClip.StartBeat = newStart;
+                                     finalClip.DurationBeats = newDur;
+                                 });
                     break;
                 }
+
                 visualParent = visualParent.GetVisualParent();
             }
         }
@@ -177,11 +202,11 @@ public partial class TimelineTrackPanel
     private void CompleteDrag()
     {
         _isDragging = false;
-        var finalClip = _draggingClip;
+        ClipViewModel? finalClip = _draggingClip;
         var original = _dragOriginalStartBeat;
         if (finalClip != null)
         {
-            var visualParent = this.GetVisualParent();
+            Visual? visualParent = this.GetVisualParent();
             while (visualParent != null)
             {
                 if (visualParent is Control c && c.DataContext is TimelineEditorViewModel vm)
@@ -190,6 +215,7 @@ public partial class TimelineTrackPanel
                     vm.PushUndo(() => finalClip.StartBeat = original, () => finalClip.StartBeat = newStart);
                     break;
                 }
+
                 visualParent = visualParent.GetVisualParent();
             }
         }

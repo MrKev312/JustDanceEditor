@@ -421,10 +421,7 @@ internal static partial class UnityServerIntermediateBuilder
         if (candidates.Length == 0)
             candidates = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);
 
-        string? bundle = candidates.OrderBy(f => f).FirstOrDefault();
-        if (bundle == null)
-            throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
-
+        string? bundle = candidates.OrderBy(f => f).FirstOrDefault() ?? throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
         return bundle;
     }
 

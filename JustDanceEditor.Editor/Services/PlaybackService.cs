@@ -32,7 +32,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         get
         {
-            var time = _baseTime;
+            TimeSpan time = _baseTime;
             if (IsPlaying)
                 time += _stopwatch.Elapsed;
             return time;
@@ -61,6 +61,7 @@ public class PlaybackService : IPlaybackService, IDisposable
                         Pause();
                         Seek(Duration);
                     }
+
                     TimeChanged?.Invoke(this, EventArgs.Empty);
                 }
             });
@@ -113,10 +114,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = true;
         _stopwatch.Restart();
 
-        if (_audioFile != null)
-        {
-            _audioFile.CurrentTime = CurrentTime;
-        }
+        _audioFile?.CurrentTime = CurrentTime;
 
         _outputDevice?.Play();
 
@@ -150,8 +148,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         if (_audioFile != null && _baseTime > _audioFile.TotalTime)
             _baseTime = _audioFile.TotalTime;
 
-        if (_audioFile != null)
-            _audioFile.CurrentTime = _baseTime;
+        _audioFile?.CurrentTime = _baseTime;
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
@@ -181,5 +178,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         _stopwatch.Stop();
 
         CleanUpAudio();
+
+        GC.SuppressFinalize(this);
     }
 }

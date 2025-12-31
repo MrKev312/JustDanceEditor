@@ -71,7 +71,7 @@ public static class LuaTableSerializer
                         if (prop.NameEquals("JD_SongDescTemplate"))
                         {
                             // Create a copy of the component object without DefaultColors to avoid deserialization error
-                            Dictionary<string, object> dict = new();
+                            Dictionary<string, object> dict = [];
                             foreach (JsonProperty componentProp in prop.Value.EnumerateObject())
                             {
                                 if (!componentProp.NameEquals("DefaultColors"))
@@ -93,10 +93,10 @@ public static class LuaTableSerializer
                                         string keyStr = key.GetString() ?? "";
                                         string colorStr = val.GetString() ?? "";
                                         if (colorStr.StartsWith("0x"))
-                                            colorStr = colorStr.Substring(2);
+                                            colorStr = colorStr[2..];
                                         if (colorStr.Length == 8)
                                         {
-                                            float a = Convert.ToInt32(colorStr.Substring(0, 2), 16) / 255.0f;
+                                            float a = Convert.ToInt32(colorStr[..2], 16) / 255.0f;
                                             float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
                                             float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
                                             float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
@@ -119,7 +119,7 @@ public static class LuaTableSerializer
                                 }
                             }
 
-                            return new SongDesc { COMPONENTS = new[] { info } };
+                            return new SongDesc { COMPONENTS = [info] };
                         }
                     }
                 }
@@ -172,7 +172,7 @@ public static class LuaTableSerializer
 
             sb.Append(indentation + "}");
         }
-        else if (obj is IEnumerable list && obj is not string)
+        else if (obj is IEnumerable list and not string)
         {
             sb.AppendLine("{");
             foreach (var item in list)
@@ -224,7 +224,7 @@ public static class LuaTableSerializer
 
     private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
     {
-        Dictionary<string, object> dict = new();
+        Dictionary<string, object> dict = [];
         foreach (var key in table.Keys)
         {
             object? value = table[key];
@@ -248,7 +248,7 @@ public static class LuaTableSerializer
 
     private static IList LuaTableToList(LuaTable table)
     {
-        ArrayList list = new();
+        ArrayList list = [];
         foreach (var value in table.Values)
         {
             if (value is LuaTable nestedTable)

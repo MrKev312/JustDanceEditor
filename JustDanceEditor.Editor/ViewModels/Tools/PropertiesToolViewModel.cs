@@ -17,17 +17,14 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class PropertiesToolViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
-    private ObservableCollection<PropertyCategoryViewModel> _categories = new();
+    private ObservableCollection<PropertyCategoryViewModel> _categories = [];
 
     [ObservableProperty]
     private object? _selectedObject;
 
     public PropertiesToolViewModel()
     {
-         if (TimelineContext != null)
-         {
-             TimelineContext.PropertyChanged += Context_PropertyChanged;
-         }
+         TimelineContext?.PropertyChanged += Context_PropertyChanged;
     }
 
     protected override void HandleActiveTimelineChanged(TimelineEditorViewModel? value)
@@ -49,7 +46,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         Categories.Clear();
         SelectedObject = null;
 
-        var selection = TimelineContext?.SelectedObjects;
+        List<object>? selection = TimelineContext?.SelectedObjects;
 
         if (selection != null && selection.Count > 0 && ActiveTimeline != null)
         {
@@ -72,7 +69,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                     // Verify this property exists and has the same attribute on all selected objects
                     bool consistent = selection.All(o => 
                     {
-                        var p = o.GetType().GetProperty(item.Property.Name);
+                        PropertyInfo? p = o.GetType().GetProperty(item.Property.Name);
                         return p != null && p.GetCustomAttribute<InspectableAttribute>() != null;
                     });
 
@@ -81,11 +78,12 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                         var propVm = new PropertyItemViewModel(selection, item.Property.Name, item.Attribute!, ActiveTimeline);
                         
                         // Special handling for Color property on Clips: only MoveClip (Coach) allows color editing.
-                        if (item.Property.Name == "BackgroundColor" || item.Property.Name == "Color")
+                        if (item.Property.Name is "BackgroundColor" or "Color")
                         {
                             if (first is ClipViewModel cv)
                             {
-                                if (cv.RawClip is not MoveClip) continue; // Skip color for non-moves
+                                if (cv.RawClip is not MoveClip)
+                                    continue; // Skip color for non-moves
                             }
                         }
 
@@ -98,6 +96,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                         categoryVm.Properties.Add(propVm);
                     }
                 }
+
                 if (categoryVm.Properties.Count > 0)
                     Categories.Add(categoryVm);
             }
@@ -108,13 +107,14 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
     {
         // Check if we are dealing with ClipViewModels
         var firstClip = selection[0] as ClipViewModel;
-        if (firstClip == null) return; 
+        if (firstClip == null)
+            return; 
 
         // Determine type of clip
         if (firstClip.RawClip is MoveClip)
         {
             // Find track for firstClip
-            var track = timeline.Tracks.FirstOrDefault(t => t.Clips.Contains(firstClip));
+            TrackViewModel? track = timeline.Tracks.FirstOrDefault(t => t.Clips.Contains(firstClip));
             if (track != null)
             {
                 // Heuristic: Check Title
@@ -178,15 +178,10 @@ public class PictogramOptionViewModel
     public override string ToString() => Name;
 }
 
-public class PropertyCategoryViewModel : ObservableObject
+public class PropertyCategoryViewModel(string name) : ObservableObject
 {
-    public string Name { get; }
-    public ObservableCollection<PropertyItemViewModel> Properties { get; } = new();
-
-    public PropertyCategoryViewModel(string name)
-    {
-        Name = name;
-    }
+    public string Name { get; } = name;
+    public ObservableCollection<PropertyItemViewModel> Properties { get; } = [];
 }
 
 public partial class PropertyItemViewModel : ObservableObject
@@ -243,22 +238,26 @@ public partial class PropertyItemViewModel : ObservableObject
                  if (!Equals(GetValue(_targets[i]), firstVal))
                      return null; 
             }
+
             return firstVal;
         }
         set
         {
-            if (value == null) return; // Don't set nulls explicitly (e.g. from empty selection)
+            if (value == null)
+                return; // Don't set nulls explicitly (e.g. from empty selection)
 
-            var oldValues = _targets.Select(t => GetValue(t)).ToList();
+            var oldValues = _targets.Select(GetValue).ToList();
             
             _timeline.PushUndo(
                 undo: () => 
                 { 
-                    for(int i=0; i<_targets.Count; i++) SetValue(_targets[i], oldValues[i]);
+                    for(int i=0; i<_targets.Count; i++)
+                        SetValue(_targets[i], oldValues[i]);
                 },
                 redo: () => 
                 { 
-                    for(int i=0; i<_targets.Count; i++) SetValue(_targets[i], value);
+                    for(int i=0; i<_targets.Count; i++)
+                        SetValue(_targets[i], value);
                 }
             );
 
@@ -289,16 +288,24 @@ public partial class PropertyItemViewModel : ObservableObject
         get => Value?.ToString() ?? "";
         set 
         {
-            if (IsBinding) return;
+            if (IsBinding)
+                return;
             try 
             {
                 IsBinding = true;
-                if (PropertyType == typeof(string)) Value = value;
-                else if (PropertyType == typeof(double) && double.TryParse(value, out double d)) Value = d;
-                else if (PropertyType == typeof(int) && int.TryParse(value, out int i)) Value = i;
-                else if (PropertyType == typeof(float) && float.TryParse(value, out float f)) Value = f;
+                if (PropertyType == typeof(string))
+                    Value = value;
+                else if (PropertyType == typeof(double) && double.TryParse(value, out double d))
+                    Value = d;
+                else if (PropertyType == typeof(int) && int.TryParse(value, out int i))
+                    Value = i;
+                else if (PropertyType == typeof(float) && float.TryParse(value, out float f))
+                    Value = f;
             }
-            finally { IsBinding = false; }
+            finally
+            {
+                IsBinding = false;
+            }
         }
     }
 
@@ -318,19 +325,25 @@ public partial class PropertyItemViewModel : ObservableObject
     {
         get
         {
-            if (Options == null) return null;
+            if (Options == null)
+                return null;
             var currentVal = StringValue;
             foreach (var opt in Options)
             {
-                if (opt is PictogramOptionViewModel p && p.Name == currentVal) return opt;
-                if (opt is string s && s == currentVal) return opt;
+                if (opt is PictogramOptionViewModel p && p.Name == currentVal)
+                    return opt;
+                if (opt is string s && s == currentVal)
+                    return opt;
             }
+
             return null;
         }
         set
         {
-            if (value is PictogramOptionViewModel p) StringValue = p.Name;
-            else if (value != null) StringValue = value.ToString() ?? "";
+            if (value is PictogramOptionViewModel p)
+                StringValue = p.Name;
+            else if (value != null)
+                StringValue = value.ToString() ?? "";
         }
     }
 

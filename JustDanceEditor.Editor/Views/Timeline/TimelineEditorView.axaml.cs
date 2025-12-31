@@ -34,9 +34,7 @@ public partial class TimelineEditorView : UserControl
             }
         };
 
-        if (_scrollViewer != null)
-        {
-            _scrollViewer.EffectiveViewportChanged += (s, e) =>
+        _scrollViewer?.EffectiveViewportChanged += (s, e) =>
             {
                 if (DataContext is TimelineEditorViewModel vm && _scrollViewer != null)
                 {
@@ -54,7 +52,6 @@ public partial class TimelineEditorView : UserControl
                     }
                 }
             };
-        }
 
         // Ensure we clear scrubbing state if the pointer capture is lost for any reason
         this.PointerCaptureLost += (s, e) =>
@@ -67,10 +64,10 @@ public partial class TimelineEditorView : UserControl
         };
     }
 
-    protected override void OnKeyDown(Avalonia.Input.KeyEventArgs e)
+    protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Avalonia.Input.Key.Space && DataContext is TimelineEditorViewModel vm)
+        if (e.Key == Key.Space && DataContext is TimelineEditorViewModel vm)
         {
             vm.TogglePlayPause();
             e.Handled = true;
@@ -97,10 +94,10 @@ public partial class TimelineEditorView : UserControl
             double currentOffset = _scrollViewer.Offset.X;
 
             // Beat at middle of screen
-            double centerBeat = (currentOffset + viewportWidth / 2.0) / oldPpb;
+            double centerBeat = (currentOffset + (viewportWidth / 2.0)) / oldPpb;
 
             // New offset to keep centerBeat at the middle
-            double newOffset = centerBeat * newPpb - viewportWidth / 2.0;
+            double newOffset = (centerBeat * newPpb) - (viewportWidth / 2.0);
 
             _scrollViewer.Offset = new Vector(Math.Max(0, newOffset), _scrollViewer.Offset.Y);
         }
@@ -122,19 +119,19 @@ public partial class TimelineEditorView : UserControl
                 double margin = viewportWidth * 0.2;
                 if (x < currentOffset + margin || x > currentOffset + viewportWidth - margin)
                 {
-                    double targetOffset = x - viewportWidth / 2.0;
+                    double targetOffset = x - (viewportWidth / 2.0);
                     _scrollViewer.Offset = new Vector(Math.Max(0, targetOffset), _scrollViewer.Offset.Y);
                 }
             }
         }
     }
 
-    private void TimelineScroll_PointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
+    private void TimelineScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is not TimelineEditorViewModel vm || _scrollViewer == null)
             return;
 
-        if (e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control))
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             // Zooming
             double zoomFactor = e.Delta.Y > 0 ? 1.1 : 0.9;
@@ -143,9 +140,8 @@ public partial class TimelineEditorView : UserControl
         }
         else
         {
-            // Horizontal scrolling
-            // Swap vertical wheel to horizontal if no shift is pressed (standard editor behavior)
-            double scrollAmount = e.Delta.Y * -50.0; // Adjust sensitivity
+            // Horizontal scrolling by default (DAW style)
+            double scrollAmount = e.Delta.Y * -50.0;
             double newOffset = _scrollViewer.Offset.X + scrollAmount;
             _scrollViewer.Offset = new Vector(Math.Max(0, newOffset), _scrollViewer.Offset.Y);
             e.Handled = true;
@@ -155,57 +151,68 @@ public partial class TimelineEditorView : UserControl
     // --- Playhead scrubbing ---
     private void TimelineContent_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is not TimelineEditorViewModel vm) return;
+        if (DataContext is not TimelineEditorViewModel vm)
+            return;
 
         // avoid re-entering scrubbing if already scrubbing
-        if (_isScrubbing) return;
+        if (_isScrubbing)
+            return;
 
-        var contentGrid = this.FindControl<Grid>("TimelineContentGrid");
-        Avalonia.Visual relVisual = contentGrid ?? (this as Avalonia.Visual)!;
+        Grid? contentGrid = this.FindControl<Grid>("TimelineContentGrid");
+        Visual relVisual = contentGrid ?? (this as Visual)!;
 
         // Only respond to left button
-        if (!e.GetCurrentPoint(relVisual).Properties.IsLeftButtonPressed) return;
+        if (!e.GetCurrentPoint(relVisual).Properties.IsLeftButtonPressed)
+            return;
 
         _isScrubbing = true;
-        var pt = e.GetCurrentPoint(relVisual).Position;
+        Point pt = e.GetCurrentPoint(relVisual).Position;
 
         // Capture pointer so we receive move/release outside the element
-        try { e.Pointer.Capture(this as Avalonia.Input.IInputElement); } catch { }
+        try
+        {
+            e.Pointer.Capture(this as IInputElement);
+        }
+        catch { }
 
         UpdateScrubPosition(pt.X, vm);
-        ShowScrubTooltip(pt.X, vm);
         e.Handled = true;
     }
 
     private void TimelineContent_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_isScrubbing || DataContext is not TimelineEditorViewModel vm) return;
-        var contentGrid = this.FindControl<Grid>("TimelineContentGrid");
-        Avalonia.Visual relVisual = contentGrid ?? (this as Avalonia.Visual)!;
-        var pt = e.GetCurrentPoint(relVisual).Position;
+        if (!_isScrubbing || DataContext is not TimelineEditorViewModel vm)
+            return;
+        Grid? contentGrid = this.FindControl<Grid>("TimelineContentGrid");
+        Visual relVisual = contentGrid ?? (this as Visual)!;
+        Point pt = e.GetCurrentPoint(relVisual).Position;
         UpdateScrubPosition(pt.X, vm);
-        ShowScrubTooltip(pt.X, vm);
         e.Handled = true;
     }
 
     private void TimelineContent_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_isScrubbing) return;
+        if (!_isScrubbing)
+            return;
         _isScrubbing = false;
 
         // Release pointer capture
-        try { e.Pointer.Capture(null); } catch { }
+        try
+        {
+            e.Pointer.Capture(null);
+        }
+        catch { }
 
-        HideScrubTooltip();
         e.Handled = true;
     }
 
     private void UpdateScrubPosition(double localX, TimelineEditorViewModel vm)
     {
-        if (_scrollViewer == null) return;
+        if (_scrollViewer == null)
+            return;
 
         // Use TimelineContentGrid as authoritative content coordinate
-        var contentGrid = this.FindControl<Grid>("TimelineContentGrid");
+        Grid? contentGrid = this.FindControl<Grid>("TimelineContentGrid");
         double xInContent = localX;
         if (contentGrid != null)
         {
@@ -215,7 +222,7 @@ public partial class TimelineEditorView : UserControl
 
         // Convert local X (relative to content grid) to beat
         double globalX = _scrollViewer.Offset.X + xInContent;
-        double beat = globalX / vm.PixelsPerBeat + vm.BeatOffset;
+        double beat = (globalX / vm.PixelsPerBeat) + vm.BeatOffset;
 
         // Apply snapping: if snap-to-beat enabled, snap to nearest beat/size
         if (vm.SnapToGrid)
@@ -232,48 +239,20 @@ public partial class TimelineEditorView : UserControl
         vm.Playback.SeekToBeat(beat);
     }
 
-    private void ShowScrubTooltip(double localX, TimelineEditorViewModel vm)
-    {
-        var tb = this.FindControl<TextBlock>("ScrubTooltip");
-        if (tb == null) return;
-
-        var contentGrid = this.FindControl<Grid>("TimelineContentGrid");
-        double xInContent = localX;
-
-        double globalX = (_scrollViewer?.Offset.X ?? 0) + xInContent;
-        double beat = globalX / vm.PixelsPerBeat + vm.BeatOffset;
-        string txt = $"Beat: {beat:F2}";
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            tb.Text = txt;
-            tb.IsVisible = true;
-            // place tooltip near localX, ensure within parent bounds
-            double left = Math.Max(0, xInContent - 20);
-            Canvas.SetLeft(tb, left);
-            Canvas.SetTop(tb, 0);
-        });
-    }
-
-    private void HideScrubTooltip()
-    {
-        var tb = this.FindControl<TextBlock>("ScrubTooltip");
-        if (tb == null) return;
-        Dispatcher.UIThread.Post(() =>
-        {
-            tb.IsVisible = false;
-        });
-    }
+    private void ShowScrubTooltip(double localX, TimelineEditorViewModel vm) { }
+    private void HideScrubTooltip() { }
 
     // Public API for other controls to show/hide the scrub tooltip at a content X coordinate
     public void ShowScrubTooltipAtContentX(double contentX)
     {
-        if (DataContext is not TimelineEditorViewModel vm) return;
-        var tb = this.FindControl<TextBlock>("ScrubTooltip");
-        if (tb == null || _scrollViewer == null) return;
+        if (DataContext is not TimelineEditorViewModel vm)
+            return;
+        TextBlock? tb = this.FindControl<TextBlock>("ScrubTooltip");
+        if (tb == null || _scrollViewer == null)
+            return;
 
-        double globalX = (_scrollViewer.Offset.X) + contentX;
-        double beat = globalX / vm.PixelsPerBeat + vm.BeatOffset;
+        double globalX = _scrollViewer.Offset.X + contentX;
+        double beat = (globalX / vm.PixelsPerBeat) + vm.BeatOffset;
         string txt = $"Beat: {beat:F2}";
 
         Dispatcher.UIThread.Post(() =>

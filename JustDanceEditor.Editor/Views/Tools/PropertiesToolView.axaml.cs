@@ -41,6 +41,7 @@ public partial class PropertiesToolView : UserControl
                     // Move focus to cancel edit mode
                     this.Focus();
                 }
+
                 e.Handled = true;
             }
         }

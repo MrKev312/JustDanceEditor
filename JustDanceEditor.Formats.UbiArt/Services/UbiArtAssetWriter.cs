@@ -565,8 +565,6 @@ public static class UbiArtAssetWriter
             // comments
             trkBuilder.AppendLine("comments = {},");
 
-
-
             // basic fields
             trkBuilder.AppendLine($"startBeat = {package.TimelineStructure.StartBeat},");
             trkBuilder.AppendLine($"endBeat = {package.TimelineStructure.EndBeat},");

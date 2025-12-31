@@ -9,7 +9,8 @@ public static class SnappingService
 {
     public static double ChooseBestStart(double unconstrainedStart, double duration, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
     {
-        if (vm == null) return unconstrainedStart;
+        if (vm == null)
+            return unconstrainedStart;
 
         var candidates = new List<double>();
 
@@ -21,9 +22,9 @@ public static class SnappingService
             candidates.Add(Math.Ceiling(unconstrainedStart / grid) * grid);
 
             double end = unconstrainedStart + duration;
-            candidates.Add(Math.Floor(end / grid) * grid - duration);
-            candidates.Add(Math.Round(end / grid) * grid - duration);
-            candidates.Add(Math.Ceiling(end / grid) * grid - duration);
+            candidates.Add((Math.Floor(end / grid) * grid) - duration);
+            candidates.Add((Math.Round(end / grid) * grid) - duration);
+            candidates.Add((Math.Ceiling(end / grid) * grid) - duration);
         }
 
         if (vm.SnapToCurrentTimeMarker)
@@ -36,9 +37,10 @@ public static class SnappingService
         {
             try
             {
-                foreach (var other in allClips)
+                foreach (ClipViewModel other in allClips)
                 {
-                    if (other == null) continue;
+                    if (other == null)
+                        continue;
                     double oStart = other.StartBeat;
                     double oEnd = other.StartBeat + other.DurationBeats;
                     candidates.Add(oStart);
@@ -50,7 +52,8 @@ public static class SnappingService
             catch { }
         }
 
-        if (candidates.Count == 0) return unconstrainedStart;
+        if (candidates.Count == 0)
+            return unconstrainedStart;
 
         double best = unconstrainedStart;
         double bestDist = double.MaxValue;
@@ -72,7 +75,8 @@ public static class SnappingService
 
     public static double ChooseBestEnd(double unconstrainedEnd, double start, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
     {
-        if (vm == null) return unconstrainedEnd;
+        if (vm == null)
+            return unconstrainedEnd;
 
         var candidates = new List<double>();
 
@@ -93,9 +97,10 @@ public static class SnappingService
         {
             try
             {
-                foreach (var other in allClips)
+                foreach (ClipViewModel other in allClips)
                 {
-                    if (other == null) continue;
+                    if (other == null)
+                        continue;
                     double oStart = other.StartBeat;
                     double oEnd = other.StartBeat + other.DurationBeats;
                     candidates.Add(oStart);
@@ -105,7 +110,8 @@ public static class SnappingService
             catch { }
         }
 
-        if (candidates.Count == 0) return unconstrainedEnd;
+        if (candidates.Count == 0)
+            return unconstrainedEnd;
 
         double best = unconstrainedEnd;
         double bestDist = double.MaxValue;
@@ -128,7 +134,8 @@ public static class SnappingService
     // New helper for left-edge resizing where the clip's end is preserved — only consider start-alignment candidates
     public static double ChooseBestStartPreserveEnd(double unconstrainedStart, double fixedEnd, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
     {
-        if (vm == null) return unconstrainedStart;
+        if (vm == null)
+            return unconstrainedStart;
 
         var candidates = new List<double>();
 
@@ -149,9 +156,10 @@ public static class SnappingService
         {
             try
             {
-                foreach (var other in allClips)
+                foreach (ClipViewModel other in allClips)
                 {
-                    if (other == null) continue;
+                    if (other == null)
+                        continue;
                     double oStart = other.StartBeat;
                     double oEnd = other.StartBeat + other.DurationBeats;
                     // align start to other starts/ends
@@ -162,7 +170,8 @@ public static class SnappingService
             catch { }
         }
 
-        if (candidates.Count == 0) return unconstrainedStart;
+        if (candidates.Count == 0)
+            return unconstrainedStart;
 
         double best = unconstrainedStart;
         double bestDist = double.MaxValue;

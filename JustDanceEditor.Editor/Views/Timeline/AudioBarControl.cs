@@ -52,7 +52,7 @@ public class AudioBarControl : Control
         set => SetValue(SectionsProperty, value);
     }
 
-    private static readonly Dictionary<SongSectionType, Color> _sectionColors = new();
+    private static readonly Dictionary<SongSectionType, Color> _sectionColors = [];
 
     // scrubbing state
     private bool _isScrubbing = false;
@@ -64,8 +64,8 @@ public class AudioBarControl : Control
         // Pre-cache section colors
         foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
         {
-            var field = typeof(SongSectionType).GetField(type.ToString());
-            var attr = field?.GetCustomAttribute<ColorAttribute>();
+            FieldInfo? field = typeof(SongSectionType).GetField(type.ToString());
+            ColorAttribute? attr = field?.GetCustomAttribute<ColorAttribute>();
             if (attr != null)
             {
                 _sectionColors[type] = Color.FromRgb(attr.R, attr.G, attr.B);
@@ -81,7 +81,7 @@ public class AudioBarControl : Control
     {
         base.OnPointerPressed(e);
 
-        var point = e.GetCurrentPoint(this);
+        PointerPoint point = e.GetCurrentPoint(this);
         double ppb = PixelsPerBeat;
         double offset = BeatOffset;
 
@@ -91,7 +91,7 @@ public class AudioBarControl : Control
             double clickedBeat = (point.Position.X / ppb) + offset;
 
             // Find the section that contains or starts at this beat
-            var section = Sections.OrderByDescending(s => s.StartBeat)
+            SectionSegment? section = Sections.OrderByDescending(s => s.StartBeat)
                                  .FirstOrDefault(s => s.StartBeat <= clickedBeat);
 
             if (section != null && DataContext is TimelineEditorViewModel vm)
@@ -107,7 +107,11 @@ public class AudioBarControl : Control
         {
             _isScrubbing = true;
             // capture pointer
-            try { e.Pointer.Capture(this); } catch { }
+            try
+            {
+                e.Pointer.Capture(this);
+            }
+            catch { }
 
             SeekAtPointer(point.Position.X, vm2);
             e.Handled = true;
@@ -118,8 +122,9 @@ public class AudioBarControl : Control
     {
         base.OnPointerMoved(e);
 
-        if (!_isScrubbing) return;
-        var point = e.GetCurrentPoint(this);
+        if (!_isScrubbing)
+            return;
+        PointerPoint point = e.GetCurrentPoint(this);
         if (DataContext is TimelineEditorViewModel vm)
         {
             SeekAtPointer(point.Position.X, vm);
@@ -131,12 +136,17 @@ public class AudioBarControl : Control
     {
         base.OnPointerReleased(e);
 
-        if (!_isScrubbing) return;
+        if (!_isScrubbing)
+            return;
         _isScrubbing = false;
-        try { e.Pointer.Capture(null); } catch { }
+        try
+        {
+            e.Pointer.Capture(null);
+        }
+        catch { }
 
         // Hide tooltip via parent
-        var parent = this.GetVisualParent();
+        Visual? parent = this.GetVisualParent();
         while (parent != null)
         {
             if (parent is TimelineEditorView tev)
@@ -144,6 +154,7 @@ public class AudioBarControl : Control
                 tev.HideScrubTooltipPublic();
                 break;
             }
+
             parent = parent.GetVisualParent();
         }
 
@@ -155,7 +166,7 @@ public class AudioBarControl : Control
         base.OnPointerCaptureLost(e);
         _isScrubbing = false;
 
-        var parent = this.GetVisualParent();
+        Visual? parent = this.GetVisualParent();
         while (parent != null)
         {
             if (parent is TimelineEditorView tev)
@@ -163,6 +174,7 @@ public class AudioBarControl : Control
                 tev.HideScrubTooltipPublic();
                 break;
             }
+
             parent = parent.GetVisualParent();
         }
     }
@@ -177,6 +189,7 @@ public class AudioBarControl : Control
         {
             beat = Math.Round(beat / vm.SnapGridSize) * vm.SnapGridSize;
         }
+
         if (vm.SnapToCurrentTimeMarker && Math.Abs(beat - vm.CurrentBeat) <= vm.SnapThreshold)
         {
             beat = vm.CurrentBeat;
@@ -185,7 +198,7 @@ public class AudioBarControl : Control
         vm.Playback.SeekToBeat(beat);
 
         // Show tooltip via parent if available
-        var parent = this.GetVisualParent();
+        Visual? parent = this.GetVisualParent();
         while (parent != null)
         {
             if (parent is TimelineEditorView tev)
@@ -193,13 +206,14 @@ public class AudioBarControl : Control
                 tev.ShowScrubTooltipAtContentX(x);
                 break;
             }
+
             parent = parent.GetVisualParent();
         }
     }
 
     public override void Render(DrawingContext context)
     {
-        var bounds = Bounds;
+        Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
         double offset = BeatOffset;
 
@@ -209,8 +223,8 @@ public class AudioBarControl : Control
             var sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
             for (int i = 0; i < sortedSections.Count; i++)
             {
-                var section = sortedSections[i];
-                var color = _sectionColors.TryGetValue(section.SectionType, out var c) ? c : Colors.Gray;
+                SectionSegment section = sortedSections[i];
+                Color color = _sectionColors.TryGetValue(section.SectionType, out Color c) ? c : Colors.Gray;
 
                 double startX = (section.StartBeat - offset) * ppb;
                 double endX = bounds.Width;
@@ -253,7 +267,7 @@ public class AudioBarControl : Control
         if (Sections != null)
         {
             var sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
-            foreach (var section in sortedSections)
+            foreach (SectionSegment? section in sortedSections)
             {
                 double x = (section.StartBeat - offset) * ppb;
                 if (x >= 0 && x < bounds.Width)

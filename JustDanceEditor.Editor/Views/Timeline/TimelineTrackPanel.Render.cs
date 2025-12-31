@@ -3,8 +3,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.Services;
-
-using System.Linq;
+using JustDanceEditor.Editor.ViewModels.Timeline;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
@@ -12,7 +11,7 @@ public partial class TimelineTrackPanel
 {
     public override void Render(DrawingContext context)
     {
-        var bounds = Bounds;
+        Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
         int offset = BeatOffset;
 
@@ -39,14 +38,15 @@ public partial class TimelineTrackPanel
                 context.DrawLine(_linePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
         }
 
-        if (Clips == null) return;
+        if (Clips == null)
+            return;
 
         bool drawText = ppb > 10;
 
         var selectionPen = new Pen(Brushes.Gold, 2.0);
         var selectionOverlay = new SolidColorBrush(new Color(120, 255, 215, 0));
 
-        foreach (var clip in Clips)
+        foreach (ClipViewModel clip in Clips)
         {
             double clipStart = clip.StartBeat;
             double clipEnd = clip.StartBeat + clip.DurationBeats;
@@ -77,7 +77,7 @@ public partial class TimelineTrackPanel
 
             if (clip.ImagePath != null)
             {
-                if (BitmapCache.TryGet(clip.ImagePath, out var bmp) && bmp != null)
+                if (BitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
                 {
                     var aspect = bmp.Size.Width / bmp.Size.Height;
                     var drawHeight = rect.Height;
@@ -85,7 +85,7 @@ public partial class TimelineTrackPanel
 
                     if (drawWidth >= 2 && drawHeight >= 2)
                     {
-                        var imgX = startX + (width - drawWidth) / 2;
+                        var imgX = startX + ((width - drawWidth) / 2);
                         var imgY = rect.Y;
                         var destRect = new Rect(imgX, imgY, drawWidth, drawHeight);
                         using (context.PushClip(rect))
@@ -96,15 +96,16 @@ public partial class TimelineTrackPanel
                 }
                 else
                 {
-                    BitmapCache.ScheduleLoad(clip.ImagePath, () => InvalidateVisual());
+                    BitmapCache.ScheduleLoad(clip.ImagePath, InvalidateVisual);
                 }
             }
             else if (drawText && width > 30 && !string.IsNullOrEmpty(clip.Name))
             {
-                var ft = GetFormattedText(clip, clip.Name, 12, width, rect.Height);
-                var textX = startX + (width - ft.Width) / 2;
-                var textY = rect.Y + (rect.Height - ft.Height) / 2;
-                if (textX < startX) textX = startX;
+                FormattedText ft = GetFormattedText(clip, clip.Name, 12, width, rect.Height);
+                var textX = startX + ((width - ft.Width) / 2);
+                var textY = rect.Y + ((rect.Height - ft.Height) / 2);
+                if (textX < startX)
+                    textX = startX;
                 context.DrawText(ft, new Point(textX, textY));
             }
         }

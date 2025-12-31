@@ -51,9 +51,12 @@ public partial class ClipViewModel : ViewModelBase
     partial void OnDurationBeatsChanged(double value)
     {
         int duration = (int)(value * 24);
-        if (RawClip is KaraokeClip k) k.Duration = duration;
-        else if (RawClip is PictogramClip p) p.Duration = duration;
-        else if (RawClip is GoldEffectClip g) g.Duration = duration;
+        if (RawClip is KaraokeClip k)
+            k.Duration = duration;
+        else if (RawClip is PictogramClip p)
+            p.Duration = duration;
+        else if (RawClip is GoldEffectClip g)
+            g.Duration = duration;
     }
 
     partial void OnNameChanged(string value)

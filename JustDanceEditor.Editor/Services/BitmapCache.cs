@@ -16,7 +16,8 @@ public static class BitmapCache
 
     public static void ScheduleLoad(string path, System.Action onLoaded)
     {
-        if (_pending.ContainsKey(path)) return;
+        if (_pending.ContainsKey(path))
+            return;
         _pending.TryAdd(path, true);
 
         Task.Run(() =>
@@ -25,7 +26,7 @@ public static class BitmapCache
             {
                 if (File.Exists(path))
                 {
-                    using var fs = File.OpenRead(path);
+                    using FileStream fs = File.OpenRead(path);
                     var b = Bitmap.DecodeToWidth(fs, 200);
                     _cache.TryAdd(path, b);
                 }

@@ -23,7 +23,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
 
     // Track subscriptions
     private TrackViewModel? _pictoTrack;
-    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = new();
+    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
 
     public PictogramPreviewViewModel()
     {
@@ -37,10 +37,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
             UnsubscribePictoTrack();
         }
 
-        if (value != null)
-        {
-            value.Playback.TimeChanged += Playback_TimeChanged;
-        }
+        value?.Playback.TimeChanged += Playback_TimeChanged;
 
         _lastTimeline = value;
         RefreshVisiblePictograms();
@@ -57,13 +54,15 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
 
     private void UnsubscribePictoTrack()
     {
-        if (_pictoTrack == null) return;
+        if (_pictoTrack == null)
+            return;
         _pictoTrack.Clips.CollectionChanged -= PictoClips_CollectionChanged;
-        foreach (var kv in _clipHandlers.ToList())
+        foreach (KeyValuePair<ClipViewModel, PropertyChangedEventHandler> kv in _clipHandlers.ToList())
         {
             kv.Key.PropertyChanged -= kv.Value;
             _clipHandlers.Remove(kv.Key);
         }
+
         _pictoTrack = null;
     }
 
@@ -72,7 +71,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
         UnsubscribePictoTrack();
         _pictoTrack = track;
         _pictoTrack.Clips.CollectionChanged += PictoClips_CollectionChanged;
-        foreach (var clip in _pictoTrack.Clips)
+        foreach (ClipViewModel clip in _pictoTrack.Clips)
             AddClipHandler(clip);
     }
 
@@ -104,10 +103,11 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
 
     private void AddClipHandler(ClipViewModel clip)
     {
-        if (clip == null || _clipHandlers.ContainsKey(clip)) return;
+        if (clip == null || _clipHandlers.ContainsKey(clip))
+            return;
         PropertyChangedEventHandler handler = (s, e) =>
         {
-            if (e.PropertyName == nameof(ClipViewModel.StartBeat) || e.PropertyName == nameof(ClipViewModel.DurationBeats))
+            if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
             {
                 // Ensure UI update on UI thread
                 Avalonia.Threading.Dispatcher.UIThread.Post(RefreshVisiblePictograms);
@@ -119,8 +119,9 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
 
     private void RemoveClipHandler(ClipViewModel clip)
     {
-        if (clip == null) return;
-        if (_clipHandlers.TryGetValue(clip, out var handler))
+        if (clip == null)
+            return;
+        if (_clipHandlers.TryGetValue(clip, out PropertyChangedEventHandler? handler))
         {
             clip.PropertyChanged -= handler;
             _clipHandlers.Remove(clip);
@@ -135,7 +136,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
             return;
         }
 
-        var pictoTrack = ActiveTimeline.Tracks.FirstOrDefault(t => t.Title == "Pictograms");
+        TrackViewModel? pictoTrack = ActiveTimeline.Tracks.FirstOrDefault(t => t.Title == "Pictograms");
         if (pictoTrack == null)
         {
             VisiblePictograms.Clear();

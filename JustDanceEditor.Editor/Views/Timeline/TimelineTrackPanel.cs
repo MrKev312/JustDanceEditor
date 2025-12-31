@@ -1,13 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
-using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
@@ -74,10 +70,10 @@ public partial class TimelineTrackPanel : Control
     private static readonly CultureInfo _culture = CultureInfo.CurrentCulture;
 
     // Simple FormattedText cache to avoid recreating layouts repeatedly when rendering many clips
-    private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = new();
+    private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = [];
 
     // Track per-clip handlers so external updates invalidate visuals
-    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = new();
+    private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
 
     // Dragging state
     private ClipViewModel? _draggingClip;
@@ -137,7 +133,7 @@ public partial class TimelineTrackPanel : Control
             // remove handlers for previous collection
             if (e.OldValue is IEnumerable<ClipViewModel> oldClips)
             {
-                foreach (var c in oldClips)
+                foreach (ClipViewModel c in oldClips)
                     RemoveClipHandler(c);
             }
         }
@@ -149,7 +145,7 @@ public partial class TimelineTrackPanel : Control
             // subscribe handlers for new collection
             if (e.NewValue is IEnumerable<ClipViewModel> newClips)
             {
-                foreach (var c in newClips)
+                foreach (ClipViewModel c in newClips)
                     AddClipHandler(c);
             }
         }
@@ -192,17 +188,24 @@ public partial class TimelineTrackPanel : Control
 
     private void AddClipHandler(ClipViewModel clip)
     {
-        if (clip == null) return;
-        if (_clipHandlers.ContainsKey(clip)) return;
+        if (clip == null)
+            return;
+        if (_clipHandlers.ContainsKey(clip))
+            return;
 
         PropertyChangedEventHandler handler = (s, e) =>
         {
             // clear text cache for this clip
             var keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
-            foreach (var k in keys) _textCache.Remove(k);
+            foreach ((ClipViewModel clip, double fontSize) k in keys)
+                _textCache.Remove(k);
 
             // Ensure arrange/render happens on UI thread
-            Dispatcher.UIThread.Post(() => { InvalidateMeasure(); InvalidateVisual(); });
+            Dispatcher.UIThread.Post(() =>
+            {
+                InvalidateMeasure();
+                InvalidateVisual();
+            });
         };
 
         clip.PropertyChanged += handler;
@@ -211,8 +214,9 @@ public partial class TimelineTrackPanel : Control
 
     private void RemoveClipHandler(ClipViewModel clip)
     {
-        if (clip == null) return;
-        if (_clipHandlers.TryGetValue(clip, out var handler))
+        if (clip == null)
+            return;
+        if (_clipHandlers.TryGetValue(clip, out PropertyChangedEventHandler? handler))
         {
             clip.PropertyChanged -= handler;
             _clipHandlers.Remove(clip);
@@ -222,8 +226,8 @@ public partial class TimelineTrackPanel : Control
     // Helper to get or create cached FormattedText
     private FormattedText GetFormattedText(ClipViewModel clip, string text, double fontSize, double maxWidth, double maxHeight)
     {
-        var key = (clip, fontSize);
-        if (_textCache.TryGetValue(key, out var ft))
+        (ClipViewModel clip, double fontSize) key = (clip, fontSize);
+        if (_textCache.TryGetValue(key, out FormattedText? ft))
             return ft;
 
         ft = new FormattedText(
@@ -252,10 +256,11 @@ public partial class TimelineTrackPanel : Control
 
         if (Clips != null)
         {
-            foreach (var clip in Clips)
+            foreach (ClipViewModel clip in Clips)
             {
                 double endX = (clip.StartBeat - BeatOffset + clip.DurationBeats) * PixelsPerBeat;
-                if (endX > width) width = endX;
+                if (endX > width)
+                    width = endX;
             }
         }
 

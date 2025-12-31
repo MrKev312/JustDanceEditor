@@ -11,9 +11,11 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Docking;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
@@ -124,7 +126,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (topLevel == null)
             return;
 
-        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        IReadOnlyList<IStorageFolder> folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Open Map Folder",
             AllowMultiple = false
@@ -135,7 +137,7 @@ public partial class MainWindowViewModel : ViewModelBase
             string path = folders[0].Path.LocalPath;
             try
             {
-                var package = IntermediatePackageSerializer.LoadFromFolder(path);
+                IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(path);
                 var editorVm = new TimelineEditorViewModel(package, path);
 
                 if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
@@ -153,7 +155,6 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
     }
-
 }
 
 public class MenuItemViewModel

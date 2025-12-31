@@ -9,6 +9,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Editor.Services;
 using System.Linq;
 using System.Collections.Generic;
+using Avalonia;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
@@ -18,19 +19,21 @@ public partial class TimelineTrackPanel
     {
         base.OnPointerPressed(e);
 
-        var point = e.GetCurrentPoint(this).Position;
+        Point point = e.GetCurrentPoint(this).Position;
         double ppb = PixelsPerBeat;
         double offset = BeatOffset;
 
         // Find timeline VM early for selection operations
-        var visualParentForVm = this.GetVisualParent();
+        Visual? visualParentForVm = this.GetVisualParent();
         TimelineEditorViewModel? contextVm = null;
         while (visualParentForVm != null)
         {
             if (visualParentForVm is Control c && c.DataContext is TimelineEditorViewModel t)
             {
-                contextVm = t; break;
+                contextVm = t;
+                break;
             }
+
             visualParentForVm = visualParentForVm.GetVisualParent();
         }
 
@@ -39,7 +42,7 @@ public partial class TimelineTrackPanel
             ClipViewModel? targetClip = null;
             double targetStartX = 0, targetWidth = 0;
 
-            foreach (var c in Clips)
+            foreach (ClipViewModel c in Clips)
             {
                 double x = (c.StartBeat - offset) * ppb;
                 double w = c.DurationBeats * ppb;
@@ -71,7 +74,7 @@ public partial class TimelineTrackPanel
             ClipViewModel? targetClip = null;
             double targetStartX = 0, targetWidth = 0;
 
-            foreach (var c in Clips)
+            foreach (ClipViewModel c in Clips)
             {
                 double x = (c.StartBeat - offset) * ppb;
                 double w = c.DurationBeats * ppb;
@@ -92,17 +95,18 @@ public partial class TimelineTrackPanel
             {
                 if (!ctrl && contextVm != null)
                 {
-                    foreach (var clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                    foreach (ClipViewModel? clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
                         clip.IsSelected = false;
                     _lastSelectedClip = null;
 
-                    if (Avalonia.Application.Current is App app)
+                    if (Application.Current is App app)
                         app.TimelineContext.SelectedObjects = [];
 
                     InvalidateVisual();
                     e.Handled = true;
                     return;
                 }
+
                 return;
             }
 
@@ -122,15 +126,22 @@ public partial class TimelineTrackPanel
                 // Shift+click range selection across all tracks by clip list index
                 if (shift && contextVm != null)
                 {
-                    // Build flat list of all clips in order of tracks
-                    var allClips = contextVm.Tracks.SelectMany(tr => tr.Clips).ToList();
+                    // Build flat list of all clips in order of tracks, but sorted by time within tracks
+                    var allClips = contextVm.Tracks
+                        .SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))
+                        .ToList();
+
                     int a = allClips.IndexOf(_lastSelectedClip ?? targetClip);
                     int b = allClips.IndexOf(targetClip);
-                    if (a == -1) a = b;
-                    int start = Math.Min(a, b);
-                    int end = Math.Max(a, b);
-                    for (int i = 0; i < allClips.Count; i++)
-                        allClips[i].IsSelected = i >= start && i <= end;
+                    
+                    if (a != -1 && b != -1)
+                    {
+                        int start = Math.Min(a, b);
+                        int end = Math.Max(a, b);
+                        for (int i = 0; i < allClips.Count; i++)
+                            allClips[i].IsSelected = i >= start && i <= end;
+                    }
+                    
                     _lastSelectedClip = targetClip;
                     UpdateGlobalSelection(contextVm);
                     InvalidateVisual();
@@ -139,13 +150,18 @@ public partial class TimelineTrackPanel
                 }
 
                 // If multiple clips selected across tracks, start multi-drag when clicking any selected clip
-                var selected = (contextVm != null) ? contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected).ToList() : Clips.Where(c => c.IsSelected).ToList();
+                List<ClipViewModel> selected = (contextVm != null) ? contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected).ToList() : Clips.Where(c => c.IsSelected).ToList();
                 if (selected.Count > 1 && selected.Contains(targetClip))
                 {
                     _isMultiDragging = true;
                     _multiDragOriginalStarts = selected.ToDictionary(c => c, c => c.StartBeat);
                     _dragStartPointerX = point.X;
-                    try { e.Pointer.Capture(this); } catch { }
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+
                     e.Handled = true;
                     return;
                 }
@@ -153,7 +169,7 @@ public partial class TimelineTrackPanel
                 // If no modifier keys, make this clip the only selected
                 if (!ctrl && !shift && contextVm != null)
                 {
-                    foreach (var clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                    foreach (ClipViewModel? clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
                         clip.IsSelected = false;
                     targetClip.IsSelected = true;
                     _lastSelectedClip = targetClip;
@@ -164,7 +180,7 @@ public partial class TimelineTrackPanel
                 bool nearLeft = localX <= ResizeHitThreshold;
                 bool nearRight = localX >= (targetWidth - ResizeHitThreshold);
 
-                bool isResizableType = targetClip.RawClip is PictogramClip || targetClip.RawClip is KaraokeClip;
+                bool isResizableType = targetClip.RawClip is PictogramClip or KaraokeClip;
                 _draggingClip = targetClip;
 
                 if (isResizableType && nearLeft)
@@ -174,7 +190,12 @@ public partial class TimelineTrackPanel
                     _resizeStartPointerX = point.X;
                     _resizeOriginalStart = targetClip.StartBeat;
                     _resizeOriginalDuration = targetClip.DurationBeats;
-                    try { e.Pointer.Capture(this); } catch { }
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+
                     e.Handled = true;
                     return;
                 }
@@ -185,7 +206,12 @@ public partial class TimelineTrackPanel
                     _resizeStartPointerX = point.X;
                     _resizeOriginalStart = targetClip.StartBeat;
                     _resizeOriginalDuration = targetClip.DurationBeats;
-                    try { e.Pointer.Capture(this); } catch { }
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+
                     e.Handled = true;
                     return;
                 }
@@ -194,7 +220,12 @@ public partial class TimelineTrackPanel
                     _dragStartPointerX = point.X;
                     _dragOriginalStartBeat = targetClip.StartBeat;
                     _isDragging = true;
-                    try { e.Pointer.Capture(this); } catch { }
+                    try
+                    {
+                        e.Pointer.Capture(this);
+                    }
+                    catch { }
+
                     e.Handled = true;
                     return;
                 }
@@ -204,7 +235,8 @@ public partial class TimelineTrackPanel
 
     private void UpdateGlobalSelection(TimelineEditorViewModel? vm)
     {
-        if (vm == null || Avalonia.Application.Current is not App app) return;
+        if (vm == null || Application.Current is not App app)
+            return;
         app.TimelineContext.SelectedObjects = vm.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>().ToList();
     }
 
@@ -212,7 +244,7 @@ public partial class TimelineTrackPanel
     {
         base.OnPointerMoved(e);
 
-        var point = e.GetCurrentPoint(this).Position;
+        Point point = e.GetCurrentPoint(this).Position;
         double ppb = PixelsPerBeat;
         double offset = BeatOffset;
 
@@ -225,14 +257,16 @@ public partial class TimelineTrackPanel
         if (_isMultiDragging && _multiDragOriginalStarts != null)
         {
             // Need timeline VM to get other clips for snapping and context
-            var visualParentForVm = this.GetVisualParent();
+            Visual? visualParentForVm = this.GetVisualParent();
             TimelineEditorViewModel? vm = null;
             while (visualParentForVm != null)
             {
                 if (visualParentForVm is Control c && c.DataContext is TimelineEditorViewModel t)
                 {
-                    vm = t; break;
+                    vm = t;
+                    break;
                 }
+
                 visualParentForVm = visualParentForVm.GetVisualParent();
             }
 
@@ -251,7 +285,7 @@ public partial class TimelineTrackPanel
 
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
-                var otherClips = vm.Tracks.SelectMany(tr => tr.Clips).Where(o => !_multiDragOriginalStarts.ContainsKey(o));
+                IEnumerable<ClipViewModel> otherClips = vm.Tracks.SelectMany(tr => tr.Clips).Where(o => !_multiDragOriginalStarts.ContainsKey(o));
 
                 var bestStart = SnappingService.ChooseBestStartPreserveEnd(unconstrainedEarliest, unconstrainedLatest, vm, otherClips);
                 var bestEnd = SnappingService.ChooseBestEnd(unconstrainedLatest, unconstrainedEarliest, vm, otherClips);
@@ -260,23 +294,24 @@ public partial class TimelineTrackPanel
                 double endAdjust = bestEnd - unconstrainedLatest;
 
                 // Choose smaller absolute adjustment (prefer start if equal)
-                if (System.Math.Abs(startAdjust) <= System.Math.Abs(endAdjust) && System.Math.Abs(startAdjust) <= vm.SnapThreshold)
+                if (Math.Abs(startAdjust) <= Math.Abs(endAdjust) && Math.Abs(startAdjust) <= vm.SnapThreshold)
                 {
                     applyDelta = deltaBeats + startAdjust;
                 }
-                else if (System.Math.Abs(endAdjust) < System.Math.Abs(startAdjust) && System.Math.Abs(endAdjust) <= vm.SnapThreshold)
+                else if (Math.Abs(endAdjust) < Math.Abs(startAdjust) && Math.Abs(endAdjust) <= vm.SnapThreshold)
                 {
                     applyDelta = deltaBeats + endAdjust;
                 }
             }
 
             // Apply delta to all selected clips
-            foreach (var kv in _multiDragOriginalStarts.ToList())
+            foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts.ToList())
             {
                 kv.Key.StartBeat = kv.Value + applyDelta;
             }
 
-            InvalidateMeasure(); InvalidateVisual();
+            InvalidateMeasure();
+            InvalidateVisual();
             e.Handled = true;
             return;
         }
@@ -304,7 +339,12 @@ public partial class TimelineTrackPanel
         {
             _isMultiDragging = false;
             _multiDragOriginalStarts = null;
-            try { e.Pointer.Capture(null); } catch { }
+            try
+            {
+                e.Pointer.Capture(null);
+            }
+            catch { }
+
             e.Handled = true;
             return;
         }

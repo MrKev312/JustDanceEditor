@@ -3,18 +3,11 @@ using System.ComponentModel;
 namespace JustDanceEditor.Formats.JDI.Timelines;
 
 [AttributeUsage(AttributeTargets.Field)]
-public class ColorAttribute : Attribute
+public class ColorAttribute(byte r, byte g, byte b) : Attribute
 {
-    public byte R { get; }
-    public byte G { get; }
-    public byte B { get; }
-
-    public ColorAttribute(byte r, byte g, byte b)
-    {
-        R = r;
-        G = g;
-        B = b;
-    }
+    public byte R { get; } = r;
+    public byte G { get; } = g;
+    public byte B { get; } = b;
 }
 
 public enum SongSectionType

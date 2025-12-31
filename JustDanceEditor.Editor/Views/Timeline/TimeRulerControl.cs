@@ -58,7 +58,7 @@ public class TimeRulerControl : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        var point = e.GetCurrentPoint(this);
+        PointerPoint point = e.GetCurrentPoint(this);
         if (point.Properties.IsLeftButtonPressed)
         {
             e.Pointer.Capture(this);
@@ -72,7 +72,7 @@ public class TimeRulerControl : Control
         base.OnPointerMoved(e);
         if (e.Pointer.Captured == this)
         {
-            var point = e.GetCurrentPoint(this);
+            PointerPoint point = e.GetCurrentPoint(this);
             SeekToPoint(point.Position.X);
             e.Handled = true;
         }
@@ -101,7 +101,7 @@ public class TimeRulerControl : Control
 
     public override void Render(DrawingContext context)
     {
-        var bounds = Bounds;
+        Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
         int offset = BeatOffset;
         double max = MaxBeat;
@@ -134,7 +134,7 @@ public class TimeRulerControl : Control
         // 2. Draw Ticks and Labels
         var mainPen = new Pen(Brushes.DimGray, 1);
         var tickPen = new Pen(Brushes.Gray, 1);
-        var labelBrush = Brushes.LightGray;
+        IImmutableSolidColorBrush labelBrush = Brushes.LightGray;
 
         context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
 
@@ -190,10 +190,11 @@ public class TimeRulerControl : Control
                 measureIndex++;
                 continue;
             }
+
             if (xStart > Bounds.Width)
                 break;
 
-            var brush = (measureIndex % 2 == 0) ? brushA : brushB;
+            SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
             context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
             
             measureIndex++;
