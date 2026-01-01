@@ -31,7 +31,7 @@ public static class UbiArtAssetWriter
         string pictosFolder = Path.Combine(timelineFolder, "pictos");
         string movesFolder = Path.Combine(timelineFolder, "moves", "WiiU");
         string videosFolder = Path.Combine(outputFolder, "VideosCoach");
-        
+
         Directory.CreateDirectory(audioFolder);
         Directory.CreateDirectory(timelineFolder);
         Directory.CreateDirectory(cinematicsFolder);
@@ -230,9 +230,9 @@ public static class UbiArtAssetWriter
         string mapName = package.Metadata.MapName;
         string artist = package.Metadata.Artist.Replace("\"", "\\\"");
         string title = package.Metadata.Title.Replace("\"", "\\\"");
-        string numCoach = package.Metadata.CoachCount == 1 ? "NumCoach.Solo" : 
-                         package.Metadata.CoachCount == 2 ? "NumCoach.Duo" : 
-                         package.Metadata.CoachCount == 3 ? "NumCoach.Trio" : 
+        string numCoach = package.Metadata.CoachCount == 1 ? "NumCoach.Solo" :
+                         package.Metadata.CoachCount == 2 ? "NumCoach.Duo" :
+                         package.Metadata.CoachCount == 3 ? "NumCoach.Trio" :
                          "NumCoach.Quatuor";
         string difficulty = package.Metadata.Difficulty == 1 ? "SongDifficulty.Easy" :
                            package.Metadata.Difficulty == 2 ? "SongDifficulty.Normal" :

@@ -19,10 +19,10 @@ public interface IPlaybackService : IDisposable
     event EventHandler PlayStateChanged;
 
     Task LoadMediaAsync(
-        string audioPath, 
-        string videoPath, 
-        Func<double, double> beatToSeconds, 
-        Func<double, double> secondsToBeat, 
+        string audioPath,
+        string videoPath,
+        Func<double, double> beatToSeconds,
+        Func<double, double> secondsToBeat,
         double videoStartOffset);
     void Play();
     void Pause();

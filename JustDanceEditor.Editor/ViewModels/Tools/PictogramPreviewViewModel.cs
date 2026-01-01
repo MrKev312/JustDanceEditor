@@ -29,24 +29,22 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
     {
     }
 
-    protected override void HandleActiveTimelineChanged(TimelineEditorViewModel? value)
+    protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
-        if (_lastTimeline != null)
-        {
-            _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
-            UnsubscribePictoTrack();
-        }
+        // Start the pictogram preview at the current timeline time
+        if (timeline != null)
+            CurrentBeat = timeline.CurrentBeat;
 
-        value?.Playback.TimeChanged += Playback_TimeChanged;
-
-        _lastTimeline = value;
         RefreshVisiblePictograms();
-        OnPropertyChanged(nameof(ActiveTimeline));
     }
 
-    private TimelineEditorViewModel? _lastTimeline;
+    protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
+    {
+        UnsubscribePictoTrack();
+        VisiblePictograms.Clear();
+    }
 
-    private void Playback_TimeChanged(object? sender, EventArgs e)
+    protected override void OnTimeChanged()
     {
         CurrentBeat = ActiveTimeline?.CurrentBeat ?? 0;
         RefreshVisiblePictograms();

@@ -124,8 +124,7 @@
 			    <ScrollViewer Name="TimelineScroll" 
 					      Grid.Column="1" 
 					      HorizontalScrollBarVisibility="Auto" 
-					      VerticalScrollBarVisibility="Disabled"
-					      PointerWheelChanged="TimelineScroll_PointerWheelChanged">
+					      VerticalScrollBarVisibility="Disabled">
 			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
 				    <StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
 

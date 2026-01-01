@@ -1,15 +1,18 @@
+using Avalonia.Media;
+
 using CommunityToolkit.Mvvm.ComponentModel;
+
 using JustDanceEditor.Editor.Attributes;
-using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI.Timelines;
+
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
-using System;
-using System.Collections.Generic;
-using Avalonia.Media;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -24,13 +27,18 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
     public PropertiesToolViewModel()
     {
-         TimelineContext?.PropertyChanged += Context_PropertyChanged;
+        TimelineContext?.PropertyChanged += Context_PropertyChanged;
     }
 
-    protected override void HandleActiveTimelineChanged(TimelineEditorViewModel? value)
+    protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
-        base.HandleActiveTimelineChanged(value);
         RefreshProperties();
+    }
+
+    protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
+    {
+        Categories.Clear();
+        SelectedObject = null;
     }
 
     private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -67,7 +75,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                 foreach (var item in group)
                 {
                     // Verify this property exists and has the same attribute on all selected objects
-                    bool consistent = selection.All(o => 
+                    bool consistent = selection.All(o =>
                     {
                         PropertyInfo? p = o.GetType().GetProperty(item.Property.Name);
                         return p != null && p.GetCustomAttribute<InspectableAttribute>() != null;
@@ -75,8 +83,16 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
                     if (consistent)
                     {
-                        var propVm = new PropertyItemViewModel(selection, item.Property.Name, item.Attribute!, ActiveTimeline);
-                        
+                        var propVm = new PropertyItemViewModel(
+                            selection,
+                            item.Property.Name,
+                            item.Attribute!,
+                            ActiveTimeline!.UndoService,
+                            ActiveTimeline.TimelineStructure,
+                            ActiveTimeline.Tracks,
+                            color => ActiveTimeline.UpdateLyricsColor(color),
+                            () => ActiveTimeline.LyricsColor);
+
                         // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
                         if (item.Property.Name is "BackgroundColor" or "Color")
                         {
@@ -108,7 +124,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         // Check if we are dealing with ClipViewModels
         var firstClip = selection[0] as ClipViewModel;
         if (firstClip == null)
-            return; 
+            return;
 
         // Determine type of clip
         if (firstClip.RawClip is MoveClip)
@@ -121,7 +137,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                 if (track.Title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     propVm.Options = timeline.AvailableFullBodyCoachMoves.ToList();
-                    propVm.IsEditable = false; 
+                    propVm.IsEditable = false;
                 }
                 else
                 {
@@ -132,26 +148,26 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         }
         else if (firstClip.RawClip is PictogramClip)
         {
-             var list = new List<PictogramOptionViewModel>();
-             var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
-             if (System.IO.Directory.Exists(dir))
-             {
-                 var files = System.IO.Directory.GetFiles(dir);
-                 foreach (var file in files)
-                 {
-                     var name = System.IO.Path.GetFileNameWithoutExtension(file);
-                     // If multiple extensions exist for same name, first one wins
-                     if (!list.Any(x => x.Name == name))
-                     {
-                         list.Add(new PictogramOptionViewModel(name, file));
-                     }
-                 }
-                 // Sort by name
-                 list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
-             }
-             
-             propVm.Options = list;
-             propVm.IsEditable = true; // Allow custom
+            var list = new List<PictogramOptionViewModel>();
+            var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
+            if (System.IO.Directory.Exists(dir))
+            {
+                var files = System.IO.Directory.GetFiles(dir);
+                foreach (var file in files)
+                {
+                    var name = System.IO.Path.GetFileNameWithoutExtension(file);
+                    // If multiple extensions exist for same name, first one wins
+                    if (!list.Any(x => x.Name == name))
+                    {
+                        list.Add(new PictogramOptionViewModel(name, file));
+                    }
+                }
+                // Sort by name
+                list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+            }
+
+            propVm.Options = list;
+            propVm.IsEditable = true; // Allow custom
         }
     }
 }
@@ -172,7 +188,7 @@ public class PictogramOptionViewModel
             {
                 PreviewImage = new Avalonia.Media.Imaging.Bitmap(path);
             }
-            catch {}
+            catch { }
         }
     }
     public override string ToString() => Name;
@@ -187,9 +203,13 @@ public class PropertyCategoryViewModel(string name) : ObservableObject
 public partial class PropertyItemViewModel : ObservableObject
 {
     private readonly List<object> _targets;
-    private readonly PropertyInfo? _propertyInfoTemplate; 
+    private readonly PropertyInfo? _propertyInfoTemplate;
     private readonly string _propertyName;
-    private readonly TimelineEditorViewModel _timeline;
+    private readonly IUndoService _undoService;
+    private readonly TimelineStructureDocument _timelineStructure;
+    private readonly ObservableCollection<TrackViewModel> _tracks;
+    private readonly Action<string> _updateLyricsColor;
+    private readonly Func<string> _getLyricsColor;
     private bool _isColorPickerActive = false;
     private object? _colorPickerInitialValue;
 
@@ -205,16 +225,28 @@ public partial class PropertyItemViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsEditable { get; set; } = true;
-    
-    public PropertyItemViewModel(List<object> targets, string propertyName, InspectableAttribute attribute, TimelineEditorViewModel timeline)
+
+    public PropertyItemViewModel(
+        List<object> targets,
+        string propertyName,
+        InspectableAttribute attribute,
+        IUndoService undoService,
+        TimelineStructureDocument timelineStructure,
+        ObservableCollection<TrackViewModel> tracks,
+        Action<string> updateLyricsColor,
+        Func<string> getLyricsColor)
     {
         _targets = targets;
         _propertyName = propertyName;
         _propertyInfoTemplate = targets[0].GetType().GetProperty(propertyName);
-        _timeline = timeline;
+        _undoService = undoService;
+        _timelineStructure = timelineStructure;
+        _tracks = tracks;
+        _updateLyricsColor = updateLyricsColor;
+        _getLyricsColor = getLyricsColor;
         Name = attribute.DisplayName;
-        IsReadOnly = attribute.IsReadOnly; 
-        
+        IsReadOnly = attribute.IsReadOnly;
+
         // Listen to external changes on the target objects
         foreach (var target in _targets)
         {
@@ -232,7 +264,7 @@ public partial class PropertyItemViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Notifies that the color picker has started (opened).
+    /// Notifies that the color picker has opened.
     /// </summary>
     public void OnColorPickerOpened()
     {
@@ -245,9 +277,9 @@ public partial class PropertyItemViewModel : ObservableObject
             // Lyrics: capture all lyrics clips and metadata
             if (cv.RawClip is KaraokeClip)
             {
-                var allLyrics = _timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
+                var allLyrics = _tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
                 var colors = allLyrics.Select(c => (c, c.BackgroundColor)).ToList();
-                var snapshot = new ColorSnapshot(true, colors, _timeline.LyricsColor, null);
+                var snapshot = new ColorSnapshot(true, colors, _getLyricsColor(), null);
                 _colorPickerInitialValue = snapshot;
             }
             else if (cv.RawClip is MoveClip)
@@ -284,7 +316,7 @@ public partial class PropertyItemViewModel : ObservableObject
             if (snap.IsLyrics)
             {
                 // Determine final color (assume all lyrics were set to same color by live updates)
-                var firstLyrics = _timeline.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.RawClip is KaraokeClip);
+                var firstLyrics = _tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.RawClip is KaraokeClip);
                 if (firstLyrics == null)
                 {
                     _colorPickerInitialValue = null;
@@ -297,27 +329,32 @@ public partial class PropertyItemViewModel : ObservableObject
                 var oldMetadata = snap.OldMetadata;
                 var newMetadata = ClipViewModel.ColorToRgbaHex(finalColor);
 
-                // Push one undo that restores all original colors and metadata
-                _timeline.PushUndo(
-                    undo: () =>
-                    {
-                        for (int i = 0; i < affectedClips.Count; i++)
+                // Only push undo if the color actually changed
+                bool colorChanged = !Equals(initialColors[0], finalColor) || oldMetadata != newMetadata;
+                if (colorChanged)
+                {
+                    // Push one undo that restores all original colors and metadata
+                    _undoService.Record(
+                        undo: () =>
                         {
-                            affectedClips[i].BackgroundColor = initialColors[i];
-                        }
-                        _timeline.UpdateLyricsColor(oldMetadata ?? "#FFFFFFFF");
-                    },
-                    redo: () =>
-                    {
-                        // Set current lyrics clips to the final color (handles changed set of clips)
-                        var lyricsClips = _timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
-                        foreach (var clip in lyricsClips)
+                            for (int i = 0; i < affectedClips.Count; i++)
+                            {
+                                affectedClips[i].BackgroundColor = initialColors[i];
+                            }
+                            _updateLyricsColor(oldMetadata ?? "#FFFFFFFF");
+                        },
+                        redo: () =>
                         {
-                            clip.BackgroundColor = finalColor;
+                            // Set current lyrics clips to the final color (handles changed set of clips)
+                            var lyricsClips = _tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
+                            foreach (var clip in lyricsClips)
+                            {
+                                clip.BackgroundColor = finalColor;
+                            }
+                            _updateLyricsColor(newMetadata);
                         }
-                        _timeline.UpdateLyricsColor(newMetadata);
-                    }
-                );
+                    );
+                }
             }
             else
             {
@@ -338,7 +375,7 @@ public partial class PropertyItemViewModel : ObservableObject
 
                 if (anyChanged)
                 {
-                    _timeline.PushUndo(
+                    _undoService.Record(
                         undo: () =>
                         {
                             for (int i = 0; i < clips.Count; i++)
@@ -362,15 +399,15 @@ public partial class PropertyItemViewModel : ObservableObject
         if (!Equals(_colorPickerInitialValue, finalValue))
         {
             var oldValues = _targets.Select(t => _colorPickerInitialValue).ToList();
-            _timeline.PushUndo(
-                undo: () => 
-                { 
-                    for(int i=0; i<_targets.Count; i++)
+            _undoService.Record(
+                undo: () =>
+                {
+                    for (int i = 0; i < _targets.Count; i++)
                         SetValue(_targets[i], oldValues[i]);
                 },
-                redo: () => 
-                { 
-                    for(int i=0; i<_targets.Count; i++)
+                redo: () =>
+                {
+                    for (int i = 0; i < _targets.Count; i++)
                         SetValue(_targets[i], finalValue);
                 }
             );
@@ -381,14 +418,14 @@ public partial class PropertyItemViewModel : ObservableObject
 
     public object? Value
     {
-        get 
+        get
         {
             // Return value if all are same, else null
             var firstVal = GetValue(_targets[0]);
             for (int i = 1; i < _targets.Count; i++)
             {
-                 if (!Equals(GetValue(_targets[i]), firstVal))
-                     return null; 
+                if (!Equals(GetValue(_targets[i]), firstVal))
+                    return null;
             }
 
             return firstVal;
@@ -399,19 +436,19 @@ public partial class PropertyItemViewModel : ObservableObject
                 return; // Don't set nulls explicitly (e.g. from empty selection)
 
             var oldValues = _targets.Select(GetValue).ToList();
-            
+
             // Only push undo if not in color picker mode
             if (!_isColorPickerActive)
             {
-                _timeline.PushUndo(
-                    undo: () => 
-                    { 
-                        for(int i=0; i<_targets.Count; i++)
+                _undoService.Record(
+                    undo: () =>
+                    {
+                        for (int i = 0; i < _targets.Count; i++)
                             SetValue(_targets[i], oldValues[i]);
                     },
-                    redo: () => 
-                    { 
-                        for(int i=0; i<_targets.Count; i++)
+                    redo: () =>
+                    {
+                        for (int i = 0; i < _targets.Count; i++)
                             SetValue(_targets[i], value);
                     }
                 );
@@ -421,7 +458,7 @@ public partial class PropertyItemViewModel : ObservableObject
             {
                 SetValue(target, value);
             }
-            
+
             OnPropertyChanged(nameof(Value));
         }
     }
@@ -430,7 +467,7 @@ public partial class PropertyItemViewModel : ObservableObject
     private void SetValue(object target, object? val) => target.GetType().GetProperty(_propertyName)?.SetValue(target, val);
 
     public Type PropertyType => _propertyInfoTemplate!.PropertyType;
-    
+
     // Binding Helpers
     public bool IsColor => PropertyType == typeof(Color);
     public bool IsBool => PropertyType == typeof(bool);
@@ -439,14 +476,14 @@ public partial class PropertyItemViewModel : ObservableObject
     public bool HasOptions => Options != null;
     public bool ShowTextBox => IsStringOrNumber && !HasOptions;
 
-    public string StringValue 
+    public string StringValue
     {
         get => Value?.ToString() ?? "";
-        set 
+        set
         {
             if (IsBinding)
                 return;
-            try 
+            try
             {
                 IsBinding = true;
                 if (PropertyType == typeof(string))
@@ -508,26 +545,26 @@ public partial class PropertyItemViewModel : ObservableObject
         get => Value is Color c ? $"#{c.R:X2}{c.G:X2}{c.B:X2}{c.A:X2}" : "";
         set
         {
-             // Try parsing as RGBA hex first (our format), then fall back to standard parsing
-             if (!string.IsNullOrEmpty(value))
-             {
-                 // Check if the target is a KaraokeClip (for which we use RGBA format)
-                 bool isLyricsClip = _targets.Count > 0 && _targets[0] is ClipViewModel cv && cv.RawClip is KaraokeClip;
-                 
-                 if (isLyricsClip)
-                 {
-                     // Use RGBA parsing for lyrics
-                     ColorValue = ClipViewModel.ParseRgbaHex(value);
-                 }
-                 else
-                 {
-                     // For other clips, use standard ARGB parsing with full alpha
-                     if (Color.TryParse(value, out Color c))
-                     {
-                         ColorValue = new Color(255, c.R, c.G, c.B);
-                     }
-                 }
-             }
+            // Try parsing as RGBA hex first (our format), then fall back to standard parsing
+            if (!string.IsNullOrEmpty(value))
+            {
+                // Check if the target is a KaraokeClip (for which we use RGBA format)
+                bool isLyricsClip = _targets.Count > 0 && _targets[0] is ClipViewModel cv && cv.RawClip is KaraokeClip;
+
+                if (isLyricsClip)
+                {
+                    // Use RGBA parsing for lyrics
+                    ColorValue = ClipViewModel.ParseRgbaHex(value);
+                }
+                else
+                {
+                    // For other clips, use standard ARGB parsing with full alpha
+                    if (Color.TryParse(value, out Color c))
+                    {
+                        ColorValue = new Color(255, c.R, c.G, c.B);
+                    }
+                }
+            }
         }
     }
 

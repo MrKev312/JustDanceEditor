@@ -39,33 +39,30 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     {
     }
 
-    protected override void HandleActiveTimelineChanged(TimelineEditorViewModel? value)
+    protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
-        if (_lastTimeline != null)
+        if (timeline != null)
         {
-            _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
-            _lastTimeline.PropertyChanged -= ActiveTimeline_PropertyChanged;
-            UnsubscribeLyricsTrack();
-        }
-
-        if (value != null)
-        {
-            value.Playback.TimeChanged += Playback_TimeChanged;
-            value.PropertyChanged += ActiveTimeline_PropertyChanged;
-
             // Parse lyrics color from RGBA format
-            TargetColor = ClipViewModel.ParseRgbaHex(value.LyricsColor);
+            TargetColor = ClipViewModel.ParseRgbaHex(timeline.LyricsColor);
+
+            // Ensure preview starts at current playback head
+            CurrentBeat = timeline.CurrentBeat;
         }
 
-        _lastTimeline = value;
-        BuildLines();
+        BuildLines(timeline);
         RefreshLyrics();
-        OnPropertyChanged(nameof(ActiveTimeline));
     }
 
-    private void ActiveTimeline_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
     {
-        if (e.PropertyName == nameof(TimelineEditorViewModel.LyricsColor))
+        UnsubscribeLyricsTrack();
+        _allLines.Clear();
+    }
+
+    protected override void OnTimelinePropertyChanged(string? propertyName)
+    {
+        if (propertyName == nameof(TimelineEditorViewModel.LyricsColor))
         {
             if (ActiveTimeline != null)
             {
@@ -74,9 +71,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
     }
 
-    private TimelineEditorViewModel? _lastTimeline;
-
-    private void Playback_TimeChanged(object? sender, EventArgs e)
+    protected override void OnTimeChanged()
     {
         CurrentBeat = ActiveTimeline?.CurrentBeat ?? 0;
         RefreshLyrics();
@@ -128,7 +123,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
 
         // Rebuild lines and refresh
-        BuildLines();
+        BuildLines(ActiveTimeline);
         RefreshLyrics();
     }
 
@@ -141,7 +136,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)) or (nameof(ClipViewModel.Name)))
             {
                 // When clip timing changes, rebuild and refresh so ordering reflects StartBeat
-                BuildLines();
+                BuildLines(ActiveTimeline);
                 RefreshLyrics();
             }
             else if (e.PropertyName == nameof(ClipViewModel.BackgroundColor))
@@ -168,13 +163,13 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
     }
 
-    private void BuildLines()
+    private void BuildLines(TimelineEditorViewModel? timeline)
     {
         _allLines.Clear();
-        if (ActiveTimeline == null)
+        if (timeline == null)
             return;
 
-        TrackViewModel? pictoTrack = ActiveTimeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
+        TrackViewModel? pictoTrack = timeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
         if (pictoTrack == null)
             return;
 

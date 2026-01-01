@@ -76,7 +76,7 @@ public partial class ClipViewModel : ViewModelBase
             picto.PictogramId = value;
             if (!string.IsNullOrEmpty(value) && _rootPath != null)
             {
-                 ImagePath = Path.Combine(_rootPath, "assets", "pictograms", $"{value}.webp");
+                ImagePath = Path.Combine(_rootPath, "assets", "pictograms", $"{value}.webp");
             }
         }
         else if (RawClip is MoveClip move)
@@ -150,7 +150,7 @@ public partial class ClipViewModel : ViewModelBase
 
         return Colors.White;
     }
-    
+
     public ClipViewModel(TimelineClipBase clip, double duration, Color color, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
     {
         _rootPath = rootPath;

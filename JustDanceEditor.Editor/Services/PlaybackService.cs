@@ -28,7 +28,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     public MediaPlayer? MediaPlayer => null; // Tools now manage their own video
     public bool IsPlaying { get; private set; }
 
-    public TimeSpan CurrentTime 
+    public TimeSpan CurrentTime
     {
         get
         {
@@ -85,7 +85,8 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         if (!string.IsNullOrEmpty(audioPath) && File.Exists(audioPath))
         {
-            await Task.Run(() => {
+            await Task.Run(() =>
+            {
                 // Load WAV with NAudio (reliable)
                 _audioFile = new AudioFileReader(audioPath);
                 _outputDevice = new WaveOutEvent();

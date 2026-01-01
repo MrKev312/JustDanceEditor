@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+
 using JustDanceEditor.Editor.ViewModels.Tools;
 
 namespace JustDanceEditor.Editor.Views.Tools;
@@ -40,7 +41,7 @@ public partial class PropertiesToolView : UserControl
                 {
                     // Revert text to current ViewModel value
                     tb.Text = vm.StringValue;
-                    
+
                     // Move focus to cancel edit mode
                     this.Focus();
                 }
@@ -52,14 +53,21 @@ public partial class PropertiesToolView : UserControl
 
     private void OnColorPickerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        // Find the PropertyItemViewModel for this ColorPicker
+        // Note: This event fires for ANY property change on the ColorPicker, including Color binding changes
+        // We should NOT use this to track open/close - only LostFocus and GotFocus should do that
+        // If we need to track live color changes, add a new event handler for GotFocus instead
+    }
+
+    private void OnColorPickerGotFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        // Open the color picker once when it gets focus
         if (sender is ColorPicker colorPicker)
         {
             var vm = colorPicker.DataContext as PropertyItemViewModel;
             if (vm == null)
                 return;
 
-            // Check if this is a new color picker (different from the last one)
+            // Only open if this is a new color picker
             if (vm != _lastColorPickerViewModel)
             {
                 // Close the previous color picker if there was one
@@ -92,4 +100,3 @@ public partial class PropertiesToolView : UserControl
         }
     }
 }
-

@@ -5,10 +5,26 @@ using Avalonia.Media.Imaging;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
+using System;
+using System.Collections.Generic;
+
 namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel
 {
+    // Cache clip-specific brushes to avoid recreating them frequently
+    private readonly Dictionary<Color, SolidColorBrush> _brushCache = [];
+
+    private SolidColorBrush GetOrCreateBrush(Color color)
+    {
+        if (!_brushCache.TryGetValue(color, out var brush))
+        {
+            brush = new SolidColorBrush(color);
+            _brushCache[color] = brush;
+        }
+        return brush;
+    }
+
     public override void Render(DrawingContext context)
     {
         Rect bounds = Bounds;
@@ -39,27 +55,22 @@ public partial class TimelineTrackPanel
         }
 
         // Draw box selection if active even when Clips is null
-        if (_isBoxSelecting)
+        if (_boxSelectionHandler?.IsActive == true)
         {
-            var x = System.Math.Min(_boxStartPoint.X, _boxCurrentPoint.X);
-            var y = System.Math.Min(_boxStartPoint.Y, _boxCurrentPoint.Y);
-            var w = System.Math.Abs(_boxCurrentPoint.X - _boxStartPoint.X);
-            var h = System.Math.Abs(_boxCurrentPoint.Y - _boxStartPoint.Y);
+            var x = System.Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
+            var y = System.Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
+            var w = System.Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
+            var h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
 
             var rect = new Rect(x, y, w, h);
-            var brush = new SolidColorBrush(new Color(64, 0, 120, 215));
-            var pen = new Pen(Brushes.Gold, 1);
-            context.FillRectangle(brush, rect);
-            context.DrawRectangle(null, pen, rect);
+            context.FillRectangle(_boxSelectionFill, rect);
+            context.DrawRectangle(null, _boxSelectionBorderPen, rect);
         }
 
         if (Clips == null)
             return;
 
         bool drawText = ppb > 10;
-
-        var selectionPen = new Pen(Brushes.Gold, 2.0);
-        var selectionOverlay = new SolidColorBrush(new Color(120, 255, 215, 0));
 
         foreach (ClipViewModel clip in Clips)
         {
@@ -77,24 +88,31 @@ public partial class TimelineTrackPanel
                 continue;
 
             var rect = new Rect(startX, 2, System.Math.Max(0, width), System.Math.Max(1, bounds.Height - 4));
-            context.FillRectangle(new SolidColorBrush(clip.BackgroundColor), rect);
 
-            var outlinePen = new Pen(Brushes.Black, System.Math.Max(1.0, rect.Height * 0.05), lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+            // Use cached brush for clip background
+            var clipBrush = GetOrCreateBrush(clip.BackgroundColor);
+            context.FillRectangle(clipBrush, rect);
+
+            // Use cached outline pen with computed thickness
+            var outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
+            var outlinePen = (outlineThickness == 1.0)
+                ? _blackOutlinePen
+                : new Pen(Brushes.Black, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             context.DrawRectangle(null, outlinePen, rect);
 
             // Selection visual
             if (clip.IsSelected)
             {
                 // Slight overlay and gold outline
-                context.FillRectangle(selectionOverlay, rect);
-                context.DrawRectangle(null, selectionPen, rect.Deflate(1));
+                context.FillRectangle(_selectionOverlay, rect);
+                context.DrawRectangle(null, _selectionPen, rect.Deflate(1));
             }
 
             if (clip.ImagePath != null)
             {
                 if (BitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
                 {
-                    var aspect = bmp.Size.Width / bmp.Size.Height;
+                    var aspect = bmp.Size.Width / (double)bmp.Size.Height;
                     var drawHeight = rect.Height;
                     var drawWidth = drawHeight * aspect;
 

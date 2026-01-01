@@ -68,7 +68,7 @@
 																	 IsAlphaEnabled="False"
 																	 IsEnabled="{Binding !IsReadOnly}"
 																	 Margin="0,0,8,0"
-																	 PropertyChanged="OnColorPickerPropertyChanged"
+																	 GotFocus="OnColorPickerGotFocus"
 																	 LostFocus="OnColorPickerLostFocus"/>
 
 														<!-- Hex Code -->

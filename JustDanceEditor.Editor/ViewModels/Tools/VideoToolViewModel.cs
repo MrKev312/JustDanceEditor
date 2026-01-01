@@ -12,7 +12,6 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 {
     public MediaPlayer MediaPlayer { get; }
-    private TimelineEditorViewModel? _lastTimeline;
 
     public VideoToolViewModel()
     {
@@ -25,13 +24,21 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             // Fallback for designer or tests
             MediaPlayer = new MediaPlayer(new LibVLC()) { Mute = true };
         }
+    }
 
+    protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
+    {
         SyncMedia();
     }
 
-    protected override void HandleActiveTimelineChanged(TimelineEditorViewModel? value)
+    protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
     {
-        SyncMedia();
+        MediaPlayer.Media = null;
+    }
+
+    protected override void OnTimeChanged()
+    {
+        SyncTime();
     }
 
     private void SyncMedia()
@@ -40,69 +47,44 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         if (MediaPlayer == null)
             return;
 
-        // Unsubscribe from previous
-        if (_lastTimeline != null)
-        {
-            _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
-            _lastTimeline.Playback.PlayStateChanged -= Playback_PlayStateChanged;
-        }
-
         if (ActiveTimeline != null && !string.IsNullOrEmpty(ActiveTimeline.VideoPath))
         {
             var app = (App)Avalonia.Application.Current!;
-            
+
             // Re-use or create media
             if (MediaPlayer.Media == null || MediaPlayer.Media.Mrl != ActiveTimeline.VideoPath)
             {
                 MediaPlayer.Media = new Media(app.LibVLC, ActiveTimeline.VideoPath, FromType.FromPath);
             }
-            
+
             // Initial sync
             SyncTime();
 
-            // Subscribe to timing changes
-            ActiveTimeline.Playback.TimeChanged += Playback_TimeChanged;
-            ActiveTimeline.Playback.PlayStateChanged += Playback_PlayStateChanged;
-            _lastTimeline = ActiveTimeline;
-            
             if (ActiveTimeline.Playback.IsPlaying)
             {
                 // Delay play slightly to ensure VideoView has time to process the MediaPlayer assignment
-                _ = Task.Delay(200).ContinueWith(_ => {
-                     Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                         if (ActiveTimeline?.Playback.IsPlaying == true)
+                _ = Task.Delay(200).ContinueWith(_ =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (ActiveTimeline?.Playback.IsPlaying == true)
                             MediaPlayer.Play();
-                     });
+                    });
                 });
             }
         }
         else
         {
             MediaPlayer.Media = null;
-            _lastTimeline = null;
         }
     }
 
-    private void Playback_PlayStateChanged(object? sender, EventArgs e)
+    protected override void OnTimelinePropertyChanged(string? propertyName)
     {
-        if (ActiveTimeline?.Playback.IsPlaying == true)
+        if (propertyName == nameof(TimelineEditorViewModel.VideoPath))
         {
-            if (MediaPlayer.State == VLCState.Ended)
-            {
-                MediaPlayer.Stop();
-            }
-
-            MediaPlayer.Play();
+            SyncMedia();
         }
-        else
-        {
-            MediaPlayer.Pause();
-        }
-    }
-
-    private void Playback_TimeChanged(object? sender, EventArgs e)
-    {
-        SyncTime();
     }
 
     private DateTime _lastSyncTime = DateTime.MinValue;
@@ -123,10 +105,10 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
         double currentSeconds = ActiveTimeline.Playback.CurrentTime.TotalSeconds;
         double startOffset = ActiveTimeline.TimelineStructure.GetSongStartOffset();
-        
+
         double targetSeconds = currentSeconds + startOffset + ActiveTimeline.VideoOffset;
         long targetMs = (long)(targetSeconds * 1000);
-        
+
         // Use a much larger tolerance when playing (drift check) than when scrubbing (frame precision)
         long tolerance = editorIsPlaying ? 500 : 50;
         long diff = Math.Abs(MediaPlayer.Time - targetMs);
@@ -137,7 +119,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             {
                 MediaPlayer.Stop();
             }
-            
+
             // Re-start if it was stopped/finished
             if (MediaPlayer.State is VLCState.Stopped or VLCState.NothingSpecial)
             {
@@ -169,14 +151,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
     public void Dispose()
     {
-        if (_lastTimeline != null)
-        {
-            _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
-            _lastTimeline.Playback.PlayStateChanged -= Playback_PlayStateChanged;
-        }
-
         MediaPlayer?.Dispose();
-
         GC.SuppressFinalize(this);
     }
 }

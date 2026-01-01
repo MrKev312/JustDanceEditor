@@ -35,7 +35,7 @@ public static class UnityAssetMaterializer
         try
         {
             Logger.Log("Extracting assets in parallel...", LogLevel.Debug);
-            
+
             // Parallelize all independent extraction operations
             Parallel.Invoke(
                 () => CopyAudio(unityRoot, targetRoot),

@@ -172,7 +172,7 @@ public class TimelineStructureDocument
             return 0;
 
         double timeMs = Markers[beatIndex] / 48.0;
-        
+
         // "set the sign to the input sign"
         double offsetSeconds = timeMs / 1000.0;
         return StartBeat < 0 ? -offsetSeconds : offsetSeconds;

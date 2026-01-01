@@ -100,13 +100,13 @@ public class PictogramScrollingPanel : Panel
             Control child = children[i];
             if (child is not Control control)
             {
-                child.Arrange(new Rect(0,0,0,0));
+                child.Arrange(new Rect(0, 0, 0, 0));
                 continue;
             }
 
             if (control.DataContext is not ClipViewModel clip)
             {
-                child.Arrange(new Rect(0,0,0,0));
+                child.Arrange(new Rect(0, 0, 0, 0));
                 continue;
             }
 
@@ -121,21 +121,21 @@ public class PictogramScrollingPanel : Panel
 
             double drawX = finalSize.Width * relPos;
             double drawWidth = finalSize.Width * relWidth;
-            
+
             // Aspect ratio handling: try to get it from the control if it's an Image
             double aspect = 1.0;
             if (control is Image img && img.Source != null)
             {
                 aspect = img.Source.Size.Height / img.Source.Size.Width;
             }
-            
+
             double drawHeight = drawWidth * aspect;
             double drawY = (finalSize.Height - drawHeight) / 2.0;
 
             // Handle fading/perspective at the start
             double offScreenLeft = (drawX < 0) ? (-drawX / drawWidth) : 0f;
             double opacity = Math.Max(0, Math.Min(1.0, 1.0 - (1.8 * offScreenLeft)));
-            
+
             if (drawX < 0)
             {
                 drawY -= 0.4 * drawHeight * offScreenLeft;
@@ -145,13 +145,13 @@ public class PictogramScrollingPanel : Panel
             // Fast path: if fully off-screen skip work
             if (drawX + drawWidth < 0 || drawX > finalSize.Width)
             {
-                control.Arrange(new Rect(0,0,0,0));
+                control.Arrange(new Rect(0, 0, 0, 0));
                 control.Opacity = 0;
                 continue;
             }
 
             control.Opacity = opacity;
-            
+
             if (opacity <= 0.01 || drawWidth <= 0 || drawHeight <= 0)
             {
                 control.Arrange(new Rect(0, 0, 0, 0));

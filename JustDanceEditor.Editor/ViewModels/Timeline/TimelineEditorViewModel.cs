@@ -27,6 +27,11 @@ public partial class TimelineEditorViewModel : Document
 
     public string RootPath { get; }
 
+    /// <summary>
+    /// Gets the undo/redo service for this timeline.
+    /// </summary>
+    public IUndoService UndoService { get; }
+
     [ObservableProperty]
     public partial double PixelsPerBeat { get; set; } = 100.0;
 
@@ -106,9 +111,9 @@ public partial class TimelineEditorViewModel : Document
 
     public IEnumerable<string> AvailableHandCoachMoves => _package.HandCoachMoves.Keys;
     public IEnumerable<string> AvailableFullBodyCoachMoves => _package.FullBodyCoachMoves.Keys;
-    public IEnumerable<string> AvailablePictograms 
+    public IEnumerable<string> AvailablePictograms
     {
-        get 
+        get
         {
             var dir = Path.Combine(RootPath, "assets", "pictograms");
             if (!Directory.Exists(dir))
@@ -130,6 +135,9 @@ public partial class TimelineEditorViewModel : Document
         RootPath = rootPath;
         Id = package.Metadata.SongID.ToString();
         Title = package.Metadata.MapName;
+
+        // Create undo service for this timeline
+        UndoService = new UndoService();
 
         Playback = new PlaybackService();
         Playback.TimeChanged += (s, e) => CurrentBeat = Playback.CurrentBeat;
@@ -227,8 +235,8 @@ public partial class TimelineEditorViewModel : Document
 
         // Ensure this timeline is loaded
         await Playback.LoadMediaAsync(
-            PreparedAudioPath, 
-            VideoPath, 
+            PreparedAudioPath,
+            VideoPath,
             b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
             s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)),
             VideoOffset);
@@ -239,7 +247,6 @@ public partial class TimelineEditorViewModel : Document
     private void BuildTimeline()
     {
         // 1. Lyrics
-        // Parse the lyrics color from RGBA hex format
         Color lyricsColor = Colors.Yellow;
         if (!string.IsNullOrEmpty(_package.Metadata.LyricsColor))
         {
@@ -251,7 +258,6 @@ public partial class TimelineEditorViewModel : Document
         {
             lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, lyricsColor, clip.Lyrics, RootPath, this));
         }
-
         Tracks.Add(lyricsTrack);
 
         // 2. Pictograms
@@ -260,7 +266,6 @@ public partial class TimelineEditorViewModel : Document
         {
             pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, RootPath, this));
         }
-
         Tracks.Add(pictoTrack);
 
         // 3. Coaches
@@ -277,14 +282,12 @@ public partial class TimelineEditorViewModel : Document
                         color = c;
                     duration = def.Duration;
                 }
-
                 coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
             }
-
             Tracks.Add(coachTrack);
         }
 
-        // 3b. Full-body coaches (if present)
+        // 3b. Full-body coaches
         foreach (MoveTimeline fullBodyTimeline in _package.FullBodyCoachTimelines)
         {
             TrackViewModel fbTrack = new() { Title = $"FullBody Coach {fullBodyTimeline.CoachId}", Height = 60, TrackColor = Colors.SeaGreen };
@@ -298,10 +301,8 @@ public partial class TimelineEditorViewModel : Document
                         color = c;
                     duration = def.Duration;
                 }
-
                 fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
             }
-
             Tracks.Add(fbTrack);
         }
 
@@ -311,7 +312,6 @@ public partial class TimelineEditorViewModel : Document
         {
             goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", RootPath, this));
         }
-
         Tracks.Add(goldTrack);
     }
 
@@ -348,7 +348,7 @@ public partial class TimelineEditorViewModel : Document
     {
         if (MaxBeat <= 0)
             return;
-        
+
         // Calculate the zoom level that fits the whole song
         double fitPpb = viewportWidth / MaxBeat;
         MinZoomPercentage = fitPpb;
@@ -367,31 +367,13 @@ public partial class TimelineEditorViewModel : Document
     [RelayCommand]
     private void Undo()
     {
-        if (_undoStack.Count == 0)
-            return;
-        (Action Undo, Action Redo) item = _undoStack.Pop();
-        try
-        {
-            item.Undo();
-        }
-        catch { }
-
-        _redoStack.Push(item);
+        UndoService.Undo();
     }
 
     [RelayCommand]
     private void Redo()
     {
-        if (_redoStack.Count == 0)
-            return;
-        (Action Undo, Action Redo) item = _redoStack.Pop();
-        try
-        {
-            item.Redo();
-        }
-        catch { }
-
-        _undoStack.Push(item);
+        UndoService.Redo();
     }
 
     [RelayCommand]
@@ -413,17 +395,17 @@ public partial class TimelineEditorViewModel : Document
             return;
 
         PushUndo(
-            undo: () => 
+            undo: () =>
             {
-                foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+                foreach ((TrackViewModel Track, ClipViewModel Clip) in toDelete)
                 {
                     if (!Track.Clips.Contains(Clip))
                         Track.Clips.Add(Clip);
-                } 
+                }
             },
-            redo: () => 
+            redo: () =>
             {
-                foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+                foreach ((TrackViewModel Track, ClipViewModel Clip) in toDelete)
                 {
                     Track.Clips.Remove(Clip);
                 }
@@ -431,7 +413,7 @@ public partial class TimelineEditorViewModel : Document
         );
 
         // Execute
-        foreach((TrackViewModel Track, ClipViewModel Clip) in toDelete)
+        foreach ((TrackViewModel Track, ClipViewModel Clip) in toDelete)
         {
             Track.Clips.Remove(Clip);
         }
@@ -441,12 +423,12 @@ public partial class TimelineEditorViewModel : Document
     {
         if (undo == null || redo == null)
             return;
-        _undoStack.Push((undo, redo));
-        _redoStack.Clear();
+        UndoService.Record(undo, redo);
     }
 
     /// <summary>
     /// Updates the lyrics color in the metadata and triggers rerender.
+    /// Note: This does NOT record undo/redo. Call PushUndo separately if needed.
     /// </summary>
     public void UpdateLyricsColor(string rgbaHexColor)
     {

@@ -148,7 +148,7 @@ public class TimeRulerControl : Control
 
             bool isMajor = (i + offset) % 4 == 0; // Keeping 4 for labels for now, or could sync with signatures too
             double tickHeight = isMajor ? 12 : 6;
-            
+
             context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
 
             if (isMajor)
@@ -160,7 +160,7 @@ public class TimeRulerControl : Control
                     new Typeface("Arial"),
                     10,
                     labelBrush);
-                
+
                 context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
             }
         }
@@ -196,7 +196,7 @@ public class TimeRulerControl : Control
 
             SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
             context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
-            
+
             measureIndex++;
         }
     }

@@ -14,7 +14,7 @@ public static class LuaTableSerializer
         lua.DoString("function includeReference(path) end");
         lua.DoString("NumCoach = { Solo = 1, Duo = 2, Trio = 3, Quatuor = 4 }");
         lua.DoString("SongDifficulty = { Easy = 1, Normal = 2, Hard = 3, Extreme = 4 }");
-        lua.DoString("GameMode = { Classic = 0 }"); 
+        lua.DoString("GameMode = { Classic = 0 }");
         lua.DoString("GameModeFlags = { None = 0 }");
         lua.DoString("GameModeStatus = { Available = 0 }");
         lua.DoString("structure = { }"); // For MusicTrack
@@ -34,12 +34,12 @@ public static class LuaTableSerializer
         IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
         Console.WriteLine($"DEBUG JSON: {json}");
-        
+
         if (typeof(T) == typeof(SongDesc))
         {
             return (T)(object)MapToSongDesc(JsonSerializer.Deserialize<JsonElement>(json));
         }
-        
+
         if (typeof(T) == typeof(Tapes.ClipTape))
         {
             return (T)(object)MapToClipTape(JsonSerializer.Deserialize<JsonElement>(json));
@@ -79,10 +79,10 @@ public static class LuaTableSerializer
                                     dict[componentProp.Name] = componentProp.Value;
                                 }
                             }
-                            
+
                             string sanitizedJson = JsonSerializer.Serialize(dict);
                             InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
-                            
+
                             // Manually map DefaultColors if it was an array
                             if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
                             {
@@ -101,7 +101,7 @@ public static class LuaTableSerializer
                                             float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
                                             float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
                                             var rgba = new[] { a, r, g, b };
-                                            
+
                                             if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
                                                 info.DefaultColors.lyrics = rgba;
                                             else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase))
@@ -274,7 +274,7 @@ public static class LuaTableSerializer
             count++;
         if (count == 0)
             return true; // Default empty tables to arrays for better JSON compatibility
-        
+
         for (int i = 1; i <= count; i++)
         {
             if (table[i] == null)

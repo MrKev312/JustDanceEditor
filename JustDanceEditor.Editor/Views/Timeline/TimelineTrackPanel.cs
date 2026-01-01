@@ -2,8 +2,10 @@
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views.Timeline.Interactions;
 
 using System;
 using System.Collections.Generic;
@@ -66,6 +68,11 @@ public partial class TimelineTrackPanel : Control
     // --- Caches & Resources ---
 
     private static readonly Pen _linePen = new(Brushes.White, 1);
+    private static readonly Pen _selectionPen = new(Brushes.Gold, 2.0);
+    private static readonly Pen _blackOutlinePen = new(Brushes.Black, 1.0);
+    private static readonly Pen _boxSelectionBorderPen = new(Brushes.Gold, 1);
+    private static readonly SolidColorBrush _boxSelectionFill = new(new Color(64, 0, 120, 215));
+    private static readonly SolidColorBrush _selectionOverlay = new(new Color(120, 255, 215, 0));
     private static readonly Typeface _textTypeface = new("Arial");
     private static readonly CultureInfo _culture = CultureInfo.CurrentCulture;
 
@@ -75,31 +82,16 @@ public partial class TimelineTrackPanel : Control
     // Track per-clip handlers so external updates invalidate visuals
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
 
-    // Dragging state
-    private ClipViewModel? _draggingClip;
-    private double _dragStartPointerX;
-    private double _dragOriginalStartBeat;
-    private bool _isDragging;
-
-    // Multi-drag
-    private bool _isMultiDragging;
-    private Dictionary<ClipViewModel, double>? _multiDragOriginalStarts;
-
-    // Resize state
-    private bool _isResizingLeft;
-    private bool _isResizingRight;
-    private double _resizeStartPointerX;
-    private double _resizeOriginalStart;
-    private double _resizeOriginalDuration;
-    private const double ResizeHitThreshold = 6.0; // pixels
+    // Resize hit threshold (pixels)
+    private const double ResizeHitThreshold = 6.0;
 
     // Track last explicitly selected clip for shift-range selection
     private ClipViewModel? _lastSelectedClip;
 
-    // Box selection state
-    private bool _isBoxSelecting;
-    private Point _boxStartPoint;
-    private Point _boxCurrentPoint;
+    // --- Interaction Handlers ---
+    private ClipDragHandler? _dragHandler;
+    private ClipResizeHandler? _resizeHandler;
+    private BoxSelectionHandler? _boxSelectionHandler;
 
     static TimelineTrackPanel()
     {
@@ -117,6 +109,14 @@ public partial class TimelineTrackPanel : Control
         ClipsProperty.Changed.AddClassHandler<TimelineTrackPanel>((x, e) => x.OnClipsChanged(e));
     }
 
+    public TimelineTrackPanel()
+    {
+        // Initialize interaction handlers
+        _dragHandler = new ClipDragHandler(this);
+        _resizeHandler = new ClipResizeHandler(this);
+        _boxSelectionHandler = new BoxSelectionHandler(this);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -127,6 +127,25 @@ public partial class TimelineTrackPanel : Control
             InvalidateMeasure();
             InvalidateVisual();
         }
+    }
+
+    /// <summary>
+    /// Helper method to find the parent TimelineEditorViewModel for this panel.
+    /// </summary>
+    private TimelineEditorViewModel? GetTimelineVM()
+    {
+        Visual? visualParent = this.GetVisualParent();
+        while (visualParent != null)
+        {
+            if (visualParent is Control c && c.DataContext is TimelineEditorViewModel t)
+            {
+                return t;
+            }
+
+            visualParent = visualParent.GetVisualParent();
+        }
+
+        return null;
     }
 
     private void OnClipsChanged(AvaloniaPropertyChangedEventArgs e)

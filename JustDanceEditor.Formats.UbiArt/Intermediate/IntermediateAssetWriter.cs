@@ -28,7 +28,7 @@ internal static class IntermediateAssetWriter
         ResetAssetsRoot(packageRoot);
 
         await EnsurePrerequisitesAsync();
-        
+
         JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
         string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
         string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
@@ -42,7 +42,7 @@ internal static class IntermediateAssetWriter
             PreviewOutputFolder = audioPreviewFolder,
         });
         Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder));
-        
+
         await Task.WhenAll(pictoTask, audioTask, videoTask);
 
         string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
@@ -78,7 +78,7 @@ internal static class IntermediateAssetWriter
         Task brandingTask = Task.Run(() => AttachBrandingAssets(context, packageRoot));
         Task coachTask = Task.Run(() => AttachCoachAssets(context, packageRoot));
         Task motionTask = Task.Run(() => AttachMotionAssets(context, packageRoot));
-        
+
         await Task.WhenAll(brandingTask, coachTask, motionTask);
     }
 
@@ -93,7 +93,7 @@ internal static class IntermediateAssetWriter
         Logger.Log($"Attempting to export cover image from menu art folder: {context.FileSystem.InputFolders.MenuArtFolder}", LogLevel.Debug);
 
         Image<Bgra32>? cover = UbiArtCoverGenerator.ExistingCover(context);
-        
+
         if (cover != null)
         {
             Logger.Log("Using existing cover image", LogLevel.Info);
@@ -116,7 +116,7 @@ internal static class IntermediateAssetWriter
             cover.Save(destination, Encoder);
             Logger.Log($"Saved cover image to: {destination}", LogLevel.Info);
         }
-        
+
         return destination;
     }
 

@@ -65,14 +65,27 @@ public class JustDanceDockFactory(MainWindowViewModel context) : Factory
 
     public override void SetActiveDockable(IDockable? dockable)
     {
-        base.SetActiveDockable(dockable!);
+        // If null, do not call base (base expects a non-null active dockable)
+        if (dockable == null)
+        {
+            UpdateContext(null);
+            return;
+        }
 
+        base.SetActiveDockable(dockable);
         UpdateContext(dockable);
     }
 
     public override void SetFocusedDockable(IDock? dock, IDockable? dockable)
     {
-        base.SetFocusedDockable(dock, dockable!);
+        // Guard against null dock to avoid passing null to base implementation
+        if (dock == null)
+        {
+            UpdateContext(dockable);
+            return;
+        }
+
+        base.SetFocusedDockable(dock, dockable);
 
         UpdateContext(dockable);
     }

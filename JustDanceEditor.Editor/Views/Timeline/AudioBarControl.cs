@@ -53,6 +53,12 @@ public class AudioBarControl : Control
 
     private static readonly Dictionary<SongSectionType, Color> _sectionColors = [];
 
+    // Cached render resources
+    private static readonly Pen _waveformPen = new(new SolidColorBrush(Colors.LimeGreen, 0.8), 1);
+    private static readonly Pen _sectionBorderPen = new(Brushes.White, 1, new DashStyle([2, 2], 0));
+    private static readonly SolidColorBrush _sectionBgBrush = new(Colors.Black, 0.5);
+    private static readonly Typeface _textTypeface = new("Arial");
+
     // scrubbing state
     private bool _isScrubbing = false;
 
@@ -197,8 +203,9 @@ public class AudioBarControl : Control
 
                 if (startX < bounds.Width && endX > 0)
                 {
+                    var sectionBrush = new SolidColorBrush(color, 0.3);
                     var rect = new Rect(Math.Max(0, startX), 0, Math.Min(bounds.Width, endX) - Math.Max(0, startX), bounds.Height);
-                    context.FillRectangle(new SolidColorBrush(color, 0.3), rect);
+                    context.FillRectangle(sectionBrush, rect);
                 }
             }
         }
@@ -207,8 +214,6 @@ public class AudioBarControl : Control
         if (Samples != null && Samples.Length > 0)
         {
             double totalWidth = bounds.Width;
-
-            var pen = new Pen(new SolidColorBrush(Colors.LimeGreen, 0.8), 1);
             double centerY = bounds.Height / 2;
 
             int step = Math.Max(1, Samples.Length / (int)Math.Max(1, totalWidth));
@@ -220,7 +225,7 @@ public class AudioBarControl : Control
 
                 float val = Samples[sampleIdx];
                 double h = val * centerY * 0.8;
-                context.DrawLine(pen, new Point(x, centerY - h), new Point(x, centerY + h));
+                context.DrawLine(_waveformPen, new Point(x, centerY - h), new Point(x, centerY + h));
             }
         }
 
@@ -234,19 +239,19 @@ public class AudioBarControl : Control
                 if (x >= 0 && x < bounds.Width)
                 {
                     // Draw vertical line
-                    context.DrawLine(new Pen(Brushes.White, 1, new DashStyle([2, 2], 0)), new Point(x, 0), new Point(x, bounds.Height));
+                    context.DrawLine(_sectionBorderPen, new Point(x, 0), new Point(x, bounds.Height));
 
-                    // Draw text
+                    // Draw text (create FormattedText only when needed)
                     var text = new FormattedText(
                         section.SectionType.ToString(),
                         System.Globalization.CultureInfo.CurrentCulture,
                         FlowDirection.LeftToRight,
-                        new Typeface("Arial"),
+                        _textTypeface,
                         10,
                         Brushes.White);
 
                     var bgRect = new Rect(x + 2, 2, text.Width + 4, text.Height + 2);
-                    context.FillRectangle(new SolidColorBrush(Colors.Black, 0.5), bgRect);
+                    context.FillRectangle(_sectionBgBrush, bgRect);
                     context.DrawText(text, new Point(x + 4, 3));
                 }
             }

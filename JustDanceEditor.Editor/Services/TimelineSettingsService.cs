@@ -8,7 +8,9 @@ public class TimelineSettingsService : INotifyPropertyChanged
 
     private TimelineSettingsService() { }
 
-    public bool SnapToGrid { get; set
+    public bool SnapToGrid
+    {
+        get; set
         {
             if (field == value)
                 return;
@@ -17,7 +19,9 @@ public class TimelineSettingsService : INotifyPropertyChanged
         }
     }
 
-    public bool SnapToCurrentTimeMarker { get; set
+    public bool SnapToCurrentTimeMarker
+    {
+        get; set
         {
             if (field == value)
                 return;
@@ -26,7 +30,9 @@ public class TimelineSettingsService : INotifyPropertyChanged
         }
     }
 
-    public double SnapGridSize { get; set
+    public double SnapGridSize
+    {
+        get; set
         {
             if (System.Math.Abs(field - value) < 1e-9)
                 return;
@@ -35,7 +41,9 @@ public class TimelineSettingsService : INotifyPropertyChanged
         }
     } = 1.0;
 
-    public double SnapThreshold { get; set
+    public double SnapThreshold
+    {
+        get; set
         {
             if (System.Math.Abs(field - value) < 1e-9)
                 return;
@@ -44,7 +52,9 @@ public class TimelineSettingsService : INotifyPropertyChanged
         }
     } = 0.25;
 
-    public bool SnapToClips { get; set
+    public bool SnapToClips
+    {
+        get; set
         {
             if (field == value)
                 return;

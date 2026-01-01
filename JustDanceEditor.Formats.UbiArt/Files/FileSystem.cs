@@ -135,7 +135,7 @@ public class FileSystem
                 filePath = new(directChild);
                 return true;
             }
-            
+
             // Check if it's world/maps/... but user pointed to the song folder
             // e.g. relativeFilePath = world/maps/songname/songdesc.tpl
             // but InputPath = .../songname

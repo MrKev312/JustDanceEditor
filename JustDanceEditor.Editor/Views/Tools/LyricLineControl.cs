@@ -254,7 +254,8 @@ public class LyricLineControl : Control
         double scale = Math.Min(1.0, (Bounds.Width - 40) / Math.Max(1, _measuredTotalWidth));
         double fontSize = baseFontSize * scale;
 
-        var syllables = _measuredSyllables.Select(s => {
+        var syllables = _measuredSyllables.Select(s =>
+        {
             var ft = new FormattedText(s.Text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, fontSize, Brushes.White);
             return new { s.Clip, s.Text, FT = ft };
         }).ToList();

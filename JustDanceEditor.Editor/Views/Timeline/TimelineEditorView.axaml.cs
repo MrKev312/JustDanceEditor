@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views.Timeline.Behaviors;
 
 using System;
 
@@ -10,44 +11,24 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineEditorView : UserControl
 {
-    private ScrollViewer? _scrollViewer;
-    private double _lastPixelsPerBeat;
+    private TimelineNavigationBehavior? _navigationBehavior;
 
     public TimelineEditorView()
     {
         InitializeComponent();
-        _scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+    }
 
-        this.PointerPressed += (s, e) => this.Focus();
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
 
-        DataContextChanged += (s, e) =>
+        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+        if (scrollViewer != null)
         {
-            if (DataContext is TimelineEditorViewModel vm)
-            {
-                _lastPixelsPerBeat = vm.PixelsPerBeat;
-                vm.PropertyChanged += Vm_PropertyChanged;
-                _isInitialFitNeeded = true;
-            }
-        };
-
-        _scrollViewer?.EffectiveViewportChanged += (s, e) =>
-        {
-            if (DataContext is TimelineEditorViewModel vm && _scrollViewer != null)
-            {
-                double viewportWidth = _scrollViewer.Viewport.Width;
-                if (viewportWidth > 0 && vm.MaxBeat > 0)
-                {
-                    double fitPpb = viewportWidth / vm.MaxBeat;
-                    vm.MinZoomPercentage = fitPpb;
-
-                    if (_isInitialFitNeeded)
-                    {
-                        vm.ZoomPercentage = fitPpb;
-                        _isInitialFitNeeded = false;
-                    }
-                }
-            }
-        };
+            // Create and attach the behavior
+            _navigationBehavior = new TimelineNavigationBehavior();
+            TimelineNavigationBehavior.SetInstance(scrollViewer, _navigationBehavior);
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -55,6 +36,14 @@ public partial class TimelineEditorView : UserControl
         if (DataContext is TimelineEditorViewModel vm && Application.Current is App app)
         {
             app.TimelineContext.DetachTimeline(vm);
+        }
+
+        // Clean up behavior
+        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+        if (scrollViewer != null && _navigationBehavior != null)
+        {
+            TimelineNavigationBehavior.SetInstance(scrollViewer, null);
+            _navigationBehavior = null;
         }
 
         base.OnDetachedFromVisualTree(e);
@@ -70,77 +59,9 @@ public partial class TimelineEditorView : UserControl
         }
     }
 
-    private bool _isInitialFitNeeded = false;
-
-    private DateTime _lastScrollTime = DateTime.MinValue;
-
-    private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (sender is not TimelineEditorViewModel vm || _scrollViewer == null)
-            return;
-
-        if (e.PropertyName == nameof(TimelineEditorViewModel.PixelsPerBeat))
-        {
-            // Zoom from middle
-            double oldPpb = _lastPixelsPerBeat;
-            double newPpb = vm.PixelsPerBeat;
-            _lastPixelsPerBeat = newPpb;
-
-            double viewportWidth = _scrollViewer.Viewport.Width;
-            double currentOffset = _scrollViewer.Offset.X;
-
-            // Beat at middle of screen
-            double centerBeat = (currentOffset + (viewportWidth / 2.0)) / oldPpb;
-
-            // New offset to keep centerBeat at the middle
-            double newOffset = (centerBeat * newPpb) - (viewportWidth / 2.0);
-
-            _scrollViewer.Offset = new Vector(Math.Max(0, newOffset), _scrollViewer.Offset.Y);
-        }
-        else if (e.PropertyName == nameof(TimelineEditorViewModel.CurrentBeat))
-        {
-            if (vm.Playback.IsPlaying)
-            {
-                // Throttle auto-scroll to ~10 times per second
-                if ((DateTime.UtcNow - _lastScrollTime).TotalMilliseconds < 100)
-                    return;
-                _lastScrollTime = DateTime.UtcNow;
-
-                double ppb = vm.PixelsPerBeat;
-                double x = (vm.CurrentBeat - vm.BeatOffset) * ppb;
-                double viewportWidth = _scrollViewer.Viewport.Width;
-                double currentOffset = _scrollViewer.Offset.X;
-
-                // If playhead is outside the middle 60% of the screen, scroll to it
-                double margin = viewportWidth * 0.2;
-                if (x < currentOffset + margin || x > currentOffset + viewportWidth - margin)
-                {
-                    double targetOffset = x - (viewportWidth / 2.0);
-                    _scrollViewer.Offset = new Vector(Math.Max(0, targetOffset), _scrollViewer.Offset.Y);
-                }
-            }
-        }
-    }
-
-    private void TimelineScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (DataContext is not TimelineEditorViewModel vm || _scrollViewer == null)
-            return;
-
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
-        {
-            // Zooming
-            double zoomFactor = e.Delta.Y > 0 ? 1.1 : 0.9;
-            vm.PixelsPerBeat *= zoomFactor;
-            e.Handled = true;
-        }
-        else
-        {
-            // Horizontal scrolling by default (DAW style)
-            double scrollAmount = e.Delta.Y * -50.0;
-            double newOffset = _scrollViewer.Offset.X + scrollAmount;
-            _scrollViewer.Offset = new Vector(Math.Max(0, newOffset), _scrollViewer.Offset.Y);
-            e.Handled = true;
-        }
+        base.OnPointerPressed(e);
+        this.Focus();
     }
 }

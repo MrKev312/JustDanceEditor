@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging.Messages;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System.Collections.Generic;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.Services;
 
@@ -22,8 +23,18 @@ public partial class TimelineContextService : ObservableObject, ITimelineContext
             return;
 
         ActiveTimeline = timeline;
-        // Clear selection when changing timeline context
-        SelectedObjects = [];
+
+        // When switching to a new timeline, try to preserve any currently selected objects
+        if (timeline == null)
+        {
+            SelectedObjects = [];
+        }
+        else
+        {
+            // Gather selected clips across all tracks in the timeline
+            SelectedObjects = timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>().ToList();
+        }
+
         WeakReferenceMessenger.Default.Send(new ActiveTimelineChangedMessage(timeline));
     }
 
