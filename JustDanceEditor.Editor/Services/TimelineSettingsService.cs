@@ -1,67 +1,25 @@
-using System.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace JustDanceEditor.Editor.Services;
 
-public class TimelineSettingsService : INotifyPropertyChanged
+public partial class TimelineSettingsService : ObservableObject
 {
     public static TimelineSettingsService Instance { get; } = new TimelineSettingsService();
 
     private TimelineSettingsService() { }
 
-    public bool SnapToGrid
-    {
-        get; set
-        {
-            if (field == value)
-                return;
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnapToGrid)));
-        }
-    }
+    [ObservableProperty]
+    public partial bool SnapToGrid { get; set; }
 
-    public bool SnapToCurrentTimeMarker
-    {
-        get; set
-        {
-            if (field == value)
-                return;
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnapToCurrentTimeMarker)));
-        }
-    }
+    [ObservableProperty]
+    public partial bool SnapToCurrentTimeMarker { get; set; }
 
-    public double SnapGridSize
-    {
-        get; set
-        {
-            if (System.Math.Abs(field - value) < 1e-9)
-                return;
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnapGridSize)));
-        }
-    } = 1.0;
+    [ObservableProperty]
+    public partial double SnapGridSize { get; set; } = 1.0;
 
-    public double SnapThreshold
-    {
-        get; set
-        {
-            if (System.Math.Abs(field - value) < 1e-9)
-                return;
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnapThreshold)));
-        }
-    } = 0.25;
+    [ObservableProperty]
+    public partial double SnapThreshold { get; set; } = 0.25;
 
-    public bool SnapToClips
-    {
-        get; set
-        {
-            if (field == value)
-                return;
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnapToClips)));
-        }
-    }
-
-    public event PropertyChangedEventHandler? PropertyChanged;
+    [ObservableProperty]
+    public partial bool SnapToClips { get; set; }
 }

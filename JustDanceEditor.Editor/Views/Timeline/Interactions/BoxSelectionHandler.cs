@@ -14,9 +14,8 @@ namespace JustDanceEditor.Editor.Views.Timeline.Interactions;
 /// <summary>
 /// Handles marquee (box) selection in the timeline.
 /// </summary>
-public class BoxSelectionHandler(TimelineTrackPanel panel)
+public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteractionHandler(panel)
 {
-    private readonly TimelineTrackPanel _panel = panel;
     private ClipViewModel? _lastSelectedClip;
 
     private const double MinDragDistance = 4.0;
@@ -31,7 +30,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel)
         StartPoint = startPoint;
         CurrentPoint = startPoint;
 
-        try { e.Pointer.Capture(_panel); } catch { }
+        Capture(e);
         try { _panel.Focus(); } catch { }
 
         _panel.Cursor = new Cursor(StandardCursorType.Cross);
@@ -48,7 +47,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel)
     {
         IsActive = false;
 
-        try { e?.Pointer.Capture(null); } catch { }
+        Release(e);
 
         _panel.Cursor = new Cursor(StandardCursorType.Arrow);
 
@@ -106,7 +105,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel)
     {
         IsActive = false;
 
-        try { e?.Pointer.Capture(null); } catch { }
+        Release(e);
 
         _panel.Cursor = new Cursor(StandardCursorType.Arrow);
     }

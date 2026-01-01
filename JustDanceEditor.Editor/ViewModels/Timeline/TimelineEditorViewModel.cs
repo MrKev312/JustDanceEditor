@@ -21,7 +21,7 @@ using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class TimelineEditorViewModel : Document
+public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.Services.ILyricsColorService
 {
     private readonly IntermediateSongPackage _package;
 
@@ -246,73 +246,65 @@ public partial class TimelineEditorViewModel : Document
 
     private void BuildTimeline()
     {
-        // 1. Lyrics
+        // Determine lyrics color once
         Color lyricsColor = Colors.Yellow;
         if (!string.IsNullOrEmpty(_package.Metadata.LyricsColor))
         {
             lyricsColor = ClipViewModel.ParseRgbaHex(_package.Metadata.LyricsColor);
         }
 
-        TrackViewModel lyricsTrack = new() { Title = "Lyrics", Height = 40, TrackColor = Colors.Goldenrod };
-        foreach (KaraokeClip clip in _package.Lyrics.Clips)
+        // Helper-local to capture lyricsColor where needed
+        void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips)
         {
-            lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, lyricsColor, clip.Lyrics, RootPath, this));
+            var track = new TrackViewModel() { Title = title, Height = height, TrackColor = color };
+            foreach (TimelineClipBase clip in clips)
+            {
+                switch (clip)
+                {
+                    case KaraokeClip kc:
+                        track.Clips.Add(new ClipViewModel(kc, kc.Duration, lyricsColor, kc.Lyrics, RootPath, this));
+                        break;
+                    case PictogramClip pc:
+                        track.Clips.Add(new ClipViewModel(pc, pc.Duration, Colors.LightBlue, pc.PictogramId, RootPath, this));
+                        break;
+                    case MoveClip mc:
+                    {
+                        Color moveColor = Colors.LightGray;
+                        double duration = 24;
+                        string name = mc.MoveId;
+                        if (_package.HandCoachMoves.TryGetValue(mc.MoveId, out CoachMoveDefinition? def) || _package.FullBodyCoachMoves.TryGetValue(mc.MoveId, out def))
+                        {
+                            if (Color.TryParse(def.Color, out Color c))
+                                moveColor = c;
+                            duration = def.Duration;
+                        }
+                        track.Clips.Add(new ClipViewModel(mc, duration, moveColor, name, RootPath, this));
+                        break;
+                    }
+                    case GoldEffectClip gc:
+                        track.Clips.Add(new ClipViewModel(gc, gc.Duration, Colors.Gold, "Gold Effect", RootPath, this));
+                        break;
+                    default:
+                        // Unknown clip type - use fallback values
+                        track.Clips.Add(new ClipViewModel(clip, 0, Colors.LightGray, clip.GetType().Name, RootPath, this));
+                        break;
+                }
+            }
+            Tracks.Add(track);
         }
-        Tracks.Add(lyricsTrack);
 
-        // 2. Pictograms
-        TrackViewModel pictoTrack = new() { Title = "Pictograms", Height = 60, TrackColor = Colors.CornflowerBlue };
-        foreach (PictogramClip clip in _package.Pictograms.Clips)
-        {
-            pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, RootPath, this));
-        }
-        Tracks.Add(pictoTrack);
+        // Build tracks using configuration-style calls (keeps BuildTimeline concise)
+        AddTrack("Lyrics", 40, Colors.Goldenrod, _package.Lyrics.Clips.Cast<TimelineClipBase>());
+        AddTrack("Pictograms", 60, Colors.CornflowerBlue, _package.Pictograms.Clips.Cast<TimelineClipBase>());
 
-        // 3. Coaches
+        // One track per coach timeline to preserve coach id in title
         foreach (MoveTimeline coachTimeline in _package.CoachTimelines)
-        {
-            TrackViewModel coachTrack = new() { Title = $"Coach {coachTimeline.CoachId}", Height = 40, TrackColor = Colors.MediumPurple };
-            foreach (MoveClip clip in coachTimeline.Clips)
-            {
-                Color color = Colors.LightGray;
-                double duration = 24;
-                if (_package.HandCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? def))
-                {
-                    if (Color.TryParse(def.Color, out Color c))
-                        color = c;
-                    duration = def.Duration;
-                }
-                coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
-            }
-            Tracks.Add(coachTrack);
-        }
+            AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, coachTimeline.Clips.Cast<TimelineClipBase>());
 
-        // 3b. Full-body coaches
         foreach (MoveTimeline fullBodyTimeline in _package.FullBodyCoachTimelines)
-        {
-            TrackViewModel fbTrack = new() { Title = $"FullBody Coach {fullBodyTimeline.CoachId}", Height = 60, TrackColor = Colors.SeaGreen };
-            foreach (MoveClip clip in fullBodyTimeline.Clips)
-            {
-                Color color = Colors.LightGray;
-                double duration = 24;
-                if (_package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? def))
-                {
-                    if (Color.TryParse(def.Color, out Color c))
-                        color = c;
-                    duration = def.Duration;
-                }
-                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
-            }
-            Tracks.Add(fbTrack);
-        }
+            AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>());
 
-        // 4. Gold Moves
-        TrackViewModel goldTrack = new() { Title = "Gold Effects", Height = 30, TrackColor = Colors.OrangeRed };
-        foreach (GoldEffectClip clip in _package.GoldEffects.Clips)
-        {
-            goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", RootPath, this));
-        }
-        Tracks.Add(goldTrack);
+        AddTrack("Gold Effects", 30, Colors.OrangeRed, _package.GoldEffects.Clips.Cast<TimelineClipBase>());
     }
 
     private void UpdateTimelineWidth()
@@ -436,6 +428,8 @@ public partial class TimelineEditorViewModel : Document
         // Trigger any UI updates that depend on LyricsColor
         OnPropertyChanged(nameof(LyricsColor));
     }
+
+    public string GetLyricsColor() => LyricsColor;
 
     public override bool OnClose()
     {

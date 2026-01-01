@@ -42,16 +42,16 @@ public partial class TimelineTrackPanel
         {
             double x0 = -offset * ppb;
             if (x0 > -1 && x0 < bounds.Width + 1)
-                context.DrawLine(_linePen, new Point(x0, 0), new Point(x0, bounds.Height));
+                context.DrawLine(TimelineResources.LinePen, new Point(x0, 0), new Point(x0, bounds.Height));
         }
         else
-            context.DrawLine(_linePen, new Point(0, 0), new Point(0, bounds.Height));
+            context.DrawLine(TimelineResources.LinePen, new Point(0, 0), new Point(0, bounds.Height));
 
         if (MaxBeat > 0)
         {
             double xEnd = MaxBeat * ppb;
             if (xEnd > -1 && xEnd < bounds.Width + 1)
-                context.DrawLine(_linePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
+                context.DrawLine(TimelineResources.LinePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
         }
 
         // Draw box selection if active even when Clips is null
@@ -63,8 +63,8 @@ public partial class TimelineTrackPanel
             var h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
 
             var rect = new Rect(x, y, w, h);
-            context.FillRectangle(_boxSelectionFill, rect);
-            context.DrawRectangle(null, _boxSelectionBorderPen, rect);
+            context.FillRectangle(TimelineResources.BoxSelectionFill, rect);
+            context.DrawRectangle(null, TimelineResources.BoxSelectionBorderPen, rect);
         }
 
         if (Clips == null)
@@ -96,7 +96,7 @@ public partial class TimelineTrackPanel
             // Use cached outline pen with computed thickness
             var outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
             var outlinePen = (outlineThickness == 1.0)
-                ? _blackOutlinePen
+                ? TimelineResources.BlackOutlinePen
                 : new Pen(Brushes.Black, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             context.DrawRectangle(null, outlinePen, rect);
 
@@ -104,8 +104,8 @@ public partial class TimelineTrackPanel
             if (clip.IsSelected)
             {
                 // Slight overlay and gold outline
-                context.FillRectangle(_selectionOverlay, rect);
-                context.DrawRectangle(null, _selectionPen, rect.Deflate(1));
+                context.FillRectangle(TimelineResources.SelectionOverlay, rect);
+                context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
             }
 
             if (clip.ImagePath != null)

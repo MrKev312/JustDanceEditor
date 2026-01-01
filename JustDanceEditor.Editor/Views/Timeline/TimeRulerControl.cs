@@ -132,9 +132,9 @@ public class TimeRulerControl : Control
         }
 
         // 2. Draw Ticks and Labels
-        var mainPen = new Pen(Brushes.DimGray, 1);
-        var tickPen = new Pen(Brushes.Gray, 1);
-        IImmutableSolidColorBrush labelBrush = Brushes.LightGray;
+        var mainPen = TimelineResources.MainPen;
+        var tickPen = TimelineResources.TickPen;
+        IImmutableSolidColorBrush labelBrush = (IImmutableSolidColorBrush)TimelineResources.LabelBrush;
 
         context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
 
@@ -157,7 +157,7 @@ public class TimeRulerControl : Control
                     (i + offset).ToString(),
                     System.Globalization.CultureInfo.CurrentCulture,
                     FlowDirection.LeftToRight,
-                    new Typeface("Arial"),
+                    TimelineResources.DefaultTypeface,
                     10,
                     labelBrush);
 

@@ -14,10 +14,8 @@ namespace JustDanceEditor.Editor.Views.Timeline.Interactions;
 /// <summary>
 /// Handles single and multi-clip dragging in the timeline.
 /// </summary>
-public class ClipDragHandler(TimelineTrackPanel panel)
+public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHandler(panel)
 {
-    private readonly TimelineTrackPanel _panel = panel;
-
     private bool _isDragging;
     private bool _isMultiDragging;
     private ClipViewModel? _draggingClip;
@@ -34,7 +32,7 @@ public class ClipDragHandler(TimelineTrackPanel panel)
         _dragOriginalStartBeat = clip.StartBeat;
         _isDragging = true;
 
-        try { e.Pointer.Capture(_panel); } catch { }
+        Capture(e);
     }
 
     public void StartMultiDrag(IEnumerable<ClipViewModel> selectedClips, Point pointerPos, PointerEventArgs e)
@@ -43,7 +41,7 @@ public class ClipDragHandler(TimelineTrackPanel panel)
         _multiDragOriginalStarts = selectedClips.ToDictionary(c => c, c => c.StartBeat);
         _dragStartPointerX = pointerPos.X;
 
-        try { e.Pointer.Capture(_panel); } catch { }
+        Capture(e);
     }
 
     public void UpdateDrag(Point pointerPos, double pixelsPerBeat, int beatOffset, TimelineEditorViewModel? vm)
@@ -127,7 +125,7 @@ public class ClipDragHandler(TimelineTrackPanel panel)
 
             _isDragging = false;
             _draggingClip = null;
-            try { e?.Pointer.Capture(null); } catch { }
+            Release(e);
             return;
         }
 
@@ -158,7 +156,7 @@ public class ClipDragHandler(TimelineTrackPanel panel)
 
             _isMultiDragging = false;
             _multiDragOriginalStarts = null;
-            try { e?.Pointer.Capture(null); } catch { }
+            Release(e);
         }
     }
 

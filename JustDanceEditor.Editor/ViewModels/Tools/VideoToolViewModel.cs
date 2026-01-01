@@ -18,6 +18,11 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
         if (Avalonia.Application.Current is App app)
         {
             MediaPlayer = new MediaPlayer(app.LibVLC) { Mute = true };
+            if (Avalonia.Application.Current.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
+            {
+                // Ensure we clean up the underlying libvlc player when the app exits
+                life.Exit += (s, e) => Dispose();
+            }
         }
         else
         {

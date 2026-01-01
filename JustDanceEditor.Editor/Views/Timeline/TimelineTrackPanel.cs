@@ -67,13 +67,8 @@ public partial class TimelineTrackPanel : Control
 
     // --- Caches & Resources ---
 
-    private static readonly Pen _linePen = new(Brushes.White, 1);
-    private static readonly Pen _selectionPen = new(Brushes.Gold, 2.0);
-    private static readonly Pen _blackOutlinePen = new(Brushes.Black, 1.0);
-    private static readonly Pen _boxSelectionBorderPen = new(Brushes.Gold, 1);
-    private static readonly SolidColorBrush _boxSelectionFill = new(new Color(64, 0, 120, 215));
-    private static readonly SolidColorBrush _selectionOverlay = new(new Color(120, 255, 215, 0));
-    private static readonly Typeface _textTypeface = new("Arial");
+    // NOTE: Pens/Brushes moved to TimelineResources to centralize UI resources.
+    // Use TimelineResources.LinePen, TimelineResources.SelectionPen, etc.
     private static readonly CultureInfo _culture = CultureInfo.CurrentCulture;
 
     // Simple FormattedText cache to avoid recreating layouts repeatedly when rendering many clips
@@ -258,9 +253,9 @@ public partial class TimelineTrackPanel : Control
             text,
             _culture,
             FlowDirection.LeftToRight,
-            _textTypeface,
+            TimelineResources.DefaultTypeface,
             fontSize,
-            Brushes.Black)
+            TimelineResources.LabelBrush)
         {
             MaxTextWidth = maxWidth,
             MaxTextHeight = maxHeight,

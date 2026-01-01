@@ -53,11 +53,11 @@ public class AudioBarControl : Control
 
     private static readonly Dictionary<SongSectionType, Color> _sectionColors = [];
 
-    // Cached render resources
-    private static readonly Pen _waveformPen = new(new SolidColorBrush(Colors.LimeGreen, 0.8), 1);
-    private static readonly Pen _sectionBorderPen = new(Brushes.White, 1, new DashStyle([2, 2], 0));
-    private static readonly SolidColorBrush _sectionBgBrush = new(Colors.Black, 0.5);
-    private static readonly Typeface _textTypeface = new("Arial");
+    // Cached/render resources moved to TimelineResources
+    // Cache FormattedText per section type to avoid allocations in render loop
+    private readonly Dictionary<SongSectionType, FormattedText> _sectionTextCache = new();
+    private double _lastPixelsPerBeat = -1;
+    private Size _lastBounds = default;
 
     // scrubbing state
     private bool _isScrubbing = false;
@@ -225,7 +225,7 @@ public class AudioBarControl : Control
 
                 float val = Samples[sampleIdx];
                 double h = val * centerY * 0.8;
-                context.DrawLine(_waveformPen, new Point(x, centerY - h), new Point(x, centerY + h));
+                context.DrawLine(TimelineResources.WaveformPen, new Point(x, centerY - h), new Point(x, centerY + h));
             }
         }
 
@@ -233,26 +233,40 @@ public class AudioBarControl : Control
         if (Sections != null)
         {
             var sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
+
+            // Rebuild text cache only when size or pixels-per-beat changes
+            if (Math.Abs(_lastPixelsPerBeat - ppb) > 1e-9 || !_lastBounds.Equals(bounds.Size))
+            {
+                _sectionTextCache.Clear();
+                foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
+                {
+                    var ft = new FormattedText(
+                        type.ToString(),
+                        System.Globalization.CultureInfo.CurrentCulture,
+                        FlowDirection.LeftToRight,
+                        TimelineResources.DefaultTypeface,
+                        10,
+                        Brushes.White);
+                    _sectionTextCache[type] = ft;
+                }
+                _lastPixelsPerBeat = ppb;
+                _lastBounds = bounds.Size;
+            }
+
             foreach (SectionSegment? section in sortedSections)
             {
                 double x = (section.StartBeat - offset) * ppb;
                 if (x >= 0 && x < bounds.Width)
                 {
                     // Draw vertical line
-                    context.DrawLine(_sectionBorderPen, new Point(x, 0), new Point(x, bounds.Height));
+                    context.DrawLine(TimelineResources.SectionBorderPen, new Point(x, 0), new Point(x, bounds.Height));
 
-                    // Draw text (create FormattedText only when needed)
-                    var text = new FormattedText(
-                        section.SectionType.ToString(),
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        FlowDirection.LeftToRight,
-                        _textTypeface,
-                        10,
-                        Brushes.White);
-
-                    var bgRect = new Rect(x + 2, 2, text.Width + 4, text.Height + 2);
-                    context.FillRectangle(_sectionBgBrush, bgRect);
-                    context.DrawText(text, new Point(x + 4, 3));
+                    if (_sectionTextCache.TryGetValue(section.SectionType, out var text))
+                    {
+                        var bgRect = new Rect(x + 2, 2, text.Width + 4, text.Height + 2);
+                        context.FillRectangle(TimelineResources.SectionBgBrush, bgRect);
+                        context.DrawText(text, new Point(x + 4, 3));
+                    }
                 }
             }
         }

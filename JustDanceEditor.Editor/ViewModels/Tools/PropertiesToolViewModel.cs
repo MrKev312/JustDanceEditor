@@ -13,6 +13,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using JustDanceEditor.Editor.Messaging;
+using CommunityToolkit.Mvvm.Messaging;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -20,10 +22,10 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 public partial class PropertiesToolViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
-    private ObservableCollection<PropertyCategoryViewModel> _categories = [];
+    public partial ObservableCollection<PropertyCategoryViewModel> Categories { get; set; } = [];
 
     [ObservableProperty]
-    private object? _selectedObject;
+    public partial object? SelectedObject { get; set; }
 
     public PropertiesToolViewModel()
     {
@@ -90,8 +92,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                             ActiveTimeline!.UndoService,
                             ActiveTimeline.TimelineStructure,
                             ActiveTimeline.Tracks,
-                            color => ActiveTimeline.UpdateLyricsColor(color),
-                            () => ActiveTimeline.LyricsColor);
+                            ActiveTimeline);
 
                         // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
                         if (item.Property.Name is "BackgroundColor" or "Color")
@@ -208,8 +209,7 @@ public partial class PropertyItemViewModel : ObservableObject
     private readonly IUndoService _undoService;
     private readonly TimelineStructureDocument _timelineStructure;
     private readonly ObservableCollection<TrackViewModel> _tracks;
-    private readonly Action<string> _updateLyricsColor;
-    private readonly Func<string> _getLyricsColor;
+    private readonly JustDanceEditor.Editor.Services.ILyricsColorService _lyricsService;
     private bool _isColorPickerActive = false;
     private object? _colorPickerInitialValue;
 
@@ -233,8 +233,7 @@ public partial class PropertyItemViewModel : ObservableObject
         IUndoService undoService,
         TimelineStructureDocument timelineStructure,
         ObservableCollection<TrackViewModel> tracks,
-        Action<string> updateLyricsColor,
-        Func<string> getLyricsColor)
+        JustDanceEditor.Editor.Services.ILyricsColorService lyricsService)
     {
         _targets = targets;
         _propertyName = propertyName;
@@ -242,24 +241,22 @@ public partial class PropertyItemViewModel : ObservableObject
         _undoService = undoService;
         _timelineStructure = timelineStructure;
         _tracks = tracks;
-        _updateLyricsColor = updateLyricsColor;
-        _getLyricsColor = getLyricsColor;
+        _lyricsService = lyricsService;
         Name = attribute.DisplayName;
         IsReadOnly = attribute.IsReadOnly;
 
-        // Listen to external changes on the target objects
-        foreach (var target in _targets)
+        // Listen to external changes on the target objects via weak messaging to avoid leaking references
+        // Register a single weak messenger handler to avoid multiple subscriptions when there are multiple targets
+        if (_targets.Any(t => t is INotifyPropertyChanged))
         {
-            if (target is INotifyPropertyChanged notify)
+            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, PropertyChangedBroadcastMessage>(this, (r, m) =>
             {
-                notify.PropertyChanged += (s, e) =>
+                if (m.PropertyName == _propertyName && _targets.Any(t => ReferenceEquals(m.Source, t)))
                 {
-                    if (e.PropertyName == _propertyName)
-                    {
-                        OnPropertyChanged(nameof(Value));
-                    }
-                };
-            }
+                    // Notify recipient to refresh bound Value
+                    r.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
+                }
+            });
         }
     }
 
@@ -279,7 +276,7 @@ public partial class PropertyItemViewModel : ObservableObject
             {
                 var allLyrics = _tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
                 var colors = allLyrics.Select(c => (c, c.BackgroundColor)).ToList();
-                var snapshot = new ColorSnapshot(true, colors, _getLyricsColor(), null);
+                var snapshot = new ColorSnapshot(true, colors, _lyricsService.GetLyricsColor(), null);
                 _colorPickerInitialValue = snapshot;
             }
             else if (cv.RawClip is MoveClip)
@@ -341,7 +338,7 @@ public partial class PropertyItemViewModel : ObservableObject
                             {
                                 affectedClips[i].BackgroundColor = initialColors[i];
                             }
-                            _updateLyricsColor(oldMetadata ?? "#FFFFFFFF");
+                            _lyricsService.UpdateLyricsColor(oldMetadata ?? "#FFFFFFFF");
                         },
                         redo: () =>
                         {
@@ -351,7 +348,7 @@ public partial class PropertyItemViewModel : ObservableObject
                             {
                                 clip.BackgroundColor = finalColor;
                             }
-                            _updateLyricsColor(newMetadata);
+                            _lyricsService.UpdateLyricsColor(newMetadata);
                         }
                     );
                 }
