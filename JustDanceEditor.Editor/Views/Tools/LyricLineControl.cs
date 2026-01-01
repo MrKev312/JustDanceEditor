@@ -93,7 +93,7 @@ public class LyricLineControl : Control
 
     private void Clip_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
+        if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)) or (nameof(KaraokeClipViewModel.Lyrics)))
         {
             ClearMeasurementCache();
             Dispatcher.UIThread.Post(InvalidateVisual);
@@ -131,7 +131,7 @@ public class LyricLineControl : Control
 
         foreach (ClipViewModel c in Line.Clips)
         {
-            string text = (c.RawClip as KaraokeClip)?.Lyrics ?? "";
+            string text = (c as KaraokeClipViewModel)?.Lyrics ?? "";
             var ft = new FormattedText(
                 text,
                 System.Globalization.CultureInfo.CurrentCulture,

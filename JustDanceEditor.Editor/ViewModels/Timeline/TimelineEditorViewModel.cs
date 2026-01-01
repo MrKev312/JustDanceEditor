@@ -262,10 +262,10 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                 switch (clip)
                 {
                     case KaraokeClip kc:
-                        track.Clips.Add(new ClipViewModel(kc, kc.Duration, lyricsColor, kc.Lyrics, RootPath, this));
+                        track.Clips.Add(new KaraokeClipViewModel(kc, kc.Duration, lyricsColor, kc.Lyrics, RootPath, this));
                         break;
                     case PictogramClip pc:
-                        track.Clips.Add(new ClipViewModel(pc, pc.Duration, Colors.LightBlue, pc.PictogramId, RootPath, this));
+                        track.Clips.Add(new PictogramClipViewModel(pc, pc.Duration, Colors.LightBlue, pc.PictogramId, RootPath, this));
                         break;
                     case MoveClip mc:
                     {
@@ -278,15 +278,15 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                                 moveColor = c;
                             duration = def.Duration;
                         }
-                        track.Clips.Add(new ClipViewModel(mc, duration, moveColor, name, RootPath, this));
+                        track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this));
                         break;
                     }
                     case GoldEffectClip gc:
-                        track.Clips.Add(new ClipViewModel(gc, gc.Duration, Colors.Gold, "Gold Effect", RootPath, this));
+                        track.Clips.Add(new GoldEffectClipViewModel(gc, gc.Duration, Colors.Gold, "Gold Effect", RootPath, this));
                         break;
                     default:
-                        // Unknown clip type - use fallback values
-                        track.Clips.Add(new ClipViewModel(clip, 0, Colors.LightGray, clip.GetType().Name, RootPath, this));
+                        // Unknown clip type - fallback to GoldEffect wrapper
+                        track.Clips.Add(new GoldEffectClipViewModel(new GoldEffectClip(), 0, Colors.LightGray, clip.GetType().Name, RootPath, this));
                         break;
                 }
             }

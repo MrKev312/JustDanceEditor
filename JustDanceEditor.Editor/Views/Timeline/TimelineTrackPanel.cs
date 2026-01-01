@@ -255,7 +255,7 @@ public partial class TimelineTrackPanel : Control
             FlowDirection.LeftToRight,
             TimelineResources.DefaultTypeface,
             fontSize,
-            TimelineResources.LabelBrush)
+            TimelineResources.ClipLabelBrush)
         {
             MaxTextWidth = maxWidth,
             MaxTextHeight = maxHeight,

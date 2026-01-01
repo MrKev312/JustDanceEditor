@@ -164,7 +164,7 @@ public partial class TimelineTrackPanel
             double localX = point.X - clickedStartX;
             bool nearLeft = localX <= ResizeHitThreshold;
             bool nearRight = localX >= (clickedWidth - ResizeHitThreshold);
-            bool isResizableType = clickedClip.RawClip is PictogramClip or KaraokeClip;
+            bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel;
 
             if (isResizableType && nearLeft)
             {

@@ -39,8 +39,8 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
     protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
     {
-        Categories.Clear();
-        SelectedObject = null;
+        // Dispose and clear properties when the timeline is detached
+        RefreshProperties();
     }
 
     private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -53,6 +53,16 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
     private void RefreshProperties()
     {
+        // Dispose existing PropertyItemViewModels to unregister messenger handlers and avoid leaks
+        foreach (var cat in Categories.ToList())
+        {
+            foreach (var prop in cat.Properties.ToList())
+            {
+                if (prop is IDisposable d)
+                    d.Dispose();
+            }
+        }
+
         Categories.Clear();
         SelectedObject = null;
 
@@ -99,13 +109,14 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                         {
                             if (first is ClipViewModel cv)
                             {
-                                if (cv.RawClip is not (MoveClip or KaraokeClip))
+                                // With strongly-typed ClipViewModels we can check concrete types directly
+                                if (cv is not (MoveClipViewModel or KaraokeClipViewModel))
                                     continue; // Skip color for non-moves and non-lyrics
                             }
                         }
 
-                        // Populate Options if "Name"
-                        if (item.Property.Name == "Name")
+                        // Populate Options for MoveId and PictogramId
+                        if (item.Property.Name == "MoveId" || item.Property.Name == "PictogramId")
                         {
                             PopulateOptions(propVm, selection, ActiveTimeline);
                         }
@@ -128,7 +139,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
             return;
 
         // Determine type of clip
-        if (firstClip.RawClip is MoveClip)
+        if (firstClip is MoveClipViewModel)
         {
             // Find track for firstClip
             TrackViewModel? track = timeline.Tracks.FirstOrDefault(t => t.Clips.Contains(firstClip));
@@ -147,7 +158,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                 }
             }
         }
-        else if (firstClip.RawClip is PictogramClip)
+        else if (firstClip is PictogramClipViewModel)
         {
             var list = new List<PictogramOptionViewModel>();
             var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
@@ -201,7 +212,7 @@ public class PropertyCategoryViewModel(string name) : ObservableObject
     public ObservableCollection<PropertyItemViewModel> Properties { get; } = [];
 }
 
-public partial class PropertyItemViewModel : ObservableObject
+public partial class PropertyItemViewModel : ObservableObject, IDisposable
 {
     private readonly List<object> _targets;
     private readonly PropertyInfo? _propertyInfoTemplate;
@@ -249,7 +260,8 @@ public partial class PropertyItemViewModel : ObservableObject
         // Register a single weak messenger handler to avoid multiple subscriptions when there are multiple targets
         if (_targets.Any(t => t is INotifyPropertyChanged))
         {
-            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, PropertyChangedBroadcastMessage>(this, (r, m) =>
+            // Listen for ClipDataChangedMessage on the default channel (no token)
+            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this, (r, m) =>
             {
                 if (m.PropertyName == _propertyName && _targets.Any(t => ReferenceEquals(m.Source, t)))
                 {
@@ -257,6 +269,9 @@ public partial class PropertyItemViewModel : ObservableObject
                     r.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
                 }
             });
+
+            // Ensure we unregister when this view model is disposed
+            // (Unregister will be called from Dispose())
         }
     }
 
@@ -272,14 +287,14 @@ public partial class PropertyItemViewModel : ObservableObject
         if (_targets.Count > 0 && _targets[0] is ClipViewModel cv)
         {
             // Lyrics: capture all lyrics clips and metadata
-            if (cv.RawClip is KaraokeClip)
+            if (cv is KaraokeClipViewModel)
             {
-                var allLyrics = _tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
-                var colors = allLyrics.Select(c => (c, c.BackgroundColor)).ToList();
+                var allLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
+                var colors = allLyrics.Select(c => ((ClipViewModel)c, c.BackgroundColor)).ToList();
                 var snapshot = new ColorSnapshot(true, colors, _lyricsService.GetLyricsColor(), null);
                 _colorPickerInitialValue = snapshot;
             }
-            else if (cv.RawClip is MoveClip)
+            else if (cv is MoveClipViewModel)
             {
                 // For moves, capture only the selected targets
                 var selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
@@ -313,7 +328,7 @@ public partial class PropertyItemViewModel : ObservableObject
             if (snap.IsLyrics)
             {
                 // Determine final color (assume all lyrics were set to same color by live updates)
-                var firstLyrics = _tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.RawClip is KaraokeClip);
+                var firstLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().FirstOrDefault();
                 if (firstLyrics == null)
                 {
                     _colorPickerInitialValue = null;
@@ -343,7 +358,7 @@ public partial class PropertyItemViewModel : ObservableObject
                         redo: () =>
                         {
                             // Set current lyrics clips to the final color (handles changed set of clips)
-                            var lyricsClips = _tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
+                            var lyricsClips = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
                             foreach (var clip in lyricsClips)
                             {
                                 clip.BackgroundColor = finalColor;
@@ -408,7 +423,8 @@ public partial class PropertyItemViewModel : ObservableObject
                         SetValue(_targets[i], finalValue);
                 }
             );
-        }
+            // Ensure we unregister when this view model is disposed (see Dispose() below)
+            }
 
         _colorPickerInitialValue = null;
     }
@@ -546,7 +562,7 @@ public partial class PropertyItemViewModel : ObservableObject
             if (!string.IsNullOrEmpty(value))
             {
                 // Check if the target is a KaraokeClip (for which we use RGBA format)
-                bool isLyricsClip = _targets.Count > 0 && _targets[0] is ClipViewModel cv && cv.RawClip is KaraokeClip;
+                bool isLyricsClip = _targets.Count > 0 && _targets[0] is KaraokeClipViewModel;
 
                 if (isLyricsClip)
                 {
@@ -566,6 +582,16 @@ public partial class PropertyItemViewModel : ObservableObject
     }
 
     private bool IsBinding = false;
+
+    public void Dispose()
+    {
+        // Unregister messenger handler for clip data changes
+        try
+        {
+            WeakReferenceMessenger.Default.Unregister<JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this);
+        }
+        catch { }
+    }
 
     // Refresh typed properties when Value changes
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)

@@ -26,6 +26,9 @@ public static class TimelineResources
     public static readonly Pen TickPen = new(Brushes.Gray, 1);
     public static readonly IBrush LabelBrush = Brushes.LightGray;
 
+    // Clip-specific label color (used for clip text within timeline tracks)
+    public static readonly IBrush ClipLabelBrush = Brushes.Black;
+
     // Typography
     public static readonly Typeface DefaultTypeface = new("Arial");
 }
