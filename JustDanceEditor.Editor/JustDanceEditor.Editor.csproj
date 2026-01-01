@@ -42,10 +42,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="LibVLCShim\" />
-	</ItemGroup>
-
-	<ItemGroup>
 	  <Compile Update="Views\Tools\PropertiesToolView.axaml.cs">
 	    <DependentUpon>PropertiesToolView.axaml</DependentUpon>
 	  </Compile>
