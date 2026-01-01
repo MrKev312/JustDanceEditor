@@ -44,23 +44,34 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (_lastTimeline != null)
         {
             _lastTimeline.Playback.TimeChanged -= Playback_TimeChanged;
+            _lastTimeline.PropertyChanged -= ActiveTimeline_PropertyChanged;
             UnsubscribeLyricsTrack();
         }
 
         if (value != null)
         {
             value.Playback.TimeChanged += Playback_TimeChanged;
+            value.PropertyChanged += ActiveTimeline_PropertyChanged;
 
-            if (Color.TryParse(value.LyricsColor, out Color c))
-            {
-                TargetColor = c;
-            }
+            // Parse lyrics color from RGBA format
+            TargetColor = ClipViewModel.ParseRgbaHex(value.LyricsColor);
         }
 
         _lastTimeline = value;
         BuildLines();
         RefreshLyrics();
         OnPropertyChanged(nameof(ActiveTimeline));
+    }
+
+    private void ActiveTimeline_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TimelineEditorViewModel.LyricsColor))
+        {
+            if (ActiveTimeline != null)
+            {
+                TargetColor = ClipViewModel.ParseRgbaHex(ActiveTimeline.LyricsColor);
+            }
+        }
     }
 
     private TimelineEditorViewModel? _lastTimeline;
@@ -132,6 +143,14 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
                 // When clip timing changes, rebuild and refresh so ordering reflects StartBeat
                 BuildLines();
                 RefreshLyrics();
+            }
+            else if (e.PropertyName == nameof(ClipViewModel.BackgroundColor))
+            {
+                // When the background color of any lyrics clip changes, update the target color
+                if (clip.RawClip is KaraokeClip)
+                {
+                    TargetColor = clip.BackgroundColor;
+                }
             }
         };
         clip.PropertyChanged += handler;

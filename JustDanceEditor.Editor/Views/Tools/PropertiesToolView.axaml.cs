@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
@@ -7,6 +8,8 @@ namespace JustDanceEditor.Editor.Views.Tools;
 
 public partial class PropertiesToolView : UserControl
 {
+    private PropertyItemViewModel? _lastColorPickerViewModel;
+
     public PropertiesToolView()
     {
         InitializeComponent();
@@ -46,4 +49,47 @@ public partial class PropertiesToolView : UserControl
             }
         }
     }
+
+    private void OnColorPickerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        // Find the PropertyItemViewModel for this ColorPicker
+        if (sender is ColorPicker colorPicker)
+        {
+            var vm = colorPicker.DataContext as PropertyItemViewModel;
+            if (vm == null)
+                return;
+
+            // Check if this is a new color picker (different from the last one)
+            if (vm != _lastColorPickerViewModel)
+            {
+                // Close the previous color picker if there was one
+                if (_lastColorPickerViewModel != null)
+                {
+                    _lastColorPickerViewModel.OnColorPickerClosed();
+                }
+
+                // Open the new one
+                _lastColorPickerViewModel = vm;
+                vm.OnColorPickerOpened();
+            }
+        }
+    }
+
+    private void OnColorPickerLostFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is ColorPicker colorPicker)
+        {
+            var vm = colorPicker.DataContext as PropertyItemViewModel;
+            if (vm == null)
+                return;
+
+            // Only close if this was our tracked picker
+            if (vm == _lastColorPickerViewModel)
+            {
+                vm.OnColorPickerClosed();
+                _lastColorPickerViewModel = null;
+            }
+        }
+    }
 }
+

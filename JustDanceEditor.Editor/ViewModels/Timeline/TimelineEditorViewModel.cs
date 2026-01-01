@@ -239,10 +239,17 @@ public partial class TimelineEditorViewModel : Document
     private void BuildTimeline()
     {
         // 1. Lyrics
+        // Parse the lyrics color from RGBA hex format
+        Color lyricsColor = Colors.Yellow;
+        if (!string.IsNullOrEmpty(_package.Metadata.LyricsColor))
+        {
+            lyricsColor = ClipViewModel.ParseRgbaHex(_package.Metadata.LyricsColor);
+        }
+
         TrackViewModel lyricsTrack = new() { Title = "Lyrics", Height = 40, TrackColor = Colors.Goldenrod };
         foreach (KaraokeClip clip in _package.Lyrics.Clips)
         {
-            lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Yellow, clip.Lyrics, RootPath));
+            lyricsTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, lyricsColor, clip.Lyrics, RootPath, this));
         }
 
         Tracks.Add(lyricsTrack);
@@ -251,7 +258,7 @@ public partial class TimelineEditorViewModel : Document
         TrackViewModel pictoTrack = new() { Title = "Pictograms", Height = 60, TrackColor = Colors.CornflowerBlue };
         foreach (PictogramClip clip in _package.Pictograms.Clips)
         {
-            pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, RootPath));
+            pictoTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.LightBlue, clip.PictogramId, RootPath, this));
         }
 
         Tracks.Add(pictoTrack);
@@ -271,7 +278,7 @@ public partial class TimelineEditorViewModel : Document
                     duration = def.Duration;
                 }
 
-                coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath));
+                coachTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
             }
 
             Tracks.Add(coachTrack);
@@ -292,7 +299,7 @@ public partial class TimelineEditorViewModel : Document
                     duration = def.Duration;
                 }
 
-                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath));
+                fbTrack.Clips.Add(new ClipViewModel(clip, duration, color, clip.MoveId, RootPath, this));
             }
 
             Tracks.Add(fbTrack);
@@ -302,7 +309,7 @@ public partial class TimelineEditorViewModel : Document
         TrackViewModel goldTrack = new() { Title = "Gold Effects", Height = 30, TrackColor = Colors.OrangeRed };
         foreach (GoldEffectClip clip in _package.GoldEffects.Clips)
         {
-            goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", RootPath));
+            goldTrack.Clips.Add(new ClipViewModel(clip, clip.Duration, Colors.Gold, "Gold Effect", RootPath, this));
         }
 
         Tracks.Add(goldTrack);
@@ -436,6 +443,16 @@ public partial class TimelineEditorViewModel : Document
             return;
         _undoStack.Push((undo, redo));
         _redoStack.Clear();
+    }
+
+    /// <summary>
+    /// Updates the lyrics color in the metadata and triggers rerender.
+    /// </summary>
+    public void UpdateLyricsColor(string rgbaHexColor)
+    {
+        _package.Metadata.LyricsColor = rgbaHexColor;
+        // Trigger any UI updates that depend on LyricsColor
+        OnPropertyChanged(nameof(LyricsColor));
     }
 
     public override bool OnClose()

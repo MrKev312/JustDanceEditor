@@ -77,13 +77,13 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                     {
                         var propVm = new PropertyItemViewModel(selection, item.Property.Name, item.Attribute!, ActiveTimeline);
                         
-                        // Special handling for Color property on Clips: only MoveClip (Coach) allows color editing.
+                        // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
                         if (item.Property.Name is "BackgroundColor" or "Color")
                         {
                             if (first is ClipViewModel cv)
                             {
-                                if (cv.RawClip is not MoveClip)
-                                    continue; // Skip color for non-moves
+                                if (cv.RawClip is not (MoveClip or KaraokeClip))
+                                    continue; // Skip color for non-moves and non-lyrics
                             }
                         }
 
@@ -190,6 +190,10 @@ public partial class PropertyItemViewModel : ObservableObject
     private readonly PropertyInfo? _propertyInfoTemplate; 
     private readonly string _propertyName;
     private readonly TimelineEditorViewModel _timeline;
+    private bool _isColorPickerActive = false;
+    private object? _colorPickerInitialValue;
+
+    private record ColorSnapshot(bool IsLyrics, List<(ClipViewModel Clip, Color Color)> ClipColors, string? OldMetadata, List<Color>? FinalColors = null);
 
     public string Name { get; }
     public bool IsReadOnly { get; }
@@ -227,6 +231,154 @@ public partial class PropertyItemViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Notifies that the color picker has started (opened).
+    /// </summary>
+    public void OnColorPickerOpened()
+    {
+        _isColorPickerActive = true;
+        _colorPickerInitialValue = null;
+
+        // If editing a ClipViewModel's BackgroundColor, capture a full snapshot
+        if (_targets.Count > 0 && _targets[0] is ClipViewModel cv)
+        {
+            // Lyrics: capture all lyrics clips and metadata
+            if (cv.RawClip is KaraokeClip)
+            {
+                var allLyrics = _timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
+                var colors = allLyrics.Select(c => (c, c.BackgroundColor)).ToList();
+                var snapshot = new ColorSnapshot(true, colors, _timeline.LyricsColor, null);
+                _colorPickerInitialValue = snapshot;
+            }
+            else if (cv.RawClip is MoveClip)
+            {
+                // For moves, capture only the selected targets
+                var selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
+                var snapshot = new ColorSnapshot(false, selected, null, null);
+                _colorPickerInitialValue = snapshot;
+            }
+            else
+            {
+                var selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
+                var snapshot = new ColorSnapshot(false, selected, null, null);
+                _colorPickerInitialValue = snapshot;
+            }
+        }
+        else
+        {
+            // Fallback: store the simple initial value
+            _colorPickerInitialValue = GetValue(_targets[0]);
+        }
+    }
+
+    /// <summary>
+    /// Notifies that the color picker has closed. This pushes the change to the undo stack.
+    /// </summary>
+    public void OnColorPickerClosed()
+    {
+        _isColorPickerActive = false;
+
+        // If we have a ColorSnapshot, push a single composite undo/redo
+        if (_colorPickerInitialValue is ColorSnapshot snap)
+        {
+            if (snap.IsLyrics)
+            {
+                // Determine final color (assume all lyrics were set to same color by live updates)
+                var firstLyrics = _timeline.Tracks.SelectMany(t => t.Clips).FirstOrDefault(c => c.RawClip is KaraokeClip);
+                if (firstLyrics == null)
+                {
+                    _colorPickerInitialValue = null;
+                    return;
+                }
+
+                var finalColor = firstLyrics.BackgroundColor;
+                var initialColors = snap.ClipColors.Select(cc => cc.Color).ToList();
+                var affectedClips = snap.ClipColors.Select(cc => cc.Clip).ToList();
+                var oldMetadata = snap.OldMetadata;
+                var newMetadata = ClipViewModel.ColorToRgbaHex(finalColor);
+
+                // Push one undo that restores all original colors and metadata
+                _timeline.PushUndo(
+                    undo: () =>
+                    {
+                        for (int i = 0; i < affectedClips.Count; i++)
+                        {
+                            affectedClips[i].BackgroundColor = initialColors[i];
+                        }
+                        _timeline.UpdateLyricsColor(oldMetadata ?? "#FFFFFFFF");
+                    },
+                    redo: () =>
+                    {
+                        // Set current lyrics clips to the final color (handles changed set of clips)
+                        var lyricsClips = _timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.RawClip is KaraokeClip).ToList();
+                        foreach (var clip in lyricsClips)
+                        {
+                            clip.BackgroundColor = finalColor;
+                        }
+                        _timeline.UpdateLyricsColor(newMetadata);
+                    }
+                );
+            }
+            else
+            {
+                // Non-lyrics: use the captured list to create undo/redo per captured clip
+                var initialList = snap.ClipColors.Select(cc => cc.Color).ToList();
+                var clips = snap.ClipColors.Select(cc => cc.Clip).ToList();
+                var finalList = clips.Select(c => c.BackgroundColor).ToList();
+
+                bool anyChanged = false;
+                for (int i = 0; i < clips.Count; i++)
+                {
+                    if (!Equals(initialList[i], finalList[i]))
+                    {
+                        anyChanged = true;
+                        break;
+                    }
+                }
+
+                if (anyChanged)
+                {
+                    _timeline.PushUndo(
+                        undo: () =>
+                        {
+                            for (int i = 0; i < clips.Count; i++)
+                                clips[i].BackgroundColor = initialList[i];
+                        },
+                        redo: () =>
+                        {
+                            for (int i = 0; i < clips.Count; i++)
+                                clips[i].BackgroundColor = finalList[i];
+                        }
+                    );
+                }
+            }
+
+            _colorPickerInitialValue = null;
+            return;
+        }
+
+        // Fallback behavior when we didn't capture snapshot: push if value changed
+        var finalValue = GetValue(_targets[0]);
+        if (!Equals(_colorPickerInitialValue, finalValue))
+        {
+            var oldValues = _targets.Select(t => _colorPickerInitialValue).ToList();
+            _timeline.PushUndo(
+                undo: () => 
+                { 
+                    for(int i=0; i<_targets.Count; i++)
+                        SetValue(_targets[i], oldValues[i]);
+                },
+                redo: () => 
+                { 
+                    for(int i=0; i<_targets.Count; i++)
+                        SetValue(_targets[i], finalValue);
+                }
+            );
+        }
+
+        _colorPickerInitialValue = null;
+    }
+
     public object? Value
     {
         get 
@@ -248,18 +400,22 @@ public partial class PropertyItemViewModel : ObservableObject
 
             var oldValues = _targets.Select(GetValue).ToList();
             
-            _timeline.PushUndo(
-                undo: () => 
-                { 
-                    for(int i=0; i<_targets.Count; i++)
-                        SetValue(_targets[i], oldValues[i]);
-                },
-                redo: () => 
-                { 
-                    for(int i=0; i<_targets.Count; i++)
-                        SetValue(_targets[i], value);
-                }
-            );
+            // Only push undo if not in color picker mode
+            if (!_isColorPickerActive)
+            {
+                _timeline.PushUndo(
+                    undo: () => 
+                    { 
+                        for(int i=0; i<_targets.Count; i++)
+                            SetValue(_targets[i], oldValues[i]);
+                    },
+                    redo: () => 
+                    { 
+                        for(int i=0; i<_targets.Count; i++)
+                            SetValue(_targets[i], value);
+                    }
+                );
+            }
 
             foreach (var target in _targets)
             {
@@ -349,14 +505,28 @@ public partial class PropertyItemViewModel : ObservableObject
 
     public string HexString
     {
-        get => Value is Color c ? $"#{c.R:X2}{c.G:X2}{c.B:X2}" : "";
+        get => Value is Color c ? $"#{c.R:X2}{c.G:X2}{c.B:X2}{c.A:X2}" : "";
         set
         {
-             // Try parsing. If it lacks alpha, Color.Parse usually assumes FF or 00 depending on method.
-             // We want to force Alpha to FF.
-             if (Color.TryParse(value, out Color c))
+             // Try parsing as RGBA hex first (our format), then fall back to standard parsing
+             if (!string.IsNullOrEmpty(value))
              {
-                 ColorValue = new Color(255, c.R, c.G, c.B);
+                 // Check if the target is a KaraokeClip (for which we use RGBA format)
+                 bool isLyricsClip = _targets.Count > 0 && _targets[0] is ClipViewModel cv && cv.RawClip is KaraokeClip;
+                 
+                 if (isLyricsClip)
+                 {
+                     // Use RGBA parsing for lyrics
+                     ColorValue = ClipViewModel.ParseRgbaHex(value);
+                 }
+                 else
+                 {
+                     // For other clips, use standard ARGB parsing with full alpha
+                     if (Color.TryParse(value, out Color c))
+                     {
+                         ColorValue = new Color(255, c.R, c.G, c.B);
+                     }
+                 }
              }
         }
     }

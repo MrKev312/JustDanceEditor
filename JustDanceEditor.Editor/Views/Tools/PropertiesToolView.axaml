@@ -67,7 +67,9 @@
 																	 Color="{Binding ColorValue, Mode=TwoWay}"
 																	 IsAlphaEnabled="False"
 																	 IsEnabled="{Binding !IsReadOnly}"
-																	 Margin="0,0,8,0"/>
+																	 Margin="0,0,8,0"
+																	 PropertyChanged="OnColorPickerPropertyChanged"
+																	 LostFocus="OnColorPickerLostFocus"/>
 
 														<!-- Hex Code -->
 														<!-- Using TextAlignment Left for hex code -->
