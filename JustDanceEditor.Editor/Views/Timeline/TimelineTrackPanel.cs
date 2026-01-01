@@ -55,7 +55,7 @@ public partial class TimelineTrackPanel : Control
     }
 
     public static readonly StyledProperty<IBrush?> BackgroundProperty =
-        AvaloniaProperty.Register<TimelineTrackPanel, IBrush?>(nameof(Background));
+        AvaloniaProperty.Register<TimelineTrackPanel, IBrush?>(nameof(Background), Brushes.Transparent);
 
     public IBrush? Background
     {
@@ -95,6 +95,11 @@ public partial class TimelineTrackPanel : Control
 
     // Track last explicitly selected clip for shift-range selection
     private ClipViewModel? _lastSelectedClip;
+
+    // Box selection state
+    private bool _isBoxSelecting;
+    private Point _boxStartPoint;
+    private Point _boxCurrentPoint;
 
     static TimelineTrackPanel()
     {

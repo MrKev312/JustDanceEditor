@@ -38,6 +38,21 @@ public partial class TimelineTrackPanel
                 context.DrawLine(_linePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
         }
 
+        // Draw box selection if active even when Clips is null
+        if (_isBoxSelecting)
+        {
+            var x = System.Math.Min(_boxStartPoint.X, _boxCurrentPoint.X);
+            var y = System.Math.Min(_boxStartPoint.Y, _boxCurrentPoint.Y);
+            var w = System.Math.Abs(_boxCurrentPoint.X - _boxStartPoint.X);
+            var h = System.Math.Abs(_boxCurrentPoint.Y - _boxStartPoint.Y);
+
+            var rect = new Rect(x, y, w, h);
+            var brush = new SolidColorBrush(new Color(64, 0, 120, 215));
+            var pen = new Pen(Brushes.Gold, 1);
+            context.FillRectangle(brush, rect);
+            context.DrawRectangle(null, pen, rect);
+        }
+
         if (Clips == null)
             return;
 

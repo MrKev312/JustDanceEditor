@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Avalonia.Media;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -18,6 +19,12 @@ public partial class TimelineTrackPanel
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+
+        // Ensure we have a background so empty-space hits are delivered
+        if (Background == null)
+        {
+            Background = Brushes.Transparent;
+        }
 
         Point point = e.GetCurrentPoint(this).Position;
         double ppb = PixelsPerBeat;
@@ -69,21 +76,24 @@ public partial class TimelineTrackPanel
             }
         }
 
-        if (Clips != null && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             ClipViewModel? targetClip = null;
             double targetStartX = 0, targetWidth = 0;
 
-            foreach (ClipViewModel c in Clips)
+            if (Clips != null)
             {
-                double x = (c.StartBeat - offset) * ppb;
-                double w = c.DurationBeats * ppb;
-                if (point.X >= x && point.X <= x + w)
+                foreach (ClipViewModel c in Clips)
                 {
-                    targetClip = c;
-                    targetStartX = x;
-                    targetWidth = w;
-                    break;
+                    double x = (c.StartBeat - offset) * ppb;
+                    double w = c.DurationBeats * ppb;
+                    if (point.X >= x && point.X <= x + w)
+                    {
+                        targetClip = c;
+                        targetStartX = x;
+                        targetWidth = w;
+                        break;
+                    }
                 }
             }
 
@@ -93,19 +103,15 @@ public partial class TimelineTrackPanel
 
             if (targetClip == null)
             {
-                if (!ctrl && contextVm != null)
-                {
-                    foreach (ClipViewModel? clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
-                        clip.IsSelected = false;
-                    _lastSelectedClip = null;
-
-                    if (Application.Current is App app)
-                        app.TimelineContext.SelectedObjects = [];
-
-                    InvalidateVisual();
-                    e.Handled = true;
-                    return;
-                }
+                // Start box selection when clicking empty space (left button only)
+                _isBoxSelecting = true;
+                _boxStartPoint = point;
+                _boxCurrentPoint = point;
+                try { e.Pointer.Capture(this); } catch { }
+                try { this.Focus(); } catch { }
+                Cursor = new Cursor(StandardCursorType.Cross);
+                InvalidateVisual();
+                e.Handled = true;
 
                 return;
             }
@@ -316,6 +322,14 @@ public partial class TimelineTrackPanel
             return;
         }
 
+        if (_isBoxSelecting)
+        {
+            _boxCurrentPoint = point;
+            InvalidateVisual();
+            e.Handled = true;
+            return;
+        }
+
         if (!_isDragging || _draggingClip == null)
         {
             UpdateResizeCursor(point, ppb, offset);
@@ -337,14 +351,218 @@ public partial class TimelineTrackPanel
 
         if (_isMultiDragging)
         {
-            _isMultiDragging = false;
-            _multiDragOriginalStarts = null;
-            try
+            // finalize multi-drag with undo/redo
+            if (_multiDragOriginalStarts != null)
             {
-                e.Pointer.Capture(null);
-            }
-            catch { }
+                // Find timeline vm
+                Visual? visualParentForVm2 = this.GetVisualParent();
+                TimelineEditorViewModel? vm2 = null;
+                while (visualParentForVm2 != null)
+                {
+                    if (visualParentForVm2 is Control c && c.DataContext is TimelineEditorViewModel t)
+                    {
+                        vm2 = t;
+                        break;
+                    }
 
+                    visualParentForVm2 = visualParentForVm2.GetVisualParent();
+                }
+
+                if (vm2 != null)
+                {
+                    // Build a stable list of (clip, origStart, newStart)
+                    var changes = new List<(ClipViewModel Clip, double Orig, double New)>();
+                    foreach (var kv in _multiDragOriginalStarts)
+                    {
+                        changes.Add((kv.Key, kv.Value, kv.Key.StartBeat));
+                    }
+
+                    vm2.PushUndo(
+                        undo: () =>
+                        {
+                            foreach (var ch in changes)
+                                ch.Clip.StartBeat = ch.Orig;
+                        },
+                        redo: () =>
+                        {
+                            foreach (var ch in changes)
+                                ch.Clip.StartBeat = ch.New;
+                        }
+                    );
+                }
+             }
+
+             _isMultiDragging = false;
+             _multiDragOriginalStarts = null;
+             try
+             {
+                 e.Pointer.Capture(null);
+             }
+             catch { }
+
+             e.Handled = true;
+             return;
+        }
+
+        if (_isBoxSelecting)
+        {
+            // finalize selection
+            _isBoxSelecting = false;
+            try { e.Pointer.Capture(null); } catch { }
+            Cursor = new Cursor(StandardCursorType.Arrow);
+
+            Rect selRect = new Rect(Math.Min(_boxStartPoint.X, _boxCurrentPoint.X), Math.Min(_boxStartPoint.Y, _boxCurrentPoint.Y), Math.Abs(_boxCurrentPoint.X - _boxStartPoint.X), Math.Abs(_boxCurrentPoint.Y - _boxStartPoint.Y));
+
+            // If this was just a click (very small drag), treat it as a click: clear selection unless Ctrl pressed
+            const double MinDragDistance = 4.0;
+            var ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
+
+            Visual? visualParentForVm = this.GetVisualParent();
+            TimelineEditorViewModel? contextVm = null;
+            while (visualParentForVm != null)
+            {
+                if (visualParentForVm is Control c && c.DataContext is TimelineEditorViewModel t)
+                {
+                    contextVm = t;
+                    break;
+                }
+
+                visualParentForVm = visualParentForVm.GetVisualParent();
+            }
+
+            // Treat a very small horizontal drag as a click (ignore tiny vertical jitter)
+            if (selRect.Width < MinDragDistance)
+            {
+                 // small click
+                 if (!ctrl && contextVm != null)
+                 {
+                     foreach (ClipViewModel? clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                         clip.IsSelected = false;
+
+                     UpdateGlobalSelection(contextVm);
+                     InvalidateVisual();
+                 }
+
+                 e.Handled = true;
+                 return;
+             }
+
+            // Determine which clips intersect selection horizontally (time) and vertically (track area)
+            double selStartBeat = (selRect.Left / PixelsPerBeat) + BeatOffset;
+            double selEndBeat = (selRect.Right / PixelsPerBeat) + BeatOffset;
+
+            // If no modifier, clear selection first
+            if (!ctrl && contextVm != null)
+            {
+                foreach (ClipViewModel? clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                    clip.IsSelected = false;
+            }
+
+            if (contextVm != null)
+            {
+                // Vertical bounds of clips in this panel
+                var bounds = this.Bounds;
+                double clipTop = 2.0;
+                double clipBottom = Math.Max(1.0, bounds.Height - 2.0);
+
+                // If the selection extends outside this panel vertically, select across all tracks
+                bool crossesTracks = selRect.Top < 0 || selRect.Bottom > bounds.Height;
+
+                if (crossesTracks)
+                {
+                    // Determine which tracks intersect the marquee by using TrackViewModel.Height and ordering
+                    var tracks = contextVm.Tracks.ToList();
+
+                    // Find this panel's track index by matching the Clips collection
+                    int thisIndex = -1;
+                    for (int i = 0; i < tracks.Count; i++)
+                    {
+                        if (ReferenceEquals(tracks[i].Clips, Clips) || (Clips != null && tracks[i].Clips.SequenceEqual(Clips)))
+                        {
+                            thisIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (thisIndex == -1)
+                    {
+                        // Fallback: select across all tracks if we couldn't find the index
+                        foreach (ClipViewModel clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                        {
+                            double clipStart = clip.StartBeat;
+                            double clipEnd = clip.StartBeat + clip.DurationBeats;
+                            if (clipEnd < selStartBeat || clipStart > selEndBeat) continue;
+                            clip.IsSelected = true;
+                            _lastSelectedClip = clip;
+                        }
+                    }
+                    else
+                    {
+                        // Compute cumulative top positions for tracks
+                        double cum = 0.0;
+                        double panelTop = 0.0;
+                        for (int i = 0; i < tracks.Count; i++)
+                        {
+                            if (i == thisIndex)
+                                panelTop = cum;
+                            cum += tracks[i].Height;
+                        }
+            
+                        double selGlobalTop = panelTop + selRect.Top;
+                        double selGlobalBottom = panelTop + selRect.Bottom;
+            
+                        // For each track, check intersection with global selection and select clips in intersecting tracks
+                        double runningTop = 0.0;
+                        for (int i = 0; i < tracks.Count; i++)
+                        {
+                            double trackTop = runningTop;
+                            double trackBottom = runningTop + tracks[i].Height;
+                            runningTop = trackBottom;
+            
+                            // Check vertical overlap between track band and selection
+                            if (trackBottom < selGlobalTop || trackTop > selGlobalBottom)
+                                continue;
+            
+                            // select clips in this track that overlap horizontally
+                            foreach (ClipViewModel clip in tracks[i].Clips)
+                            {
+                                double clipStart = clip.StartBeat;
+                                double clipEnd = clip.StartBeat + clip.DurationBeats;
+                                if (clipEnd < selStartBeat || clipStart > selEndBeat) continue;
+                                clip.IsSelected = true;
+                                _lastSelectedClip = clip;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Iterate only clips that belong to this panel (Clips may be null)
+                    if (Clips != null)
+                    {
+                        foreach (ClipViewModel clip in Clips)
+                        {
+                            double clipStart = clip.StartBeat;
+                            double clipEnd = clip.StartBeat + clip.DurationBeats;
+
+                            // Check horizontal overlap in beats
+                            if (clipEnd < selStartBeat || clipStart > selEndBeat)
+                                continue;
+
+                            // Check vertical overlap between selection rect and clip vertical band
+                            if (selRect.Bottom < clipTop || selRect.Top > clipBottom)
+                                continue;
+
+                            clip.IsSelected = true;
+                            _lastSelectedClip = clip;
+                        }
+                    }
+                }
+
+                UpdateGlobalSelection(contextVm);
+            }
+
+            InvalidateVisual();
             e.Handled = true;
             return;
         }
@@ -363,6 +581,7 @@ public partial class TimelineTrackPanel
         _isResizingLeft = false;
         _isResizingRight = false;
         _draggingClip = null;
+        _isBoxSelecting = false;
         Cursor = new Cursor(StandardCursorType.Arrow);
     }
 }
