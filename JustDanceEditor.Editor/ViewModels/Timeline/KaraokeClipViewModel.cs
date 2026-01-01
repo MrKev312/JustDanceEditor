@@ -27,22 +27,8 @@ public partial class KaraokeClipViewModel : ClipViewModel
         // keep Name in sync for display
         Name = Lyrics;
 
-        // Listen for background color changes to update metadata and sync across lyrics clips
-        this.PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(BackgroundColor) && _parentTimeline != null)
-            {
-                var lyricsClips = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
-                foreach (var c in lyricsClips)
-                {
-                    if (!Equals(c.BackgroundColor, BackgroundColor))
-                        c.BackgroundColor = BackgroundColor;
-                }
+        // No-op: background color changes handled by overriding OnBackgroundColorChangedCore
 
-                _parentTimeline.UpdateLyricsColor(ColorToRgbaHex(BackgroundColor));
-                NotifyClipDataChanged(nameof(BackgroundColor));
-            }
-        };
     }
 
     partial void OnLyricsChanged(string value)
@@ -63,5 +49,24 @@ public partial class KaraokeClipViewModel : ClipViewModel
             k.IsEndOfLine = value;
             NotifyClipDataChanged(nameof(IsEndOfLine));
         }
+    }
+
+    protected override void OnBackgroundColorChangedCore(Color value)
+    {
+        // When one lyrics clip changes color, update all lyrics clips and metadata
+        if (_parentTimeline != null)
+        {
+            var lyricsClips = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
+            foreach (var clip in lyricsClips)
+            {
+                if (!Equals(clip.BackgroundColor, value))
+                    clip.BackgroundColor = value;
+            }
+
+            _parentTimeline.UpdateLyricsColor(ColorToRgbaHex(value));
+        }
+
+        // Always invoke base to notify listeners
+        base.OnBackgroundColorChangedCore(value);
     }
 }

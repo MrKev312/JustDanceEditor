@@ -66,7 +66,16 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
 
     partial void OnBackgroundColorChanged(Color value)
     {
-        // Notify listeners when the background color changes
+        // Delegate to a virtual hook so subclasses can extend behavior safely
+        OnBackgroundColorChangedCore(value);
+    }
+
+    /// <summary>
+    /// Virtual hook invoked when BackgroundColor changes. Subclasses may override.
+    /// </summary>
+    protected virtual void OnBackgroundColorChangedCore(Color value)
+    {
+        // Default behavior: broadcast change
         NotifyClipDataChanged(nameof(BackgroundColor));
     }
 

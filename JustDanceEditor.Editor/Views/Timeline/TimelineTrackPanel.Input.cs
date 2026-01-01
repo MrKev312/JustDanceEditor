@@ -164,7 +164,7 @@ public partial class TimelineTrackPanel
             double localX = point.X - clickedStartX;
             bool nearLeft = localX <= ResizeHitThreshold;
             bool nearRight = localX >= (clickedWidth - ResizeHitThreshold);
-            bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel;
+            bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
 
             if (isResizableType && nearLeft)
             {
@@ -205,7 +205,7 @@ public partial class TimelineTrackPanel
         // Delegate to active handlers
         if (_resizeHandler?.IsActive == true)
         {
-            _resizeHandler.UpdateResize(point, ppb);
+            _resizeHandler.UpdateResize(point, ppb, vm);
             return;
         }
 

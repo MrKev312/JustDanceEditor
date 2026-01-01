@@ -4,10 +4,11 @@ using Avalonia.Input;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Editor.Services;
 
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 namespace JustDanceEditor.Editor.Views.Timeline.Interactions;
 
 /// <summary>
@@ -54,7 +55,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         Capture(e);
     }
 
-    public void UpdateResize(Point pointerPos, double pixelsPerBeat)
+    public void UpdateResize(Point pointerPos, double pixelsPerBeat, TimelineEditorViewModel? vm)
     {
         if (_resizingClip == null)
             return;
@@ -62,20 +63,39 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         double deltaX = pointerPos.X - _resizeStartPointerX;
         double deltaBeats = deltaX / pixelsPerBeat;
 
+        // Prepare other clips enumerable excluding the resizing clip
+        IEnumerable<ClipViewModel> otherClips = vm != null ? vm.Tracks.SelectMany(t => t.Clips).Where(c => c != _resizingClip) : System.Linq.Enumerable.Empty<ClipViewModel>();
+
         if (_isResizingLeft)
         {
-            double newStart = _resizeOriginalStart + deltaBeats;
-            double newDuration = _resizeOriginalDuration - deltaBeats;
+            double unconstrainedStart = _resizeOriginalStart + deltaBeats;
+            double fixedEnd = _resizeOriginalStart + _resizeOriginalDuration;
+            double finalStart = unconstrainedStart;
+
+            if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
+            {
+                finalStart = SnappingService.ChooseBestStartPreserveEnd(unconstrainedStart, fixedEnd, vm, otherClips);
+            }
+
+            double newDuration = fixedEnd - finalStart;
 
             if (newDuration >= 0.5)
             {
-                _resizingClip.StartBeat = newStart;
+                _resizingClip.StartBeat = finalStart;
                 _resizingClip.DurationBeats = newDuration;
             }
         }
         else if (_isResizingRight)
         {
-            double newDuration = _resizeOriginalDuration + deltaBeats;
+            double unconstrainedEnd = _resizeOriginalStart + _resizeOriginalDuration + deltaBeats;
+            double finalEnd = unconstrainedEnd;
+
+            if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
+            {
+                finalEnd = SnappingService.ChooseBestEnd(unconstrainedEnd, _resizeOriginalStart, vm, otherClips);
+            }
+
+            double newDuration = finalEnd - _resizeOriginalStart;
 
             if (newDuration >= 0.5)
             {
@@ -148,7 +168,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
             if (pointerPos.X >= x && pointerPos.X <= x + w)
             {
                 double localX = pointerPos.X - x;
-                bool isResizable = clip is PictogramClipViewModel or KaraokeClipViewModel;
+                bool isResizable = clip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
 
                 if (isResizable && IsNearLeft(localX))
                 {

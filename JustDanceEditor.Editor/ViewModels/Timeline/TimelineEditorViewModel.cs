@@ -111,6 +111,26 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
 
     public IEnumerable<string> AvailableHandCoachMoves => _package.HandCoachMoves.Keys;
     public IEnumerable<string> AvailableFullBodyCoachMoves => _package.FullBodyCoachMoves.Keys;
+
+    /// <summary>
+    /// Attempt to retrieve a color associated with the given move id from the package coach move definitions.
+    /// Returns true if a color was found and parsed.
+    /// </summary>
+    public bool TryGetCoachMoveColor(string moveId, out Color color)
+    {
+        CoachMoveDefinition? def = null;
+        if (_package.HandCoachMoves.TryGetValue(moveId, out var d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+            def = d;
+
+        if (def != null && Color.TryParse(def.Color, out var c))
+        {
+            color = c;
+            return true;
+        }
+
+        color = Colors.LightGray;
+        return false;
+    }
     public IEnumerable<string> AvailablePictograms
     {
         get
@@ -254,7 +274,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
         }
 
         // Helper-local to capture lyricsColor where needed
-        void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips)
+        void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips, bool isFullBody = false)
         {
             var track = new TrackViewModel() { Title = title, Height = height, TrackColor = color };
             foreach (TimelineClipBase clip in clips)
@@ -278,7 +298,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                                 moveColor = c;
                             duration = def.Duration;
                         }
-                        track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this));
+                        track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this, isFullBody));
                         break;
                     }
                     case GoldEffectClip gc:
@@ -299,10 +319,10 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
 
         // One track per coach timeline to preserve coach id in title
         foreach (MoveTimeline coachTimeline in _package.CoachTimelines)
-            AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, coachTimeline.Clips.Cast<TimelineClipBase>());
+            AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, coachTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: false);
 
         foreach (MoveTimeline fullBodyTimeline in _package.FullBodyCoachTimelines)
-            AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>());
+            AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
 
         AddTrack("Gold Effects", 30, Colors.OrangeRed, _package.GoldEffects.Clips.Cast<TimelineClipBase>());
     }

@@ -114,12 +114,16 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
     {
         if (_isDragging && _draggingClip != null)
         {
-            double newStart = _draggingClip.StartBeat;
-            if (Math.Abs(newStart - _dragOriginalStartBeat) > 0.001)
+            // Capture locals so undo/redo lambdas don't reference cleared fields
+            var clip = _draggingClip;
+            double orig = _dragOriginalStartBeat;
+            double newStart = clip.StartBeat;
+
+            if (Math.Abs(newStart - orig) > 0.001)
             {
                 vm?.PushUndo(
-                    undo: () => _draggingClip.StartBeat = _dragOriginalStartBeat,
-                    redo: () => _draggingClip.StartBeat = newStart
+                    undo: () => clip.StartBeat = orig,
+                    redo: () => clip.StartBeat = newStart
                 );
             }
 
