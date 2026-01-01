@@ -288,19 +288,19 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                         track.Clips.Add(new PictogramClipViewModel(pc, pc.Duration, Colors.LightBlue, pc.PictogramId, RootPath, this));
                         break;
                     case MoveClip mc:
-                    {
-                        Color moveColor = Colors.LightGray;
-                        double duration = 24;
-                        string name = mc.MoveId;
-                        if (_package.HandCoachMoves.TryGetValue(mc.MoveId, out CoachMoveDefinition? def) || _package.FullBodyCoachMoves.TryGetValue(mc.MoveId, out def))
                         {
-                            if (Color.TryParse(def.Color, out Color c))
-                                moveColor = c;
-                            duration = def.Duration;
+                            Color moveColor = Colors.LightGray;
+                            double duration = 24;
+                            string name = mc.MoveId;
+                            if (_package.HandCoachMoves.TryGetValue(mc.MoveId, out CoachMoveDefinition? def) || _package.FullBodyCoachMoves.TryGetValue(mc.MoveId, out def))
+                            {
+                                if (Color.TryParse(def.Color, out Color c))
+                                    moveColor = c;
+                                duration = def.Duration;
+                            }
+                            track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this, isFullBody));
+                            break;
                         }
-                        track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this, isFullBody));
-                        break;
-                    }
                     case GoldEffectClip gc:
                         track.Clips.Add(new GoldEffectClipViewModel(gc, gc.Duration, Colors.Gold, "Gold Effect", RootPath, this));
                         break;

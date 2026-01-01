@@ -325,7 +325,16 @@ public class LyricLineControl : Control
             unconstrained = 0;
 
         // Use SnappingService to compute best start
-        double newStart = SnappingService.ChooseBestStart(unconstrained, _draggingClip.DurationBeats, vm ?? TimelineEditorViewModelPlaceholder.Instance, vm?.Tracks.SelectMany(tr => tr.Clips) ?? Enumerable.Empty<ClipViewModel>());
+        double newStart;
+        if (vm != null)
+        {
+            // Exclude the dragging syllable/clip so it doesn't snap to itself
+            newStart = SnappingService.FindSnapBeat(unconstrained, vm, new[] { _draggingClip });
+        }
+        else
+        {
+            newStart = SnappingService.FindSnapBeat(unconstrained, TimelineEditorViewModelPlaceholder.Instance);
+        }
 
         _draggingClip.StartBeat = newStart;
 

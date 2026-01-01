@@ -2,192 +2,98 @@ using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.Services;
 
 public static class SnappingService
 {
-    public static double ChooseBestStart(double unconstrainedStart, double duration, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
+    // Pixel-based threshold to give a consistent feel regardless of zoom level
+    public const double SnapThresholdPixels = 10.0;
+    private const double EPS = 1e-9;
+
+    public static double FindSnapBeat(double targetBeat, TimelineEditorViewModel vm, IEnumerable<ClipViewModel>? excludedClips = null)
     {
         if (vm == null)
-            return unconstrainedStart;
+            return targetBeat;
 
-        var candidates = new List<double>();
+        double ppb = vm.PixelsPerBeat;
+        if (ppb <= 0.0)
+            return targetBeat;
 
+        double thresholdBeats = SnapThresholdPixels / ppb;
+
+        double best = targetBeat;
+        double bestDist = double.MaxValue;
+        int bestPriority = int.MaxValue; // 0=Playhead,1=Grid,2=Clip
+
+        var excluded = excludedClips != null ? new HashSet<ClipViewModel>(excludedClips) : null;
+
+        // 1) Playhead
+        if (vm.SnapToCurrentTimeMarker)
+        {
+            double candidate = vm.CurrentBeat;
+            double d = Math.Abs(candidate - targetBeat);
+            if (d + EPS < bestDist || (Math.Abs(d - bestDist) <= EPS && 0 < bestPriority))
+            {
+                bestDist = d;
+                best = candidate;
+                bestPriority = 0;
+            }
+        }
+
+        // 2) Grid
         if (vm.SnapToGrid)
         {
             double grid = vm.SnapGridSize <= 0 ? 1.0 : vm.SnapGridSize;
-            candidates.Add(Math.Floor(unconstrainedStart / grid) * grid);
-            candidates.Add(Math.Round(unconstrainedStart / grid) * grid);
-            candidates.Add(Math.Ceiling(unconstrainedStart / grid) * grid);
-
-            double end = unconstrainedStart + duration;
-            candidates.Add((Math.Floor(end / grid) * grid) - duration);
-            candidates.Add((Math.Round(end / grid) * grid) - duration);
-            candidates.Add((Math.Ceiling(end / grid) * grid) - duration);
+            double candidate = Math.Round(targetBeat / grid) * grid;
+            double d = Math.Abs(candidate - targetBeat);
+            if (d + EPS < bestDist || (Math.Abs(d - bestDist) <= EPS && 1 < bestPriority))
+            {
+                bestDist = d;
+                best = candidate;
+                bestPriority = 1;
+            }
         }
 
-        if (vm.SnapToCurrentTimeMarker)
-        {
-            candidates.Add(vm.CurrentBeat);
-            candidates.Add(vm.CurrentBeat - duration);
-        }
-
-        if (vm.SnapToClips && allClips != null)
+        // 3) Clips
+        if (vm.SnapToClips)
         {
             try
             {
-                foreach (ClipViewModel other in allClips)
+                foreach (var clip in vm.Tracks.SelectMany(t => t.Clips))
                 {
-                    if (other == null)
+                    if (clip == null)
                         continue;
-                    double oStart = other.StartBeat;
-                    double oEnd = other.StartBeat + other.DurationBeats;
-                    candidates.Add(oStart);
-                    candidates.Add(oEnd);
-                    candidates.Add(oStart - duration);
-                    candidates.Add(oEnd - duration);
+                    if (excluded != null && excluded.Contains(clip))
+                        continue;
+
+                    double s = clip.StartBeat;
+                    double e = clip.StartBeat + clip.DurationBeats;
+
+                    double ds = Math.Abs(s - targetBeat);
+                    if (ds + EPS < bestDist || (Math.Abs(ds - bestDist) <= EPS && 2 < bestPriority))
+                    {
+                        bestDist = ds;
+                        best = s;
+                        bestPriority = 2;
+                    }
+
+                    double de = Math.Abs(e - targetBeat);
+                    if (de + EPS < bestDist || (Math.Abs(de - bestDist) <= EPS && 2 < bestPriority))
+                    {
+                        bestDist = de;
+                        best = e;
+                        bestPriority = 2;
+                    }
                 }
             }
             catch { }
         }
 
-        if (candidates.Count == 0)
-            return unconstrainedStart;
-
-        double best = unconstrainedStart;
-        double bestDist = double.MaxValue;
-        foreach (var c in candidates)
-        {
-            double d = Math.Abs(c - unconstrainedStart);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                best = c;
-            }
-        }
-
-        if (vm.SnapThreshold > 0 && Math.Abs(best - unconstrainedStart) <= vm.SnapThreshold)
+        if (bestDist < thresholdBeats + EPS)
             return best;
 
-        return unconstrainedStart;
-    }
-
-    public static double ChooseBestEnd(double unconstrainedEnd, double start, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
-    {
-        if (vm == null)
-            return unconstrainedEnd;
-
-        var candidates = new List<double>();
-
-        if (vm.SnapToGrid)
-        {
-            double grid = vm.SnapGridSize <= 0 ? 1.0 : vm.SnapGridSize;
-            candidates.Add(Math.Floor(unconstrainedEnd / grid) * grid);
-            candidates.Add(Math.Round(unconstrainedEnd / grid) * grid);
-            candidates.Add(Math.Ceiling(unconstrainedEnd / grid) * grid);
-        }
-
-        if (vm.SnapToCurrentTimeMarker)
-        {
-            candidates.Add(vm.CurrentBeat);
-        }
-
-        if (vm.SnapToClips && allClips != null)
-        {
-            try
-            {
-                foreach (ClipViewModel other in allClips)
-                {
-                    if (other == null)
-                        continue;
-                    double oStart = other.StartBeat;
-                    double oEnd = other.StartBeat + other.DurationBeats;
-                    candidates.Add(oStart);
-                    candidates.Add(oEnd);
-                }
-            }
-            catch { }
-        }
-
-        if (candidates.Count == 0)
-            return unconstrainedEnd;
-
-        double best = unconstrainedEnd;
-        double bestDist = double.MaxValue;
-        foreach (var c in candidates)
-        {
-            double d = Math.Abs(c - unconstrainedEnd);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                best = c;
-            }
-        }
-
-        if (vm.SnapThreshold > 0 && Math.Abs(best - unconstrainedEnd) <= vm.SnapThreshold)
-            return best;
-
-        return unconstrainedEnd;
-    }
-
-    // New helper for left-edge resizing where the clip's end is preserved — only consider start-alignment candidates
-    public static double ChooseBestStartPreserveEnd(double unconstrainedStart, double fixedEnd, TimelineEditorViewModel vm, IEnumerable<ClipViewModel> allClips)
-    {
-        if (vm == null)
-            return unconstrainedStart;
-
-        var candidates = new List<double>();
-
-        if (vm.SnapToGrid)
-        {
-            double grid = vm.SnapGridSize <= 0 ? 1.0 : vm.SnapGridSize;
-            candidates.Add(Math.Floor(unconstrainedStart / grid) * grid);
-            candidates.Add(Math.Round(unconstrainedStart / grid) * grid);
-            candidates.Add(Math.Ceiling(unconstrainedStart / grid) * grid);
-        }
-
-        if (vm.SnapToCurrentTimeMarker)
-        {
-            candidates.Add(vm.CurrentBeat);
-        }
-
-        if (vm.SnapToClips && allClips != null)
-        {
-            try
-            {
-                foreach (ClipViewModel other in allClips)
-                {
-                    if (other == null)
-                        continue;
-                    double oStart = other.StartBeat;
-                    double oEnd = other.StartBeat + other.DurationBeats;
-                    // align start to other starts/ends
-                    candidates.Add(oStart);
-                    candidates.Add(oEnd);
-                }
-            }
-            catch { }
-        }
-
-        if (candidates.Count == 0)
-            return unconstrainedStart;
-
-        double best = unconstrainedStart;
-        double bestDist = double.MaxValue;
-        foreach (var c in candidates)
-        {
-            double d = Math.Abs(c - unconstrainedStart);
-            if (d < bestDist)
-            {
-                bestDist = d;
-                best = c;
-            }
-        }
-
-        if (vm.SnapThreshold > 0 && Math.Abs(best - unconstrainedStart) <= vm.SnapThreshold)
-            return best;
-
-        return unconstrainedStart;
+        return targetBeat;
     }
 }

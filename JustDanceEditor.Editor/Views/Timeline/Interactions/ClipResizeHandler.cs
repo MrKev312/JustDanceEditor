@@ -2,9 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Editor.Services;
 
 using System;
 using System.Collections.Generic;
@@ -63,8 +63,8 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         double deltaX = pointerPos.X - _resizeStartPointerX;
         double deltaBeats = deltaX / pixelsPerBeat;
 
-        // Prepare other clips enumerable excluding the resizing clip
-        IEnumerable<ClipViewModel> otherClips = vm != null ? vm.Tracks.SelectMany(t => t.Clips).Where(c => c != _resizingClip) : System.Linq.Enumerable.Empty<ClipViewModel>();
+        // Prepare all clips (we'll exclude the resizing clip via the excludedClips parameter)
+        IEnumerable<ClipViewModel> allClips = vm != null ? vm.Tracks.SelectMany(t => t.Clips) : System.Linq.Enumerable.Empty<ClipViewModel>();
 
         if (_isResizingLeft)
         {
@@ -74,7 +74,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
-                finalStart = SnappingService.ChooseBestStartPreserveEnd(unconstrainedStart, fixedEnd, vm, otherClips);
+                finalStart = SnappingService.FindSnapBeat(unconstrainedStart, vm, new[] { _resizingClip });
             }
 
             double newDuration = fixedEnd - finalStart;
@@ -92,7 +92,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
-                finalEnd = SnappingService.ChooseBestEnd(unconstrainedEnd, _resizeOriginalStart, vm, otherClips);
+                finalEnd = SnappingService.FindSnapBeat(unconstrainedEnd, vm, new[] { _resizingClip });
             }
 
             double newDuration = finalEnd - _resizeOriginalStart;
@@ -116,19 +116,21 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
         if (changed && vm != null)
         {
-            var finalStart = _resizingClip.StartBeat;
-            var finalDuration = _resizingClip.DurationBeats;
+            // Capture the clip locally so the undo/redo lambdas don't reference the cleared field
+            var clip = _resizingClip;
+            var finalStart = clip.StartBeat;
+            var finalDuration = clip.DurationBeats;
 
             vm.PushUndo(
                 undo: () =>
                 {
-                    _resizingClip.StartBeat = _resizeOriginalStart;
-                    _resizingClip.DurationBeats = _resizeOriginalDuration;
+                    clip.StartBeat = _resizeOriginalStart;
+                    clip.DurationBeats = _resizeOriginalDuration;
                 },
                 redo: () =>
                 {
-                    _resizingClip.StartBeat = finalStart;
-                    _resizingClip.DurationBeats = finalDuration;
+                    clip.StartBeat = finalStart;
+                    clip.DurationBeats = finalDuration;
                 }
             );
         }

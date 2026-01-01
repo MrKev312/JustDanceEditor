@@ -1,4 +1,5 @@
 using Avalonia.Media;
+
 using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;

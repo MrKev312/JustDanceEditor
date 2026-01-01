@@ -1,8 +1,10 @@
 using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -13,8 +15,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
-using JustDanceEditor.Editor.Messaging;
-using CommunityToolkit.Mvvm.Messaging;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -424,7 +424,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 }
             );
             // Ensure we unregister when this view model is disposed (see Dispose() below)
-            }
+        }
 
         _colorPickerInitialValue = null;
     }

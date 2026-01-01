@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -164,16 +165,8 @@ public class AudioBarControl : Control
         // Convert local X to beat
         double beat = (x / vm.PixelsPerBeat) + vm.BeatOffset;
 
-        // Apply snapping
-        if (vm.SnapToGrid)
-        {
-            beat = Math.Round(beat / vm.SnapGridSize) * vm.SnapGridSize;
-        }
-
-        if (vm.SnapToCurrentTimeMarker && Math.Abs(beat - vm.CurrentBeat) <= vm.SnapThreshold)
-        {
-            beat = vm.CurrentBeat;
-        }
+        // Apply centralized snapping logic
+        beat = SnappingService.FindSnapBeat(beat, vm);
 
         vm.Playback.SeekToBeat(beat);
     }

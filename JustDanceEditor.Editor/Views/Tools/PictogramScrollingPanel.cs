@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -443,17 +444,7 @@ public class PictogramScrollingPanel : Panel
 
         if (vm != null)
         {
-            if (vm.SnapToGrid)
-            {
-                newStart = Math.Round(newStart);
-            }
-
-            if (vm.SnapToCurrentTimeMarker)
-            {
-                double current = vm.CurrentBeat;
-                if (Math.Abs(newStart - current) <= 0.25)
-                    newStart = current;
-            }
+            newStart = SnappingService.FindSnapBeat(newStart, vm, new[] { _draggingClip });
         }
 
         _draggingClip.StartBeat = newStart;

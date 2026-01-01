@@ -1,10 +1,13 @@
 using Avalonia.Media;
 using Avalonia.Threading;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+
+using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Editor.Attributes;
+
 using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;

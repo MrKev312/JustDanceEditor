@@ -3,10 +3,10 @@ using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
-using CommunityToolkit.Mvvm.Messaging;
 
 using System;
 using System.IO;

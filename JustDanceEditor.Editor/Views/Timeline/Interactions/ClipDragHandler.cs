@@ -55,9 +55,40 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
-                IEnumerable<ClipViewModel> otherClips = vm.Tracks.SelectMany(tr => tr.Clips)
-                    .Where(c => c != _draggingClip);
-                newStart = SnappingService.ChooseBestStart(newStart, deltaBeats, vm, otherClips);
+                // Exclude the clip being dragged so it doesn't snap to itself
+                double duration = _draggingClip.DurationBeats;
+                double newEnd = newStart + duration;
+
+                var bestStart = SnappingService.FindSnapBeat(newStart, vm, new[] { _draggingClip });
+                var bestEnd = SnappingService.FindSnapBeat(newEnd, vm, new[] { _draggingClip });
+
+                double startAdjust = bestStart - newStart;
+                double endAdjust = bestEnd - newEnd;
+
+                const double eps = 1e-9;
+
+                bool startSnapped = Math.Abs(startAdjust) > eps;
+                bool endSnapped = Math.Abs(endAdjust) > eps;
+
+                // Apply per rules:
+                // 1) If both snapped, apply smaller absolute adjustment
+                // 2) If only start snapped, apply startAdjust
+                // 3) If only end snapped, apply endAdjust
+                if (startSnapped && endSnapped)
+                {
+                    if (Math.Abs(startAdjust) <= Math.Abs(endAdjust))
+                        newStart = newStart + startAdjust;
+                    else
+                        newStart = (newEnd + endAdjust) - duration;
+                }
+                else if (startSnapped)
+                {
+                    newStart = newStart + startAdjust;
+                }
+                else if (endSnapped)
+                {
+                    newStart = (newEnd + endAdjust) - duration;
+                }
             }
 
             _draggingClip.StartBeat = newStart;
@@ -81,20 +112,32 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
-                IEnumerable<ClipViewModel> otherClips = vm.Tracks.SelectMany(tr => tr.Clips)
-                    .Where(o => !_multiDragOriginalStarts.ContainsKey(o));
-
-                var bestStart = SnappingService.ChooseBestStartPreserveEnd(unconstrainedEarliest, unconstrainedLatest, vm, otherClips);
-                var bestEnd = SnappingService.ChooseBestEnd(unconstrainedLatest, unconstrainedEarliest, vm, otherClips);
+                // Exclude selected clips from snapping targets
+                var selectedClips = selected;
+                var bestStart = SnappingService.FindSnapBeat(unconstrainedEarliest, vm, selectedClips);
+                var bestEnd = SnappingService.FindSnapBeat(unconstrainedLatest, vm, selectedClips);
 
                 double startAdjust = bestStart - unconstrainedEarliest;
                 double endAdjust = bestEnd - unconstrainedLatest;
 
-                if (Math.Abs(startAdjust) <= Math.Abs(endAdjust) && Math.Abs(startAdjust) <= vm.SnapThreshold)
+                const double eps = 1e-9;
+
+                bool startSnapped = Math.Abs(startAdjust) > eps;
+                bool endSnapped = Math.Abs(endAdjust) > eps;
+
+                // Apply rules (same as single-clip):
+                if (startSnapped && endSnapped)
+                {
+                    if (Math.Abs(startAdjust) <= Math.Abs(endAdjust))
+                        applyDelta = deltaBeats + startAdjust;
+                    else
+                        applyDelta = deltaBeats + endAdjust;
+                }
+                else if (startSnapped)
                 {
                     applyDelta = deltaBeats + startAdjust;
                 }
-                else if (Math.Abs(endAdjust) < Math.Abs(startAdjust) && Math.Abs(endAdjust) <= vm.SnapThreshold)
+                else if (endSnapped)
                 {
                     applyDelta = deltaBeats + endAdjust;
                 }
