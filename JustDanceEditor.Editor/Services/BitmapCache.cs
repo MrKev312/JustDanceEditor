@@ -27,7 +27,7 @@ public static class BitmapCache
                 if (File.Exists(path))
                 {
                     using FileStream fs = File.OpenRead(path);
-                    var b = Bitmap.DecodeToWidth(fs, 200);
+                    Bitmap b = Bitmap.DecodeToWidth(fs, 200);
                     _cache.TryAdd(path, b);
                 }
             }

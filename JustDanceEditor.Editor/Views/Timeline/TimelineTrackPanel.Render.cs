@@ -62,7 +62,7 @@ public partial class TimelineTrackPanel
             var w = System.Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
             var h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
 
-            var rect = new Rect(x, y, w, h);
+            Rect rect = new(x, y, w, h);
             context.FillRectangle(TimelineResources.BoxSelectionFill, rect);
             context.DrawRectangle(null, TimelineResources.BoxSelectionBorderPen, rect);
         }
@@ -87,7 +87,7 @@ public partial class TimelineTrackPanel
             if (endX < 0 || startX > bounds.Width)
                 continue;
 
-            var rect = new Rect(startX, 2, System.Math.Max(0, width), System.Math.Max(1, bounds.Height - 4));
+            Rect rect = new(startX, 2, System.Math.Max(0, width), System.Math.Max(1, bounds.Height - 4));
 
             // Use cached brush for clip background
             var clipBrush = GetOrCreateBrush(clip.BackgroundColor);
@@ -120,7 +120,7 @@ public partial class TimelineTrackPanel
                     {
                         var imgX = startX + ((width - drawWidth) / 2);
                         var imgY = rect.Y;
-                        var destRect = new Rect(imgX, imgY, drawWidth, drawHeight);
+                        Rect destRect = new(imgX, imgY, drawWidth, drawHeight);
                         using (context.PushClip(rect))
                         {
                             context.DrawImage(bmp, new Rect(bmp.Size), destRect);

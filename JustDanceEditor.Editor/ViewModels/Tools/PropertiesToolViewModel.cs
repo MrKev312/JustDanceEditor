@@ -18,7 +18,7 @@ using System.Reflection;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Properties", "View/Tools")]
+[RunCommand("Properties", "View/Tools")]
 public partial class PropertiesToolViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
@@ -83,7 +83,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
             foreach (var group in groups)
             {
-                var categoryVm = new PropertyCategoryViewModel(group.Key);
+                PropertyCategoryViewModel categoryVm = new(group.Key);
                 foreach (var item in group)
                 {
                     // Verify this property exists and has the same attribute on all selected objects
@@ -95,7 +95,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
                     if (consistent)
                     {
-                        var propVm = new PropertyItemViewModel(
+                        PropertyItemViewModel propVm = new(
                             selection,
                             item.Property.Name,
                             item.Attribute!,
@@ -134,7 +134,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
     private void PopulateOptions(PropertyItemViewModel propVm, List<object> selection, TimelineEditorViewModel timeline)
     {
         // Check if we are dealing with ClipViewModels
-        var firstClip = selection[0] as ClipViewModel;
+        ClipViewModel? firstClip = selection[0] as ClipViewModel;
         if (firstClip == null)
             return;
 
@@ -160,7 +160,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         }
         else if (firstClip is PictogramClipViewModel)
         {
-            var list = new List<PictogramOptionViewModel>();
+            List<PictogramOptionViewModel> list = new();
             var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
             if (System.IO.Directory.Exists(dir))
             {
@@ -289,22 +289,22 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // Lyrics: capture all lyrics clips and metadata
             if (cv is KaraokeClipViewModel)
             {
-                var allLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
-                var colors = allLyrics.Select(c => ((ClipViewModel)c, c.BackgroundColor)).ToList();
-                var snapshot = new ColorSnapshot(true, colors, _lyricsService.GetLyricsColor(), null);
+                List<KaraokeClipViewModel> allLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
+                List<(ClipViewModel, Color BackgroundColor)> colors = allLyrics.Select(c => ((ClipViewModel)c, c.BackgroundColor)).ToList();
+                ColorSnapshot snapshot = new(true, colors, _lyricsService.GetLyricsColor(), null);
                 _colorPickerInitialValue = snapshot;
             }
             else if (cv is MoveClipViewModel)
             {
                 // For moves, capture only the selected targets
-                var selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
-                var snapshot = new ColorSnapshot(false, selected, null, null);
+                List<(ClipViewModel c, Color BackgroundColor)> selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
+                ColorSnapshot snapshot = new(false, selected, null, null);
                 _colorPickerInitialValue = snapshot;
             }
             else
             {
-                var selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
-                var snapshot = new ColorSnapshot(false, selected, null, null);
+                List<(ClipViewModel c, Color BackgroundColor)> selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
+                ColorSnapshot snapshot = new(false, selected, null, null);
                 _colorPickerInitialValue = snapshot;
             }
         }
@@ -336,8 +336,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 }
 
                 var finalColor = firstLyrics.BackgroundColor;
-                var initialColors = snap.ClipColors.Select(cc => cc.Color).ToList();
-                var affectedClips = snap.ClipColors.Select(cc => cc.Clip).ToList();
+                List<Color> initialColors = snap.ClipColors.Select(cc => cc.Color).ToList();
+                List<ClipViewModel> affectedClips = snap.ClipColors.Select(cc => cc.Clip).ToList();
                 var oldMetadata = snap.OldMetadata;
                 var newMetadata = ClipViewModel.ColorToRgbaHex(finalColor);
 
@@ -358,7 +358,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                         redo: () =>
                         {
                             // Set current lyrics clips to the final color (handles changed set of clips)
-                            var lyricsClips = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
+                            List<KaraokeClipViewModel> lyricsClips = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
                             foreach (var clip in lyricsClips)
                             {
                                 clip.BackgroundColor = finalColor;
@@ -371,9 +371,9 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             else
             {
                 // Non-lyrics: use the captured list to create undo/redo per captured clip
-                var initialList = snap.ClipColors.Select(cc => cc.Color).ToList();
-                var clips = snap.ClipColors.Select(cc => cc.Clip).ToList();
-                var finalList = clips.Select(c => c.BackgroundColor).ToList();
+                List<Color> initialList = snap.ClipColors.Select(cc => cc.Color).ToList();
+                List<ClipViewModel> clips = snap.ClipColors.Select(cc => cc.Clip).ToList();
+                List<Color> finalList = clips.Select(c => c.BackgroundColor).ToList();
 
                 bool anyChanged = false;
                 for (int i = 0; i < clips.Count; i++)
@@ -410,7 +410,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         var finalValue = GetValue(_targets[0]);
         if (!Equals(_colorPickerInitialValue, finalValue))
         {
-            var oldValues = _targets.Select(t => _colorPickerInitialValue).ToList();
+            List<object?> oldValues = _targets.Select(t => _colorPickerInitialValue).ToList();
             _undoService.Record(
                 undo: () =>
                 {
@@ -448,7 +448,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             if (value == null)
                 return; // Don't set nulls explicitly (e.g. from empty selection)
 
-            var oldValues = _targets.Select(GetValue).ToList();
+            List<object?> oldValues = _targets.Select(GetValue).ToList();
 
             // Only push undo if not in color picker mode
             if (!_isColorPickerActive)

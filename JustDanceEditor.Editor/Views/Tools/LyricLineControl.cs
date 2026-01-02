@@ -127,12 +127,12 @@ public class LyricLineControl : Control
         _measuredSyllables.Clear();
         _measuredTotalWidth = 0;
 
-        var typeface = new Typeface("Arial", FontStyle.Normal, FontWeight.Bold);
+        Typeface typeface = new("Arial", FontStyle.Normal, FontWeight.Bold);
 
         foreach (ClipViewModel c in Line.Clips)
         {
             string text = (c as KaraokeClipViewModel)?.Lyrics ?? "";
-            var ft = new FormattedText(
+            FormattedText ft = new(
                 text,
                 System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
@@ -153,7 +153,7 @@ public class LyricLineControl : Control
 
         EnsureMeasurements();
 
-        var typeface = new Typeface("Arial", FontStyle.Normal, FontWeight.Bold);
+        Typeface typeface = new("Arial", FontStyle.Normal, FontWeight.Bold);
         double baseFontSize = Bounds.Height * 0.8;
 
         double totalWidth = _measuredTotalWidth;
@@ -164,10 +164,10 @@ public class LyricLineControl : Control
 
         // 3. Build final formatted texts using cached text strings
         double scaledWidth = 0;
-        var finalSyllables = new List<(ClipViewModel Clip, string Text, FormattedText FT)>();
+        List<(ClipViewModel Clip, string Text, FormattedText FT)> finalSyllables = new();
         foreach ((ClipViewModel Clip, string Text, double BaseWidth) s in _measuredSyllables)
         {
-            var ft = new FormattedText(
+            FormattedText ft = new(
                 s.Text,
                 System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
@@ -215,7 +215,7 @@ public class LyricLineControl : Control
             }
 
             // Create final FormattedText and generate geometry for outline rendering
-            var finalFt = new FormattedText(
+            FormattedText finalFt = new(
                 s.Text,
                 System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
@@ -249,14 +249,14 @@ public class LyricLineControl : Control
         // Determine layout same as in Render to find which syllable was clicked
         EnsureMeasurements();
 
-        var typeface = new Typeface("Arial", FontStyle.Normal, FontWeight.Bold);
+        Typeface typeface = new("Arial", FontStyle.Normal, FontWeight.Bold);
         double baseFontSize = Bounds.Height * 0.8;
         double scale = Math.Min(1.0, (Bounds.Width - 40) / Math.Max(1, _measuredTotalWidth));
         double fontSize = baseFontSize * scale;
 
         var syllables = _measuredSyllables.Select(s =>
         {
-            var ft = new FormattedText(s.Text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, fontSize, Brushes.White);
+            FormattedText ft = new(s.Text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, fontSize, Brushes.White);
             return new { s.Clip, s.Text, FT = ft };
         }).ToList();
 

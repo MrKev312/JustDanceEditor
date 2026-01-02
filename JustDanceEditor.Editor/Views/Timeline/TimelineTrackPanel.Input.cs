@@ -116,7 +116,7 @@ public partial class TimelineTrackPanel
             // Shift: Range selection
             if (shift && contextVm != null)
             {
-                var allClips = contextVm.Tracks
+                List<ClipViewModel> allClips = contextVm.Tracks
                     .SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))
                     .ToList();
 

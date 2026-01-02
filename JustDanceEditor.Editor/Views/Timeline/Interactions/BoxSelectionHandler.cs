@@ -51,7 +51,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
         _panel.Cursor = new Cursor(StandardCursorType.Arrow);
 
-        Rect selRect = new Rect(
+        Rect selRect = new(
             Math.Min(StartPoint.X, CurrentPoint.X),
             Math.Min(StartPoint.Y, CurrentPoint.Y),
             Math.Abs(CurrentPoint.X - StartPoint.X),
@@ -118,7 +118,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
         double clipTop = 2.0;
         double clipBottom = Math.Max(1.0, _panel.Bounds.Height - 2.0);
 
-        Rect selRect = new Rect(StartPoint, CurrentPoint);
+        Rect selRect = new(StartPoint, CurrentPoint);
 
         foreach (ClipViewModel clip in _panel.Clips)
         {
@@ -138,7 +138,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private void SelectAcrossTracks(TimelineEditorViewModel vm, Rect selRect, double selStartBeat, double selEndBeat)
     {
-        var tracks = vm.Tracks.ToList();
+        List<TrackViewModel> tracks = vm.Tracks.ToList();
 
         int thisIndex = -1;
         for (int i = 0; i < tracks.Count; i++)

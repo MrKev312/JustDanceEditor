@@ -8,6 +8,7 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System.Collections.Generic;
 using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
@@ -59,7 +60,7 @@ public partial class KaraokeClipViewModel : ClipViewModel
         // When one lyrics clip changes color, update all lyrics clips and metadata
         if (_parentTimeline != null)
         {
-            var lyricsClips = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
+            List<KaraokeClipViewModel> lyricsClips = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
             foreach (var clip in lyricsClips)
             {
                 if (!Equals(clip.BackgroundColor, value))

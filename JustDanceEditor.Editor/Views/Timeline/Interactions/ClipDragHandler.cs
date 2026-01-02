@@ -101,7 +101,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
             double deltaX = pointerPos.X - _dragStartPointerX;
             double deltaBeats = deltaX / pixelsPerBeat;
 
-            var selected = _multiDragOriginalStarts.Keys.ToList();
+            List<ClipViewModel> selected = _multiDragOriginalStarts.Keys.ToList();
             double originalEarliestStart = selected.Min(c => _multiDragOriginalStarts[c]);
             double originalLatestEnd = selected.Max(c => _multiDragOriginalStarts[c] + c.DurationBeats);
 
@@ -178,7 +178,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
         if (_isMultiDragging && _multiDragOriginalStarts != null)
         {
-            var changes = new List<(ClipViewModel Clip, double Orig, double New)>();
+            List<(ClipViewModel Clip, double Orig, double New)> changes = new();
             foreach (var kv in _multiDragOriginalStarts)
             {
                 changes.Add((kv.Key, kv.Value, kv.Key.StartBeat));

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Video Preview", "View/Preview")]
+[RunCommand("Video Preview", "View/Preview")]
 public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 {
     public MediaPlayer MediaPlayer { get; }
@@ -54,7 +54,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
         if (ActiveTimeline != null && !string.IsNullOrEmpty(ActiveTimeline.VideoPath))
         {
-            var app = (App)Avalonia.Application.Current!;
+            App app = (App)Avalonia.Application.Current!;
 
             // Re-use or create media
             if (MediaPlayer.Media == null || MediaPlayer.Media.Mrl != ActiveTimeline.VideoPath)

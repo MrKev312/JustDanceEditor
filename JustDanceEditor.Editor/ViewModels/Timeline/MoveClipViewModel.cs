@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System.Collections.Generic;
 using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
@@ -34,7 +35,7 @@ public partial class MoveClipViewModel : ClipViewModel
                 // Also synchronize duration across sibling moves of the same body type and MoveId
                 if (_parentTimeline != null)
                 {
-                    var siblings = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == this.MoveId && c.IsFullBody == this.IsFullBody).ToList();
+                    List<MoveClipViewModel> siblings = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == this.MoveId && c.IsFullBody == this.IsFullBody).ToList();
                     foreach (var sibling in siblings)
                     {
                         if (!ReferenceEquals(sibling, this) && System.Math.Abs(sibling.DurationBeats - DurationBeats) > 1e-9)
@@ -86,7 +87,7 @@ public partial class MoveClipViewModel : ClipViewModel
             return;
         }
 
-        var siblings = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == this.MoveId && c.IsFullBody == this.IsFullBody).ToList();
+        List<MoveClipViewModel> siblings = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == this.MoveId && c.IsFullBody == this.IsFullBody).ToList();
         foreach (var s in siblings)
         {
             if (!ReferenceEquals(s, this) && !Equals(s.BackgroundColor, value))

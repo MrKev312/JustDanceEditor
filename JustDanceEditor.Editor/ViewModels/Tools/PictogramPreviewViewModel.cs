@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Pictogram Preview", "View/Preview")]
+[RunCommand("Pictogram Preview", "View/Preview")]
 public partial class PictogramPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
@@ -147,7 +147,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
         // Only include pictograms within a reasonable look-ahead (e.g., 20 beats)
         double lookAhead = 20;
         double current = ActiveTimeline.CurrentBeat;
-        var upcoming = pictoTrack.Clips
+        List<ClipViewModel> upcoming = pictoTrack.Clips
             .Where(c => c.StartBeat >= current - 5 && c.StartBeat <= current + lookAhead)
             .ToList();
 

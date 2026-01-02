@@ -16,7 +16,7 @@ public class AudioWaveformService
         // -f s16le: 16-bit little-endian
         // -ac 1: mono
         // -ar 8000: downsample to 8kHz for fast processing
-        var startInfo = new ProcessStartInfo
+        ProcessStartInfo startInfo = new()
         {
             FileName = "ffmpeg",
             Arguments = $"-i \"{opusPath}\" -f s16le -ac 1 -ar 8000 -",
@@ -25,11 +25,11 @@ public class AudioWaveformService
             CreateNoWindow = true
         };
 
-        using var process = Process.Start(startInfo);
+        using Process? process = Process.Start(startInfo);
         if (process == null)
             return [];
 
-        using var ms = new MemoryStream();
+        using MemoryStream ms = new();
         await process.StandardOutput.BaseStream.CopyToAsync(ms);
         byte[] bytes = ms.ToArray();
 

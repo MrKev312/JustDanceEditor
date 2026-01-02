@@ -215,7 +215,7 @@ public partial class TimelineTrackPanel : Control
         PropertyChangedEventHandler handler = (s, e) =>
         {
             // clear text cache for this clip
-            var keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
+            List<(ClipViewModel clip, double fontSize)> keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
             foreach ((ClipViewModel clip, double fontSize) k in keys)
                 _textCache.Remove(k);
 

@@ -15,7 +15,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
-[ToolWindow("Lyrics Preview", "View/Preview")]
+[RunCommand("Lyrics Preview", "View/Preview")]
 public partial class LyricPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
@@ -192,7 +192,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         // Subscribe to changes on the lyrics track so we update when clips reorder
         SubscribeLyricsTrack(pictoTrack);
 
-        var currentLineClips = new List<ClipViewModel>();
+        List<ClipViewModel> currentLineClips = new();
         // iterate clips sorted by StartBeat so BuildLines reflects current timing order
         foreach (KaraokeClipViewModel clip in pictoTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
         {

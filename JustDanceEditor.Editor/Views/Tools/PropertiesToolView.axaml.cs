@@ -30,7 +30,7 @@ public partial class PropertiesToolView : UserControl
                 // Commit changes by moving focus, triggering LostFocus update
                 // Try focusing the parent or the UserControl itself.
                 // Note: The UserControl must have Focusable="True" in XAML for this to work effectively.
-                var topLevel = TopLevel.GetTopLevel(this);
+                TopLevel? topLevel = TopLevel.GetTopLevel(this);
                 topLevel?.FocusManager?.ClearFocus();
                 e.Handled = true;
             }
@@ -63,7 +63,7 @@ public partial class PropertiesToolView : UserControl
         // Open the color picker once when it gets focus
         if (sender is ColorPicker colorPicker)
         {
-            var vm = colorPicker.DataContext as PropertyItemViewModel;
+            PropertyItemViewModel? vm = colorPicker.DataContext as PropertyItemViewModel;
             if (vm == null)
                 return;
 
@@ -87,7 +87,7 @@ public partial class PropertiesToolView : UserControl
     {
         if (sender is ColorPicker colorPicker)
         {
-            var vm = colorPicker.DataContext as PropertyItemViewModel;
+            PropertyItemViewModel? vm = colorPicker.DataContext as PropertyItemViewModel;
             if (vm == null)
                 return;
 

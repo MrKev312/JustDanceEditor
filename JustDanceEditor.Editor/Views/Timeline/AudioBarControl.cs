@@ -180,7 +180,7 @@ public class AudioBarControl : Control
         // 1. Draw Section Backgrounds
         if (Sections != null)
         {
-            var sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
+            List<SectionSegment> sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
             for (int i = 0; i < sortedSections.Count; i++)
             {
                 SectionSegment section = sortedSections[i];
@@ -196,8 +196,8 @@ public class AudioBarControl : Control
 
                 if (startX < bounds.Width && endX > 0)
                 {
-                    var sectionBrush = new SolidColorBrush(color, 0.3);
-                    var rect = new Rect(Math.Max(0, startX), 0, Math.Min(bounds.Width, endX) - Math.Max(0, startX), bounds.Height);
+                    SolidColorBrush sectionBrush = new(color, 0.3);
+                    Rect rect = new(Math.Max(0, startX), 0, Math.Min(bounds.Width, endX) - Math.Max(0, startX), bounds.Height);
                     context.FillRectangle(sectionBrush, rect);
                 }
             }
@@ -225,7 +225,7 @@ public class AudioBarControl : Control
         // 3. Draw Section Labels
         if (Sections != null)
         {
-            var sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
+            List<SectionSegment> sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
 
             // Rebuild text cache only when size or pixels-per-beat changes
             if (Math.Abs(_lastPixelsPerBeat - ppb) > 1e-9 || !_lastBounds.Equals(bounds.Size))
@@ -233,7 +233,7 @@ public class AudioBarControl : Control
                 _sectionTextCache.Clear();
                 foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
                 {
-                    var ft = new FormattedText(
+                    FormattedText ft = new(
                         type.ToString(),
                         System.Globalization.CultureInfo.CurrentCulture,
                         FlowDirection.LeftToRight,
@@ -256,7 +256,7 @@ public class AudioBarControl : Control
 
                     if (_sectionTextCache.TryGetValue(section.SectionType, out var text))
                     {
-                        var bgRect = new Rect(x + 2, 2, text.Width + 4, text.Height + 2);
+                        Rect bgRect = new(x + 2, 2, text.Width + 4, text.Height + 2);
                         context.FillRectangle(TimelineResources.SectionBgBrush, bgRect);
                         context.DrawText(text, new Point(x + 4, 3));
                     }

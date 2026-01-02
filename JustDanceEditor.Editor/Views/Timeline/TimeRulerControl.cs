@@ -112,7 +112,7 @@ public class TimeRulerControl : Control
         // 1. Draw Alternating Measure Backgrounds
         if (Signatures != null)
         {
-            var sortedSig = Signatures.OrderBy(s => s.Marker).ToList();
+            List<SignatureSegment> sortedSig = Signatures.OrderBy(s => s.Marker).ToList();
             if (sortedSig.Count == 0)
             {
                 // Fallback to 4/4 if no signatures
@@ -153,7 +153,7 @@ public class TimeRulerControl : Control
 
             if (isMajor)
             {
-                var text = new FormattedText(
+                FormattedText text = new(
                     (i + offset).ToString(),
                     System.Globalization.CultureInfo.CurrentCulture,
                     FlowDirection.LeftToRight,
@@ -173,8 +173,8 @@ public class TimeRulerControl : Control
         double actualStartBeat = startBeat + offset;
         double actualEndBeat = endBeat + offset;
 
-        var brushA = new SolidColorBrush(Colors.White, 0.05);
-        var brushB = new SolidColorBrush(Colors.White, 0.02);
+        SolidColorBrush brushA = new(Colors.White, 0.05);
+        SolidColorBrush brushB = new(Colors.White, 0.02);
 
         int measureIndex = 0;
         for (double b = actualStartBeat; b < actualEndBeat; b += bpm)

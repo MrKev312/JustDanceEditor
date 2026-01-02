@@ -276,7 +276,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
         // Helper-local to capture lyricsColor where needed
         void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips, bool isFullBody = false)
         {
-            var track = new TrackViewModel() { Title = title, Height = height, TrackColor = color };
+            TrackViewModel track = new() { Title = title, Height = height, TrackColor = color };
             foreach (TimelineClipBase clip in clips)
             {
                 switch (clip)
@@ -391,7 +391,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
     [RelayCommand]
     public void DeleteSelectedClips()
     {
-        var toDelete = new List<(TrackViewModel Track, ClipViewModel Clip)>();
+        List<(TrackViewModel Track, ClipViewModel Clip)> toDelete = new();
         foreach (TrackViewModel track in Tracks)
         {
             foreach (ClipViewModel clip in track.Clips)

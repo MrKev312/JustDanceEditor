@@ -27,6 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IFactory _factory;
     private readonly ITimelineContextService _timelineContext;
+    private readonly List<IRelayCommand> _dynamicCommands = new();
     public IRootDock? Layout { get; set; }
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
@@ -34,6 +35,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         _timelineContext = ((App)Avalonia.Application.Current!).TimelineContext;
+        if (_timelineContext != null)
+            _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
 
         // 1. Initialize Dock Factory
         _factory = new JustDanceDockFactory(this);
@@ -63,8 +66,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void BuildDynamicMenu()
     {
+        _dynamicCommands.Clear();
+
         var toolTypes = Assembly.GetExecutingAssembly().GetTypes()
-            .Select(t => new { Type = t, Attr = t.GetCustomAttribute<ToolWindowAttribute>() })
+            .Select(t => new { Type = t, Attr = t.GetCustomAttribute<RunCommandAttribute>() })
             .Where(x => x.Attr != null)
             .OrderBy(x => x.Attr!.Title) // Sort by Title
             .ToList();
@@ -92,10 +97,31 @@ public partial class MainWindowViewModel : ViewModelBase
             currentCollection = existing.Items;
         }
 
+        // Create a command that runs or opens a tool. Provide a canExecute that checks IRunCommand.CanRun when appropriate.
+        Func<bool> canExecute = () =>
+        {
+            try
+            {
+                if (typeof(Tool).IsAssignableFrom(toolType))
+                    return true;
+
+                if (Activator.CreateInstance(toolType) is IRunCommand rc)
+                    return rc.CanRun(_timelineContext);
+            }
+            catch
+            {
+                // Swallow; if instantiation fails, default to disabled
+            }
+            return false;
+        };
+
+        RelayCommand relay = new(() => ExecuteCommand(toolType, title), canExecute);
+        _dynamicCommands.Add(relay);
+
         currentCollection.Add(new MenuItemViewModel
         {
             Header = title,
-            Command = new RelayCommand(() => OpenTool(toolType, title))
+            Command = relay
         });
     }
 
@@ -114,6 +140,33 @@ public partial class MainWindowViewModel : ViewModelBase
             _factory?.AddDockable(mainDock, tool);
             _factory?.SetActiveDockable(tool);
             _factory?.SetFocusedDockable(mainDock, tool);
+        }
+    }
+
+    private void ExecuteCommand(Type type, string title)
+    {
+        if (Layout == null)
+            return;
+
+        // If it's a tool (UI), open it
+        if (typeof(Tool).IsAssignableFrom(type))
+        {
+            OpenTool(type, title);
+            return;
+        }
+
+        // Otherwise try to create and run IRunCommand
+        if (Activator.CreateInstance(type) is IRunCommand cmd)
+        {
+            cmd.Run(_timelineContext);
+        }
+    }
+
+    private void TimelineContext_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        foreach (var c in _dynamicCommands)
+        {
+            c.NotifyCanExecuteChanged();
         }
     }
 
@@ -138,7 +191,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(path);
-                var editorVm = new TimelineEditorViewModel(package, path);
+                TimelineEditorViewModel editorVm = new(package, path);
 
                 if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
                 {
