@@ -25,6 +25,16 @@ public partial class KaraokeClipViewModel : ClipViewModel
         // keep Name in sync for display
         Name = Lyrics;
 
+        // Keep duration in sync with underlying model when edited
+        PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(DurationBeats) && RawClip is KaraokeClip k)
+            {
+                k.Duration = (int)(DurationBeats * 24);
+                NotifyClipDataChanged(nameof(DurationBeats));
+            }
+        };
+
         // If we have a parent timeline, subscribe to timeline PropertyChanged so
         // we can refresh rendering when the lyrics definition color changes.
         if (_parentTimeline != null)

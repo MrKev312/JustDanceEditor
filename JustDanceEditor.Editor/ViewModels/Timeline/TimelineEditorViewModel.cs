@@ -18,6 +18,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Xabe.FFmpeg;
+using JustDanceEditor.Formats.JDI.Serialization;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -409,6 +410,56 @@ public partial class TimelineEditorViewModel : Document
 
         _moveDefinitions[key] = def;
         return def;
+    }
+
+    /// <summary>
+    /// Persist current timeline state back into the intermediate package and write it to disk.
+    /// Ensures shared definitions (moves, lyrics color) are synchronized into the package before saving.
+    /// </summary>
+    public void Save()
+    {
+        // Sync MoveDefinitions into package coach move dictionaries
+        foreach (var kv in _moveDefinitions)
+        {
+            var id = kv.Key.id;
+            var isFull = kv.Key.isFullBody;
+            var def = kv.Value;
+
+            var coachDef = new CoachMoveDefinition
+            {
+                Color = ClipViewModel.ColorToRgbaHex(def.Color),
+                Duration = (int)def.DefaultDuration,
+                MoveType = isFull ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking
+            };
+
+            if (isFull)
+                _package.FullBodyCoachMoves[id] = coachDef;
+            else
+                _package.HandCoachMoves[id] = coachDef;
+        }
+
+        // Ensure lyrics color metadata is up-to-date
+        try
+        {
+            _package.Metadata.LyricsColor = LyricsDefinitionColor.ToString();
+        }
+        catch { }
+
+        // Other clip sync: KaraokeClip and Pictogram durations are updated by their viewmodels on edit already, but be defensive and ensure durations are set
+        foreach (var track in Tracks)
+        {
+            foreach (var clipVm in track.Clips)
+            {
+                if (clipVm.RawClip is KaraokeClip k)
+                    k.Duration = (int)(clipVm.DurationBeats * 24);
+                else if (clipVm.RawClip is PictogramClip p)
+                    p.Duration = (int)(clipVm.DurationBeats * 24);
+                // MoveClip has no duration field in the intermediate representation; move default durations are stored in coach move definitions
+            }
+        }
+
+        // Finally, write package to disk
+        IntermediatePackageSerializer.WriteToFolder(_package, RootPath);
     }
 
     private void UpdateTimelineWidth()

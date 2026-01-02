@@ -55,11 +55,6 @@ public partial class MainWindowViewModel : ViewModelBase
     private void CreateFileMenu()
     {
         MenuItemViewModel fileMenu = new() { Header = "File" };
-        fileMenu.Items.Add(new MenuItemViewModel
-        {
-            Header = "Open Map Folder...",
-            Command = OpenMapCommand
-        });
         ViewMenu.Add(fileMenu);
     }
 
@@ -70,7 +65,9 @@ public partial class MainWindowViewModel : ViewModelBase
         var toolTypes = Assembly.GetExecutingAssembly().GetTypes()
             .Select(t => new { Type = t, Attr = t.GetCustomAttribute<RunCommandAttribute>() })
             .Where(x => x.Attr != null)
-            .OrderBy(x => x.Attr!.Title) // Sort by Title
+            // Sort first by priority (descending - higher priority first), then by Title
+            .OrderByDescending(x => x.Attr!.Priority)
+            .ThenBy(x => x.Attr!.Title)
             .ToList();
 
         foreach (var item in toolTypes)
