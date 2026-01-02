@@ -65,12 +65,12 @@ public static class UbiArtAssetWriter
 
         // Write Tapes
         Logger.Log("Writing Tapes...");
-        await WriteTapesAsync(package, timelineFolder, cinematicsFolder);
+        await WriteTapesAsync(package, timelineFolder);
 
         Logger.Log("Uncooked export completed.");
     }
 
-    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, string cinematicsFolder)
+    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
@@ -450,7 +450,6 @@ public static class UbiArtAssetWriter
         Directory.CreateDirectory(audioAmbFolder);
 
         string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
 
         string tempWav = Path.Combine(Path.GetTempPath(), $"jdi_export_{Guid.NewGuid()}.wav");
         try
@@ -533,7 +532,7 @@ public static class UbiArtAssetWriter
 
             // markers
             trkBuilder.AppendLine("markers = {");
-            foreach (var m in package.TimelineStructure.Markers)
+            foreach (int m in package.TimelineStructure.Markers)
             {
                 trkBuilder.AppendLine($"    {{ VAL = {m} }},");
             }
@@ -626,7 +625,7 @@ public static class UbiArtAssetWriter
         string videoSourceDir = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.VideoFolder);
         if (Directory.Exists(videoSourceDir))
         {
-            var files = Directory.GetFiles(videoSourceDir, "*.webm");
+            string[] files = Directory.GetFiles(videoSourceDir, "*.webm");
             if (files.Length > 0)
             {
                 string largest = files.OrderByDescending(f => new FileInfo(f).Length).First();
@@ -651,9 +650,9 @@ public static class UbiArtAssetWriter
         {
             string pictosDestDir = Path.Combine(mapSubFolder, "timeline", "pictos");
             Directory.CreateDirectory(pictosDestDir);
-            var files = Directory.GetFiles(pictosSourceDir);
+            string[] files = Directory.GetFiles(pictosSourceDir);
             int copied = 0;
-            foreach (var file in files)
+            foreach (string file in files)
             {
                 string ext = Path.GetExtension(file);
                 string baseName = Path.GetFileNameWithoutExtension(file);
@@ -705,8 +704,8 @@ public static class UbiArtAssetWriter
         {
             string movesDestDir = Path.Combine(mapSubFolder, "timeline", "moves", "WiiU");
             Directory.CreateDirectory(movesDestDir);
-            var files = Directory.GetFiles(movesSourceDir, "*.msm");
-            foreach (var file in files)
+            string[] files = Directory.GetFiles(movesSourceDir, "*.msm");
+            foreach (string file in files)
             {
                 string destFile = Path.Combine(movesDestDir, Path.GetFileName(file));
                 File.Copy(file, destFile, true);

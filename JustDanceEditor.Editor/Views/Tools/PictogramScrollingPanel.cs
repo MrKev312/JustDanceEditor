@@ -41,10 +41,10 @@ public class PictogramScrollingPanel : Panel
         AffectsArrange<PictogramScrollingPanel>(CurrentBeatProperty, ActiveTimelineProperty);
 
         // react on active timeline changes immediately
-        ActiveTimelineProperty.Changed.AddClassHandler<PictogramScrollingPanel>((x, e) => x.OnActiveTimelineChanged(e));
+        ActiveTimelineProperty.Changed.AddClassHandler<PictogramScrollingPanel>((x, e) => x.OnActiveTimelineChanged());
     }
 
-    private void OnActiveTimelineChanged(AvaloniaPropertyChangedEventArgs e)
+    private void OnActiveTimelineChanged()
     {
         // Ensure subscriptions are updated and arrange is triggered
         EnsureActiveTimelineSubscriptions();
@@ -273,7 +273,7 @@ public class PictogramScrollingPanel : Panel
         // Subscribe to new clips
         if (e.NewItems != null)
         {
-            foreach (var item in e.NewItems)
+            foreach (object? item in e.NewItems)
             {
                 if (item is ClipViewModel clip)
                     AddGlobalClipHandler(clip);
@@ -283,7 +283,7 @@ public class PictogramScrollingPanel : Panel
         // Unsubscribe removed clips
         if (e.OldItems != null)
         {
-            foreach (var item in e.OldItems)
+            foreach (object? item in e.OldItems)
             {
                 if (item is ClipViewModel clip)
                     RemoveGlobalClipHandler(clip);

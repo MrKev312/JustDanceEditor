@@ -12,7 +12,7 @@ public class SaveMapCommand : IRunCommand
 
     public void Run(ITimelineContextService? timelineContext)
     {
-        var timeline = timelineContext?.ActiveTimeline;
+        TimelineEditorViewModel? timeline = timelineContext?.ActiveTimeline;
         if (timeline == null)
             return;
 

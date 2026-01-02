@@ -24,7 +24,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
             return;
 
         // Build section color map from SongSectionType attributes (same logic as AudioBarControl)
-        Dictionary<SongSectionType, Color> sectionColors = new();
+        Dictionary<SongSectionType, Color> sectionColors = [];
         foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
         {
             FieldInfo? field = typeof(SongSectionType).GetField(type.ToString());
@@ -36,8 +36,8 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // Build section spans (start/end) for overlap calculations
-        List<SectionSegment> sections = timeline.TimelineStructure.Sections.OrderBy(s => s.StartBeat).ToList();
-        List<(double Start, double End, SongSectionType Type)> sectionSpans = new();
+        List<SectionSegment> sections = [.. timeline.TimelineStructure.Sections.OrderBy(s => s.StartBeat)];
+        List<(double Start, double End, SongSectionType Type)> sectionSpans = [];
         for (int i = 0; i < sections.Count; i++)
         {
             double start = sections[i].StartBeat;
@@ -46,7 +46,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // Gather all movement clips (both hand and full body)
-        List<MoveClipViewModel> allMoveClips = timeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().ToList();
+        List<MoveClipViewModel> allMoveClips = [.. timeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>()];
         if (allMoveClips.Count == 0)
             return;
 
@@ -56,7 +56,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
 
         foreach (IGrouping<string, MoveClipViewModel> grp in allMoveClips.GroupBy(c => c.MoveId, StringComparer.OrdinalIgnoreCase))
         {
-            Dictionary<SongSectionType, double> totals = new();
+            Dictionary<SongSectionType, double> totals = [];
             foreach (MoveClipViewModel? clip in grp)
             {
                 double clipStart = clip.StartBeat;
@@ -66,7 +66,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
                     double overlap = Math.Max(0.0, Math.Min(clipEnd, span.End) - Math.Max(clipStart, span.Start));
                     if (overlap <= 0)
                         continue;
-                    if (!totals.TryGetValue(span.Type, out var cur))
+                    if (!totals.TryGetValue(span.Type, out double cur))
                         cur = 0.0;
                     totals[span.Type] = cur + overlap;
                 }
@@ -93,7 +93,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
             IOrderedEnumerable<MoveClipViewModel> clips = allMoveClips.Where(c => c.IsFullBody == isFullBody).OrderBy(c => c.StartBeat);
             foreach (MoveClipViewModel? clip in clips)
             {
-                var id = clip.MoveId ?? string.Empty;
+                string id = clip.MoveId ?? string.Empty;
 
                 // If we already assigned a final color for this MoveId, just record it for reuse
                 if (assigned.TryGetValue(id, out Color color))
@@ -122,10 +122,10 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // Apply assigned colors to MoveDefinitions (both hand and full-body variants) and record original colors for undo
-        Dictionary<MoveDefinitionViewModel, Color> defsToOriginal = new();
+        Dictionary<MoveDefinitionViewModel, Color> defsToOriginal = [];
         foreach (KeyValuePair<string, Color> kv in assigned)
         {
-            var id = kv.Key;
+            string id = kv.Key;
             Color normalized = new(255, kv.Value.R, kv.Value.G, kv.Value.B);
 
             MoveDefinitionViewModel defHand = timeline.GetOrRegisterMove(id, false);
@@ -166,9 +166,9 @@ public class RecolorMovesBySectionCommand : IRunCommand
 
     private static Color Brighten(Color c, double amount)
     {
-        byte R(byte r) => (byte)Math.Min(255, (int)(r + (255 - r) * amount));
-        byte G(byte g) => (byte)Math.Min(255, (int)(g + (255 - g) * amount));
-        byte B(byte b) => (byte)Math.Min(255, (int)(b + (255 - b) * amount));
+        byte R(byte r) => (byte)Math.Min(255, (int)(r + ((255 - r) * amount)));
+        byte G(byte g) => (byte)Math.Min(255, (int)(g + ((255 - g) * amount)));
+        byte B(byte b) => (byte)Math.Min(255, (int)(b + ((255 - b) * amount)));
         return new Color(c.A, R(c.R), G(c.G), B(c.B));
     }
 

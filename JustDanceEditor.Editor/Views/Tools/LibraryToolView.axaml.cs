@@ -25,7 +25,7 @@ public partial class LibraryToolView : UserControl
         InitializeComponent();
 
         // Attach pointer handlers to each tab's DataGrid so drag works regardless of active tab
-        foreach (var name in new[] { "ItemsListPictograms", "ItemsListHandMoves", "ItemsListFullBody" })
+        foreach (string? name in new[] { "ItemsListPictograms", "ItemsListHandMoves", "ItemsListFullBody" })
         {
             DataGrid? grid = this.FindControl<DataGrid>(name);
             if (grid != null)
@@ -78,8 +78,8 @@ public partial class LibraryToolView : UserControl
             return;
 
         Point p = e.GetCurrentPoint(this).Position;
-        var dx = Math.Abs(p.X - _pressPoint.X);
-        var dy = Math.Abs(p.Y - _pressPoint.Y);
+        double dx = Math.Abs(p.X - _pressPoint.X);
+        double dy = Math.Abs(p.Y - _pressPoint.Y);
 
         if ((dx > DragThreshold || dy > DragThreshold) && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {

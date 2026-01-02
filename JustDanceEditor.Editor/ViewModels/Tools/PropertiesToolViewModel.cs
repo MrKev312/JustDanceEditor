@@ -73,7 +73,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
             SelectedObject = selection.Count == 1 ? selection[0] : null;
 
             // 1. Identify common properties
-            var first = selection[0];
+            object first = selection[0];
             var templateProps = first.GetType().GetProperties()
                 .Select(p => new { Property = p, Attribute = p.GetCustomAttribute<InspectableAttribute>() })
                 .Where(x => x.Attribute != null)
@@ -183,13 +183,13 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         else if (firstClip is PictogramClipViewModel)
         {
             List<PictogramOptionViewModel> list = [];
-            var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
+            string dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
             if (System.IO.Directory.Exists(dir))
             {
-                var files = System.IO.Directory.GetFiles(dir);
-                foreach (var file in files)
+                string[] files = System.IO.Directory.GetFiles(dir);
+                foreach (string file in files)
                 {
-                    var name = System.IO.Path.GetFileNameWithoutExtension(file);
+                    string name = System.IO.Path.GetFileNameWithoutExtension(file);
                     // If multiple extensions exist for same name, first one wins
                     if (!list.Any(x => x.Name == name))
                     {
@@ -297,7 +297,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         if (_targets.Any(t => t is INotifyPropertyChanged))
         {
             // Subscribe directly to PropertyChanged on targets to get immediate notifications
-            foreach (var t in _targets)
+            foreach (object t in _targets)
             {
                 if (t is INotifyPropertyChanged inpc)
                 {
@@ -375,9 +375,9 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // If we have a MoveDefinitionsSnapshot (for moves), push undo/redo at the definition level
             if (_colorPickerInitialValue is MoveDefinitionsSnapshot moveSnap)
             {
-                List<Color> initial = moveSnap.DefColors.Select(d => d.Color).ToList();
-                List<MoveDefinitionViewModel> defs = moveSnap.DefColors.Select(d => d.Def).ToList();
-                List<Color> final = defs.Select(d => new Color(255, d.Color.R, d.Color.G, d.Color.B)).ToList();
+                List<Color> initial = [.. moveSnap.DefColors.Select(d => d.Color)];
+                List<MoveDefinitionViewModel> defs = [.. moveSnap.DefColors.Select(d => d.Def)];
+                List<Color> final = [.. defs.Select(d => new Color(255, d.Color.R, d.Color.G, d.Color.B))];
 
                 bool anyChanged = false;
                 for (int i = 0; i < defs.Count; i++)
@@ -391,8 +391,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
                 if (anyChanged)
                 {
-                    var initialHex = initial.Count > 0 ? ClipViewModel.ColorToRgbaHex(initial[0]) : "null";
-                    var finalHex = final.Count > 0 ? ClipViewModel.ColorToRgbaHex(final[0]) : "null";
+                    string initialHex = initial.Count > 0 ? ClipViewModel.ColorToRgbaHex(initial[0]) : "null";
+                    string finalHex = final.Count > 0 ? ClipViewModel.ColorToRgbaHex(final[0]) : "null";
                     Debug.WriteLine($"[Properties] Recording MoveDefinitions undo: defs={defs.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
@@ -438,8 +438,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
                 if (anyChanged)
                 {
-                    var initialHex = initialList.Count > 0 ? ClipViewModel.ColorToRgbaHex(initialList[0]) : "null";
-                    var finalHex = finalList.Count > 0 ? ClipViewModel.ColorToRgbaHex(finalList[0]) : "null";
+                    string initialHex = initialList.Count > 0 ? ClipViewModel.ColorToRgbaHex(initialList[0]) : "null";
+                    string finalHex = finalList.Count > 0 ? ClipViewModel.ColorToRgbaHex(finalList[0]) : "null";
                     Debug.WriteLine($"[Properties] Recording Clips undo: clips={clips.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
@@ -462,12 +462,12 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             }
 
             // Fallback behavior when we didn't capture snapshot: push if value changed
-            var finalValue = GetValue(_targets[0]);
+            object? finalValue = GetValue(_targets[0]);
             if (!Equals(_colorPickerInitialValue, finalValue))
             {
                 List<object?> oldValues = [.. _targets.Select(t => _colorPickerInitialValue)];
-                var oldStr = oldValues.Count > 0 ? (oldValues[0] is Color c ? ClipViewModel.ColorToRgbaHex(c) : oldValues[0]?.ToString() ?? "null") : "null";
-                var finalStr = finalValue is Color fc ? ClipViewModel.ColorToRgbaHex(fc) : finalValue?.ToString() ?? "null";
+                string oldStr = oldValues.Count > 0 ? (oldValues[0] is Color c ? ClipViewModel.ColorToRgbaHex(c) : oldValues[0]?.ToString() ?? "null") : "null";
+                string finalStr = finalValue is Color fc ? ClipViewModel.ColorToRgbaHex(fc) : finalValue?.ToString() ?? "null";
                 Debug.WriteLine($"[Properties] Recording Fallback undo: targets={_targets.Count}, old={oldStr}, final={finalStr}");
                 _undoService.Record(
                     undo: () =>
@@ -499,7 +499,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         get
         {
             // Return value if all are same, else null
-            var firstVal = GetValue(_targets[0]);
+            object? firstVal = GetValue(_targets[0]);
             for (int i = 1; i < _targets.Count; i++)
             {
                 if (!Equals(GetValue(_targets[i]), firstVal))
@@ -537,7 +537,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // intermediate clip color writes from stomping definition colors.
             if (_propertyName == "MoveId" && _targets.Count > 1 && _targets.All(t => t is MoveClipViewModel))
             {
-                List<MoveClipViewModel> moveClips = _targets.Cast<MoveClipViewModel>().ToList();
+                List<MoveClipViewModel> moveClips = [.. _targets.Cast<MoveClipViewModel>()];
                 try
                 {
                     // Begin suppression on all involved clips
@@ -545,7 +545,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                         mc.BeginSuppressDefinitionColorUpdates();
 
                     // Now perform the assignments (this will invoke each clip's MoveId setter)
-                    foreach (var target in _targets)
+                    foreach (object target in _targets)
                         SetValue(target, value);
                 }
                 finally
@@ -557,7 +557,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             }
             else
             {
-                foreach (var target in _targets)
+                foreach (object target in _targets)
                 {
                     SetValue(target, value);
                 }
@@ -608,7 +608,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
     public bool BoolValue
     {
-        get => Value is bool b ? b : false;
+        get => Value is bool b && b;
         set => Value = value;
     }
 
@@ -624,8 +624,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         {
             if (Options == null)
                 return null;
-            var currentVal = StringValue;
-            foreach (var opt in Options)
+            string currentVal = StringValue;
+            foreach (object? opt in Options)
             {
                 if (opt is PictogramOptionViewModel p && p.Name == currentVal)
                     return opt;

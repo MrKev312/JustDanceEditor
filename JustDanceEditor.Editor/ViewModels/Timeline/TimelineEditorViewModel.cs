@@ -140,7 +140,7 @@ public partial class TimelineEditorViewModel : Document
     {
         get
         {
-            var dir = Path.Combine(RootPath, "assets", "pictograms");
+            string dir = Path.Combine(RootPath, "assets", "pictograms");
             if (!Directory.Exists(dir))
                 return [];
             return Directory.GetFiles(dir, "*.*")
@@ -228,7 +228,7 @@ public partial class TimelineEditorViewModel : Document
 
         if (Directory.Exists(videoDir))
         {
-            var files = Directory.GetFiles(videoDir, "*.webm");
+            string[] files = Directory.GetFiles(videoDir, "*.webm");
             if (files.Length > 0)
             {
                 // Select the largest file (highest quality heuristic)
@@ -246,7 +246,7 @@ public partial class TimelineEditorViewModel : Document
         // Prepare audio (Opus -> WAV)
         if (File.Exists(AudioPath))
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), "JustDanceEditor");
+            string tempDir = Path.Combine(Path.GetTempPath(), "JustDanceEditor");
             Directory.CreateDirectory(tempDir);
             PreparedAudioPath = Path.Combine(tempDir, $"{Id}_{Guid.NewGuid():N}.wav");
 
@@ -292,7 +292,7 @@ public partial class TimelineEditorViewModel : Document
             // Hand coach moves
             foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.HandCoachMoves)
             {
-                var id = kv.Key;
+                string id = kv.Key;
                 CoachMoveDefinition def = kv.Value;
                 MoveDefinitionViewModel md = new()
                 {
@@ -308,7 +308,7 @@ public partial class TimelineEditorViewModel : Document
             // Full body coach moves
             foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.FullBodyCoachMoves)
             {
-                var id = kv.Key;
+                string id = kv.Key;
                 CoachMoveDefinition def = kv.Value;
                 MoveDefinitionViewModel md = new()
                 {
@@ -419,13 +419,13 @@ public partial class TimelineEditorViewModel : Document
     public void Save()
     {
         // Sync MoveDefinitions into package coach move dictionaries
-        foreach (var kv in _moveDefinitions)
+        foreach (KeyValuePair<(string id, bool isFullBody), MoveDefinitionViewModel> kv in _moveDefinitions)
         {
-            var id = kv.Key.id;
-            var isFull = kv.Key.isFullBody;
-            var def = kv.Value;
+            string id = kv.Key.id;
+            bool isFull = kv.Key.isFullBody;
+            MoveDefinitionViewModel def = kv.Value;
 
-            var coachDef = new CoachMoveDefinition
+            CoachMoveDefinition coachDef = new()
             {
                 Color = ClipViewModel.ColorToRgbaHex(def.Color),
                 Duration = (int)def.DefaultDuration,
@@ -446,9 +446,9 @@ public partial class TimelineEditorViewModel : Document
         catch { }
 
         // Other clip sync: KaraokeClip and Pictogram durations are updated by their viewmodels on edit already, but be defensive and ensure durations are set
-        foreach (var track in Tracks)
+        foreach (TrackViewModel track in Tracks)
         {
-            foreach (var clipVm in track.Clips)
+            foreach (ClipViewModel clipVm in track.Clips)
             {
                 if (clipVm.RawClip is KaraokeClip k)
                     k.Duration = (int)(clipVm.DurationBeats * 24);

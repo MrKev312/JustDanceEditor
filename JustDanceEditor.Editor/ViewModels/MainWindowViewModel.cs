@@ -94,7 +94,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         // Create a command that runs or opens a tool. Provide a canExecute that checks IRunCommand.CanRun when appropriate.
-        Func<bool> canExecute = () =>
+        bool canExecute()
         {
             try
             {
@@ -110,7 +110,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             return false;
-        };
+        }
 
         RelayCommand relay = new(() => ExecuteCommand(toolType, title), canExecute);
         _dynamicCommands.Add(relay);

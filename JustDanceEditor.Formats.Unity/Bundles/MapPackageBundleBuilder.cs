@@ -95,7 +95,7 @@ public static class MapPackageBundleBuilder
             PopulateDanceDataClips(request, mapBase, request.PictoLookup);
             UpdateCoachCounters(request, mapBase);
 
-            FinalizeAndSaveBundle(request, bunFile, afile, musicTrackBase, assetBundleBase,
+            FinalizeAndSaveBundle(request, bunFile, afile, assetBundleBase,
                 () => musicTrackInfo.SetNewData(musicTrackBase),
                 () => mapInfo.SetNewData(mapBase),
                 () => assetBundleInfo.SetNewData(assetBundleBase));
@@ -690,8 +690,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static void FinalizeAndSaveBundle(BundleContext request, AssetBundleFile bun, AssetsFile afile,
-        AssetTypeValueField musicTrackBase, AssetTypeValueField assetBundleBase,
-        Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
+        AssetTypeValueField assetBundleBase, Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
     {
         setMusicTrackData();
         setMapData();

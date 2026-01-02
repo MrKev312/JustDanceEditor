@@ -191,7 +191,7 @@ public partial class TimelineTrackPanel : Control
         // Subscribe new clips
         if (e.NewItems != null)
         {
-            foreach (var item in e.NewItems)
+            foreach (object? item in e.NewItems)
             {
                 if (item is ClipViewModel clip)
                     AddClipHandler(clip);
@@ -201,7 +201,7 @@ public partial class TimelineTrackPanel : Control
         // Unsubscribe removed clips
         if (e.OldItems != null)
         {
-            foreach (var item in e.OldItems)
+            foreach (object? item in e.OldItems)
             {
                 if (item is ClipViewModel clip)
                     RemoveClipHandler(clip);
@@ -222,7 +222,7 @@ public partial class TimelineTrackPanel : Control
         if (_clipHandlers.ContainsKey(clip))
             return;
 
-        PropertyChangedEventHandler handler = (s, e) =>
+        void handler(object? s, PropertyChangedEventArgs e)
         {
             // clear text cache for this clip
             List<(ClipViewModel clip, double fontSize)> keys = [.. _textCache.Keys.Where(k => k.clip == clip)];
@@ -235,7 +235,7 @@ public partial class TimelineTrackPanel : Control
                 InvalidateMeasure();
                 InvalidateVisual();
             });
-        };
+        }
 
         clip.PropertyChanged += handler;
         _clipHandlers[clip] = handler;

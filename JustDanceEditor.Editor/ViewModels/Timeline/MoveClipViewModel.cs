@@ -1,12 +1,16 @@
 using Avalonia.Media;
+using Avalonia.Controls;
+using System.Threading.Tasks;
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using Avalonia.Layout;
+using Avalonia;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
-
-using System.Collections.Generic;
-using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -152,7 +156,6 @@ public partial class MoveClipViewModel : ClipViewModel
     {
         if (e.PropertyName == nameof(MoveDefinitionViewModel.Color) && Definition != null)
         {
-            Color defColorNormalized = new(255, Definition.Color.R, Definition.Color.G, Definition.Color.B);
             // When the definition color changes, just notify listeners that our render color changed
             // Do not set BackgroundColor to avoid storing duplicate color state on clips
             NotifyClipDataChanged(nameof(BackgroundColor));
@@ -212,5 +215,134 @@ public partial class MoveClipViewModel : ClipViewModel
 
         // Also notify listeners
         base.OnBackgroundColorChangedCore(value);
+    }
+
+    /// <summary>
+    /// Show a small dialog to pick a Move, duration and gold flag. Returns (moveId, frames, isGold) or null if cancelled.
+    /// </summary>
+    public static async Task<(string moveId, int frames, bool isGold)?> ShowCreateDialogAsync(Window? owner, bool isFull, TimelineEditorViewModel vm)
+    {
+        Window ownerWindow = owner ?? (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw ? mw : null) ?? throw new InvalidOperationException("No owner window available");
+
+        Window win = new()
+        {
+            Title = "Add Move",
+            Width = 420,
+            SizeToContent = SizeToContent.Height,
+            MaxHeight = 420,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        Grid grid = new() { Margin = new Thickness(6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
+        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        List<string> moves = [.. isFull ? vm.AvailableFullBodyCoachMoves : vm.AvailableHandCoachMoves];
+        ComboBox combo = new() { Width = 260 };
+        if (combo.Items is System.Collections.IList mlist2)
+        {
+            foreach (string it in moves)
+                mlist2.Add(it);
+            if (mlist2.Count > 0)
+                combo.SelectedIndex = 0;
+        }
+
+        grid.Children.Add(new TextBlock { Text = "Move:", VerticalAlignment = VerticalAlignment.Center });
+        Grid.SetRow(grid.Children[^1], 0);
+        Grid.SetColumn(grid.Children[^1], 0);
+        grid.Children.Add(combo);
+        Grid.SetRow(grid.Children[^1], 0);
+        Grid.SetColumn(grid.Children[^1], 1);
+
+        // Read-only duration display (beats) derived from the selected move's definition
+        TextBlock durationLabel = new() { Text = "Duration (beats):", VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetRow(durationLabel, 1);
+        Grid.SetColumn(durationLabel, 0);
+        grid.Children.Add(durationLabel);
+
+        TextBlock durationValue = new() { Text = "1", VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetRow(durationValue, 1);
+        Grid.SetColumn(durationValue, 1);
+        grid.Children.Add(durationValue);
+
+        // Update duration display when selection changes
+        combo.SelectionChanged += (s, e) =>
+        {
+            string? sel = combo.SelectedItem as string;
+            if (!string.IsNullOrEmpty(sel))
+            {
+                try
+                {
+                    MoveDefinitionViewModel def = vm.GetOrRegisterMove(sel, isFull);
+                    double frames = def?.DefaultDuration ?? 24.0;
+                    double beats = frames / 24.0;
+                    durationValue.Text = beats.ToString("0.##");
+                }
+                catch
+                {
+                    durationValue.Text = "1";
+                }
+            }
+            else
+            {
+                durationValue.Text = string.Empty;
+            }
+        };
+
+        CheckBox goldCheck = new() { Content = "Gold Move", IsChecked = false };
+        grid.Children.Add(goldCheck);
+        Grid.SetRow(grid.Children[^1], 2);
+        Grid.SetColumn(grid.Children[^1], 1);
+
+        StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        Button ok = new() { Content = "OK", Margin = new Thickness(6) };
+        Button cancel = new() { Content = "Cancel", Margin = new Thickness(6) };
+        footer.Children.Add(ok);
+        footer.Children.Add(cancel);
+        grid.Children.Add(footer);
+        Grid.SetRow(grid.Children[^1], 4 - 1);
+        Grid.SetColumn(grid.Children[^1], 0);
+        Grid.SetColumnSpan(grid.Children[^1], 2);
+
+        win.Content = grid;
+
+        bool confirmed = false;
+        ok.Click += (s, ev) =>
+        {
+            confirmed = true;
+            win.Close();
+        };
+        cancel.Click += (s, ev) =>
+        {
+            combo.SelectedItem = null;
+            win.Close();
+        };
+
+        await win.ShowDialog(ownerWindow);
+
+        string? picked = combo.SelectedItem as string;
+        if (confirmed && !string.IsNullOrEmpty(picked))
+        {
+            // Look up the move definition and use its default duration (frames). Fall back to 24 if not found.
+            double defFrames = 24.0;
+            try
+            {
+                MoveDefinitionViewModel def = vm.GetOrRegisterMove(picked, isFull);
+                if (def != null)
+                    defFrames = def.DefaultDuration;
+            }
+            catch { }
+
+            int frames = (int)defFrames;
+            bool isGold = goldCheck.IsChecked == true;
+            return (picked, frames, isGold);
+        }
+
+        return null;
     }
 }

@@ -97,7 +97,7 @@ public static class LuaTableSerializer
                                             float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
                                             float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
                                             float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
-                                            var rgba = new[] { a, r, g, b };
+                                            float[] rgba = new[] { a, r, g, b };
 
                                             if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
                                                 info.DefaultColors.lyrics = rgba;
@@ -172,7 +172,7 @@ public static class LuaTableSerializer
         else if (obj is IEnumerable list and not string)
         {
             sb.AppendLine("{");
-            foreach (var item in list)
+            foreach (object? item in list)
             {
                 sb.Append(indentation + "  ");
                 SerializeObject(sb, item, indent + 1);
@@ -222,7 +222,7 @@ public static class LuaTableSerializer
     private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
     {
         Dictionary<string, object> dict = [];
-        foreach (var key in table.Keys)
+        foreach (object? key in table.Keys)
         {
             object? value = table[key];
             string keyStr = key.ToString()!;
@@ -246,7 +246,7 @@ public static class LuaTableSerializer
     private static IList LuaTableToList(LuaTable table)
     {
         ArrayList list = [];
-        foreach (var value in table.Values)
+        foreach (object? value in table.Values)
         {
             if (value is LuaTable nestedTable)
             {
@@ -267,7 +267,7 @@ public static class LuaTableSerializer
     private static bool IsArray(LuaTable table)
     {
         int count = 0;
-        foreach (var _ in table.Keys)
+        foreach (object? _ in table.Keys)
             count++;
         if (count == 0)
             return true; // Default empty tables to arrays for better JSON compatibility

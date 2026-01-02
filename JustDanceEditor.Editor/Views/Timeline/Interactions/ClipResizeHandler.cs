@@ -116,8 +116,8 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         {
             // Capture the clip locally so the undo/redo lambdas don't reference the cleared field
             ClipViewModel clip = _resizingClip;
-            var finalStart = clip.StartBeat;
-            var finalDuration = clip.DurationBeats;
+            double finalStart = clip.StartBeat;
+            double finalDuration = clip.DurationBeats;
 
             vm.PushUndo(
                 undo: () =>

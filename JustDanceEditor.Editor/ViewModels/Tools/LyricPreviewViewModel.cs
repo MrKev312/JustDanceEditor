@@ -127,7 +127,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         // Subscribe new clips
         if (e.NewItems != null)
         {
-            foreach (var item in e.NewItems)
+            foreach (object? item in e.NewItems)
             {
                 if (item is KaraokeClipViewModel clip)
                     AddLyricsClipHandler(clip);
@@ -137,7 +137,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         // Unsubscribe removed clips
         if (e.OldItems != null)
         {
-            foreach (var item in e.OldItems)
+            foreach (object? item in e.OldItems)
             {
                 if (item is KaraokeClipViewModel clip)
                     RemoveLyricsClipHandler(clip);
@@ -153,7 +153,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     {
         if (clip == null || _lyricsClipHandlers.ContainsKey(clip))
             return;
-        PropertyChangedEventHandler handler = (s, e) =>
+
+        void handler(object? s, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)) or (nameof(KaraokeClipViewModel.Lyrics)) or (nameof(KaraokeClipViewModel.IsEndOfLine)))
             {
@@ -166,7 +167,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
                 // When the background color of any lyrics clip changes, update the target color
                 TargetColor = clip.BackgroundColor;
             }
-        };
+        }
+
         clip.PropertyChanged += handler;
         _lyricsClipHandlers[clip] = handler;
     }

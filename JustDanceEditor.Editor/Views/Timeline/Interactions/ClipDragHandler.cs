@@ -43,7 +43,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
         Capture(e);
     }
 
-    public void UpdateDrag(Point pointerPos, double pixelsPerBeat, int beatOffset, TimelineEditorViewModel? vm)
+    public void UpdateDrag(Point pointerPos, double pixelsPerBeat, TimelineEditorViewModel? vm)
     {
         if (_isDragging && _draggingClip != null)
         {
@@ -58,8 +58,8 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 double duration = _draggingClip.DurationBeats;
                 double newEnd = newStart + duration;
 
-                var bestStart = SnappingService.FindSnapBeat(newStart, vm, new[] { _draggingClip });
-                var bestEnd = SnappingService.FindSnapBeat(newEnd, vm, new[] { _draggingClip });
+                double bestStart = SnappingService.FindSnapBeat(newStart, vm, new[] { _draggingClip });
+                double bestEnd = SnappingService.FindSnapBeat(newEnd, vm, new[] { _draggingClip });
 
                 double startAdjust = bestStart - newStart;
                 double endAdjust = bestEnd - newEnd;
@@ -113,8 +113,8 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
             {
                 // Exclude selected clips from snapping targets
                 List<ClipViewModel> selectedClips = selected;
-                var bestStart = SnappingService.FindSnapBeat(unconstrainedEarliest, vm, selectedClips);
-                var bestEnd = SnappingService.FindSnapBeat(unconstrainedLatest, vm, selectedClips);
+                double bestStart = SnappingService.FindSnapBeat(unconstrainedEarliest, vm, selectedClips);
+                double bestEnd = SnappingService.FindSnapBeat(unconstrainedLatest, vm, selectedClips);
 
                 double startAdjust = bestStart - unconstrainedEarliest;
                 double endAdjust = bestEnd - unconstrainedLatest;
@@ -189,13 +189,13 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 vm.PushUndo(
                     undo: () =>
                     {
-                        foreach ((ClipViewModel Clip, double Orig, double New) ch in changes)
-                            ch.Clip.StartBeat = ch.Orig;
+                        foreach ((ClipViewModel Clip, double Orig, double New) in changes)
+                            Clip.StartBeat = Orig;
                     },
                     redo: () =>
                     {
-                        foreach ((ClipViewModel Clip, double Orig, double New) ch in changes)
-                            ch.Clip.StartBeat = ch.New;
+                        foreach ((ClipViewModel Clip, double Orig, double New) in changes)
+                            Clip.StartBeat = New;
                     }
                 );
             }

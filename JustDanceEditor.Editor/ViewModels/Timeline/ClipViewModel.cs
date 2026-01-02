@@ -90,8 +90,8 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
     {
         if (string.IsNullOrEmpty(hex))
             return Colors.White;
-        if (hex.StartsWith("#"))
-            hex = hex.Substring(1);
+        if (hex.StartsWith('#'))
+            hex = hex[1..];
         if (hex.Length == 8)
         {
             if (uint.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out uint rgba))

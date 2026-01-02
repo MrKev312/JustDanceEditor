@@ -126,7 +126,7 @@ public class TimeRulerControl : Control
                     double endBeat = (i + 1 < sortedSig.Count) ? sortedSig[i + 1].Marker - offset : max;
                     int beatsPerMeasure = sortedSig[i].Beats;
 
-                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height, i % 2 != 0);
+                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height);
                 }
             }
         }
@@ -166,7 +166,7 @@ public class TimeRulerControl : Control
         }
     }
 
-    private void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height, bool startAlt = false)
+    private void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height)
     {
         // Internal measure calculation relative to the marker start
         // We need to know which measure index we are at to alternate colors

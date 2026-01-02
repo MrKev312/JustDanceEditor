@@ -94,7 +94,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         // When tracks added, subscribe to their clip collections; when removed unsubscribe
         if (e.NewItems != null)
         {
-            foreach (var item in e.NewItems)
+            foreach (object? item in e.NewItems)
             {
                 if (item is TrackViewModel t)
                     t.Clips.CollectionChanged += Clips_CollectionChanged;
@@ -103,7 +103,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
 
         if (e.OldItems != null)
         {
-            foreach (var item in e.OldItems)
+            foreach (object? item in e.OldItems)
             {
                 if (item is TrackViewModel t)
                     t.Clips.CollectionChanged -= Clips_CollectionChanged;
@@ -133,7 +133,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
             return;
 
         // Build fresh counts
-        Dictionary<(ItemType type, string id), int> counts = new();
+        Dictionary<(ItemType type, string id), int> counts = [];
         foreach (TrackViewModel track in ActiveTimeline.Tracks)
         {
             foreach (ClipViewModel clip in track.Clips)
@@ -164,7 +164,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         // Apply counts to items
         foreach (LibraryItemViewModel item in Items)
         {
-            item.UsageCount = counts.TryGetValue((item.Type, item.Id), out var v) ? v : 0;
+            item.UsageCount = counts.TryGetValue((item.Type, item.Id), out int v) ? v : 0;
         }
     }
     protected override void OnTimelinePropertyChanged(string? propertyName)
@@ -221,7 +221,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 Icon = new SolidColorBrush(def.Color),
                 Definition = def,
                 DefaultDuration = def.DefaultDuration,
-                UsageCount = counts.TryGetValue((ItemType.HandMove, id), out var c1) ? c1 : 0
+                UsageCount = counts.TryGetValue((ItemType.HandMove, id), out int c1) ? c1 : 0
             };
 
             Items.Add(item);
@@ -242,7 +242,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 Icon = new SolidColorBrush(def.Color),
                 Definition = def,
                 DefaultDuration = def.DefaultDuration,
-                UsageCount = counts.TryGetValue((ItemType.FullBodyMove, id), out var c2) ? c2 : 0
+                UsageCount = counts.TryGetValue((ItemType.FullBodyMove, id), out int c2) ? c2 : 0
             };
 
             Items.Add(item);
@@ -250,7 +250,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         }
 
         // 3) Pictograms
-        var pictogramDir = Path.Combine(timeline.RootPath, "assets", "pictograms");
+        string pictogramDir = Path.Combine(timeline.RootPath, "assets", "pictograms");
         if (Directory.Exists(pictogramDir))
         {
             IOrderedEnumerable<string?> files = Directory.GetFiles(pictogramDir)
@@ -258,7 +258,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x);
 
-            foreach (var id in files)
+            foreach (string? id in files)
             {
                 // Skip null IDs (shouldn't happen but be defensive)
                 if (string.IsNullOrEmpty(id))
@@ -288,7 +288,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 }
 
                 (ItemType Pictogram, string safeId) pictogramKey = (ItemType.Pictogram, safeId);
-                int pictogramCount = counts.TryGetValue(pictogramKey, out var c3) ? c3 : 0;
+                int pictogramCount = counts.TryGetValue(pictogramKey, out int c3) ? c3 : 0;
                 LibraryItemViewModel item = new()
                 {
                     Name = safeId,

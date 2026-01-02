@@ -57,10 +57,10 @@ public partial class TimelineTrackPanel
         // Draw box selection if active even when Clips is null
         if (_boxSelectionHandler?.IsActive == true)
         {
-            var x = System.Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
-            var y = System.Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
-            var w = System.Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
-            var h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
+            double x = System.Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
+            double y = System.Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
+            double w = System.Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
+            double h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
 
             Rect rect = new(x, y, w, h);
             context.FillRectangle(TimelineResources.BoxSelectionFill, rect);
@@ -94,7 +94,7 @@ public partial class TimelineTrackPanel
             context.FillRectangle(clipBrush, rect);
 
             // Use cached outline pen with computed thickness
-            var outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
+            double outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
             Pen outlinePen = (outlineThickness == 1.0)
                 ? TimelineResources.BlackOutlinePen
                 : new Pen(Brushes.Black, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
@@ -112,14 +112,14 @@ public partial class TimelineTrackPanel
             {
                 if (BitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
                 {
-                    var aspect = bmp.Size.Width / (double)bmp.Size.Height;
-                    var drawHeight = rect.Height;
-                    var drawWidth = drawHeight * aspect;
+                    double aspect = bmp.Size.Width / (double)bmp.Size.Height;
+                    double drawHeight = rect.Height;
+                    double drawWidth = drawHeight * aspect;
 
                     if (drawWidth >= 2 && drawHeight >= 2)
                     {
-                        var imgX = startX + ((width - drawWidth) / 2);
-                        var imgY = rect.Y;
+                        double imgX = startX + ((width - drawWidth) / 2);
+                        double imgY = rect.Y;
                         Rect destRect = new(imgX, imgY, drawWidth, drawHeight);
                         using (context.PushClip(rect))
                         {
@@ -135,8 +135,8 @@ public partial class TimelineTrackPanel
             else if (drawText && width > 30 && !string.IsNullOrEmpty(clip.Name))
             {
                 FormattedText ft = GetFormattedText(clip, clip.Name, 12, width, rect.Height);
-                var textX = startX + ((width - ft.Width) / 2);
-                var textY = rect.Y + ((rect.Height - ft.Height) / 2);
+                double textX = startX + ((width - ft.Width) / 2);
+                double textY = rect.Y + ((rect.Height - ft.Height) / 2);
                 if (textX < startX)
                     textX = startX;
                 context.DrawText(ft, new Point(textX, textY));
