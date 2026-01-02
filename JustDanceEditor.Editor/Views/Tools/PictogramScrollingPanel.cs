@@ -198,14 +198,14 @@ public class PictogramScrollingPanel : Panel
             if (_subscriptions.ContainsKey(clip))
                 continue;
 
-            PropertyChangedEventHandler handler = (s, e) =>
+            void handler(object? s, PropertyChangedEventArgs e)
             {
                 if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
                 {
                     // Ensure arrange happens on UI thread
                     Avalonia.Threading.Dispatcher.UIThread.Post(InvalidateArrange);
                 }
-            };
+            }
 
             clip.PropertyChanged += handler;
             _subscriptions[clip] = handler;
@@ -301,13 +301,13 @@ public class PictogramScrollingPanel : Panel
         if (_globalClipHandlers.ContainsKey(clip))
             return;
 
-        PropertyChangedEventHandler handler = (s, e) =>
+        void handler(object? s, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
             {
                 Avalonia.Threading.Dispatcher.UIThread.Post(InvalidateArrange);
             }
-        };
+        }
 
         clip.PropertyChanged += handler;
         _globalClipHandlers[clip] = handler;
@@ -339,14 +339,14 @@ public class PictogramScrollingPanel : Panel
         UnsubscribePictoTrack();
     }
 
-    private double GetScrollDurationInBeats(double beat, TimelineStructureDocument ts)
+    private static double GetScrollDurationInBeats(double beat, TimelineStructureDocument ts)
     {
         double seconds = ts.GetSecondsAtBeat(beat);
         double futureBeat = ts.GetBeatAtSeconds(seconds + 4.0);
         return futureBeat - beat;
     }
 
-    private double GetBeatsPerPixel(int coachCount, double beat, TimelineStructureDocument ts)
+    private static double GetBeatsPerPixel(int coachCount, double beat, TimelineStructureDocument ts)
     {
         double duration = GetScrollDurationInBeats(beat, ts);
         double scrollWidthCoords = GetScrollWidthInUaf2DCoords(coachCount);
@@ -354,7 +354,7 @@ public class PictogramScrollingPanel : Panel
         return duration / scrollWidthPixels;
     }
 
-    private int GetScrollWidthInUaf2DCoords(int playerCount)
+    private static int GetScrollWidthInUaf2DCoords(int playerCount)
     {
         return playerCount switch
         {
@@ -367,7 +367,7 @@ public class PictogramScrollingPanel : Panel
         };
     }
 
-    private int GetPictoExpectedWidth(int playerCount)
+    private static int GetPictoExpectedWidth(int playerCount)
     {
         return playerCount switch
         {

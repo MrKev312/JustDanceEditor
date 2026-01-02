@@ -90,7 +90,7 @@ public class JustDanceDockFactory(MainWindowViewModel context) : Factory
         UpdateContext(dockable);
     }
 
-    private void UpdateContext(IDockable? dockable)
+    private static void UpdateContext(IDockable? dockable)
     {
         if (dockable is TimelineEditorViewModel timeline)
         {

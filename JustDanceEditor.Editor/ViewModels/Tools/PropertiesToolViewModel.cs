@@ -154,7 +154,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         }
     }
 
-    private void PopulateOptions(PropertyItemViewModel propVm, List<object> selection, TimelineEditorViewModel timeline)
+    private static void PopulateOptions(PropertyItemViewModel propVm, List<object> selection, TimelineEditorViewModel timeline)
     {
         // Check if we are dealing with ClipViewModels
         if (selection[0] is not ClipViewModel firstClip)

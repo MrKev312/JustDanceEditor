@@ -160,7 +160,7 @@ public class AudioBarControl : Control
         _isScrubbing = false;
     }
 
-    private void SeekAtPointer(double x, TimelineEditorViewModel vm)
+    private static void SeekAtPointer(double x, TimelineEditorViewModel vm)
     {
         // Convert local X to beat
         double beat = (x / vm.PixelsPerBeat) + vm.BeatOffset;

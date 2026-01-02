@@ -180,7 +180,7 @@ public partial class TimelineTrackPanel
                 }
 
                 _lastSelectedClip = clickedClip;
-                UpdateGlobalSelection(contextVm);
+            UpdateGlobalSelection(contextVm);
                 InvalidateVisual();
                 e.Handled = true;
                 return;
@@ -205,7 +205,7 @@ public partial class TimelineTrackPanel
                     clip.IsSelected = false;
                 clickedClip.IsSelected = true;
                 _lastSelectedClip = clickedClip;
-                UpdateGlobalSelection(contextVm);
+            UpdateGlobalSelection(contextVm);
             }
 
             // Check for resize vs drag
@@ -233,7 +233,7 @@ public partial class TimelineTrackPanel
             e.Handled = true;
     }
 
-    private void UpdateGlobalSelection(TimelineEditorViewModel? vm)
+    private static void UpdateGlobalSelection(TimelineEditorViewModel? vm)
     {
         if (vm == null || Application.Current is not App app)
             return;
@@ -487,7 +487,7 @@ public partial class TimelineTrackPanel
         }
     }
 
-    private void AddPictogramAtBeat(string pictogramId, double dropBeat, TrackViewModel track, TimelineEditorViewModel vm, int durationFrames = 24)
+    private static void AddPictogramAtBeat(string pictogramId, double dropBeat, TrackViewModel track, TimelineEditorViewModel vm, int durationFrames = 24)
     {
         PictogramClip raw = new()
         {
@@ -514,7 +514,7 @@ public partial class TimelineTrackPanel
         track.Clips.Add(clipVm);
     }
 
-    private void AddMoveAtBeat(string moveId, double dropBeat, bool isFullBody, TrackViewModel track, TimelineEditorViewModel vm, double durationFrames = 24.0, bool isGold = false)
+    private static void AddMoveAtBeat(string moveId, double dropBeat, bool isFullBody, TrackViewModel track, TimelineEditorViewModel vm, double durationFrames = 24.0, bool isGold = false)
     {
         MoveClip raw = new()
         {

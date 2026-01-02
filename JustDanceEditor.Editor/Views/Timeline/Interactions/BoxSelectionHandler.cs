@@ -202,7 +202,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
         }
     }
 
-    private void UpdateGlobalSelection(TimelineEditorViewModel? vm)
+    private static void UpdateGlobalSelection(TimelineEditorViewModel? vm)
     {
         if (vm == null || Application.Current is not App app)
             return;

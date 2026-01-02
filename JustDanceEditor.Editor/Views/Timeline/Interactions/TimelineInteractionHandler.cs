@@ -18,7 +18,7 @@ public abstract class TimelineInteractionHandler(TimelineTrackPanel panel)
         catch { }
     }
 
-    protected void Release(PointerEventArgs? e = null)
+    protected static void Release(PointerEventArgs? e = null)
     {
         try
         {
