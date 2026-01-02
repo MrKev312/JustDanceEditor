@@ -35,12 +35,17 @@ public partial class MoveClipViewModel : ClipViewModel
     public void EndSuppressDefinitionColorUpdates() => PopSuppressDefinitionColorUpdates();
     private bool IsSuppressingDefinitionColorUpdates => _suppressDefinitionColorUpdateCount > 0;
 
+    [Inspectable("Gold Move", "Move")]
+    [ObservableProperty]
+    public partial bool IsGoldMove { get; set; }
+
     public MoveClipViewModel(MoveClip clip, double duration, Color color, string moveId, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null, bool isFullBody = false)
         : base(clip, duration, color, moveId, rootPath, parentTimeline)
     {
         MoveId = clip.MoveId;
         Name = moveId;
         IsFullBody = isFullBody;
+        IsGoldMove = clip.IsGoldMove;
 
         // When duration changes, broadcast so UI can update
         PropertyChanged += (sender, e) =>
@@ -131,6 +136,15 @@ public partial class MoveClipViewModel : ClipViewModel
             }
 
             NotifyClipDataChanged(nameof(MoveId));
+        }
+    }
+
+    partial void OnIsGoldMoveChanged(bool value)
+    {
+        if (RawClip is MoveClip m)
+        {
+            m.IsGoldMove = value;
+            NotifyClipDataChanged(nameof(IsGoldMove));
         }
     }
 
