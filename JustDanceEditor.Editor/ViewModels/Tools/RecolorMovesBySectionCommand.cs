@@ -1,8 +1,10 @@
+using Avalonia.Media;
+
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
-using Avalonia.Media;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,16 +19,16 @@ public class RecolorMovesBySectionCommand : IRunCommand
 
     public void Run(ITimelineContextService? timelineContext)
     {
-        var timeline = timelineContext?.ActiveTimeline;
+        TimelineEditorViewModel? timeline = timelineContext?.ActiveTimeline;
         if (timeline == null)
             return;
 
         // Build section color map from SongSectionType attributes (same logic as AudioBarControl)
-        var sectionColors = new Dictionary<SongSectionType, Color>();
+        Dictionary<SongSectionType, Color> sectionColors = new();
         foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
         {
             FieldInfo? field = typeof(SongSectionType).GetField(type.ToString());
-            var attr = field?.GetCustomAttribute<ColorAttribute>();
+            ColorAttribute? attr = field?.GetCustomAttribute<ColorAttribute>();
             if (attr != null)
                 sectionColors[type] = Color.FromRgb(attr.R, attr.G, attr.B);
             else
@@ -34,8 +36,8 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // Build section spans (start/end) for overlap calculations
-        var sections = timeline.TimelineStructure.Sections.OrderBy(s => s.StartBeat).ToList();
-        var sectionSpans = new List<(double Start, double End, SongSectionType Type)>();
+        List<SectionSegment> sections = timeline.TimelineStructure.Sections.OrderBy(s => s.StartBeat).ToList();
+        List<(double Start, double End, SongSectionType Type)> sectionSpans = new();
         for (int i = 0; i < sections.Count; i++)
         {
             double start = sections[i].StartBeat;
@@ -44,26 +46,28 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // Gather all movement clips (both hand and full body)
-        var allMoveClips = timeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().ToList();
+        List<MoveClipViewModel> allMoveClips = timeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().ToList();
         if (allMoveClips.Count == 0)
             return;
 
         // For each MoveId, compute total overlap per section type across ALL instances
-        var baseSectionForMove = new Dictionary<string, SongSectionType>(StringComparer.OrdinalIgnoreCase);
-        var baseColorForMove = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, SongSectionType> baseSectionForMove = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, Color> baseColorForMove = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var grp in allMoveClips.GroupBy(c => c.MoveId, StringComparer.OrdinalIgnoreCase))
+        foreach (IGrouping<string, MoveClipViewModel> grp in allMoveClips.GroupBy(c => c.MoveId, StringComparer.OrdinalIgnoreCase))
         {
-            var totals = new Dictionary<SongSectionType, double>();
-            foreach (var clip in grp)
+            Dictionary<SongSectionType, double> totals = new();
+            foreach (MoveClipViewModel? clip in grp)
             {
                 double clipStart = clip.StartBeat;
                 double clipEnd = clip.StartBeat + clip.DurationBeats;
-                foreach (var span in sectionSpans)
+                foreach ((double Start, double End, SongSectionType Type) span in sectionSpans)
                 {
                     double overlap = Math.Max(0.0, Math.Min(clipEnd, span.End) - Math.Max(clipStart, span.Start));
-                    if (overlap <= 0) continue;
-                    if (!totals.TryGetValue(span.Type, out var cur)) cur = 0.0;
+                    if (overlap <= 0)
+                        continue;
+                    if (!totals.TryGetValue(span.Type, out var cur))
+                        cur = 0.0;
                     totals[span.Type] = cur + overlap;
                 }
             }
@@ -71,15 +75,11 @@ public class RecolorMovesBySectionCommand : IRunCommand
             // choose the section type with the maximum overlap; fallback to first section
             SongSectionType chosen = totals.Count > 0 ? totals.OrderByDescending(kv => kv.Value).First().Key : sectionSpans.First().Type;
             baseSectionForMove[grp.Key] = chosen;
-            baseColorForMove[grp.Key] = sectionColors.TryGetValue(chosen, out var c) ? c : Colors.Gray;
+            baseColorForMove[grp.Key] = sectionColors.TryGetValue(chosen, out Color c) ? c : Colors.Gray;
         }
 
         // We'll compute colors and apply them across both body types, but determine brightness alternation per body type sequence
-        var assigned = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
-
-        // Prepare list of all target clips and original colors for a single undo group
-        var targetClips = allMoveClips.OrderBy(c => c.StartBeat).ToList();
-        var originalColors = targetClips.Select(c => c.BackgroundColor).ToList();
+        Dictionary<string, Color> assigned = new(StringComparer.OrdinalIgnoreCase);
 
         // Helper to get bright/dark variant
         static Color Variant(Color baseColor, bool brighten) => brighten ? Brighten(baseColor, 0.20) : Darken(baseColor, 0.20);
@@ -90,20 +90,20 @@ public class RecolorMovesBySectionCommand : IRunCommand
             string? lastMoveId = null;
             bool alternate = false;
 
-            var clips = targetClips.Where(c => c.IsFullBody == isFullBody).OrderBy(c => c.StartBeat);
-            foreach (var clip in clips)
+            IOrderedEnumerable<MoveClipViewModel> clips = allMoveClips.Where(c => c.IsFullBody == isFullBody).OrderBy(c => c.StartBeat);
+            foreach (MoveClipViewModel? clip in clips)
             {
                 var id = clip.MoveId ?? string.Empty;
 
-                // If we already assigned a final color for this MoveId, just apply it
-                if (assigned.TryGetValue(id, out var color))
+                // If we already assigned a final color for this MoveId, just record it for reuse
+                if (assigned.TryGetValue(id, out Color color))
                 {
-                    clip.BackgroundColor = color;
                     if (!string.Equals(lastMoveId, id, StringComparison.OrdinalIgnoreCase))
                     {
                         lastMoveId = id;
                         alternate = !alternate;
                     }
+
                     continue;
                 }
 
@@ -115,33 +115,50 @@ public class RecolorMovesBySectionCommand : IRunCommand
                 }
 
                 // Determine base color for this move from the majority section across all instances
-                Color baseColor = baseColorForMove.TryGetValue(id, out var b) ? b : Colors.Gray;
-                var finalColor = Variant(baseColor, alternate);
+                Color baseColor = baseColorForMove.TryGetValue(id, out Color b) ? b : Colors.Gray;
+                Color finalColor = Variant(baseColor, alternate);
                 assigned[id] = finalColor;
-                clip.BackgroundColor = finalColor;
             }
         }
 
-        // Record a single undo/redo for all changed clips
-        var finalColors = targetClips.Select(c => c.BackgroundColor).ToList();
-        bool anyChanged = false;
-        for (int i = 0; i < targetClips.Count; i++)
+        // Apply assigned colors to MoveDefinitions (both hand and full-body variants) and record original colors for undo
+        Dictionary<MoveDefinitionViewModel, Color> defsToOriginal = new();
+        foreach (KeyValuePair<string, Color> kv in assigned)
         {
-            if (!Equals(originalColors[i], finalColors[i])) { anyChanged = true; break; }
+            var id = kv.Key;
+            Color normalized = new(255, kv.Value.R, kv.Value.G, kv.Value.B);
+
+            MoveDefinitionViewModel defHand = timeline.GetOrRegisterMove(id, false);
+            if (!defsToOriginal.ContainsKey(defHand))
+                defsToOriginal[defHand] = defHand.Color;
+
+            MoveDefinitionViewModel defFull = timeline.GetOrRegisterMove(id, true);
+            if (!defsToOriginal.ContainsKey(defFull))
+                defsToOriginal[defFull] = defFull.Color;
         }
+
+        Dictionary<MoveDefinitionViewModel, Color> finalDefColors = defsToOriginal.Keys.ToDictionary(d => d, d => assigned.TryGetValue(d.Id, out Color col) ? new Color(255, col.R, col.G, col.B) : d.Color);
+
+        bool anyChanged = defsToOriginal.Any(kv => !Equals(kv.Value, finalDefColors[kv.Key]));
 
         if (anyChanged)
         {
+            // Apply final colors immediately so UI shows the change (properties and timeline render from definitions)
+            foreach (KeyValuePair<MoveDefinitionViewModel, Color> kv in finalDefColors)
+            {
+                kv.Key.Color = kv.Value;
+            }
+
             timeline.UndoService.Record(
                 undo: () =>
                 {
-                    for (int i = 0; i < targetClips.Count; i++)
-                        targetClips[i].BackgroundColor = originalColors[i];
+                    foreach (KeyValuePair<MoveDefinitionViewModel, Color> kv in defsToOriginal)
+                        kv.Key.Color = kv.Value;
                 },
                 redo: () =>
                 {
-                    for (int i = 0; i < targetClips.Count; i++)
-                        targetClips[i].BackgroundColor = finalColors[i];
+                    foreach (KeyValuePair<MoveDefinitionViewModel, Color> kv in finalDefColors)
+                        kv.Key.Color = kv.Value;
                 }
             );
         }

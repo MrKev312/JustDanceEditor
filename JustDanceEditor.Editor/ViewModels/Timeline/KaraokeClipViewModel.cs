@@ -1,15 +1,9 @@
 using Avalonia.Media;
-using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
-using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Formats.JDI.Timelines;
-
-using System.Collections.Generic;
-using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -31,8 +25,16 @@ public partial class KaraokeClipViewModel : ClipViewModel
         // keep Name in sync for display
         Name = Lyrics;
 
-        // No-op: background color changes handled by overriding OnBackgroundColorChangedCore
-
+        // If we have a parent timeline, subscribe to timeline PropertyChanged so
+        // we can refresh rendering when the lyrics definition color changes.
+        if (_parentTimeline != null)
+        {
+            try
+            {
+                _parentTimeline.PropertyChanged += OnParentTimelinePropertyChanged;
+            }
+            catch { }
+        }
     }
 
     partial void OnLyricsChanged(string value)
@@ -55,22 +57,44 @@ public partial class KaraokeClipViewModel : ClipViewModel
         }
     }
 
+    public override Color RenderColor => _parentTimeline != null ? new Color(255, _parentTimeline.LyricsDefinitionColor.R, _parentTimeline.LyricsDefinitionColor.G, _parentTimeline.LyricsDefinitionColor.B) : base.RenderColor;
+
+    // Shadow BackgroundColor so Properties panel reads/writes the LyricsDefinition color
+    [Inspectable("Color", "Appearance")]
+    public new Color BackgroundColor
+    {
+        get => _parentTimeline != null ? new Color(255, _parentTimeline.LyricsDefinitionColor.R, _parentTimeline.LyricsDefinitionColor.G, _parentTimeline.LyricsDefinitionColor.B) : base.BackgroundColor;
+        set
+        {
+            if (_parentTimeline != null)
+            {
+                Color normalized = new(255, value.R, value.G, value.B);
+                _parentTimeline.LyricsDefinitionColor = normalized;
+            }
+            else
+            {
+                base.BackgroundColor = value;
+            }
+        }
+    }
+
     protected override void OnBackgroundColorChangedCore(Color value)
     {
-        // When one lyrics clip changes color, update all lyrics clips and metadata
-        if (_parentTimeline != null)
-        {
-            List<KaraokeClipViewModel> lyricsClips = _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
-            foreach (var clip in lyricsClips)
-            {
-                if (!Equals(clip.BackgroundColor, value))
-                    clip.BackgroundColor = value;
-            }
-
-            _parentTimeline.UpdateLyricsColor(ColorToRgbaHex(value));
-        }
+        // Do not update timeline metadata from individual clip changes anymore.
+        // Timeline-level lyrics color is the single source-of-truth and will be
+        // set via the LyricsDefinition color by the Properties editor.
 
         // Always invoke base to notify listeners
         base.OnBackgroundColorChangedCore(value);
+    }
+
+    private void OnParentTimelinePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is (nameof(TimelineEditorViewModel.LyricsDefinitionColor)) or (nameof(TimelineEditorViewModel.LyricsColor)))
+        {
+            // When the timeline-level lyrics color changes, update rendering
+            NotifyClipDataChanged(nameof(BackgroundColor));
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RenderColor)));
+        }
     }
 }

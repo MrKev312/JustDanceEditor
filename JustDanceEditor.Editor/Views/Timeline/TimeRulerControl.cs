@@ -112,7 +112,7 @@ public class TimeRulerControl : Control
         // 1. Draw Alternating Measure Backgrounds
         if (Signatures != null)
         {
-            List<SignatureSegment> sortedSig = Signatures.OrderBy(s => s.Marker).ToList();
+            List<SignatureSegment> sortedSig = [.. Signatures.OrderBy(s => s.Marker)];
             if (sortedSig.Count == 0)
             {
                 // Fallback to 4/4 if no signatures
@@ -132,8 +132,8 @@ public class TimeRulerControl : Control
         }
 
         // 2. Draw Ticks and Labels
-        var mainPen = TimelineResources.MainPen;
-        var tickPen = TimelineResources.TickPen;
+        Pen mainPen = TimelineResources.MainPen;
+        Pen tickPen = TimelineResources.TickPen;
         IImmutableSolidColorBrush labelBrush = (IImmutableSolidColorBrush)TimelineResources.LabelBrush;
 
         context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));

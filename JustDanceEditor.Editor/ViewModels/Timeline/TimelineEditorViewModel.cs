@@ -21,7 +21,7 @@ using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.Services.ILyricsColorService
+public partial class TimelineEditorViewModel : Document
 {
     private readonly IntermediateSongPackage _package;
 
@@ -101,6 +101,10 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
     public IPlaybackService Playback { get; }
     public TimelineStructureDocument TimelineStructure => _package.TimelineStructure;
 
+    // Registry of known move definitions keyed by (id,isFullBody)
+    private readonly Dictionary<(string id, bool isFullBody), MoveDefinitionViewModel> _moveDefinitions = [];
+    public IReadOnlyDictionary<(string id, bool isFullBody), MoveDefinitionViewModel> MoveDefinitions => _moveDefinitions;
+
     public string AudioPath { get; private set; } = "";
     public string VideoPath { get; private set; } = "";
     public string PreparedAudioPath { get; private set; } = "";
@@ -119,10 +123,10 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
     public bool TryGetCoachMoveColor(string moveId, out Color color)
     {
         CoachMoveDefinition? def = null;
-        if (_package.HandCoachMoves.TryGetValue(moveId, out var d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+        if (_package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
             def = d;
 
-        if (def != null && Color.TryParse(def.Color, out var c))
+        if (def != null && Color.TryParse(def.Color, out Color c))
         {
             color = c;
             return true;
@@ -273,6 +277,51 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
             lyricsColor = ClipViewModel.ParseRgbaHex(_package.Metadata.LyricsColor);
         }
 
+        // Store the lyrics definition color directly on the timeline as a Color field
+        _lyricsDefinitionColor = new Color(255, lyricsColor.R, lyricsColor.G, lyricsColor.B);
+        // Persist to metadata for consistency
+        _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+        // Ensure UI knows lyrics color changed
+        OnPropertyChanged(nameof(LyricsColor));
+        OnPropertyChanged(nameof(LyricsDefinitionColor));
+
+        // Ensure MoveDefinitions registry is populated from the package coach move definitions
+        try
+        {
+            // Hand coach moves
+            foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.HandCoachMoves)
+            {
+                var id = kv.Key;
+                CoachMoveDefinition def = kv.Value;
+                MoveDefinitionViewModel md = new()
+                {
+                    Id = id,
+                    IsFullBody = false,
+                    DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
+                };
+                if (Color.TryParse(def.Color, out Color c))
+                    md.Color = c;
+                _moveDefinitions[(id, false)] = md;
+            }
+
+            // Full body coach moves
+            foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.FullBodyCoachMoves)
+            {
+                var id = kv.Key;
+                CoachMoveDefinition def = kv.Value;
+                MoveDefinitionViewModel md = new()
+                {
+                    Id = id,
+                    IsFullBody = true,
+                    DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
+                };
+                if (Color.TryParse(def.Color, out Color c))
+                    md.Color = c;
+                _moveDefinitions[(id, true)] = md;
+            }
+        }
+        catch { }
+
         // Helper-local to capture lyricsColor where needed
         void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips, bool isFullBody = false)
         {
@@ -289,15 +338,10 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                         break;
                     case MoveClip mc:
                         {
-                            Color moveColor = Colors.LightGray;
-                            double duration = 24;
                             string name = mc.MoveId;
-                            if (_package.HandCoachMoves.TryGetValue(mc.MoveId, out CoachMoveDefinition? def) || _package.FullBodyCoachMoves.TryGetValue(mc.MoveId, out def))
-                            {
-                                if (Color.TryParse(def.Color, out Color c))
-                                    moveColor = c;
-                                duration = def.Duration;
-                            }
+                            MoveDefinitionViewModel defVm = GetOrRegisterMove(mc.MoveId, isFullBody);
+                            Color moveColor = defVm.Color;
+                            double duration = defVm.DefaultDuration;
                             track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this, isFullBody));
                             break;
                         }
@@ -310,6 +354,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
                         break;
                 }
             }
+
             Tracks.Add(track);
         }
 
@@ -325,6 +370,45 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
             AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
 
         AddTrack("Gold Effects", 30, Colors.OrangeRed, _package.GoldEffects.Clips.Cast<TimelineClipBase>());
+    }
+
+    public MoveDefinitionViewModel GetOrRegisterMove(string moveId, bool isFullBody)
+    {
+        if (string.IsNullOrEmpty(moveId))
+            return new MoveDefinitionViewModel { Id = moveId, IsFullBody = isFullBody };
+
+        (string moveId, bool isFullBody) key = (moveId, isFullBody);
+        if (_moveDefinitions.TryGetValue(key, out MoveDefinitionViewModel? def))
+            return def;
+
+        // Attempt to seed from package if possible
+        Color color = Colors.LightGray;
+        double duration = 24.0;
+        try
+        {
+            if (_package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+            {
+                if (d != null)
+                {
+                    if (Color.TryParse(d.Color, out Color c))
+                        color = c;
+                    if (d.Duration > 0)
+                        duration = d.Duration;
+                }
+            }
+        }
+        catch { }
+
+        def = new MoveDefinitionViewModel
+        {
+            Id = moveId,
+            IsFullBody = isFullBody,
+            Color = color,
+            DefaultDuration = duration
+        };
+
+        _moveDefinitions[key] = def;
+        return def;
     }
 
     private void UpdateTimelineWidth()
@@ -391,7 +475,7 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
     [RelayCommand]
     public void DeleteSelectedClips()
     {
-        List<(TrackViewModel Track, ClipViewModel Clip)> toDelete = new();
+        List<(TrackViewModel Track, ClipViewModel Clip)> toDelete = [];
         foreach (TrackViewModel track in Tracks)
         {
             foreach (ClipViewModel clip in track.Clips)
@@ -444,9 +528,33 @@ public partial class TimelineEditorViewModel : Document, JustDanceEditor.Editor.
     /// </summary>
     public void UpdateLyricsColor(string rgbaHexColor)
     {
-        _package.Metadata.LyricsColor = rgbaHexColor;
-        // Trigger any UI updates that depend on LyricsColor
-        OnPropertyChanged(nameof(LyricsColor));
+        // Update the timeline-owned lyrics definition color (single source-of-truth)
+        Color parsed = ClipViewModel.ParseRgbaHex(rgbaHexColor);
+        Color normalized = new(255, parsed.R, parsed.G, parsed.B);
+        if (!Equals(_lyricsDefinitionColor, normalized))
+        {
+            _lyricsDefinitionColor = normalized;
+            _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+            OnPropertyChanged(nameof(LyricsColor));
+            OnPropertyChanged(nameof(LyricsDefinitionColor));
+        }
+    }
+
+    private Color _lyricsDefinitionColor;
+    public Color LyricsDefinitionColor
+    {
+        get => _lyricsDefinitionColor;
+        set
+        {
+            Color normalized = new(255, value.R, value.G, value.B);
+            if (!Equals(_lyricsDefinitionColor, normalized))
+            {
+                _lyricsDefinitionColor = normalized;
+                _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+                OnPropertyChanged(nameof(LyricsDefinitionColor));
+                OnPropertyChanged(nameof(LyricsColor));
+            }
+        }
     }
 
     public string GetLyricsColor() => LyricsColor;

@@ -1,10 +1,8 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
@@ -64,7 +62,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         double deltaBeats = deltaX / pixelsPerBeat;
 
         // Prepare all clips (we'll exclude the resizing clip via the excludedClips parameter)
-        IEnumerable<ClipViewModel> allClips = vm != null ? vm.Tracks.SelectMany(t => t.Clips) : System.Linq.Enumerable.Empty<ClipViewModel>();
+        IEnumerable<ClipViewModel> allClips = vm != null ? vm.Tracks.SelectMany(t => t.Clips) : [];
 
         if (_isResizingLeft)
         {
@@ -117,7 +115,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
         if (changed && vm != null)
         {
             // Capture the clip locally so the undo/redo lambdas don't reference the cleared field
-            var clip = _resizingClip;
+            ClipViewModel clip = _resizingClip;
             var finalStart = clip.StartBeat;
             var finalDuration = clip.DurationBeats;
 

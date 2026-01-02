@@ -8,7 +8,7 @@ namespace JustDanceEditor.Editor.Views.Tools;
 
 public partial class VideoToolView : UserControl
 {
-    private VideoView? _videoView;
+    private readonly VideoView? _videoView;
 
     public VideoToolView()
     {

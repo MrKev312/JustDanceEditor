@@ -112,7 +112,7 @@ public class TimelineNavigationBehavior : AvaloniaObject
             // Horizontal scrolling (DAW style): scroll by mouse delta
             double scrollAmount = e.Delta.Y * -50.0;
             double newOffset = scrollViewer.Offset.X + scrollAmount;
-            scrollViewer.Offset = new Vector(System.Math.Max(0, newOffset), scrollViewer.Offset.Y);
+            scrollViewer.Offset = new Vector(Math.Max(0, newOffset), scrollViewer.Offset.Y);
             e.Handled = true;
         }
     }
@@ -159,7 +159,7 @@ public class TimelineNavigationBehavior : AvaloniaObject
             // New offset to keep centerBeat at the center
             double newOffset = (centerBeat * newPpb) - (viewportWidth / 2.0);
 
-            scrollViewer.Offset = new Vector(System.Math.Max(0, newOffset), scrollViewer.Offset.Y);
+            scrollViewer.Offset = new Vector(Math.Max(0, newOffset), scrollViewer.Offset.Y);
         }
         else if (e.PropertyName == nameof(TimelineEditorViewModel.CurrentBeat))
         {
@@ -181,7 +181,7 @@ public class TimelineNavigationBehavior : AvaloniaObject
                 if (x < currentOffset + margin || x > currentOffset + viewportWidth - margin)
                 {
                     double targetOffset = x - (viewportWidth / 2.0);
-                    scrollViewer.Offset = new Vector(System.Math.Max(0, targetOffset), scrollViewer.Offset.Y);
+                    scrollViewer.Offset = new Vector(Math.Max(0, targetOffset), scrollViewer.Offset.Y);
                 }
             }
         }

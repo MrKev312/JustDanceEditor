@@ -27,7 +27,7 @@ public static class SnappingService
         double bestDist = double.MaxValue;
         int bestPriority = int.MaxValue; // 0=Playhead,1=Grid,2=Clip
 
-        var excluded = excludedClips != null ? new HashSet<ClipViewModel>(excludedClips) : null;
+        HashSet<ClipViewModel>? excluded = excludedClips != null ? [.. excludedClips] : null;
 
         // 1) Playhead
         if (vm.SnapToCurrentTimeMarker)
@@ -61,7 +61,7 @@ public static class SnappingService
         {
             try
             {
-                foreach (var clip in vm.Tracks.SelectMany(t => t.Clips))
+                foreach (ClipViewModel? clip in vm.Tracks.SelectMany(t => t.Clips))
                 {
                     if (clip == null)
                         continue;

@@ -203,7 +203,7 @@ public static class JdiVideoConverter
         TimeSpan duration,
         CancellationToken cancellationToken)
     {
-        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source);
+        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source, cancellationToken);
         IVideoStream stream = mediaInfo.VideoStreams.First();
 
         // Build common filter for cropping only

@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Media;
 
 namespace JustDanceEditor.Editor.Views.Timeline;

@@ -9,7 +9,7 @@ public class GoldEffectClipViewModel : ClipViewModel
     public GoldEffectClipViewModel(GoldEffectClip clip, double duration, Color color, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
         : base(clip, duration, color, name, rootPath, parentTimeline)
     {
-        this.PropertyChanged += (s, e) =>
+        PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(DurationBeats) && RawClip is GoldEffectClip g)
             {

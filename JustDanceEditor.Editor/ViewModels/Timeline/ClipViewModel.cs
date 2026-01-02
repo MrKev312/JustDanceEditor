@@ -2,15 +2,10 @@
 using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
-
-using System;
-using System.IO;
-using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -31,6 +26,11 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
     [ObservableProperty]
     public partial Color BackgroundColor { get; set; } = color;
 
+    /// <summary>
+    /// Color used for rendering. Subclasses may override to source color from a shared definition.
+    /// </summary>
+    public virtual Color RenderColor => BackgroundColor;
+
     [ObservableProperty]
     public partial string? ImagePath { get; set; }
 
@@ -48,14 +48,14 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
         {
             clip.StartTime = (int)(value * 24);
             // Broadcast change so other viewers (e.g., lyric preview) can react and re-sort
-            WeakReferenceMessenger.Default.Send(new JustDanceEditor.Editor.Messaging.ClipDataChangedMessage(this, nameof(StartBeat)));
+            WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, nameof(StartBeat)));
         }
     }
 
     partial void OnDurationBeatsChanged(double value)
     {
         // Subclasses may override to update underlying RawClip duration.
-        WeakReferenceMessenger.Default.Send(new JustDanceEditor.Editor.Messaging.ClipDataChangedMessage(this, nameof(DurationBeats)));
+        WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, nameof(DurationBeats)));
     }
 
     partial void OnNameChanged(string value)
@@ -79,7 +79,7 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
         NotifyClipDataChanged(nameof(BackgroundColor));
     }
 
-    protected void NotifyClipDataChanged(string? propertyName) => WeakReferenceMessenger.Default.Send(new JustDanceEditor.Editor.Messaging.ClipDataChangedMessage(this, propertyName));
+    protected void NotifyClipDataChanged(string? propertyName) => WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, propertyName));
 
     public static string ColorToRgbaHex(Color color)
     {
@@ -104,6 +104,7 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
                 return new Color(a, r, g, b);
             }
         }
+
         if (Color.TryParse(hex, out Color c))
             return c;
         return Colors.White;

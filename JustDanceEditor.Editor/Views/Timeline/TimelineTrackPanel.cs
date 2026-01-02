@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -84,9 +85,9 @@ public partial class TimelineTrackPanel : Control
     private ClipViewModel? _lastSelectedClip;
 
     // --- Interaction Handlers ---
-    private ClipDragHandler? _dragHandler;
-    private ClipResizeHandler? _resizeHandler;
-    private BoxSelectionHandler? _boxSelectionHandler;
+    private readonly ClipDragHandler? _dragHandler;
+    private readonly ClipResizeHandler? _resizeHandler;
+    private readonly BoxSelectionHandler? _boxSelectionHandler;
 
     static TimelineTrackPanel()
     {
@@ -110,6 +111,15 @@ public partial class TimelineTrackPanel : Control
         _dragHandler = new ClipDragHandler(this);
         _resizeHandler = new ClipResizeHandler(this);
         _boxSelectionHandler = new BoxSelectionHandler(this);
+
+        // Allow external drag/drop (library -> timeline)
+        DragDrop.SetAllowDrop(this, true);
+
+        // Wire drag/drop handlers for external sources (e.g., Library tool)
+        AddHandler(DragDrop.DragEnterEvent, OnExternalDragEnter, handledEventsToo: false);
+        AddHandler(DragDrop.DragOverEvent, OnExternalDragOver, handledEventsToo: false);
+        AddHandler(DragDrop.DragLeaveEvent, OnExternalDragLeave, handledEventsToo: false);
+        AddHandler(DragDrop.DropEvent, OnExternalDrop, handledEventsToo: false);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -215,7 +225,7 @@ public partial class TimelineTrackPanel : Control
         PropertyChangedEventHandler handler = (s, e) =>
         {
             // clear text cache for this clip
-            List<(ClipViewModel clip, double fontSize)> keys = _textCache.Keys.Where(k => k.clip == clip).ToList();
+            List<(ClipViewModel clip, double fontSize)> keys = [.. _textCache.Keys.Where(k => k.clip == clip)];
             foreach ((ClipViewModel clip, double fontSize) k in keys)
                 _textCache.Remove(k);
 

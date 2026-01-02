@@ -103,14 +103,16 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
     {
         if (clip == null || _clipHandlers.ContainsKey(clip))
             return;
-        PropertyChangedEventHandler handler = (s, e) =>
+
+        void handler(object? s, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is (nameof(ClipViewModel.StartBeat)) or (nameof(ClipViewModel.DurationBeats)))
             {
                 // Ensure UI update on UI thread
                 Avalonia.Threading.Dispatcher.UIThread.Post(RefreshVisiblePictograms);
             }
-        };
+        }
+
         clip.PropertyChanged += handler;
         _clipHandlers[clip] = handler;
     }
@@ -147,9 +149,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
         // Only include pictograms within a reasonable look-ahead (e.g., 20 beats)
         double lookAhead = 20;
         double current = ActiveTimeline.CurrentBeat;
-        List<ClipViewModel> upcoming = pictoTrack.Clips
-            .Where(c => c.StartBeat >= current - 5 && c.StartBeat <= current + lookAhead)
-            .ToList();
+        List<ClipViewModel> upcoming = [.. pictoTrack.Clips.Where(c => c.StartBeat >= current - 5 && c.StartBeat <= current + lookAhead)];
 
         // Simple update logic: compare and sync
         if (!VisiblePictograms.SequenceEqual(upcoming))

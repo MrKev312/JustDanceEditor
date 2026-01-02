@@ -7,7 +7,6 @@ using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System;
 using System.ComponentModel;
-using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

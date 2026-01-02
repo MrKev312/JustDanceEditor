@@ -43,7 +43,7 @@ public partial class PropertiesToolView : UserControl
                     tb.Text = vm.StringValue;
 
                     // Move focus to cancel edit mode
-                    this.Focus();
+                    Focus();
                 }
 
                 e.Handled = true;
@@ -63,18 +63,14 @@ public partial class PropertiesToolView : UserControl
         // Open the color picker once when it gets focus
         if (sender is ColorPicker colorPicker)
         {
-            PropertyItemViewModel? vm = colorPicker.DataContext as PropertyItemViewModel;
-            if (vm == null)
+            if (colorPicker.DataContext is not PropertyItemViewModel vm)
                 return;
 
             // Only open if this is a new color picker
             if (vm != _lastColorPickerViewModel)
             {
                 // Close the previous color picker if there was one
-                if (_lastColorPickerViewModel != null)
-                {
-                    _lastColorPickerViewModel.OnColorPickerClosed();
-                }
+                _lastColorPickerViewModel?.OnColorPickerClosed();
 
                 // Open the new one
                 _lastColorPickerViewModel = vm;
@@ -87,8 +83,7 @@ public partial class PropertiesToolView : UserControl
     {
         if (sender is ColorPicker colorPicker)
         {
-            PropertyItemViewModel? vm = colorPicker.DataContext as PropertyItemViewModel;
-            if (vm == null)
+            if (colorPicker.DataContext is not PropertyItemViewModel vm)
                 return;
 
             // Only close if this was our tracked picker

@@ -190,7 +190,7 @@ public class ConverterDialogue
             string outputFolder = AskOutputFolder();
             bool onlineCover = AskOnlineCover();
             List<string> existingSongs = Directory.Exists(outputFolder)
-                ? Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!).ToList()
+                ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)]
                 : [];
 
             string[] inputSongParentFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))

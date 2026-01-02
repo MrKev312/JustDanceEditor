@@ -11,11 +11,19 @@ public abstract class TimelineInteractionHandler(TimelineTrackPanel panel)
 
     protected void Capture(PointerEventArgs e)
     {
-        try { e.Pointer.Capture(_panel); } catch { }
+        try
+        {
+            e.Pointer.Capture(_panel);
+        }
+        catch { }
     }
 
     protected void Release(PointerEventArgs? e = null)
     {
-        try { e?.Pointer.Capture(null); } catch { }
+        try
+        {
+            e?.Pointer.Capture(null);
+        }
+        catch { }
     }
 }

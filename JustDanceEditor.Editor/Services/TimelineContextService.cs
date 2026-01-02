@@ -32,7 +32,7 @@ public partial class TimelineContextService : ObservableObject, ITimelineContext
         else
         {
             // Gather selected clips across all tracks in the timeline
-            SelectedObjects = timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>().ToList();
+            SelectedObjects = [.. timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>()];
         }
 
         WeakReferenceMessenger.Default.Send(new ActiveTimelineChangedMessage(timeline));

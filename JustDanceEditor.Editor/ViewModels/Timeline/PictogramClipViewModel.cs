@@ -20,7 +20,7 @@ public partial class PictogramClipViewModel : ClipViewModel
         if (!string.IsNullOrEmpty(PictogramId) && rootPath != null)
             ImagePath = System.IO.Path.Combine(rootPath, "assets", "pictograms", $"{PictogramId}.webp");
 
-        this.PropertyChanged += (s, e) =>
+        PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(DurationBeats) && RawClip is PictogramClip p)
             {

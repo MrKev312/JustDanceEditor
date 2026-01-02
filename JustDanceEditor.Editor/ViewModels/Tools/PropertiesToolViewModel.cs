@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
-using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -13,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -54,9 +54,9 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
     private void RefreshProperties()
     {
         // Dispose existing PropertyItemViewModels to unregister messenger handlers and avoid leaks
-        foreach (var cat in Categories.ToList())
+        foreach (PropertyCategoryViewModel? cat in Categories.ToList())
         {
-            foreach (var prop in cat.Properties.ToList())
+            foreach (PropertyItemViewModel? prop in cat.Properties.ToList())
             {
                 if (prop is IDisposable d)
                     d.Dispose();
@@ -95,30 +95,53 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
                     if (consistent)
                     {
-                        PropertyItemViewModel propVm = new(
-                            selection,
-                            item.Property.Name,
-                            item.Attribute!,
-                            ActiveTimeline!.UndoService,
-                            ActiveTimeline.TimelineStructure,
-                            ActiveTimeline.Tracks,
-                            ActiveTimeline);
-
-                        // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
-                        if (item.Property.Name is "BackgroundColor" or "Color")
+                        // For Move clip color we want to edit the MoveDefinition.Color (not per-clip state).
+                        // Detect BackgroundColor on MoveClipViewModel and create a PropertyItem bound to the definitions.
+                        PropertyItemViewModel propVm;
+                        if (item.Property.Name == "BackgroundColor" && first is MoveClipViewModel)
                         {
-                            if (first is ClipViewModel cv)
-                            {
-                                // With strongly-typed ClipViewModels we can check concrete types directly
-                                if (cv is not (MoveClipViewModel or KaraokeClipViewModel))
-                                    continue; // Skip color for non-moves and non-lyrics
-                            }
+                            List<MoveDefinitionViewModel?> defs = selection.OfType<MoveClipViewModel>().Select(m => m.Definition).Where(d => d != null).Distinct().ToList()!;
+                            if (defs.Count == 0)
+                                continue; // no definitions found
+
+                            // Create property item targeting the definitions' Color property
+                            propVm = new([.. defs.Cast<object>()], "Color", item.Attribute!, ActiveTimeline!.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
                         }
-
-                        // Populate Options for MoveId and PictogramId
-                        if (item.Property.Name == "MoveId" || item.Property.Name == "PictogramId")
+                        else if (item.Property.Name == "BackgroundColor" && first is KaraokeClipViewModel)
                         {
-                            PopulateOptions(propVm, selection, ActiveTimeline);
+                            // Target the timeline's LyricsDefinition color exposed directly on the timeline
+                            if (ActiveTimeline == null)
+                                continue;
+
+                            propVm = new([ActiveTimeline], "LyricsDefinitionColor", item.Attribute!, ActiveTimeline.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
+                        }
+                        else
+                        {
+                            propVm = new(
+                                selection,
+                                item.Property.Name,
+                                item.Attribute!,
+                                ActiveTimeline!.UndoService,
+                                ActiveTimeline.TimelineStructure,
+                                ActiveTimeline.Tracks,
+                                ActiveTimeline);
+
+                            // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
+                            if (item.Property.Name is "BackgroundColor" or "Color")
+                            {
+                                if (first is ClipViewModel cv)
+                                {
+                                    // With strongly-typed ClipViewModels we can check concrete types directly
+                                    if (cv is not (MoveClipViewModel or KaraokeClipViewModel))
+                                        continue; // Skip color for non-moves and non-lyrics
+                                }
+                            }
+
+                            // Populate Options for MoveId and PictogramId
+                            if (item.Property.Name is "MoveId" or "PictogramId")
+                            {
+                                PopulateOptions(propVm, selection, ActiveTimeline);
+                            }
                         }
 
                         categoryVm.Properties.Add(propVm);
@@ -134,8 +157,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
     private void PopulateOptions(PropertyItemViewModel propVm, List<object> selection, TimelineEditorViewModel timeline)
     {
         // Check if we are dealing with ClipViewModels
-        ClipViewModel? firstClip = selection[0] as ClipViewModel;
-        if (firstClip == null)
+        if (selection[0] is not ClipViewModel firstClip)
             return;
 
         // Determine type of clip
@@ -146,7 +168,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
             if (track != null)
             {
                 // Heuristic: Check Title
-                if (track.Title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (track.Title.Contains("FullBody", StringComparison.OrdinalIgnoreCase))
                 {
                     propVm.Options = timeline.AvailableFullBodyCoachMoves.ToList();
                     propVm.IsEditable = false;
@@ -160,7 +182,7 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
         }
         else if (firstClip is PictogramClipViewModel)
         {
-            List<PictogramOptionViewModel> list = new();
+            List<PictogramOptionViewModel> list = [];
             var dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
             if (System.IO.Directory.Exists(dir))
             {
@@ -220,11 +242,25 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     private readonly IUndoService _undoService;
     private readonly TimelineStructureDocument _timelineStructure;
     private readonly ObservableCollection<TrackViewModel> _tracks;
-    private readonly JustDanceEditor.Editor.Services.ILyricsColorService _lyricsService;
+    private readonly TimelineEditorViewModel? _timelineEditor;
     private bool _isColorPickerActive = false;
     private object? _colorPickerInitialValue;
 
+    // Direct subscriptions for INotifyPropertyChanged targets (unsubscribed in Dispose)
+    private readonly List<INotifyPropertyChanged> _inpcSubscriptions = [];
+
+    private void Target_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == _propertyName)
+        {
+            // Refresh bound value when underlying property changed
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(ColorValue)));
+        }
+    }
+
     private record ColorSnapshot(bool IsLyrics, List<(ClipViewModel Clip, Color Color)> ClipColors, string? OldMetadata, List<Color>? FinalColors = null);
+    private record MoveDefinitionsSnapshot(List<(MoveDefinitionViewModel Def, Color Color)> DefColors);
 
     public string Name { get; }
     public bool IsReadOnly { get; }
@@ -244,7 +280,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         IUndoService undoService,
         TimelineStructureDocument timelineStructure,
         ObservableCollection<TrackViewModel> tracks,
-        JustDanceEditor.Editor.Services.ILyricsColorService lyricsService)
+        TimelineEditorViewModel? timelineEditor)
     {
         _targets = targets;
         _propertyName = propertyName;
@@ -252,7 +288,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         _undoService = undoService;
         _timelineStructure = timelineStructure;
         _tracks = tracks;
-        _lyricsService = lyricsService;
+        _timelineEditor = timelineEditor;
         Name = attribute.DisplayName;
         IsReadOnly = attribute.IsReadOnly;
 
@@ -260,8 +296,18 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         // Register a single weak messenger handler to avoid multiple subscriptions when there are multiple targets
         if (_targets.Any(t => t is INotifyPropertyChanged))
         {
-            // Listen for ClipDataChangedMessage on the default channel (no token)
-            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this, (r, m) =>
+            // Subscribe directly to PropertyChanged on targets to get immediate notifications
+            foreach (var t in _targets)
+            {
+                if (t is INotifyPropertyChanged inpc)
+                {
+                    inpc.PropertyChanged += Target_PropertyChanged;
+                    _inpcSubscriptions.Add(inpc);
+                }
+            }
+
+            // Also listen for ClipDataChangedMessage on the default channel (no token) for clip-originated changes
+            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, Messaging.ClipDataChangedMessage>(this, (r, m) =>
             {
                 if (m.PropertyName == _propertyName && _targets.Any(t => ReferenceEquals(m.Source, t)))
                 {
@@ -271,7 +317,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             });
 
             // Ensure we unregister when this view model is disposed
-            // (Unregister will be called from Dispose())
+            // (Unregister and inpc unsubscriptions will be handled in Dispose())
         }
     }
 
@@ -289,21 +335,23 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // Lyrics: capture all lyrics clips and metadata
             if (cv is KaraokeClipViewModel)
             {
-                List<KaraokeClipViewModel> allLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
-                List<(ClipViewModel, Color BackgroundColor)> colors = allLyrics.Select(c => ((ClipViewModel)c, c.BackgroundColor)).ToList();
-                ColorSnapshot snapshot = new(true, colors, _lyricsService.GetLyricsColor(), null);
+                // For lyrics, target the timeline-level lyrics definition. The property item
+                // will be created bound to that definition, so we don't capture per-clip state here.
+                List<(ClipViewModel c, Color BackgroundColor)> selected = [.. _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor))];
+                ColorSnapshot snapshot = new(false, selected, null, null);
                 _colorPickerInitialValue = snapshot;
             }
             else if (cv is MoveClipViewModel)
             {
-                // For moves, capture only the selected targets
-                List<(ClipViewModel c, Color BackgroundColor)> selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
-                ColorSnapshot snapshot = new(false, selected, null, null);
+                // For moves, capture the unique move definitions (not per-clip colors)
+                List<MoveDefinitionViewModel?> defs = _targets.OfType<MoveClipViewModel>().Select(m => m.Definition).Where(d => d != null).Distinct().ToList()!;
+                List<(MoveDefinitionViewModel Def, Color Color)> list = [.. defs.Select(d => (d!, d!.Color))];
+                MoveDefinitionsSnapshot snapshot = new(list);
                 _colorPickerInitialValue = snapshot;
             }
             else
             {
-                List<(ClipViewModel c, Color BackgroundColor)> selected = _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor)).ToList();
+                List<(ClipViewModel c, Color BackgroundColor)> selected = [.. _targets.OfType<ClipViewModel>().Select(c => (c, c.BackgroundColor))];
                 ColorSnapshot snapshot = new(false, selected, null, null);
                 _colorPickerInitialValue = snapshot;
             }
@@ -320,60 +368,63 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     /// </summary>
     public void OnColorPickerClosed()
     {
-        _isColorPickerActive = false;
-
-        // If we have a ColorSnapshot, push a single composite undo/redo
-        if (_colorPickerInitialValue is ColorSnapshot snap)
+        // Keep _isColorPickerActive true until we've recorded the grouped undo to avoid the ColorValue binding
+        // triggering an extra undo when the binding finalizes after the picker loses focus.
+        try
         {
-            if (snap.IsLyrics)
+            // If we have a MoveDefinitionsSnapshot (for moves), push undo/redo at the definition level
+            if (_colorPickerInitialValue is MoveDefinitionsSnapshot moveSnap)
             {
-                // Determine final color (assume all lyrics were set to same color by live updates)
-                var firstLyrics = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().FirstOrDefault();
-                if (firstLyrics == null)
+                List<Color> initial = moveSnap.DefColors.Select(d => d.Color).ToList();
+                List<MoveDefinitionViewModel> defs = moveSnap.DefColors.Select(d => d.Def).ToList();
+                List<Color> final = defs.Select(d => new Color(255, d.Color.R, d.Color.G, d.Color.B)).ToList();
+
+                bool anyChanged = false;
+                for (int i = 0; i < defs.Count; i++)
                 {
-                    _colorPickerInitialValue = null;
-                    return;
+                    if (!Equals(initial[i], final[i]))
+                    {
+                        anyChanged = true;
+                        break;
+                    }
                 }
 
-                var finalColor = firstLyrics.BackgroundColor;
-                List<Color> initialColors = snap.ClipColors.Select(cc => cc.Color).ToList();
-                List<ClipViewModel> affectedClips = snap.ClipColors.Select(cc => cc.Clip).ToList();
-                var oldMetadata = snap.OldMetadata;
-                var newMetadata = ClipViewModel.ColorToRgbaHex(finalColor);
-
-                // Only push undo if the color actually changed
-                bool colorChanged = !Equals(initialColors[0], finalColor) || oldMetadata != newMetadata;
-                if (colorChanged)
+                if (anyChanged)
                 {
-                    // Push one undo that restores all original colors and metadata
+                    var initialHex = initial.Count > 0 ? ClipViewModel.ColorToRgbaHex(initial[0]) : "null";
+                    var finalHex = final.Count > 0 ? ClipViewModel.ColorToRgbaHex(final[0]) : "null";
+                    Debug.WriteLine($"[Properties] Recording MoveDefinitions undo: defs={defs.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
                         {
-                            for (int i = 0; i < affectedClips.Count; i++)
-                            {
-                                affectedClips[i].BackgroundColor = initialColors[i];
-                            }
-                            _lyricsService.UpdateLyricsColor(oldMetadata ?? "#FFFFFFFF");
+                            Debug.WriteLine($"[Undo][MoveDefs] restoring definition colors; initial={initialHex}");
+                            for (int i = 0; i < defs.Count; i++)
+                                defs[i].Color = initial[i];
                         },
                         redo: () =>
                         {
-                            // Set current lyrics clips to the final color (handles changed set of clips)
-                            List<KaraokeClipViewModel> lyricsClips = _tracks.SelectMany(t => t.Clips).OfType<KaraokeClipViewModel>().ToList();
-                            foreach (var clip in lyricsClips)
-                            {
-                                clip.BackgroundColor = finalColor;
-                            }
-                            _lyricsService.UpdateLyricsColor(newMetadata);
+                            Debug.WriteLine($"[Redo][MoveDefs] applying definition colors; final={finalHex}");
+                            for (int i = 0; i < defs.Count; i++)
+                                defs[i].Color = final[i];
                         }
                     );
                 }
+
+                _colorPickerInitialValue = null;
+                return;
             }
-            else
+
+            // If the picker was editing the lyrics color at the timeline level, record a single
+            // undo that updates the timeline metadata only. We no longer set per-clip BackgroundColor
+            // during undo/redo to avoid duplicate or conflicting undo entries.
+
+            // If we have a ColorSnapshot (non-lyrics), push a single composite undo/redo
+            if (_colorPickerInitialValue is ColorSnapshot snap)
             {
                 // Non-lyrics: use the captured list to create undo/redo per captured clip
-                List<Color> initialList = snap.ClipColors.Select(cc => cc.Color).ToList();
-                List<ClipViewModel> clips = snap.ClipColors.Select(cc => cc.Clip).ToList();
-                List<Color> finalList = clips.Select(c => c.BackgroundColor).ToList();
+                List<Color> initialList = [.. snap.ClipColors.Select(cc => cc.Color)];
+                List<ClipViewModel> clips = [.. snap.ClipColors.Select(cc => cc.Clip)];
+                List<Color> finalList = [.. clips.Select(c => c.BackgroundColor)];
 
                 bool anyChanged = false;
                 for (int i = 0; i < clips.Count; i++)
@@ -387,46 +438,60 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
                 if (anyChanged)
                 {
+                    var initialHex = initialList.Count > 0 ? ClipViewModel.ColorToRgbaHex(initialList[0]) : "null";
+                    var finalHex = finalList.Count > 0 ? ClipViewModel.ColorToRgbaHex(finalList[0]) : "null";
+                    Debug.WriteLine($"[Properties] Recording Clips undo: clips={clips.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
                         {
+                            Debug.WriteLine($"[Undo][Clips] restoring clip colors; initial={initialHex}");
                             for (int i = 0; i < clips.Count; i++)
                                 clips[i].BackgroundColor = initialList[i];
                         },
                         redo: () =>
                         {
+                            Debug.WriteLine($"[Redo][Clips] applying clip colors; final={finalHex}");
                             for (int i = 0; i < clips.Count; i++)
                                 clips[i].BackgroundColor = finalList[i];
                         }
                     );
                 }
+
+                _colorPickerInitialValue = null;
+                return;
+            }
+
+            // Fallback behavior when we didn't capture snapshot: push if value changed
+            var finalValue = GetValue(_targets[0]);
+            if (!Equals(_colorPickerInitialValue, finalValue))
+            {
+                List<object?> oldValues = [.. _targets.Select(t => _colorPickerInitialValue)];
+                var oldStr = oldValues.Count > 0 ? (oldValues[0] is Color c ? ClipViewModel.ColorToRgbaHex(c) : oldValues[0]?.ToString() ?? "null") : "null";
+                var finalStr = finalValue is Color fc ? ClipViewModel.ColorToRgbaHex(fc) : finalValue?.ToString() ?? "null";
+                Debug.WriteLine($"[Properties] Recording Fallback undo: targets={_targets.Count}, old={oldStr}, final={finalStr}");
+                _undoService.Record(
+                    undo: () =>
+                    {
+                        Debug.WriteLine($"[Undo][Fallback] restoring target values; old={oldStr}");
+                        for (int i = 0; i < _targets.Count; i++)
+                            SetValue(_targets[i], oldValues[i]);
+                    },
+                    redo: () =>
+                    {
+                        Debug.WriteLine($"[Redo][Fallback] applying target values; final={finalStr}");
+                        for (int i = 0; i < _targets.Count; i++)
+                            SetValue(_targets[i], finalValue);
+                    }
+                );
+                // Ensure we unregister when this view model is disposed (see Dispose() below)
             }
 
             _colorPickerInitialValue = null;
-            return;
         }
-
-        // Fallback behavior when we didn't capture snapshot: push if value changed
-        var finalValue = GetValue(_targets[0]);
-        if (!Equals(_colorPickerInitialValue, finalValue))
+        finally
         {
-            List<object?> oldValues = _targets.Select(t => _colorPickerInitialValue).ToList();
-            _undoService.Record(
-                undo: () =>
-                {
-                    for (int i = 0; i < _targets.Count; i++)
-                        SetValue(_targets[i], oldValues[i]);
-                },
-                redo: () =>
-                {
-                    for (int i = 0; i < _targets.Count; i++)
-                        SetValue(_targets[i], finalValue);
-                }
-            );
-            // Ensure we unregister when this view model is disposed (see Dispose() below)
+            _isColorPickerActive = false;
         }
-
-        _colorPickerInitialValue = null;
     }
 
     public object? Value
@@ -448,7 +513,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             if (value == null)
                 return; // Don't set nulls explicitly (e.g. from empty selection)
 
-            List<object?> oldValues = _targets.Select(GetValue).ToList();
+            List<object?> oldValues = [.. _targets.Select(GetValue)];
 
             // Only push undo if not in color picker mode
             if (!_isColorPickerActive)
@@ -467,9 +532,35 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 );
             }
 
-            foreach (var target in _targets)
+            // Special-case: when changing MoveId on multiple MoveClipViewModels in one operation,
+            // suppress Definition color propagation on each clip while we assign the new MoveId to avoid
+            // intermediate clip color writes from stomping definition colors.
+            if (_propertyName == "MoveId" && _targets.Count > 1 && _targets.All(t => t is MoveClipViewModel))
             {
-                SetValue(target, value);
+                List<MoveClipViewModel> moveClips = _targets.Cast<MoveClipViewModel>().ToList();
+                try
+                {
+                    // Begin suppression on all involved clips
+                    foreach (MoveClipViewModel mc in moveClips)
+                        mc.BeginSuppressDefinitionColorUpdates();
+
+                    // Now perform the assignments (this will invoke each clip's MoveId setter)
+                    foreach (var target in _targets)
+                        SetValue(target, value);
+                }
+                finally
+                {
+                    // End suppression
+                    foreach (MoveClipViewModel mc in moveClips)
+                        mc.EndSuppressDefinitionColorUpdates();
+                }
+            }
+            else
+            {
+                foreach (var target in _targets)
+                {
+                    SetValue(target, value);
+                }
             }
 
             OnPropertyChanged(nameof(Value));
@@ -588,9 +679,23 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         // Unregister messenger handler for clip data changes
         try
         {
-            WeakReferenceMessenger.Default.Unregister<JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this);
+            WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
         }
         catch { }
+
+        // Unsubscribe any direct PropertyChanged subscriptions
+        foreach (INotifyPropertyChanged inpc in _inpcSubscriptions)
+        {
+            try
+            {
+                inpc.PropertyChanged -= Target_PropertyChanged;
+            }
+            catch { }
+        }
+
+        _inpcSubscriptions.Clear();
+
+        GC.SuppressFinalize(this);
     }
 
     // Refresh typed properties when Value changes

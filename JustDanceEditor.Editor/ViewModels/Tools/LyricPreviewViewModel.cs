@@ -7,7 +7,6 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -30,7 +29,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     [ObservableProperty]
     public partial Color TargetColor { get; set; } = Colors.SkyBlue;
 
-    private List<LyricLineViewModel> _allLines = [];
+    private readonly List<LyricLineViewModel> _allLines = [];
 
     // Lyrics track and per-clip handlers
     private TrackViewModel? _lyricsTrack;
@@ -52,10 +51,14 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
 
         // Ensure any previous registration is removed (idempotent) before registering our handler
-        try { WeakReferenceMessenger.Default.Unregister<JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this); } catch { }
+        try
+        {
+            WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
+        }
+        catch { }
 
         // Register for per-clip data changes so we can react to edits in the property grid
-        WeakReferenceMessenger.Default.Register<LyricPreviewViewModel, JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this, (r, m) =>
+        WeakReferenceMessenger.Default.Register<LyricPreviewViewModel, Messaging.ClipDataChangedMessage>(this, (r, m) =>
         {
             if (m.Source is KaraokeClipViewModel && (m.PropertyName == nameof(KaraokeClipViewModel.Lyrics) || m.PropertyName == nameof(KaraokeClipViewModel.IsEndOfLine) || m.PropertyName == nameof(ClipViewModel.StartBeat)))
             {
@@ -74,7 +77,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
     {
         // Unregister messenger and clip handlers
-        WeakReferenceMessenger.Default.Unregister<JustDanceEditor.Editor.Messaging.ClipDataChangedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
         UnsubscribeLyricsTrack();
         _allLines.Clear();
     }
@@ -192,21 +195,21 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         // Subscribe to changes on the lyrics track so we update when clips reorder
         SubscribeLyricsTrack(pictoTrack);
 
-        List<ClipViewModel> currentLineClips = new();
+        List<ClipViewModel> currentLineClips = [];
         // iterate clips sorted by StartBeat so BuildLines reflects current timing order
         foreach (KaraokeClipViewModel clip in pictoTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
         {
             currentLineClips.Add(clip);
             if (clip.IsEndOfLine)
             {
-                _allLines.Add(new LyricLineViewModel(currentLineClips.ToList()));
+                _allLines.Add(new LyricLineViewModel([.. currentLineClips]));
                 currentLineClips.Clear();
             }
         }
 
         if (currentLineClips.Count > 0)
         {
-            _allLines.Add(new LyricLineViewModel(currentLineClips.ToList()));
+            _allLines.Add(new LyricLineViewModel([.. currentLineClips]));
         }
     }
 

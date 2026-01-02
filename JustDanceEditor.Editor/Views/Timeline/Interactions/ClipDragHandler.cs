@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 
 using JustDanceEditor.Editor.Services;
@@ -77,17 +76,17 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 if (startSnapped && endSnapped)
                 {
                     if (Math.Abs(startAdjust) <= Math.Abs(endAdjust))
-                        newStart = newStart + startAdjust;
+                        newStart += startAdjust;
                     else
-                        newStart = (newEnd + endAdjust) - duration;
+                        newStart = newEnd + endAdjust - duration;
                 }
                 else if (startSnapped)
                 {
-                    newStart = newStart + startAdjust;
+                    newStart += startAdjust;
                 }
                 else if (endSnapped)
                 {
-                    newStart = (newEnd + endAdjust) - duration;
+                    newStart = newEnd + endAdjust - duration;
                 }
             }
 
@@ -101,7 +100,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
             double deltaX = pointerPos.X - _dragStartPointerX;
             double deltaBeats = deltaX / pixelsPerBeat;
 
-            List<ClipViewModel> selected = _multiDragOriginalStarts.Keys.ToList();
+            List<ClipViewModel> selected = [.. _multiDragOriginalStarts.Keys];
             double originalEarliestStart = selected.Min(c => _multiDragOriginalStarts[c]);
             double originalLatestEnd = selected.Max(c => _multiDragOriginalStarts[c] + c.DurationBeats);
 
@@ -113,7 +112,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
             if (vm != null && (vm.SnapToGrid || vm.SnapToCurrentTimeMarker || vm.SnapToClips))
             {
                 // Exclude selected clips from snapping targets
-                var selectedClips = selected;
+                List<ClipViewModel> selectedClips = selected;
                 var bestStart = SnappingService.FindSnapBeat(unconstrainedEarliest, vm, selectedClips);
                 var bestEnd = SnappingService.FindSnapBeat(unconstrainedLatest, vm, selectedClips);
 
@@ -158,7 +157,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
         if (_isDragging && _draggingClip != null)
         {
             // Capture locals so undo/redo lambdas don't reference cleared fields
-            var clip = _draggingClip;
+            ClipViewModel clip = _draggingClip;
             double orig = _dragOriginalStartBeat;
             double newStart = clip.StartBeat;
 
@@ -178,8 +177,8 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
         if (_isMultiDragging && _multiDragOriginalStarts != null)
         {
-            List<(ClipViewModel Clip, double Orig, double New)> changes = new();
-            foreach (var kv in _multiDragOriginalStarts)
+            List<(ClipViewModel Clip, double Orig, double New)> changes = [];
+            foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts)
             {
                 changes.Add((kv.Key, kv.Value, kv.Key.StartBeat));
             }
@@ -190,12 +189,12 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 vm.PushUndo(
                     undo: () =>
                     {
-                        foreach (var ch in changes)
+                        foreach ((ClipViewModel Clip, double Orig, double New) ch in changes)
                             ch.Clip.StartBeat = ch.Orig;
                     },
                     redo: () =>
                     {
-                        foreach (var ch in changes)
+                        foreach ((ClipViewModel Clip, double Orig, double New) ch in changes)
                             ch.Clip.StartBeat = ch.New;
                     }
                 );
@@ -218,7 +217,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
         if (_isMultiDragging && _multiDragOriginalStarts != null)
         {
-            foreach (var kv in _multiDragOriginalStarts)
+            foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts)
             {
                 kv.Key.StartBeat = kv.Value;
             }

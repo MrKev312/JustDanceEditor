@@ -22,7 +22,7 @@ public partial class TimelineEditorView : UserControl
     {
         base.OnDataContextChanged(e);
 
-        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+        ScrollViewer? scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
         if (scrollViewer != null)
         {
             // Create and attach the behavior
@@ -39,7 +39,7 @@ public partial class TimelineEditorView : UserControl
         }
 
         // Clean up behavior
-        var scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
+        ScrollViewer? scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");
         if (scrollViewer != null && _navigationBehavior != null)
         {
             TimelineNavigationBehavior.SetInstance(scrollViewer, null);
@@ -62,6 +62,6 @@ public partial class TimelineEditorView : UserControl
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        this.Focus();
+        Focus();
     }
 }

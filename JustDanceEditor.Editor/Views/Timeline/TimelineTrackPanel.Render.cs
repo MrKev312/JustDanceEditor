@@ -5,7 +5,6 @@ using Avalonia.Media.Imaging;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
-using System;
 using System.Collections.Generic;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
@@ -17,11 +16,12 @@ public partial class TimelineTrackPanel
 
     private SolidColorBrush GetOrCreateBrush(Color color)
     {
-        if (!_brushCache.TryGetValue(color, out var brush))
+        if (!_brushCache.TryGetValue(color, out SolidColorBrush? brush))
         {
             brush = new SolidColorBrush(color);
             _brushCache[color] = brush;
         }
+
         return brush;
     }
 
@@ -89,13 +89,13 @@ public partial class TimelineTrackPanel
 
             Rect rect = new(startX, 2, System.Math.Max(0, width), System.Math.Max(1, bounds.Height - 4));
 
-            // Use cached brush for clip background
-            var clipBrush = GetOrCreateBrush(clip.BackgroundColor);
+            // Use cached brush for clip background (use RenderColor source-of-truth)
+            SolidColorBrush clipBrush = GetOrCreateBrush(clip.RenderColor);
             context.FillRectangle(clipBrush, rect);
 
             // Use cached outline pen with computed thickness
             var outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
-            var outlinePen = (outlineThickness == 1.0)
+            Pen outlinePen = (outlineThickness == 1.0)
                 ? TimelineResources.BlackOutlinePen
                 : new Pen(Brushes.Black, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             context.DrawRectangle(null, outlinePen, rect);

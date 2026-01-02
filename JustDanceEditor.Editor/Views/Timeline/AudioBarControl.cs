@@ -56,7 +56,7 @@ public class AudioBarControl : Control
 
     // Cached/render resources moved to TimelineResources
     // Cache FormattedText per section type to avoid allocations in render loop
-    private readonly Dictionary<SongSectionType, FormattedText> _sectionTextCache = new();
+    private readonly Dictionary<SongSectionType, FormattedText> _sectionTextCache = [];
     private double _lastPixelsPerBeat = -1;
     private Size _lastBounds = default;
 
@@ -180,7 +180,7 @@ public class AudioBarControl : Control
         // 1. Draw Section Backgrounds
         if (Sections != null)
         {
-            List<SectionSegment> sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
+            List<SectionSegment> sortedSections = [.. Sections.OrderBy(s => s.StartBeat)];
             for (int i = 0; i < sortedSections.Count; i++)
             {
                 SectionSegment section = sortedSections[i];
@@ -225,7 +225,7 @@ public class AudioBarControl : Control
         // 3. Draw Section Labels
         if (Sections != null)
         {
-            List<SectionSegment> sortedSections = Sections.OrderBy(s => s.StartBeat).ToList();
+            List<SectionSegment> sortedSections = [.. Sections.OrderBy(s => s.StartBeat)];
 
             // Rebuild text cache only when size or pixels-per-beat changes
             if (Math.Abs(_lastPixelsPerBeat - ppb) > 1e-9 || !_lastBounds.Equals(bounds.Size))
@@ -242,6 +242,7 @@ public class AudioBarControl : Control
                         Brushes.White);
                     _sectionTextCache[type] = ft;
                 }
+
                 _lastPixelsPerBeat = ppb;
                 _lastBounds = bounds.Size;
             }
@@ -254,7 +255,7 @@ public class AudioBarControl : Control
                     // Draw vertical line
                     context.DrawLine(TimelineResources.SectionBorderPen, new Point(x, 0), new Point(x, bounds.Height));
 
-                    if (_sectionTextCache.TryGetValue(section.SectionType, out var text))
+                    if (_sectionTextCache.TryGetValue(section.SectionType, out FormattedText? text))
                     {
                         Rect bgRect = new(x + 2, 2, text.Width + 4, text.Height + 2);
                         context.FillRectangle(TimelineResources.SectionBgBrush, bgRect);

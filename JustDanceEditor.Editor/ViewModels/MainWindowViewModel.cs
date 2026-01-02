@@ -27,16 +27,15 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IFactory _factory;
     private readonly ITimelineContextService _timelineContext;
-    private readonly List<IRelayCommand> _dynamicCommands = new();
+    private readonly List<IRelayCommand> _dynamicCommands = [];
     public IRootDock? Layout { get; set; }
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
 
     public MainWindowViewModel()
     {
-        _timelineContext = ((App)Avalonia.Application.Current!).TimelineContext;
-        if (_timelineContext != null)
-            _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
+        _timelineContext = ((App)Avalonia.Application.Current!).TimelineContext ?? throw new InvalidOperationException("TimelineContext must not be null");
+        _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
 
         // 1. Initialize Dock Factory
         _factory = new JustDanceDockFactory(this);
@@ -112,6 +111,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 // Swallow; if instantiation fails, default to disabled
             }
+
             return false;
         };
 
@@ -164,7 +164,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void TimelineContext_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        foreach (var c in _dynamicCommands)
+        foreach (IRelayCommand c in _dynamicCommands)
         {
             c.NotifyCanExecuteChanged();
         }

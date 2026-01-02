@@ -33,7 +33,7 @@ public class UndoService : IUndoService
         if (!CanUndo)
             return;
 
-        var (undo, redo) = _undoStack.Pop();
+        (Action? undo, Action? redo) = _undoStack.Pop();
         undo();
         _redoStack.Push((undo, redo));
 
@@ -45,7 +45,7 @@ public class UndoService : IUndoService
         if (!CanRedo)
             return;
 
-        var (undo, redo) = _redoStack.Pop();
+        (Action? undo, Action? redo) = _redoStack.Pop();
         redo();
         _undoStack.Push((undo, redo));
 

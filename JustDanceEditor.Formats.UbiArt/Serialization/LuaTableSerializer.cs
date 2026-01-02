@@ -27,10 +27,7 @@ public static class LuaTableSerializer
 
         lua.DoString(luaContent);
 
-        LuaTable? paramsTable = lua["params"] as LuaTable;
-        if (paramsTable == null)
-            throw new InvalidDataException("LUA script did not define 'params' table.");
-
+        LuaTable? paramsTable = lua["params"] as LuaTable ?? throw new InvalidDataException("LUA script did not define 'params' table.");
         IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
         Console.WriteLine($"DEBUG JSON: {json}");

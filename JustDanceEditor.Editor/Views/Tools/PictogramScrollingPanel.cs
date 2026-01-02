@@ -179,7 +179,7 @@ public class PictogramScrollingPanel : Panel
             .Select(c => c.DataContext as ClipViewModel)!);
 
         // Unsubscribe removed clips
-        List<ClipViewModel> toRemove = new();
+        List<ClipViewModel> toRemove = [];
         foreach (ClipViewModel k in _subscriptions.Keys)
             if (!currentClips.Contains(k))
                 toRemove.Add(k);

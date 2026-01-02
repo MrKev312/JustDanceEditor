@@ -1,12 +1,11 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Editor.Views.Timeline.Interactions;
+using JustDanceEditor.Editor.ViewModels.Tools;
+using JustDanceEditor.Editor.Views.Tools;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -15,6 +14,41 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
+// Helper fields for drag highlight
+partial class TimelineTrackPanel
+{
+    private IBrush? _originalBackgroundBrush;
+    private bool _isDragHighlightActive = false;
+
+    private void SetDragHighlight(Color c)
+    {
+        try
+        {
+            if (!_isDragHighlightActive)
+            {
+                _originalBackgroundBrush = Background;
+                _isDragHighlightActive = true;
+            }
+
+            Background = new SolidColorBrush(c) { Opacity = 0.2 };
+        }
+        catch { }
+    }
+
+    private void ClearDragHighlight()
+    {
+        try
+        {
+            if (_isDragHighlightActive)
+            {
+                Background = _originalBackgroundBrush;
+                _isDragHighlightActive = false;
+            }
+        }
+        catch { }
+    }
+}
+
 public partial class TimelineTrackPanel
 {
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -22,10 +56,7 @@ public partial class TimelineTrackPanel
         base.OnPointerPressed(e);
 
         // Ensure we have a background so empty-space hits are delivered
-        if (Background == null)
-        {
-            Background = Brushes.Transparent;
-        }
+        Background ??= Brushes.Transparent;
 
         Point point = e.GetCurrentPoint(this).Position;
         double ppb = PixelsPerBeat;
@@ -116,9 +147,7 @@ public partial class TimelineTrackPanel
             // Shift: Range selection
             if (shift && contextVm != null)
             {
-                List<ClipViewModel> allClips = contextVm.Tracks
-                    .SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))
-                    .ToList();
+                List<ClipViewModel> allClips = [.. contextVm.Tracks.SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))];
 
                 int a = allClips.IndexOf(_lastSelectedClip ?? clickedClip);
                 int b = allClips.IndexOf(clickedClip);
@@ -140,7 +169,7 @@ public partial class TimelineTrackPanel
 
             // Multi-drag: Click on selected clip when multiple are selected
             List<ClipViewModel> selectedClips = (contextVm != null) ?
-                contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected).ToList() :
+                [.. contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected)] :
                 Clips?.Where(c => c.IsSelected).ToList() ?? [];
 
             if (selectedClips.Count > 1 && selectedClips.Contains(clickedClip))
@@ -190,7 +219,7 @@ public partial class TimelineTrackPanel
     {
         if (vm == null || Application.Current is not App app)
             return;
-        app.TimelineContext.SelectedObjects = vm.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>().ToList();
+        app.TimelineContext.SelectedObjects = [.. vm.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>()];
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -269,5 +298,233 @@ public partial class TimelineTrackPanel
         _boxSelectionHandler?.Cancel();
 
         Cursor = new Cursor(StandardCursorType.Arrow);
+        ClearDragHighlight();
+    }
+
+    private void OnExternalDragOver(object? sender, DragEventArgs e)
+    {
+        // Check if this is a library item drag by looking at the static context
+        LibraryItemViewModel? item = LibraryToolView.GetDraggedItem();
+
+        if (item == null)
+        {
+            // Not a library drag
+            ClearDragHighlight();
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        // Determine track title (DataContext is TrackViewModel)
+        TrackViewModel? track = DataContext as TrackViewModel;
+        string title = track?.Title ?? string.Empty;
+
+        bool valid = false;
+
+        switch (item.Type)
+        {
+            case ItemType.Pictogram:
+                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.FullBodyMove:
+                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.HandMove:
+                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
+                break;
+        }
+
+        // Visual feedback: highlight track and set cursor
+        if (valid)
+        {
+            SetDragHighlight(Colors.ForestGreen);
+            Cursor = new Cursor(StandardCursorType.Hand);
+        }
+        else
+        {
+            SetDragHighlight(Colors.DarkRed);
+            Cursor = new Cursor(StandardCursorType.No);
+        }
+
+        e.DragEffects = valid ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnExternalDragEnter(object? sender, DragEventArgs e)
+    {
+        LibraryItemViewModel? item = LibraryToolView.GetDraggedItem();
+        if (item == null)
+            return;
+
+        TrackViewModel? track = DataContext as TrackViewModel;
+        string title = track?.Title ?? string.Empty;
+        bool valid = false;
+
+        switch (item.Type)
+        {
+            case ItemType.Pictogram:
+                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.FullBodyMove:
+                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.HandMove:
+                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
+                break;
+        }
+
+        if (valid)
+        {
+            SetDragHighlight(Colors.ForestGreen);
+            Cursor = new Cursor(StandardCursorType.Hand);
+        }
+        else
+        {
+            SetDragHighlight(Colors.DarkRed);
+            Cursor = new Cursor(StandardCursorType.No);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnExternalDragLeave(object? sender, DragEventArgs e)
+    {
+        ClearDragHighlight();
+        Cursor = new Cursor(StandardCursorType.Arrow);
+        e.Handled = true;
+    }
+
+    private void OnExternalDrop(object? sender, DragEventArgs e)
+    {
+        // Clear highlight on drop
+        ClearDragHighlight();
+        Cursor = new Cursor(StandardCursorType.Arrow);
+
+        LibraryItemViewModel? item = LibraryToolView.GetDraggedItem();
+        if (item == null)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        TimelineEditorViewModel? vm = GetTimelineVM();
+        if (DataContext is not TrackViewModel track || vm == null)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        // Validate same rules as OnDragOver
+        string title = track.Title;
+        bool valid = false;
+
+        switch (item.Type)
+        {
+            case ItemType.Pictogram:
+                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.FullBodyMove:
+                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
+                break;
+            case ItemType.HandMove:
+                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
+                break;
+        }
+
+        if (!valid)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        // Compute beat at drop position
+        Point p = e.GetPosition(this);
+        double beat = (p.X / PixelsPerBeat) + BeatOffset;
+        beat = SnappingService.FindSnapBeat(beat, vm);
+
+        // Create raw clip and clip view model
+        if (item.Type == ItemType.Pictogram)
+        {
+
+            PictogramClip raw = new()
+            {
+                PictogramId = item.Id,
+                Duration = (int)item.DefaultDuration,
+                StartTime = (int)(beat * 24.0)
+            };
+
+            PictogramClipViewModel clipVm = new(raw, raw.Duration, Colors.LightBlue, raw.PictogramId, vm.RootPath, vm);
+
+            // Push undo/redo
+            vm.PushUndo(
+                undo: () =>
+                {
+                    if (track.Clips.Contains(clipVm))
+                        track.Clips.Remove(clipVm);
+                },
+                redo: () =>
+                {
+                    if (!track.Clips.Contains(clipVm))
+                        track.Clips.Add(clipVm);
+                }
+            );
+
+            // Execute
+            track.Clips.Add(clipVm);
+
+            // reset visual state and cursor to default
+            ClearDragHighlight();
+            Cursor = new Cursor(StandardCursorType.Arrow);
+
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+            return;
+        }
+
+        // Moves
+        if (item.Type is ItemType.HandMove or ItemType.FullBodyMove)
+        {
+
+            MoveClip raw = new()
+            {
+                MoveId = item.Id,
+                StartTime = (int)(beat * 24.0)
+            };
+
+            // Color
+            Color moveColor = Colors.LightGray;
+            if (vm.TryGetCoachMoveColor(item.Id, out Color c))
+                moveColor = c;
+
+            bool isFullBody = item.Type == ItemType.FullBodyMove;
+
+            MoveClipViewModel clipVm = new(raw, item.DefaultDuration, moveColor, item.Id, vm.RootPath, vm, isFullBody);
+
+            vm.PushUndo(
+                undo: () =>
+                {
+                    if (track.Clips.Contains(clipVm))
+                        track.Clips.Remove(clipVm);
+                },
+                redo: () =>
+                {
+                    if (!track.Clips.Contains(clipVm))
+                        track.Clips.Add(clipVm);
+                }
+            );
+
+            track.Clips.Add(clipVm);
+
+            // reset visual state and cursor to default
+            ClearDragHighlight();
+            Cursor = new Cursor(StandardCursorType.Arrow);
+
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+            return;
+        }
     }
 }

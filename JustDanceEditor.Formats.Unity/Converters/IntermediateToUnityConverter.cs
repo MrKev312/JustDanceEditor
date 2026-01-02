@@ -248,9 +248,7 @@ internal sealed class IntermediateToUnityConverter
         string[] assetSources = GetVideoFiles(assetsDir);
 
         // If assets has 4 master videos, they're source-of-truth originals
-        string[] assetMasters = assetSources
-            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        string[] assetMasters = [.. assetSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
 
         if (assetMasters.Length == 4)
         {
@@ -264,9 +262,7 @@ internal sealed class IntermediateToUnityConverter
         // Otherwise check scratch for generated master videos
         string scratchDir = GetScratchVideoFolder();
         string[] scratchSources = GetVideoFiles(scratchDir);
-        string[] scratchMasters = scratchSources
-            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        string[] scratchMasters = [.. scratchSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
 
         if (scratchMasters.Length == 4)
         {
@@ -309,9 +305,7 @@ internal sealed class IntermediateToUnityConverter
 
         // Otherwise use scratch for generated previews (filter by preview_ prefix)
         string scratchDir = GetScratchVideoFolder();
-        string[] scratchSources = GetVideoFiles(scratchDir)
-            .Where(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        string[] scratchSources = [.. GetVideoFiles(scratchDir).Where(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase))];
 
         if (scratchSources.Length == expectedCount)
         {

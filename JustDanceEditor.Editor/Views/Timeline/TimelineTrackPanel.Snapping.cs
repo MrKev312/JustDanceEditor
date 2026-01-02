@@ -1,13 +1,5 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.VisualTree;
-
-using JustDanceEditor.Editor.Services;
-using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
-
-using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 

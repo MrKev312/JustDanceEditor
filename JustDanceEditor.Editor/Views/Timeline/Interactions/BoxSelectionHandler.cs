@@ -1,7 +1,5 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -31,7 +29,11 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
         CurrentPoint = startPoint;
 
         Capture(e);
-        try { _panel.Focus(); } catch { }
+        try
+        {
+            _panel.Focus();
+        }
+        catch { }
 
         _panel.Cursor = new Cursor(StandardCursorType.Cross);
         _panel.InvalidateVisual();
@@ -83,7 +85,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
         if (vm != null)
         {
-            var bounds = _panel.Bounds;
+            Rect bounds = _panel.Bounds;
             bool crossesTracks = selRect.Top < 0 || selRect.Bottom > bounds.Height;
 
             if (crossesTracks)
@@ -138,7 +140,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private void SelectAcrossTracks(TimelineEditorViewModel vm, Rect selRect, double selStartBeat, double selEndBeat)
     {
-        List<TrackViewModel> tracks = vm.Tracks.ToList();
+        List<TrackViewModel> tracks = [.. vm.Tracks];
 
         int thisIndex = -1;
         for (int i = 0; i < tracks.Count; i++)
@@ -157,7 +159,8 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
             {
                 double clipStart = clip.StartBeat;
                 double clipEnd = clip.StartBeat + clip.DurationBeats;
-                if (clipEnd < selStartBeat || clipStart > selEndBeat) continue;
+                if (clipEnd < selStartBeat || clipStart > selEndBeat)
+                    continue;
                 clip.IsSelected = true;
                 _lastSelectedClip = clip;
             }
@@ -190,7 +193,8 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
                 {
                     double clipStart = clip.StartBeat;
                     double clipEnd = clip.StartBeat + clip.DurationBeats;
-                    if (clipEnd < selStartBeat || clipStart > selEndBeat) continue;
+                    if (clipEnd < selStartBeat || clipStart > selEndBeat)
+                        continue;
                     clip.IsSelected = true;
                     _lastSelectedClip = clip;
                 }
@@ -200,11 +204,10 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private void UpdateGlobalSelection(TimelineEditorViewModel? vm)
     {
-        if (vm == null || Avalonia.Application.Current is not App app)
+        if (vm == null || Application.Current is not App app)
             return;
-        app.TimelineContext.SelectedObjects = vm.Tracks.SelectMany(t => t.Clips)
+        app.TimelineContext.SelectedObjects = [.. vm.Tracks.SelectMany(t => t.Clips)
             .Where(c => c.IsSelected)
-            .Cast<object>()
-            .ToList();
+            .Cast<object>()];
     }
 }

@@ -8,7 +8,6 @@ using Avalonia.VisualTree;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
@@ -63,7 +62,7 @@ public class LyricLineControl : Control
     private LyricLineViewModel? _measuredLine;
     private double _measuredBoundsWidth = -1;
     private double _measuredBaseFontSize = -1;
-    private List<(ClipViewModel Clip, string Text, double BaseWidth)> _measuredSyllables = [];
+    private readonly List<(ClipViewModel Clip, string Text, double BaseWidth)> _measuredSyllables = [];
     private double _measuredTotalWidth = 0;
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -164,7 +163,7 @@ public class LyricLineControl : Control
 
         // 3. Build final formatted texts using cached text strings
         double scaledWidth = 0;
-        List<(ClipViewModel Clip, string Text, FormattedText FT)> finalSyllables = new();
+        List<(ClipViewModel Clip, string Text, FormattedText FT)> finalSyllables = [];
         foreach ((ClipViewModel Clip, string Text, double BaseWidth) s in _measuredSyllables)
         {
             FormattedText ft = new(
