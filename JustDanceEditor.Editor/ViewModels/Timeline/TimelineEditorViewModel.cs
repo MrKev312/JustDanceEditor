@@ -8,6 +8,7 @@ using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -18,7 +19,6 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Xabe.FFmpeg;
-using JustDanceEditor.Formats.JDI.Serialization;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 

@@ -1,11 +1,12 @@
-using Avalonia.Media;
-using Avalonia.Controls;
-using System.Threading.Tasks;
-using System;
-using Avalonia.Layout;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
 
 using JustDanceEditor.Formats.JDI.Timelines;
+
+using System;
+using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 

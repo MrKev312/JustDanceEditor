@@ -1,7 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+
+using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Editor.Services;
 
@@ -12,34 +13,34 @@ public class AudioWaveformService
         if (!File.Exists(opusPath))
             return [];
 
-        // Use FFmpeg to dump raw PCM data to stdout
-        // -f s16le: 16-bit little-endian
-        // -ac 1: mono
-        // -ar 8000: downsample to 8kHz for fast processing
-        ProcessStartInfo startInfo = new()
+        string tempOut = Path.Combine(Path.GetTempPath(), $"jdi_wave_{Guid.NewGuid()}.raw");
+        try
         {
-            FileName = "ffmpeg",
-            Arguments = $"-i \"{opusPath}\" -f s16le -ac 1 -ar 8000 -",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            CreateNoWindow = true
-        };
+            IConversion conversion = FFmpeg.Conversions.New();
+            // Convert to raw 16-bit PCM, mono, 8kHz (matches previous behavior)
+            conversion.AddParameter($"-y -i \"{opusPath}\" -f s16le -ac 1 -ar 8000");
+            conversion.SetOutput(tempOut);
+            conversion.SetOverwriteOutput(true);
+            await conversion.Start();
 
-        using Process? process = Process.Start(startInfo);
-        if (process == null)
-            return [];
+            byte[] bytes = await File.ReadAllBytesAsync(tempOut);
+            float[] samples = new float[bytes.Length / 2];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                short sample = BitConverter.ToInt16(bytes, i * 2);
+                samples[i] = sample / 32768f;
+            }
 
-        using MemoryStream ms = new();
-        await process.StandardOutput.BaseStream.CopyToAsync(ms);
-        byte[] bytes = ms.ToArray();
-
-        float[] samples = new float[bytes.Length / 2];
-        for (int i = 0; i < samples.Length; i++)
-        {
-            short sample = BitConverter.ToInt16(bytes, i * 2);
-            samples[i] = sample / 32768f;
+            return samples;
         }
-
-        return samples;
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempOut))
+                    File.Delete(tempOut);
+            }
+            catch { }
+        }
     }
 }

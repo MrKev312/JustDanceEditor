@@ -1,9 +1,11 @@
 using Avalonia;
-using Avalonia.Input;
-using Avalonia.Media;
+using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using System.IO;
+using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
@@ -13,11 +15,9 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Controls;
-using Avalonia.VisualTree;
-using Avalonia.Layout;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
@@ -164,73 +164,73 @@ public partial class TimelineTrackPanel
         }
 
         // Shift: Range selection
-            if (shift && contextVm != null)
+        if (shift && contextVm != null)
+        {
+            List<ClipViewModel> allClips = [.. contextVm.Tracks.SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))];
+
+            int a = allClips.IndexOf(_lastSelectedClip ?? clickedClip);
+            int b = allClips.IndexOf(clickedClip);
+
+            if (a != -1 && b != -1)
             {
-                List<ClipViewModel> allClips = [.. contextVm.Tracks.SelectMany(tr => tr.Clips.OrderBy(c => c.StartBeat))];
+                int start = Math.Min(a, b);
+                int end = Math.Max(a, b);
+                for (int i = 0; i < allClips.Count; i++)
+                    allClips[i].IsSelected = i >= start && i <= end;
+            }
 
-                int a = allClips.IndexOf(_lastSelectedClip ?? clickedClip);
-                int b = allClips.IndexOf(clickedClip);
-
-                if (a != -1 && b != -1)
-                {
-                    int start = Math.Min(a, b);
-                    int end = Math.Max(a, b);
-                    for (int i = 0; i < allClips.Count; i++)
-                        allClips[i].IsSelected = i >= start && i <= end;
-                }
-
-                _lastSelectedClip = clickedClip;
+            _lastSelectedClip = clickedClip;
             UpdateGlobalSelection(contextVm);
-                InvalidateVisual();
-                e.Handled = true;
-                return;
-            }
-
-            // Multi-drag: Click on selected clip when multiple are selected
-            List<ClipViewModel> selectedClips = (contextVm != null) ?
-                [.. contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected)] :
-                Clips?.Where(c => c.IsSelected).ToList() ?? [];
-
-            if (selectedClips.Count > 1 && selectedClips.Contains(clickedClip))
-            {
-                _dragHandler?.StartMultiDrag(selectedClips, point, e);
-                e.Handled = true;
-                return;
-            }
-
-            // Normal selection: Make this clip the only selected
-            if (!ctrl && !shift && contextVm != null)
-            {
-                foreach (ClipViewModel clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
-                    clip.IsSelected = false;
-                clickedClip.IsSelected = true;
-                _lastSelectedClip = clickedClip;
-            UpdateGlobalSelection(contextVm);
-            }
-
-            // Check for resize vs drag
-            double localClipX = point.X - clickedStartX;
-            bool nearLeft = localClipX <= ResizeHitThreshold;
-            bool nearRight = localClipX >= (clickedWidth - ResizeHitThreshold);
-            bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
-
-            if (isResizableType && nearLeft)
-            {
-                _resizeHandler?.StartResizeLeft(clickedClip, point, e);
-                e.Handled = true;
-                return;
-            }
-
-            if (isResizableType && nearRight)
-            {
-                _resizeHandler?.StartResizeRight(clickedClip, point, e);
-                e.Handled = true;
-                return;
-            }
-
-            // Default: Start drag
-            _dragHandler?.StartSingleDrag(clickedClip, point, e);
+            InvalidateVisual();
             e.Handled = true;
+            return;
+        }
+
+        // Multi-drag: Click on selected clip when multiple are selected
+        List<ClipViewModel> selectedClips = (contextVm != null) ?
+            [.. contextVm.Tracks.SelectMany(tr => tr.Clips).Where(c => c.IsSelected)] :
+            Clips?.Where(c => c.IsSelected).ToList() ?? [];
+
+        if (selectedClips.Count > 1 && selectedClips.Contains(clickedClip))
+        {
+            _dragHandler?.StartMultiDrag(selectedClips, point, e);
+            e.Handled = true;
+            return;
+        }
+
+        // Normal selection: Make this clip the only selected
+        if (!ctrl && !shift && contextVm != null)
+        {
+            foreach (ClipViewModel clip in contextVm.Tracks.SelectMany(tr => tr.Clips))
+                clip.IsSelected = false;
+            clickedClip.IsSelected = true;
+            _lastSelectedClip = clickedClip;
+            UpdateGlobalSelection(contextVm);
+        }
+
+        // Check for resize vs drag
+        double localClipX = point.X - clickedStartX;
+        bool nearLeft = localClipX <= ResizeHitThreshold;
+        bool nearRight = localClipX >= (clickedWidth - ResizeHitThreshold);
+        bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
+
+        if (isResizableType && nearLeft)
+        {
+            _resizeHandler?.StartResizeLeft(clickedClip, point, e);
+            e.Handled = true;
+            return;
+        }
+
+        if (isResizableType && nearRight)
+        {
+            _resizeHandler?.StartResizeRight(clickedClip, point, e);
+            e.Handled = true;
+            return;
+        }
+
+        // Default: Start drag
+        _dragHandler?.StartSingleDrag(clickedClip, point, e);
+        e.Handled = true;
     }
 
     private static void UpdateGlobalSelection(TimelineEditorViewModel? vm)
@@ -822,4 +822,3 @@ public partial class TimelineTrackPanel
         return result;
     }
 }
-

@@ -14,4 +14,4 @@ public class RunCommandAttribute(string title, string category = "General", int 
     public string Title { get; } = title;
     public string Category { get; } = category;
     public int Priority { get; } = priority;
-} 
+}
