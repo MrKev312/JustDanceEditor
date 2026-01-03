@@ -1,7 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+
 using JustDanceEditor.Editor.Services;
+
 using System.Collections.Generic;
-using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Dialogs;
 

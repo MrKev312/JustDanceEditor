@@ -2,8 +2,6 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
-using System;
-
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Save Map", "File", priority: 90)]

@@ -1,6 +1,7 @@
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,19 +27,19 @@ public class RemoveEmptyLyricsCommand : IRunCommand
             return;
 
         // Collect removal info across all tracks
-        var removals = new List<(TrackViewModel Track, KaraokeClipViewModel Clip, int Index, KaraokeClipViewModel? PrevClip, bool PrevWasEnd)>();
+        List<(TrackViewModel Track, KaraokeClipViewModel Clip, int Index, KaraokeClipViewModel? PrevClip, bool PrevWasEnd)> removals = [];
 
         foreach (TrackViewModel track in timeline.Tracks)
         {
             // Build list of karaoke clips with indices
-            var karaokeWithIndex = track.Clips
+            List<(KaraokeClipViewModel Clip, int Index)> karaokeWithIndex = track.Clips
                 .Select((c, idx) => (Clip: c, Index: idx))
                 .Where(t => t.Clip is KaraokeClipViewModel)
                 .Select(t => (Clip: (KaraokeClipViewModel)t.Clip, Index: t.Index))
                 .ToList();
 
             // Find empty ones
-            var emptyOnes = karaokeWithIndex.Where(k => string.IsNullOrWhiteSpace(k.Clip.Lyrics)).ToList();
+            List<(KaraokeClipViewModel Clip, int Index)> emptyOnes = karaokeWithIndex.Where(k => string.IsNullOrWhiteSpace(k.Clip.Lyrics)).ToList();
             if (emptyOnes.Count == 0)
                 continue;
 

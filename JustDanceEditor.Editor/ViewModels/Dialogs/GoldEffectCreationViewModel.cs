@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+
 using JustDanceEditor.Editor.Services;
 
 namespace JustDanceEditor.Editor.ViewModels.Dialogs;

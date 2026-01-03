@@ -1,10 +1,13 @@
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+
 using CommunityToolkit.Mvvm.ComponentModel;
+
 using JustDanceEditor.Editor.Services;
+
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 
 namespace JustDanceEditor.Editor.ViewModels.Dialogs;
 
@@ -58,7 +61,7 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
 
         string dir = Path.Combine(rootPath, "assets", "pictograms");
         string[] exts = [".png", ".webp", ".jpg", ".jpeg"];
-        foreach (var ext in exts)
+        foreach (string ext in exts)
         {
             string p = Path.Combine(dir, id + ext);
             if (File.Exists(p))

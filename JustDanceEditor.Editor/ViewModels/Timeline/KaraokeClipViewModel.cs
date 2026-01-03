@@ -5,9 +5,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using System;
-using System.Threading.Tasks;
-
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class KaraokeClipViewModel : ClipViewModel

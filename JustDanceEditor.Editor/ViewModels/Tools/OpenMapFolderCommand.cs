@@ -3,7 +3,6 @@ using Avalonia.Controls.ApplicationLifetimes;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
-using JustDanceEditor.Editor.ViewModels;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

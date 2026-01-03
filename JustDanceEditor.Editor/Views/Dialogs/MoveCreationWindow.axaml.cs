@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 

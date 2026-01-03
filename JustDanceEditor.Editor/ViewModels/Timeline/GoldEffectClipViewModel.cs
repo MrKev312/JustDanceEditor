@@ -2,8 +2,6 @@ using Avalonia.Media;
 
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using System;
-
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public class GoldEffectClipViewModel : ClipViewModel

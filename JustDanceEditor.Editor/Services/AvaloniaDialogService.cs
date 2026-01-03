@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.Views.Dialogs;
+
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
