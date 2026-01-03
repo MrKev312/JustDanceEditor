@@ -559,10 +559,14 @@ public partial class TimelineTrackPanel
 
         if (string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase))
         {
-            Window? owner = this.GetVisualRoot() as Window;
-            (string pictogramId, int frames)? res = await PictogramClipViewModel.ShowCreateDialogAsync(owner, vm);
-            if (res is (string pictogramId, int frames))
-                AddPictogramAtBeat(pictogramId, SnappingService.FindSnapBeat(beat, vm), track, vm, frames);
+            var picDialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.PictogramCreationViewModel(vm.AvailablePictograms, vm.RootPath);
+            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
+            if (app == null)
+                return;
+
+            var picRes = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.PictogramCreationResult>(picDialogVm);
+            if (picRes != null)
+                AddPictogramAtBeat(picRes.PictogramId, SnappingService.FindSnapBeat(beat, vm), track, vm, picRes.Frames);
 
             return;
         }
@@ -570,93 +574,43 @@ public partial class TimelineTrackPanel
         if (title.Contains("Coach", StringComparison.OrdinalIgnoreCase))
         {
             bool isFull = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
-            Window? owner = this.GetVisualRoot() as Window;
-            (string moveId, int frames, bool isGold)? res = await MoveClipViewModel.ShowCreateDialogAsync(owner, isFull, vm);
-            if (res is (string moveId, int frames, bool isGold))
-                AddMoveAtBeat(moveId, SnappingService.FindSnapBeat(beat, vm), isFull, track, vm, frames, isGold);
+            var moves = isFull ? vm.AvailableFullBodyCoachMoves : vm.AvailableHandCoachMoves;
+            var moveDialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.MoveCreationViewModel(moves, isFull);
+            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
+            if (app == null)
+                return;
+
+            var moveRes = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.MoveCreationResult>(moveDialogVm);
+            if (moveRes != null)
+                AddMoveAtBeat(moveRes.MoveId, SnappingService.FindSnapBeat(beat, vm), isFull, track, vm, moveRes.Frames, moveRes.IsGold);
 
             return;
         }
 
         if (string.Equals(title, "Lyrics", StringComparison.OrdinalIgnoreCase))
         {
-            // Lyrics: allow text, duration and end-of-line flag; use properties-style layout and fixed size
-            Window? owner = this.GetVisualRoot() as Window;
-            Window win = new()
-            {
-                Title = "Add Lyrics",
-                Width = 420,
-                SizeToContent = SizeToContent.Height,
-                MaxHeight = 420,
-                CanResize = false,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
+            var dialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.LyricsCreationViewModel();
+            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
+            if (app == null)
+                return;
 
-            Grid grid = new() { Margin = new Thickness(6) };
-            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            var res = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.LyricsCreationResult>(dialogVm);
 
-            TextBox box = new() { Width = 260 };
-            grid.Children.Add(new TextBlock { Text = "Lyrics:", VerticalAlignment = VerticalAlignment.Center });
-            Grid.SetRow(grid.Children[^1], 0);
-            Grid.SetColumn(grid.Children[^1], 0);
-            grid.Children.Add(box);
-            Grid.SetRow(grid.Children[^1], 0);
-            Grid.SetColumn(grid.Children[^1], 1);
-
-            NumericUpDown durationBox = new() { Minimum = 0.0M, Maximum = 1000.0M, Value = 1.0M, Width = 120 };
-            grid.Children.Add(new TextBlock { Text = "Duration (beats):", VerticalAlignment = VerticalAlignment.Center });
-            Grid.SetRow(grid.Children[^1], 1);
-            Grid.SetColumn(grid.Children[^1], 0);
-            grid.Children.Add(durationBox);
-            Grid.SetRow(grid.Children[^1], 1);
-            Grid.SetColumn(grid.Children[^1], 1);
-
-            CheckBox endCheck = new() { Content = "End of line", IsChecked = false };
-            grid.Children.Add(endCheck);
-            Grid.SetRow(grid.Children[^1], 2);
-            Grid.SetColumn(grid.Children[^1], 1);
-
-            StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            Button ok = new() { Content = "OK", Margin = new Thickness(6) };
-            Button cancel = new() { Content = "Cancel", Margin = new Thickness(6) };
-            footer.Children.Add(ok);
-            footer.Children.Add(cancel);
-            grid.Children.Add(footer);
-            Grid.SetRow(grid.Children[^1], 3 - 1);
-            Grid.SetColumn(grid.Children[^1], 0);
-            Grid.SetColumnSpan(grid.Children[^1], 2);
-
-            win.Content = grid;
-
-            (string lyrics, int frames, bool isEndOfLine)? res = await KaraokeClipViewModel.ShowCreateDialogAsync(this.GetVisualRoot() as Window);
-
-            if (res is (string lyrics, int frames, bool isEnd))
+            if (res != null)
             {
                 KaraokeClip raw = new()
                 {
-                    Lyrics = lyrics,
-                    Duration = frames,
-                    IsEndOfLine = isEnd,
+                    Lyrics = res.Lyrics,
+                    Duration = res.Frames,
+                    IsEndOfLine = res.IsEndOfLine,
                     StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0)
                 };
 
                 KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);
 
                 vm.PushUndo(
-                    undo: () =>
-                    {
-                        if (track.Clips.Contains(clipVm))
-                            track.Clips.Remove(clipVm);
-                    },
-                    redo: () =>
-                    {
-                        if (!track.Clips.Contains(clipVm))
-                            track.Clips.Add(clipVm);
-                    }
+                    undo: () => { if (track.Clips.Contains(clipVm)) track.Clips.Remove(clipVm); },
+                    redo: () => { if (!track.Clips.Contains(clipVm)) track.Clips.Add(clipVm); }
                 );
 
                 track.Clips.Add(clipVm);
@@ -667,30 +621,26 @@ public partial class TimelineTrackPanel
 
         if (string.Equals(title, "Gold Effects", StringComparison.OrdinalIgnoreCase))
         {
-            Window? owner = this.GetVisualRoot() as Window;
-            (int frames, int effectType)? res = await GoldEffectClipViewModel.ShowCreateDialogAsync(owner);
-            if (res is (int frames, int effectType))
+            var dialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.GoldEffectCreationViewModel();
+            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
+            if (app == null)
+                return;
+
+            var res = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.GoldEffectCreationResult>(dialogVm);
+            if (res != null)
             {
                 GoldEffectClip raw = new()
                 {
-                    Duration = frames,
-                    EffectType = effectType,
+                    Duration = res.Frames,
+                    EffectType = res.EffectType,
                     StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0)
                 };
 
                 GoldEffectClipViewModel clipVm = new(raw, raw.Duration, Colors.Gold, "Gold Effect", vm.RootPath, vm);
 
                 vm.PushUndo(
-                    undo: () =>
-                    {
-                        if (track.Clips.Contains(clipVm))
-                            track.Clips.Remove(clipVm);
-                    },
-                    redo: () =>
-                    {
-                        if (!track.Clips.Contains(clipVm))
-                            track.Clips.Add(clipVm);
-                    }
+                    undo: () => { if (track.Clips.Contains(clipVm)) track.Clips.Remove(clipVm); },
+                    redo: () => { if (!track.Clips.Contains(clipVm)) track.Clips.Add(clipVm); }
                 );
 
                 track.Clips.Add(clipVm);

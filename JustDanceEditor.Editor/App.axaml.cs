@@ -14,6 +14,8 @@ namespace JustDanceEditor.Editor;
 public partial class App : Application
 {
     public ITimelineContextService TimelineContext { get; } = new TimelineContextService();
+    public IDialogService DialogService { get; } = new AvaloniaDialogService();
+
     public LibVLCSharp.Shared.LibVLC LibVLC { get; } = new(
         // Optimization arguments
         "--avcodec-hw=any",       // Enable hardware acceleration

@@ -1,6 +1,3 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -114,83 +111,5 @@ public partial class KaraokeClipViewModel : ClipViewModel
         }
     }
 
-    /// <summary>
-    /// Show a small dialog to input lyrics text, duration and end-of-line flag. Returns (lyrics, frames, isEndOfLine) or null if cancelled.
-    /// </summary>
-    public static async Task<(string lyrics, int frames, bool isEndOfLine)?> ShowCreateDialogAsync(Window? owner)
-    {
-        Window ownerWindow = owner ?? (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw ? mw : null) ?? throw new InvalidOperationException("No owner window available");
 
-        Window win = new()
-        {
-            Title = "Add Lyrics",
-            Width = 420,
-            SizeToContent = SizeToContent.Height,
-            MaxHeight = 420,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-
-        Grid grid = new() { Margin = new Thickness(6) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(120)));
-        grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-
-        TextBox box = new() { Width = 260 };
-        grid.Children.Add(new TextBlock { Text = "Lyrics:", VerticalAlignment = VerticalAlignment.Center });
-        Grid.SetRow(grid.Children[^1], 0);
-        Grid.SetColumn(grid.Children[^1], 0);
-        grid.Children.Add(box);
-        Grid.SetRow(grid.Children[^1], 0);
-        Grid.SetColumn(grid.Children[^1], 1);
-
-        NumericUpDown durationBox = new() { Minimum = 0.0M, Maximum = 1000.0M, Value = 1.0M, Width = 120 };
-        grid.Children.Add(new TextBlock { Text = "Duration (beats):", VerticalAlignment = VerticalAlignment.Center });
-        Grid.SetRow(grid.Children[^1], 1);
-        Grid.SetColumn(grid.Children[^1], 0);
-        grid.Children.Add(durationBox);
-        Grid.SetRow(grid.Children[^1], 1);
-        Grid.SetColumn(grid.Children[^1], 1);
-
-        CheckBox endCheck = new() { Content = "End of line", IsChecked = false };
-        grid.Children.Add(endCheck);
-        Grid.SetRow(grid.Children[^1], 2);
-        Grid.SetColumn(grid.Children[^1], 1);
-
-        StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        Button ok = new() { Content = "OK", Margin = new Thickness(6) };
-        Button cancel = new() { Content = "Cancel", Margin = new Thickness(6) };
-        footer.Children.Add(ok);
-        footer.Children.Add(cancel);
-        grid.Children.Add(footer);
-        Grid.SetRow(grid.Children[^1], 3 - 1);
-        Grid.SetColumn(grid.Children[^1], 0);
-        Grid.SetColumnSpan(grid.Children[^1], 2);
-
-        win.Content = grid;
-
-        bool confirmed = false;
-        ok.Click += (s, ev) =>
-        {
-            confirmed = true;
-            win.Close();
-        };
-        cancel.Click += (s, ev) =>
-        {
-            box.Text = null;
-            win.Close();
-        };
-
-        await win.ShowDialog(ownerWindow);
-
-        if (confirmed && !string.IsNullOrEmpty(box.Text))
-        {
-            int frames = (int)((double)(durationBox.Value ?? 1.0M) * 24.0);
-            return (box.Text, frames, endCheck.IsChecked == true);
-        }
-
-        return null;
-    }
 }

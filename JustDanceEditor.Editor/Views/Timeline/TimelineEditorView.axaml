@@ -34,7 +34,7 @@
 							CornerRadius="2"
 							ClipToBounds="True">
 						<Grid>
-							<Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}" 
+							<Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}" RenderOptions.BitmapInterpolationMode="HighQuality" 
 								   HorizontalAlignment="Center" 
 								   VerticalAlignment="Stretch"
 								   Stretch="Uniform"

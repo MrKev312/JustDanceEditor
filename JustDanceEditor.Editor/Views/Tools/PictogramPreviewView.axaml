@@ -23,6 +23,7 @@
                 <DataTemplate>
                     <Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}"
                            Stretch="Uniform"
+                           RenderOptions.BitmapInterpolationMode="HighQuality"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch"/>
                 </DataTemplate>
