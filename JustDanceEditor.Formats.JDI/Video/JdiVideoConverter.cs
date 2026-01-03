@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 
 using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Formats.JDI.Video;
 
@@ -27,17 +28,8 @@ public static class JdiVideoConverter
             if (_ffmpegInitialized)
                 return;
 
-            // Try to find FFmpeg in current directory or PATH
-            string? ffmpegPath = FindFFmpegExecutable();
-            if (ffmpegPath != null)
-            {
-                FFmpeg.SetExecutablesPath(Path.GetDirectoryName(ffmpegPath)!);
-                Logger.Log($"FFmpeg initialized from: {ffmpegPath}", LogLevel.Debug);
-            }
-            else
-            {
-                Logger.Log("FFmpeg not found in PATH, using Xabe.FFmpeg auto-detection", LogLevel.Warning);
-            }
+            if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
+                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
 
             _ffmpegInitialized = true;
         }
@@ -45,32 +37,6 @@ public static class JdiVideoConverter
         {
             InitLock.Release();
         }
-    }
-
-    private static string? FindFFmpegExecutable()
-    {
-        // Check current directory
-        if (File.Exists("ffmpeg.exe"))
-            return Path.GetFullPath("ffmpeg.exe");
-        if (File.Exists("ffmpeg"))
-            return Path.GetFullPath("ffmpeg");
-
-        // Check PATH environment variable
-        string? pathEnv = Environment.GetEnvironmentVariable("PATH");
-        if (pathEnv != null)
-        {
-            foreach (string path in pathEnv.Split(Path.PathSeparator))
-            {
-                string ffmpegExe = Path.Combine(path, "ffmpeg.exe");
-                string ffmpegBin = Path.Combine(path, "ffmpeg");
-                if (File.Exists(ffmpegExe))
-                    return ffmpegExe;
-                if (File.Exists(ffmpegBin))
-                    return ffmpegBin;
-            }
-        }
-
-        return null;
     }
 
     public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, CancellationToken cancellationToken = default)
