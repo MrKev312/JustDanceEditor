@@ -22,34 +22,7 @@ public class SongDataLoader : ISongDataLoader
         options.Converters.Add(new BoolFlexibleJsonConverter());
 
         Logger.Log("Loading SongDesc");
-        string songDescRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
-        if (fileSystem.GetFilePath(songDescRelativePath, out CookedFile? songDescPathCooked))
-        {
-            if (request.Type == UbiArtType.Uncooked)
-                songData.SongDesc = LuaTableSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked));
-            else
-                songData.SongDesc = JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked), options)!;
-        }
-        else if (File.Exists(Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json")))
-        {
-            Logger.Log("Loading songdesc from jddb.json (root)");
-            string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json"));
-            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
-            if (onlineDesc != null)
-                songData.SongDesc = (SongDesc)onlineDesc;
-        }
-        else if (File.Exists(Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json")))
-        {
-            Logger.Log("Loading songdesc from jddb.json (parent)");
-            string jddbContent = File.ReadAllText(Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json"));
-            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
-            if (onlineDesc != null)
-                songData.SongDesc = (SongDesc)onlineDesc;
-        }
-        else
-        {
-            throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
-        }
+        songData.SongDesc = LoadSongDesc(request, fileSystem);
 
         if (songData.SongDesc == null || songData.SongDesc.COMPONENTS.Length == 0)
             throw new InvalidDataException("SongDesc loaded but is invalid or empty.");
@@ -120,6 +93,43 @@ public class SongDataLoader : ISongDataLoader
         }
 
         return songData;
+    }
+
+    public SongDesc LoadSongDesc(UbiArtConversionRequest request, FileSystem fileSystem)
+    {
+        JsonSerializerOptions options = new();
+        options.Converters.Add(new ClipConverter());
+        options.Converters.Add(new IntFlexibleJsonConverter());
+        options.Converters.Add(new BoolFlexibleJsonConverter());
+
+        string songDescRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
+        if (fileSystem.GetFilePath(songDescRelativePath, out CookedFile? songDescPathCooked))
+        {
+            if (request.Type == UbiArtType.Uncooked)
+                return LuaTableSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked));
+            else
+                return JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked), options)!;
+        }
+
+        string rootJddb = Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json");
+        if (File.Exists(rootJddb))
+        {
+            string jddbContent = File.ReadAllText(rootJddb);
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            if (onlineDesc != null)
+                return (SongDesc)onlineDesc;
+        }
+
+        string parentJddb = Path.Combine(fileSystem.InputFolders.InputFolder, "..", "jddb.json");
+        if (File.Exists(parentJddb))
+        {
+            string jddbContent = File.ReadAllText(parentJddb);
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            if (onlineDesc != null)
+                return (SongDesc)onlineDesc;
+        }
+
+        throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
     }
 
     private static IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, FileSystem fileSystem, JsonSerializerOptions options)

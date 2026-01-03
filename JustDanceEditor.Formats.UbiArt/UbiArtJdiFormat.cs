@@ -4,6 +4,7 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
@@ -23,6 +24,16 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
         ValidateUbiArtImport(ubiRequest);
 
         FileSystem fileSystem = new(ubiRequest);
+
+        // Log song name and platform here (moved from FileSystem internals)
+        if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
+            Logger.Log($"Song name: {fileSystem.SongName}", LogLevel.Important);
+
+        if (!fileSystem.PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase))
+            Logger.Log($"Platform: {fileSystem.PlatformType}, which is not officially supported. The conversion might not work as expected.", LogLevel.Warning);
+        else
+            Logger.Log($"Platform: {fileSystem.PlatformType}");
+
         ConversionContext context = new(ubiRequest, fileSystem)
         {
             SongData = songDataLoader.LoadSongData(ubiRequest, fileSystem)
@@ -71,6 +82,52 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
         if (Directory.Exists(targetFolder))
             Directory.Delete(targetFolder, true);
         Directory.CreateDirectory(targetFolder);
+    }
+
+    public bool Check(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return false;
+
+        try
+        {
+            bool isCooked = Directory.Exists(Path.Combine(path, "cache", "itf_cooked"));
+            UbiArtConversionRequest req = new(path, Path.GetTempPath(), null) { Type = isCooked ? UbiArtType.Cooked : UbiArtType.Uncooked };
+            FileSystem fs = new(req);
+
+            // Use FileSystem.GetFilePath like SongDataLoader does to correctly find songdesc.tpl
+            string songDescRelativePath = Path.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
+            bool hasSongDesc = fs.GetFilePath(songDescRelativePath, out CookedFile? songDescCooked);
+
+            bool hasJddb = File.Exists(Path.Combine(fs.InputFolders.InputFolder, "jddb.json"))
+                || File.Exists(Path.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"));
+
+            if (!hasSongDesc && !hasJddb)
+                return false;
+
+            // Attempt to load song data to determine engine version and report platform
+            try
+            {
+                SongDesc sd = songDataLoader.LoadSongDesc(req, fs);
+                uint engine = sd.COMPONENTS[0].JDVersion;
+                uint original = sd.COMPONENTS[0].OriginalJDVersion;
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine($"Detected UbiArt platform: {fs.PlatformType}, engine version: {engine}");
+                Console.ResetColor();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"UbiArt detection: failed to read SongDesc for engine/version: {ex.Message}", LogLevel.Warning);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"UbiArt detection failed: {ex.Message}", LogLevel.Warning);
+            return false;
+        }
     }
 
     private static void ValidateUbiArtImport(UbiArtConversionRequest request)

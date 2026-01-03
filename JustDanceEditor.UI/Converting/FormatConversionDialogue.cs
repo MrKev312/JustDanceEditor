@@ -10,6 +10,9 @@ internal static class FormatConversionDialogue
 {
     public static void Start()
     {
+        // Ask for input folder up front so we can auto-detect its format
+        string inputPath = Question.AskFolder("Enter the input folder for the conversion", true);
+
         IJdiFormat[] formats =
         [
             new UbiArtJdiFormat(),
@@ -28,7 +31,27 @@ internal static class FormatConversionDialogue
             return;
         }
 
-        string sourceName = AskFormat("Select the source format", sourceCandidates);
+        // Auto-detect source format from input folder. Only ask the user when ambiguous.
+        IJdiFormat[] detected = [.. sourceCandidates.Where(f => f.Check(inputPath))];
+        string sourceName;
+        if (detected.Length == 1)
+        {
+            sourceName = detected[0].DisplayName;
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"Auto-detected source format: {sourceName}");
+            Console.ResetColor();
+        }
+        else if (detected.Length > 1)
+        {
+            string[] labels = [.. detected.Select(f => f.DisplayName)];
+            int sel = Question.Ask(labels, 0, "Multiple source formats detected. Which one is the source?");
+            sourceName = labels[sel];
+        }
+        else
+        {
+            sourceName = AskFormat("Select the source format", sourceCandidates);
+        }
+
         string targetName = AskFormat("Select the target format", targetCandidates);
 
         if (string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
@@ -42,7 +65,7 @@ internal static class FormatConversionDialogue
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, targetName);
+        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, targetName, inputPath);
 
         try
         {
@@ -84,9 +107,8 @@ internal static class FormatConversionDialogue
         return options[selection].DisplayName;
     }
 
-    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, string target)
+    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, string target, string inputPath)
     {
-        string inputPath = AskInputPath(source);
         string outputPath = AskOutputPath(target);
 
         string intermediatePath = target == "JDI" ? outputPath : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
@@ -110,16 +132,6 @@ internal static class FormatConversionDialogue
         return (importRequest, exportRequest);
     }
 
-    private static string AskInputPath(string source)
-    {
-        return source switch
-        {
-            "UbiArt" => Question.AskFolder("Enter the extracted UbiArt map folder (contains 'cache' and 'world')", true),
-            "Unity" => Question.AskFolder("Enter the Unity export folder (must contain SongInfo.json)", true),
-            "JDI" => Question.AskFolder("Enter the folder that contains metadata.json for the JDI package", true),
-            _ => Question.AskFolder("Enter the input folder for this conversion", true)
-        };
-    }
 
     private static string AskOutputPath(string target)
     {

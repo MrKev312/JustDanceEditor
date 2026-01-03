@@ -37,6 +37,15 @@ public sealed class UnityJdiFormat : IJdiFormat
         return Task.FromResult(result);
     }
 
+    public bool Check(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return false;
+
+        string songInfoPath = Path.Combine(path, "SongInfo.json");
+        return File.Exists(songInfoPath);
+    }
+
     public async Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
         if (request is not UnityConversionRequest unityRequest)

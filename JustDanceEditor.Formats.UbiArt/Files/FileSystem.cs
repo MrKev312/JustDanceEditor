@@ -88,8 +88,6 @@ public class FileSystem
 
             SongName = Path.GetFileName(songs[0]);
         }
-
-        Logger.Log($"Song name: {SongName}", LogLevel.Important);
     }
 
     private void InitializePlatformType()
@@ -116,10 +114,6 @@ public class FileSystem
 
         PlatformType = Path.GetFileName(platformFolders[0]);
 
-        if (!PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase))
-            Logger.Log($"Platform: {PlatformType}, which is not officially supported. The conversion might not work as expected.", LogLevel.Warning);
-        else
-            Logger.Log($"Platform: {PlatformType}");
     }
 
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath)

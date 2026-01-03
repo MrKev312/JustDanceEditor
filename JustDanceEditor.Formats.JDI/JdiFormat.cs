@@ -25,6 +25,15 @@ public sealed class JdiFormat : IJdiFormat
             MaterializedRootIsTemporary: false));
     }
 
+    public bool Check(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            return false;
+
+        string metadata = Path.Combine(path, IntermediatePackageLayout.MetadataFile);
+        return File.Exists(metadata);
+    }
+
     public Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
         if (request is not JdiConversionRequest jdiRequest)
