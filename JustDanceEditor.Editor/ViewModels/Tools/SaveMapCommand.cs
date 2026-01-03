@@ -21,9 +21,9 @@ public class SaveMapCommand : IRunCommand
         {
             timeline.Save();
         }
-        catch (Exception ex)
+        catch
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to save map: {ex.Message}");
+            // Failed to save map — swallow exception or report via UI
         }
     }
 }

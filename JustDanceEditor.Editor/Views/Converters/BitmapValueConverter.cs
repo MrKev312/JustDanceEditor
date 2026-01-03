@@ -19,9 +19,8 @@ public class BitmapValueConverter : IValueConverter
             {
                 return new Bitmap(path);
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading bitmap {path}: {ex.Message}");
                 return null;
             }
         }

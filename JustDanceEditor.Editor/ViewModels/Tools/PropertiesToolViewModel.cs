@@ -379,31 +379,20 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 List<MoveDefinitionViewModel> defs = [.. moveSnap.DefColors.Select(d => d.Def)];
                 List<Color> final = [.. defs.Select(d => new Color(255, d.Color.R, d.Color.G, d.Color.B))];
 
-                bool anyChanged = false;
-                for (int i = 0; i < defs.Count; i++)
-                {
-                    if (!Equals(initial[i], final[i]))
-                    {
-                        anyChanged = true;
-                        break;
-                    }
-                }
+                bool anyChanged = initial.Where((v, i) => !Equals(v, final[i])).Any();
 
                 if (anyChanged)
                 {
                     string initialHex = initial.Count > 0 ? ClipViewModel.ColorToRgbaHex(initial[0]) : "null";
                     string finalHex = final.Count > 0 ? ClipViewModel.ColorToRgbaHex(final[0]) : "null";
-                    Debug.WriteLine($"[Properties] Recording MoveDefinitions undo: defs={defs.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
                         {
-                            Debug.WriteLine($"[Undo][MoveDefs] restoring definition colors; initial={initialHex}");
                             for (int i = 0; i < defs.Count; i++)
                                 defs[i].Color = initial[i];
                         },
                         redo: () =>
                         {
-                            Debug.WriteLine($"[Redo][MoveDefs] applying definition colors; final={finalHex}");
                             for (int i = 0; i < defs.Count; i++)
                                 defs[i].Color = final[i];
                         }
@@ -426,31 +415,20 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 List<ClipViewModel> clips = [.. snap.ClipColors.Select(cc => cc.Clip)];
                 List<Color> finalList = [.. clips.Select(c => c.BackgroundColor)];
 
-                bool anyChanged = false;
-                for (int i = 0; i < clips.Count; i++)
-                {
-                    if (!Equals(initialList[i], finalList[i]))
-                    {
-                        anyChanged = true;
-                        break;
-                    }
-                }
+                bool anyChanged = initialList.Where((v, i) => !Equals(v, finalList[i])).Any();
 
                 if (anyChanged)
                 {
                     string initialHex = initialList.Count > 0 ? ClipViewModel.ColorToRgbaHex(initialList[0]) : "null";
                     string finalHex = finalList.Count > 0 ? ClipViewModel.ColorToRgbaHex(finalList[0]) : "null";
-                    Debug.WriteLine($"[Properties] Recording Clips undo: clips={clips.Count}, initial={initialHex}, final={finalHex}");
                     _undoService.Record(
                         undo: () =>
                         {
-                            Debug.WriteLine($"[Undo][Clips] restoring clip colors; initial={initialHex}");
                             for (int i = 0; i < clips.Count; i++)
                                 clips[i].BackgroundColor = initialList[i];
                         },
                         redo: () =>
                         {
-                            Debug.WriteLine($"[Redo][Clips] applying clip colors; final={finalHex}");
                             for (int i = 0; i < clips.Count; i++)
                                 clips[i].BackgroundColor = finalList[i];
                         }
@@ -468,17 +446,14 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 List<object?> oldValues = [.. _targets.Select(t => _colorPickerInitialValue)];
                 string oldStr = oldValues.Count > 0 ? (oldValues[0] is Color c ? ClipViewModel.ColorToRgbaHex(c) : oldValues[0]?.ToString() ?? "null") : "null";
                 string finalStr = finalValue is Color fc ? ClipViewModel.ColorToRgbaHex(fc) : finalValue?.ToString() ?? "null";
-                Debug.WriteLine($"[Properties] Recording Fallback undo: targets={_targets.Count}, old={oldStr}, final={finalStr}");
                 _undoService.Record(
                     undo: () =>
                     {
-                        Debug.WriteLine($"[Undo][Fallback] restoring target values; old={oldStr}");
                         for (int i = 0; i < _targets.Count; i++)
                             SetValue(_targets[i], oldValues[i]);
                     },
                     redo: () =>
                     {
-                        Debug.WriteLine($"[Redo][Fallback] applying target values; final={finalStr}");
                         for (int i = 0; i < _targets.Count; i++)
                             SetValue(_targets[i], finalValue);
                     }
@@ -515,21 +490,26 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
             List<object?> oldValues = [.. _targets.Select(GetValue)];
 
-            // Only push undo if not in color picker mode
+            // Only push undo if not in color picker mode and the value actually changed
             if (!_isColorPickerActive)
             {
-                _undoService.Record(
-                    undo: () =>
-                    {
-                        for (int i = 0; i < _targets.Count; i++)
-                            SetValue(_targets[i], oldValues[i]);
-                    },
-                    redo: () =>
-                    {
-                        for (int i = 0; i < _targets.Count; i++)
-                            SetValue(_targets[i], value);
-                    }
-                );
+                bool anyDifferent = oldValues.Any(v => !Equals(v, value));
+
+                if (anyDifferent)
+                {
+                    _undoService.Record(
+                        undo: () =>
+                        {
+                            for (int i = 0; i < _targets.Count; i++)
+                                SetValue(_targets[i], oldValues[i]);
+                        },
+                        redo: () =>
+                        {
+                            for (int i = 0; i < _targets.Count; i++)
+                                SetValue(_targets[i], value);
+                        }
+                    );
+                }
             }
 
             // Special-case: when changing MoveId on multiple MoveClipViewModels in one operation,

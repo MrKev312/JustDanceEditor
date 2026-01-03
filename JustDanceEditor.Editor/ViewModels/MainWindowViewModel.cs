@@ -199,9 +199,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     _timelineContext.UpdateActiveTimeline(editorVm);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                // ignore load errors
             }
         }
     }
