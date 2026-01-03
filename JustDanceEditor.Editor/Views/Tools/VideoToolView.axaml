@@ -4,13 +4,14 @@
              xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
              x:Class="JustDanceEditor.Editor.Views.Tools.VideoToolView"
              x:DataType="vm:VideoToolViewModel">
-    <Panel Background="Black">
-        <vlc:VideoView Name="VlcView" 
-                       HorizontalAlignment="Stretch" 
+	<Panel Background="Black">
+		<vlc:VideoView Name="VlcView"
+					   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       HorizontalAlignment="Stretch"
                        VerticalAlignment="Stretch" />
-        
-        <TextBlock Text="No Active Timeline" 
+
+		<TextBlock Text="No Active Timeline"
                    IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
                    Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-    </Panel>
+	</Panel>
 </UserControl>
