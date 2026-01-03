@@ -67,9 +67,6 @@
 			<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="6,4">
 <Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" MinHeight="24" MinWidth="56" Padding="6,2" />
 					<Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" MinHeight="24" MinWidth="56" Padding="6,2" />
-			</StackPanel>
-
-			<StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,4">
 				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
 				<NumericUpDown Value="{Binding ZoomPercentage}" 
 						   Minimum="{Binding MinZoomPercentage}" 
