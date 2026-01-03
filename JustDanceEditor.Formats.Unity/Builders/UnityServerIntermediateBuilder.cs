@@ -339,7 +339,6 @@ internal static partial class UnityServerIntermediateBuilder
             PreviewLoopEndBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
             PrevewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
         };
-        document.TimeBaseMsPerBeat = document.EstimateMsPerBeat();
 
         // Apply the default value logic for preview duration
         if (document.PrevewDuration == 0)
@@ -366,7 +365,7 @@ internal static partial class UnityServerIntermediateBuilder
             field => new SectionSegment
             {
                 StartBeat = (float)field["MusicSection"]["marker"].AsDouble,
-                SectionType = field["MusicSection"]["sectionType"].AsInt,
+                SectionType = (SongSectionType)field["MusicSection"]["sectionType"].AsInt,
                 Comment = field["MusicSection"]["comment"].AsString
             }));
 
@@ -422,10 +421,7 @@ internal static partial class UnityServerIntermediateBuilder
         if (candidates.Length == 0)
             candidates = Directory.GetFiles(folder, "*", SearchOption.TopDirectoryOnly);
 
-        string? bundle = candidates.OrderBy(f => f).FirstOrDefault();
-        if (bundle == null)
-            throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
-
+        string? bundle = candidates.OrderBy(f => f).FirstOrDefault() ?? throw new FileNotFoundException($"No MapPackage bundle found inside '{folder}'.");
         return bundle;
     }
 

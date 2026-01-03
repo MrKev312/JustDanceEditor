@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.LyricPreviewView"
+             x:DataType="vm:LyricPreviewViewModel">
+    <Panel Background="Transparent">
+        <StackPanel VerticalAlignment="Center" Spacing="20">
+            <!-- Current Line -->
+            <local:LyricLineControl Height="60" 
+                                  Line="{Binding CurrentLine}" 
+                                  CurrentBeat="{Binding CurrentBeat}"
+                                  TargetColor="{Binding TargetColor}"/>
+            
+            <!-- Next Line -->
+            <local:LyricLineControl Height="40" 
+                                  Opacity="0.5"
+                                  Line="{Binding NextLine}" 
+                                  CurrentBeat="{Binding CurrentBeat}"
+                                  TargetColor="White"/>
+        </StackPanel>
+
+        <TextBlock Text="No Active Timeline" 
+                   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
+                   Foreground="Gray" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Panel>
+</UserControl>

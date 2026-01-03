@@ -19,7 +19,7 @@ public static class UbiArtAssetWriter
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, UbiArtConversionRequest request)
+    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder)
     {
         Logger.Log($"Exporting {package.Metadata.MapName} to Uncooked UbiArt...");
 
@@ -31,7 +31,7 @@ public static class UbiArtAssetWriter
         string pictosFolder = Path.Combine(timelineFolder, "pictos");
         string movesFolder = Path.Combine(timelineFolder, "moves", "WiiU");
         string videosFolder = Path.Combine(outputFolder, "VideosCoach");
-        
+
         Directory.CreateDirectory(audioFolder);
         Directory.CreateDirectory(timelineFolder);
         Directory.CreateDirectory(cinematicsFolder);
@@ -65,12 +65,12 @@ public static class UbiArtAssetWriter
 
         // Write Tapes
         Logger.Log("Writing Tapes...");
-        await WriteTapesAsync(package, timelineFolder, cinematicsFolder);
+        await WriteTapesAsync(package, timelineFolder);
 
         Logger.Log("Uncooked export completed.");
     }
 
-    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, string cinematicsFolder)
+    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
@@ -230,16 +230,16 @@ public static class UbiArtAssetWriter
         string mapName = package.Metadata.MapName;
         string artist = package.Metadata.Artist.Replace("\"", "\\\"");
         string title = package.Metadata.Title.Replace("\"", "\\\"");
-        string numCoach = package.Metadata.CoachCount == 1 ? "NumCoach.Solo" : 
-                         package.Metadata.CoachCount == 2 ? "NumCoach.Duo" : 
-                         package.Metadata.CoachCount == 3 ? "NumCoach.Trio" : 
+        string numCoach = package.Metadata.CoachCount == 1 ? "NumCoach.Solo" :
+                         package.Metadata.CoachCount == 2 ? "NumCoach.Duo" :
+                         package.Metadata.CoachCount == 3 ? "NumCoach.Trio" :
                          "NumCoach.Quatuor";
         string difficulty = package.Metadata.Difficulty == 1 ? "SongDifficulty.Easy" :
                            package.Metadata.Difficulty == 2 ? "SongDifficulty.Normal" :
                            package.Metadata.Difficulty == 3 ? "SongDifficulty.Hard" :
                            "SongDifficulty.Extreme";
 
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         sb.AppendLine("includeReference(\"EngineData/Helpers/SongDatabase.ilu\")");
         sb.AppendLine();
         sb.AppendLine("params =");
@@ -450,7 +450,6 @@ public static class UbiArtAssetWriter
         Directory.CreateDirectory(audioAmbFolder);
 
         string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
 
         string tempWav = Path.Combine(Path.GetTempPath(), $"jdi_export_{Guid.NewGuid()}.wav");
         try
@@ -533,10 +532,11 @@ public static class UbiArtAssetWriter
 
             // markers
             trkBuilder.AppendLine("markers = {");
-            foreach (var m in package.TimelineStructure.Markers)
+            foreach (int m in package.TimelineStructure.Markers)
             {
                 trkBuilder.AppendLine($"    {{ VAL = {m} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // signatures
@@ -547,6 +547,7 @@ public static class UbiArtAssetWriter
                 string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
                 trkBuilder.AppendLine($"    {{ MusicSignature = {{ beats = {s.Beats}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // sections
@@ -557,12 +558,11 @@ public static class UbiArtAssetWriter
                 string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
                 trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {sec.SectionType}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
             }
+
             trkBuilder.AppendLine("},");
 
             // comments
             trkBuilder.AppendLine("comments = {},");
-
-
 
             // basic fields
             trkBuilder.AppendLine($"startBeat = {package.TimelineStructure.StartBeat},");
@@ -580,7 +580,11 @@ public static class UbiArtAssetWriter
         }
         finally
         {
-            try { File.Delete(tempWav); } catch { }
+            try
+            {
+                File.Delete(tempWav);
+            }
+            catch { }
         }
     }
 
@@ -621,7 +625,7 @@ public static class UbiArtAssetWriter
         string videoSourceDir = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.VideoFolder);
         if (Directory.Exists(videoSourceDir))
         {
-            var files = Directory.GetFiles(videoSourceDir, "*.webm");
+            string[] files = Directory.GetFiles(videoSourceDir, "*.webm");
             if (files.Length > 0)
             {
                 string largest = files.OrderByDescending(f => new FileInfo(f).Length).First();
@@ -646,9 +650,9 @@ public static class UbiArtAssetWriter
         {
             string pictosDestDir = Path.Combine(mapSubFolder, "timeline", "pictos");
             Directory.CreateDirectory(pictosDestDir);
-            var files = Directory.GetFiles(pictosSourceDir);
+            string[] files = Directory.GetFiles(pictosSourceDir);
             int copied = 0;
-            foreach (var file in files)
+            foreach (string file in files)
             {
                 string ext = Path.GetExtension(file);
                 string baseName = Path.GetFileNameWithoutExtension(file);
@@ -657,7 +661,7 @@ public static class UbiArtAssetWriter
                     // Convert WEBP to PNG for the Uncooked export because the editor expects PNG pictograms
                     try
                     {
-                        using var img = Image.Load(file);
+                        using Image img = Image.Load(file);
                         // If we have 1 coach, resize to 512x512 centered
                         if (package.Metadata.CoachCount == 1)
                         {
@@ -686,6 +690,7 @@ public static class UbiArtAssetWriter
                     copied++;
                 }
             }
+
             Logger.Log($"Copied {copied} pictograms to {pictosDestDir}.");
         }
         else
@@ -699,12 +704,13 @@ public static class UbiArtAssetWriter
         {
             string movesDestDir = Path.Combine(mapSubFolder, "timeline", "moves", "WiiU");
             Directory.CreateDirectory(movesDestDir);
-            var files = Directory.GetFiles(movesSourceDir, "*.msm");
-            foreach (var file in files)
+            string[] files = Directory.GetFiles(movesSourceDir, "*.msm");
+            foreach (string file in files)
             {
                 string destFile = Path.Combine(movesDestDir, Path.GetFileName(file));
                 File.Copy(file, destFile, true);
             }
+
             Logger.Log($"Copied {files.Length} MSMs.");
         }
         else

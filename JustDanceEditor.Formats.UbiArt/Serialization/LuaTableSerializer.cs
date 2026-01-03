@@ -14,7 +14,7 @@ public static class LuaTableSerializer
         lua.DoString("function includeReference(path) end");
         lua.DoString("NumCoach = { Solo = 1, Duo = 2, Trio = 3, Quatuor = 4 }");
         lua.DoString("SongDifficulty = { Easy = 1, Normal = 2, Hard = 3, Extreme = 4 }");
-        lua.DoString("GameMode = { Classic = 0 }"); 
+        lua.DoString("GameMode = { Classic = 0 }");
         lua.DoString("GameModeFlags = { None = 0 }");
         lua.DoString("GameModeStatus = { Available = 0 }");
         lua.DoString("structure = { }"); // For MusicTrack
@@ -27,19 +27,16 @@ public static class LuaTableSerializer
 
         lua.DoString(luaContent);
 
-        LuaTable? paramsTable = lua["params"] as LuaTable;
-        if (paramsTable == null)
-            throw new InvalidDataException("LUA script did not define 'params' table.");
-
+        LuaTable? paramsTable = lua["params"] as LuaTable ?? throw new InvalidDataException("LUA script did not define 'params' table.");
         IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
         Console.WriteLine($"DEBUG JSON: {json}");
-        
+
         if (typeof(T) == typeof(SongDesc))
         {
             return (T)(object)MapToSongDesc(JsonSerializer.Deserialize<JsonElement>(json));
         }
-        
+
         if (typeof(T) == typeof(Tapes.ClipTape))
         {
             return (T)(object)MapToClipTape(JsonSerializer.Deserialize<JsonElement>(json));
@@ -71,7 +68,7 @@ public static class LuaTableSerializer
                         if (prop.NameEquals("JD_SongDescTemplate"))
                         {
                             // Create a copy of the component object without DefaultColors to avoid deserialization error
-                            var dict = new Dictionary<string, object>();
+                            Dictionary<string, object> dict = [];
                             foreach (JsonProperty componentProp in prop.Value.EnumerateObject())
                             {
                                 if (!componentProp.NameEquals("DefaultColors"))
@@ -79,10 +76,10 @@ public static class LuaTableSerializer
                                     dict[componentProp.Name] = componentProp.Value;
                                 }
                             }
-                            
+
                             string sanitizedJson = JsonSerializer.Serialize(dict);
                             InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
-                            
+
                             // Manually map DefaultColors if it was an array
                             if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
                             {
@@ -92,32 +89,40 @@ public static class LuaTableSerializer
                                     {
                                         string keyStr = key.GetString() ?? "";
                                         string colorStr = val.GetString() ?? "";
-                                        if (colorStr.StartsWith("0x")) colorStr = colorStr.Substring(2);
+                                        if (colorStr.StartsWith("0x"))
+                                            colorStr = colorStr[2..];
                                         if (colorStr.Length == 8)
                                         {
-                                            float a = Convert.ToInt32(colorStr.Substring(0, 2), 16) / 255.0f;
+                                            float a = Convert.ToInt32(colorStr[..2], 16) / 255.0f;
                                             float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
                                             float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
                                             float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
-                                            var rgba = new[] { a, r, g, b };
-                                            
-                                            if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.lyrics = rgba;
-                                            else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.theme = Array.ConvertAll(rgba, v => (int)(v * 255));
-                                            else if (keyStr.Equals("songcolor_1a", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.songcolor_1a = rgba;
-                                            else if (keyStr.Equals("songcolor_1b", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.songcolor_1b = rgba;
-                                            else if (keyStr.Equals("songcolor_2a", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.songcolor_2a = rgba;
-                                            else if (keyStr.Equals("songcolor_2b", StringComparison.OrdinalIgnoreCase)) info.DefaultColors.songcolor_2b = rgba;
+                                            float[] rgba = [a, r, g, b];
+
+                                            if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.lyrics = rgba;
+                                            else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.theme = Array.ConvertAll(rgba, v => (int)(v * 255));
+                                            else if (keyStr.Equals("songcolor_1a", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.songcolor_1a = rgba;
+                                            else if (keyStr.Equals("songcolor_1b", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.songcolor_1b = rgba;
+                                            else if (keyStr.Equals("songcolor_2a", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.songcolor_2a = rgba;
+                                            else if (keyStr.Equals("songcolor_2b", StringComparison.OrdinalIgnoreCase))
+                                                info.DefaultColors.songcolor_2b = rgba;
                                         }
                                     }
                                 }
                             }
 
-                            return new SongDesc { COMPONENTS = new[] { info } };
+                            return new SongDesc { COMPONENTS = [info] };
                         }
                     }
                 }
             }
         }
+
         throw new InvalidDataException("Could not find JD_SongDescTemplate in SongDesc LUA.");
     }
 
@@ -127,6 +132,7 @@ public static class LuaTableSerializer
         {
             return JsonSerializer.Deserialize<Tapes.ClipTape>(tape.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
         }
+
         throw new InvalidDataException("Could not find Tape in ClipTape LUA.");
     }
 
@@ -148,7 +154,7 @@ public static class LuaTableSerializer
             return;
         }
 
-        string indentation = new string(' ', indent * 2);
+        string indentation = new(' ', indent * 2);
 
         if (obj is IDictionary dict)
         {
@@ -160,17 +166,19 @@ public static class LuaTableSerializer
                 SerializeObject(sb, entry.Value, indent + 1);
                 sb.AppendLine(",");
             }
+
             sb.Append(indentation + "}");
         }
-        else if (obj is IEnumerable list && obj is not string)
+        else if (obj is IEnumerable list and not string)
         {
             sb.AppendLine("{");
-            foreach (var item in list)
+            foreach (object? item in list)
             {
                 sb.Append(indentation + "  ");
                 SerializeObject(sb, item, indent + 1);
                 sb.AppendLine(",");
             }
+
             sb.Append(indentation + "}");
         }
         else if (obj is string s)
@@ -195,12 +203,14 @@ public static class LuaTableSerializer
             sb.AppendLine("{");
             foreach (PropertyInfo prop in obj.GetType().GetProperties())
             {
-                if (prop.GetIndexParameters().Length > 0) continue; // Skip indexed properties
+                if (prop.GetIndexParameters().Length > 0)
+                    continue; // Skip indexed properties
                 sb.Append(indentation + "  ");
                 sb.Append(prop.Name + " = ");
                 SerializeObject(sb, prop.GetValue(obj), indent + 1);
                 sb.AppendLine(",");
             }
+
             sb.Append(indentation + "}");
         }
         else
@@ -211,8 +221,8 @@ public static class LuaTableSerializer
 
     private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
     {
-        var dict = new Dictionary<string, object>();
-        foreach (var key in table.Keys)
+        Dictionary<string, object> dict = [];
+        foreach (object? key in table.Keys)
         {
             object? value = table[key];
             string keyStr = key.ToString()!;
@@ -229,13 +239,14 @@ public static class LuaTableSerializer
                 dict[keyStr] = value!;
             }
         }
+
         return dict;
     }
 
     private static IList LuaTableToList(LuaTable table)
     {
-        var list = new ArrayList();
-        foreach (var value in table.Values)
+        ArrayList list = [];
+        foreach (object? value in table.Values)
         {
             if (value is LuaTable nestedTable)
             {
@@ -249,19 +260,24 @@ public static class LuaTableSerializer
                 list.Add(value);
             }
         }
+
         return list;
     }
 
     private static bool IsArray(LuaTable table)
     {
         int count = 0;
-        foreach (var _ in table.Keys) count++;
-        if (count == 0) return true; // Default empty tables to arrays for better JSON compatibility
-        
+        foreach (object? _ in table.Keys)
+            count++;
+        if (count == 0)
+            return true; // Default empty tables to arrays for better JSON compatibility
+
         for (int i = 1; i <= count; i++)
         {
-            if (table[i] == null) return false;
+            if (table[i] == null)
+                return false;
         }
+
         return true;
     }
 }

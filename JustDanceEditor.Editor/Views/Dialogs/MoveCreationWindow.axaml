@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Dialogs;assembly=JustDanceEditor.Editor"
+        x:Class="JustDanceEditor.Editor.Views.Dialogs.MoveCreationWindow"
+        x:DataType="vm:MoveCreationViewModel"
+        Title="Add Move"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="6">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="120"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Move:"/>
+    <ComboBox Grid.Row="0" Grid.Column="1" Width="260" SelectedItem="{Binding SelectedMove, Mode=TwoWay}" ItemsSource="{Binding AvailableMoves}"/>
+
+    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Duration (beats):"/>
+    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DurationDisplay}" VerticalAlignment="Center" />
+
+    <CheckBox Grid.Row="2" Grid.Column="1" Content="Gold Move" IsChecked="{Binding IsGold, Mode=TwoWay}"/>
+
+    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Name="OkBtn" Margin="6">OK</Button>
+      <Button Name="CancelBtn" Margin="6">Cancel</Button>
+    </StackPanel>
+  </Grid>
+</Window>

@@ -35,7 +35,7 @@ public static class UnityAssetMaterializer
         try
         {
             Logger.Log("Extracting assets in parallel...", LogLevel.Debug);
-            
+
             // Parallelize all independent extraction operations
             Parallel.Invoke(
                 () => CopyAudio(unityRoot, targetRoot),
@@ -77,6 +77,7 @@ public static class UnityAssetMaterializer
         {
             Logger.Log("Copied master audio track to assets/audio/master.opus.", LogLevel.Info);
         }
+
         if (previewPath == null)
         {
             Logger.Log("No preview audio track found in Unity export; 'preview.opus' will be missing.", LogLevel.Warning);
@@ -142,6 +143,7 @@ public static class UnityAssetMaterializer
         {
             Logger.Log("Extracted cover art to assets/branding/thumbnail.webp.", LogLevel.Info);
         }
+
         if (logoPath == null)
         {
             Logger.Log("Unity export does not contain a song title logo; 'songTitleLogo.webp' will be empty.", LogLevel.Warning);
@@ -404,7 +406,7 @@ public static class UnityAssetMaterializer
     private static string[] GetVideoFiles(string sourceFolder)
     {
         if (!Directory.Exists(sourceFolder))
-            return Array.Empty<string>();
+            return [];
 
         string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
         return [.. Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly)

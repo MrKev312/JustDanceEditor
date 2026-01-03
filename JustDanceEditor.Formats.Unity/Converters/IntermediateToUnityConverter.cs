@@ -50,13 +50,13 @@ internal sealed class IntermediateToUnityConverter
 
         Directory.CreateDirectory(_outputRoot);
         Logger.Log("Preparing assets and metadata in parallel...", LogLevel.Debug);
-        
+
         // Run audio, video, and SongInfo generation in parallel
         Task audioTask = CopyAudioAssetsAsync();
         Task videoTask = CopyVideoAssetsAsync();
         Task songInfoTask = GenerateSongInfoAsync();
         await Task.WhenAll(audioTask, videoTask, songInfoTask);
-        
+
         Logger.Log("Building Unity bundles...", LogLevel.Debug);
         await BuildUnityBundlesAsync();
         Logger.Log($"Unity conversion for '{_songFolderName}' completed.", LogLevel.Info);
@@ -68,11 +68,11 @@ internal sealed class IntermediateToUnityConverter
 
         // Master audio always comes from assets (original)
         CopyHashedFile(IntermediatePackageLayout.Assets.AudioMasterFile, Path.Combine(_outputRoot, "Audio_opus"), ".opus");
-        
+
         // Preview audio: check assets first, then scratch
         string assetsPreviewPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioPreviewFile);
         string scratchPreviewPath = Path.Combine(GetScratchAudioFolder(), "preview.opus");
-        
+
         string? sourcePreviewPath = null;
         if (File.Exists(assetsPreviewPath))
             sourcePreviewPath = assetsPreviewPath;
@@ -98,7 +98,7 @@ internal sealed class IntermediateToUnityConverter
         Task backgroundTask = JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot);
         Task previewTask = JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot);
         await Task.WhenAll(backgroundTask, previewTask);
-        
+
         CopyBackgroundVideos(Path.Combine(_outputRoot, "video"));
         CopyPreviewVideos(Path.Combine(_outputRoot, "videoPreview"));
     }
@@ -246,12 +246,10 @@ internal sealed class IntermediateToUnityConverter
     {
         string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.VideoFolder);
         string[] assetSources = GetVideoFiles(assetsDir);
-        
+
         // If assets has 4 master videos, they're source-of-truth originals
-        string[] assetMasters = assetSources
-            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-            
+        string[] assetMasters = [.. assetSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
+
         if (assetMasters.Length == 4)
         {
             Directory.CreateDirectory(destinationFolder);
@@ -264,10 +262,8 @@ internal sealed class IntermediateToUnityConverter
         // Otherwise check scratch for generated master videos
         string scratchDir = GetScratchVideoFolder();
         string[] scratchSources = GetVideoFiles(scratchDir);
-        string[] scratchMasters = scratchSources
-            .Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-            
+        string[] scratchMasters = [.. scratchSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
+
         if (scratchMasters.Length == 4)
         {
             Directory.CreateDirectory(destinationFolder);
@@ -293,10 +289,10 @@ internal sealed class IntermediateToUnityConverter
     private void CopyPreviewVideos(string destinationFolder)
     {
         int expectedCount = UnityVideoProfiles.Previews.Length;
-        
+
         string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.PreviewVideoFolder);
         string[] assetSources = GetVideoFiles(assetsDir);
-        
+
         // If assets has expected preview videos, they're source-of-truth originals
         if (assetSources.Length == expectedCount)
         {
@@ -309,10 +305,8 @@ internal sealed class IntermediateToUnityConverter
 
         // Otherwise use scratch for generated previews (filter by preview_ prefix)
         string scratchDir = GetScratchVideoFolder();
-        string[] scratchSources = GetVideoFiles(scratchDir)
-            .Where(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-            
+        string[] scratchSources = [.. GetVideoFiles(scratchDir).Where(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase))];
+
         if (scratchSources.Length == expectedCount)
         {
             Directory.CreateDirectory(destinationFolder);
@@ -389,7 +383,7 @@ internal sealed class IntermediateToUnityConverter
     private static string[] GetVideoFiles(string? folder)
     {
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
-            return Array.Empty<string>();
+            return [];
 
         string[] allowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
         return [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
@@ -475,7 +469,7 @@ internal sealed class IntermediateToUnityConverter
         if (folder == null)
         {
             Logger.Log("Intermediate package missing pictogram folder; map package may lack pictos.", LogLevel.Warning);
-            return Array.Empty<string>();
+            return [];
         }
 
         string[] files = [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];

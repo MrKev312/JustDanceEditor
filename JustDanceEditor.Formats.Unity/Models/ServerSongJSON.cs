@@ -127,7 +127,7 @@ public sealed class FlexibleStringListConverter : JsonConverter<string[]>
     public override void Write(Utf8JsonWriter writer, string[] value, JsonSerializerOptions options)
     {
         writer.WriteStartArray();
-        foreach (var str in value)
+        foreach (string str in value)
         {
             writer.WriteStringValue(str);
         }

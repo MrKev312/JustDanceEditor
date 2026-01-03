@@ -95,7 +95,7 @@ public static class MapPackageBundleBuilder
             PopulateDanceDataClips(request, mapBase, request.PictoLookup);
             UpdateCoachCounters(request, mapBase);
 
-            FinalizeAndSaveBundle(request, bunFile, afile, musicTrackBase, assetBundleBase,
+            FinalizeAndSaveBundle(request, bunFile, afile, assetBundleBase,
                 () => musicTrackInfo.SetNewData(musicTrackBase),
                 () => mapInfo.SetNewData(mapBase),
                 () => assetBundleInfo.SetNewData(assetBundleBase));
@@ -316,7 +316,7 @@ public static class MapPackageBundleBuilder
         foreach (SectionSegment section in trackStructure.Sections ?? [])
         {
             AssetTypeValueField newSection = ValueBuilder.DefaultValueFieldFromArrayTemplate(sectionsArray);
-            newSection["MusicSection"]["sectionType"].AsInt = section.SectionType;
+            newSection["MusicSection"]["sectionType"].AsInt = (int)section.SectionType;
             newSection["MusicSection"]["marker"].AsDouble = section.StartBeat;
             newSection["MusicSection"]["comment"].AsString = section.Comment ?? string.Empty;
             sectionsArray.Children.Add(newSection);
@@ -690,8 +690,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static void FinalizeAndSaveBundle(BundleContext request, AssetBundleFile bun, AssetsFile afile,
-        AssetTypeValueField musicTrackBase, AssetTypeValueField assetBundleBase,
-        Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
+        AssetTypeValueField assetBundleBase, Action setMusicTrackData, Action setMapData, Action setAssetBundleData)
     {
         setMusicTrackData();
         setMapData();

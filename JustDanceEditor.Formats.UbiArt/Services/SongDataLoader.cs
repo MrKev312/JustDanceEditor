@@ -78,7 +78,7 @@ public class SongDataLoader : ISongDataLoader
         Logger.Log("Loading MainSequence");
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
-        ClipTape mainSequenceTape = request.Type == UbiArtType.Uncooked 
+        ClipTape mainSequenceTape = request.Type == UbiArtType.Uncooked
             ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath))
             : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath), options)!;
         songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));

@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:JustDanceEditor.Editor.ViewModels.Timeline"
+             xmlns:controls="using:JustDanceEditor.Editor.Views.Timeline"
+             xmlns:conv="using:JustDanceEditor.Editor.Views.Converters"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Timeline"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="JustDanceEditor.Editor.Views.Timeline.TimelineEditorView"
+             x:DataType="vm:TimelineEditorViewModel"
+             Focusable="True">
+
+	<UserControl.Resources>
+		<conv:BeatToPixelConverter x:Key="BeatToPixelConverter"/>
+		<conv:BitmapValueConverter x:Key="BitmapValueConverter"/>
+		<!-- Uniform track height for all tracks (waveform keeps its own height) -->
+		<x:Double x:Key="TrackHeight">40</x:Double>
+	</UserControl.Resources>
+
+	<UserControl.KeyBindings>
+		<KeyBinding Gesture="Space" Command="{Binding TogglePlayPauseCommand}"/>
+        <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedClipsCommand}"/>
+	</UserControl.KeyBindings>
+
+	<UserControl.Styles>
+		<!-- Styles for the individual clips inside the tracks -->
+		<Style Selector="local|ClipControl">
+			<Setter Property="Template">
+				<ControlTemplate x:DataType="vm:ClipViewModel">
+					<Border Background="{TemplateBinding Background}"
+							BorderBrush="Black"
+							BorderThickness="1"
+							CornerRadius="2"
+							ClipToBounds="True">
+						<Grid>
+							<Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}" RenderOptions.BitmapInterpolationMode="HighQuality" 
+								   HorizontalAlignment="Center" 
+								   VerticalAlignment="Stretch"
+								   Stretch="Uniform"
+								   Width="500">
+								<Image.IsVisible>
+									<Binding Path="ImagePath" Converter="{x:Static StringConverters.IsNotNullOrEmpty}"/>
+								</Image.IsVisible>
+							</Image>
+							<TextBlock Text="{TemplateBinding Content}"
+								   VerticalAlignment="Center"
+								   HorizontalAlignment="Center"
+								   TextTrimming="CharacterEllipsis"
+								   Foreground="Black"
+								   FontSize="10">
+								<TextBlock.IsVisible>
+									<Binding Path="ImagePath" Converter="{x:Static StringConverters.IsNullOrEmpty}"/>
+								</TextBlock.IsVisible>
+							</TextBlock>
+						</Grid>
+					</Border>
+				</ControlTemplate>
+			</Setter>
+		</Style>
+	</UserControl.Styles>
+
+	<Grid RowDefinitions="Auto, *, Auto">
+		<!-- 1. Toolbar -->
+		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="#3333" Height="44">
+			
+			<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="6,4">
+<Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" MinHeight="24" MinWidth="56" Padding="6,2" />
+					<Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" MinHeight="24" MinWidth="56" Padding="6,2" />
+				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="White" FontSize="12"/>
+				<NumericUpDown Value="{Binding ZoomPercentage}" 
+						   Minimum="{Binding MinZoomPercentage}" 
+						   Maximum="{Binding MaxZoomPercentage}" 
+						   Width="120" 
+						   Height="28"
+						   FormatString="{}{0:N2}%"
+						   VerticalAlignment="Center"/>
+			</StackPanel>
+			
+			<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,4">
+				<CheckBox Content="Snap to beat" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Foreground="White"/>
+				<CheckBox Content="Snap to playhead" IsChecked="{Binding SnapToCurrentTimeMarker}" VerticalAlignment="Center" Foreground="White"/>
+				<CheckBox Content="Snap to clips" IsChecked="{Binding SnapToClips}" VerticalAlignment="Center" Foreground="White"/>
+			</StackPanel>
+
+			<Separator Width="1" Background="#555"/>
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White" FontSize="12" Margin="6,0"/>
+		</StackPanel>
+
+		<!-- 2. Timeline Main Area -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+		    <Grid ColumnDefinitions="200, *">
+
+			    <!-- LEFT: Fixed Track Headers -->
+			    <StackPanel Grid.Column="0" Background="#2d2d2d2d" ZIndex="1">
+				    <!-- Spacer for Ruler -->
+				    <Border Height="30" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1">
+					    <TextBlock Text="Timeline" VerticalAlignment="Center" Margin="10,0" Foreground="Gray" FontSize="10"/>
+				    </Border>
+
+				    <!-- Spacer for Audio Bar height if needed -->
+				    <Border Height="60" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1">
+					    <TextBlock Text="Audio" VerticalAlignment="Center" Margin="10,0" Foreground="Gray"/>
+				    </Border>
+
+				    <ItemsControl ItemsSource="{Binding Tracks}">
+					    <ItemsControl.ItemTemplate>
+						    <DataTemplate x:DataType="vm:TrackViewModel">
+							    <Border Height="{StaticResource TrackHeight}" BorderBrush="#3d3d3d" BorderThickness="0,0,1,1" Background="#2d2d2d2d">
+								    <Grid ColumnDefinitions="5, *">
+									    <Border Background="{Binding TrackColor}" Width="5"/>
+									    <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Margin="10,0" Foreground="LightGray"/>
+								    </Grid>
+							    </Border>
+						    </DataTemplate>
+					    </ItemsControl.ItemTemplate>
+				    </ItemsControl>
+			    </StackPanel>
+
+			    <!-- RIGHT: Scrollable Content -->
+			    <ScrollViewer Name="TimelineScroll" 
+					      Grid.Column="1" 
+					      HorizontalScrollBarVisibility="Auto" 
+					      VerticalScrollBarVisibility="Disabled">
+			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
+				    <StackPanel Name="TracksStack" Background="#1e1e1e1e" HorizontalAlignment="Stretch">
+
+						    <!-- Time Ruler -->
+						    <local:TimeRulerControl Height="30"
+								        PixelsPerBeat="{Binding PixelsPerBeat}"
+							        BeatOffset="{Binding BeatOffset}"
+							        MaxBeat="{Binding MaxBeat}"
+							        Signatures="{Binding TimelineStructure.Signatures}"
+							        Width="{Binding TimelineWidth}"/>
+
+						    <!-- Audio Waveform -->
+						    <local:AudioBarControl Height="60"
+								       Samples="{Binding WaveformSamples}"
+							       PixelsPerBeat="{Binding PixelsPerBeat}"
+							       BeatOffset="{Binding BeatOffset}"
+							       Sections="{Binding TimelineStructure.Sections}"
+							       Width="{Binding TimelineWidth}"/>
+
+						    <!-- Tracks Panels -->
+						    <ItemsControl ItemsSource="{Binding Tracks}">
+							    <ItemsControl.ItemTemplate>
+								    <DataTemplate x:DataType="vm:TrackViewModel">
+									    <local:TimelineTrackPanel Height="{StaticResource TrackHeight}"
+									      Clips="{Binding Clips}"
+									      PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
+									      BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
+									      MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
+									      Background="#1e1e1e1e">
+									    </local:TimelineTrackPanel>
+								    </DataTemplate>
+							    </ItemsControl.ItemTemplate>
+						    </ItemsControl>
+					    </StackPanel>
+
+					    <!-- Playhead Overlay -->
+					    <Canvas x:Name="OverlayCanvas" IsHitTestVisible="False" ZIndex="100" Width="{Binding TimelineWidth}" Height="{Binding Path=Bounds.Height, ElementName=TracksStack}">
+						    <Rectangle Fill="Red" Width="2" Height="{Binding Path=Height, ElementName=OverlayCanvas}">
+							    <Rectangle.RenderTransform>
+								    <TranslateTransform>
+									    <TranslateTransform.X>
+										    <MultiBinding Converter="{StaticResource BeatToPixelConverter}">
+											    <Binding Path="CurrentBeat"/>
+											    <Binding Path="PixelsPerBeat"/>
+											    <Binding Path="BeatOffset"/>
+										    </MultiBinding>
+									    </TranslateTransform.X>
+								    </TranslateTransform>
+							    </Rectangle.RenderTransform>
+						    </Rectangle>
+
+					    </Canvas>
+				    </Grid>
+			    </ScrollViewer>
+            </Grid>
+		</ScrollViewer>
+
+		<!-- 3. Status Bar -->
+		<Border Grid.Row="2" Background="#222" Padding="5">
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" Foreground="White" FontSize="12"/>
+		</Border>
+	</Grid>
+</UserControl>

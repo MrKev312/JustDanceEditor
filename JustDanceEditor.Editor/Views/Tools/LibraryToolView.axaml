@@ -1,0 +1,107 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+             xmlns:conv="clr-namespace:JustDanceEditor.Editor.Views.Converters"
+             x:Class="JustDanceEditor.Editor.Views.Tools.LibraryToolView"
+             x:DataType="vm:LibraryToolViewModel">
+
+    <Grid Background="Transparent">
+        <Grid.Resources>
+            <conv:IsNotNullConverter x:Key="IsNotNull" />
+            <DataTemplate x:Key="CenteredTabHeader">
+                <TextBlock Text="{Binding}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8"/>
+            </DataTemplate>
+        </Grid.Resources>
+
+        <TabControl IsVisible="{Binding ActiveTimeline, Converter={StaticResource IsNotNull}}">
+            <TabItem Header="Pictos" HeaderTemplate="{StaticResource CenteredTabHeader}">
+                <dg:DataGrid x:Name="ItemsListPictograms" ItemsSource="{Binding Pictograms}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                    <dg:DataGrid.Columns>
+                        <dg:DataGridTemplateColumn Header="" Width="60">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <Image Source="{Binding Thumbnail}" Width="48" Height="48" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                    </dg:DataGrid.Columns>
+                </dg:DataGrid>
+            </TabItem>
+            <TabItem Header="Hand Moves">
+                <dg:DataGrid x:Name="ItemsListHandMoves" ItemsSource="{Binding HandMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                    <dg:DataGrid.Columns>
+                        <dg:DataGridTemplateColumn Header="" Width="48">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                    </dg:DataGrid.Columns>
+                </dg:DataGrid>
+            </TabItem>
+            <TabItem Header="Full Moves">
+                <dg:DataGrid x:Name="ItemsListFullBody" ItemsSource="{Binding FullBodyMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                    <dg:DataGrid.Columns>
+                        <dg:DataGridTemplateColumn Header="" Width="48">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                        <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
+                            <dg:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                    <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                </DataTemplate>
+                            </dg:DataGridTemplateColumn.CellTemplate>
+                        </dg:DataGridTemplateColumn>
+                    </dg:DataGrid.Columns>
+                </dg:DataGrid>
+            </TabItem>
+        </TabControl>
+
+
+        <TextBlock Text="No Active Timeline"
+                   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
+                   Foreground="Gray" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Grid>
+</UserControl>

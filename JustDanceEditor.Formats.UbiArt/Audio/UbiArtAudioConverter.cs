@@ -168,9 +168,9 @@ public static class UbiArtAudioConverter
     private static void MoveAudioToOutput(string sourcePath, string destinationFolder, string targetFileName)
     {
         Directory.CreateDirectory(destinationFolder);
-        
+
         string targetPath = Path.Combine(destinationFolder, targetFileName);
-        
+
         File.Move(sourcePath, targetPath, true);
     }
 

@@ -102,8 +102,6 @@ internal static class IntermediatePackageBuilder
             Markers = [.. structure.markers]
         };
 
-        document.TimeBaseMsPerBeat = document.EstimateMsPerBeat();
-
         if (structure.signatures is { Length: > 0 })
         {
             foreach (Signature signature in structure.signatures)
@@ -124,7 +122,7 @@ internal static class IntermediatePackageBuilder
                 document.Sections.Add(new SectionSegment
                 {
                     StartBeat = section.marker,
-                    SectionType = section.sectionType,
+                    SectionType = (SongSectionType)section.sectionType,
                     Comment = section.comment
                 });
             }

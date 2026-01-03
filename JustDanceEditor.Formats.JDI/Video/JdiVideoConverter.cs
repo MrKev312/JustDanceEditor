@@ -203,7 +203,7 @@ public static class JdiVideoConverter
         TimeSpan duration,
         CancellationToken cancellationToken)
     {
-        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source);
+        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source, cancellationToken);
         IVideoStream stream = mediaInfo.VideoStreams.First();
 
         // Build common filter for cropping only
@@ -217,12 +217,12 @@ public static class JdiVideoConverter
 
         // Process all profiles in parallel for better CPU utilization
         Logger.Log($"Starting parallel 2-pass encoding for {profiles.Length} profiles...", LogLevel.Info);
-        
+
         Task[] encodingTasks = new Task[profiles.Length];
         for (int i = 0; i < profiles.Length; i++)
         {
             int profileIndex = i; // Capture for closure
-            encodingTasks[i] = EncodeProfileAsync(source, scratchFolder, profiles[profileIndex], profileIndex, 
+            encodingTasks[i] = EncodeProfileAsync(source, scratchFolder, profiles[profileIndex], profileIndex,
                 start, duration, baseCropFilter, cancellationToken);
         }
 
@@ -247,11 +247,11 @@ public static class JdiVideoConverter
         List<string> filters = [];
         if (!string.IsNullOrEmpty(baseCropFilter))
             filters.Add(baseCropFilter);
-        
+
         // Add scale for this specific profile
         Size targetRes = new(profile.Width ?? 768, profile.Height ?? 432);
         filters.Add($"scale={targetRes.Width}:{targetRes.Height}");
-        
+
         // Add fade effects only for preview videos (when duration is set)
         if (duration > TimeSpan.Zero)
         {
@@ -259,14 +259,14 @@ public static class JdiVideoConverter
             filters.Add($"fade=t=in:st=0:d=1");
             filters.Add($"fade=t=out:st={fadeOutStart.ToString(CultureInfo.InvariantCulture)}:d=1");
         }
-        
+
         string videoFilter = string.Join(",", filters);
 
         // Build common VP9 arguments used for both passes
         string commonVp9Args = BuildVp9Arguments(profile, passLogFile);
 
         Logger.Log($"Encoding {profile.FileName} (pass 1/2)...", LogLevel.Info);
-        
+
         // Pass 1: Analysis pass
         StringBuilder pass1Args = new();
         if (start > TimeSpan.Zero)
@@ -282,7 +282,7 @@ public static class JdiVideoConverter
         pass1Args.Append("-f null -");
 
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         await FFmpegSemaphore.WaitAsync(cancellationToken);
         try
         {
@@ -312,7 +312,7 @@ public static class JdiVideoConverter
         pass2Args.Append($"\"{targetPath}\"");
 
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         await FFmpegSemaphore.WaitAsync(cancellationToken);
         try
         {
@@ -345,7 +345,7 @@ public static class JdiVideoConverter
     {
         int threadCount = Math.Min(Environment.ProcessorCount, 8);
         int tileColumns = (int)Math.Log2(threadCount);
-        
+
         StringBuilder args = new();
         args.Append("-c:v libvpx-vp9 ");
         args.Append($"-passlogfile \"{passLogFile}\" ");
