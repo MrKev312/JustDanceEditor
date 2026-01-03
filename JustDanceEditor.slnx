@@ -4,6 +4,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="JustDanceEditor.Editor.Tests/JustDanceEditor.Editor.Tests.csproj" />
   <Project Path="JustDanceEditor.Editor/JustDanceEditor.Editor.csproj" />
   <Project Path="JustDanceEditor.Formats.JDI/JustDanceEditor.Formats.JDI.csproj" />
   <Project Path="JustDanceEditor.Formats.UbiArt/JustDanceEditor.Formats.UbiArt.csproj" />
