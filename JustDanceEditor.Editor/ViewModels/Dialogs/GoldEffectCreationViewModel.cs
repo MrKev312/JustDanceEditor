@@ -12,11 +12,10 @@ public partial class GoldEffectCreationResult
 public partial class GoldEffectCreationViewModel : ObservableObject, IDialogResult<GoldEffectCreationResult>
 {
     [ObservableProperty]
-    private decimal durationBeats = 1.0M;
+    public partial decimal DurationBeats { get; set; } = 1.0M;
 
     [ObservableProperty]
-    private int effectType = 0;
-
+    public partial int EffectType { get; set; } = 0;
     public GoldEffectCreationResult? Result { get; private set; }
 
     public void Accept()

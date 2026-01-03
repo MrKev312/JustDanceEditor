@@ -23,7 +23,7 @@ public partial class PictogramClipViewModel : ClipViewModel
     {
         PictogramId = clip.PictogramId ?? string.Empty;
         if (!string.IsNullOrEmpty(PictogramId) && rootPath != null)
-            ImagePath = System.IO.Path.Combine(rootPath, "assets", "pictograms", $"{PictogramId}.webp");
+            ImagePath = Path.Combine(rootPath, "assets", "pictograms", $"{PictogramId}.webp");
 
         PropertyChanged += (s, e) =>
         {
@@ -41,11 +41,9 @@ public partial class PictogramClipViewModel : ClipViewModel
         {
             p.PictogramId = value;
             if (!string.IsNullOrEmpty(value) && _rootPath != null)
-                ImagePath = System.IO.Path.Combine(_rootPath, "assets", "pictograms", $"{value}.webp");
+                ImagePath = Path.Combine(_rootPath, "assets", "pictograms", $"{value}.webp");
 
             NotifyClipDataChanged(nameof(PictogramId));
         }
     }
-
-
 }

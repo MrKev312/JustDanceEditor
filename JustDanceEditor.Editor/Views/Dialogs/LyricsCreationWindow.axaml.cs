@@ -20,6 +20,7 @@ public partial class LyricsCreationWindow : Window
         {
             vm.Accept();
         }
+
         Close();
     }
 

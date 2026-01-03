@@ -13,14 +13,13 @@ public partial class LyricsCreationResult
 public partial class LyricsCreationViewModel : ObservableObject, IDialogResult<LyricsCreationResult>
 {
     [ObservableProperty]
-    private string lyrics = string.Empty;
+    public partial string Lyrics { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private decimal durationBeats = 1.0M;
+    public partial decimal DurationBeats { get; set; } = 1.0M;
 
     [ObservableProperty]
-    private bool isEndOfLine = false;
-
+    public partial bool IsEndOfLine { get; set; } = false;
     public LyricsCreationResult? Result { get; private set; }
 
     public void Accept()

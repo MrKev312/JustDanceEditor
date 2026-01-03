@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
+using JustDanceEditor.Editor.ViewModels.Timeline;
 
 namespace JustDanceEditor.Editor.Views.Dialogs;
 
@@ -18,13 +19,13 @@ public partial class MoveCreationWindow : Window
         if (DataContext is MoveCreationViewModel vm)
         {
             // compute frames from selected move definition if possible
-            var mainVm = (App.Current as App)?.TimelineContext?.ActiveTimeline;
+            TimelineEditorViewModel? mainVm = (Avalonia.Application.Current as App)?.TimelineContext?.ActiveTimeline;
             int frames = 24;
             try
             {
                 if (!string.IsNullOrEmpty(vm.SelectedMove) && mainVm != null)
                 {
-                    var def = mainVm.GetOrRegisterMove(vm.SelectedMove, vm.IsFullBody);
+                    MoveDefinitionViewModel def = mainVm.GetOrRegisterMove(vm.SelectedMove, vm.IsFullBody);
                     if (def != null)
                         frames = (int)def.DefaultDuration;
                 }

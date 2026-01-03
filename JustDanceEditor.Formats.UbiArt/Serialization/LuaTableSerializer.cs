@@ -97,7 +97,7 @@ public static class LuaTableSerializer
                                             float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
                                             float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
                                             float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
-                                            float[] rgba = new[] { a, r, g, b };
+                                            float[] rgba = [a, r, g, b];
 
                                             if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
                                                 info.DefaultColors.lyrics = rgba;

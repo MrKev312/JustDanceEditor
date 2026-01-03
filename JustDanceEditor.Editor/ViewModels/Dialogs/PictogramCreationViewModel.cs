@@ -23,15 +23,15 @@ public class PictogramItem
 
 public partial class PictogramCreationViewModel : ObservableObject, IDialogResult<PictogramCreationResult>
 {
-    public IEnumerable<string> AvailablePictograms { get; } = Enumerable.Empty<string>();
-    public IEnumerable<PictogramItem> AvailablePictogramItems { get; } = Enumerable.Empty<PictogramItem>();
+    public IEnumerable<string> AvailablePictograms { get; } = [];
+    public IEnumerable<PictogramItem> AvailablePictogramItems { get; } = [];
     public string? RootPath { get; }
 
     public PictogramCreationViewModel(IEnumerable<string>? pictos = null, string? rootPath = null)
     {
-        AvailablePictograms = pictos ?? Enumerable.Empty<string>();
+        AvailablePictograms = pictos ?? [];
         RootPath = rootPath;
-        AvailablePictogramItems = (AvailablePictograms ?? Enumerable.Empty<string>())
+        AvailablePictogramItems = (AvailablePictograms ?? [])
             .Select(id =>
             {
                 string p = ResolveImagePath(rootPath, id);
@@ -41,7 +41,10 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
                     if (!string.IsNullOrEmpty(p))
                         bmp = new Bitmap(p);
                 }
-                catch { bmp = null; }
+                catch
+                {
+                    bmp = null;
+                }
 
                 return new PictogramItem { Id = id, ImagePath = p, Image = bmp };
             })
@@ -54,7 +57,7 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
             return string.Empty;
 
         string dir = Path.Combine(rootPath, "assets", "pictograms");
-        string[] exts = new[] { ".png", ".webp", ".jpg", ".jpeg" };
+        string[] exts = [".png", ".webp", ".jpg", ".jpeg"];
         foreach (var ext in exts)
         {
             string p = Path.Combine(dir, id + ext);
@@ -66,11 +69,10 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
     }
 
     [ObservableProperty]
-    private PictogramItem? selectedPictogram;
+    public partial PictogramItem? SelectedPictogram { get; set; }
 
     [ObservableProperty]
-    private decimal durationBeats = 1.0M;
-
+    public partial decimal DurationBeats { get; set; } = 1.0M;
     public PictogramCreationResult? Result { get; private set; }
 
     public void Accept()

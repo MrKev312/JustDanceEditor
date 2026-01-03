@@ -110,6 +110,4 @@ public partial class KaraokeClipViewModel : ClipViewModel
             OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RenderColor)));
         }
     }
-
-
 }

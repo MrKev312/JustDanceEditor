@@ -163,6 +163,7 @@ public partial class TimelineEditorViewModel : Document
 
         // Create undo service for this timeline
         UndoService = new UndoService();
+        HookUndoServiceStateChanged();
 
         Playback = new PlaybackService();
         Playback.TimeChanged += (s, e) => CurrentBeat = Playback.CurrentBeat;
@@ -511,16 +512,42 @@ public partial class TimelineEditorViewModel : Document
             Playback.Play();
     }
 
-    [RelayCommand]
+    public bool CanUndo => UndoService?.CanUndo ?? false;
+    public bool CanRedo => UndoService?.CanRedo ?? false;
+
+    [RelayCommand(CanExecute = nameof(CanUndo))]
     private void Undo()
     {
         UndoService.Undo();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRedo))]
     private void Redo()
     {
         UndoService.Redo();
+    }
+
+    private void HookUndoServiceStateChanged()
+    {
+        UndoService?.StateChanged += (s, e) =>
+            {
+                // Notify bindings
+                OnPropertyChanged(nameof(CanUndo));
+                OnPropertyChanged(nameof(CanRedo));
+
+                // Notify generated commands to requery CanExecute
+                try
+                {
+                    UndoCommand.NotifyCanExecuteChanged();
+                }
+                catch { }
+
+                try
+                {
+                    RedoCommand.NotifyCanExecuteChanged();
+                }
+                catch { }
+            };
     }
 
     [RelayCommand]

@@ -62,7 +62,7 @@ public partial class MoveClipViewModel : ClipViewModel
                     List<MoveClipViewModel> siblings = [.. _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == MoveId && c.IsFullBody == IsFullBody)];
                     foreach (MoveClipViewModel sibling in siblings)
                     {
-                        if (!ReferenceEquals(sibling, this) && System.Math.Abs(sibling.DurationBeats - DurationBeats) > 1e-9)
+                        if (!ReferenceEquals(sibling, this) && Math.Abs(sibling.DurationBeats - DurationBeats) > 1e-9)
                             sibling.DurationBeats = DurationBeats;
                     }
                 }
@@ -132,7 +132,7 @@ public partial class MoveClipViewModel : ClipViewModel
 
                     // adopt the definition duration (update UI length to match new move)
                     double newDurationBeats = def.DefaultDuration / 24.0;
-                    if (System.Math.Abs(DurationBeats - newDurationBeats) > 1e-9)
+                    if (Math.Abs(DurationBeats - newDurationBeats) > 1e-9)
                         DurationBeats = newDurationBeats;
                 }
             }

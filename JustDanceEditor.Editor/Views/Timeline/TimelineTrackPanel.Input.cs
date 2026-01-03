@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Editor.Views.Tools;
@@ -559,12 +560,11 @@ public partial class TimelineTrackPanel
 
         if (string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase))
         {
-            var picDialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.PictogramCreationViewModel(vm.AvailablePictograms, vm.RootPath);
-            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
-            if (app == null)
+            PictogramCreationViewModel picDialogVm = new(vm.AvailablePictograms, vm.RootPath);
+            if (Application.Current is not App app)
                 return;
 
-            var picRes = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.PictogramCreationResult>(picDialogVm);
+            PictogramCreationResult? picRes = await app.DialogService.ShowDialogAsync<PictogramCreationResult>(picDialogVm);
             if (picRes != null)
                 AddPictogramAtBeat(picRes.PictogramId, SnappingService.FindSnapBeat(beat, vm), track, vm, picRes.Frames);
 
@@ -574,13 +574,12 @@ public partial class TimelineTrackPanel
         if (title.Contains("Coach", StringComparison.OrdinalIgnoreCase))
         {
             bool isFull = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
-            var moves = isFull ? vm.AvailableFullBodyCoachMoves : vm.AvailableHandCoachMoves;
-            var moveDialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.MoveCreationViewModel(moves, isFull);
-            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
-            if (app == null)
+            IEnumerable<string> moves = isFull ? vm.AvailableFullBodyCoachMoves : vm.AvailableHandCoachMoves;
+            MoveCreationViewModel moveDialogVm = new(moves, isFull);
+            if (Application.Current is not App app)
                 return;
 
-            var moveRes = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.MoveCreationResult>(moveDialogVm);
+            MoveCreationResult? moveRes = await app.DialogService.ShowDialogAsync<MoveCreationResult>(moveDialogVm);
             if (moveRes != null)
                 AddMoveAtBeat(moveRes.MoveId, SnappingService.FindSnapBeat(beat, vm), isFull, track, vm, moveRes.Frames, moveRes.IsGold);
 
@@ -589,12 +588,11 @@ public partial class TimelineTrackPanel
 
         if (string.Equals(title, "Lyrics", StringComparison.OrdinalIgnoreCase))
         {
-            var dialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.LyricsCreationViewModel();
-            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
-            if (app == null)
+            LyricsCreationViewModel dialogVm = new();
+            if (Application.Current is not App app)
                 return;
 
-            var res = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.LyricsCreationResult>(dialogVm);
+            LyricsCreationResult? res = await app.DialogService.ShowDialogAsync<LyricsCreationResult>(dialogVm);
 
             if (res != null)
             {
@@ -609,8 +607,16 @@ public partial class TimelineTrackPanel
                 KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);
 
                 vm.PushUndo(
-                    undo: () => { if (track.Clips.Contains(clipVm)) track.Clips.Remove(clipVm); },
-                    redo: () => { if (!track.Clips.Contains(clipVm)) track.Clips.Add(clipVm); }
+                    undo: () =>
+                    {
+                        if (track.Clips.Contains(clipVm))
+                            track.Clips.Remove(clipVm);
+                    },
+                    redo: () =>
+                    {
+                        if (!track.Clips.Contains(clipVm))
+                            track.Clips.Add(clipVm);
+                    }
                 );
 
                 track.Clips.Add(clipVm);
@@ -621,12 +627,11 @@ public partial class TimelineTrackPanel
 
         if (string.Equals(title, "Gold Effects", StringComparison.OrdinalIgnoreCase))
         {
-            var dialogVm = new JustDanceEditor.Editor.ViewModels.Dialogs.GoldEffectCreationViewModel();
-            var app = Avalonia.Application.Current as JustDanceEditor.Editor.App;
-            if (app == null)
+            GoldEffectCreationViewModel dialogVm = new();
+            if (Application.Current is not App app)
                 return;
 
-            var res = await app.DialogService.ShowDialogAsync<JustDanceEditor.Editor.ViewModels.Dialogs.GoldEffectCreationResult>(dialogVm);
+            GoldEffectCreationResult? res = await app.DialogService.ShowDialogAsync<GoldEffectCreationResult>(dialogVm);
             if (res != null)
             {
                 GoldEffectClip raw = new()
@@ -639,8 +644,16 @@ public partial class TimelineTrackPanel
                 GoldEffectClipViewModel clipVm = new(raw, raw.Duration, Colors.Gold, "Gold Effect", vm.RootPath, vm);
 
                 vm.PushUndo(
-                    undo: () => { if (track.Clips.Contains(clipVm)) track.Clips.Remove(clipVm); },
-                    redo: () => { if (!track.Clips.Contains(clipVm)) track.Clips.Add(clipVm); }
+                    undo: () =>
+                    {
+                        if (track.Clips.Contains(clipVm))
+                            track.Clips.Remove(clipVm);
+                    },
+                    redo: () =>
+                    {
+                        if (!track.Clips.Contains(clipVm))
+                            track.Clips.Add(clipVm);
+                    }
                 );
 
                 track.Clips.Add(clipVm);

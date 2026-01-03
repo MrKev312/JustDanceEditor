@@ -268,7 +268,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 string safeId = id!;
                 string path = Path.Combine(pictogramDir, safeId + ".webp");
                 IBrush brush = Brushes.LightGray;
-                if (BitmapCache.TryGet(path, out Avalonia.Media.Imaging.Bitmap? bmp) && bmp != null)
+                if (BitmapCache.TryGet(path, out Bitmap? bmp) && bmp != null)
                 {
                     brush = new ImageBrush(bmp);
                 }

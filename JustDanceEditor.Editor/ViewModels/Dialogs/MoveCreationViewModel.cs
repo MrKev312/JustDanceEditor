@@ -12,26 +12,20 @@ public partial class MoveCreationResult
     public bool IsGold { get; set; }
 }
 
-public partial class MoveCreationViewModel : ObservableObject, IDialogResult<MoveCreationResult>
+public partial class MoveCreationViewModel(IEnumerable<string>? moves = null, bool isFullBody = false) : ObservableObject, IDialogResult<MoveCreationResult>
 {
-    public IEnumerable<string> AvailableMoves { get; }
-    public bool IsFullBody { get; }
-    public MoveCreationViewModel(IEnumerable<string>? moves = null, bool isFullBody = false)
-    {
-        AvailableMoves = moves ?? Enumerable.Empty<string>();
-        IsFullBody = isFullBody;
-    }
+    public IEnumerable<string> AvailableMoves { get; } = moves ?? [];
+    public bool IsFullBody { get; } = isFullBody;
 
     [ObservableProperty]
-    private string selectedMove = string.Empty;
+    public partial string SelectedMove { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool isGold = false;
+    public partial bool IsGold { get; set; } = false;
 
     // Read-only duration display (beats) for the selected move
     [ObservableProperty]
-    private string durationDisplay = "1";
-
+    public partial string DurationDisplay { get; set; } = "1";
     public MoveCreationResult? Result { get; private set; }
 
     public void SetDurationDisplay(string v) => DurationDisplay = v;

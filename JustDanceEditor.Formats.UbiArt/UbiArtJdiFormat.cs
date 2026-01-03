@@ -63,7 +63,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader) : IJdiFormat
 
         PrepareOutputDirectory(outputFolder);
 
-        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, ubiRequest);
+        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder);
     }
 
     private static void PrepareOutputDirectory(string targetFolder)

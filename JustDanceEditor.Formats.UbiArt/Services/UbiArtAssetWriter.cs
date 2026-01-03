@@ -19,7 +19,7 @@ public static class UbiArtAssetWriter
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, UbiArtConversionRequest request)
+    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder)
     {
         Logger.Log($"Exporting {package.Metadata.MapName} to Uncooked UbiArt...");
 
