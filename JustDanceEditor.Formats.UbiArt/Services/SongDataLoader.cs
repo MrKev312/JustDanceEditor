@@ -6,6 +6,7 @@ using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 using Microsoft.Extensions.Logging;
 
+using System.Text;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
@@ -34,37 +35,35 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
 
         _logger.LogInformation("Loading JDVersion");
         songData.EngineVersion = songData.SongDesc.COMPONENTS[0].JDVersion;
+        // Preserve original numeric version from source; normalization to consumer (Unity) is performed in the Unity pipeline
         uint originalJDVersion = songData.SongDesc.COMPONENTS[0].OriginalJDVersion;
-        songData.JDVersion = originalJDVersion switch
-        {
-            123 => 2014,
-            4884 => 2017,
-            _ => originalJDVersion,
-        };
-        _logger.LogInformation("Loaded versions, engine: {EngineVersion}, original version: {OriginalVersion}", songData.EngineVersion, songData.JDVersion);
+        songData.JDVersion = originalJDVersion;
+        _logger.LogInformation("Loaded engine JDVersion: {EngineVersion}, original version: {OriginalVersion}", songData.EngineVersion, songData.JDVersion);
 
         _logger.LogInformation("Loading MusicTrack");
         string musicTrackRelativePath = Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songData.Name}_musictrack.tpl");
         CookedFile musicTrackPath = fileSystem.GetFilePath(musicTrackRelativePath);
-        if (request.Type == UbiArtType.Uncooked)
-            songData.MusicTrack = LuaTableSerializer.Deserialize<MusicTrack>(FileSystem.ReadWithoutNull(musicTrackPath));
-        else
-            songData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(FileSystem.ReadWithoutNull(musicTrackPath), options)!;
+        byte[] musicBytes = File.ReadAllBytes(musicTrackPath.FullPath);
+        songData.MusicTrack = fileSystem.Serializer != null
+            ? fileSystem.Serializer.Deserialize<MusicTrack>(musicBytes, options)
+            : throw new InvalidOperationException("Serializer not configured on FileSystem.");
 
         _logger.LogInformation("Loading MainSequence");
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
-        ClipTape mainSequenceTape = request.Type == UbiArtType.Uncooked
-            ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath))
-            : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath), options)!;
+        byte[] mainSeqBytes = File.ReadAllBytes(mainSeqPath.FullPath);
+        ClipTape mainSequenceTape = fileSystem.Serializer != null
+            ? fileSystem.Serializer.Deserialize<ClipTape>(mainSeqBytes, options)
+            : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
 
         _logger.LogInformation("Loading DanceTape");
         string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
         CookedFile danceTapePath = fileSystem.GetFilePath(danceTapeRelativePath);
-        ClipTape danceTape = request.Type == UbiArtType.Uncooked
-            ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(danceTapePath))
-            : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(danceTapePath), options)!;
+        byte[] danceTapeBytes = File.ReadAllBytes(danceTapePath.FullPath);
+        ClipTape danceTape = fileSystem.Serializer != null
+            ? fileSystem.Serializer.Deserialize<ClipTape>(danceTapeBytes, options)
+            : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
 
         string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
@@ -73,16 +72,22 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
         if (ISC.GetActorPath(timelineFile, $"{songData.Name}_tml_karaoke", out string? karaokeActorRelativePath) &&
             fileSystem.GetFilePath(karaokeActorRelativePath, out CookedFile? karaokeActorFile))
         {
-            ActorTemplate karaokeActor = JsonSerializer.Deserialize<ActorTemplate>(FileSystem.ReadWithoutNull(karaokeActorFile), options)!;
+            // Read karaoke actor using generic serializer if possible
+            byte[] karaokeActorBytes = File.ReadAllBytes(karaokeActorFile.FullPath);
+            ActorTemplate karaokeActor = fileSystem.Serializer != null
+                ? fileSystem.Serializer.Deserialize<ActorTemplate>(karaokeActorBytes, options)
+                : JsonSerializer.Deserialize<ActorTemplate>(Encoding.UTF8.GetString(karaokeActorBytes).TrimEnd('\0'), options)!;
+
             if (karaokeActor.COMPONENTS.Length > 0 &&
                 karaokeActor.COMPONENTS[0].TapesRack.Length > 0 &&
                 karaokeActor.COMPONENTS[0].TapesRack[0].Entries.Length > 0 &&
                 fileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokeTapePathCooked))
             {
                 _logger.LogInformation("Loading KaraokeTape");
-                ClipTape karaokeTape = request.Type == UbiArtType.Uncooked
-                    ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeTapePathCooked))
-                    : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeTapePathCooked), options)!;
+                byte[] karaokeBytes = File.ReadAllBytes(karaokeTapePathCooked.FullPath);
+                ClipTape karaokeTape = fileSystem.Serializer != null
+                    ? fileSystem.Serializer.Deserialize<ClipTape>(karaokeBytes, options)
+                    : JsonSerializer.Deserialize<ClipTape>(Encoding.UTF8.GetString(karaokeBytes).TrimEnd('\0'), options)!;
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
             else
@@ -94,6 +99,10 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
         {
             _logger.LogInformation("No karaoke tape actor found or its path is invalid, skipping karaoke.");
         }
+
+        // Apply any data mapper transformations (for future engine-specific fixups)
+        if (fileSystem.Mapper != null)
+            songData = fileSystem.Mapper.Map(songData);
 
         return songData;
     }
@@ -108,10 +117,10 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
         string songDescRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
         if (fileSystem.GetFilePath(songDescRelativePath, out CookedFile? songDescPathCooked))
         {
-            if (request.Type == UbiArtType.Uncooked)
-                return LuaTableSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked));
-            else
-                return JsonSerializer.Deserialize<SongDesc>(FileSystem.ReadWithoutNull(songDescPathCooked), options)!;
+            byte[] songDescBytes = File.ReadAllBytes(songDescPathCooked.FullPath);
+            return fileSystem.Serializer != null
+                ? fileSystem.Serializer.Deserialize<SongDesc>(songDescBytes, options)
+                : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         }
 
         string rootJddb = Path.Combine(fileSystem.InputFolders.InputFolder, "jddb.json");
@@ -189,9 +198,10 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
                 yield break;
             }
 
-            ClipTape tape = fileSystem.ConversionRequest.Type == UbiArtType.Uncooked
-                ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(tapePath))
-                : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(tapePath), options)!;
+            byte[] tapeBytes = File.ReadAllBytes(tapePath.FullPath);
+            ClipTape tape = fileSystem.Serializer != null
+                ? fileSystem.Serializer.Deserialize<ClipTape>(tapeBytes, options)
+                : throw new InvalidOperationException("Serializer not configured on FileSystem.");
             int offset = parentOffset + reference.StartTime;
             foreach (Clip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))
                 yield return clip;

@@ -17,28 +17,21 @@ public static class UbiArtCoverGenerator
     {
         JDUbiArtSong song = context.SongData;
 
-        string[] paths = [.. context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_*.webp")
-            .OrderBy(path => path.FullPath, StringComparer.OrdinalIgnoreCase)
-            .Select(path => path.FullPath)];
-
-        foreach (string path in paths)
+        CookedFile? cover = context.FileSystem.AssetResolver?.GetCoverArt();
+        if (cover != null && File.Exists(cover.FullPath))
         {
-            if (!File.Exists(path))
-                continue;
-
-            Image<Bgra32>? image = textureService.ConvertToImage(path);
-            if (image is null)
-                continue;
-
-            if (image.Width < image.Height * 1.33)
+            Image<Bgra32>? image = textureService.ConvertToImage(cover.FullPath);
+            if (image != null)
             {
-                image.Dispose();
-                continue;
-            }
+                if (image.Width >= image.Height * 1.33)
+                {
+                    logger?.LogInformation("Found existing cover: {FileName}", Path.GetFileName(cover.FullPath));
+                    image.Mutate(x => x.Resize(640, 360));
+                    return image;
+                }
 
-            logger?.LogInformation("Found existing cover: {FileName}", Path.GetFileName(path));
-            image.Mutate(x => x.Resize(640, 360));
-            return image;
+                image.Dispose();
+            }
         }
 
         return null;
@@ -50,14 +43,11 @@ public static class UbiArtCoverGenerator
 
         Image<Bgra32> coverImage = GetBackground(context, textureService);
 
-        string? coachFilesCooked = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
-            .Select(path => path.FullPath)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+        CookedFile? coachFilesCooked = context.FileSystem.AssetResolver?.GetCoachTextures().FirstOrDefault();
 
         if (coachFilesCooked is not null)
         {
-            using Image<Bgra32>? albumCoach = textureService.ConvertToImage(coachFilesCooked);
+            using Image<Bgra32>? albumCoach = textureService.ConvertToImage(coachFilesCooked.FullPath);
             if (albumCoach is not null)
             {
                 albumCoach.Mutate(x => x.Resize(1024, 1024));

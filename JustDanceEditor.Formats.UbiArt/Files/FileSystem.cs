@@ -1,4 +1,7 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Formats.UbiArt.Services.Layouts;
+using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 using Microsoft.Extensions.Logging;
 
@@ -11,18 +14,50 @@ public class FileSystem
 {
     private readonly ILogger<FileSystem> _logger;
 
+    public IUbiArtLayout? Layout { get; private set; }
+    public IUbiArtSerializer? Serializer { get; private set; }
+    public UbiArtContainerStyle ContainerStyle { get; private set; } = UbiArtContainerStyle.Unknown;
+    public UbiArtEngineVersion EngineVersion { get; private set; } = UbiArtEngineVersion.Unknown;
+
+    public Services.Assets.IUbiArtAssetResolver? AssetResolver { get; private set; }
+    public IUbiArtDataMapper? Mapper { get; private set; }
+
     public FileSystem(UbiArtConversionRequest conversionRequest, ILogger<FileSystem> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;
 
+        // Initialization that depends on a layout/serializer will be run later via Initialize()
+        TempFolders = new(this, _logger);
+        InputFolders = new(this);
+    }
+
+    public void Configure(UbiArtVersionProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+
+        Layout = profile.Layout ?? throw new ArgumentNullException(nameof(profile.Layout));
+        Serializer = profile.Serializer ?? throw new ArgumentNullException(nameof(profile.Serializer));
+        ContainerStyle = profile.ContainerStyle;
+        EngineVersion = profile.EngineVersion;
+
+        // Create an asset resolver tied to this filesystem
+        AssetResolver = new Services.Assets.FileSystemAssetResolver(Layout, this);
+
+        // Attach mapper for future fixups
+        Mapper = profile.Mapper;
+    }
+
+    public void Initialize()
+    {
+        // Must be called after Configure()
+        if (Layout == null || Serializer == null)
+            throw new InvalidOperationException("FileSystem must be configured with a layout and serializer before initialization.");
+
         InitializeSongID();
         InitializePlatformType();
 
-        TempFolders = new(this, _logger);
         TempFolders.CreateTempFolders();
-
-        InputFolders = new(this);
     }
 
     public UbiArtConversionRequest ConversionRequest { get; private set; }
@@ -69,29 +104,40 @@ public class FileSystem
     private void InitializeSongID()
     {
         if (ConversionRequest.SongName != null)
-            SongName = ConversionRequest.SongName;
-        else
         {
-            string mapsFolder = Path.Combine(ConversionRequest.InputPath, "world", "maps");
-            if (!Directory.Exists(mapsFolder))
-            {
-                if (ConversionRequest.Type == UbiArtType.Uncooked)
-                {
-                    SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    return;
-                }
+            SongName = ConversionRequest.SongName;
+            return;
+        }
 
-                throw new DirectoryNotFoundException("The maps folder does not exist.");
+        // If the request explicitly says Uncooked or the detected container style is Uncooked, derive the song name from the input folder
+        if (ConversionRequest.Type == UbiArtType.Uncooked || ContainerStyle == UbiArtContainerStyle.Uncooked)
+        {
+            SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            return;
+        }
+
+        string mapsFolder = Path.Combine(ConversionRequest.InputPath, "world", "maps");
+        if (!Directory.Exists(mapsFolder))
+        {
+            // If our configured layout provides a different location, try that too
+            if (Layout != null)
+            {
+                string candidate = Path.Combine(ConversionRequest.InputPath, Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, ContainerStyle, EngineVersion));
+                if (!string.IsNullOrWhiteSpace(candidate) && Directory.Exists(candidate))
+                    mapsFolder = candidate;
             }
 
-            string[] songs = Directory.GetDirectories(mapsFolder);
-            if (songs.Length < 1)
-                throw new DirectoryNotFoundException("No song folders found in the maps folder.");
-            if (songs.Length > 1)
-                throw new DirectoryNotFoundException("Multiple song folders found in the maps folder, please specify the song name in the request.");
-
-            SongName = Path.GetFileName(songs[0]);
+            if (!Directory.Exists(mapsFolder))
+                throw new DirectoryNotFoundException("The maps folder does not exist.");
         }
+
+        string[] songs = Directory.GetDirectories(mapsFolder);
+        if (songs.Length < 1)
+            throw new DirectoryNotFoundException("No song folders found in the maps folder.");
+        if (songs.Length > 1)
+            throw new DirectoryNotFoundException("Multiple song folders found in the maps folder, please specify the song name in the request.");
+
+        SongName = Path.GetFileName(songs[0]);
     }
 
     private void InitializePlatformType()
@@ -100,7 +146,8 @@ public class FileSystem
 
         if (!Directory.Exists(itfCookedFolder))
         {
-            if (ConversionRequest.Type == UbiArtType.Uncooked)
+            // If the request or the detected profile indicates Uncooked, set platform accordingly
+            if (ContainerStyle == UbiArtContainerStyle.Uncooked || ConversionRequest.Type == UbiArtType.Uncooked)
             {
                 PlatformType = "uncooked";
                 return;
@@ -245,13 +292,21 @@ public class FileSystem
                 string folder = Path.Combine(location, relativeFolderPath);
                 if (Directory.Exists(folder))
                 {
-                    foreach (string file in Directory.GetFiles(folder, pattern))
-                    {
-                        string relative = Path.GetRelativePath(searchPath, file);
-                        if (files.Any(x => x.FullPath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
-                            continue;
+                    // Try the requested pattern and also the cooked variant (pattern.ckd) if applicable
+                    List<string> patternsToTry = [pattern];
+                    if (!pattern.EndsWith(".ckd", StringComparison.OrdinalIgnoreCase))
+                        patternsToTry.Add(pattern + ".ckd");
 
-                        files.Add(new(file));
+                    foreach (string pat in patternsToTry)
+                    {
+                        foreach (string file in Directory.GetFiles(folder, pat))
+                        {
+                            string relative = Path.GetRelativePath(searchPath, file);
+                            if (files.Any(x => x.FullPath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
+                                continue;
+
+                            files.Add(new(file));
+                        }
                     }
                 }
             }

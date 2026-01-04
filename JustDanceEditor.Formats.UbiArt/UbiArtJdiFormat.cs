@@ -4,15 +4,18 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Formats.UbiArt.Services.Layouts;
+using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, FileSystem> fileSystemFactory, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger) : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, FileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger) : IJdiFormat
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
     private readonly Func<UbiArtConversionRequest, FileSystem> _fileSystemFactory = fileSystemFactory;
+    private readonly IUbiArtEngineDetector _engineDetector = engineDetector ?? throw new ArgumentNullException(nameof(engineDetector));
     private readonly JDI.Services.IAudioConverter _audioConverter = audioConverter;
     private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
     private readonly JDI.Services.ITextureService _textureService = textureService;
@@ -27,9 +30,15 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (request is not UbiArtConversionRequest ubiRequest)
             throw new ArgumentException("UbiArt import expects a UbiArtConversionRequest.", nameof(request));
 
-        ValidateUbiArtImport(ubiRequest);
+        // Detect engine/profile and configure filesystem accordingly BEFORE validation so that file lookups work correctly
+        UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
+        _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.ContainerStyle, profile.EngineVersion);
 
         FileSystem fileSystem = _fileSystemFactory(ubiRequest);
+        fileSystem.Configure(profile);
+        fileSystem.Initialize();
+
+        ValidateUbiArtImport(ubiRequest, fileSystem);
 
         // Log song name and platform here (moved from FileSystem internals)
         if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
@@ -40,10 +49,23 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         else
             _logger.LogInformation("Platform: {Platform}", fileSystem.PlatformType);
 
-        ConversionContext context = new(ubiRequest, fileSystem)
+        ConversionContext context;
+        try
         {
-            SongData = _songDataLoader.LoadSongData(ubiRequest, fileSystem)
-        };
+            context = new(ubiRequest, fileSystem)
+            {
+                SongData = _songDataLoader.LoadSongData(ubiRequest, fileSystem)
+            };
+        }
+        catch (NotImplementedException ex)
+        {
+            // If the configured serializer is binary (JD2014/JD2015), provide a friendly message
+            if (fileSystem.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.Serializer is Services.Serialization.BinaryUbiArtSerializer)
+                throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
+
+            throw;
+        }
+
         context.FileSystem.UpdateSongName(context.SongData.Name);
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
         string outputFolder = Path.Combine(ubiRequest.OutputPath, context.SongData.Name);
@@ -80,7 +102,16 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         PrepareOutputDirectory(outputFolder);
 
-        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, _logger);
+        // Detect the best profile for the export (use materialized root if available)
+        UbiArtVersionProfile exportProfile;
+        if (!string.IsNullOrWhiteSpace(importResult.MaterializedRoot))
+            exportProfile = _engineDetector.Detect(importResult.MaterializedRoot);
+        else if (!string.IsNullOrWhiteSpace(ubiRequest.InputPath) && Directory.Exists(ubiRequest.InputPath))
+            exportProfile = _engineDetector.Detect(ubiRequest.InputPath);
+        else
+            exportProfile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+
+        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, _logger, exportProfile.Layout, exportProfile.ContainerStyle, exportProfile.EngineVersion);
     }
 
     private static void PrepareOutputDirectory(string targetFolder)
@@ -98,8 +129,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         try
         {
             bool isCooked = Directory.Exists(Path.Combine(path, "cache", "itf_cooked"));
-            UbiArtConversionRequest req = new(path, Path.GetTempPath(), null) { Type = isCooked ? UbiArtType.Cooked : UbiArtType.Uncooked };
+            UbiArtVersionProfile profile = _engineDetector.Detect(path);
+            UbiArtConversionRequest req = new(path, Path.GetTempPath(), null) { Type = profile.ContainerStyle == UbiArtContainerStyle.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
             FileSystem fs = _fileSystemFactory(req);
+            fs.Configure(profile);
+            fs.Initialize();
 
             // Use FileSystem.GetFilePath like SongDataLoader does to correctly find songdesc.tpl
             string songDescRelativePath = Path.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
@@ -136,7 +170,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
     }
 
-    private void ValidateUbiArtImport(UbiArtConversionRequest request)
+    private static void ValidateUbiArtImport(UbiArtConversionRequest request, FileSystem fs)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -148,11 +182,18 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (string.IsNullOrWhiteSpace(request.OutputPath))
             throw new ArgumentException("Output path is required for UbiArt imports.", nameof(request.OutputPath));
 
-        // Use injected filesystem factory
-        FileSystem fs = _fileSystemFactory(request);
-        fs.GetFilePath($"world/maps/{request.SongName}/songdesc.tpl", out CookedFile? songDesc);
-        bool hasSongDesc = songDesc != null;
-        bool hasJddb = Directory.EnumerateFiles(request.InputPath, "jddb.json", SearchOption.AllDirectories).Any();
+        // FileSystem must already be configured and initialized by caller
+        ArgumentNullException.ThrowIfNull(fs);
+
+        // Use layout-aware path resolution if available
+        string songDescRelative;
+        if (fs.Layout != null)
+            songDescRelative = fs.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.ContainerStyle, fs.EngineVersion);
+        else
+            songDescRelative = Path.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
+        bool hasSongDesc = fs.GetFilePath(songDescRelative, out _);
+
+        bool hasJddb = Directory.EnumerateFiles(fs.InputFolders.InputFolder, "jddb.json", SearchOption.AllDirectories).Any();
 
         if (!hasSongDesc && !hasJddb)
             throw new FileNotFoundException("songdesc.tpl or jddb.json is required for UbiArt imports.");

@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Serialization;
+using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
 using Microsoft.Extensions.Logging;
 
@@ -20,18 +21,33 @@ public static class UbiArtAssetWriter
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, ILogger logger)
+    public static async Task ExportToUncookedAsync(
+        IntermediateSongPackage package,
+        string? materializedRoot,
+        string outputFolder,
+        ILogger logger,
+        IUbiArtLayout? layout = null,
+        UbiArtContainerStyle containerStyle = UbiArtContainerStyle.Uncooked,
+        UbiArtEngineVersion engineVersion = UbiArtEngineVersion.Modern)
     {
+        layout ??= new UbiArtLayoutResolver();
+
         logger.LogInformation("Exporting {MapName} to Uncooked UbiArt...", package.Metadata.MapName);
 
         // Ensure directories
         Directory.CreateDirectory(outputFolder);
-        string audioFolder = Path.Combine(outputFolder, "Audio");
-        string timelineFolder = Path.Combine(outputFolder, "timeline");
-        string cinematicsFolder = Path.Combine(outputFolder, "cinematics");
-        string pictosFolder = Path.Combine(timelineFolder, "pictos");
-        string movesFolder = Path.Combine(timelineFolder, "moves", "WiiU");
-        string videosFolder = Path.Combine(outputFolder, "VideosCoach");
+
+        string mapWorldRelative = layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion);
+        string mapWorldFolder = Path.Combine(outputFolder, mapWorldRelative);
+
+        string audioFolder = Path.Combine(outputFolder, layout.GetAudioFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
+        string timelineFolder = Path.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
+        _ = Path.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "..", "cinematics");
+        // cinematics folder may be alongside timeline in some layouts; ensure path
+        string cinematicsFolder = Path.Combine(outputFolder, layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "cinematics");
+        string pictosFolder = Path.Combine(outputFolder, layout.GetPictosFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
+        string movesFolder = Path.Combine(outputFolder, layout.GetMovesFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
+        string videosFolder = Path.Combine(outputFolder, layout.GetMediaFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "VideosCoach");
 
         Directory.CreateDirectory(audioFolder);
         Directory.CreateDirectory(timelineFolder);
@@ -49,16 +65,16 @@ public static class UbiArtAssetWriter
         // Write SongDesc.tpl
         logger.LogInformation("Writing SongDesc.tpl...");
         string songDescLua = BuildSongDescTpl(package);
-        await File.WriteAllTextAsync(Path.Combine(outputFolder, "songdesc.tpl"), songDescLua);
+        await File.WriteAllTextAsync(Path.Combine(mapWorldFolder, "songdesc.tpl"), songDescLua);
 
         // Write cinematics files
         logger.LogInformation("Writing cinematics files...");
-        await WriteCinematicsAsync(package, cinematicsFolder);
+        await WriteCinematicsAsync(package, cinematicsFolder, layout, containerStyle, engineVersion);
 
         // Prepare & Write MusicTrack.tpl (ensure WAV, external .trk and AMB if needed)
         logger.LogInformation("Preparing and writing MusicTrack.tpl and audio assets...");
         // Ensure audio files are present and create .wav, .trk and AMB slices as needed
-        await PrepareAudioForUncookedAsync(package, materializedRoot, outputFolder, logger);
+        await PrepareAudioForUncookedAsync(package, materializedRoot, mapWorldFolder, logger);
 
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string musicTrackTpl = BuildMusicTrackTpl(package.Metadata.MapName, mapNameLower);
@@ -66,17 +82,20 @@ public static class UbiArtAssetWriter
 
         // Write Tapes
         logger.LogInformation("Writing Tapes...");
-        await WriteTapesAsync(package, timelineFolder, logger);
+        await WriteTapesAsync(package, timelineFolder, logger, layout, containerStyle, engineVersion);
 
         logger.LogInformation("Uncooked export completed.");
     }
 
-    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, ILogger logger)
+    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, ILogger logger, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
         // Build all clips: MotionClips + PictogramClips
         List<object> allClips = [];
+
+        string movesRelative = layout.GetMovesFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
+        string pictosRelative = layout.GetPictosFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
 
         // Add MotionClips
         foreach (MoveTimeline timeline in package.CoachTimelines)
@@ -102,7 +121,7 @@ public static class UbiArtAssetWriter
                         timeline.TrackId,
                         clip.StartTime,
                         move.Duration,
-                        ClassifierPath = $"world/Maps/{mapNameLower}/timeline/moves/{clip.MoveId}.msm",
+                        ClassifierPath = $"{movesRelative}/{clip.MoveId}.msm",
                         timeline.CoachId,
                         Color = $"0xFF{color}",
                         GoldMove = clip.IsGoldMove ? 1 : 0
@@ -123,7 +142,7 @@ public static class UbiArtAssetWriter
                     TrackId = PictoTrackId,
                     pictoClip.StartTime,
                     pictoClip.Duration,
-                    PictoPath = $"world/Maps/{mapNameLower}/timeline/pictos/{pictoClip.PictogramId}.png"
+                    PictoPath = $"{pictosRelative}/{pictoClip.PictogramId}.png"
                 }
             });
         }
@@ -326,17 +345,18 @@ public static class UbiArtAssetWriter
         return sb.ToString();
     }
 
-    private static async Task WriteCinematicsAsync(IntermediateSongPackage package, string cinematicsFolder)
+    private static async Task WriteCinematicsAsync(IntermediateSongPackage package, string cinematicsFolder, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
+        string baseRelative = layout.GetMapWorldFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
 
         // 1. Write ISC file (scene descriptor)
         string iscContent = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_MainSequence"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""world/Maps/{mapNameLower}/cinematics/{mapName}_mainsequence.act"" LUA=""world/Maps/{mapNameLower}/cinematics/{mapName}_mainsequence.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_MainSequence"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{baseRelative}/cinematics/{mapName}_mainsequence.act"" LUA=""{baseRelative}/cinematics/{mapName}_mainsequence.tpl"">
 				<COMPONENTS NAME=""MasterTape"">
 					<MasterTape bankState=""4294967295"" />
 				</COMPONENTS>
@@ -356,7 +376,7 @@ public static class UbiArtAssetWriter
     NAME = ""Actor"", 
     Actor = 
     {{
-        LUA = ""world/Maps/{mapNameLower}/cinematics/{mapName}_mainsequence.tpl"", 
+        LUA = ""{baseRelative}/cinematics/{mapName}_mainsequence.tpl"", 
         COMPONENTS = 
         {{
             
@@ -392,7 +412,7 @@ public static class UbiArtAssetWriter
                                         TapeEntry =
                                         {{
                                             Label = ""Master"",
-                                            Path = ""world/Maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tape"",
+                                            Path = ""{baseRelative}/cinematics/{mapNameLower}_mainsequence.tape"",
                                         }},
                                     }},
                                 }},

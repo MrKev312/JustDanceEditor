@@ -26,7 +26,7 @@ public static class UnityExportDataBuilder
             LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor!,
             MapLength = metadata.MapLengthSeconds,
             MapName = metadata.MapName,
-            OriginalJDVersion = metadata.OriginalJDVersion,
+            OriginalJDVersion = MapOriginalJDVersion(metadata.OriginalJDVersion),
             ParentMapName = metadata.ParentMapName,
             SweatDifficulty = metadata.SweatDifficulty,
             TagIds = [],
@@ -55,6 +55,16 @@ public static class UnityExportDataBuilder
     private static IReadOnlyList<T> BuildOrderedClips<T>(List<T>? clips) where T : TimelineClipBase
     {
         return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
+    }
+
+    private static uint MapOriginalJDVersion(uint original)
+    {
+        return original switch
+        {
+            123 => 2014,
+            4884 => 2017,
+            _ => original
+        };
     }
 
     private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package, ILogger logger)

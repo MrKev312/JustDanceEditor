@@ -60,7 +60,7 @@ internal static class IntermediateAssetWriter
 
     private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
     {
-        CookedFile[] pictoFiles = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.PictosFolder);
+        CookedFile[] pictoFiles = context.FileSystem.AssetResolver?.GetPictograms() ?? [];
         string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
 
         string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
@@ -123,12 +123,11 @@ internal static class IntermediateAssetWriter
 
     private static void AttachCoachAssets(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
     {
-        CookedFile[] coachFilesCooked = [.. context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{context.SongData.Name}_coach_*")
-            .Where(file => !file.Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
+        CookedFile[] coachFilesCooked = context.FileSystem.AssetResolver?.GetCoachTextures() ?? [];
 
         if (coachFilesCooked.Length == 0)
         {
-            logger.LogInformation("No coach files found matching pattern '{Pattern}' in {MenuArtFolder}", $"{context.SongData.Name}_coach_*", context.FileSystem.InputFolders.MenuArtFolder);
+            logger.LogInformation("No coach files found in {MenuArtFolder}", context.FileSystem.InputFolders.MenuArtFolder);
             return;
         }
 
@@ -136,10 +135,10 @@ internal static class IntermediateAssetWriter
         for (int i = 0; i < coachFilesCooked.Length; i++)
         {
             string destination = Path.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
-            using Image<Bgra32>? coach = textureService.ConvertToImage(coachFilesCooked[i]);
+            using Image<Bgra32>? coach = textureService.ConvertToImage(coachFilesCooked[i].FullPath);
             if (coach is null)
             {
-                logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i]);
+                logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i].FullPath);
                 continue;
             }
 
@@ -223,15 +222,16 @@ internal static class IntermediateAssetWriter
     {
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {
-            string[] mediaVideos = Directory.GetFiles(mediaFolder, "*.webm", SearchOption.AllDirectories);
+            CookedFile[] mediaVideos = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.webm");
             if (mediaVideos.Length > 0)
-                return mediaVideos[0];
+                return (string)mediaVideos[0];
         }
 
         string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
-        string[] coachVideos = [.. fileSystem
+        var coachVideos = fileSystem
             .GetAllFiles(videosCoachFolder, "*.webm")
-            .Select(file => (string)file)];
+            .Select(file => (string)file)
+            .ToArray();
 
         if (coachVideos.Length > 0)
             return coachVideos[0];

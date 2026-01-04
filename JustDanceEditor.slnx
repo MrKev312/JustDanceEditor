@@ -8,6 +8,8 @@
   <Project Path="JustDanceEditor.Editor/JustDanceEditor.Editor.csproj" />
   <Project Path="JustDanceEditor.Formats.JDI/JustDanceEditor.Formats.JDI.csproj" />
   <Project Path="JustDanceEditor.Formats.UbiArt/JustDanceEditor.Formats.UbiArt.csproj" />
+  <Project Path="JustDanceEditor.Formats.UbiArt.Tests/JustDanceEditor.Formats.UbiArt.Tests.csproj" />
+  <Project Path="JustDanceEditor.Formats.Unity.Tests/JustDanceEditor.Formats.Unity.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
   <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
   <Project Path="JustDanceEditor.UI/JustDanceEditor.UI.csproj" />

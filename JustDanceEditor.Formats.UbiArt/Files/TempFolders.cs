@@ -15,7 +15,18 @@ public class TempFolders(FileSystem fileSystem, ILogger<FileSystem> logger)
         if (Directory.Exists(MapFolder))
         {
             _logger.LogDebug("Deleting the old temp folder");
-            Directory.Delete(MapFolder, true);
+            try
+            {
+                Directory.Delete(MapFolder, true);
+            }
+            catch (IOException ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete old temp folder '{MapFolder}': {Message}", MapFolder, ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete old temp folder '{MapFolder}': {Message}", MapFolder, ex.Message);
+            }
         }
 
         _logger.LogDebug("Creating temp folders");

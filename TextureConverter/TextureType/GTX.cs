@@ -289,7 +289,7 @@ public class GTX
 
         //uint bpp = GetBPP(texInfo.Format);
 
-        if (!Enum.IsDefined(typeof(GX2SurfaceFormat), texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
+        if (!Enum.IsDefined(texInfo.Format) || texInfo.Format == GX2SurfaceFormat.GX2_SURFACE_FORMAT_INVALID)
             throw new Exception("Invalid format!");
 
         uint tilingDepth = surfOut.Depth;

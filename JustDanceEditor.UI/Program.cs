@@ -28,6 +28,7 @@ internal class Program
         builder.Services.AddSingleton<ITextureService, DefaultTextureService>();
         builder.Services.AddSingleton<IMediaProcessor, UbiArtMediaProcessor>();
         builder.Services.AddSingleton<ISongDataLoader, SongDataLoader>();
+        builder.Services.AddSingleton<IUbiArtEngineDetector, UbiArtEngineDetector>();
         builder.Services.AddSingleton<IAudioConverter, Formats.UbiArt.Audio.VGMStreamAdapter>();
 
         // Unity services

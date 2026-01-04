@@ -88,13 +88,21 @@ public static class AudioConverter
     {
         isPreMerged = false;
 
-        if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
+        // Try resolver for main audio first
+        if (fileSystem.AssetResolver != null && fileSystem.AssetResolver.TryFindMainAudio(songData, out CookedFile? found, out bool merged))
         {
-            string[] oggFiles = Directory.GetFiles(mediaFolder, "*.ogg", SearchOption.AllDirectories);
+            isPreMerged = merged;
+            return found;
+        }
+
+        // Fallback: old behavior
+        if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out _))
+        {
+            CookedFile[] oggFiles = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.ogg");
             if (oggFiles.Length > 0)
             {
                 isPreMerged = true;
-                return new CookedFile(oggFiles.First());
+                return oggFiles[0];
             }
         }
 
