@@ -1,7 +1,8 @@
-using JustDanceEditor.Formats.Unity;
+using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Models;
-using Microsoft.Extensions.Logging;
 using JustDanceEditor.UI.Helpers;
+
+using Microsoft.Extensions.Logging;
 
 using System.Globalization;
 using System.Text.Encodings.Web;
@@ -18,7 +19,7 @@ internal class CacheDialogue
         WriteIndented = true
     };
 
-    public static void GenerateCacheDialogue(Microsoft.Extensions.Logging.ILogger logger)
+    public static void GenerateCacheDialogue(ILogger logger)
     {
         Console.WriteLine("This option will create a new, empty cache structure in the specified directory.");
         string path = Question.AskFolder("Please enter the full path where you want the new cache to be saved");
@@ -64,7 +65,7 @@ internal class CacheDialogue
         }
     }
 
-public static void SpreadCacheDialogue(Microsoft.Extensions.Logging.ILogger logger)
+    public static void SpreadCacheDialogue(ILogger logger)
     {
         Console.WriteLine("This option reorganizes cache folders as exFAT can have bigger cache folders");
         Console.WriteLine("for when the game's cache limit is approached (around SD_Cache.002A).");

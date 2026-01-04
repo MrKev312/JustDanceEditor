@@ -5,6 +5,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
@@ -21,7 +22,7 @@ public static partial class UnityServerIntermediateBuilder
         ReadCommentHandling = JsonCommentHandling.Skip
     };
 
-    public static IntermediateSongPackage FromServerExport(string mapRoot, Microsoft.Extensions.Logging.ILogger logger)
+    public static IntermediateSongPackage FromServerExport(string mapRoot, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(mapRoot))
             throw new ArgumentException("Map root cannot be empty.", nameof(mapRoot));
@@ -229,7 +230,7 @@ public static partial class UnityServerIntermediateBuilder
         List<MoveTimeline> HandTracking,
         List<MoveTimeline> FullBodyTracking,
         Dictionary<string, CoachMoveDefinition> HandMoves,
-        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour, Microsoft.Extensions.Logging.ILogger logger)
+        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour, ILogger logger)
     {
         Dictionary<int, MoveTimeline> handTimelines = [];
         Dictionary<int, MoveTimeline> fullBodyTimelines = [];

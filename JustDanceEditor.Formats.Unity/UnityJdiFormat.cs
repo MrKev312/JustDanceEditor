@@ -1,14 +1,13 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
-using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Converters;
 
 namespace JustDanceEditor.Formats.Unity;
 
-public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverBuilder, JustDanceEditor.Formats.Unity.Services.IUnityAssetMaterializer assetMaterializer, Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> logger) : IJdiFormat
+public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverBuilder, Services.IUnityAssetMaterializer assetMaterializer, Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> logger) : IJdiFormat
 {
     private readonly Func<string, IntermediateSongPackage> _serverBuilder = serverBuilder;
-    private readonly JustDanceEditor.Formats.Unity.Services.IUnityAssetMaterializer _assetMaterializer = assetMaterializer;
+    private readonly Services.IUnityAssetMaterializer _assetMaterializer = assetMaterializer;
     private readonly Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> _logger = logger;
 
     public string DisplayName => "Unity";

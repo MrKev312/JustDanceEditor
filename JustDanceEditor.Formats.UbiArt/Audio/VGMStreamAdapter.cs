@@ -5,14 +5,12 @@ using System.IO.Compression;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
 
-using JustDanceEditor.Formats.JDI.Services;
-
-public sealed class VGMStreamAdapter : JustDanceEditor.Formats.JDI.Services.IAudioConverter
+public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
 {
     public static bool Exists() =>
         Directory.Exists("Resources/VGMStream/") && File.Exists("Resources/VGMStream/vgmstream-cli.exe");
 
-    public static async Task Download(Microsoft.Extensions.Logging.ILogger? logger = null)
+    public static async Task Download(ILogger? logger = null)
     {
         if (Exists())
             return;

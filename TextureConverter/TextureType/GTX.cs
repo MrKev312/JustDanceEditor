@@ -117,7 +117,7 @@ public class GTX
 
     public static uint GetBPP(GX2SurfaceFormat format)
     {
-        return ((formatHwInfo[((int)format & 0x3F) * 4] - 1) | 7) + 1;
+        return formatHwInfo[((int)format & 0x3F) * 4];
     }
 
     private GTXHeader? header = null;
@@ -241,7 +241,6 @@ public class GTX
     public (byte[][] data, byte[] hdr) DeswizzleData(int i)
     {
         GX2Surface texInfo = GTXSurfaces[i];
-        byte[] data = ImageDatas[i];
 
         // Try to get the mip data, else empty byte array
         byte[] mipData = MipDatas.TryGetValue((uint)i, out byte[]? mip) ? mip : [];
@@ -301,38 +300,60 @@ public class GTX
         if (tilingDepth != 1)
             throw new Exception("Unsupported tiling depth!");
 
-        //uint blkWidth = 1;
-        //uint blkHeight = 1;
-
-        //if (BCnFormats.Contains(texInfo.Format))
-        //{
-        //    blkWidth = 4;
-        //    blkHeight = 4;
-        //}
-
         byte[][] result = new byte[texInfo.MipCount][];
+
+        long baseSurfSize = surfOut.SurfSize;
 
         for (int level = 0; level < texInfo.MipCount; level++)
         {
             uint mipWidth = Math.Max(1, texInfo.Width >> level);
             uint mipHeight = Math.Max(1, texInfo.Height >> level);
 
-            //uint mipSize = DivRoundUp(mipWidth, blkWidth) * DivRoundUp(mipHeight, blkHeight) * bpp;
+            // Get aligned info for the current mip level
+            SurfaceOut currentMipSurf = GetSurfaceInfo(texInfo.Format, texInfo.Width, texInfo.Height, texInfo.Depth, texInfo.Dim, texInfo.TileMode, texInfo.AA, level);
 
-            if (level != 0)
+            byte[] sourceBuffer;
+
+            if (level == 0)
             {
-                uint mipOffset = texInfo.MipOffsets[level - 1];
+                sourceBuffer = ImageDatas[i];
+            }
+            else
+            {
+                ulong mipOffset = texInfo.MipOffsets[level - 1];
 
-                if (level == 1)
-                    mipOffset -= (uint)surfOut.SurfSize;
+                // IMPORTANT: Only Level 1 is stored relative to the end of Level 0 in most GX2 containers
+                if (level == 1 && mipOffset >= (ulong)baseSurfSize)
+                    mipOffset -= (ulong)baseSurfSize;
 
-                surfOut = GetSurfaceInfo(texInfo.Format, texInfo.Width, texInfo.Height, texInfo.Depth, texInfo.Dim, texInfo.TileMode, texInfo.AA, level);
+                int start = (int)mipOffset;
+                int length = (int)currentMipSurf.SurfSize;
 
-                data = mipData[(int)mipOffset..(int)(mipOffset + surfOut.SurfSize)];
+                sourceBuffer = mipData.Length >= start + length
+                    ? mipData[start..(start + length)]
+                    : [];
             }
 
-            byte[] mipResult = Deswizzle(mipWidth, mipHeight, 1, texInfo.Format, 0, texInfo.Use,
-                texInfo.Swizzle, surfOut.Pitch, surfOut.Bpp, 0, 0, data);
+            if (sourceBuffer.Length < currentMipSurf.SurfSize)
+            {
+                byte[] padded = new byte[currentMipSurf.SurfSize];
+                Array.Copy(sourceBuffer, 0, padded, 0, Math.Min(sourceBuffer.Length, (int)currentMipSurf.SurfSize));
+                sourceBuffer = padded;
+            }
+
+            // Replace hardcoded '1' with currentMipSurf.Depth
+            byte[] mipResult = Deswizzle(
+                mipWidth,
+                mipHeight,
+                currentMipSurf.Depth,
+                texInfo.Format,
+                texInfo.TileMode,
+                texInfo.AA,
+                texInfo.Use,
+                texInfo.Swizzle,
+                currentMipSurf.Pitch,
+                currentMipSurf.Bpp, // Pass the bit count from SurfOut
+                0, 0, sourceBuffer);
 
             result[level] = mipResult;
         }
@@ -342,14 +363,16 @@ public class GTX
         return (result, hdr);
     }
 
-    private static byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
+    private static byte[] Deswizzle(uint mipWidth, uint mipHeight, uint depth, GX2SurfaceFormat format, uint tileMode, uint aa, uint use, uint swizzle, uint pitch, uint bpp, uint slice, uint sample, byte[] data)
     {
-        return SwizzleSurface(mipWidth, mipHeight, depth, format, aa, use, swizzle, pitch, bpp, slice, sample, data, false);
+        return SwizzleSurface(mipWidth, mipHeight, depth, format, tileMode, aa, use, swizzle, pitch, bpp, slice, sample, data, false);
     }
 
-    private static byte[] SwizzleSurface(uint width, uint height, uint depth, GX2SurfaceFormat format, uint aa, uint use, uint swizzle, uint pitch, uint bitsPerPixel, uint slice, uint sample, byte[] data, bool doSwizzle)
+    private static byte[] SwizzleSurface(uint width, uint height, uint depth, GX2SurfaceFormat format, uint tileMode, uint aa, uint use, uint swizzle, uint pitch, uint bitsPerPixel, uint slice, uint sample, byte[] data, bool doSwizzle)
     {
         uint bytesPerPixel = bitsPerPixel / 8;
+        if (bytesPerPixel == 0)
+            bytesPerPixel = 1; // Fallback for very low bpp
 
         byte[] result = new byte[data.Length];
 
@@ -362,7 +385,8 @@ public class GTX
         uint pipeSwizzle = (swizzle >> 8) & 0x1;
         uint bankSwizzle = (swizzle >> 9) & 0x3;
 
-        uint tileMode = (uint)format == 16 ? 0 : (uint)format;
+        // Linear Aligned (16) and Linear Special (0) are handled as linear (0/1)
+        uint addrTileMode = (tileMode == 16) ? 0u : tileMode;
         bool isDepth = (use & 4) != 0;
         uint numSamples = (uint)(1 << (int)aa);
 
@@ -370,25 +394,20 @@ public class GTX
         {
             for (uint x = 0; x < width; x++)
             {
-                uint pos = tileMode switch
+                ulong pos = addrTileMode switch
                 {
                     0 or 1 => ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height, depth),
-                    2 or 3 => ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height, tileMode, isDepth),
-                    _ => ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel, pitch, height, numSamples, tileMode, isDepth, pipeSwizzle, bankSwizzle),
+                    2 or 3 => ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height, addrTileMode, isDepth),
+                    _ => ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel, pitch, height, numSamples, addrTileMode, isDepth, pipeSwizzle, bankSwizzle),
                 };
+                ulong pos2 = (((ulong)y * width) + x) * bytesPerPixel;
 
-                uint pos2 = ((y * width) + x) * bytesPerPixel;
-
-                if (pos2 + bytesPerPixel <= data.Length && pos + bytesPerPixel <= data.Length)
+                if (pos2 + bytesPerPixel <= (ulong)result.Length && pos + bytesPerPixel <= (ulong)data.Length)
                 {
                     if (doSwizzle)
-                    {
                         Array.Copy(data, (int)pos2, result, (int)pos, (int)bytesPerPixel);
-                    }
                     else
-                    {
                         Array.Copy(data, (int)pos, result, (int)pos2, (int)bytesPerPixel);
-                    }
                 }
             }
         }
@@ -396,21 +415,21 @@ public class GTX
         return result;
     }
 
-    private static uint ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
+    private static ulong ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
     {
         uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        uint microTileBits = numSamples * bpp * 64 * microTileThickness;
-        uint microTileBytes = (microTileBits + 7) / 8;
+        ulong microTileBits = (ulong)numSamples * bpp * 64 * microTileThickness;
+        ulong microTileBytes = (microTileBits + 7) / 8;
 
-        uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
-        uint bytesPerSample = microTileBytes / numSamples;
+        ulong pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
+        ulong bytesPerSample = microTileBytes / numSamples;
 
-        uint sampleOffset;
-        uint pixelOffset;
+        ulong sampleOffset;
+        ulong pixelOffset;
         if (isDepth)
         {
-            sampleOffset = bpp * sample;
-            pixelOffset = numSamples * bpp * pixelIndex;
+            sampleOffset = (ulong)bpp * sample;
+            pixelOffset = (ulong)numSamples * bpp * pixelIndex;
         }
         else
         {
@@ -418,10 +437,10 @@ public class GTX
             pixelOffset = bpp * pixelIndex;
         }
 
-        uint elemOffset = sampleOffset + pixelOffset;
+        ulong elemOffset = sampleOffset + pixelOffset;
 
-        uint numSampleSplits;
-        uint sampleSlice;
+        ulong numSampleSplits;
+        ulong sampleSlice;
 
         if (numSamples <= 1 || microTileBytes <= 2048)
         {
@@ -430,11 +449,11 @@ public class GTX
         }
         else
         {
-            uint samplesPerSlice = 2048 / bytesPerSample;
+            ulong samplesPerSlice = 2048 / bytesPerSample;
             numSampleSplits = numSamples / samplesPerSlice;
-            numSamples = samplesPerSlice;
+            numSamples = (uint)samplesPerSlice;
 
-            uint tileSliceBits = microTileBits / numSampleSplits;
+            ulong tileSliceBits = microTileBits / numSampleSplits;
             sampleSlice = elemOffset / tileSliceBits;
             elemOffset %= tileSliceBits;
         }
@@ -453,22 +472,22 @@ public class GTX
             _ => 0,
         };
 
-        uint sliceIn = slice;
+        ulong sliceIn = slice;
         if (tileMode is 7 or 11 or 13 or 15)
         {
             sliceIn >>= 2;
         }
 
-        bankPipe ^= (2 * sampleSlice * 3) ^ (swizzle + (sliceIn * rotation));
+        bankPipe ^= (uint)((2 * sampleSlice * 3) ^ (swizzle + (sliceIn * rotation)));
         bankPipe %= 8;
         pipe = bankPipe % 2;
         bank = bankPipe / 2;
 
-        uint sliceBytes = ((pitch * height * microTileThickness * bpp * numSamples) + 7) / 8;
-        uint sliceOffset = sliceBytes * ((sampleSlice + (numSampleSplits * slice)) / microTileThickness);
+        ulong sliceBytes = (((ulong)pitch * height * microTileThickness * bpp * numSamples) + 7) / 8;
+        ulong sliceOffset = sliceBytes * ((sampleSlice + (numSampleSplits * slice)) / microTileThickness);
 
-        uint macroTilePitch = 32;
-        uint macroTileHeight = 16;
+        ulong macroTilePitch = 32;
+        ulong macroTileHeight = 16;
 
         if (tileMode is 5 or 9)
         {
@@ -481,139 +500,141 @@ public class GTX
             macroTileHeight = 64;
         }
 
-        uint macroTilesPerRow = pitch / macroTilePitch;
-        uint macroTileBytes = ((numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch) + 7) / 8;
-        uint macroTileIndexX = x / macroTilePitch;
-        uint macroTileIndexY = y / macroTileHeight;
-        uint macroTileOffset = macroTileBytes * (macroTileIndexX + (macroTileIndexY * macroTilesPerRow));
+        ulong macroTilesPerRow = pitch / (uint)macroTilePitch;
+        ulong macroTileBytes = (((ulong)numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch) + 7) / 8;
+        ulong macroTileIndexX = x / (uint)macroTilePitch;
+        ulong macroTileIndexY = y / (uint)macroTileHeight;
+        ulong macroTileOffset = macroTileBytes * (macroTileIndexX + (macroTileIndexY * macroTilesPerRow));
 
         if (tileMode is 8 or 9 or 10 or 11 or 14 or 15)
         {
             uint[] bankSwapOrder = [0, 1, 3, 2, 6, 7, 5, 4, 0, 0];
             uint bankSwapWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
-            uint swapIndex = macroTilePitch * macroTileIndexX / bankSwapWidth;
-            bank ^= bankSwapOrder[swapIndex & 3];
+            ulong swapIndex = macroTilePitch * macroTileIndexX / bankSwapWidth;
+            bank ^= bankSwapOrder[swapIndex & 3UL];
         }
 
-        uint totalOffset = elemOffset + ((macroTileOffset + sliceOffset) >> 3);
-        return (bank << 9) | (pipe << 8) | (totalOffset & 0xFF) | (((uint)((int)totalOffset & -256)) << 3);
+        ulong totalOffset = elemOffset + ((macroTileOffset + sliceOffset) >> 3);
+        return ((ulong)bank << 9) |
+            ((ulong)pipe << 8) |
+            (totalOffset & 0xFFUL) |
+            ((totalOffset & ~0xFFUL) << 3);
     }
 
-    private static uint ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
+    private static ulong ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
         int microTileThickness = 1;
         if ((AddrTileMode)tileMode == AddrTileMode.ADDR_TM_1D_TILED_THICK)
             microTileThickness = 4;
 
-        uint microTileBytes = (uint)((64 * microTileThickness * bpp) + 7) / 8;
-        uint microTilesPerRow = pitch >> 3;
-        uint microTileIndexX = x >> 3;
-        uint microTileIndexY = y >> 3;
-        uint microTileIndexZ = slice / (uint)microTileThickness;
+        ulong microTileBytes = (ulong)((64 * microTileThickness * bpp) + 7) / 8;
+        ulong microTilesPerRow = pitch >> 3;
+        ulong microTileIndexX = x >> 3;
+        ulong microTileIndexY = y >> 3;
+        ulong microTileIndexZ = slice / (uint)microTileThickness;
 
         ulong microTileOffset = microTileBytes * (microTileIndexX + (microTileIndexY * microTilesPerRow));
-        ulong sliceBytes = (ulong)((pitch * height * microTileThickness * bpp) + 7) / 8;
+        ulong sliceBytes = (((ulong)pitch * height * (ulong)microTileThickness * bpp) + 7) / 8;
         ulong sliceOffset = microTileIndexZ * sliceBytes;
 
         uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
-        ulong pixelOffset = (bpp * pixelIndex) >> 3;
+        ulong pixelOffset = ((ulong)bpp * pixelIndex) >> 3;
 
-        return (uint)(pixelOffset + microTileOffset + sliceOffset);
+        return pixelOffset + microTileOffset + sliceOffset;
     }
 
     static uint ComputePixelIndexWithinMicroTile(uint x, uint y, uint z, uint bpp, uint tileMode, bool isDepth)
     {
-        uint pixelIndex = 0;
-
+        uint p6 = 0, p7 = 0, p8 = 0;
         uint thickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-
+        uint p0;
+        uint p1;
+        uint p2;
+        uint p3;
+        uint p4;
+        uint p5;
         if (isDepth)
         {
-            pixelIndex |= (x & 1) << 0;
-            pixelIndex |= (y & 1) << 1;
-            pixelIndex |= (x & 2) >> 1 << 2;
-            pixelIndex |= (y & 2) >> 1 << 3;
-            pixelIndex |= (x & 4) >> 2 << 4;
-            pixelIndex |= (y & 4) >> 2 << 5;
+            p0 = x & 1;
+            p1 = y & 1;
+            p2 = (x & 2) >> 1;
+            p3 = (y & 2) >> 1;
+            p4 = (x & 4) >> 2;
+            p5 = (y & 4) >> 2;
         }
         else
         {
             switch (bpp)
             {
                 case 8:
-                    pixelIndex |= (x & 1) << 0;
-                    pixelIndex |= (x & 2) >> 1 << 1;
-                    pixelIndex |= (x & 4) >> 2 << 2;
-                    pixelIndex |= (y & 2) >> 1 << 3;
-                    pixelIndex |= (y & 1) << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                    p0 = x & 1;
+                    p1 = (x & 2) >> 1;
+                    p2 = (x & 4) >> 2;
+                    p3 = (y & 2) >> 1;
+                    p4 = y & 1;
+                    p5 = (y & 4) >> 2;
                     break;
-
-                case 0x10:
-                    pixelIndex |= (x & 1) << 0;
-                    pixelIndex |= (x & 2) >> 1 << 1;
-                    pixelIndex |= (x & 4) >> 2 << 2;
-                    pixelIndex |= (y & 1) << 3;
-                    pixelIndex |= (y & 2) >> 1 << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                case 16:
+                    p0 = x & 1;
+                    p1 = (x & 2) >> 1;
+                    p2 = (x & 4) >> 2;
+                    p3 = y & 1;
+                    p4 = (y & 2) >> 1;
+                    p5 = (y & 4) >> 2;
                     break;
-
-                case 0x20:
-                case 0x60:
-                    pixelIndex |= (x & 1) << 0;
-                    pixelIndex |= (x & 2) >> 1 << 1;
-                    pixelIndex |= (y & 1) << 2;
-                    pixelIndex |= (x & 4) >> 2 << 3;
-                    pixelIndex |= (y & 2) >> 1 << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                case 32:
+                case 96: // 96 is handled as 32
+                    p0 = x & 1;
+                    p1 = (x & 2) >> 1;
+                    p2 = y & 1;
+                    p3 = (x & 4) >> 2;
+                    p4 = (y & 2) >> 1;
+                    p5 = (y & 4) >> 2;
                     break;
-
-                case 0x40:
-                    pixelIndex |= (x & 1) << 0;
-                    pixelIndex |= (y & 1) << 1;
-                    pixelIndex |= (x & 2) >> 1 << 2;
-                    pixelIndex |= (x & 4) >> 2 << 3;
-                    pixelIndex |= (y & 2) >> 1 << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                case 64:
+                    p0 = x & 1;
+                    p1 = y & 1;
+                    p2 = (x & 2) >> 1;
+                    p3 = (x & 4) >> 2;
+                    p4 = (y & 2) >> 1;
+                    p5 = (y & 4) >> 2;
                     break;
-
-                case 0x80:
-                    pixelIndex |= (y & 1) << 0;
-                    pixelIndex |= (x & 1) << 1;
-                    pixelIndex |= (x & 2) >> 1 << 2;
-                    pixelIndex |= (x & 4) >> 2 << 3;
-                    pixelIndex |= (y & 2) >> 1 << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                case 128:
+                    p0 = y & 1;
+                    p1 = x & 1;
+                    p2 = (x & 2) >> 1;
+                    p3 = (x & 4) >> 2;
+                    p4 = (y & 2) >> 1;
+                    p5 = (y & 4) >> 2;
                     break;
-
                 default:
-                    pixelIndex |= (x & 1) << 0;
-                    pixelIndex |= (x & 2) >> 1 << 1;
-                    pixelIndex |= (y & 1) << 2;
-                    pixelIndex |= (x & 4) >> 2 << 3;
-                    pixelIndex |= (y & 2) >> 1 << 4;
-                    pixelIndex |= (y & 4) >> 2 << 5;
+                    p0 = x & 1;
+                    p1 = (x & 2) >> 1;
+                    p2 = y & 1;
+                    p3 = (x & 4) >> 2;
+                    p4 = (y & 2) >> 1;
+                    p5 = (y & 4) >> 2;
                     break;
             }
         }
 
         if (thickness > 1)
         {
-            pixelIndex |= (z & 1) << 6;
-            pixelIndex |= (z & 2) >> 1 << 7;
+            p6 = z & 1;
+            p7 = (z & 2) >> 1;
         }
 
         if (thickness == 8)
         {
-            pixelIndex |= (z & 4) >> 2 << 8;
+            p8 = (z & 4) >> 2;
         }
 
-        return pixelIndex;
+        return (p8 << 8) | (p7 << 7) | (p6 << 6) | (p5 << 5) | (p4 << 4) | (p3 << 3) | (p2 << 2) | (p1 << 1) | p0;
     }
 
-    private static uint ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint depth)
+    private static ulong ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint depth)
     {
-        return ((y * pitch) + x + (pitch * height * (slice + (sample * depth)))) * bpp;
+        return (((ulong)y * pitch) + x + (pitch * (ulong)height * (slice + (sample * (ulong)depth)))) * bpp;
     }
 
     public SurfaceOut GetSurfaceInfo(
@@ -771,64 +792,57 @@ public class GTX
         pIn = aSurfIn;
         pOut = pSurfOut;
 
-        uint returnCode = 0;
-
-        uint elemMode;
-        uint expandX;
-
         if (pIn.Bpp > 0x80)
-            returnCode = 3;
+            return;
 
-        if (returnCode == 0)
+        // 1. Calculate mip dimensions based on original pixels
+        ComputeMipLevel();
+        pOut.PixelBits = pIn.Bpp;
+
+        if (pIn.Format != 0)
         {
+            (uint bpp, uint expandX, uint expandY, uint elemMode) = GetBitsPerPixel((int)pIn.Format);
 
-            ComputeMipLevel();
+            // 2. Adjust for BCn: Divide width/height by 4, set bpp to 64 or 128
+            if (expandX > 1 || expandY > 1)
+            {
+                pIn.Width = Math.Max(1, pIn.Width / expandX);
+                pIn.Height = Math.Max(1, pIn.Height / expandY);
+            }
 
-            pOut.PixelBits = pIn.Bpp;
+            pIn.Bpp = elemMode switch
+            {
+                9 or 12 => 64,   // BC1, BC4
+                10 or 11 or 13 => 128, // BC2, BC3, BC5
+                _ => bpp
+            };
+        }
 
+        // 3. Calculate aligned Pitch and SurfSize based on adjusted dimensions
+        if (ComputeSurfaceInfoEx() == 0)
+        {
+            pOut.Bpp = pIn.Bpp;
+            pOut.PixelPitch = pOut.Pitch;
+            pOut.PixelHeight = pOut.Height;
+
+            // 4. Restore original pixel dimensions for the final output info
             if (pIn.Format != 0)
             {
-                expandX = formatExInfo[(pIn.Format * 4) + 1];
-                elemMode = formatExInfo[(pIn.Format * 4) + 3];
-
-                if (elemMode == 4 && expandX == 3 && pIn.TileMode == 1)
-                    pIn.Flags |= 0x200;
-            }
-            else if (pIn.Bpp != 0)
-            {
-                pIn.Width = Math.Max(1, pIn.Width);
-                pIn.Height = Math.Max(1, pIn.Height);
-            }
-            else
-                returnCode = 3;
-
-            if (returnCode == 0)
-                returnCode = ComputeSurfaceInfoEx();
-
-            if (returnCode == 0)
-            {
-                pOut.Bpp = pIn.Bpp;
-                pOut.PixelPitch = pOut.Pitch;
-                pOut.PixelHeight = pOut.Height;
-
-                //if (pIn.Format != 0 && (((pIn.Flags >> 9) & 1) == 0 || pIn.MipLevel == 0))
-                //    bpp = RestoreSurfaceInfo(elemMode, expandX, expandY, bpp);
-
-                if (((pIn.Flags >> 5) & 1) != 0)
-                    pOut.SliceSize = (uint)pOut.SurfSize;
-
-                else
+                (uint _, uint expandX, uint expandY, uint _) = GetBitsPerPixel((int)pIn.Format);
+                if (expandX > 1 || expandY > 1)
                 {
-                    pOut.SliceSize = (uint)(pOut.SurfSize / pOut.Depth);
-
-                    if (pIn.Slice == (pIn.NumSlices - 1) && pIn.NumSlices > 1)
-                        pOut.SliceSize += pOut.SliceSize * (pOut.Depth - pIn.NumSlices);
+                    pOut.PixelPitch *= expandX;
+                    pOut.PixelHeight *= expandY;
                 }
-
-                pOut.PitchTileMax = (pOut.Pitch >> 3) - 1;
-                pOut.HeightTileMax = (pOut.Height >> 3) - 1;
-                pOut.SliceTileMax = ((pOut.Height * pOut.Pitch) >> 6) - 1;
             }
+
+            pOut.SliceSize = (uint)(((pIn.Flags >> 5) & 1) != 0
+                ? pOut.SurfSize
+                : pOut.SurfSize / pOut.Depth);
+
+            pOut.PitchTileMax = (pOut.Pitch >> 3) - 1;
+            pOut.HeightTileMax = (pOut.Height >> 3) - 1;
+            pOut.SliceTileMax = ((pOut.Height * pOut.Pitch) >> 6) - 1;
         }
     }
 

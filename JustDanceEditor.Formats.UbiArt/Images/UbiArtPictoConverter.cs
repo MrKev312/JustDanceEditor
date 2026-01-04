@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -19,7 +20,7 @@ public static class UbiArtPictoConverter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
-    public static void Convert(UbiArtPictoConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Convert(UbiArtPictoConversionRequest request, ILogger logger, JDI.Services.ITextureService textureService)
     {
         ArgumentNullException.ThrowIfNull(request);
         JDUbiArtSong songData = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
@@ -38,7 +39,7 @@ public static class UbiArtPictoConverter
         ResetDirectory(request.PictoTempFolder);
 
         logger.LogInformation("Found {Count} cooked pictograms to process.", pictoFiles.Length);
-        ProcessAndSaveRawPictoFiles(songData, pictoFiles, request.PictoTempFolder, logger);
+        ProcessAndSaveRawPictoFiles(songData, pictoFiles, request.PictoTempFolder, logger, textureService);
 
         stopwatch.Stop();
         logger.LogInformation("Finished converting pictos in {ElapsedMs}ms.", stopwatch.ElapsedMilliseconds);
@@ -51,7 +52,7 @@ public static class UbiArtPictoConverter
         Directory.CreateDirectory(folder);
     }
 
-    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, string[] pictoFiles, string pictoTempFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, string[] pictoFiles, string pictoTempFolder, ILogger logger, JDI.Services.ITextureService textureService)
     {
         logger.LogInformation("Processing {Count} pictograms...", pictoFiles.Length);
         Parallel.For(0, pictoFiles.Length, i =>
@@ -59,15 +60,20 @@ public static class UbiArtPictoConverter
             string rawPictoPath = pictoFiles[i];
             string baseName = Path.GetFileName(rawPictoPath).Split('.')[0];
 
-            using Image<Bgra32> pictoImage = TextureConverter.TextureConverter.ConvertToImage(rawPictoPath);
+            using Image<Bgra32>? pictoImage = textureService.ConvertToImage(rawPictoPath);
+            if (pictoImage is null)
+            {
+                logger?.LogWarning("Failed to convert pictogram: {Path}", rawPictoPath);
+                return;
+            }
 
             if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
             {
-                SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger);
+                SplitAndSaveMontageParts(pictoImage!, songData, pictoTempFolder, logger, textureService);
             }
             else
             {
-                ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder);
+                ResizeAndSaveIndividualPicto(pictoImage!, baseName, songData, pictoTempFolder);
             }
         });
         logger.LogInformation("Finished processing pictograms.");
@@ -91,7 +97,7 @@ public static class UbiArtPictoConverter
         pictoImage.Save(Path.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, JDI.Services.ITextureService textureService)
     {
         List<string> pictoNamesFromClips = [.. songData.Clips
             .OfType<PictogramClip>()

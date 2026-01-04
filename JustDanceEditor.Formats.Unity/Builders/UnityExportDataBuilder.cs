@@ -2,13 +2,14 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.Unity.Builders;
 
 public static class UnityExportDataBuilder
 {
-    public static UnityExportData Create(IntermediateSongPackage package, Microsoft.Extensions.Logging.ILogger logger)
+    public static UnityExportData Create(IntermediateSongPackage package, ILogger logger)
     {
         IntermediateMetadata metadata = package.Metadata;
         metadata.Validate();
@@ -56,7 +57,7 @@ public static class UnityExportDataBuilder
         return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
     }
 
-    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package, Microsoft.Extensions.Logging.ILogger logger)
+    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package, ILogger logger)
     {
         if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
             return [];

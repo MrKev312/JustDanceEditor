@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.Unity.Models;
 
-namespace JustDanceEditor.Formats.Unity;
+namespace JustDanceEditor.Formats.Unity.Builders;
 
 public class JDSongJSONBuilder
 {

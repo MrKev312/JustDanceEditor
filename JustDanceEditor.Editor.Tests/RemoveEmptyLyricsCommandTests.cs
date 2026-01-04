@@ -17,7 +17,7 @@ public class RemoveEmptyLyricsCommandTests
         // Create a track with Karaoke clips
         TrackViewModel track = new();
         KaraokeClipViewModel c1 = new(new KaraokeClip { Lyrics = "A" }, 24, Colors.Goldenrod, "A", "root", timeline);
-        KaraokeClipViewModel c2 = new(new KaraokeClip { Lyrics = "" , IsEndOfLine = true}, 24, Colors.Goldenrod, "", "root", timeline);
+        KaraokeClipViewModel c2 = new(new KaraokeClip { Lyrics = "", IsEndOfLine = true }, 24, Colors.Goldenrod, "", "root", timeline);
         KaraokeClipViewModel c3 = new(new KaraokeClip { Lyrics = "B" }, 24, Colors.Goldenrod, "B", "root", timeline);
 
         track.Clips.Add(c1);

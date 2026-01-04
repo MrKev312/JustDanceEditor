@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+
 using Microsoft.Extensions.Logging;
 
 using System.Diagnostics.CodeAnalysis;
@@ -8,9 +9,9 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 
 public class FileSystem
 {
-    private readonly Microsoft.Extensions.Logging.ILogger<FileSystem> _logger;
+    private readonly ILogger<FileSystem> _logger;
 
-    public FileSystem(UbiArtConversionRequest conversionRequest, Microsoft.Extensions.Logging.ILogger<FileSystem> logger)
+    public FileSystem(UbiArtConversionRequest conversionRequest, ILogger<FileSystem> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;

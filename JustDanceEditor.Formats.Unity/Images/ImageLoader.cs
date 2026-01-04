@@ -11,7 +11,7 @@ public static class ImageLoader
 {
     private static readonly HttpClient HttpClient = new();
 
-    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType, Microsoft.Extensions.Logging.ILogger logger)
+    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType, ILogger logger)
     {
         string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
 

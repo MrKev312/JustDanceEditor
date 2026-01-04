@@ -13,7 +13,7 @@ public class ClipInteractionHandlerTests
 {
     private static void SetPrivateField(object obj, string name, object? value)
     {
-        var f = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        FieldInfo f = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
         f.SetValue(obj, value);
     }
 

@@ -1,3 +1,5 @@
+using Avalonia.Media.Imaging;
+
 using JustDanceEditor.Editor.Services;
 
 namespace JustDanceEditor.Editor.Tests;
@@ -19,14 +21,14 @@ public class BitmapCacheTests
             BitmapCache.ScheduleLoad(temp, () => { });
 
             int tries = 0;
-            while (!BitmapCache.TryGet(temp, out var bmp) && tries < 50)
+            while (!BitmapCache.TryGet(temp, out Bitmap? bmp) && tries < 50)
             {
                 Thread.Sleep(50);
                 tries++;
             }
 
             // Pass if ScheduleLoad did not throw; if the cache was populated, ensure it's a Bitmap
-            if (BitmapCache.TryGet(temp, out var resultBmp))
+            if (BitmapCache.TryGet(temp, out Bitmap? resultBmp))
             {
                 Assert.NotNull(resultBmp);
             }

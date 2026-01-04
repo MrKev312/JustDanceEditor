@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI.Services;
+
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 
@@ -14,12 +15,12 @@ public sealed class UbiArtMediaProcessor : IMediaProcessor
 
     public async Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
     {
-        var conversion = FFmpeg.Conversions.New();
+        IConversion conversion = FFmpeg.Conversions.New();
         // Very small wrapper - callers may do more complex operations themselves
         conversion.AddParameter($"-i \"{input}\"");
         if (extraArgs != null && extraArgs.Length > 0)
             conversion.AddParameter(string.Join(' ', extraArgs));
         conversion.SetOutput(output);
-        await conversion.Start();
+        await conversion.Start(cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.Fonts;
@@ -12,7 +13,7 @@ namespace JustDanceEditor.Formats.UbiArt.Images;
 
 public static class UbiArtCoverGenerator
 {
-    public static Image<Bgra32>? ExistingCover(ConversionContext context, Microsoft.Extensions.Logging.ILogger? logger = null)
+    public static Image<Bgra32>? ExistingCover(ConversionContext context, JDI.Services.ITextureService textureService, ILogger? logger = null)
     {
         JDUbiArtSong song = context.SongData;
 
@@ -25,7 +26,7 @@ public static class UbiArtCoverGenerator
             if (!File.Exists(path))
                 continue;
 
-            Image<Bgra32>? image = TextureConverter.TextureConverter.ConvertToImage(path);
+            Image<Bgra32>? image = textureService.ConvertToImage(path);
             if (image is null)
                 continue;
 
@@ -43,11 +44,11 @@ public static class UbiArtCoverGenerator
         return null;
     }
 
-    public static Image<Bgra32> GenerateOwnCover(ConversionContext context, Microsoft.Extensions.Logging.ILogger? logger = null)
+    public static Image<Bgra32> GenerateOwnCover(ConversionContext context, JDI.Services.ITextureService textureService, ILogger? logger = null)
     {
         JDUbiArtSong song = context.SongData;
 
-        Image<Bgra32> coverImage = GetBackground(context);
+        Image<Bgra32> coverImage = GetBackground(context, textureService);
 
         string? coachFilesCooked = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
             .Select(path => path.FullPath)
@@ -56,11 +57,16 @@ public static class UbiArtCoverGenerator
 
         if (coachFilesCooked is not null)
         {
-            Image<Bgra32> albumCoach = TextureConverter.TextureConverter.ConvertToImage(coachFilesCooked);
-
-            albumCoach.Mutate(x => x.Resize(1024, 1024));
-            coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
-            albumCoach.Dispose();
+            using Image<Bgra32>? albumCoach = textureService.ConvertToImage(coachFilesCooked);
+            if (albumCoach is not null)
+            {
+                albumCoach.Mutate(x => x.Resize(1024, 1024));
+                coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+            }
+            else
+            {
+                logger?.LogWarning("Album/Coach art could not be converted for '{SongName}'.", song.Name);
+            }
         }
         else
             logger?.LogWarning("Album/Coach art not found for song '{SongName}'.", song.Name);
@@ -70,7 +76,7 @@ public static class UbiArtCoverGenerator
         return coverImage;
     }
 
-    public static Image<Bgra32> GetBackground(ConversionContext context)
+    public static Image<Bgra32> GetBackground(ConversionContext context, JDI.Services.ITextureService textureService)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
 
@@ -79,9 +85,9 @@ public static class UbiArtCoverGenerator
             .FirstOrDefault();
 
         if (background is not null)
-            coverImage ??= TextureConverter.TextureConverter.ConvertToImage(background.FullPath);
+            coverImage ??= textureService.ConvertToImage(background.FullPath);
 
-        coverImage ??= ProcessBanner(context);
+        coverImage ??= ProcessBanner(context, textureService);
 
         if (coverImage is null)
         {
@@ -95,7 +101,7 @@ public static class UbiArtCoverGenerator
         return coverImage;
     }
 
-    public static Image<Bgra32>? ProcessBanner(ConversionContext context)
+    public static Image<Bgra32>? ProcessBanner(ConversionContext context, JDI.Services.ITextureService textureService)
     {
         JDUbiArtSong song = context.SongData;
 
@@ -105,7 +111,9 @@ public static class UbiArtCoverGenerator
         if (background is null)
             return null;
 
-        Image<Bgra32> banner = TextureConverter.TextureConverter.ConvertToImage(background.FullPath);
+        Image<Bgra32>? banner = textureService.ConvertToImage(background.FullPath);
+        if (banner is null)
+            return null;
 
         int width = banner.Width;
         int height = banner.Height;

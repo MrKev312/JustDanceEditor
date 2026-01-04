@@ -3,6 +3,7 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -26,10 +27,10 @@ public sealed record UnitySongTitleRequest(
 
 public static class SongTitleBundleBuilder
 {
-    public static Task GenerateAsync(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+    public static Task GenerateAsync(UnitySongTitleRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Generate(UnitySongTitleRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -53,7 +54,7 @@ public static class SongTitleBundleBuilder
         GenerateBundle(internalRequest, logger);
     }
 
-    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
+    private static void GenerateBundle(BundleContext request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
@@ -102,7 +103,7 @@ public static class SongTitleBundleBuilder
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
     }
 
-    private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleRequest request, ILogger logger)
     {
         if (request.OverrideTitleImage is not null)
             return request.OverrideTitleImage.CloneAs<Rgba32>();

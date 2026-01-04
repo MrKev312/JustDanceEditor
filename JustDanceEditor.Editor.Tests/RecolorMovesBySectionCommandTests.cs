@@ -45,7 +45,7 @@ public class RecolorMovesBySectionCommandTests
         Assert.True(timeline.UndoService.CanUndo);
 
         // Colors assigned in definitions should not be default gray
-        var def = timeline.GetOrRegisterMove("run", false);
+        MoveDefinitionViewModel def = timeline.GetOrRegisterMove("run", false);
         Assert.NotEqual(Colors.LightGray, def.Color);
 
         // Undo should restore colors (redo will reapply)

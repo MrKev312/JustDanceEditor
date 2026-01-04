@@ -2,6 +2,7 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -23,10 +24,10 @@ public sealed record UnityCoachesSmallRequest(
 
 public static class CoachesSmallBundleBuilder
 {
-    public static Task GenerateAsync(UnityCoachesSmallRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+    public static Task GenerateAsync(UnityCoachesSmallRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityCoachesSmallRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Generate(UnityCoachesSmallRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -52,7 +53,7 @@ public static class CoachesSmallBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
+    private static void GenerateBundle(BundleContext request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);

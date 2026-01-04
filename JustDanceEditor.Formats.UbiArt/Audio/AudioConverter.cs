@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
+
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
@@ -12,20 +13,20 @@ public sealed class AudioConversionOptions
 
 public static class AudioConverter
 {
-    private static readonly JustDanceEditor.Formats.JDI.Services.IAudioConverter audioConverter = new VGMStreamAdapter();
+    private static readonly JDI.Services.IAudioConverter audioConverter = new VGMStreamAdapter();
 
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,
         FileSystem fileSystem,
         AudioConversionOptions options,
-        Microsoft.Extensions.Logging.ILogger logger) =>
+        ILogger logger) =>
         Task.Run(() => ConvertAudio(songData, fileSystem, options, logger));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
         FileSystem fileSystem,
         AudioConversionOptions options,
-        Microsoft.Extensions.Logging.ILogger logger)
+        ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(fileSystem);

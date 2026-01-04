@@ -1,24 +1,19 @@
-using System.Reflection;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Converting;
+using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
+
 using Microsoft.Extensions.Logging;
+
+using System.Reflection;
 
 namespace JustDanceEditor.UI;
 
-internal sealed class ConsoleApp
+internal sealed class ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnumerable<IJdiFormat> formatsEnumerable, ILogger<ConsoleApp> logger)
 {
-    private readonly IKeyedServiceProvider<IJdiFormat> _formats;
-    private readonly IEnumerable<IJdiFormat> _formatsEnumerable;
-    private readonly ILogger<ConsoleApp> _logger;
-
-    public ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnumerable<IJdiFormat> formatsEnumerable, ILogger<ConsoleApp> logger)
-    {
-        _formats = formats;
-        _formatsEnumerable = formatsEnumerable;
-        _logger = logger;
-    }
+    private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
+    private readonly IEnumerable<IJdiFormat> _formatsEnumerable = formatsEnumerable;
+    private readonly ILogger<ConsoleApp> _logger = logger;
 
     public void Run()
     {
@@ -31,7 +26,7 @@ internal sealed class ConsoleApp
         Console.ResetColor();
         Console.WriteLine("Developed by: MrKev312");
 
-        string versionMessage = $"Version: {System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()!.InformationalVersion}";
+        string versionMessage = $"Version: {Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion}";
         _logger.LogDebug(versionMessage);
         Console.WriteLine(versionMessage);
 
@@ -50,8 +45,7 @@ internal sealed class ConsoleApp
         while (true)
         {
             Console.WriteLine("\n================ Main Menu ================");
-            int choice = Question.Ask(new[]
-            {
+            int choice = Question.Ask([
                 "Exit Program",
                 "Convert UbiArt Map to Unity (Standard)",
                 "Convert UbiArt Map to Unity (Advanced Options)",
@@ -61,7 +55,7 @@ internal sealed class ConsoleApp
                 "Extract IPK Archive File",
                 "Generate a New Cache Structure",
                 "Optimize Cache Folders for exFAT (Spread Caches equally)"
-            }, 0, "Please select an action:");
+            ], 0, "Please select an action:");
 
             Console.WriteLine("=========================================\n");
 

@@ -1,12 +1,13 @@
 using JustDanceEditor.IPK;
-using Microsoft.Extensions.Logging;
 using JustDanceEditor.UI.Helpers;
+
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.UI.Converting;
 
 internal class ExtractorDialogue
 {
-    public static void ExtractDialogue(Microsoft.Extensions.Logging.ILogger logger)
+    public static void ExtractDialogue(ILogger logger)
     {
         Console.WriteLine("This option will extract the contents of an IPK archive file.");
         // Ask for the input and output path

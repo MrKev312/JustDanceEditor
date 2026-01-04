@@ -1,11 +1,10 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
-using Microsoft.Extensions.Logging;
-using JustDanceEditor.UI.Helpers;
 using JustDanceEditor.UI.DependencyInjection;
+using JustDanceEditor.UI.Helpers;
+
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -14,7 +13,7 @@ namespace JustDanceEditor.UI.Converting;
 
 public class ConverterDialogue
 {
-    public static void ConvertSingleDialogue(IKeyedServiceProvider<IJdiFormat> formats, Microsoft.Extensions.Logging.ILogger logger)
+    public static void ConvertSingleDialogue(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
     {
         try
         {
@@ -43,7 +42,7 @@ public class ConverterDialogue
         }
     }
 
-    public static void ConvertSingleDialogueAdvanced(IKeyedServiceProvider<IJdiFormat> formats, Microsoft.Extensions.Logging.ILogger logger)
+    public static void ConvertSingleDialogueAdvanced(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
     {
         try
         {
@@ -70,7 +69,7 @@ public class ConverterDialogue
         }
     }
 
-    public static void UpdateCovers(Microsoft.Extensions.Logging.ILogger logger)
+    public static void UpdateCovers(ILogger logger)
     {
         try
         {
@@ -179,7 +178,7 @@ public class ConverterDialogue
         }
     }
 
-    public static void ConvertAllSongsInFolder(IKeyedServiceProvider<IJdiFormat> formats, Microsoft.Extensions.Logging.ILogger logger)
+    public static void ConvertAllSongsInFolder(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
     {
         try
         {
@@ -365,7 +364,7 @@ public class ConverterDialogue
         return inputPath;
     }
 
-    private static void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest, IKeyedServiceProvider<IJdiFormat> formats, Microsoft.Extensions.Logging.ILogger logger)
+    private static void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest, IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
     {
         IJdiFormat sourceFormat = formats.Get("UbiArt");
         IJdiFormat targetFormat = formats.Get("Unity");

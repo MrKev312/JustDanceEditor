@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
+
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
@@ -21,14 +22,14 @@ public sealed record UbiArtAudioConversionRequest(
     string MasterOutputFolder,
     string PreviewOutputFolder,
     bool IsMainSongPreMerged,
-    JustDanceEditor.Formats.JDI.Services.IAudioConverter AudioConverter);
+    JDI.Services.IAudioConverter AudioConverter);
 
 public static class UbiArtAudioConverter
 {
-    public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+    public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, ILogger logger) =>
         Task.Run(() => ConvertAudio(request, logger));
 
-    public static void ConvertAudio(UbiArtAudioConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void ConvertAudio(UbiArtAudioConversionRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.SongData);
@@ -64,7 +65,7 @@ public static class UbiArtAudioConverter
         MoveOpusToOutput(request, opusPath);
     }
 
-    private static void ConvertAudioClips(UbiArtAudioConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ConvertAudioClips(UbiArtAudioConversionRequest request, ILogger logger)
     {
         // Parallelize audio clip conversions
         Parallel.ForEach(request.AudioClips, clipSource =>
@@ -77,7 +78,7 @@ public static class UbiArtAudioConverter
         });
     }
 
-    private static string ConvertMainSong(UbiArtAudioConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    private static string ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger)
     {
         string targetPath = Path.Combine(request.TempAudioFolder, "mainSong.wav");
         request.AudioConverter.Convert(request.MainSongFile, targetPath).GetAwaiter().GetResult();
@@ -85,7 +86,7 @@ public static class UbiArtAudioConverter
         return targetPath;
     }
 
-    private static void MergeAudioFiles(UbiArtAudioConversionRequest request, string mainSongWavPath, string mergedWavPath, Microsoft.Extensions.Logging.ILogger logger)
+    private static void MergeAudioFiles(UbiArtAudioConversionRequest request, string mainSongWavPath, string mergedWavPath, ILogger logger)
     {
         logger.LogInformation("Merging audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -138,7 +139,7 @@ public static class UbiArtAudioConverter
         return offset;
     }
 
-    private static string ConvertToOpus(UbiArtAudioConversionRequest request, string mergedWavPath, Microsoft.Extensions.Logging.ILogger logger)
+    private static string ConvertToOpus(UbiArtAudioConversionRequest request, string mergedWavPath, ILogger logger)
     {
         string opusPath = Path.Combine(request.TempAudioFolder, "merged.opus");
 
@@ -175,7 +176,7 @@ public static class UbiArtAudioConverter
         File.Move(sourcePath, targetPath, true);
     }
 
-    private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath, Microsoft.Extensions.Logging.ILogger logger)
+    private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath, ILogger logger)
     {
         if (audioFiles.Length == 0)
             return;

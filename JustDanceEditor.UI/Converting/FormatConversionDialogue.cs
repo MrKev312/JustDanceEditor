@@ -1,20 +1,19 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.Formats.Unity;
-using Microsoft.Extensions.Logging;
-using JustDanceEditor.UI.Helpers;
 using JustDanceEditor.UI.DependencyInjection;
+using JustDanceEditor.UI.Helpers;
+
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.UI.Converting;
 
 internal static class FormatConversionDialogue
 {
-    public static void Start(IKeyedServiceProvider<IJdiFormat> formatsProvider, IEnumerable<IJdiFormat> formatsEnumerable, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Start(IKeyedServiceProvider<IJdiFormat> formatsProvider, IEnumerable<IJdiFormat> formatsEnumerable, ILogger logger)
     {
         // Ask for input folder up front so we can auto-detect its format
         string inputPath = Question.AskFolder("Enter the input folder for the conversion", true);
 
-        IJdiFormat[] formats = formatsEnumerable.ToArray();
+        IJdiFormat[] formats = [.. formatsEnumerable];
 
         IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
         IJdiFormat[] targetCandidates = [.. formats.Where(f => f.CanExport)];
@@ -127,7 +126,6 @@ internal static class FormatConversionDialogue
 
         return (importRequest, exportRequest);
     }
-
 
     private static string AskOutputPath(string target)
     {

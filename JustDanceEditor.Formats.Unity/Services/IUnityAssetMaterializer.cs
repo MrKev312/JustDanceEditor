@@ -1,6 +1,6 @@
-namespace JustDanceEditor.Formats.Unity.Services;
-
 using JustDanceEditor.Formats.JDI;
+
+namespace JustDanceEditor.Formats.Unity.Services;
 
 public interface IUnityAssetMaterializer
 {

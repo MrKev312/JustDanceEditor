@@ -20,7 +20,7 @@ public class PictogramCreationDialogTests
         try
         {
             PictogramCreationViewModel vm = new(new[] { picName }, root);
-            var item = System.Linq.Enumerable.First(vm.AvailablePictogramItems);
+            PictogramItem item = Enumerable.First(vm.AvailablePictogramItems);
             vm.SelectedPictogram = item;
             vm.DurationBeats = 1.5M;
 

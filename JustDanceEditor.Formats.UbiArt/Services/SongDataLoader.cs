@@ -3,20 +3,16 @@ using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
+
 using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
-public class SongDataLoader : ISongDataLoader
+public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
 {
-    private readonly Microsoft.Extensions.Logging.ILogger<SongDataLoader> _logger;
-
-    public SongDataLoader(Microsoft.Extensions.Logging.ILogger<SongDataLoader> logger)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    private readonly ILogger<SongDataLoader> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, FileSystem fileSystem)
     {

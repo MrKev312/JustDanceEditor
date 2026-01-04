@@ -212,7 +212,7 @@ public class AudioBarControl : Control
             int step = Math.Max(1, Samples.Length / (int)Math.Max(1, totalWidth));
             for (int x = 0; x < (int)totalWidth; x++)
             {
-                int sampleIdx = (int)((double)x / totalWidth * Samples.Length);
+                int sampleIdx = (int)(x / totalWidth * Samples.Length);
                 if (sampleIdx >= Samples.Length)
                     break;
 

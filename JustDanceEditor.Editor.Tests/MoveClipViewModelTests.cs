@@ -15,12 +15,12 @@ public class MoveClipViewModelTests
         TimelineEditorViewModel timeline = new(package, "root");
 
         // register a move definition and set properties
-        var def = timeline.GetOrRegisterMove("moveX", false);
+        MoveDefinitionViewModel def = timeline.GetOrRegisterMove("moveX", false);
         def.Color = Colors.Magenta;
         def.DefaultDuration = 48.0; // frames
 
         MoveClip raw = new() { MoveId = "old" };
-        MoveClipViewModel clipVm = new(raw, duration: 24.0/24.0, color: Colors.LightGray, moveId: "old", rootPath: null, parentTimeline: timeline, isFullBody: false);
+        MoveClipViewModel clipVm = new(raw, duration: 24.0 / 24.0, color: Colors.LightGray, moveId: "old", rootPath: null, parentTimeline: timeline, isFullBody: false);
 
         // preconditions
         Assert.NotEqual(def, clipVm.Definition);
@@ -41,7 +41,7 @@ public class MoveClipViewModelTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root");
 
-        var def = timeline.GetOrRegisterMove("m1", false);
+        MoveDefinitionViewModel def = timeline.GetOrRegisterMove("m1", false);
         def.Color = Colors.Green;
 
         MoveClip raw = new() { MoveId = "m1" };

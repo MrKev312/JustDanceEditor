@@ -25,27 +25,21 @@ public interface IKeyedServiceProvider<T>
     bool TryGet(string key, out T? value);
 }
 
-internal sealed class KeyedServiceProvider<T> : IKeyedServiceProvider<T>
+internal sealed class KeyedServiceProvider<T>(IServiceProvider sp, IEnumerable<KeyedServiceDescriptor<T>> descriptors) : IKeyedServiceProvider<T>
 {
-    private readonly IServiceProvider _sp;
-    private readonly IDictionary<string, Func<IServiceProvider, T>> _map;
-
-    public KeyedServiceProvider(IServiceProvider sp, IEnumerable<KeyedServiceDescriptor<T>> descriptors)
-    {
-        _sp = sp;
-        _map = descriptors.ToDictionary(d => d.Key, d => d.Factory, StringComparer.OrdinalIgnoreCase);
-    }
+    private readonly IServiceProvider _sp = sp;
+    private readonly IDictionary<string, Func<IServiceProvider, T>> _map = descriptors.ToDictionary(d => d.Key, d => d.Factory, StringComparer.OrdinalIgnoreCase);
 
     public T Get(string key)
     {
-        if (!_map.TryGetValue(key, out var factory))
+        if (!_map.TryGetValue(key, out Func<IServiceProvider, T>? factory))
             throw new KeyNotFoundException($"No keyed service registered for key '{key}'.");
         return factory(_sp);
     }
 
     public bool TryGet(string key, out T? value)
     {
-        if (_map.TryGetValue(key, out var factory))
+        if (_map.TryGetValue(key, out Func<IServiceProvider, T>? factory))
         {
             value = factory(_sp);
             return true;

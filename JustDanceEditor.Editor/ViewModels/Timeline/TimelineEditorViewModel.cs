@@ -593,8 +593,6 @@ public partial class TimelineEditorViewModel : Document
         }
     }
 
-
-
     public void PushUndo(Action undo, Action redo)
     {
         if (undo == null || redo == null)

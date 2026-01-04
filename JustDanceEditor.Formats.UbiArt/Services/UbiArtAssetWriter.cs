@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Serialization;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -19,7 +20,7 @@ public static class UbiArtAssetWriter
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, Microsoft.Extensions.Logging.ILogger logger)
+    public static async Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, ILogger logger)
     {
         logger.LogInformation("Exporting {MapName} to Uncooked UbiArt...", package.Metadata.MapName);
 
@@ -70,7 +71,7 @@ public static class UbiArtAssetWriter
         logger.LogInformation("Uncooked export completed.");
     }
 
-    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, ILogger logger)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
@@ -429,7 +430,7 @@ public static class UbiArtAssetWriter
     /// - Write an external .trk file containing the MusicTrack structure
     /// - Write AMB .ilu and .tpl entries under Audio/AMB
     /// </summary>
-    private static async Task PrepareAudioForUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string mapSubFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static async Task PrepareAudioForUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string mapSubFolder, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(materializedRoot))
         {
@@ -594,7 +595,7 @@ public static class UbiArtAssetWriter
         return $"includeReference(\"world/Maps/{mapNameLower}/audio/{mapName}.trk\")\n\nparams =\n{{\n\tNAME = \"Actor_Template\",\n\tActor_Template =\n\t{{\n\t\tCOMPONENTS = \n\t\t{{\n\t\t\t{{\n\t\t\t\tNAME = \"MusicTrackComponent_Template\",\n\t\t\t\tMusicTrackComponent_Template =\n\t\t\t\t{{\n\t\t\t\t\ttrackData = {{ MusicTrackData = {{ path = \"world/Maps/{mapNameLower}/audio/{mapName}.wav\", structure = structure, volume = 0 }} }},\n\t\t\t\t}}\n\t\t\t}},\n\t\t}}\n\t}}\n}}\n";
     }
 
-    private static async Task CopyAssetsAsync(IntermediateSongPackage package, string materializedRoot, string mapSubFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static async Task CopyAssetsAsync(IntermediateSongPackage package, string materializedRoot, string mapSubFolder, ILogger logger)
     {
         logger.LogInformation("Copying assets from materialized root: {MaterializedRoot}", materializedRoot);
 

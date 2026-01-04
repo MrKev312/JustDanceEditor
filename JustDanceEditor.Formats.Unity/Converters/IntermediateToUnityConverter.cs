@@ -6,6 +6,7 @@ using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
@@ -22,7 +23,7 @@ internal sealed class IntermediateToUnityConverter
     private readonly TemplateSet _templates;
     private readonly string _songFolderName;
     private readonly string _outputRoot;
-    private readonly Microsoft.Extensions.Logging.ILogger _logger;
+    private readonly ILogger _logger;
 
     static readonly JsonSerializerOptions serializerOptions = new()
     {
@@ -33,7 +34,7 @@ internal sealed class IntermediateToUnityConverter
         IntermediateSongPackage package,
         string packageRoot,
         UnityConversionRequest request,
-        Microsoft.Extensions.Logging.ILogger logger)
+        ILogger logger)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
@@ -499,7 +500,7 @@ internal sealed class IntermediateToUnityConverter
                name.Contains("coachbackground", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void TryDeleteDirectorySafe(string path, Microsoft.Extensions.Logging.ILogger? logger = null)
+    private static void TryDeleteDirectorySafe(string path, ILogger? logger = null)
     {
         try
         {

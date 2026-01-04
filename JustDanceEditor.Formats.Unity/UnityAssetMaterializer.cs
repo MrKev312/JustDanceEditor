@@ -2,6 +2,7 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.JDI;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -22,7 +23,7 @@ public static class UnityAssetMaterializer
         Quality = 100
     };
 
-    public static void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityRoot);
@@ -56,7 +57,7 @@ public static class UnityAssetMaterializer
         logger.LogInformation("Unity asset extraction complete.");
     }
 
-    private static void CopyAudio(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void CopyAudio(string unityRoot, string packageRoot, ILogger logger)
     {
         string audioFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
 
@@ -89,7 +90,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void CopyVideo(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void CopyVideo(string unityRoot, string packageRoot, ILogger logger)
     {
         string backgroundSource = Path.Combine(unityRoot, "video");
         string backgroundDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
@@ -124,7 +125,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractBrandingAssets(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ExtractBrandingAssets(string unityRoot, string packageRoot, ILogger logger)
     {
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
 
@@ -155,7 +156,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractCoachAssets(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ExtractCoachAssets(string unityRoot, string packageRoot, ILogger logger)
     {
         string coachFolder = Path.Combine(unityRoot, "CoachesLarge");
         if (!Directory.Exists(coachFolder))
@@ -209,7 +210,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractPictograms(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ExtractPictograms(string unityRoot, string packageRoot, ILogger logger)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
@@ -301,7 +302,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractMotionScripts(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ExtractMotionScripts(string unityRoot, string packageRoot, ILogger logger)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
@@ -321,7 +322,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractGestureFiles(string unityRoot, string packageRoot, Microsoft.Extensions.Logging.ILogger logger)
+    private static void ExtractGestureFiles(string unityRoot, string packageRoot, ILogger logger)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(

@@ -13,7 +13,7 @@ public class RemoveEmptyLyricsCommand : IRunCommand
 {
     public bool CanRun(ITimelineContextService? timelineContext)
     {
-        var timeline = timelineContext?.ActiveTimeline;
+        TimelineEditorViewModel? timeline = timelineContext?.ActiveTimeline;
         if (timeline == null)
             return false;
 
@@ -32,19 +32,18 @@ public class RemoveEmptyLyricsCommand : IRunCommand
         foreach (TrackViewModel track in timeline.Tracks)
         {
             // Build list of karaoke clips with indices
-            List<(KaraokeClipViewModel Clip, int Index)> karaokeWithIndex = track.Clips
+            List<(KaraokeClipViewModel Clip, int Index)> karaokeWithIndex = [.. track.Clips
                 .Select((c, idx) => (Clip: c, Index: idx))
                 .Where(t => t.Clip is KaraokeClipViewModel)
-                .Select(t => (Clip: (KaraokeClipViewModel)t.Clip, Index: t.Index))
-                .ToList();
+                .Select(t => (Clip: (KaraokeClipViewModel)t.Clip, t.Index))];
 
             // Find empty ones
-            List<(KaraokeClipViewModel Clip, int Index)> emptyOnes = karaokeWithIndex.Where(k => string.IsNullOrWhiteSpace(k.Clip.Lyrics)).ToList();
+            List<(KaraokeClipViewModel Clip, int Index)> emptyOnes = [.. karaokeWithIndex.Where(k => string.IsNullOrWhiteSpace(k.Clip.Lyrics))];
             if (emptyOnes.Count == 0)
                 continue;
 
             // Process in descending index order so removals don't shift earlier indices
-            foreach (var e in emptyOnes.OrderByDescending(x => x.Index))
+            foreach ((KaraokeClipViewModel Clip, int Index) e in emptyOnes.OrderByDescending(x => x.Index))
             {
                 int idx = e.Index;
                 KaraokeClipViewModel clip = e.Clip;
@@ -75,23 +74,22 @@ public class RemoveEmptyLyricsCommand : IRunCommand
             undo: () =>
             {
                 // Re-insert removed clips at their original indices and restore prev end flags
-                foreach (var info in removals.OrderBy(r => r.Index))
+                foreach ((TrackViewModel Track, KaraokeClipViewModel Clip, int Index, KaraokeClipViewModel? PrevClip, bool PrevWasEnd) info in removals.OrderBy(r => r.Index))
                 {
-                    var track = info.Track;
+                    TrackViewModel track = info.Track;
                     int idx = Math.Min(info.Index, track.Clips.Count);
                     if (!track.Clips.Contains(info.Clip))
                         track.Clips.Insert(idx, info.Clip);
 
-                    if (info.PrevClip != null)
-                        info.PrevClip.IsEndOfLine = info.PrevWasEnd;
+                    info.PrevClip?.IsEndOfLine = info.PrevWasEnd;
                 }
             },
             redo: () =>
             {
                 // Remove the clips again and set prev end-of-line where appropriate
-                foreach (var info in removals.OrderByDescending(r => r.Index))
+                foreach ((TrackViewModel Track, KaraokeClipViewModel Clip, int Index, KaraokeClipViewModel? PrevClip, bool PrevWasEnd) info in removals.OrderByDescending(r => r.Index))
                 {
-                    var track = info.Track;
+                    TrackViewModel track = info.Track;
                     if (track.Clips.Contains(info.Clip))
                         track.Clips.Remove(info.Clip);
 

@@ -4,6 +4,7 @@ using AssetsTools.NET.Extra;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -29,10 +30,10 @@ public sealed record UnityMapPackageRequest(
 
 public static class MapPackageBundleBuilder
 {
-    public static Task GenerateAsync(UnityMapPackageRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+    public static Task GenerateAsync(UnityMapPackageRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityMapPackageRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Generate(UnityMapPackageRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -68,7 +69,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
+    private static void GenerateBundle(BundleContext request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
@@ -139,7 +140,7 @@ public static class MapPackageBundleBuilder
             throw new ArgumentException("Move files collection must not be null.", nameof(request));
     }
 
-    private static List<UnityMoveFile> LoadMoveFiles(string? movesFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static List<UnityMoveFile> LoadMoveFiles(string? movesFolder, ILogger logger)
     {
         List<UnityMoveFile> moves = [];
         if (string.IsNullOrWhiteSpace(movesFolder) || !Directory.Exists(movesFolder))
@@ -349,7 +350,7 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void AddDanceMoveAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray, Microsoft.Extensions.Logging.ILogger logger)
+    private static void AddDanceMoveAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray, ILogger logger)
     {
         if (request.MoveFiles.Count == 0)
         {
@@ -438,7 +439,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static void AddPictoSpriteAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
-        AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray, Microsoft.Extensions.Logging.ILogger logger)
+        AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray, ILogger logger)
     {
         List<string> sortedPictoNames = [.. imageDict.Keys];
         sortedPictoNames.Sort(StringComparer.InvariantCulture);
@@ -556,7 +557,7 @@ public static class MapPackageBundleBuilder
         afile.AssetInfos.Remove(spriteTemplate);
     }
 
-    private static void PopulateDanceDataClips(BundleContext request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict, Microsoft.Extensions.Logging.ILogger logger)
+    private static void PopulateDanceDataClips(BundleContext request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict, ILogger logger)
     {
         AssetTypeValueField motionClipsArray = mapBase["DanceData"]["MotionClips"]["Array"];
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];

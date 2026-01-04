@@ -3,6 +3,7 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -26,10 +27,10 @@ public sealed record UnityCoverRequest(
 
 public static class CoverBundleBuilder
 {
-    public static Task GenerateAsync(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+    public static Task GenerateAsync(UnityCoverRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static void Generate(UnityCoverRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -53,7 +54,7 @@ public static class CoverBundleBuilder
         GenerateBundle(internalRequest, logger);
     }
 
-    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
+    private static void GenerateBundle(BundleContext request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
@@ -102,7 +103,7 @@ public static class CoverBundleBuilder
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
     }
 
-    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request, ILogger logger)
     {
         if (request.OverrideCoverImage is not null)
             return request.OverrideCoverImage.CloneAs<Rgba32>();

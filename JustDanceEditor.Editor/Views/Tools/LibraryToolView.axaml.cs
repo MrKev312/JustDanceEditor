@@ -51,7 +51,7 @@ public partial class LibraryToolView : UserControl
         {
             Visual? cur = v;
             while (cur is not null and not DataGridRow)
-                cur = cur.GetVisualParent() as Visual;
+                cur = cur.GetVisualParent();
             if (cur is DataGridRow row)
             {
                 hit = row.DataContext as LibraryItemViewModel;

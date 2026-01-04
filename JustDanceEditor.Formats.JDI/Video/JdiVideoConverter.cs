@@ -39,7 +39,7 @@ public static class JdiVideoConverter
         }
     }
 
-    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
@@ -82,7 +82,7 @@ public static class JdiVideoConverter
         logger.LogInformation("Preview video generation complete.");
     }
 
-    public static async Task EnsureBackgroundVideosAsync(string packageRoot, Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task EnsureBackgroundVideosAsync(string packageRoot, ILogger logger, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
 
@@ -167,7 +167,7 @@ public static class JdiVideoConverter
         VideoQualityProfile[] profiles,
         TimeSpan start,
         TimeSpan duration,
-        Microsoft.Extensions.Logging.ILogger logger,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source, cancellationToken);
@@ -205,7 +205,7 @@ public static class JdiVideoConverter
         TimeSpan start,
         TimeSpan duration,
         string baseCropFilter,
-        Microsoft.Extensions.Logging.ILogger logger,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         string targetPath = Path.Combine(scratchFolder, profile.FileName);
@@ -337,7 +337,7 @@ public static class JdiVideoConverter
         return args.ToString();
     }
 
-    private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType, Microsoft.Extensions.Logging.ILogger logger)
+    private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType, ILogger logger)
     {
         string manifestPath = Path.Combine(scratchFolder, $"manifest_{videoType}.txt");
         List<string> lines = [];

@@ -13,19 +13,3 @@ public interface IFileSystem
     string GetTempPath();
     string GetFullPath(string path);
 }
-
-public interface IMediaProcessor
-{
-    Task EnsureInitializedAsync(CancellationToken cancellationToken = default);
-    Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default);
-}
-
-public interface IAudioConverter
-{
-    Task Convert(string sourcePath, string targetPath);
-}
-
-public interface ITextureService
-{
-    Task ConvertTextureAsync(string inputPath, string outputPath, CancellationToken cancellationToken = default);
-}

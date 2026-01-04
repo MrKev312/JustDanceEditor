@@ -2,10 +2,10 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class TempFolders(FileSystem fileSystem, Microsoft.Extensions.Logging.ILogger<FileSystem> logger)
+public class TempFolders(FileSystem fileSystem, ILogger<FileSystem> logger)
 {
     private readonly FileSystem fileSystem = fileSystem;
-    private readonly Microsoft.Extensions.Logging.ILogger<FileSystem> _logger = logger;
+    private readonly ILogger<FileSystem> _logger = logger;
 
     public string MapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", fileSystem.SongName);
     public string AudioFolder => Path.Combine(MapFolder, "audio");

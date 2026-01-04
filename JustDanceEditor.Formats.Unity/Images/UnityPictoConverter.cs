@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.Unity.Models;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -20,7 +21,7 @@ public sealed record UnityPictoConversionResult(
 
 public static class UnityPictoConverter
 {
-    public static UnityPictoConversionResult Convert(UnityPictoConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
+    public static UnityPictoConversionResult Convert(UnityPictoConversionRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.SourceFiles);
@@ -71,7 +72,7 @@ public static class UnityPictoConverter
     }
 
     private static (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)> ImageDictionary, List<Image<Rgba32>> AtlasImages)
-        BuildPictoAtlases(string[] convertedPictoPngPaths, bool multipleCoaches = false, Microsoft.Extensions.Logging.ILogger? logger = null)
+        BuildPictoAtlases(string[] convertedPictoPngPaths, bool multipleCoaches = false, ILogger? logger = null)
     {
         logger?.LogInformation("Creating atlasses from {Count} PNG pictos...", convertedPictoPngPaths.Length);
 
@@ -121,7 +122,7 @@ public static class UnityPictoConverter
         return (imageDict, atlasPics);
     }
 
-    private static void SaveAtlasImagesToDisk(List<Image<Rgba32>> atlasImages, string pictoAtlasTempFolder, Microsoft.Extensions.Logging.ILogger logger)
+    private static void SaveAtlasImagesToDisk(List<Image<Rgba32>> atlasImages, string pictoAtlasTempFolder, ILogger logger)
     {
         if (atlasImages.Count == 0)
         {

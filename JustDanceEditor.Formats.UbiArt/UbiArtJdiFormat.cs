@@ -4,28 +4,20 @@ using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Services;
+
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, FileSystem> fileSystemFactory, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger) : IJdiFormat
 {
-    private readonly ISongDataLoader _songDataLoader;
-    private readonly Func<UbiArtConversionRequest, FileSystem> _fileSystemFactory;
-    private readonly JustDanceEditor.Formats.JDI.Services.IAudioConverter _audioConverter;
-    private readonly JustDanceEditor.Formats.JDI.Services.IMediaProcessor _mediaProcessor;
-    private readonly JustDanceEditor.Formats.JDI.Services.ITextureService _textureService;
-    private readonly ILogger<UbiArtJdiFormat> _logger;
+    private readonly ISongDataLoader _songDataLoader = songDataLoader;
+    private readonly Func<UbiArtConversionRequest, FileSystem> _fileSystemFactory = fileSystemFactory;
+    private readonly JDI.Services.IAudioConverter _audioConverter = audioConverter;
+    private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
+    private readonly JDI.Services.ITextureService _textureService = textureService;
+    private readonly ILogger<UbiArtJdiFormat> _logger = logger;
 
-    public UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, FileSystem> fileSystemFactory, JustDanceEditor.Formats.JDI.Services.IAudioConverter audioConverter, JustDanceEditor.Formats.JDI.Services.IMediaProcessor mediaProcessor, JustDanceEditor.Formats.JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger)
-    {
-        _songDataLoader = songDataLoader;
-        _fileSystemFactory = fileSystemFactory;
-        _audioConverter = audioConverter;
-        _mediaProcessor = mediaProcessor;
-        _textureService = textureService;
-        _logger = logger;
-    }
     public string DisplayName => "UbiArt";
     public bool CanImport => true;
     public bool CanExport => true;
@@ -57,7 +49,7 @@ public sealed class UbiArtJdiFormat : IJdiFormat
         string outputFolder = Path.Combine(ubiRequest.OutputPath, context.SongData.Name);
         PrepareOutputDirectory(outputFolder);
 
-        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger);
+        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, _textureService);
         IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
 
         return new JdiImportResult(

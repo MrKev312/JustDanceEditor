@@ -22,7 +22,7 @@ public class PictogramCreationViewModelTests
         try
         {
             PictogramCreationViewModel vm = new(new[] { picName }, root);
-            var item = vm.AvailablePictogramItems.FirstOrDefault(i => i.Id == picName);
+            PictogramItem? item = vm.AvailablePictogramItems.FirstOrDefault(i => i.Id == picName);
             Assert.NotNull(item);
             Assert.Equal(picName, item.Id);
             Assert.False(string.IsNullOrEmpty(item.ImagePath));

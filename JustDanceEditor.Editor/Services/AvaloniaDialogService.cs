@@ -28,7 +28,7 @@ public class AvaloniaDialogService : IDialogService
         if (owner != null)
             await win.ShowDialog(owner);
         else
-            await win.ShowDialog((Window)win);
+            await win.ShowDialog(win);
 
         if (viewModel is IDialogResult<TResult> dr)
             return dr.Result;
