@@ -20,6 +20,9 @@ internal class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddSimpleConsole(options => options.TimestampFormat = "HH:mm:ss ");
 
+        // Register custom texture formats for ImageSharp (once)
+        global::TextureConverter.Formats.ImageSharpConfiguration.RegisterCustomFormats();
+
         // Register services
         builder.Services.AddSingleton<IFileSystem, DefaultFileSystem>();
         builder.Services.AddSingleton<ITextureService, DefaultTextureService>();

@@ -13,7 +13,7 @@ internal sealed class DefaultTextureService : ITextureService
     {
         try
         {
-            return TextureConverter.TextureConverter.ConvertToImage(path);
+            return Image.Load<Bgra32>(path);
         }
         catch
         {

@@ -30,6 +30,9 @@ class Program
         if (list.Count == 0)
             Console.WriteLine("Usage: TextureConverter.exe <file1> <file2> ...");
 
+        // Register custom image formats with ImageSharp
+        Formats.ImageSharpConfiguration.RegisterCustomFormats();
+
         // For each file extract the images in parallel
         Parallel.ForEach(list, x =>
         {
@@ -41,8 +44,8 @@ class Program
 
             try
             {
-                // Create the parser
-                using Image image = TextureConverter.ConvertToImage(x, false);
+                // Load using ImageSharp so our custom decoders can be used
+                using Image image = Image.Load(x);
                 image.SaveAsPng(outputPath);
 
                 // Show that the file has been processed
