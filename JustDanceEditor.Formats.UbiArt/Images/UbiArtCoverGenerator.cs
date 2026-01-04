@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
@@ -12,7 +12,7 @@ namespace JustDanceEditor.Formats.UbiArt.Images;
 
 public static class UbiArtCoverGenerator
 {
-    public static Image<Bgra32>? ExistingCover(ConversionContext context)
+    public static Image<Bgra32>? ExistingCover(ConversionContext context, Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         JDUbiArtSong song = context.SongData;
 
@@ -35,7 +35,7 @@ public static class UbiArtCoverGenerator
                 continue;
             }
 
-            Logger.Log($"Found existing cover: {Path.GetFileName(path)}", LogLevel.Important);
+            logger?.LogInformation("Found existing cover: {FileName}", Path.GetFileName(path));
             image.Mutate(x => x.Resize(640, 360));
             return image;
         }
@@ -43,7 +43,7 @@ public static class UbiArtCoverGenerator
         return null;
     }
 
-    public static Image<Bgra32> GenerateOwnCover(ConversionContext context)
+    public static Image<Bgra32> GenerateOwnCover(ConversionContext context, Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         JDUbiArtSong song = context.SongData;
 
@@ -63,7 +63,7 @@ public static class UbiArtCoverGenerator
             albumCoach.Dispose();
         }
         else
-            Logger.Log($"Album/Coach art not found for song '{song.Name}'.", LogLevel.Warning);
+            logger?.LogWarning("Album/Coach art not found for song '{SongName}'.", song.Name);
 
         coverImage.Mutate(x => x.Resize(720, 360));
         coverImage.Mutate(x => x.Crop(new Rectangle(40, 0, 640, 360)));

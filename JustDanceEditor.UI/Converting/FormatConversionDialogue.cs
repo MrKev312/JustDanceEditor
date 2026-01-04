@@ -1,24 +1,20 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.Unity;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 using JustDanceEditor.UI.Helpers;
+using JustDanceEditor.UI.DependencyInjection;
 
 namespace JustDanceEditor.UI.Converting;
 
 internal static class FormatConversionDialogue
 {
-    public static void Start()
+    public static void Start(IKeyedServiceProvider<IJdiFormat> formatsProvider, IEnumerable<IJdiFormat> formatsEnumerable, Microsoft.Extensions.Logging.ILogger logger)
     {
         // Ask for input folder up front so we can auto-detect its format
         string inputPath = Question.AskFolder("Enter the input folder for the conversion", true);
 
-        IJdiFormat[] formats =
-        [
-            new UbiArtJdiFormat(),
-            new UnityJdiFormat(),
-            new JdiFormat()
-        ];
+        IJdiFormat[] formats = formatsEnumerable.ToArray();
 
         IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
         IJdiFormat[] targetCandidates = [.. formats.Where(f => f.CanExport)];
@@ -88,7 +84,7 @@ internal static class FormatConversionDialogue
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Conversion failed: {ex.Message}");
-            Logger.Log($"Format conversion failed: {ex}", LogLevel.Error);
+            logger.LogError(ex, "Format conversion failed: {Exception}", ex);
             Console.ResetColor();
         }
     }

@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
 
@@ -12,18 +12,20 @@ public sealed class AudioConversionOptions
 
 public static class AudioConverter
 {
-    private static readonly IAudioConverter audioConverter = new VGMStreamAdapter();
+    private static readonly JustDanceEditor.Formats.JDI.Services.IAudioConverter audioConverter = new VGMStreamAdapter();
 
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,
         FileSystem fileSystem,
-        AudioConversionOptions options) =>
-        Task.Run(() => ConvertAudio(songData, fileSystem, options));
+        AudioConversionOptions options,
+        Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => ConvertAudio(songData, fileSystem, options, logger));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
         FileSystem fileSystem,
-        AudioConversionOptions options)
+        AudioConversionOptions options,
+        Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(fileSystem);
@@ -32,11 +34,11 @@ public static class AudioConverter
         try
         {
             UbiArtAudioConversionRequest conversionRequest = BuildRequest(songData, fileSystem, options);
-            UbiArtAudioConverter.ConvertAudio(conversionRequest);
+            UbiArtAudioConverter.ConvertAudio(conversionRequest, logger);
         }
         catch (Exception e)
         {
-            Logger.Log($"Failed to convert audio files: {e.Message}", LogLevel.Error);
+            logger.LogError(e, "Failed to convert audio files: {Message}", e.Message);
         }
     }
 

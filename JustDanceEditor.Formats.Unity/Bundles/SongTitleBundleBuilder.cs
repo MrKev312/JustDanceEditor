@@ -3,7 +3,7 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -26,18 +26,18 @@ public sealed record UnitySongTitleRequest(
 
 public static class SongTitleBundleBuilder
 {
-    public static Task GenerateAsync(UnitySongTitleRequest request) =>
-        Task.Run(() => Generate(request));
+    public static Task GenerateAsync(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnitySongTitleRequest request)
+    public static void Generate(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
 
-        using Image<Rgba32>? titleImage = PrepareSongTitleImage(request);
+        using Image<Rgba32>? titleImage = PrepareSongTitleImage(request, logger);
         if (titleImage == null)
         {
-            Logger.Log("No song title logo image found, skipping song title bundle generation.", LogLevel.Important);
+            logger.LogInformation("No song title logo image found, skipping song title bundle generation.");
             return;
         }
 
@@ -50,17 +50,17 @@ public static class SongTitleBundleBuilder
             request.OutputFolderPath,
             request.ForCustomServer);
 
-        GenerateBundle(internalRequest);
+        GenerateBundle(internalRequest, logger);
     }
 
-    private static void GenerateBundle(BundleContext request)
+    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
         try
         {
-            Logger.Log($"Starting generation for song title logo: {request.Codename}");
+            logger.LogInformation("Starting generation for song title logo: {Codename}", request.Codename);
 
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? textureInfo, AssetFileInfo? spriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
@@ -70,11 +70,11 @@ public static class SongTitleBundleBuilder
 
             FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
 
-            Logger.Log($"Finished generating song title logo for {request.Codename}");
+            logger.LogInformation("Finished generating song title logo for {Codename}", request.Codename);
         }
         catch (Exception ex)
         {
-            Logger.Log($"Failed to generate song title logo for {request.Codename}: {ex.Message}", LogLevel.Error);
+            logger.LogError(ex, "Failed to generate song title logo for {Codename}: {Message}", request.Codename, ex.Message);
             throw;
         }
     }
@@ -102,7 +102,7 @@ public static class SongTitleBundleBuilder
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
     }
 
-    private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleRequest request)
+    private static Image<Rgba32>? PrepareSongTitleImage(UnitySongTitleRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (request.OverrideTitleImage is not null)
             return request.OverrideTitleImage.CloneAs<Rgba32>();
@@ -112,7 +112,7 @@ public static class SongTitleBundleBuilder
 
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
-            image = ImageLoader.TryImageWeb(request.SongName, "Title");
+            image = ImageLoader.TryImageWeb(request.SongName, "Title", logger);
 
         return image ?? ImageLoader.TryLoadImage(request.MenuArt.SongTitleLogoPath);
     }

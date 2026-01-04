@@ -3,7 +3,7 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -25,10 +25,10 @@ public sealed record UnityCoachesLargeRequest(
 
 public static class CoachesLargeBundleBuilder
 {
-    public static Task GenerateAsync(UnityCoachesLargeRequest request) =>
-        Task.Run(() => Generate(request));
+    public static Task GenerateAsync(UnityCoachesLargeRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityCoachesLargeRequest request)
+    public static void Generate(UnityCoachesLargeRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -50,7 +50,7 @@ public static class CoachesLargeBundleBuilder
                 request.OutputFolderPath,
                 request.ForCustomServer);
 
-            GenerateBundle(internalRequest);
+            GenerateBundle(internalRequest, logger);
         }
         finally
         {
@@ -60,12 +60,12 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request)
+    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
-        Logger.Log($"Converting CoachesLarge bundle for {request.Codename}...");
+        logger.LogInformation("Converting CoachesLarge bundle for {Codename}...", request.Codename);
         try
         {
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, List<AssetFileInfo>? sortedAssetInfos, AssetTypeValueField? assetBundleBase) = InitializeBundle(request);
@@ -81,11 +81,11 @@ public static class CoachesLargeBundleBuilder
 
             AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
             FinalizeAndSaveBundle(request, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
-            Logger.Log($"Finished CoachesLarge bundle for {request.Codename}");
+            logger.LogInformation("Finished CoachesLarge bundle for {Codename}", request.Codename);
         }
-        catch
+        catch (Exception ex)
         {
-            Logger.Log($"Failed to generate CoachesLarge bundle for {request.Codename}", LogLevel.Error);
+            logger.LogError(ex, "Failed to generate CoachesLarge bundle for {Codename}", request.Codename);
             throw;
         }
     }

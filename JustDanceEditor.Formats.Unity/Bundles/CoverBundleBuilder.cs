@@ -3,7 +3,7 @@ using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -26,18 +26,18 @@ public sealed record UnityCoverRequest(
 
 public static class CoverBundleBuilder
 {
-    public static Task GenerateAsync(UnityCoverRequest request) =>
-        Task.Run(() => Generate(request));
+    public static Task GenerateAsync(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityCoverRequest request)
+    public static void Generate(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
 
-        using Image<Rgba32>? coverImage = PrepareCoverImage(request);
+        using Image<Rgba32>? coverImage = PrepareCoverImage(request, logger);
         if (coverImage == null)
         {
-            Logger.Log("Cover image could not be prepared, skipping cover bundle generation.", LogLevel.Warning);
+            logger.LogWarning("Cover image could not be prepared, skipping cover bundle generation.");
             return;
         }
 
@@ -50,17 +50,17 @@ public static class CoverBundleBuilder
             request.OutputFolderPath,
             request.ForCustomServer);
 
-        GenerateBundle(internalRequest);
+        GenerateBundle(internalRequest, logger);
     }
 
-    private static void GenerateBundle(BundleContext request)
+    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
         try
         {
-            Logger.Log($"Starting generation for cover: {request.Codename}");
+            logger.LogInformation("Starting generation for cover: {Codename}", request.Codename);
 
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? coverTextureInfo, AssetFileInfo? coverSpriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
@@ -70,11 +70,11 @@ public static class CoverBundleBuilder
 
             FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
 
-            Logger.Log($"Finished generating cover for {request.Codename}");
+            logger.LogInformation("Finished generating cover for {Codename}", request.Codename);
         }
         catch (Exception ex)
         {
-            Logger.Log($"Failed to generate cover for {request.Codename}: {ex.Message}", LogLevel.Error);
+            logger.LogError(ex, "Failed to generate cover for {Codename}: {Message}", request.Codename, ex.Message);
             throw;
         }
     }
@@ -102,7 +102,7 @@ public static class CoverBundleBuilder
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
     }
 
-    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request)
+    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (request.OverrideCoverImage is not null)
             return request.OverrideCoverImage.CloneAs<Rgba32>();
@@ -112,11 +112,11 @@ public static class CoverBundleBuilder
 
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
-            image = ImageLoader.TryImageWeb(request.SongName, "Cover");
+            image = ImageLoader.TryImageWeb(request.SongName, "Cover", logger);
 
         image ??= ImageLoader.TryLoadImage(request.MenuArt.CoverPath);
         if (image != null)
-            Logger.Log("Cover image prepared from intermediate assets.", LogLevel.Debug);
+            logger.LogDebug("Cover image prepared from intermediate assets.");
 
         return image;
     }

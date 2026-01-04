@@ -6,7 +6,7 @@ using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
 
@@ -22,6 +22,7 @@ internal sealed class IntermediateToUnityConverter
     private readonly TemplateSet _templates;
     private readonly string _songFolderName;
     private readonly string _outputRoot;
+    private readonly Microsoft.Extensions.Logging.ILogger _logger;
 
     static readonly JsonSerializerOptions serializerOptions = new()
     {
@@ -31,11 +32,13 @@ internal sealed class IntermediateToUnityConverter
     public IntermediateToUnityConverter(
         IntermediateSongPackage package,
         string packageRoot,
-        UnityConversionRequest request)
+        UnityConversionRequest request,
+        Microsoft.Extensions.Logging.ILogger logger)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
         _request = request ?? throw new ArgumentNullException(nameof(request));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         if (string.IsNullOrWhiteSpace(request.TemplatePath))
             throw new ArgumentException("Template path must be provided for Unity exports.");
 
@@ -46,10 +49,10 @@ internal sealed class IntermediateToUnityConverter
 
     public async Task ConvertAsync()
     {
-        Logger.Log($"Starting JDI → Unity conversion for '{_songFolderName}'.", LogLevel.Info);
+        _logger.LogInformation("Starting JDI → Unity conversion for '{SongFolder}'", _songFolderName);
 
         Directory.CreateDirectory(_outputRoot);
-        Logger.Log("Preparing assets and metadata in parallel...", LogLevel.Debug);
+        _logger.LogDebug("Preparing assets and metadata in parallel...");
 
         // Run audio, video, and SongInfo generation in parallel
         Task audioTask = CopyAudioAssetsAsync();
@@ -57,9 +60,9 @@ internal sealed class IntermediateToUnityConverter
         Task songInfoTask = GenerateSongInfoAsync();
         await Task.WhenAll(audioTask, videoTask, songInfoTask);
 
-        Logger.Log("Building Unity bundles...", LogLevel.Debug);
+        _logger.LogDebug("Building Unity bundles...");
         await BuildUnityBundlesAsync();
-        Logger.Log($"Unity conversion for '{_songFolderName}' completed.", LogLevel.Info);
+        _logger.LogInformation("Unity conversion for '{SongFolder}' completed.", _songFolderName);
     }
 
     private async Task CopyAudioAssetsAsync()
@@ -88,15 +91,15 @@ internal sealed class IntermediateToUnityConverter
         }
         else
         {
-            Logger.Log("Preview audio not found in assets or scratch; Unity export may be incomplete.", LogLevel.Warning);
+            _logger.LogWarning("Preview audio not found in assets or scratch; Unity export may be incomplete.");
         }
     }
 
     private async Task CopyVideoAssetsAsync()
     {
         // Generate background and preview videos in parallel
-        Task backgroundTask = JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot);
-        Task previewTask = JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot);
+        Task backgroundTask = JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot, _logger);
+        Task previewTask = JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot, _logger);
         await Task.WhenAll(backgroundTask, previewTask);
 
         CopyBackgroundVideos(Path.Combine(_outputRoot, "video"));
@@ -113,14 +116,14 @@ internal sealed class IntermediateToUnityConverter
         // Check if original exists in assets (source-of-truth)
         if (File.Exists(assetsPreviewPath))
         {
-            Logger.Log("Source-of-truth preview audio found in assets.", LogLevel.Debug);
+            _logger.LogDebug("Source-of-truth preview audio found in assets.");
             return;
         }
 
         // Check if already generated in scratch
         if (File.Exists(scratchPreviewPath))
         {
-            Logger.Log("Preview audio already exists in scratch.", LogLevel.Debug);
+            _logger.LogDebug("Preview audio already exists in scratch.");
             return;
         }
 
@@ -128,7 +131,7 @@ internal sealed class IntermediateToUnityConverter
         string masterPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioMasterFile);
         if (!File.Exists(masterPath))
         {
-            Logger.Log("Cannot generate preview audio because master.opus is missing.", LogLevel.Warning);
+            _logger.LogWarning("Cannot generate preview audio because master.opus is missing.");
             return;
         }
 
@@ -140,7 +143,7 @@ internal sealed class IntermediateToUnityConverter
 
         IConversion conversion = FFmpeg.Conversions.New();
         await conversion.Start(args);
-        Logger.Log("Generated preview audio in scratch from master.opus.", LogLevel.Info);
+        _logger.LogInformation("Generated preview audio in scratch from master.opus.");
     }
 
     private async Task GenerateSongInfoAsync()
@@ -153,7 +156,7 @@ internal sealed class IntermediateToUnityConverter
 
     private async Task BuildUnityBundlesAsync()
     {
-        UnityExportData unityData = UnityExportDataBuilder.Create(_package);
+        UnityExportData unityData = UnityExportDataBuilder.Create(_package, _logger);
         UnityMenuArtSource menuArt = BuildMenuArtSource();
         string songName = ResolveSongName(unityData);
         int coachCount = Math.Max(1, unityData.Metadata.CoachCount);
@@ -216,15 +219,15 @@ internal sealed class IntermediateToUnityConverter
             mapPackageFolder,
             forCustomServer);
 
-        Logger.Log("Dispatching Unity bundle builders (cover, title, coaches, map package)...", LogLevel.Debug);
-        Task coverTask = CoverBundleBuilder.GenerateAsync(coverRequest);
-        Task titleTask = SongTitleBundleBuilder.GenerateAsync(songTitleRequest);
-        Task coachesLargeTask = CoachesLargeBundleBuilder.GenerateAsync(coachesLargeRequest);
-        Task coachesSmallTask = CoachesSmallBundleBuilder.GenerateAsync(coachesSmallRequest);
-        Task mapPackageTask = MapPackageBundleBuilder.GenerateAsync(mapPackageRequest);
+        _logger.LogDebug("Dispatching Unity bundle builders (cover, title, coaches, map package)...");
+        Task coverTask = CoverBundleBuilder.GenerateAsync(coverRequest, _logger);
+        Task titleTask = SongTitleBundleBuilder.GenerateAsync(songTitleRequest, _logger);
+        Task coachesLargeTask = CoachesLargeBundleBuilder.GenerateAsync(coachesLargeRequest, _logger);
+        Task coachesSmallTask = CoachesSmallBundleBuilder.GenerateAsync(coachesSmallRequest, _logger);
+        Task mapPackageTask = MapPackageBundleBuilder.GenerateAsync(mapPackageRequest, _logger);
 
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
-        Logger.Log("Unity bundle generation finished.", LogLevel.Debug);
+        _logger.LogDebug("Unity bundle generation finished.");
     }
 
     private void CopyHashedFile(string relativeSourceFile, string destinationFolder, string extension)
@@ -232,14 +235,14 @@ internal sealed class IntermediateToUnityConverter
         string source = ResolvePackagePath(relativeSourceFile);
         if (!File.Exists(source))
         {
-            Logger.Log($"Expected asset '{relativeSourceFile}' does not exist; skipping copy.", LogLevel.Warning);
+            _logger.LogWarning("Expected asset '{RelativeSourceFile}' does not exist; skipping copy.", relativeSourceFile);
             return;
         }
 
         Directory.CreateDirectory(destinationFolder);
         string hashName = BuildHashedFileName(source, extension);
         File.Copy(source, Path.Combine(destinationFolder, hashName), true);
-        Logger.Log($"Copied '{relativeSourceFile}' to '{destinationFolder}'.", LogLevel.Debug);
+        _logger.LogDebug("Copied '{RelativeSourceFile}' to '{DestinationFolder}'.", relativeSourceFile, destinationFolder);
     }
 
     private void CopyBackgroundVideos(string destinationFolder)
@@ -255,7 +258,7 @@ internal sealed class IntermediateToUnityConverter
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in assetMasters)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            Logger.Log("Detected source-of-truth background videos (4 variants) in assets. Copied all variants.", LogLevel.Info);
+            _logger.LogInformation("Detected source-of-truth background videos (4 variants) in assets. Copied all variants.");
             return;
         }
 
@@ -269,7 +272,7 @@ internal sealed class IntermediateToUnityConverter
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in scratchMasters)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            Logger.Log("Using generated background videos (4 variants) from scratch.", LogLevel.Info);
+            _logger.LogInformation("Using generated background videos (4 variants) from scratch.");
             return;
         }
 
@@ -279,11 +282,11 @@ internal sealed class IntermediateToUnityConverter
             Directory.CreateDirectory(destinationFolder);
             string largest = assetSources.OrderByDescending(f => new FileInfo(f).Length).First();
             File.Copy(largest, Path.Combine(destinationFolder, "master.webm"), true);
-            Logger.Log("Background videos incomplete; exported single master.webm from largest available file in assets.", LogLevel.Warning);
+            _logger.LogWarning("Background videos incomplete; exported single master.webm from largest available file in assets.");
             return;
         }
 
-        Logger.Log("No background videos found in assets or scratch; Unity export will lack video assets.", LogLevel.Warning);
+        _logger.LogWarning("No background videos found in assets or scratch; Unity export will lack video assets.");
     }
 
     private void CopyPreviewVideos(string destinationFolder)
@@ -299,7 +302,7 @@ internal sealed class IntermediateToUnityConverter
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in assetSources)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            Logger.Log($"Detected source-of-truth preview videos ({expectedCount} variants) in assets. Copied all variants.", LogLevel.Info);
+            _logger.LogInformation("Detected source-of-truth preview videos ({ExpectedCount} variants) in assets. Copied all variants.", expectedCount);
             return;
         }
 
@@ -312,11 +315,11 @@ internal sealed class IntermediateToUnityConverter
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in scratchSources)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            Logger.Log($"Using generated preview videos ({expectedCount} variants) from scratch.", LogLevel.Info);
+            _logger.LogInformation("Using generated preview videos ({ExpectedCount} variants) from scratch.", expectedCount);
             return;
         }
 
-        Logger.Log($"Preview videos not found in assets or scratch (expected {expectedCount}, found {scratchSources.Length} in scratch); Unity export may be incomplete.", LogLevel.Warning);
+        _logger.LogWarning("Preview videos not found in assets or scratch (expected {ExpectedCount}, found {FoundCount} in scratch); Unity export may be incomplete.", expectedCount, scratchSources.Length);
     }
 
     private void CopyHashedAsset(string sourceFile, string destinationFolder, string extension)
@@ -410,13 +413,13 @@ internal sealed class IntermediateToUnityConverter
         IReadOnlyList<string> coachImages = ResolveCoachImages();
 
         if (coverPath == null)
-            Logger.Log("Cover art asset missing from intermediate package.", LogLevel.Warning);
+            _logger.LogWarning("Cover art asset missing from intermediate package.");
         if (titlePath == null)
-            Logger.Log("Song title logo asset missing from intermediate package.", LogLevel.Warning);
+            _logger.LogWarning("Song title logo asset missing from intermediate package.");
         if (coachImages.Count == 0)
-            Logger.Log("Coach art assets missing from intermediate package.", LogLevel.Warning);
+            _logger.LogWarning("Coach art assets missing from intermediate package.");
         if (backgroundPath == null)
-            Logger.Log("Coach background asset missing from intermediate package.", LogLevel.Warning);
+            _logger.LogWarning("Coach background asset missing from intermediate package.");
 
         return new UnityMenuArtSource(coverPath, titlePath, backgroundPath, coachImages);
     }
@@ -468,14 +471,14 @@ internal sealed class IntermediateToUnityConverter
         string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.PictogramsFolder);
         if (folder == null)
         {
-            Logger.Log("Intermediate package missing pictogram folder; map package may lack pictos.", LogLevel.Warning);
+            _logger.LogWarning("Intermediate package missing pictogram folder; map package may lack pictos.");
             return [];
         }
 
         string[] files = [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];
 
         if (files.Length == 0)
-            Logger.Log("Intermediate pictogram folder is empty; map package may lack pictos.", LogLevel.Warning);
+            _logger.LogWarning("Intermediate pictogram folder is empty; map package may lack pictos.");
 
         return files;
     }
@@ -484,7 +487,7 @@ internal sealed class IntermediateToUnityConverter
     {
         string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.MovesFolder);
         if (folder == null)
-            Logger.Log("Intermediate package missing moves folder; MSM scripts will be omitted.", LogLevel.Warning);
+            _logger.LogWarning("Intermediate package missing moves folder; MSM scripts will be omitted.");
         return folder;
     }
 
@@ -496,7 +499,7 @@ internal sealed class IntermediateToUnityConverter
                name.Contains("coachbackground", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void TryDeleteDirectorySafe(string path)
+    private static void TryDeleteDirectorySafe(string path, Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         try
         {
@@ -505,11 +508,11 @@ internal sealed class IntermediateToUnityConverter
         }
         catch (IOException ex)
         {
-            Logger.Log($"Failed to delete temporary folder '{path}': {ex.Message}", LogLevel.Warning);
+            logger?.LogWarning("Failed to delete temporary folder '{Path}': {Message}", path, ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {
-            Logger.Log($"Failed to delete temporary folder '{path}': {ex.Message}", LogLevel.Warning);
+            logger?.LogWarning("Failed to delete temporary folder '{Path}': {Message}", path, ex.Message);
         }
     }
 

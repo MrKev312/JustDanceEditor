@@ -2,7 +2,7 @@ using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using JustDanceEditor.Formats.Unity.Images;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -23,10 +23,10 @@ public sealed record UnityCoachesSmallRequest(
 
 public static class CoachesSmallBundleBuilder
 {
-    public static Task GenerateAsync(UnityCoachesSmallRequest request) =>
-        Task.Run(() => Generate(request));
+    public static Task GenerateAsync(UnityCoachesSmallRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityCoachesSmallRequest request)
+    public static void Generate(UnityCoachesSmallRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -43,7 +43,7 @@ public static class CoachesSmallBundleBuilder
                 request.OutputFolderPath,
                 request.ForCustomServer);
 
-            GenerateBundle(internalRequest);
+            GenerateBundle(internalRequest, logger);
         }
         finally
         {
@@ -52,12 +52,12 @@ public static class CoachesSmallBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request)
+    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
-        Logger.Log($"Converting CoachesSmall bundle for {request.Codename}...");
+        logger.LogInformation("Converting CoachesSmall bundle for {Codename}...", request.Codename);
         try
         {
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, List<AssetFileInfo>? sortedAssetInfos, AssetTypeValueField? assetBundleBase) = InitializeBundle(request);
@@ -69,11 +69,11 @@ public static class CoachesSmallBundleBuilder
 
             AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
             FinalizeAndSaveBundle(request, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
-            Logger.Log($"Finished CoachesSmall bundle for {request.Codename}");
+            logger.LogInformation("Finished CoachesSmall bundle for {Codename}", request.Codename);
         }
-        catch
+        catch (Exception ex)
         {
-            Logger.Log($"Failed to generate CoachesSmall bundle for {request.Codename}", LogLevel.Error);
+            logger.LogError(ex, "Failed to generate CoachesSmall bundle for {Codename}", request.Codename);
             throw;
         }
     }

@@ -5,8 +5,12 @@ using JustDanceEditor.Formats.Unity.Converters;
 
 namespace JustDanceEditor.Formats.Unity;
 
-public sealed class UnityJdiFormat : IJdiFormat
+public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverBuilder, JustDanceEditor.Formats.Unity.Services.IUnityAssetMaterializer assetMaterializer, Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> logger) : IJdiFormat
 {
+    private readonly Func<string, IntermediateSongPackage> _serverBuilder = serverBuilder;
+    private readonly JustDanceEditor.Formats.Unity.Services.IUnityAssetMaterializer _assetMaterializer = assetMaterializer;
+    private readonly Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> _logger = logger;
+
     public string DisplayName => "Unity";
     public bool CanImport => true;
     public bool CanExport => true;
@@ -18,13 +22,13 @@ public sealed class UnityJdiFormat : IJdiFormat
 
         ValidateUnityImport(unityRequest);
 
-        IntermediateSongPackage package = UnityServerIntermediateBuilder.FromServerExport(unityRequest.InputPath);
+        IntermediateSongPackage package = _serverBuilder(unityRequest.InputPath);
 
         string songName = DetermineSongName(package);
         string suggestedOutput = BuildSuggestedOutputFolder(unityRequest.OutputPath, songName);
         PrepareMaterializedDirectory(suggestedOutput);
 
-        UnityAssetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput);
+        _assetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput);
         IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
 
         JdiImportResult result = new(
@@ -58,7 +62,7 @@ public sealed class UnityJdiFormat : IJdiFormat
         if (string.IsNullOrWhiteSpace(importResult.MaterializedRoot))
             throw new NotSupportedException("Unity exports require a materialized intermediate package.");
 
-        IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, unityRequest);
+        IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, unityRequest, _logger);
         await converter.ConvertAsync();
     }
 

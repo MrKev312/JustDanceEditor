@@ -1,105 +1,56 @@
-using JustDanceEditor.Logging;
-using JustDanceEditor.UI.Converting;
-using JustDanceEditor.UI.Helpers;
-
-using System.Reflection;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.Unity.Services;
+using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.UI.DependencyInjection;
+using JustDanceEditor.UI.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.UI;
 
 internal class Program
 {
-    static void Main()
+    static async Task Main(string[] args)
     {
-        // Delete old log
-        Logger.ClearLog();
+        var builder = Host.CreateApplicationBuilder(args);
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("*************************************");
-        Console.WriteLine("*      Just Dance Editor Tool       *");
-        Console.WriteLine("*************************************");
-        Console.ResetColor();
-        Console.WriteLine("Developed by: MrKev312");
+        builder.Logging.ClearProviders();
+        builder.Logging.AddSimpleConsole(options => { options.TimestampFormat = "HH:mm:ss "; });
 
-        // Get version from nerdbank.gitversioning
-        string versionMessage = $"Version: {Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion}";
-        Logger.Log(versionMessage, LogLevel.Debug);
-        Console.WriteLine(versionMessage);
+        // Register services
+        builder.Services.AddSingleton<IFileSystem, DefaultFileSystem>();
+        builder.Services.AddSingleton<ITextureService, DefaultTextureService>();
+        builder.Services.AddSingleton<IMediaProcessor, UbiArtMediaProcessor>();
+        builder.Services.AddSingleton<ISongDataLoader, SongDataLoader>();
+        builder.Services.AddSingleton<JustDanceEditor.Formats.JDI.Services.IAudioConverter, JustDanceEditor.Formats.UbiArt.Audio.VGMStreamAdapter>();
 
-        string directoryMessage = $"Current Directory: {Environment.CurrentDirectory}";
-        Logger.Log(directoryMessage, LogLevel.Debug);
-        Console.WriteLine(directoryMessage);
-        Console.WriteLine();
+        // Unity services
+        builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
 
-        MainLoop();
-
-        Console.WriteLine("\nThank you for using Just Dance Editor. Exiting...");
-    }
-
-    static void MainLoop()
-    {
-        while (true)
+        // Factories
+        builder.Services.AddSingleton<Func<UbiArtConversionRequest, JustDanceEditor.Formats.UbiArt.Files.FileSystem>>(sp => req => new JustDanceEditor.Formats.UbiArt.Files.FileSystem(req, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<JustDanceEditor.Formats.UbiArt.Files.FileSystem>>()));
+        builder.Services.AddSingleton<Func<string, JustDanceEditor.Formats.JDI.IntermediateSongPackage>>(sp =>
         {
-            Console.WriteLine("\n================ Main Menu ================");
-            int choice = Question.Ask([
-                "Exit Program",
-                "Convert UbiArt Map to Unity (Standard)",
-                "Convert UbiArt Map to Unity (Advanced Options)",
-                "Convert Between Formats (Experimental)",
-                "Batch Convert All Songs in a Folder",
-                "Update All Covers",
-                "Extract IPK Archive File",
-                "Generate a New Cache Structure",
-                "Optimize Cache Folders for exFAT (Spread Caches equally)"
-            ], 0, "Please select an action:");
+            return new Func<string, JustDanceEditor.Formats.JDI.IntermediateSongPackage>(path => JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder")));
+        });
 
-            Console.WriteLine("=========================================\n");
+        // Register IJdiFormat implementations as keyed services
+        builder.Services.AddKeyedSingleton<IJdiFormat, JustDanceEditor.Formats.UbiArt.UbiArtJdiFormat>("UbiArt");
+        builder.Services.AddKeyedSingleton<IJdiFormat, JustDanceEditor.Formats.Unity.UnityJdiFormat>("Unity");
+        builder.Services.AddSingleton<IJdiFormat, JustDanceEditor.Formats.JDI.JdiFormat>();
 
-            switch (choice)
-            {
-                case 0:
-                    return;
-                case 1:
-                    Console.WriteLine("--- Standard UbiArt to Unity Conversion ---");
-                    ConverterDialogue.ConvertSingleDialogue();
-                    break;
-                case 2:
-                    Console.WriteLine("--- Advanced UbiArt to Unity Conversion ---");
-                    ConverterDialogue.ConvertSingleDialogueAdvanced();
-                    break;
-                case 3:
-                    Console.WriteLine("--- Format Conversion ---");
-                    FormatConversionDialogue.Start();
-                    break;
-                case 4:
-                    Console.WriteLine("--- Batch Convert Songs ---");
-                    ConverterDialogue.ConvertAllSongsInFolder();
-                    break;
-                case 5:
-                    Console.WriteLine("--- Update Covers ---");
-                    ConverterDialogue.UpdateCovers();
-                    break;
-                case 6:
-                    Console.WriteLine("--- Extract IPK Archive ---");
-                    ExtractorDialogue.ExtractDialogue();
-                    break;
-                case 7:
-                    Console.WriteLine("--- Generate New Cache ---");
-                    CacheDialogue.GenerateCacheDialogue();
-                    break;
-                case 8:
-                    Console.WriteLine("--- Spread Cache for exFAT ---");
-                    CacheDialogue.SpreadCacheDialogue();
-                    break;
-                default:
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Invalid selection. Please try again.");
-                    Console.ResetColor();
-                    break;
-            }
+        // Register ConsoleApp
+        builder.Services.AddSingleton<ConsoleApp>();
 
-            Console.WriteLine("\nPress any key to return to the main menu...");
-            Console.ReadKey();
-            Console.Clear();
-        }
+        var host = builder.Build();
+
+        // Run the console app
+        var app = host.Services.GetRequiredService<ConsoleApp>();
+        app.Run();
+
+        // If there are async shutdown tasks in the future, host.DisposeAsync can be awaited here
+        await Task.CompletedTask;
     }
 }

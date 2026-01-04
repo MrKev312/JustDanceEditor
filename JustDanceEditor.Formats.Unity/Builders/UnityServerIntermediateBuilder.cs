@@ -5,13 +5,13 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Builders;
 
-internal static partial class UnityServerIntermediateBuilder
+public static partial class UnityServerIntermediateBuilder
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -21,7 +21,7 @@ internal static partial class UnityServerIntermediateBuilder
         ReadCommentHandling = JsonCommentHandling.Skip
     };
 
-    public static IntermediateSongPackage FromServerExport(string mapRoot)
+    public static IntermediateSongPackage FromServerExport(string mapRoot, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(mapRoot))
             throw new ArgumentException("Map root cannot be empty.", nameof(mapRoot));
@@ -52,7 +52,7 @@ internal static partial class UnityServerIntermediateBuilder
                 List<MoveTimeline> fullBodyTimelines,
                 Dictionary<string, CoachMoveDefinition> handMoves,
                 Dictionary<string, CoachMoveDefinition> fullBodyMoves
-            ) = BuildCoachTimelinesAndMoves(mapBehaviourBase);
+            ) = BuildCoachTimelinesAndMoves(mapBehaviourBase, logger);
 
             // 4. Build final package
             IntermediateSongPackage package = new()
@@ -229,7 +229,7 @@ internal static partial class UnityServerIntermediateBuilder
         List<MoveTimeline> HandTracking,
         List<MoveTimeline> FullBodyTracking,
         Dictionary<string, CoachMoveDefinition> HandMoves,
-        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour)
+        Dictionary<string, CoachMoveDefinition> FullBodyMoves) BuildCoachTimelinesAndMoves(AssetTypeValueField mapBehaviour, Microsoft.Extensions.Logging.ILogger logger)
     {
         Dictionary<int, MoveTimeline> handTimelines = [];
         Dictionary<int, MoveTimeline> fullBodyTimelines = [];
@@ -272,7 +272,7 @@ internal static partial class UnityServerIntermediateBuilder
             if (color != string.Empty)
             {
                 // This should always be empty, so print a warning
-                Logger.Log($"Coach move color data is not expected to be set in Unity server exports. It's 0x{color}", LogLevel.Warning);
+                logger.LogWarning("Coach move color data is not expected to be set in Unity server exports. It's 0x{Color}", color);
             }
             else
             {

@@ -2,12 +2,13 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Models;
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.Unity.Builders;
 
 public static class UnityExportDataBuilder
 {
-    public static UnityExportData Create(IntermediateSongPackage package)
+    public static UnityExportData Create(IntermediateSongPackage package, Microsoft.Extensions.Logging.ILogger logger)
     {
         IntermediateMetadata metadata = package.Metadata;
         metadata.Validate();
@@ -45,7 +46,7 @@ public static class UnityExportDataBuilder
             package.TimelineStructure ?? new(),
             BuildOrderedClips(package.Lyrics?.Clips),
             BuildOrderedClips(package.Pictograms?.Clips),
-            BuildMotionClips(package),
+            BuildMotionClips(package, logger),
             BuildOrderedClips(package.GoldEffects?.Clips),
             BuildOrderedClips(package.HideUserInterface?.Clips));
     }
@@ -55,7 +56,7 @@ public static class UnityExportDataBuilder
         return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
     }
 
-    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package)
+    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
             return [];
@@ -69,7 +70,7 @@ public static class UnityExportDataBuilder
                 CoachMoveDefinition? definition = FindMoveDefinition(package, clip.MoveId, moveType);
 
                 if (definition == null)
-                    Logging.Logger.Log($"Move definition not found for move ID '{clip.MoveId}' (Coach ID: {timeline.CoachId}). Using default duration.", Logging.LogLevel.Warning);
+                    logger.LogWarning("Move definition not found for move ID '{MoveId}' (Coach ID: {CoachId}). Using default duration.", clip.MoveId, timeline.CoachId);
 
                 int duration = definition?.Duration ?? 48;
                 int moveTypeValue = moveType == CoachMoveType.FullBodyTracking ? 1 : 0;

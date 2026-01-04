@@ -1,4 +1,4 @@
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -11,7 +11,7 @@ public static class ImageLoader
 {
     private static readonly HttpClient HttpClient = new();
 
-    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType)
+    public static Image<Rgba32>? TryImageWeb(string mapName, string imageType, Microsoft.Extensions.Logging.ILogger logger)
     {
         string baseUrl = "https://raw.githubusercontent.com/MrKev312/JustDanceCovers/refs/heads/main/";
 
@@ -21,7 +21,7 @@ public static class ImageLoader
         Image<Rgba32>? coverImage = FetchCoverFromWeb(mapName);
         if (coverImage is not null)
         {
-            Logger.Log($"Found {imageType} on the web", LogLevel.Important);
+            logger.LogInformation("Found {ImageType} on the web", imageType);
             return coverImage;
         }
 

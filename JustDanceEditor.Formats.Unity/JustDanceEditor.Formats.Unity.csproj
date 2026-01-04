@@ -10,9 +10,9 @@
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
     <PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
     <PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
     <ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
     <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
   </ItemGroup>

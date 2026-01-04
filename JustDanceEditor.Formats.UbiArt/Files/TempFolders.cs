@@ -1,10 +1,11 @@
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class TempFolders(FileSystem fileSystem)
+public class TempFolders(FileSystem fileSystem, Microsoft.Extensions.Logging.ILogger<FileSystem> logger)
 {
     private readonly FileSystem fileSystem = fileSystem;
+    private readonly Microsoft.Extensions.Logging.ILogger<FileSystem> _logger = logger;
 
     public string MapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", fileSystem.SongName);
     public string AudioFolder => Path.Combine(MapFolder, "audio");
@@ -13,18 +14,18 @@ public class TempFolders(FileSystem fileSystem)
     {
         if (Directory.Exists(MapFolder))
         {
-            Logger.Log("Deleting the old temp folder", LogLevel.Debug);
+            _logger.LogDebug("Deleting the old temp folder");
             Directory.Delete(MapFolder, true);
         }
 
-        Logger.Log("Creating temp folders", LogLevel.Debug);
+        _logger.LogDebug("Creating temp folders");
         Directory.CreateDirectory(MapFolder);
         Directory.CreateDirectory(AudioFolder);
     }
 
     public void Delete()
     {
-        Logger.Log("Deleting the temp folder", LogLevel.Debug);
+        _logger.LogDebug("Deleting the temp folder");
         Directory.Delete(MapFolder, true);
     }
 }

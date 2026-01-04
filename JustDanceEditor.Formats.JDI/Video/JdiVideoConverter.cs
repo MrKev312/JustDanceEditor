@@ -1,4 +1,4 @@
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 
@@ -39,7 +39,7 @@ public static class JdiVideoConverter
         }
     }
 
-    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, CancellationToken cancellationToken = default)
+    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
@@ -52,14 +52,14 @@ public static class JdiVideoConverter
         // Check if originals exist in assets (source-of-truth)
         if (HasCompletePreviewSet(assetsFolder))
         {
-            Logger.Log("Source-of-truth preview videos found in assets.", LogLevel.Debug);
+            logger.LogDebug("Source-of-truth preview videos found in assets.");
             return;
         }
 
         // Check if already generated in scratch
         if (HasCompletePreviewSet(scratchFolder) && ValidateManifest(scratchFolder, UnityVideoProfiles.Previews, "preview"))
         {
-            Logger.Log("Preview videos already exist in scratch with valid manifest.", LogLevel.Debug);
+            logger.LogDebug("Preview videos already exist in scratch with valid manifest.");
             return;
         }
 
@@ -68,21 +68,21 @@ public static class JdiVideoConverter
         string? sourceVideo = SelectSourceVideo(videoFolder);
         if (sourceVideo == null)
         {
-            Logger.Log("Cannot generate preview videos; no source video found in assets/video.", LogLevel.Warning);
+            logger.LogWarning("Cannot generate preview videos; no source video found in assets/video.");
             return;
         }
 
         Directory.CreateDirectory(scratchFolder);
         (TimeSpan previewStart, TimeSpan previewDuration) = package.TimelineStructure.GetVideoPreviewTiming();
 
-        Logger.Log($"Generating {UnityVideoProfiles.Previews.Length} preview videos in scratch...", LogLevel.Info);
-        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Previews, previewStart, previewDuration, cancellationToken);
+        logger.LogInformation("Generating {Count} preview videos in scratch...", UnityVideoProfiles.Previews.Length);
+        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Previews, previewStart, previewDuration, logger, cancellationToken);
 
-        WriteManifest(scratchFolder, UnityVideoProfiles.Previews, "preview");
-        Logger.Log("Preview video generation complete.", LogLevel.Info);
+        WriteManifest(scratchFolder, UnityVideoProfiles.Previews, "preview", logger);
+        logger.LogInformation("Preview video generation complete.");
     }
 
-    public static async Task EnsureBackgroundVideosAsync(string packageRoot, CancellationToken cancellationToken = default)
+    public static async Task EnsureBackgroundVideosAsync(string packageRoot, Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
 
@@ -94,14 +94,14 @@ public static class JdiVideoConverter
         // Check if originals exist in assets (source-of-truth: 4 master videos)
         if (HasCompleteMasterSet(assetsFolder))
         {
-            Logger.Log("Source-of-truth background videos (4 variants) found in assets.", LogLevel.Debug);
+            logger.LogDebug("Source-of-truth background videos (4 variants) found in assets.");
             return;
         }
 
         // Check if already generated in scratch (filter by master_ prefix)
         if (HasCompleteMasterSet(scratchFolder) && ValidateManifest(scratchFolder, UnityVideoProfiles.Masters, "master"))
         {
-            Logger.Log("Background videos already exist in scratch with valid manifest.", LogLevel.Debug);
+            logger.LogDebug("Background videos already exist in scratch with valid manifest.");
             return;
         }
 
@@ -109,17 +109,17 @@ public static class JdiVideoConverter
         string? sourceVideo = SelectSourceVideo(assetsFolder);
         if (sourceVideo == null)
         {
-            Logger.Log("Cannot generate background videos; no source video found in assets/video.", LogLevel.Warning);
+            logger.LogWarning("Cannot generate background videos; no source video found in assets/video.");
             return;
         }
 
         Directory.CreateDirectory(scratchFolder);
 
-        Logger.Log($"Generating {UnityVideoProfiles.Masters.Length} background videos in scratch...", LogLevel.Info);
-        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Masters, TimeSpan.Zero, TimeSpan.Zero, cancellationToken);
+        logger.LogInformation("Generating {Count} background videos in scratch...", UnityVideoProfiles.Masters.Length);
+        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Masters, TimeSpan.Zero, TimeSpan.Zero, logger, cancellationToken);
 
-        WriteManifest(scratchFolder, UnityVideoProfiles.Masters, "master");
-        Logger.Log("Background video generation complete.", LogLevel.Info);
+        WriteManifest(scratchFolder, UnityVideoProfiles.Masters, "master", logger);
+        logger.LogInformation("Background video generation complete.");
     }
 
     private static bool HasCompleteMasterSet(string folder)
@@ -167,6 +167,7 @@ public static class JdiVideoConverter
         VideoQualityProfile[] profiles,
         TimeSpan start,
         TimeSpan duration,
+        Microsoft.Extensions.Logging.ILogger logger,
         CancellationToken cancellationToken)
     {
         IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source, cancellationToken);
@@ -182,18 +183,18 @@ public static class JdiVideoConverter
         string baseCropFilter = baseFilters.Count > 0 ? string.Join(",", baseFilters) : string.Empty;
 
         // Process all profiles in parallel for better CPU utilization
-        Logger.Log($"Starting parallel 2-pass encoding for {profiles.Length} profiles...", LogLevel.Info);
+        logger.LogInformation("Starting parallel 2-pass encoding for {Count} profiles...", profiles.Length);
 
         Task[] encodingTasks = new Task[profiles.Length];
         for (int i = 0; i < profiles.Length; i++)
         {
             int profileIndex = i; // Capture for closure
             encodingTasks[i] = EncodeProfileAsync(source, scratchFolder, profiles[profileIndex], profileIndex,
-                start, duration, baseCropFilter, cancellationToken);
+                start, duration, baseCropFilter, logger, cancellationToken);
         }
 
         await Task.WhenAll(encodingTasks);
-        Logger.Log("All 2-pass video conversions completed successfully.", LogLevel.Info);
+        logger.LogInformation("All 2-pass video conversions completed successfully.");
     }
 
     private static async Task EncodeProfileAsync(
@@ -204,6 +205,7 @@ public static class JdiVideoConverter
         TimeSpan start,
         TimeSpan duration,
         string baseCropFilter,
+        Microsoft.Extensions.Logging.ILogger logger,
         CancellationToken cancellationToken)
     {
         string targetPath = Path.Combine(scratchFolder, profile.FileName);
@@ -231,7 +233,7 @@ public static class JdiVideoConverter
         // Build common VP9 arguments used for both passes
         string commonVp9Args = BuildVp9Arguments(profile, passLogFile);
 
-        Logger.Log($"Encoding {profile.FileName} (pass 1/2)...", LogLevel.Info);
+        logger.LogInformation("Encoding {FileName} (pass 1/2)...", profile.FileName);
 
         // Pass 1: Analysis pass
         StringBuilder pass1Args = new();
@@ -260,7 +262,7 @@ public static class JdiVideoConverter
             FFmpegSemaphore.Release();
         }
 
-        Logger.Log($"Encoding {profile.FileName} (pass 2/2)...", LogLevel.Info);
+        logger.LogInformation("Encoding {FileName} (pass 2/2)...", profile.FileName);
 
         // Pass 2: Final encoding pass
         StringBuilder pass2Args = new();
@@ -286,7 +288,7 @@ public static class JdiVideoConverter
             pass2.OnDataReceived += (sender, eventArgs) =>
             {
                 if (!string.IsNullOrWhiteSpace(eventArgs.Data))
-                    Logger.Log($"FFmpeg [{profile.FileName}]: {eventArgs.Data}", LogLevel.Debug);
+                    logger.LogDebug("FFmpeg [{FileName}]: {Data}", profile.FileName, eventArgs.Data);
             };
             await pass2.Start(pass2Args.ToString(), cancellationToken);
         }
@@ -304,7 +306,7 @@ public static class JdiVideoConverter
         }
         catch { /* Ignore cleanup errors */ }
 
-        Logger.Log($"Completed encoding {profile.FileName}", LogLevel.Info);
+        logger.LogInformation("Completed encoding {FileName}", profile.FileName);
     }
 
     private static string BuildVp9Arguments(VideoQualityProfile profile, string passLogFile)
@@ -335,7 +337,7 @@ public static class JdiVideoConverter
         return args.ToString();
     }
 
-    private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType)
+    private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType, Microsoft.Extensions.Logging.ILogger logger)
     {
         string manifestPath = Path.Combine(scratchFolder, $"manifest_{videoType}.txt");
         List<string> lines = [];
@@ -346,7 +348,7 @@ public static class JdiVideoConverter
         }
 
         File.WriteAllLines(manifestPath, lines);
-        Logger.Log($"Wrote {videoType} manifest with {profiles.Length} entries to scratch folder.", LogLevel.Debug);
+        logger.LogDebug("Wrote {VideoType} manifest with {Count} entries to scratch folder.", videoType, profiles.Length);
     }
 
     private static bool ValidateManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType)

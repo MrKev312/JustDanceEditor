@@ -1,12 +1,12 @@
 using JustDanceEditor.IPK;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 using JustDanceEditor.UI.Helpers;
 
 namespace JustDanceEditor.UI.Converting;
 
 internal class ExtractorDialogue
 {
-    public static void ExtractDialogue()
+    public static void ExtractDialogue(Microsoft.Extensions.Logging.ILogger logger)
     {
         Console.WriteLine("This option will extract the contents of an IPK archive file.");
         // Ask for the input and output path
@@ -39,7 +39,7 @@ internal class ExtractorDialogue
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"\nAn error occurred during extraction: {ex.Message}");
             Console.ResetColor();
-            Logger.Log($"IPK Extraction failed for {inputPath}: {ex.Message}", LogLevel.Error);
+            logger.LogError(ex, "IPK Extraction failed for {InputPath}: {Message}", inputPath, ex.Message);
         }
     }
 }

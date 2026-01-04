@@ -1,5 +1,5 @@
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
@@ -19,7 +19,7 @@ public static class UbiArtPictoConverter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
-    public static void Convert(UbiArtPictoConversionRequest request)
+    public static void Convert(UbiArtPictoConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         JDUbiArtSong songData = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
@@ -29,7 +29,7 @@ public static class UbiArtPictoConverter
         string[] pictoFiles = [.. request.SourceFiles];
         if (pictoFiles.Length == 0)
         {
-            Logger.Log("No pictos found in input folder, skipping picto conversion.", LogLevel.Warning);
+            logger.LogWarning("No pictos found in input folder, skipping picto conversion.");
             return;
         }
 
@@ -37,11 +37,11 @@ public static class UbiArtPictoConverter
 
         ResetDirectory(request.PictoTempFolder);
 
-        Logger.Log($"Found {pictoFiles.Length} cooked pictograms to process.");
-        ProcessAndSaveRawPictoFiles(songData, pictoFiles, request.PictoTempFolder);
+        logger.LogInformation("Found {Count} cooked pictograms to process.", pictoFiles.Length);
+        ProcessAndSaveRawPictoFiles(songData, pictoFiles, request.PictoTempFolder, logger);
 
         stopwatch.Stop();
-        Logger.Log($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms.");
+        logger.LogInformation("Finished converting pictos in {ElapsedMs}ms.", stopwatch.ElapsedMilliseconds);
     }
 
     private static void ResetDirectory(string folder)
@@ -51,9 +51,9 @@ public static class UbiArtPictoConverter
         Directory.CreateDirectory(folder);
     }
 
-    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, string[] pictoFiles, string pictoTempFolder)
+    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, string[] pictoFiles, string pictoTempFolder, Microsoft.Extensions.Logging.ILogger logger)
     {
-        Logger.Log($"Processing {pictoFiles.Length} pictograms...");
+        logger.LogInformation("Processing {Count} pictograms...", pictoFiles.Length);
         Parallel.For(0, pictoFiles.Length, i =>
         {
             string rawPictoPath = pictoFiles[i];
@@ -63,14 +63,14 @@ public static class UbiArtPictoConverter
 
             if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
             {
-                SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder);
+                SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger);
             }
             else
             {
                 ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder);
             }
         });
-        Logger.Log("Finished processing pictograms.");
+        logger.LogInformation("Finished processing pictograms.");
     }
 
     private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, JDUbiArtSong songData, string pictoTempFolder)
@@ -91,7 +91,7 @@ public static class UbiArtPictoConverter
         pictoImage.Save(Path.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder)
+    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, Microsoft.Extensions.Logging.ILogger logger)
     {
         List<string> pictoNamesFromClips = [.. songData.Clips
             .OfType<PictogramClip>()
@@ -103,7 +103,7 @@ public static class UbiArtPictoConverter
         int pictoCount = pictoNamesFromClips.Count;
         if (pictoCount == 0)
         {
-            Logger.Log("Montage processing skipped; no pictogram names found in song clips.", LogLevel.Warning);
+            logger.LogWarning("Montage processing skipped; no pictogram names found in song clips.");
             return;
         }
 
@@ -115,7 +115,7 @@ public static class UbiArtPictoConverter
 
         if (montageWidth < columns || montageHeight < rows)
         {
-            Logger.Log("Montage dimensions too small for expected pictogram grid.", LogLevel.Error);
+            logger.LogError("Montage dimensions too small for expected pictogram grid.");
             return;
         }
 
@@ -123,7 +123,7 @@ public static class UbiArtPictoConverter
         int cellHeight = montageHeight / rows;
         if (cellWidth == 0 || cellHeight == 0)
         {
-            Logger.Log("Calculated montage cell dimensions are zero; cannot split montage.", LogLevel.Error);
+            logger.LogError("Calculated montage cell dimensions are zero; cannot split montage.");
             return;
         }
 
@@ -137,6 +137,6 @@ public static class UbiArtPictoConverter
             ResizeAndSaveIndividualPicto(pictoPart, pictoNamesFromClips[i], songData, pictoTempFolder);
         }
 
-        Logger.Log("Finished splitting montage into individual pictos.");
+        logger.LogInformation("Finished splitting montage into individual pictos.");
     }
 }

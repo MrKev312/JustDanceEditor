@@ -1,5 +1,5 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -8,14 +8,17 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 
 public class FileSystem
 {
-    public FileSystem(UbiArtConversionRequest conversionRequest)
+    private readonly Microsoft.Extensions.Logging.ILogger<FileSystem> _logger;
+
+    public FileSystem(UbiArtConversionRequest conversionRequest, Microsoft.Extensions.Logging.ILogger<FileSystem> logger)
     {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;
 
         InitializeSongID();
         InitializePlatformType();
 
-        TempFolders = new(this);
+        TempFolders = new(this, _logger);
         TempFolders.CreateTempFolders();
 
         InputFolders = new(this);
@@ -53,11 +56,11 @@ public class FileSystem
             }
             catch (IOException ex)
             {
-                Logger.Log($"Failed to remove old temp folder '{previousTempFolder}': {ex.Message}", LogLevel.Warning);
+                _logger.LogWarning(ex, "Failed to remove old temp folder '{PreviousTempFolder}': {Message}", previousTempFolder, ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
-                Logger.Log($"Failed to remove old temp folder '{previousTempFolder}': {ex.Message}", LogLevel.Warning);
+                _logger.LogWarning(ex, "Failed to remove old temp folder '{PreviousTempFolder}': {Message}", previousTempFolder, ex.Message);
             }
         }
     }

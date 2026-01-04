@@ -1,11 +1,8 @@
+// Removed enum. Use Microsoft.Extensions.Logging.LogLevel instead.
 namespace JustDanceEditor.Logging;
 
+[System.Obsolete("Use Microsoft.Extensions.Logging.LogLevel instead of JustDanceEditor.Logging.LogLevel.")]
 public enum LogLevel
 {
-    Debug,
-    Info,
-    Important,
-    Warning,
-    Error,
-    Fatal
+    // Intentionally left empty to trigger compile-time changes where necessary.
 }

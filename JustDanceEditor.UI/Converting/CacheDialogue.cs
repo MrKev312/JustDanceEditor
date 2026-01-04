@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 using JustDanceEditor.UI.Helpers;
 
 using System.Globalization;
@@ -18,7 +18,7 @@ internal class CacheDialogue
         WriteIndented = true
     };
 
-    public static void GenerateCacheDialogue()
+    public static void GenerateCacheDialogue(Microsoft.Extensions.Logging.ILogger logger)
     {
         Console.WriteLine("This option will create a new, empty cache structure in the specified directory.");
         string path = Question.AskFolder("Please enter the full path where you want the new cache to be saved");
@@ -59,12 +59,12 @@ internal class CacheDialogue
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"An error occurred while generating the cache: {ex.Message}");
-            Logger.Log($"Error generating cache: {ex.Message}", LogLevel.Error);
+            logger.LogError(ex, "Error generating cache: {Message}", ex.Message);
             Console.ResetColor();
         }
     }
 
-    public static void SpreadCacheDialogue()
+public static void SpreadCacheDialogue(Microsoft.Extensions.Logging.ILogger logger)
     {
         Console.WriteLine("This option reorganizes cache folders as exFAT can have bigger cache folders");
         Console.WriteLine("for when the game's cache limit is approached (around SD_Cache.002A).");
@@ -200,7 +200,7 @@ internal class CacheDialogue
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"An error occurred during cache spreading: {ex.Message}");
-            Logger.Log($"Error spreading cache: {ex.Message}", LogLevel.Error);
+            logger.LogError(ex, "Error spreading cache: {Message}", ex.Message);
             Console.ResetColor();
         }
     }

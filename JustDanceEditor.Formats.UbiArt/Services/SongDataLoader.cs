@@ -3,7 +3,7 @@ using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using System.Text.Json;
 
@@ -11,17 +11,24 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public class SongDataLoader : ISongDataLoader
 {
+    private readonly Microsoft.Extensions.Logging.ILogger<SongDataLoader> _logger;
+
+    public SongDataLoader(Microsoft.Extensions.Logging.ILogger<SongDataLoader> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
     public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, FileSystem fileSystem)
     {
         JDUbiArtSong songData = new();
-        Logger.Log("Loading song info...");
+        _logger.LogInformation("Loading song info...");
 
         JsonSerializerOptions options = new();
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntFlexibleJsonConverter());
         options.Converters.Add(new BoolFlexibleJsonConverter());
 
-        Logger.Log("Loading SongDesc");
+        _logger.LogInformation("Loading SongDesc");
         songData.SongDesc = LoadSongDesc(request, fileSystem);
 
         if (songData.SongDesc == null || songData.SongDesc.COMPONENTS.Length == 0)
@@ -29,7 +36,7 @@ public class SongDataLoader : ISongDataLoader
 
         songData.Name = songData.SongDesc.COMPONENTS[0].MapName;
 
-        Logger.Log("Loading JDVersion");
+        _logger.LogInformation("Loading JDVersion");
         songData.EngineVersion = songData.SongDesc.COMPONENTS[0].JDVersion;
         uint originalJDVersion = songData.SongDesc.COMPONENTS[0].OriginalJDVersion;
         songData.JDVersion = originalJDVersion switch
@@ -38,9 +45,9 @@ public class SongDataLoader : ISongDataLoader
             4884 => 2017,
             _ => originalJDVersion,
         };
-        Logger.Log($"Loaded versions, engine: {songData.EngineVersion}, original version: {songData.JDVersion}");
+        _logger.LogInformation("Loaded versions, engine: {EngineVersion}, original version: {OriginalVersion}", songData.EngineVersion, songData.JDVersion);
 
-        Logger.Log("Loading MusicTrack");
+        _logger.LogInformation("Loading MusicTrack");
         string musicTrackRelativePath = Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songData.Name}_musictrack.tpl");
         CookedFile musicTrackPath = fileSystem.GetFilePath(musicTrackRelativePath);
         if (request.Type == UbiArtType.Uncooked)
@@ -48,7 +55,7 @@ public class SongDataLoader : ISongDataLoader
         else
             songData.MusicTrack = JsonSerializer.Deserialize<MusicTrack>(FileSystem.ReadWithoutNull(musicTrackPath), options)!;
 
-        Logger.Log("Loading MainSequence");
+        _logger.LogInformation("Loading MainSequence");
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
         ClipTape mainSequenceTape = request.Type == UbiArtType.Uncooked
@@ -56,7 +63,7 @@ public class SongDataLoader : ISongDataLoader
             : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(mainSeqPath), options)!;
         songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
 
-        Logger.Log("Loading DanceTape");
+        _logger.LogInformation("Loading DanceTape");
         string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
         CookedFile danceTapePath = fileSystem.GetFilePath(danceTapeRelativePath);
         ClipTape danceTape = request.Type == UbiArtType.Uncooked
@@ -76,7 +83,7 @@ public class SongDataLoader : ISongDataLoader
                 karaokeActor.COMPONENTS[0].TapesRack[0].Entries.Length > 0 &&
                 fileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokeTapePathCooked))
             {
-                Logger.Log("Loading KaraokeTape");
+                _logger.LogInformation("Loading KaraokeTape");
                 ClipTape karaokeTape = request.Type == UbiArtType.Uncooked
                     ? LuaTableSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeTapePathCooked))
                     : JsonSerializer.Deserialize<ClipTape>(FileSystem.ReadWithoutNull(karaokeTapePathCooked), options)!;
@@ -84,12 +91,12 @@ public class SongDataLoader : ISongDataLoader
             }
             else
             {
-                Logger.Log("Karaoke tape actor structure is incomplete or tape path not found, skipping karaoke.", LogLevel.Warning);
+                _logger.LogWarning("Karaoke tape actor structure is incomplete or tape path not found, skipping karaoke.");
             }
         }
         else
         {
-            Logger.Log("No karaoke tape actor found or its path is invalid, skipping karaoke.", LogLevel.Important);
+            _logger.LogInformation("No karaoke tape actor found or its path is invalid, skipping karaoke.");
         }
 
         return songData;
@@ -132,13 +139,13 @@ public class SongDataLoader : ISongDataLoader
         throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
     }
 
-    private static IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, FileSystem fileSystem, JsonSerializerOptions options)
+    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, FileSystem fileSystem, JsonSerializerOptions options)
     {
         HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
         return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
     }
 
-    private static IEnumerable<Clip> ExpandClipsInternal(
+    private IEnumerable<Clip> ExpandClipsInternal(
         IEnumerable<Clip> clips,
         FileSystem fileSystem,
         JsonSerializerOptions options,
@@ -160,7 +167,7 @@ public class SongDataLoader : ISongDataLoader
         }
     }
 
-    private static IEnumerable<Clip> LoadReferenceClips(
+    private IEnumerable<Clip> LoadReferenceClips(
         TapeReferenceClip reference,
         FileSystem fileSystem,
         JsonSerializerOptions options,
@@ -174,7 +181,7 @@ public class SongDataLoader : ISongDataLoader
         bool added = recursionGuard.Add(normalizedPath);
         if (!added)
         {
-            Logger.Log($"Detected recursive tape reference '{reference.Path}', skipping to avoid infinite loop.", LogLevel.Warning);
+            _logger.LogWarning("Detected recursive tape reference '{Path}', skipping to avoid infinite loop.", reference.Path);
             yield break;
         }
 
@@ -182,7 +189,7 @@ public class SongDataLoader : ISongDataLoader
         {
             if (!fileSystem.GetFilePath(reference.Path, out CookedFile? tapePath))
             {
-                Logger.Log($"Referenced tape '{reference.Path}' was not found.", LogLevel.Warning);
+                _logger.LogWarning("Referenced tape '{Path}' was not found.", reference.Path);
                 yield break;
             }
 

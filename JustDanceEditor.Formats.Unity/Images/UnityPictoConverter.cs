@@ -1,5 +1,5 @@
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -20,7 +20,7 @@ public sealed record UnityPictoConversionResult(
 
 public static class UnityPictoConverter
 {
-    public static UnityPictoConversionResult Convert(UnityPictoConversionRequest request)
+    public static UnityPictoConversionResult Convert(UnityPictoConversionRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.SourceFiles);
@@ -29,7 +29,7 @@ public static class UnityPictoConverter
         string[] pictoFiles = [.. request.SourceFiles];
         if (pictoFiles.Length == 0)
         {
-            Logger.Log("No pictos found in input folder, skipping picto conversion.", LogLevel.Warning);
+            logger.LogWarning("No pictos found in input folder, skipping picto conversion.");
             return new UnityPictoConversionResult([], []);
         }
 
@@ -38,13 +38,13 @@ public static class UnityPictoConverter
         ResetDirectory(request.PictoAtlasFolder);
         Array.Sort(pictoFiles);
 
-        Logger.Log($"Found {pictoFiles.Length} raw picto source files to process.");
+        logger.LogInformation("Found {Count} raw picto source files to process.", pictoFiles.Length);
 
-        (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)>? imageDict, List<Image<Rgba32>>? atlasPics) = BuildPictoAtlases(pictoFiles, request.UnityData.Metadata.CoachCount > 1);
-        SaveAtlasImagesToDisk(atlasPics, request.PictoAtlasFolder);
+        (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)>? imageDict, List<Image<Rgba32>>? atlasPics) = BuildPictoAtlases(pictoFiles, request.UnityData.Metadata.CoachCount > 1, logger);
+        SaveAtlasImagesToDisk(atlasPics, request.PictoAtlasFolder, logger);
 
         stopwatch.Stop();
-        Logger.Log($"Finished converting pictos in {stopwatch.ElapsedMilliseconds}ms. Generated {atlasPics.Count} atlas(es).");
+        logger.LogInformation("Finished converting pictos in {ElapsedMs}ms. Generated {AtlasCount} atlas(es).", stopwatch.ElapsedMilliseconds, atlasPics.Count);
         return new UnityPictoConversionResult(imageDict, atlasPics);
     }
 
@@ -71,9 +71,9 @@ public static class UnityPictoConverter
     }
 
     private static (Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)> ImageDictionary, List<Image<Rgba32>> AtlasImages)
-        BuildPictoAtlases(string[] convertedPictoPngPaths, bool multipleCoaches = false)
+        BuildPictoAtlases(string[] convertedPictoPngPaths, bool multipleCoaches = false, Microsoft.Extensions.Logging.ILogger? logger = null)
     {
-        Logger.Log($"Creating atlasses from {convertedPictoPngPaths.Length} PNG pictos...");
+        logger?.LogInformation("Creating atlasses from {Count} PNG pictos...", convertedPictoPngPaths.Length);
 
         Dictionary<string, (int AtlasIndex, (int Width, int Height) Dimensions)> imageDict = new(StringComparer.OrdinalIgnoreCase);
         List<Image<Rgba32>> atlasPics = [];
@@ -117,15 +117,15 @@ public static class UnityPictoConverter
             }
         }
 
-        Logger.Log($"Finished creating {atlasPics.Count} atlas image(s) in memory.");
+        logger?.LogInformation("Finished creating {Count} atlas image(s) in memory.", atlasPics.Count);
         return (imageDict, atlasPics);
     }
 
-    private static void SaveAtlasImagesToDisk(List<Image<Rgba32>> atlasImages, string pictoAtlasTempFolder)
+    private static void SaveAtlasImagesToDisk(List<Image<Rgba32>> atlasImages, string pictoAtlasTempFolder, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (atlasImages.Count == 0)
         {
-            Logger.Log("No atlas images to save.", LogLevel.Info);
+            logger.LogInformation("No atlas images to save.");
             return;
         }
 
@@ -139,6 +139,6 @@ public static class UnityPictoConverter
             atlasImages[i].Save(atlasPath);
         }
 
-        Logger.Log($"All atlas images saved successfully to {pictoAtlasTempFolder}.");
+        logger.LogInformation("All atlas images saved successfully to {Folder}.", pictoAtlasTempFolder);
     }
 }

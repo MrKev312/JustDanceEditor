@@ -8,9 +8,7 @@
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
 		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
-	</ItemGroup>
-	<ItemGroup>
-		<ProjectReference Include="..\JustDanceEditor.Logging\JustDanceEditor.Logging.csproj" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
 	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Update="Nerdbank.GitVersioning" Version="3.9.50" />

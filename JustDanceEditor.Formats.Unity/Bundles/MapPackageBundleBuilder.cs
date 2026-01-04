@@ -4,7 +4,7 @@ using AssetsTools.NET.Extra;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -29,10 +29,10 @@ public sealed record UnityMapPackageRequest(
 
 public static class MapPackageBundleBuilder
 {
-    public static Task GenerateAsync(UnityMapPackageRequest request) =>
-        Task.Run(() => Generate(request));
+    public static Task GenerateAsync(UnityMapPackageRequest request, Microsoft.Extensions.Logging.ILogger logger) =>
+        Task.Run(() => Generate(request, logger));
 
-    public static void Generate(UnityMapPackageRequest request)
+    public static void Generate(UnityMapPackageRequest request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -42,10 +42,10 @@ public static class MapPackageBundleBuilder
             request.PictoFiles ?? Array.Empty<string>(),
             request.PictoAtlasFolder);
 
-        Logger.Log($"Converting MapPackage for {request.SongName}...");
+        logger.LogInformation("Converting MapPackage for {SongName}...", request.SongName);
 
-        UnityPictoConversionResult pictoResult = UnityPictoConverter.Convert(pictoRequest);
-        List<UnityMoveFile> moveFiles = LoadMoveFiles(request.MovesFolder);
+        UnityPictoConversionResult pictoResult = UnityPictoConverter.Convert(pictoRequest, logger);
+        List<UnityMoveFile> moveFiles = LoadMoveFiles(request.MovesFolder, logger);
 
         try
         {
@@ -59,7 +59,7 @@ public static class MapPackageBundleBuilder
                 request.OutputFolderPath,
                 request.ForCustomServer);
 
-            GenerateBundle(internalRequest);
+            GenerateBundle(internalRequest, logger);
         }
         finally
         {
@@ -68,12 +68,12 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request)
+    private static void GenerateBundle(BundleContext request, Microsoft.Extensions.Logging.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
-        Logger.Log($"Converting MapPackage bundle for {request.Codename}...");
+        logger.LogInformation("Converting MapPackage bundle for {Codename}...", request.Codename);
         try
         {
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetBundleFile? bunFile, List<AssetFileInfo>? sortedAssetInfos, AssetFileInfo? musicTrackInfo, AssetFileInfo? mapInfo) = InitializeBundle(request);
@@ -86,13 +86,13 @@ public static class MapPackageBundleBuilder
 
             UpdateMusicTrackData(request.UnityData, musicTrackBase);
             UpdateKaraokeData(request.UnityData, mapBase);
-            AddDanceMoveAssets(request, manager, afileInst, afile, mapBase["HandDeviceMoveModels"]["list"]["Array"], assetBundleArray);
+            AddDanceMoveAssets(request, manager, afileInst, afile, mapBase["HandDeviceMoveModels"]["list"]["Array"], assetBundleArray, logger);
 
             long[] atlasIds = AddPictoAtlasTextureAssets(request, manager, afileInst, afile, assetBundleArray);
-            AddPictoSpriteAssets(request, manager, afileInst, afile, spriteTemplate, spriteAtlasBase, request.PictoLookup, atlasIds, assetBundleArray);
+            AddPictoSpriteAssets(request, manager, afileInst, afile, spriteTemplate, spriteAtlasBase, request.PictoLookup, atlasIds, assetBundleArray, logger);
             FinalizeSpriteAtlas(afile, spriteAtlasInfo, spriteAtlasBase, spriteTemplate);
 
-            PopulateDanceDataClips(request, mapBase, request.PictoLookup);
+            PopulateDanceDataClips(request, mapBase, request.PictoLookup, logger);
             UpdateCoachCounters(request, mapBase);
 
             FinalizeAndSaveBundle(request, bunFile, afile, assetBundleBase,
@@ -100,11 +100,11 @@ public static class MapPackageBundleBuilder
                 () => mapInfo.SetNewData(mapBase),
                 () => assetBundleInfo.SetNewData(assetBundleBase));
 
-            Logger.Log($"Finished MapPackage bundle for {request.Codename}");
+            logger.LogInformation("Finished MapPackage bundle for {Codename}", request.Codename);
         }
-        catch
+        catch (Exception ex)
         {
-            Logger.Log($"Failed to generate MapPackage bundle for {request.Codename}", LogLevel.Error);
+            logger.LogError(ex, "Failed to generate MapPackage bundle for {Codename}", request.Codename);
             throw;
         }
     }
@@ -139,12 +139,12 @@ public static class MapPackageBundleBuilder
             throw new ArgumentException("Move files collection must not be null.", nameof(request));
     }
 
-    private static List<UnityMoveFile> LoadMoveFiles(string? movesFolder)
+    private static List<UnityMoveFile> LoadMoveFiles(string? movesFolder, Microsoft.Extensions.Logging.ILogger logger)
     {
         List<UnityMoveFile> moves = [];
         if (string.IsNullOrWhiteSpace(movesFolder) || !Directory.Exists(movesFolder))
         {
-            Logger.Log("Moves folder not found, skipping dance move asset addition.", LogLevel.Info);
+            logger.LogInformation("Moves folder not found, skipping dance move asset addition.");
             return moves;
         }
 
@@ -349,11 +349,11 @@ public static class MapPackageBundleBuilder
         }
     }
 
-    private static void AddDanceMoveAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray)
+    private static void AddDanceMoveAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField movesModelArray, AssetTypeValueField assetBundleArray, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (request.MoveFiles.Count == 0)
         {
-            Logger.Log("No move files found, skipping dance move asset addition.", LogLevel.Info);
+            logger.LogInformation("No move files found, skipping dance move asset addition.");
             return;
         }
 
@@ -438,7 +438,7 @@ public static class MapPackageBundleBuilder
     }
 
     private static void AddPictoSpriteAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
-        AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray)
+        AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray, Microsoft.Extensions.Logging.ILogger logger)
     {
         List<string> sortedPictoNames = [.. imageDict.Keys];
         sortedPictoNames.Sort(StringComparer.InvariantCulture);
@@ -528,7 +528,7 @@ public static class MapPackageBundleBuilder
 
             if (atlasPageIndex >= atlasIds.Length || atlasIds[atlasPageIndex] == 0)
             {
-                Logger.Log($"Atlas texture for picto '{pictoName}' (atlas index {atlasPageIndex}) is invalid. Skipping RenderDataMap entry.", LogLevel.Error);
+                logger.LogError("Atlas texture for picto '{PictoName}' (atlas index {AtlasIndex}) is invalid. Skipping RenderDataMap entry.", pictoName, atlasPageIndex);
                 continue;
             }
 
@@ -556,7 +556,7 @@ public static class MapPackageBundleBuilder
         afile.AssetInfos.Remove(spriteTemplate);
     }
 
-    private static void PopulateDanceDataClips(BundleContext request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict)
+    private static void PopulateDanceDataClips(BundleContext request, AssetTypeValueField mapBase, IReadOnlyDictionary<string, (int index, (int Width, int Height) size)> imageDict, Microsoft.Extensions.Logging.ILogger logger)
     {
         AssetTypeValueField motionClipsArray = mapBase["DanceData"]["MotionClips"]["Array"];
         AssetTypeValueField goldEffectClipsArray = mapBase["DanceData"]["GoldEffectClips"]["Array"];
@@ -592,7 +592,7 @@ public static class MapPackageBundleBuilder
                 if (foundKey != null)
                     pictoName = foundKey;
                 else
-                    Logger.Log($"Pictogram '{pictoName}' for clip not found in image dictionary. Clip might not display correctly.", LogLevel.Warning);
+                    logger.LogWarning("Pictogram '{PictoName}' for clip not found in image dictionary. Clip might not display correctly.", pictoName);
             }
 
             newPicto["StartTime"].AsInt = picto.StartTime;

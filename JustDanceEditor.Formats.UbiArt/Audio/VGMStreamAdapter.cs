@@ -1,21 +1,23 @@
-using JustDanceEditor.Logging;
+using Microsoft.Extensions.Logging;
 
 using System.Diagnostics;
 using System.IO.Compression;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
 
-internal sealed class VGMStreamAdapter : IAudioConverter
+using JustDanceEditor.Formats.JDI.Services;
+
+public sealed class VGMStreamAdapter : JustDanceEditor.Formats.JDI.Services.IAudioConverter
 {
     public static bool Exists() =>
         Directory.Exists("Resources/VGMStream/") && File.Exists("Resources/VGMStream/vgmstream-cli.exe");
 
-    public static async Task Download()
+    public static async Task Download(Microsoft.Extensions.Logging.ILogger? logger = null)
     {
         if (Exists())
             return;
 
-        Logger.Log("Downloading VGMStream...");
+        logger?.LogInformation("Downloading VGMStream...");
 
         Directory.CreateDirectory("Resources/VGMStream/");
 
