@@ -1,5 +1,3 @@
-using JustDanceEditor.Formats.UbiArt.Services;
-
 namespace JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
 public interface IUbiArtLayout

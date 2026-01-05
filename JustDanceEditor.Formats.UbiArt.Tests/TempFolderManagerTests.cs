@@ -1,8 +1,12 @@
-using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt.Files;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Moq;
+
 using System.IO;
+
 using Xunit;
 
 namespace JustDanceEditor.Formats.UbiArt.Tests;

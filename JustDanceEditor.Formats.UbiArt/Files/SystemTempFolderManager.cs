@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
 public class SystemTempFolderManager : ITempFolderManager

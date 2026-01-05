@@ -26,50 +26,6 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         }
     }
 
-    public CookedFile? FindPictogram(string name)
-    {
-        // Try direct absolute checks first (robust for flat uncooked layouts and simple tests)
-        List<string> exts = [.. TextureExtensions];
-        if (_fileSystem.ContainerStyle == UbiArtContainerStyle.Cooked)
-        {
-            var cooked = exts.Select(e => e + ".ckd").ToList();
-            exts = [.. cooked, .. exts];
-        }
-
-        foreach (string ext in exts)
-        {
-            string candidate = Path.Combine(_fileSystem.ConversionRequest.InputPath, _fileSystem.InputFolders.PictosFolder, name + ext);
-            if (File.Exists(candidate))
-                return new CookedFile(candidate);
-        }
-
-        if (TryFindFileWithExtensions(_fileSystem.InputFolders.PictosFolder, name, TextureExtensions, out CookedFile? file))
-            return file;
-
-        // Try an absolute recursive search across the input path as a last resort
-        try
-        {
-            string root = _fileSystem.ConversionRequest.InputPath;
-            var matches = Directory.GetFiles(root, name + ".*", SearchOption.AllDirectories)
-                .Concat(Directory.GetFiles(root, name + ".*.ckd", SearchOption.AllDirectories)).ToArray();
-
-            if (matches.Length > 0)
-                return new CookedFile(matches[0]);
-        }
-        catch { }
-
-        // Montage fallback: return first available file via filesystem
-        try
-        {
-            CookedFile[] all = _fileSystem.GetAllFiles(_fileSystem.InputFolders.PictosFolder);
-            return all.FirstOrDefault();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     public CookedFile? GetCoverArt()
     {
         string pattern = $"{_fileSystem.SongName}_cover_*";

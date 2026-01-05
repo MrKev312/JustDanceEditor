@@ -8,6 +8,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 using System.Diagnostics;
+using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Images;
 
@@ -99,12 +100,14 @@ public static class UbiArtPictoConverter
 
     private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, JDI.Services.ITextureService textureService)
     {
+        StringComparer comparer = StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
+
         List<string> pictoNamesFromClips = [.. songData.Clips
             .OfType<PictogramClip>()
             .Select(clip => Path.GetFileNameWithoutExtension(clip.PictoPath))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
+            .OrderBy(name => name, comparer)];
 
         int pictoCount = pictoNamesFromClips.Count;
         if (pictoCount == 0)

@@ -8,7 +8,6 @@ public interface IUbiArtAssetResolver
 {
     // Pictograms
     CookedFile[] GetPictograms();
-    CookedFile? FindPictogram(string name);
 
     // Cover and coach art
     CookedFile? GetCoverArt();
