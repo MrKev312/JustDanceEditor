@@ -24,9 +24,9 @@ internal class Program
         TextureConverter.Formats.ImageSharpConfiguration.RegisterCustomFormats();
 
         // Register services
-        builder.Services.AddSingleton<IFileSystem, DefaultFileSystem>();
+        builder.Services.AddSingleton<IFileSystem, SystemFileSystem>();
         // Register system implementations used by non-UI projects
-        builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Files.SystemFileSystem>();
+        builder.Services.AddSingleton<JustDanceEditor.Formats.JDI.Services.SystemFileSystem>();
         builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Files.ITempFolderManager, JustDanceEditor.Formats.UbiArt.Files.SystemTempFolderManager>();
 
         builder.Services.AddSingleton<ITextureService, DefaultTextureService>();
@@ -39,7 +39,7 @@ internal class Program
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
 
         // Factories
-        builder.Services.AddSingleton<Func<UbiArtConversionRequest, Formats.UbiArt.Files.LayeredFileSystem>>(sp => req => new Formats.UbiArt.Files.LayeredFileSystem(req, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<JustDanceEditor.Formats.UbiArt.Files.SystemFileSystem>(), sp.GetRequiredService<JustDanceEditor.Formats.UbiArt.Files.ITempFolderManager>()));
+        builder.Services.AddSingleton<Func<UbiArtConversionRequest, Formats.UbiArt.Files.LayeredFileSystem>>(sp => req => new Formats.UbiArt.Files.LayeredFileSystem(req, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<JustDanceEditor.Formats.JDI.Services.SystemFileSystem>(), sp.GetRequiredService<JustDanceEditor.Formats.UbiArt.Files.ITempFolderManager>()));
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services

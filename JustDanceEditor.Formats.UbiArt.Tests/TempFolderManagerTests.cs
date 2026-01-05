@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 
 using Microsoft.Extensions.Logging.Abstractions;

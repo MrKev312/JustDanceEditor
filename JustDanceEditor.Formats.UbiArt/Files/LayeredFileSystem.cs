@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 using JustDanceEditor.Formats.UbiArt.Services.Serialization;

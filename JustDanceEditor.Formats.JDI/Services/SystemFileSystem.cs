@@ -1,6 +1,4 @@
-using JustDanceEditor.Formats.JDI.Services;
-
-namespace JustDanceEditor.Formats.UbiArt.Files;
+namespace JustDanceEditor.Formats.JDI.Services;
 
 public class SystemFileSystem : IFileSystem
 {
