@@ -43,7 +43,7 @@ public static class UbiArtCoverGenerator
 
         Image<Bgra32> coverImage = GetBackground(context, textureService);
 
-        CookedFile? coachFilesCooked = context.FileSystem.AssetResolver?.GetCoachTextures().FirstOrDefault();
+        CookedFile? coachFilesCooked = context.FileSystem.AssetResolver?.GetAlbumCoach();
 
         if (coachFilesCooked is not null)
         {

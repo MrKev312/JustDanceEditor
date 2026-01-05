@@ -11,7 +11,6 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
     private readonly LayeredFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
-    private readonly string[] TextureExtensions = [".webp", ".png", ".tga", ".jpg", ".jpeg"];
     private readonly string[] AudioExtensions = [".ogg", ".wav", ".wem"];
 
     public CookedFile[] GetPictograms()
@@ -41,8 +40,20 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
 
     public CookedFile[] GetCoachTextures()
     {
-        CookedFile[] files = [.. _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_coach_*").Where(f => !Path.GetFileName(f.FullPath).EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
+        CookedFile[] files = [.. _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_coach_*").Where(f => !((CookedFile) f).Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
         return files;
+    }
+
+    public CookedFile? GetAlbumCoach()
+    {
+        // Prefer exact album coach pattern: {song}_cover_albumcoach.*
+        CookedFile[] files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_cover_albumcoach.*");
+        if (files.Length > 0)
+            return files.OrderBy(f => f.FullPath, StringComparer.OrdinalIgnoreCase).First();
+
+        // Fallback: any file with "albumcoach" in the name
+        files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, "*albumcoach*");
+        return files.FirstOrDefault();
     }
 
     public CookedFile? GetBackgroundTexture()

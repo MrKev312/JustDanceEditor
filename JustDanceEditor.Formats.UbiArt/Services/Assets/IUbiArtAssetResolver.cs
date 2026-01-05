@@ -12,6 +12,7 @@ public interface IUbiArtAssetResolver
     // Cover and coach art
     CookedFile? GetCoverArt();
     CookedFile[] GetCoachTextures();
+    CookedFile? GetAlbumCoach();
     CookedFile? GetBackgroundTexture();
 
     // Video
