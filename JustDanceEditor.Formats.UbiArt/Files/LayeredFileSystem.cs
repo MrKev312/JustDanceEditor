@@ -14,7 +14,7 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 public class LayeredFileSystem
 {
     private readonly ILogger<LayeredFileSystem> _logger;
-    private readonly Formats.JDI.Services.IFileSystem _io;
+    private readonly IFileSystem _io;
     private readonly ITempFolderManager _tempManager;
 
     public IUbiArtLayout? Layout { get; private set; }
@@ -25,7 +25,7 @@ public class LayeredFileSystem
     public Services.Assets.IUbiArtAssetResolver? AssetResolver { get; private set; }
     public IUbiArtDataMapper? Mapper { get; private set; }
 
-    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger, Formats.JDI.Services.IFileSystem io, ITempFolderManager tempManager)
+    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger, IFileSystem io, ITempFolderManager tempManager)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;
@@ -112,22 +112,22 @@ public class LayeredFileSystem
             return;
         }
 
-        string mapsFolder = Path.Combine(ConversionRequest.InputPath, "world", "maps");
-        if (!Directory.Exists(mapsFolder))
+        string mapsFolder = _io.Combine(ConversionRequest.InputPath, "world", "maps");
+        if (!_io.DirectoryExists(mapsFolder))
         {
             // If our configured layout provides a different location, try that too
             if (Layout != null)
             {
-                string candidate = Path.Combine(ConversionRequest.InputPath, Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, ContainerStyle, EngineVersion));
-                if (!string.IsNullOrWhiteSpace(candidate) && Directory.Exists(candidate))
+                string candidate = _io.Combine(ConversionRequest.InputPath, Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, ContainerStyle, EngineVersion));
+                if (!string.IsNullOrWhiteSpace(candidate) && _io.DirectoryExists(candidate))
                     mapsFolder = candidate;
             }
 
-            if (!Directory.Exists(mapsFolder))
+            if (!_io.DirectoryExists(mapsFolder))
                 throw new DirectoryNotFoundException("The maps folder does not exist.");
         }
 
-        string[] songs = Directory.GetDirectories(mapsFolder);
+        string[] songs = _io.GetDirectories(mapsFolder);
         if (songs.Length < 1)
             throw new DirectoryNotFoundException("No song folders found in the maps folder.");
         if (songs.Length > 1)
@@ -138,9 +138,9 @@ public class LayeredFileSystem
 
     private void InitializePlatformType()
     {
-        string itfCookedFolder = Path.Combine(ConversionRequest.InputPath, "cache", "itf_cooked");
+        string itfCookedFolder = _io.Combine(ConversionRequest.InputPath, "cache", "itf_cooked");
 
-        if (!Directory.Exists(itfCookedFolder))
+        if (!_io.DirectoryExists(itfCookedFolder))
         {
             // If the request or the detected profile indicates Uncooked, set platform accordingly
             if (ContainerStyle == UbiArtContainerStyle.Uncooked || ConversionRequest.Type == UbiArtType.Uncooked)
@@ -152,7 +152,7 @@ public class LayeredFileSystem
             throw new DirectoryNotFoundException("The itf_cooked folder does not exist.");
         }
 
-        string[] platformFolders = Directory.GetDirectories(itfCookedFolder);
+        string[] platformFolders = _io.GetDirectories(itfCookedFolder);
 
         if (platformFolders.Length == 0)
             throw new DirectoryNotFoundException("No platform folders found in the itf_cooked folder.");
@@ -170,8 +170,8 @@ public class LayeredFileSystem
         // For Uncooked, check the relative file path directly under InputPath first
         if (ConversionRequest.Type == UbiArtType.Uncooked)
         {
-            string directChild = Path.Combine(ConversionRequest.InputPath, relativeFilePath);
-            if (File.Exists(directChild))
+            string directChild = _io.Combine(ConversionRequest.InputPath, relativeFilePath);
+            if (_io.FileExists(directChild))
             {
                 filePath = new(directChild);
                 return true;
@@ -182,18 +182,18 @@ public class LayeredFileSystem
             // but InputPath = .../songname
             // We can check the filename directly in InputPath
             string fileName = Path.GetFileName(relativeFilePath);
-            string rootFile = Path.Combine(ConversionRequest.InputPath, fileName);
-            if (File.Exists(rootFile))
+            string rootFile = _io.Combine(ConversionRequest.InputPath, fileName);
+            if (_io.FileExists(rootFile))
             {
                 filePath = new(rootFile);
                 return true;
             }
         }
 
-        string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
-        List<string> searchPaths = [Path.Combine(parentFolder, $"patch_{PlatformType}")];
+        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{PlatformType}")];
 
-        string[] allFolders = Directory.GetDirectories(parentFolder);
+        string[] allFolders = _io.GetDirectories(parentFolder);
         PriorityQueue<string, uint> numberPatternFolders = new();
         List<string> otherFolders = [];
 
@@ -233,13 +233,13 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                Path.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
                 ];
 
             foreach (string location in searchLocations)
             {
-                string file = Path.Combine(location, relativeFilePath);
-                if (File.Exists(file))
+                string file = _io.Combine(location, relativeFilePath);
+                if (_io.FileExists(file))
                 {
                     filePath = new(file);
                     return true;
@@ -248,8 +248,8 @@ public class LayeredFileSystem
                 if (pathCooked == null)
                     continue;
 
-                file = Path.Combine(location, pathCooked);
-                if (File.Exists(file))
+                file = _io.Combine(location, pathCooked);
+                if (_io.FileExists(file))
                 {
                     filePath = new(file);
                     return true;
@@ -270,23 +270,23 @@ public class LayeredFileSystem
     public CookedFile[] GetAllFiles(string relativeFolderPath, string pattern = "*")
     {
         List<CookedFile> files = [];
-        string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
+        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
         List<string> searchPaths = [
-            Path.Combine(parentFolder, $"patch_{PlatformType}"),
-            ..Directory.GetDirectories(parentFolder)
+            _io.Combine(parentFolder, $"patch_{PlatformType}"),
+            .._io.GetDirectories(parentFolder)
             ];
 
         foreach (string searchPath in searchPaths)
         {
             string[] searchLocations = [
                 searchPath,
-                Path.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
                 ];
 
             foreach (string location in searchLocations)
             {
-                string folder = Path.Combine(location, relativeFolderPath);
-                if (Directory.Exists(folder))
+                string folder = _io.Combine(location, relativeFolderPath);
+                if (_io.DirectoryExists(folder))
                 {
                     // Try the requested pattern and also the cooked variant (pattern.ckd) if applicable
                     List<string> patternsToTry = [pattern];
@@ -295,7 +295,7 @@ public class LayeredFileSystem
 
                     foreach (string pat in patternsToTry)
                     {
-                        foreach (string file in Directory.GetFiles(folder, pat))
+                        foreach (string file in _io.GetFiles(folder, pat))
                         {
                             string relative = Path.GetRelativePath(searchPath, file);
                             if (files.Any(x => x.FullPath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
@@ -314,15 +314,15 @@ public class LayeredFileSystem
     public bool GetFolderPath(string relativeFolderPath, [MaybeNullWhen(false)] out string folderPath)
     {
         folderPath = null;
-        string parentFolder = Path.Combine(InputFolders.InputFolder, "..");
+        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
 
         List<string> searchPaths = [
-            Path.Combine(parentFolder, $"patch_{PlatformType}"),
+            _io.Combine(parentFolder, $"patch_{PlatformType}"),
             InputFolders.InputFolder,
-            Path.Combine(parentFolder, $"bundle_{PlatformType}")
+            _io.Combine(parentFolder, $"bundle_{PlatformType}")
             ];
 
-        foreach (string searchPath in Directory.GetDirectories(parentFolder))
+        foreach (string searchPath in _io.GetDirectories(parentFolder))
             if (!searchPaths.Contains(searchPath))
                 searchPaths.Add(searchPath);
 
@@ -330,12 +330,12 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                Path.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
                 ];
             foreach (string location in searchLocations)
             {
-                string folder = Path.Combine(location, relativeFolderPath);
-                if (Directory.Exists(folder))
+                string folder = _io.Combine(location, relativeFolderPath);
+                if (_io.DirectoryExists(folder))
                 {
                     folderPath = folder;
                     return true;
@@ -353,8 +353,8 @@ public class LayeredFileSystem
             : throw new DirectoryNotFoundException($"The folder {relativeFolderPath} was not found in the input folders.");
     }
 
-    public static string ReadWithoutNull(string filePath)
+    public string ReadWithoutNull(string filePath)
     {
-        return File.ReadAllText(filePath).TrimEnd('\0');
+        return _io.ReadAllText(filePath).TrimEnd('\0');
     }
 }

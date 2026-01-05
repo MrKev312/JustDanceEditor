@@ -17,7 +17,7 @@ public class TempFolderManagerTests
     [Fact]
     public void SystemTempFolderManager_Creates_And_Deletes_MapFolder()
     {
-        var manager = new SystemTempFolderManager();
+        SystemTempFolderManager manager = new();
         string mapName = Path.GetRandomFileName();
 
         try
@@ -49,7 +49,7 @@ public class TempFolderManagerTests
         LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
 
         // Replace internal temp manager with a Moq mock to verify delegation
-        var mock = new Mock<ITempFolderManager>();
+        Mock<ITempFolderManager> mock = new();
         bool createCalled = false;
         bool deleteCalled = false;
         mock.Setup(m => m.CreateMapFolder(It.IsAny<string>())).Callback<string>(name => createCalled = true);

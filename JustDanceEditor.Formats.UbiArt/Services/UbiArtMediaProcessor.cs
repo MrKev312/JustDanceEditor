@@ -7,9 +7,16 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public sealed class UbiArtMediaProcessor : IMediaProcessor
 {
+    private readonly IFileSystem _io;
+
+    public UbiArtMediaProcessor(IFileSystem? io = null)
+    {
+        _io = io ?? new SystemFileSystem();
+    }
+
     public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
+        if (!_io.FileExists("ffmpeg.exe") && !_io.FileExists("ffmpeg"))
             await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
     }
 

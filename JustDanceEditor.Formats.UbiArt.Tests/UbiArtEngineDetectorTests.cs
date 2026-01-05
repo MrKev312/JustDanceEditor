@@ -20,7 +20,7 @@ public class UbiArtEngineDetectorTests
         // Create a JSON songdesc with JDVersion
         File.WriteAllText(Path.Combine(mapsFolder, "songdesc.tpl"), "{ \"COMPONENTS\": [ { \"JDVersion\": 4884 } ] }");
 
-        var detector = new UbiArtEngineDetector();
+        UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
         Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
@@ -36,7 +36,7 @@ public class UbiArtEngineDetectorTests
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(Path.Combine(root, "world", "maps", "jd5"));
 
-        var detector = new UbiArtEngineDetector();
+        UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
         Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
@@ -54,7 +54,7 @@ public class UbiArtEngineDetectorTests
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "songdesc.tpl"), "params = {}\n");
 
-        var detector = new UbiArtEngineDetector();
+        UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
         Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
@@ -68,7 +68,7 @@ public class UbiArtEngineDetectorTests
     [Fact]
     public void Layout_Should_Resolve_JD2014_Uncooked_MapFolder()
     {
-        var layout = new UbiArtLayoutResolver();
+        UbiArtLayoutResolver layout = new();
         string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "maps", "jd5", "song"), mapFolder);
     }
@@ -76,7 +76,7 @@ public class UbiArtEngineDetectorTests
     [Fact]
     public void Layout_Should_Resolve_JD2014_Cooked_MapFolder()
     {
-        var layout = new UbiArtLayoutResolver();
+        UbiArtLayoutResolver layout = new();
         string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "jd5", "song"), mapFolder);
     }

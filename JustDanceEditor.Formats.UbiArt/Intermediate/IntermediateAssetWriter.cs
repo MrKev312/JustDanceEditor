@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Audio;
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
@@ -18,82 +19,83 @@ internal static class IntermediateAssetWriter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
-    public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
+    public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem? io = null)
     {
+        IFileSystem iofs = io ?? new SystemFileSystem();
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(package);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
 
         context.IntermediatePackage ??= package;
 
-        ResetAssetsRoot(packageRoot);
+        ResetAssetsRoot(packageRoot, iofs);
 
-        await EnsurePrerequisitesAsync();
+        await EnsurePrerequisitesAsync(iofs);
 
         JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
-        string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
-        string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
-        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder, iofs);
+        string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder, iofs);
+        string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder, iofs);
 
         // Parallelize pictogram conversion, audio conversion, and video copy
-        Task pictoTask = ConvertPictogramsAsync(context, packageRoot, logger, textureService);
+        Task pictoTask = ConvertPictogramsAsync(context, packageRoot, logger, textureService, iofs);
         Task audioTask = AudioConverter.ConvertAudioAsync(songData, context.FileSystem, new AudioConversionOptions
         {
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
         }, logger);
-        Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder, logger));
+        Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder, logger, iofs));
 
         await Task.WhenAll(pictoTask, audioTask, videoTask);
 
         string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
-        TryDeleteDirectory(previewVideoFolder, logger);
+        TryDeleteDirectory(previewVideoFolder, logger, iofs);
 
-        await CopyAssetsToPackageAsync(context, packageRoot, logger, textureService);
+        await CopyAssetsToPackageAsync(context, packageRoot, logger, textureService, iofs);
     }
 
-    private static async Task EnsurePrerequisitesAsync()
+    private static async Task EnsurePrerequisitesAsync(IFileSystem io)
     {
-        if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
+        if (!io.FileExists("ffmpeg.exe") && !io.FileExists("ffmpeg"))
             await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
     }
 
-    private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
+    private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         CookedFile[] pictoFiles = context.FileSystem.AssetResolver?.GetPictograms() ?? [];
         string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
 
-        string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
+        string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder, io);
 
         UbiArtPictoConversionRequest request = new(
             context.SongData,
             pictoPaths,
             outputFolder);
 
-        await Task.Run(() => UbiArtPictoConverter.Convert(request, logger, textureService));
+        await Task.Run(() => UbiArtPictoConverter.Convert(request, logger, textureService, io));
     }
 
-    private static async Task CopyAssetsToPackageAsync(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
+    private static async Task CopyAssetsToPackageAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         // Parallelize branding, coach, and motion asset operations
-        Task brandingTask = Task.Run(() => AttachBrandingAssets(context, packageRoot, logger, textureService));
-        Task coachTask = Task.Run(() => AttachCoachAssets(context, packageRoot, logger, textureService));
-        Task motionTask = Task.Run(() => AttachMotionAssets(context, packageRoot, logger));
+        Task brandingTask = Task.Run(() => AttachBrandingAssets(context, packageRoot, logger, textureService, io));
+        Task coachTask = Task.Run(() => AttachCoachAssets(context, packageRoot, logger, textureService, io));
+        Task motionTask = Task.Run(() => AttachMotionAssets(context, packageRoot, logger, io));
 
         await Task.WhenAll(brandingTask, coachTask, motionTask);
     }
 
-    private static void AttachBrandingAssets(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
+    private static void AttachBrandingAssets(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
-        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile), logger, textureService);
+        EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder, io);
+        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile), logger, textureService, io);
     }
 
-    private static string? ExportCoverImage(ConversionContext context, string destination, ILogger logger, JDI.Services.ITextureService textureService)
+    private static string? ExportCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         logger.LogDebug("Attempting to export cover image from menu art folder: {MenuArtFolder}", context.FileSystem.InputFolders.MenuArtFolder);
 
-        Image<Bgra32>? cover = UbiArtCoverGenerator.ExistingCover(context, textureService, logger);
+        Image<Bgra32>? cover = UbiArtCoverGenerator.ExistingCover(context, textureService, io, logger);
 
         if (cover != null)
         {
@@ -113,7 +115,7 @@ internal static class IntermediateAssetWriter
 
         using (cover)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            io.CreateDirectory(Path.GetDirectoryName(destination)!);
             cover.Save(destination, Encoder);
             logger.LogInformation("Saved cover image to: {Destination}", destination);
         }
@@ -121,7 +123,7 @@ internal static class IntermediateAssetWriter
         return destination;
     }
 
-    private static void AttachCoachAssets(ConversionContext context, string packageRoot, ILogger logger, JDI.Services.ITextureService textureService)
+    private static void AttachCoachAssets(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         CookedFile[] coachFilesCooked = context.FileSystem.AssetResolver?.GetCoachTextures() ?? [];
 
@@ -134,7 +136,7 @@ internal static class IntermediateAssetWriter
         logger.LogInformation("Found {Count} coach file(s) to process", coachFilesCooked.Length);
         for (int i = 0; i < coachFilesCooked.Length; i++)
         {
-            string destination = Path.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
+            string destination = io.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
             using Image<Bgra32>? coach = textureService.ConvertToImage(coachFilesCooked[i].FullPath);
             if (coach is null)
             {
@@ -142,28 +144,28 @@ internal static class IntermediateAssetWriter
                 continue;
             }
 
-            SaveAsWebp(coach, destination);
+            SaveAsWebp(coach, destination, io);
             logger.LogDebug("Saved coach asset: {FileName}", Path.GetFileName(destination));
         }
 
         using Image<Bgra32>? backgroundImage = UbiArtCoverGenerator.GetBackground(context, textureService);
         if (backgroundImage is not null)
-            SaveAsWebp(backgroundImage, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile));
+            SaveAsWebp(backgroundImage, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile), io);
         logger.LogInformation("Saved coaches background");
     }
 
-    private static void AttachMotionAssets(ConversionContext context, string packageRoot, ILogger logger)
+    private static void AttachMotionAssets(ConversionContext context, string packageRoot, ILogger logger, IFileSystem io)
     {
         string movesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
         string gesturesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
 
-        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder);
+        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder, io);
 
-        string gesturesRelative = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "gestures");
-        CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder);
+        string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
+        CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder, io);
     }
 
-    private static string? CopyCookedFiles(ConversionContext context, string relativeFolder, string pattern, string destinationFolder)
+    private static string? CopyCookedFiles(ConversionContext context, string relativeFolder, string pattern, string destinationFolder, IFileSystem io)
     {
         CookedFile[] files;
         try
@@ -178,7 +180,7 @@ internal static class IntermediateAssetWriter
         if (files.Length == 0)
             return null;
 
-        Directory.CreateDirectory(destinationFolder);
+        io.CreateDirectory(destinationFolder);
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
         foreach (CookedFile file in files)
         {
@@ -186,22 +188,22 @@ internal static class IntermediateAssetWriter
             if (!seen.Add(name))
                 continue;
             string source = file;
-            string destination = Path.Combine(destinationFolder, name);
-            File.Copy(source, destination, true);
+            string destination = io.Combine(destinationFolder, name);
+            io.Copy(source, destination, true);
         }
 
         return destinationFolder;
     }
 
-    private static void ResetAssetsRoot(string packageRoot)
+    private static void ResetAssetsRoot(string packageRoot, IFileSystem io)
     {
         string assetsRoot = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.Root);
-        if (Directory.Exists(assetsRoot))
-            Directory.Delete(assetsRoot, true);
-        Directory.CreateDirectory(assetsRoot);
+        if (io.DirectoryExists(assetsRoot))
+            io.DeleteDirectory(assetsRoot, true);
+        io.CreateDirectory(assetsRoot);
     }
 
-    private static void CopyMasterVideo(LayeredFileSystem fileSystem, string destinationFolder, ILogger logger)
+    private static void CopyMasterVideo(LayeredFileSystem fileSystem, string destinationFolder, ILogger logger, IFileSystem io)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
@@ -212,9 +214,9 @@ internal static class IntermediateAssetWriter
             return;
         }
 
-        Directory.CreateDirectory(destinationFolder);
-        string destination = Path.Combine(destinationFolder, Path.GetFileName(source));
-        File.Copy(source, destination, true);
+        io.CreateDirectory(destinationFolder);
+        string destination = io.Combine(destinationFolder, Path.GetFileName(source));
+        io.Copy(source, destination, true);
         logger.LogInformation("Copied master video into intermediate package without conversion.");
     }
 
@@ -239,21 +241,21 @@ internal static class IntermediateAssetWriter
         return null;
     }
 
-    private static string EnsureFolder(string packageRoot, string relativeFolder)
+    private static string EnsureFolder(string packageRoot, string relativeFolder, IFileSystem io)
     {
         string path = ResolvePackagePath(packageRoot, relativeFolder);
-        Directory.CreateDirectory(path);
+        io.CreateDirectory(path);
         return path;
     }
 
-    private static void TryDeleteDirectory(string? path, ILogger logger)
+    private static void TryDeleteDirectory(string? path, ILogger logger, IFileSystem io)
     {
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        if (string.IsNullOrWhiteSpace(path) || !io.DirectoryExists(path))
             return;
 
         try
         {
-            Directory.Delete(path, true);
+            io.DeleteDirectory(path, true);
         }
         catch (IOException ex)
         {
@@ -270,9 +272,10 @@ internal static class IntermediateAssetWriter
         return IntermediatePackageLayout.Resolve(packageRoot, relative);
     }
 
-    private static void SaveAsWebp(Image<Bgra32> image, string destination)
+    private static void SaveAsWebp(Image<Bgra32> image, string destination, IFileSystem? io = null)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        IFileSystem fs = io ?? new SystemFileSystem();
+        fs.CreateDirectory(Path.GetDirectoryName(destination)!);
         image.Save(destination, Encoder);
     }
 }

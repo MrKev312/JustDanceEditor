@@ -3,21 +3,27 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 public class SystemTempFolderManager : ITempFolderManager
 {
     private const string Root = "JustDanceEditor";
+    private readonly JDI.Services.IFileSystem _io;
+
+    public SystemTempFolderManager(JDI.Services.IFileSystem? io = null)
+    {
+        _io = io ?? new JDI.Services.SystemFileSystem();
+    }
 
     public string GetMapFolder(string mapName)
     {
-        return Path.Combine(Path.GetTempPath(), Root, mapName ?? string.Empty);
+        return _io.Combine(_io.GetTempPath(), Root, mapName ?? string.Empty);
     }
 
     public string GetAudioFolder(string mapName)
     {
-        return Path.Combine(GetMapFolder(mapName), "audio");
+        return _io.Combine(GetMapFolder(mapName), "audio");
     }
 
     public void CreateMapFolder(string mapName)
     {
-        Directory.CreateDirectory(GetMapFolder(mapName));
-        Directory.CreateDirectory(GetAudioFolder(mapName));
+        _io.CreateDirectory(GetMapFolder(mapName));
+        _io.CreateDirectory(GetAudioFolder(mapName));
     }
 
     public void DeleteMapFolder(string mapName)
@@ -25,8 +31,8 @@ public class SystemTempFolderManager : ITempFolderManager
         try
         {
             var folder = GetMapFolder(mapName);
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, true);
+            if (_io.DirectoryExists(folder))
+                _io.DeleteDirectory(folder, true);
         }
         catch (IOException)
         {

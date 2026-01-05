@@ -1,3 +1,4 @@
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 
 using System.Diagnostics.CodeAnalysis;
@@ -7,17 +8,19 @@ namespace JustDanceEditor.Formats.UbiArt;
 
 public static class ISC
 {
-    public static bool GetActorPath(string input, string actorName, [MaybeNullWhen(false)] out string actorPath)
+    public static bool GetActorPath(string input, string actorName, [MaybeNullWhen(false)] out string actorPath, IFileSystem? io = null)
     {
         actorPath = null;
 
-        if (!Path.Exists(input))
+        IFileSystem fs = io ?? new SystemFileSystem();
+
+        if (!fs.FileExists(input))
             return false;
 
         // Try to read as XML first (text-based ISC)
         try
         {
-            string text = File.ReadAllText(input);
+            string text = fs.ReadAllText(input);
             XDocument xmlDoc = XDocument.Parse(text);
             foreach (XElement actor in xmlDoc.Descendants("Actor"))
             {
@@ -40,9 +43,8 @@ public static class ISC
 
         return false;
     }
-
-    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath)
+    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath, IFileSystem? io = null)
     {
-        return GetActorPath(cookedFile.FullPath, actorName, out actorPath);
+        return GetActorPath(cookedFile.FullPath, actorName, out actorPath, io);
     }
 }

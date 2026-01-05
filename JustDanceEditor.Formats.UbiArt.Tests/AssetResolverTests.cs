@@ -12,7 +12,7 @@ public class AssetResolverTests
     [Fact]
     public void Should_Resolve_PictosFolder_For_JD2015_Cooked_vs_Uncooked()
     {
-        var resolver = new UbiArtLayoutResolver();
+        UbiArtLayoutResolver resolver = new();
         string cookedMap = resolver.GetMapWorldFolder("/in", "song", UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015);
         string uncookedMap = resolver.GetMapWorldFolder("/in", "song", UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015);
 

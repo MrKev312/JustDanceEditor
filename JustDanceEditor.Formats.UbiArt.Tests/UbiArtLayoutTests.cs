@@ -1,3 +1,4 @@
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
@@ -15,7 +16,7 @@ public class UbiArtLayoutTests
     [Fact]
     public void Layout_Should_Handle_Uncooked_JD2014_Symmetry()
     {
-        var layout = new UbiArtLayoutResolver();
+        UbiArtLayoutResolver layout = new();
         UbiArtContainerStyle style = UbiArtContainerStyle.Uncooked;
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
 
@@ -30,7 +31,7 @@ public class UbiArtLayoutTests
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(root);
 
-        var layout = new UbiArtLayoutResolver();
+        UbiArtLayoutResolver layout = new();
         UbiArtContainerStyle style = UbiArtContainerStyle.Uncooked;
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
         string mapWorldRelative = layout.GetMapWorldFolder(root, "song", style, version);
@@ -42,7 +43,7 @@ public class UbiArtLayoutTests
         Directory.CreateDirectory(Path.Combine(mapWorldFolder, "timeline"));
         Directory.CreateDirectory(Path.Combine(mapWorldFolder, "cinematics"));
 
-        var package = new JustDanceEditor.Formats.JDI.IntermediateSongPackage { Metadata = new JustDanceEditor.Formats.JDI.Metadata.IntermediateMetadata { MapName = "song" } };
+        IntermediateSongPackage package = new() { Metadata = new JDI.Metadata.IntermediateMetadata { MapName = "song" } };
 
         await JustDanceEditor.Formats.UbiArt.Services.UbiArtAssetWriter.ExportToUncookedAsync(package, null, root, NullLogger.Instance, layout, style, version);
 

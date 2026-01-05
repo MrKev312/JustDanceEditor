@@ -53,7 +53,7 @@ public class SongDataLoaderTests
         File.WriteAllText(Path.Combine(flatSongFolder, "karaoke_actor.tpl"), "{ \"COMPONENTS\": [ { \"TapesRack\": [ { \"Entries\": [ { \"Path\": \"karaoke.tape\" } ] } ] } ] }");
         File.WriteAllText(Path.Combine(flatSongFolder, "timeline", "karaoke.tape"), "{ \"Clips\": [] }");
 
-        var profile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song")
         {
             Type = UbiArtType.Uncooked
@@ -62,7 +62,7 @@ public class SongDataLoaderTests
         fs.Configure(profile);
         fs.Initialize();
 
-        var loader = new JustDanceEditor.Formats.UbiArt.Services.SongDataLoader(NullLogger<JustDanceEditor.Formats.UbiArt.Services.SongDataLoader>.Instance);
+        SongDataLoader loader = new(NullLogger<SongDataLoader>.Instance);
         JDUbiArtSong song = loader.LoadSongData(req, fs);
 
         Assert.Equal(123u, song.JDVersion);

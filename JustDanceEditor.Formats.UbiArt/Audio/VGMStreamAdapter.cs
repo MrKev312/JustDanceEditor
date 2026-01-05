@@ -7,8 +7,10 @@ namespace JustDanceEditor.Formats.UbiArt.Audio;
 
 public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
 {
+    private static readonly JDI.Services.IFileSystem _io = new JDI.Services.SystemFileSystem();
+
     public static bool Exists() =>
-        Directory.Exists("Resources/VGMStream/") && File.Exists("Resources/VGMStream/vgmstream-cli.exe");
+        _io.DirectoryExists("Resources/VGMStream/") && _io.FileExists("Resources/VGMStream/vgmstream-cli.exe");
 
     public static async Task Download(ILogger? logger = null)
     {
@@ -17,7 +19,7 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
 
         logger?.LogInformation("Downloading VGMStream...");
 
-        Directory.CreateDirectory("Resources/VGMStream/");
+        _io.CreateDirectory("Resources/VGMStream/");
 
         string win64 = "https://github.com/vgmstream/vgmstream/releases/latest/download/vgmstream-win64.zip";
         string win32 = "https://github.com/vgmstream/vgmstream/releases/latest/download/vgmstream-win.zip";
@@ -50,7 +52,7 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
     {
         await Check();
 
-        string vgmFullPath = Path.GetFullPath("Resources/VGMStream/vgmstream-cli.exe");
+        string vgmFullPath = _io.GetFullPath("Resources/VGMStream/vgmstream-cli.exe");
 
         Process process = new()
         {

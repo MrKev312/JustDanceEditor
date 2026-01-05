@@ -1,3 +1,4 @@
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
@@ -22,15 +23,16 @@ public sealed record UbiArtAudioConversionRequest(
     string MasterOutputFolder,
     string PreviewOutputFolder,
     bool IsMainSongPreMerged,
-    JDI.Services.IAudioConverter AudioConverter);
+    IAudioConverter AudioConverter);
 
 public static class UbiArtAudioConverter
 {
-    public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, ILogger logger) =>
-        Task.Run(() => ConvertAudio(request, logger));
+    public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem? io = null) =>
+        Task.Run(() => ConvertAudio(request, logger, io));
 
-    public static void ConvertAudio(UbiArtAudioConversionRequest request, ILogger logger)
+    public static void ConvertAudio(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem? io = null)
     {
+        IFileSystem iofs = io ?? new SystemFileSystem();
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.SongData);
         ArgumentNullException.ThrowIfNull(request.MainSongFile);
@@ -40,53 +42,53 @@ public static class UbiArtAudioConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PreviewOutputFolder);
         ArgumentNullException.ThrowIfNull(request.AudioConverter);
 
-        Directory.CreateDirectory(request.TempAudioFolder);
+        iofs.CreateDirectory(request.TempAudioFolder);
 
         logger.LogInformation("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        string mainSongWavPath = ConvertMainSong(request, logger);
+        string mainSongWavPath = ConvertMainSong(request, logger, iofs);
 
         logger.LogInformation("Finished converting audio files in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
-        string mergedWavPath = Path.Combine(request.TempAudioFolder, "merged.wav");
+        string mergedWavPath = iofs.Combine(request.TempAudioFolder, "merged.wav");
 
         if (request.IsMainSongPreMerged)
         {
-            File.Move(mainSongWavPath, mergedWavPath, true);
+            iofs.Move(mainSongWavPath, mergedWavPath, true);
         }
         else
         {
-            ConvertAudioClips(request, logger);
-            MergeAudioFiles(request, mainSongWavPath, mergedWavPath, logger);
+            ConvertAudioClips(request, logger, iofs);
+            MergeAudioFiles(request, mainSongWavPath, mergedWavPath, logger, iofs);
         }
 
-        string opusPath = ConvertToOpus(request, mergedWavPath, logger);
-        MoveOpusToOutput(request, opusPath);
+        string opusPath = ConvertToOpus(request, mergedWavPath, logger, iofs);
+        MoveOpusToOutput(request, opusPath, iofs);
     }
 
-    private static void ConvertAudioClips(UbiArtAudioConversionRequest request, ILogger logger)
+    private static void ConvertAudioClips(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
     {
         // Parallelize audio clip conversions
         Parallel.ForEach(request.AudioClips, clipSource =>
         {
-            string targetPath = Path.Combine(request.TempAudioFolder, clipSource.File.Name + clipSource.File.Extension);
-            if (File.Exists(targetPath))
+            string targetPath = io.Combine(request.TempAudioFolder, clipSource.File.Name + clipSource.File.Extension);
+            if (io.FileExists(targetPath))
                 return;
 
             request.AudioConverter.Convert(clipSource.File, targetPath).GetAwaiter().GetResult();
         });
     }
 
-    private static string ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger)
+    private static string ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
     {
-        string targetPath = Path.Combine(request.TempAudioFolder, "mainSong.wav");
+        string targetPath = io.Combine(request.TempAudioFolder, "mainSong.wav");
         request.AudioConverter.Convert(request.MainSongFile, targetPath).GetAwaiter().GetResult();
         logger.LogDebug("Converted main song to {TargetPath}", targetPath);
         return targetPath;
     }
 
-    private static void MergeAudioFiles(UbiArtAudioConversionRequest request, string mainSongWavPath, string mergedWavPath, ILogger logger)
+    private static void MergeAudioFiles(UbiArtAudioConversionRequest request, string mainSongWavPath, string mergedWavPath, ILogger logger, IFileSystem io)
     {
         logger.LogInformation("Merging audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -97,15 +99,15 @@ public static class UbiArtAudioConverter
         foreach (UbiArtAudioClipSource clipSource in request.AudioClips)
         {
             string clipName = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
-            string wavPath = Path.Combine(request.TempAudioFolder, clipName + ".wav");
-            if (!File.Exists(wavPath))
+            string wavPath = io.Combine(request.TempAudioFolder, clipName + ".wav");
+            if (!io.FileExists(wavPath))
                 continue;
 
             float offset = CalculateClipOffset(request, clipSource.Clip);
             audioFiles.Add((wavPath, offset));
         }
 
-        MergeAudioFilesInternal([.. audioFiles], mergedWavPath, logger);
+        MergeAudioFilesInternal([.. audioFiles], mergedWavPath, logger, io);
 
         stopwatch.Stop();
         logger.LogInformation("Finished merging audio files in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
@@ -139,9 +141,9 @@ public static class UbiArtAudioConverter
         return offset;
     }
 
-    private static string ConvertToOpus(UbiArtAudioConversionRequest request, string mergedWavPath, ILogger logger)
+    private static string ConvertToOpus(UbiArtAudioConversionRequest request, string mergedWavPath, ILogger logger, IFileSystem io)
     {
-        string opusPath = Path.Combine(request.TempAudioFolder, "merged.opus");
+        string opusPath = io.Combine(request.TempAudioFolder, "merged.opus");
 
         IConversion conversion = FFmpeg.Conversions.New();
         IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(mergedWavPath).Result;
@@ -162,21 +164,21 @@ public static class UbiArtAudioConverter
         return opusPath;
     }
 
-    private static void MoveOpusToOutput(UbiArtAudioConversionRequest request, string opusPath)
+    private static void MoveOpusToOutput(UbiArtAudioConversionRequest request, string opusPath, IFileSystem io)
     {
-        MoveAudioToOutput(opusPath, request.MasterOutputFolder, "master.opus");
+        MoveAudioToOutput(opusPath, request.MasterOutputFolder, "master.opus", io);
     }
 
-    private static void MoveAudioToOutput(string sourcePath, string destinationFolder, string targetFileName)
+    private static void MoveAudioToOutput(string sourcePath, string destinationFolder, string targetFileName, IFileSystem io)
     {
-        Directory.CreateDirectory(destinationFolder);
+        io.CreateDirectory(destinationFolder);
 
-        string targetPath = Path.Combine(destinationFolder, targetFileName);
+        string targetPath = io.Combine(destinationFolder, targetFileName);
 
-        File.Move(sourcePath, targetPath, true);
+        io.Move(sourcePath, targetPath, true);
     }
 
-    private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath, ILogger logger)
+    private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath, ILogger logger, IFileSystem io)
     {
         if (audioFiles.Length == 0)
             return;
@@ -186,7 +188,7 @@ public static class UbiArtAudioConverter
 
         foreach ((string path, float startTime) in audioFiles)
         {
-            if (!File.Exists(path))
+            if (!io.FileExists(path))
             {
                 logger.LogWarning("File {Path} does not exist!", path);
                 continue;
@@ -212,7 +214,7 @@ public static class UbiArtAudioConverter
         foreach (ISampleProvider sampleProvider in sampleProviders)
             mixer.AddMixerInput(sampleProvider);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        io.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         WaveFileWriter.CreateWaveFile16(outputPath, mixer.ToWaveProvider16().ToSampleProvider());
     }
 }

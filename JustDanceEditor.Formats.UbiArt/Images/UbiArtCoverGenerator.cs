@@ -13,12 +13,12 @@ namespace JustDanceEditor.Formats.UbiArt.Images;
 
 public static class UbiArtCoverGenerator
 {
-    public static Image<Bgra32>? ExistingCover(ConversionContext context, JDI.Services.ITextureService textureService, ILogger? logger = null)
+    public static Image<Bgra32>? ExistingCover(ConversionContext context, JDI.Services.ITextureService textureService, JDI.Services.IFileSystem io, ILogger? logger = null)
     {
         JDUbiArtSong song = context.SongData;
 
         CookedFile? cover = context.FileSystem.AssetResolver?.GetCoverArt();
-        if (cover != null && File.Exists(cover.FullPath))
+        if (cover != null && io.FileExists(cover.FullPath))
         {
             Image<Bgra32>? image = textureService.ConvertToImage(cover.FullPath);
             if (image != null)

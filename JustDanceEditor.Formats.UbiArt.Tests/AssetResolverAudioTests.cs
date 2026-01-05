@@ -26,13 +26,13 @@ public class AssetResolverAudioTests
         string oggPath = Path.Combine(mediaFolder, "song.ogg");
         File.WriteAllText(oggPath, "OGGDATA");
 
-        var profile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
         LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
         fs.Configure(profile);
         fs.Initialize();
 
-        var resolver = new FileSystemAssetResolver(fs.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.Layout!, fs);
         bool found = resolver.TryFindMainAudio(new JDUbiArtSong { Name = "song" }, out CookedFile? file, out bool isPreMerged);
 
         Assert.True(found);
@@ -55,13 +55,13 @@ public class AssetResolverAudioTests
         string wavPath = Path.Combine(audioFolder, baseName + ".wav");
         File.WriteAllText(wavPath, "WAVDATA");
 
-        var profile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
         LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
         fs.Configure(profile);
         fs.Initialize();
 
-        var resolver = new FileSystemAssetResolver(fs.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.Layout!, fs);
 
         string relativeMusicTpl = Path.Combine(fs.InputFolders.AudioFolder, baseName + ".tpl");
         bool found = resolver.TryFindAudio(relativeMusicTpl, out CookedFile? file);

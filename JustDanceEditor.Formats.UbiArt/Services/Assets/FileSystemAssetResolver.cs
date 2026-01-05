@@ -5,10 +5,11 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace JustDanceEditor.Formats.UbiArt.Services.Assets;
 
-public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fileSystem) : IUbiArtAssetResolver
+public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fileSystem, JDI.Services.IFileSystem? io = null) : IUbiArtAssetResolver
 {
     private readonly IUbiArtLayout _layout = layout ?? throw new ArgumentNullException(nameof(layout));
     private readonly LayeredFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
     private readonly string[] TextureExtensions = [".webp", ".png", ".tga", ".jpg", ".jpeg"];
     private readonly string[] AudioExtensions = [".ogg", ".wav", ".wem"];
@@ -77,7 +78,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
                 return mediaVideos[0];
         }
 
-        CookedFile[] coachVideos = _fileSystem.GetAllFiles(Path.Combine(_fileSystem.InputFolders.MapWorldFolder, "videoscoach"), "*.webm");
+        CookedFile[] coachVideos = _fileSystem.GetAllFiles(_io.Combine(_fileSystem.InputFolders.MapWorldFolder, "videoscoach"), "*.webm");
         if (coachVideos.Length > 0)
             return coachVideos[0];
 
@@ -140,8 +141,8 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
             string candidateRelative = Path.Combine(folderRelative, baseName + ext);
 
             // Try absolute path quick check
-            string candidateAbsolute = Path.Combine(_fileSystem.ConversionRequest.InputPath, candidateRelative);
-            if (File.Exists(candidateAbsolute))
+            string candidateAbsolute = _io.Combine(_fileSystem.ConversionRequest.InputPath, candidateRelative);
+            if (_io.FileExists(candidateAbsolute))
             {
                 file = new CookedFile(candidateAbsolute);
                 return true;
@@ -179,8 +180,8 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         catch { }
 
         // As a final fallback, check absolute path for plain baseName (no extension)
-        string fallbackAbsolute = Path.Combine(_fileSystem.ConversionRequest.InputPath, folderRelative, baseName);
-        if (File.Exists(fallbackAbsolute))
+        string fallbackAbsolute = _io.Combine(_fileSystem.ConversionRequest.InputPath, folderRelative, baseName);
+        if (_io.FileExists(fallbackAbsolute))
         {
             file = new CookedFile(fallbackAbsolute);
             return true;
