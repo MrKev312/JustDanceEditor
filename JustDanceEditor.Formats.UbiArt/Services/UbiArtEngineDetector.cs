@@ -33,6 +33,11 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
         }
 
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
+        if (Directory.Exists(Path.Combine(inputPath, "world", "maps", "jd2015")))
+            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+        if (Directory.Exists(Path.Combine(inputPath, "world", "maps", "jd5")))
+            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+
         if (Directory.Exists(Path.Combine(inputPath, "world", "maps")))
         {
             var profile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
@@ -40,11 +45,6 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
             TryPeekSongDescForJDVersion(inputPath, profile);
             return profile;
         }
-
-        if (Directory.Exists(Path.Combine(inputPath, "world", "maps", "jd2015")))
-            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
-        if (Directory.Exists(Path.Combine(inputPath, "world", "maps", "jd5")))
-            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
 
         // Flat/uncooked markers: Audio/, Cinematics/, or *.tpl at root
         if (Directory.Exists(Path.Combine(inputPath, "Audio")) ||

@@ -17,14 +17,14 @@ public static class AudioConverter
 
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,
-        FileSystem fileSystem,
+        LayeredFileSystem fileSystem,
         AudioConversionOptions options,
         ILogger logger) =>
         Task.Run(() => ConvertAudio(songData, fileSystem, options, logger));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
-        FileSystem fileSystem,
+        LayeredFileSystem fileSystem,
         AudioConversionOptions options,
         ILogger logger)
     {
@@ -45,7 +45,7 @@ public static class AudioConverter
 
     private static UbiArtAudioConversionRequest BuildRequest(
         JDUbiArtSong songData,
-        FileSystem fileSystem,
+        LayeredFileSystem fileSystem,
         AudioConversionOptions options)
     {
         string masterOutputFolder = options.MasterOutputFolder;
@@ -67,7 +67,7 @@ public static class AudioConverter
             audioConverter);
     }
 
-    private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, FileSystem fileSystem)
+    private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, LayeredFileSystem fileSystem)
     {
         SoundSetClip[] audioClips = [.. songData.Clips.OfType<SoundSetClip>()];
         List<UbiArtAudioClipSource> clipSources = new(audioClips.Length);
@@ -84,7 +84,7 @@ public static class AudioConverter
         return clipSources;
     }
 
-    private static CookedFile GetMainSongPath(JDUbiArtSong songData, FileSystem fileSystem, out bool isPreMerged)
+    private static CookedFile GetMainSongPath(JDUbiArtSong songData, LayeredFileSystem fileSystem, out bool isPreMerged)
     {
         isPreMerged = false;
 

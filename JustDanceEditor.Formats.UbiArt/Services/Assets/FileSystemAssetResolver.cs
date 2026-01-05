@@ -5,10 +5,10 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace JustDanceEditor.Formats.UbiArt.Services.Assets;
 
-public class FileSystemAssetResolver(IUbiArtLayout layout, FileSystem fileSystem) : IUbiArtAssetResolver
+public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fileSystem) : IUbiArtAssetResolver
 {
     private readonly IUbiArtLayout _layout = layout ?? throw new ArgumentNullException(nameof(layout));
-    private readonly FileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly LayeredFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
     private readonly string[] TextureExtensions = [".webp", ".png", ".tga", ".jpg", ".jpeg"];
     private readonly string[] AudioExtensions = [".ogg", ".wav", ".wem"];

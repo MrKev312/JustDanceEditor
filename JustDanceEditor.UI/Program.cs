@@ -25,6 +25,10 @@ internal class Program
 
         // Register services
         builder.Services.AddSingleton<IFileSystem, DefaultFileSystem>();
+        // Register system implementations used by non-UI projects
+        builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Files.SystemFileSystem>();
+        builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Files.ITempFolderManager, JustDanceEditor.Formats.UbiArt.Files.SystemTempFolderManager>();
+
         builder.Services.AddSingleton<ITextureService, DefaultTextureService>();
         builder.Services.AddSingleton<IMediaProcessor, UbiArtMediaProcessor>();
         builder.Services.AddSingleton<ISongDataLoader, SongDataLoader>();
@@ -35,7 +39,7 @@ internal class Program
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
 
         // Factories
-        builder.Services.AddSingleton<Func<UbiArtConversionRequest, Formats.UbiArt.Files.FileSystem>>(sp => req => new Formats.UbiArt.Files.FileSystem(req, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.FileSystem>>()));
+        builder.Services.AddSingleton<Func<UbiArtConversionRequest, Formats.UbiArt.Files.LayeredFileSystem>>(sp => req => new Formats.UbiArt.Files.LayeredFileSystem(req, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<JustDanceEditor.Formats.UbiArt.Files.SystemFileSystem>(), sp.GetRequiredService<JustDanceEditor.Formats.UbiArt.Files.ITempFolderManager>()));
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services

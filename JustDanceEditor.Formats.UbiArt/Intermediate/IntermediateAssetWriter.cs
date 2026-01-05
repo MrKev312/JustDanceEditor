@@ -201,7 +201,7 @@ internal static class IntermediateAssetWriter
         Directory.CreateDirectory(assetsRoot);
     }
 
-    private static void CopyMasterVideo(FileSystem fileSystem, string destinationFolder, ILogger logger)
+    private static void CopyMasterVideo(LayeredFileSystem fileSystem, string destinationFolder, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
@@ -218,7 +218,7 @@ internal static class IntermediateAssetWriter
         logger.LogInformation("Copied master video into intermediate package without conversion.");
     }
 
-    private static string? GetVideoFile(FileSystem fileSystem)
+    private static string? GetVideoFile(LayeredFileSystem fileSystem)
     {
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {

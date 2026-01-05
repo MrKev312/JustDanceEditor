@@ -1,6 +1,6 @@
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class InputFolders(FileSystem fileSystem)
+public class InputFolders(LayeredFileSystem fileSystem)
 {
     public string InputFolder => fileSystem.ConversionRequest.InputPath;
 

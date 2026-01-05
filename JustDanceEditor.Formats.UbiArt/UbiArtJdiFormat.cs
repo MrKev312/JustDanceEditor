@@ -11,10 +11,10 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, FileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger) : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger) : IJdiFormat
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
-    private readonly Func<UbiArtConversionRequest, FileSystem> _fileSystemFactory = fileSystemFactory;
+    private readonly Func<UbiArtConversionRequest, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
     private readonly IUbiArtEngineDetector _engineDetector = engineDetector ?? throw new ArgumentNullException(nameof(engineDetector));
     private readonly JDI.Services.IAudioConverter _audioConverter = audioConverter;
     private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
@@ -34,7 +34,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
         _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.ContainerStyle, profile.EngineVersion);
 
-        FileSystem fileSystem = _fileSystemFactory(ubiRequest);
+        LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest);
         fileSystem.Configure(profile);
         fileSystem.Initialize();
 
@@ -66,7 +66,17 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             throw;
         }
 
+        // Manage temporary folders explicitly in the import workflow (caller-managed cleanup)
+        string previousMap = fileSystem.SongName;
         context.FileSystem.UpdateSongName(context.SongData.Name);
+        // Create new temp folders for this map (if needed)
+        context.FileSystem.TempFolders.CreateTempFolders();
+        // If the map name changed, request deletion of the previous temp folder
+        if (!string.IsNullOrWhiteSpace(previousMap) && !string.Equals(previousMap, context.FileSystem.SongName, StringComparison.Ordinal))
+        {
+            context.FileSystem.TempFolders.DeleteMap(previousMap);
+        }
+
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
         string outputFolder = Path.Combine(ubiRequest.OutputPath, context.SongData.Name);
         PrepareOutputDirectory(outputFolder);
@@ -131,7 +141,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             bool isCooked = Directory.Exists(Path.Combine(path, "cache", "itf_cooked"));
             UbiArtVersionProfile profile = _engineDetector.Detect(path);
             UbiArtConversionRequest req = new(path, Path.GetTempPath(), null) { Type = profile.ContainerStyle == UbiArtContainerStyle.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
-            FileSystem fs = _fileSystemFactory(req);
+            LayeredFileSystem fs = _fileSystemFactory(req);
             fs.Configure(profile);
             fs.Initialize();
 
@@ -170,7 +180,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
     }
 
-    private static void ValidateUbiArtImport(UbiArtConversionRequest request, FileSystem fs)
+    private static void ValidateUbiArtImport(UbiArtConversionRequest request, LayeredFileSystem fs)
     {
         ArgumentNullException.ThrowIfNull(request);
 

@@ -10,9 +10,11 @@ using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class FileSystem
+public class LayeredFileSystem
 {
-    private readonly ILogger<FileSystem> _logger;
+    private readonly ILogger<LayeredFileSystem> _logger;
+    private readonly Formats.JDI.Services.IFileSystem _io;
+    private readonly ITempFolderManager _tempManager;
 
     public IUbiArtLayout? Layout { get; private set; }
     public IUbiArtSerializer? Serializer { get; private set; }
@@ -22,14 +24,22 @@ public class FileSystem
     public Services.Assets.IUbiArtAssetResolver? AssetResolver { get; private set; }
     public IUbiArtDataMapper? Mapper { get; private set; }
 
-    public FileSystem(UbiArtConversionRequest conversionRequest, ILogger<FileSystem> logger)
+    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger, Formats.JDI.Services.IFileSystem io, ITempFolderManager tempManager)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;
+        _io = io ?? throw new ArgumentNullException(nameof(io));
+        _tempManager = tempManager ?? throw new ArgumentNullException(nameof(tempManager));
 
         // Initialization that depends on a layout/serializer will be run later via Initialize()
-        TempFolders = new(this, _logger);
+        TempFolders = new(this, _logger, _tempManager);
         InputFolders = new(this);
+    }
+
+    // Backwards-compatible constructor for tests and existing callers; creates default System implementations
+    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger)
+        : this(conversionRequest, logger, new SystemFileSystem(), new SystemTempFolderManager())
+    {
     }
 
     public void Configure(UbiArtVersionProfile profile)
@@ -57,7 +67,8 @@ public class FileSystem
         InitializeSongID();
         InitializePlatformType();
 
-        TempFolders.CreateTempFolders();
+        // NOTE: LayeredFileSystem is read-only regarding file system mutations; temp folders are managed by ITempFolderManager and
+        // should only be created by components that need them (e.g., exporters/converters).
     }
 
     public UbiArtConversionRequest ConversionRequest { get; private set; }
@@ -76,29 +87,13 @@ public class FileSystem
         if (string.Equals(SongName, newSongName, StringComparison.Ordinal))
             return;
 
-        string previousTempFolder = TempFolders.MapFolder;
+        string previousMapName = SongName;
 
         SongName = newSongName;
         ConversionRequest.SongName = newSongName;
 
-        TempFolders.CreateTempFolders();
-
-        if (!string.Equals(previousTempFolder, TempFolders.MapFolder, StringComparison.OrdinalIgnoreCase)
-            && Directory.Exists(previousTempFolder))
-        {
-            try
-            {
-                Directory.Delete(previousTempFolder, true);
-            }
-            catch (IOException ex)
-            {
-                _logger.LogWarning(ex, "Failed to remove old temp folder '{PreviousTempFolder}': {Message}", previousTempFolder, ex.Message);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Failed to remove old temp folder '{PreviousTempFolder}': {Message}", previousTempFolder, ex.Message);
-            }
-        }
+        // Do not create or delete temp folders here; responsibility moved to ITempFolderManager consumers.
+        // Cleanup is explicit and should be performed by the calling workflow when appropriate.
     }
 
     private void InitializeSongID()

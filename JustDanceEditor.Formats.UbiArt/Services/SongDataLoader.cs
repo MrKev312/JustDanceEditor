@@ -15,7 +15,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
 {
     private readonly ILogger<SongDataLoader> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-    public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, FileSystem fileSystem)
+    public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
     {
         JDUbiArtSong songData = new();
         _logger.LogInformation("Loading song info...");
@@ -107,7 +107,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
         return songData;
     }
 
-    public SongDesc LoadSongDesc(UbiArtConversionRequest request, FileSystem fileSystem)
+    public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
     {
         JsonSerializerOptions options = new();
         options.Converters.Add(new ClipConverter());
@@ -144,7 +144,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
         throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
     }
 
-    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, FileSystem fileSystem, JsonSerializerOptions options)
+    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, LayeredFileSystem fileSystem, JsonSerializerOptions options)
     {
         HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
         return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
@@ -152,7 +152,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
 
     private IEnumerable<Clip> ExpandClipsInternal(
         IEnumerable<Clip> clips,
-        FileSystem fileSystem,
+        LayeredFileSystem fileSystem,
         JsonSerializerOptions options,
         HashSet<string> recursionGuard,
         int timeOffset)
@@ -174,7 +174,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger) : ISongDataLoader
 
     private IEnumerable<Clip> LoadReferenceClips(
         TapeReferenceClip reference,
-        FileSystem fileSystem,
+        LayeredFileSystem fileSystem,
         JsonSerializerOptions options,
         HashSet<string> recursionGuard,
         int parentOffset)

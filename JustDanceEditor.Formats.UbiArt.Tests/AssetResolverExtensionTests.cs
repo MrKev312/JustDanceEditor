@@ -28,12 +28,12 @@ public class AssetResolverExtensionTests
 
         var profile = new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song");
-        FileSystem fs = new(req, NullLogger<FileSystem>.Instance);
+        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
         fs.Configure(profile);
         fs.Initialize();
 
         var resolver = new FileSystemAssetResolver(fs.Layout!, fs);
-        CookedFile picto = resolver.FindPictogram("picto");
+        CookedFile? picto = resolver.FindPictogram("picto");
         Assert.NotNull(picto);
 
         Directory.Delete(root, true);
@@ -53,12 +53,12 @@ public class AssetResolverExtensionTests
         {
             Type = UbiArtType.Uncooked
         };
-        FileSystem fs = new(req, NullLogger<FileSystem>.Instance);
+        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
         fs.Configure(profile);
         fs.Initialize();
 
         var resolver = new FileSystemAssetResolver(fs.Layout!, fs);
-        CookedFile picto = resolver.FindPictogram("picto");
+        CookedFile? picto = resolver.FindPictogram("picto");
         Assert.NotNull(picto);
 
         Directory.Delete(root, true);

@@ -2,41 +2,46 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class TempFolders(FileSystem fileSystem, ILogger<FileSystem> logger)
+public class TempFolders(LayeredFileSystem fileSystem, ILogger<LayeredFileSystem> logger, ITempFolderManager tempManager)
 {
-    private readonly FileSystem fileSystem = fileSystem;
-    private readonly ILogger<FileSystem> _logger = logger;
+    private readonly LayeredFileSystem fileSystem = fileSystem;
+    private readonly ILogger<LayeredFileSystem> _logger = logger;
+    private readonly ITempFolderManager _tempManager = tempManager;
 
-    public string MapFolder => Path.Combine(Path.GetTempPath(), "JustDanceEditor", fileSystem.SongName);
-    public string AudioFolder => Path.Combine(MapFolder, "audio");
+    public string MapFolder => _tempManager.GetMapFolder(fileSystem.SongName);
+    public string AudioFolder => _tempManager.GetAudioFolder(fileSystem.SongName);
 
     public void CreateTempFolders()
     {
-        if (Directory.Exists(MapFolder))
+        try
         {
-            _logger.LogDebug("Deleting the old temp folder");
-            try
-            {
-                Directory.Delete(MapFolder, true);
-            }
-            catch (IOException ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete old temp folder '{MapFolder}': {Message}", MapFolder, ex.Message);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete old temp folder '{MapFolder}': {Message}", MapFolder, ex.Message);
-            }
+            _logger.LogDebug("Creating temp folders via ITempFolderManager");
+            _tempManager.CreateMapFolder(fileSystem.SongName);
         }
-
-        _logger.LogDebug("Creating temp folders");
-        Directory.CreateDirectory(MapFolder);
-        Directory.CreateDirectory(AudioFolder);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create temp folders for '{MapName}': {Message}", fileSystem.SongName, ex.Message);
+        }
     }
 
     public void Delete()
     {
-        _logger.LogDebug("Deleting the temp folder");
-        Directory.Delete(MapFolder, true);
+        DeleteMap(fileSystem.SongName);
+    }
+
+    public void DeleteMap(string mapName)
+    {
+        if (string.IsNullOrWhiteSpace(mapName))
+            return;
+
+        try
+        {
+            _logger.LogDebug("Deleting the temp folder for map '{MapName}' via ITempFolderManager", mapName);
+            _tempManager.DeleteMapFolder(mapName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete temp folder for '{MapName}': {Message}", mapName, ex.Message);
+        }
     }
 }
