@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 using JustDanceEditor.Formats.UbiArt.Services.Serialization;
-
+using JustDanceEditor.Formats.UbiArt.Files;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
@@ -16,20 +16,33 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
 
     public UbiArtVersionProfile Detect(string inputPath)
     {
-        bool hasCooked = _io.DirectoryExists(_io.Combine(inputPath, "cache", "itf_cooked"));
+        // If the input is an IPK file, use an IpkFileSystem and treat paths as relative (no inputPath prefix)
+        if (Path.GetExtension(inputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            using var ipk = new IpkFileSystem(inputPath);
+            return DetectWithFileSystem(string.Empty, ipk);
+        }
+
+        // Default behavior for directories
+        return DetectWithFileSystem(inputPath, _io);
+    }
+
+    private UbiArtVersionProfile DetectWithFileSystem(string basePath, JDI.Services.IFileSystem fs)
+    {
+        bool hasCooked = fs.DirectoryExists(fs.Combine(basePath, "cache", "itf_cooked"));
 
         // If cooked, look inside cooked cache for world/jd5 or world/jd2015 markers
         if (hasCooked)
         {
             // Search for jd5 or jd2015 anywhere inside cache/itf_cooked
-            string cookedRoot = _io.Combine(inputPath, "cache", "itf_cooked");
+            string cookedRoot = fs.Combine(basePath, "cache", "itf_cooked");
             // Search nested directories for world/jd5 or world/jd2015
-            var cookedDirs = GetDirectoriesRecursive(cookedRoot).ToArray();
+            var cookedDirs = GetDirectoriesRecursive(cookedRoot, fs).ToArray();
             // Check latest to oldest, as newer versions may have both jd2015 and jd5 folders
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/maps")))
             {
                 UbiArtVersionProfile p = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer(), new DefaultUbiArtDataMapper());
-                TryPeekSongDescForJDVersion(inputPath, p);
+                TryPeekSongDescForJDVersion(basePath, p, fs);
                 return p;
             }
 
@@ -40,26 +53,26 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
         }
 
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
-        if (_io.DirectoryExists(_io.Combine(inputPath, "world", "maps", "jd2015")))
+        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
             return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
-        if (_io.DirectoryExists(_io.Combine(inputPath, "world", "maps", "jd5")))
+        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
             return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
 
-        if (_io.DirectoryExists(_io.Combine(inputPath, "world", "maps")))
+        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")))
         {
             UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             // Try to peek into songdesc to extract JDVersion numeric if present
-            TryPeekSongDescForJDVersion(inputPath, profile);
+            TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
         // Flat/uncooked markers: Audio/, Cinematics/, or *.tpl at root
-        if (_io.DirectoryExists(_io.Combine(inputPath, "Audio")) ||
-            _io.DirectoryExists(_io.Combine(inputPath, "Cinematics")) ||
-            _io.GetFiles(inputPath, "*.tpl").Length != 0)
+        if (fs.DirectoryExists(fs.Combine(basePath, "Audio")) ||
+            fs.DirectoryExists(fs.Combine(basePath, "Cinematics")) ||
+            fs.GetFiles(basePath, "*.tpl").Length != 0)
         {
             UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            TryPeekSongDescForJDVersion(inputPath, profile);
+            TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
@@ -67,42 +80,83 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
         if (!hasCooked)
         {
             UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            TryPeekSongDescForJDVersion(inputPath, profile);
+            TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
         UbiArtVersionProfile fallbackProfile = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
-        TryPeekSongDescForJDVersion(inputPath, fallbackProfile);
+        TryPeekSongDescForJDVersion(basePath, fallbackProfile, fs);
         return fallbackProfile;
     }
 
-    private IEnumerable<string> GetDirectoriesRecursive(string root)
+    private static string NormalizeForTraversal(string path)
     {
-        foreach (var dir in _io.GetDirectories(root))
+        if (string.IsNullOrEmpty(path)) return string.Empty;
+        string p = path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+        p = p.TrimEnd(Path.DirectorySeparatorChar);
+        return p;
+    }
+
+    private IEnumerable<string> GetDirectoriesRecursive(string root, JDI.Services.IFileSystem fs)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stack = new Stack<string>();
+        stack.Push(root);
+
+        while (stack.Count > 0)
         {
-            yield return dir;
-            foreach (var child in GetDirectoriesRecursive(dir))
-                yield return child;
+            var current = stack.Pop();
+            string nCurrent = NormalizeForTraversal(current);
+            if (!visited.Add(nCurrent))
+                continue;
+
+            foreach (var dir in fs.GetDirectories(current))
+            {
+                string nDir = NormalizeForTraversal(dir);
+                // Skip self-references or malformed entries that would cause cycles
+                if (string.IsNullOrEmpty(nDir) || string.Equals(nDir, nCurrent, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                yield return dir;
+                stack.Push(dir);
+            }
         }
     }
 
-    private IEnumerable<string> GetFilesRecursive(string root, string searchPattern)
+    private IEnumerable<string> GetFilesRecursive(string root, string searchPattern, JDI.Services.IFileSystem fs)
     {
-        foreach (var file in _io.GetFiles(root, searchPattern))
-            yield return file;
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stack = new Stack<string>();
+        stack.Push(root);
 
-        foreach (var dir in _io.GetDirectories(root))
+        while (stack.Count > 0)
         {
-            foreach (var file in GetFilesRecursive(dir, searchPattern))
-                yield return file;
+            var current = stack.Pop();
+            string nCurrent = NormalizeForTraversal(current);
+            if (!visited.Add(nCurrent))
+                continue;
+
+            foreach (var file in fs.GetFiles(current, searchPattern))
+            {
+                yield return fs.Combine(current, file);
+            }
+
+            foreach (var dir in fs.GetDirectories(current))
+            {
+                string nDir = NormalizeForTraversal(dir);
+                if (string.IsNullOrEmpty(nDir) || string.Equals(nDir, nCurrent, StringComparison.OrdinalIgnoreCase) || visited.Contains(nDir))
+                    continue;
+
+                stack.Push(dir);
+            }
         }
     }
 
-    private void TryPeekSongDescForJDVersion(string inputPath, UbiArtVersionProfile profile)
+    private void TryPeekSongDescForJDVersion(string inputPath, UbiArtVersionProfile profile, JDI.Services.IFileSystem fs)
     {
         try
         {
-            var candidates = GetFilesRecursive(inputPath, "songdesc.tpl*").ToArray();
+            var candidates = GetFilesRecursive(inputPath, "songdesc.tpl*", fs).ToArray();
             if (candidates.Length == 0)
                 return;
 
@@ -112,7 +166,7 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
             string content;
             try
             {
-                if (_io is JDI.Services.SystemFileSystem)
+                if (fs is JDI.Services.SystemFileSystem)
                 {
                     using Stream s = File.OpenRead(songDescFile);
                     using StreamReader sr = new(s, System.Text.Encoding.UTF8);
@@ -121,20 +175,20 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
                 else
                 {
                     // Use the IFileSystem abstraction for testable (mock) file reads
-                    content = _io.ReadAllText(songDescFile).TrimEnd('\0');
+                    content = fs.ReadAllText(songDescFile).TrimEnd('\0');
                 }
             }
             catch
             {
                 // If we can't open the file via stream, fall back to path-based read
-                content = _io.ReadAllText(songDescFile).TrimEnd('\0');
+                content = fs.ReadAllText(songDescFile).TrimEnd('\0');
             }
 
             // Try JSON first
             try
             {
-                using JsonDocument doc = System.Text.Json.JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == System.Text.Json.JsonValueKind.Array)
+                using JsonDocument doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == JsonValueKind.Array)
                 {
                     JsonElement comp = components[0];
                     if (comp.TryGetProperty("JDVersion", out JsonElement jdVersionProp) && jdVersionProp.TryGetUInt32(out uint jdVersion))
@@ -150,7 +204,7 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
             // Try LUA deserialization
             try
             {
-                SongDesc songDesc = JustDanceEditor.Formats.UbiArt.Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
+                SongDesc songDesc = UbiArt.Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
                 if (songDesc?.COMPONENTS?.Length > 0)
                 {
                     profile.EngineNumericVersion = songDesc.COMPONENTS[0].JDVersion;

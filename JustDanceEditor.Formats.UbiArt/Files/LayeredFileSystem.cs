@@ -17,6 +17,7 @@ public class LayeredFileSystem
     private readonly ILogger<LayeredFileSystem> _logger;
     private readonly IFileSystem _io;
     private readonly ITempFolderManager _tempManager;
+    private readonly Dictionary<string, IpkFileSystem> _ipkFileSystems = [];
 
     public IUbiArtLayout? Layout { get; private set; }
     public IUbiArtSerializer? Serializer { get; private set; }
@@ -66,6 +67,18 @@ public class LayeredFileSystem
         if (Layout == null || Serializer == null)
             throw new InvalidOperationException("FileSystem must be configured with a layout and serializer before initialization.");
 
+        // If the input is an IPK, ensure it's registered and discover other IPKs in the same folder
+        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            RegisterIPK(ConversionRequest.InputPath);
+            DiscoverAndRegisterIPKs();
+        }
+        else
+        {
+            // For directory inputs, still discover adjacent IPKs for fallback lookups
+            DiscoverAndRegisterIPKs();
+        }
+
         InitializeSongID();
         InitializePlatformType();
 
@@ -113,6 +126,35 @@ public class LayeredFileSystem
             return;
         }
 
+        // If the input is an IPK, check the registered IPK filesystem(s) for world/maps
+        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            string mapsRel = Path.Combine("world", "maps");
+            foreach (var ipk in _ipkFileSystems.Values)
+            {
+                try
+                {
+                    if (ipk.DirectoryExists(mapsRel))
+                    {
+                        string[] ipkSongs = ipk.GetDirectories(mapsRel);
+                        if (ipkSongs.Length < 1)
+                            throw new DirectoryNotFoundException("No song folders found in the maps folder.");
+                        if (ipkSongs.Length > 1)
+                            throw new DirectoryNotFoundException("Multiple song folders found in the maps folder, please specify the song name in the request.");
+
+                        SongName = Path.GetFileName(ipkSongs[0]);
+                        return;
+                    }
+                }
+                catch
+                {
+                    // Ignore individual IPK read errors and try other IPKs
+                }
+            }
+
+            // If no maps folder found in any IPK, fall through to existing behavior which will attempt layout-based resolution and then fail
+        }
+
         string mapsFolder = _io.Combine(ConversionRequest.InputPath, "world", "maps");
         if (!_io.DirectoryExists(mapsFolder))
         {
@@ -140,6 +182,35 @@ public class LayeredFileSystem
     private void InitializePlatformType()
     {
         string itfCookedFolder = _io.Combine(ConversionRequest.InputPath, "cache", "itf_cooked");
+
+        // If the input is an IPK, check registered IPKs for cache/itf_cooked
+        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            string rel = Path.Combine("cache", "itf_cooked");
+            foreach (var ipk in _ipkFileSystems.Values)
+            {
+                try
+                {
+                    if (ipk.DirectoryExists(rel))
+                    {
+                        string[] ipkPlatformFolders = ipk.GetDirectories(rel);
+                        if (ipkPlatformFolders.Length == 0)
+                            throw new DirectoryNotFoundException("No platform folders found in the itf_cooked folder.");
+                        if (ipkPlatformFolders.Length > 1)
+                            throw new DirectoryNotFoundException("Multiple platform folders found in the itf_cooked folder, this is not supported.");
+
+                        PlatformType = Path.GetFileName(ipkPlatformFolders[0]);
+                        return;
+                    }
+                }
+                catch
+                {
+                    // Ignore IPK read errors and try next
+                }
+            }
+
+            // If not found in IPK, fall through to the directory-based logic which will handle layout overrides or throw
+        }
 
         if (!_io.DirectoryExists(itfCookedFolder))
         {
@@ -260,6 +331,43 @@ public class LayeredFileSystem
             }
         }
 
+        // Now check IPKs, but only if a corresponding folder doesn't exist
+        foreach (var ipkEntry in _ipkFileSystems)
+        {
+            string ipkName = ipkEntry.Key;
+            IpkFileSystem ipk = ipkEntry.Value;
+
+            // Skip if a folder with this name exists
+            if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
+            List<string> candidates = new() { relativeFilePath };
+            if (pathCooked != null) candidates.Add(pathCooked);
+            if (!string.IsNullOrEmpty(PlatformType))
+            {
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
+                candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
+                if (pathCooked != null) candidates.Add(Path.Combine(cookedPrefix, pathCooked));
+            }
+
+            foreach (var cand in candidates)
+            {
+                try
+                {
+                    if (ipk.FileExists(cand))
+                    {
+                        filePath = new(cand);
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Ignore read errors on this IPK and continue to next candidate/IPK
+                }
+            }
+        }
+
         return false;
     }
 
@@ -307,6 +415,54 @@ public class LayeredFileSystem
                             files.Add(new(relative));
                         }
                     }
+                }
+            }
+        }
+
+        // Now check IPKs, but only if a corresponding folder doesn't exist
+        string[] allFolders = _io.GetDirectories(parentFolder);
+        foreach (var ipkEntry in _ipkFileSystems)
+        {
+            string ipkName = ipkEntry.Key;
+            IpkFileSystem ipk = ipkEntry.Value;
+
+            // Skip if a folder with this name exists
+            if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Try both the requested relative folder and the cooked location inside IPK
+            List<string> ipkLocations = new() { relativeFolderPath };
+            if (!string.IsNullOrEmpty(PlatformType))
+            {
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
+            }
+
+            foreach (var loc in ipkLocations)
+            {
+                try
+                {
+                    if (!ipk.DirectoryExists(loc))
+                        continue;
+
+                    List<string> patternsToTry = [pattern];
+                    if (!pattern.EndsWith(".ckd", StringComparison.OrdinalIgnoreCase))
+                        patternsToTry.Add(pattern + ".ckd");
+
+                    foreach (string pat in patternsToTry)
+                    {
+                        foreach (string file in ipk.GetFiles(loc, pat))
+                        {
+                            string candidateRelative = Path.Combine(loc, file).Replace('\\', Path.DirectorySeparatorChar);
+                            if (files.Any(x => x.RelativePath.EndsWith(candidateRelative, StringComparison.CurrentCultureIgnoreCase)))
+                                continue;
+
+                            files.Add(new(candidateRelative));
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore problematic IPKs and continue
                 }
             }
         }
@@ -393,6 +549,43 @@ public class LayeredFileSystem
             }
         }
 
+        // Now check IPKs, but only if a corresponding folder doesn't exist
+        foreach (var ipkEntry in _ipkFileSystems)
+        {
+            string ipkName = ipkEntry.Key;
+            IpkFileSystem ipk = ipkEntry.Value;
+
+            // Skip if a folder with this name exists
+            if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
+            List<string> candidates = new() { relativeFilePath };
+            if (pathCooked != null) candidates.Add(pathCooked);
+            if (!string.IsNullOrEmpty(PlatformType))
+            {
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
+                candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
+                if (pathCooked != null) candidates.Add(Path.Combine(cookedPrefix, pathCooked));
+            }
+
+            foreach (var cand in candidates)
+            {
+                try
+                {
+                    if (ipk.FileExists(cand))
+                    {
+                        byte[] data = ipk.ReadAllBytes(cand);
+                        return new MemoryStream(data, writable: false);
+                    }
+                }
+                catch
+                {
+                    // Ignore read errors on this IPK and continue
+                }
+            }
+        }
+
         throw new FileNotFoundException($"The file {relativeFilePath} was not found in the input folders.");
     }
 
@@ -428,6 +621,39 @@ public class LayeredFileSystem
             }
         }
 
+        // Now check IPKs, but only if a corresponding folder doesn't exist
+        string[] allFolders = _io.GetDirectories(parentFolder);
+        foreach (var ipkEntry in _ipkFileSystems)
+        {
+            string ipkName = ipkEntry.Key;
+            IpkFileSystem ipk = ipkEntry.Value;
+
+            // Skip if a folder with this name exists
+            if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            // Check both the requested relative folder and the cooked location inside IPK
+            List<string> ipkLocations = new() { relativeFolderPath };
+            if (!string.IsNullOrEmpty(PlatformType))
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
+
+            foreach (var loc in ipkLocations)
+            {
+                try
+                {
+                    if (ipk.DirectoryExists(loc))
+                    {
+                        folderPath = loc;  // For IPK, return the relative path inside the IPK
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Ignore problematic IPKs and continue
+                }
+            }
+        }
+
         return false;
     }
 
@@ -436,6 +662,43 @@ public class LayeredFileSystem
         return GetFolderPath(relativeFolderPath, out string? folderPath)
             ? folderPath
             : throw new DirectoryNotFoundException($"The folder {relativeFolderPath} was not found in the input folders.");
+    }
+
+    /// <summary>
+    /// Register an IPK file to be searched during file resolution.
+    /// The IPK will be searched only if no corresponding folder exists (e.g., patch_nx.ipk only searched if no patch_nx folder exists).
+    /// </summary>
+    public void RegisterIPK(string ipkPath)
+    {
+        ArgumentNullException.ThrowIfNull(ipkPath);
+        string ipkName = Path.GetFileNameWithoutExtension(ipkPath);
+        if (!_ipkFileSystems.ContainsKey(ipkName))
+        {
+            _ipkFileSystems[ipkName] = new(ipkPath);
+        }
+    }
+
+    /// <summary>
+    /// Auto-discover and register IPK files from the input folder parent directory.
+    /// Scans for *.ipk files and registers them, following the priority rule:
+    /// patch_nx (folder) > patch_nx.ipk > regular folders > other.ipk files (if no other folder exists).
+    /// </summary>
+    public void DiscoverAndRegisterIPKs()
+    {
+        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        
+        try
+        {
+            string[] ipkFiles = _io.GetFiles(parentFolder, "*.ipk");
+            foreach (string ipkPath in ipkFiles)
+            {
+                RegisterIPK(ipkPath);
+            }
+        }
+        catch
+        {
+            // Silently ignore errors during IPK discovery (e.g., no read permissions)
+        }
     }
 
     public string ReadWithoutNull(string filePath)

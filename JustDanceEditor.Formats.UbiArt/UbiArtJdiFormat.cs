@@ -134,12 +134,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
     public bool Check(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || !_io.DirectoryExists(path))
+        if (string.IsNullOrWhiteSpace(path) || (!_io.DirectoryExists(path) && !Path.GetFileName(path).EndsWith(".ipk", StringComparison.OrdinalIgnoreCase)))
             return false;
 
         try
         {
-            bool isCooked = _io.DirectoryExists(_io.Combine(path, "cache", "itf_cooked"));
             UbiArtVersionProfile profile = _engineDetector.Detect(path);
             UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.ContainerStyle == UbiArtContainerStyle.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
             LayeredFileSystem fs = _fileSystemFactory(req);
@@ -151,8 +150,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             bool hasSongDesc = fs.GetFilePath(songDescRelativePath, out CookedFile? songDescCooked);
 
             bool hasJddb = _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "jddb.json"))
-                || _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"))
-                || ContainsFileRecursive(fs.InputFolders.InputFolder, "jddb.json");
+                || _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"));
 
             if (!hasSongDesc && !hasJddb)
                 return false;
@@ -182,14 +180,32 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
     }
 
-    private bool ContainsFileRecursive(string root, string fileName)
+    private bool ContainsFileRecursive(string root, string fileName, LayeredFileSystem fs)
     {
+        // If root points at an IPK file, use the LayeredFileSystem search helpers which are IPK-aware
+        if (Path.GetExtension(root).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                // fs.GetFilePath understands IPKs and adjacent folders; use it to check for the presence of the file
+                return fs.GetFilePath(fileName, out _);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Guard against non-existent directories
+        if (!_io.DirectoryExists(root))
+            return false;
+
         if (_io.GetFiles(root, fileName).Length > 0)
             return true;
 
         foreach (var dir in _io.GetDirectories(root))
         {
-            if (ContainsFileRecursive(dir, fileName))
+            if (ContainsFileRecursive(dir, fileName, fs))
                 return true;
         }
 
@@ -202,8 +218,18 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         if (string.IsNullOrWhiteSpace(request.InputPath))
             throw new ArgumentException("Input path is required for UbiArt imports.", nameof(request.InputPath));
-        if (!_io.DirectoryExists(request.InputPath))
-            throw new FileNotFoundException("Input folder not found", request.InputPath);
+
+        // Accept either a folder or an .ipk file. For .ipk, ensure the file exists; otherwise ensure the directory exists.
+        if (Path.GetExtension(request.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_io.FileExists(request.InputPath))
+                throw new FileNotFoundException("Input IPK file not found", request.InputPath);
+        }
+        else
+        {
+            if (!_io.DirectoryExists(request.InputPath))
+                throw new FileNotFoundException("Input folder not found", request.InputPath);
+        }
 
         if (string.IsNullOrWhiteSpace(request.OutputPath))
             throw new ArgumentException("Output path is required for UbiArt imports.", nameof(request.OutputPath));
@@ -219,7 +245,9 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             songDescRelative = _io.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
         bool hasSongDesc = fs.GetFilePath(songDescRelative, out _);
 
-        bool hasJddb = ContainsFileRecursive(fs.InputFolders.InputFolder, "jddb.json");
+        bool hasJddb = _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "jddb.json"))
+            || _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"))
+            || ContainsFileRecursive(fs.InputFolders.InputFolder, "jddb.json", fs);
 
         if (!hasSongDesc && !hasJddb)
             throw new FileNotFoundException("songdesc.tpl or jddb.json is required for UbiArt imports.");

@@ -10,8 +10,8 @@ internal static class FormatConversionDialogue
 {
     public static void Start(IKeyedServiceProvider<IJdiFormat> formatsProvider, IEnumerable<IJdiFormat> formatsEnumerable, ILogger logger)
     {
-        // Ask for input folder up front so we can auto-detect its format
-        string inputPath = Question.AskFolder("Enter the input folder for the conversion", true);
+        // Ask for input folder or IPK up front so we can auto-detect its format
+        string inputPath = Question.AskFolderOrIpk("Enter the input folder or IPK for the conversion");
 
         IJdiFormat[] formats = [.. formatsEnumerable];
 

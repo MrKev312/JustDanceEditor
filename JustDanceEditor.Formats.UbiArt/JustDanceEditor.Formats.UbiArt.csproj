@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
     <ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
+    <ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="Nerdbank.GitVersioning" Version="3.9.50" />

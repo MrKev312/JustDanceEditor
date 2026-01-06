@@ -45,7 +45,7 @@ public class UbiArtLayoutTests
 
         IntermediateSongPackage package = new() { Metadata = new JDI.Metadata.IntermediateMetadata { MapName = "song" } };
 
-        await JustDanceEditor.Formats.UbiArt.Services.UbiArtAssetWriter.ExportToUncookedAsync(package, null, root, NullLogger.Instance, layout, style, version);
+        await UbiArtAssetWriter.ExportToUncookedAsync(package, null, root, NullLogger.Instance, layout, style, version);
 
         // Check songdesc is written under the map world folder
         Assert.True(File.Exists(Path.Combine(mapWorldFolder, "songdesc.tpl")));

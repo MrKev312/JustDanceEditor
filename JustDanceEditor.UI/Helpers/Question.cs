@@ -60,6 +60,45 @@ internal class Question
         return filepath;
     }
 
+    public static string AskFolderOrIpk(string question)
+    {
+        Console.WriteLine($"{question} (This folder or .ipk file must already exist)");
+        Console.WriteLine("You can also drag and drop the folder or IPK onto the console window and press Enter.");
+
+        string? filepath = null;
+
+        while (filepath == null)
+        {
+            Console.Write("Folder or IPK path: ");
+            filepath = Console.ReadLine()?.Trim();
+
+            if (string.IsNullOrWhiteSpace(filepath))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("The path cannot be empty. Please try again.");
+                Console.ResetColor();
+                filepath = null;
+                continue;
+            }
+
+            if (filepath.StartsWith('"') && filepath.EndsWith('"'))
+                filepath = filepath[1..^1];
+
+            if (Directory.Exists(filepath))
+                return filepath;
+
+            if (string.Equals(Path.GetExtension(filepath), ".ipk", StringComparison.OrdinalIgnoreCase) && File.Exists(filepath))
+                return filepath;
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Please specify an existing folder or an existing .ipk file.");
+            Console.ResetColor();
+            filepath = null;
+        }
+
+        return filepath!;
+    }
+
     public static string AskFile(string question, bool mustExist = false)
     {
         string requirement = mustExist ? "(This file must already exist)" : "(This file will be created if it doesn't exist)";
