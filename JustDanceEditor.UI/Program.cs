@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.Unity.Services;
+using JustDanceEditor.UI.Converting;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Services;
 
@@ -37,8 +38,12 @@ internal class Program
 
         // Unity services
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
-        // UbiArt asset writer service (wrapper to allow DI/testing)
-        builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Services.IUbiArtAssetWriter, JustDanceEditor.Formats.UbiArt.Services.UbiArtAssetWriterService>();
+        // UbiArt asset writer - register directly as both IUbiArtAssetWriter and concrete class
+        builder.Services.AddSingleton<UbiArtAssetWriter>();
+        builder.Services.AddSingleton<IUbiArtAssetWriter>(sp => sp.GetRequiredService<UbiArtAssetWriter>());
+
+        // Conversion workflow service
+        builder.Services.AddSingleton<IConversionWorkflow, ConversionWorkflow>();
 
         // Factories
         builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, Formats.UbiArt.Files.LayeredFileSystem>>(sp => (req, profile) => new Formats.UbiArt.Files.LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<Formats.UbiArt.Files.ITempFolderManager>()));

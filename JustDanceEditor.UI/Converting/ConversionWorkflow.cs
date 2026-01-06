@@ -11,65 +11,17 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace JustDanceEditor.UI.Converting;
 
-public class ConverterDialogue
+/// <summary>
+/// Orchestrates song conversion workflows with dependency injection.
+/// </summary>
+public sealed class ConversionWorkflow(
+    IKeyedServiceProvider<IJdiFormat> formats,
+    ILogger<ConversionWorkflow> logger) : IConversionWorkflow
 {
-    public static void ConvertSingleDialogue(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
-    {
-        try
-        {
-            if (!CheckTemplate())
-                return;
+    private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
+    private readonly ILogger<ConversionWorkflow> _logger = logger;
 
-            Console.WriteLine("Starting standard conversion process...");
-            (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) = CreateUbiArtToUnityRequests();
-            Console.WriteLine("\nProcessing conversion request...");
-
-            RunUbiArtToUnityConversion(importRequest, exportRequest, formats, logger);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\nConversion completed successfully!");
-            Console.ResetColor();
-        }
-        catch (Exception e)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\nAn error occurred during conversion: {e.Message}");
-            Console.ResetColor();
-            logger.LogCritical(e, "Conversion failed: {Message}", e.Message);
-#if DEBUG
-            throw; // In debug mode, rethrow to allow debugging
-#endif
-        }
-    }
-
-    public static void ConvertSingleDialogueAdvanced(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
-    {
-        try
-        {
-            if (!CheckTemplate())
-                return;
-
-            Console.WriteLine("Starting advanced conversion process...");
-            (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) = CreateUbiArtToUnityRequests();
-
-            Console.WriteLine("\nProcessing advanced conversion request...");
-
-            RunUbiArtToUnityConversion(importRequest, exportRequest, formats, logger);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("\nAdvanced conversion completed successfully!");
-            Console.ResetColor();
-        }
-        catch (Exception e)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\nAn error occurred during advanced conversion: {e.Message}");
-            Console.ResetColor();
-            logger.LogCritical(e, "Advanced conversion failed: {Message}", e.Message);
-        }
-    }
-
-    public static void UpdateCovers(ILogger logger)
+    public void UpdateCovers()
     {
         try
         {
@@ -112,7 +64,7 @@ public class ConverterDialogue
                 int found = 0;
 
                 // Update cover
-                using (Image<Rgba32>? coverImage = ImageLoader.TryImageWeb(mapName, "Cover", logger))
+                using (Image<Rgba32>? coverImage = ImageLoader.TryImageWeb(mapName, "Cover", _logger))
                 {
                     if (coverImage is not null)
                     {
@@ -129,14 +81,14 @@ public class ConverterDialogue
                             outputCoverFolder,
                             true,
                             coverImage);
-                        CoverBundleBuilder.Generate(coverRequest, logger);
+                        CoverBundleBuilder.Generate(coverRequest, _logger);
                         Interlocked.Increment(ref updatedCovers);
                         found++;
                     }
                 }
 
                 // Update song title logo
-                using Image<Rgba32>? titleLogoImage = ImageLoader.TryImageWeb(mapName, "Title", logger);
+                using Image<Rgba32>? titleLogoImage = ImageLoader.TryImageWeb(mapName, "Title", _logger);
                 if (titleLogoImage is not null)
                 {
                     string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
@@ -152,17 +104,17 @@ public class ConverterDialogue
                         outputLogoFolder,
                         true,
                         titleLogoImage);
-                    SongTitleBundleBuilder.Generate(titleRequest, logger);
+                    SongTitleBundleBuilder.Generate(titleRequest, _logger);
                     Interlocked.Increment(ref updatedLogos);
                     found++;
                 }
 
                 if (found == 0)
-                    logger.LogInformation("No online cover or title logo found for map '{MapName}'", mapName);
+                    _logger.LogInformation("No online cover or title logo found for map '{MapName}'", mapName);
                 else if (found == 2)
-                    logger.LogInformation("Updated both cover and title logo for map '{MapName}'", mapName);
+                    _logger.LogInformation("Updated both cover and title logo for map '{MapName}'", mapName);
                 else
-                    logger.LogWarning("Somehow only one of cover or title logo was updated for map '{MapName}'", mapName);
+                    _logger.LogWarning("Somehow only one of cover or title logo was updated for map '{MapName}'", mapName);
             });
 
             Console.ForegroundColor = ConsoleColor.Green;
@@ -174,11 +126,11 @@ public class ConverterDialogue
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"\nAn error occurred during cover update: {e.Message}");
             Console.ResetColor();
-            logger.LogCritical(e, "Cover update failed: {Message}", e.Message);
+            _logger.LogCritical(e, "Cover update failed: {Message}", e.Message);
         }
     }
 
-    public static void ConvertAllSongsInFolder(IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
+    public void ConvertAllSongsInFolder()
     {
         try
         {
@@ -218,7 +170,7 @@ public class ConverterDialogue
 
                 if (!Directory.Exists(inputMapsFolder))
                 {
-                    logger.LogWarning("Skipping '{SongParentFolder}' as it does not contain 'world/maps' subfolder.", songParentFolder);
+                    _logger.LogWarning("Skipping '{SongParentFolder}' as it does not contain 'world/maps' subfolder.", songParentFolder);
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine($"Skipping '{Path.GetFileName(songParentFolder)}': Missing 'world/maps' subfolder.");
                     Console.ResetColor();
@@ -237,7 +189,7 @@ public class ConverterDialogue
                     string platformCacheFolder = Path.Combine(songParentFolder, "cache", "itf_cooked");
                     if (!Directory.Exists(platformCacheFolder))
                     {
-                        logger.LogWarning("Skipping song '{SongName}' in '{Parent}': Missing 'cache/itf_cooked' folder.", songName, songParentFolder);
+                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': Missing 'cache/itf_cooked' folder.", songName, songParentFolder);
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine($"   Skipped '{songName}': Missing platform cache folder.");
                         Console.ResetColor();
@@ -248,7 +200,7 @@ public class ConverterDialogue
                     string[] platformDirs = Directory.GetDirectories(platformCacheFolder);
                     if (platformDirs.Length == 0)
                     {
-                        logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No platform found in 'cache/itf_cooked'.", songName, songParentFolder);
+                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No platform found in 'cache/itf_cooked'.", songName, songParentFolder);
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine($"   Skipped '{songName}': No platform found in cache.");
                         Console.ResetColor();
@@ -261,7 +213,7 @@ public class ConverterDialogue
 
                     if (!File.Exists(songDescPath) && !File.Exists(Path.Combine(songParentFolder, "jddb.json")))
                     {
-                        logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No 'songdesc.tpl.ckd', '{Song}_mainscene.isc.ckd', or 'jddb.json' found.", songName, songParentFolder, songName);
+                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No 'songdesc.tpl.ckd', '{Song}_mainscene.isc.ckd', or 'jddb.json' found.", songName, songParentFolder, songName);
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine($"   Skipped '{songName}': Missing essential song description file.");
                         Console.ResetColor();
@@ -271,7 +223,7 @@ public class ConverterDialogue
 
                     if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
                     {
-                        logger.LogInformation("Skipping song '{SongName}' as it is already present in the output location.", songName);
+                        _logger.LogInformation("Skipping song '{SongName}' as it is already present in the output location.", songName);
                         Console.ForegroundColor = ConsoleColor.Cyan;
                         Console.WriteLine($"   Skipped '{songName}': Already exists in output.");
                         Console.ResetColor();
@@ -286,7 +238,7 @@ public class ConverterDialogue
                         ExportType = ExportType.CustomServer,
                         OnlineCover = onlineCover
                     };
-                    RunUbiArtToUnityConversion(importRequest, exportRequest, formats, logger);
+                    RunUbiArtToUnityConversion(importRequest, exportRequest);
                     convertedCount++;
                     Console.WriteLine($"   Conversion of '{songName}' finished.");
                 }
@@ -301,11 +253,11 @@ public class ConverterDialogue
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"\nAn error occurred during batch conversion: {e.Message}");
             Console.ResetColor();
-            logger.LogCritical(e, "Batch conversion failed: {Message}", e.Message);
+            _logger.LogCritical(e, "Batch conversion failed: {Message}", e.Message);
         }
     }
 
-    private static (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) CreateUbiArtToUnityRequests()
+    private (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) CreateUbiArtToUnityRequests()
     {
         (string inputPath, string songName) = AskInputFolder();
         string outputPath = AskOutputFolder();
@@ -323,7 +275,7 @@ public class ConverterDialogue
         return (importRequest, exportRequest);
     }
 
-    static string AskMultiInputFolder()
+    private static string AskMultiInputFolder()
     {
         Console.WriteLine("Please provide the path to either:");
         Console.WriteLine("1. A single extracted song folder (containing 'cache' and 'world' subdirectories).");
@@ -364,10 +316,10 @@ public class ConverterDialogue
         return inputPath;
     }
 
-    private static void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest, IKeyedServiceProvider<IJdiFormat> formats, ILogger logger)
+    private void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest)
     {
-        IJdiFormat sourceFormat = formats.Get("UbiArt");
-        IJdiFormat targetFormat = formats.Get("Unity");
+        IJdiFormat sourceFormat = _formats.Get("UbiArt");
+        IJdiFormat targetFormat = _formats.Get("Unity");
 
         JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
 
