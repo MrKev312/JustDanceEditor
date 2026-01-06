@@ -76,7 +76,7 @@ public static class UbiArtPictoConverter
 
                 if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
                 {
-                    SplitAndSaveMontageParts(pictoImage!, songData, pictoTempFolder, logger, textureService, fs);
+                    SplitAndSaveMontageParts(pictoImage!, songData, pictoTempFolder, logger, textureService, fs, fileSystem.VersionProfile.PictoNameComparer);
                 }
                 else
                 {
@@ -110,16 +110,18 @@ public static class UbiArtPictoConverter
         pictoImage.Save(fs.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs)
+    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, IComparer<string>? comparer = null)
     {
-        // Sort pictograms using a custom alphanumeric comparer: text segments first (ordinal-ignore-case),
-        // numeric segments compared by numeric value (so 2 &lt; 10). Examples: "testhi" &lt; "test1" and "test2" &lt; "test10".
+        // Sort pictograms using a comparer supplied by the caller; if none supplied, fall back to
+        // the existing AlphanumericTextFirstComparer to preserve historic behaviour.
+        IComparer<string> finalComparer = comparer ?? AlphanumericTextFirstComparer.Instance;
+
         List<string> pictoNamesFromClips = [.. songData.Clips
             .OfType<PictogramClip>()
             .Select(clip => Path.GetFileNameWithoutExtension(clip.PictoPath))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, AlphanumericTextFirstComparer.Instance)];
+            .OrderBy(name => name, finalComparer)];
 
         int pictoCount = pictoNamesFromClips.Count;
         if (pictoCount == 0)

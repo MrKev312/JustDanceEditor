@@ -11,10 +11,10 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
-    private readonly Func<UbiArtConversionRequest, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
+    private readonly Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
     private readonly IUbiArtEngineDetector _engineDetector = engineDetector ?? throw new ArgumentNullException(nameof(engineDetector));
     private readonly JDI.Services.IAudioConverter _audioConverter = audioConverter;
     private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
@@ -35,8 +35,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
         _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.ContainerStyle, profile.EngineVersion);
 
-        LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest);
-        fileSystem.Configure(profile);
+        LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);
         fileSystem.Initialize();
 
         ValidateUbiArtImport(ubiRequest, fileSystem);
@@ -61,7 +60,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         catch (NotImplementedException ex)
         {
             // If the configured serializer is binary (JD2014/JD2015), provide a friendly message
-            if (fileSystem.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.Serializer is BinaryUbiArtSerializer)
+            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
                 throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
 
             throw;
@@ -141,8 +140,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         {
             UbiArtVersionProfile profile = _engineDetector.Detect(path);
             UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.ContainerStyle == UbiArtContainerStyle.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
-            LayeredFileSystem fs = _fileSystemFactory(req);
-            fs.Configure(profile);
+            LayeredFileSystem fs = _fileSystemFactory(req, profile);
             fs.Initialize();
 
             // Use FileSystem.GetFilePath like SongDataLoader does to correctly find songdesc.tpl
@@ -239,8 +237,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         // Use layout-aware path resolution if available
         string songDescRelative;
-        if (fs.Layout != null)
-            songDescRelative = fs.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.ContainerStyle, fs.EngineVersion);
+        if (fs.VersionProfile.Layout != null)
+            songDescRelative = fs.VersionProfile.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.VersionProfile.ContainerStyle, fs.VersionProfile.EngineVersion);
         else
             songDescRelative = _io.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
         bool hasSongDesc = fs.GetFilePath(songDescRelative, out _);

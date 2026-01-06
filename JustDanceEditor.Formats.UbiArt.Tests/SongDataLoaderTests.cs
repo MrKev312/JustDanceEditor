@@ -58,8 +58,7 @@ public class SongDataLoaderTests
         {
             Type = UbiArtType.Uncooked
         };
-        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
-        fs.Configure(profile);
+        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
         SongDataLoader loader = new(NullLogger<SongDataLoader>.Instance);

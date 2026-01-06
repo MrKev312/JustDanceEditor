@@ -28,11 +28,10 @@ public class AssetResolverAudioTests
 
         UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
-        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
-        fs.Configure(profile);
+        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
-        FileSystemAssetResolver resolver = new(fs.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout!, fs);
         bool found = resolver.TryFindMainAudio(new JDUbiArtSong { Name = "song" }, out CookedFile? file, out bool isPreMerged);
 
         Assert.True(found);
@@ -57,11 +56,10 @@ public class AssetResolverAudioTests
 
         UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
-        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
-        fs.Configure(profile);
+        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
-        FileSystemAssetResolver resolver = new(fs.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout!, fs);
 
         string relativeMusicTpl = Path.Combine(fs.InputFolders.AudioFolder, baseName + ".tpl");
         bool found = resolver.TryFindAudio(relativeMusicTpl, out CookedFile? file);

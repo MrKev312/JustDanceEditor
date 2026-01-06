@@ -1,6 +1,9 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Formats.UbiArt.Services.Layouts;
+using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -46,7 +49,8 @@ public class TempFolderManagerTests
         Directory.CreateDirectory(root);
 
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
-        LayeredFileSystem fs = new(req, NullLogger<LayeredFileSystem>.Instance);
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
 
         // Replace internal temp manager with a Moq mock to verify delegation
         Mock<ITempFolderManager> mock = new();
@@ -54,7 +58,7 @@ public class TempFolderManagerTests
         bool deleteCalled = false;
         mock.Setup(m => m.CreateMapFolder(It.IsAny<string>())).Callback<string>(name => createCalled = true);
         mock.Setup(m => m.DeleteMapFolder(It.IsAny<string>())).Callback<string>(name => deleteCalled = true);
-        fs = new LayeredFileSystem(req, NullLogger<LayeredFileSystem>.Instance, new SystemFileSystem(), mock.Object);
+        fs = new LayeredFileSystem(req, profile, NullLogger<LayeredFileSystem>.Instance, new SystemFileSystem(), mock.Object);
 
         // Ensure TempFolders delegates to ITempFolderManager
         fs.UpdateSongName("mysong");

@@ -19,52 +19,36 @@ public class LayeredFileSystem
     private readonly ITempFolderManager _tempManager;
     private readonly Dictionary<string, IpkFileSystem> _ipkFileSystems = [];
 
-    public IUbiArtLayout? Layout { get; private set; }
-    public IUbiArtSerializer? Serializer { get; private set; }
-    public UbiArtContainerStyle ContainerStyle { get; private set; } = UbiArtContainerStyle.Unknown;
-    public UbiArtEngineVersion EngineVersion { get; private set; } = UbiArtEngineVersion.Unknown;
+    public UbiArtVersionProfile VersionProfile { get; private set; }
 
-    public Services.Assets.IUbiArtAssetResolver? AssetResolver { get; private set; }
-    public IUbiArtDataMapper? Mapper { get; private set; }
+    public Services.Assets.IUbiArtAssetResolver? AssetResolver => new Services.Assets.FileSystemAssetResolver(VersionProfile.Layout, this);
 
-    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger, IFileSystem io, ITempFolderManager tempManager)
+    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, UbiArtVersionProfile profile, ILogger<LayeredFileSystem> logger, IFileSystem io, ITempFolderManager tempManager)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ConversionRequest = conversionRequest;
         _io = io ?? throw new ArgumentNullException(nameof(io));
         _tempManager = tempManager ?? throw new ArgumentNullException(nameof(tempManager));
 
+        // Create an asset resolver tied to this filesystem
+        //AssetResolver = new Services.Assets.FileSystemAssetResolver(Layout, this);
+
         // Initialization that depends on a layout/serializer will be run later via Initialize()
+        VersionProfile = profile ?? throw new ArgumentNullException(nameof(profile));
         TempFolders = new(this, _logger, _tempManager);
         InputFolders = new(this);
     }
 
     // Backwards-compatible constructor for tests and existing callers; creates default System implementations
-    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, ILogger<LayeredFileSystem> logger)
-        : this(conversionRequest, logger, new SystemFileSystem(), new SystemTempFolderManager())
+    public LayeredFileSystem(UbiArtConversionRequest conversionRequest, UbiArtVersionProfile profile, ILogger<LayeredFileSystem> logger)
+        : this(conversionRequest, profile, logger, new SystemFileSystem(), new SystemTempFolderManager())
     {
-    }
-
-    public void Configure(UbiArtVersionProfile profile)
-    {
-        ArgumentNullException.ThrowIfNull(profile);
-
-        Layout = profile.Layout ?? throw new ArgumentNullException(nameof(profile.Layout));
-        Serializer = profile.Serializer ?? throw new ArgumentNullException(nameof(profile.Serializer));
-        ContainerStyle = profile.ContainerStyle;
-        EngineVersion = profile.EngineVersion;
-
-        // Create an asset resolver tied to this filesystem
-        AssetResolver = new Services.Assets.FileSystemAssetResolver(Layout, this);
-
-        // Attach mapper for future fixups
-        Mapper = profile.Mapper;
     }
 
     public void Initialize()
     {
         // Must be called after Configure()
-        if (Layout == null || Serializer == null)
+        if (VersionProfile.Layout == null || VersionProfile.Serializer == null)
             throw new InvalidOperationException("FileSystem must be configured with a layout and serializer before initialization.");
 
         // If the input is an IPK, ensure it's registered and discover other IPKs in the same folder
@@ -94,6 +78,17 @@ public class LayeredFileSystem
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
 
+    /// <summary>
+    /// Allows updating the numeric engine version on the active <see cref="VersionProfile"/> when it becomes available later in the loading pipeline.
+    /// </summary>
+    public void SetEngineNumericVersion(uint version)
+    {
+        if (VersionProfile == null)
+            throw new InvalidOperationException("VersionProfile is not initialized.");
+
+        VersionProfile.EngineNumericVersion = version;
+    }
+
     public void UpdateSongName(string? newSongName)
     {
         if (string.IsNullOrWhiteSpace(newSongName))
@@ -120,7 +115,7 @@ public class LayeredFileSystem
         }
 
         // If the request explicitly says Uncooked or the detected container style is Uncooked, derive the song name from the input folder
-        if (ConversionRequest.Type == UbiArtType.Uncooked || ContainerStyle == UbiArtContainerStyle.Uncooked)
+        if (ConversionRequest.Type == UbiArtType.Uncooked || VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked)
         {
             SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
             return;
@@ -159,9 +154,9 @@ public class LayeredFileSystem
         if (!_io.DirectoryExists(mapsFolder))
         {
             // If our configured layout provides a different location, try that too
-            if (Layout != null)
+            if (VersionProfile.Layout != null)
             {
-                string candidate = _io.Combine(ConversionRequest.InputPath, Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, ContainerStyle, EngineVersion));
+                string candidate = _io.Combine(ConversionRequest.InputPath, VersionProfile.Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, VersionProfile.ContainerStyle, VersionProfile.EngineVersion));
                 if (!string.IsNullOrWhiteSpace(candidate) && _io.DirectoryExists(candidate))
                     mapsFolder = candidate;
             }
@@ -215,7 +210,7 @@ public class LayeredFileSystem
         if (!_io.DirectoryExists(itfCookedFolder))
         {
             // If the request or the detected profile indicates Uncooked, set platform accordingly
-            if (ContainerStyle == UbiArtContainerStyle.Uncooked || ConversionRequest.Type == UbiArtType.Uncooked)
+            if (VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked || ConversionRequest.Type == UbiArtType.Uncooked)
             {
                 PlatformType = "uncooked";
                 return;

@@ -39,7 +39,7 @@ internal class Program
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
 
         // Factories
-        builder.Services.AddSingleton<Func<UbiArtConversionRequest, Formats.UbiArt.Files.LayeredFileSystem>>(sp => req => new Formats.UbiArt.Files.LayeredFileSystem(req, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<Formats.UbiArt.Files.ITempFolderManager>()));
+        builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, Formats.UbiArt.Files.LayeredFileSystem>>(sp => (req, profile) => new Formats.UbiArt.Files.LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<Formats.UbiArt.Files.ITempFolderManager>()));
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services

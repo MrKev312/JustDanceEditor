@@ -47,16 +47,34 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
             }
 
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd2015")))
-                return new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
+            {
+                var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
+                TryPeekSongDescForJDVersion(basePath, prof, fs);
+                return prof;
+            }
+
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd5")))
-                return new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
+            {
+                var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
+                TryPeekSongDescForJDVersion(basePath, prof, fs);
+                return prof;
+            }
         }
 
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
-            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+        {
+            var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+            TryPeekSongDescForJDVersion(basePath, prof, fs);
+            return prof;
+        }
+
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
-            return new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+        {
+            var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+            TryPeekSongDescForJDVersion(basePath, prof, fs);
+            return prof;
+        }
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")))
         {
@@ -193,8 +211,6 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
                     JsonElement comp = components[0];
                     if (comp.TryGetProperty("JDVersion", out JsonElement jdVersionProp) && jdVersionProp.TryGetUInt32(out uint jdVersion))
                         profile.EngineNumericVersion = jdVersion;
-                    else if (comp.TryGetProperty("OriginalJDVersion", out JsonElement origProp) && origProp.TryGetUInt32(out uint orig))
-                        profile.EngineNumericVersion = orig;
                 }
 
                 return;
