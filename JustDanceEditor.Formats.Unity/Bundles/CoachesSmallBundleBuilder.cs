@@ -22,14 +22,9 @@ public sealed record UnityCoachesSmallRequest(
     string OutputFolderPath,
     bool ForCustomServer);
 
-public sealed class CoachesSmallBundleBuilder : UnityBundleBuilderBase
+public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder> logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<CoachesSmallBundleBuilder> _logger;
-
-    public CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder> logger)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<CoachesSmallBundleBuilder> _logger = logger;
 
     public static Task GenerateAsync(UnityCoachesSmallRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -147,8 +142,6 @@ public sealed class CoachesSmallBundleBuilder : UnityBundleBuilderBase
         if (string.IsNullOrWhiteSpace(request.OutputFolderPath))
             throw new ArgumentException("Output folder path must be provided.", nameof(request));
     }
-
-
 
     private static (AssetFileInfo coachTexture, AssetFileInfo coachSprite, long[] textureIds, long[] spriteIds)
         ClearBundleAndIdentifyTemplates(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleBase)
@@ -293,8 +286,6 @@ public sealed class CoachesSmallBundleBuilder : UnityBundleBuilderBase
             containerArray.Children.Add(spriteEntry);
         }
     }
-
-
 
     private sealed record BundleContext(
         string Codename,

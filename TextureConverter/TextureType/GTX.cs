@@ -100,13 +100,6 @@ public class GTX
             : throw new Exception("Image is not in Rgba32 format!");
     }
 
-    public static Image<Bgra32> GetImage(string inputPath)
-    {
-        using FileStream filestream = new(inputPath, FileMode.Open);
-
-        return GetImage(filestream);
-    }
-
     public static Image<Bgra32> GetImage(Stream data)
     {
         GTX gtx = new();
@@ -295,103 +288,9 @@ public class GTX
         return result;
     }
 
-    private static ulong ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
-    {
-        return GtxSwizzleUtils.ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bpp, pitch, height, numSamples, tileMode, isDepth, pipeSwizzle, bankSwizzle);
-    }
-
     private static ulong ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
         return GtxSwizzleUtils.ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bpp, pitch, height, tileMode, isDepth);
-    }
-
-    static uint ComputePixelIndexWithinMicroTile(uint x, uint y, uint z, uint bpp, uint tileMode, bool isDepth)
-    {
-        uint p6 = 0, p7 = 0, p8 = 0;
-        uint thickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        uint p0;
-        uint p1;
-        uint p2;
-        uint p3;
-        uint p4;
-        uint p5;
-        if (isDepth)
-        {
-            p0 = x & 1;
-            p1 = y & 1;
-            p2 = (x & 2) >> 1;
-            p3 = (y & 2) >> 1;
-            p4 = (x & 4) >> 2;
-            p5 = (y & 4) >> 2;
-        }
-        else
-        {
-            switch (bpp)
-            {
-                case 8:
-                    p0 = x & 1;
-                    p1 = (x & 2) >> 1;
-                    p2 = (x & 4) >> 2;
-                    p3 = (y & 2) >> 1;
-                    p4 = y & 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-                case 16:
-                    p0 = x & 1;
-                    p1 = (x & 2) >> 1;
-                    p2 = (x & 4) >> 2;
-                    p3 = y & 1;
-                    p4 = (y & 2) >> 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-                case 32:
-                case 96: // 96 is handled as 32
-                    p0 = x & 1;
-                    p1 = (x & 2) >> 1;
-                    p2 = y & 1;
-                    p3 = (x & 4) >> 2;
-                    p4 = (y & 2) >> 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-                case 64:
-                    p0 = x & 1;
-                    p1 = y & 1;
-                    p2 = (x & 2) >> 1;
-                    p3 = (x & 4) >> 2;
-                    p4 = (y & 2) >> 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-                case 128:
-                    p0 = y & 1;
-                    p1 = x & 1;
-                    p2 = (x & 2) >> 1;
-                    p3 = (x & 4) >> 2;
-                    p4 = (y & 2) >> 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-                default:
-                    p0 = x & 1;
-                    p1 = (x & 2) >> 1;
-                    p2 = y & 1;
-                    p3 = (x & 4) >> 2;
-                    p4 = (y & 2) >> 1;
-                    p5 = (y & 4) >> 2;
-                    break;
-            }
-        }
-
-        if (thickness > 1)
-        {
-            p6 = z & 1;
-            p7 = (z & 2) >> 1;
-        }
-
-        if (thickness == 8)
-        {
-            p8 = (z & 4) >> 2;
-        }
-
-        return (p8 << 8) | (p7 << 7) | (p6 << 6) | (p5 << 5) | (p4 << 4) | (p3 << 3) | (p2 << 2) | (p1 << 1) | p0;
     }
 
     private static ulong ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint depth)
@@ -566,110 +465,6 @@ public class GTX
             AddrTileMode.ADDR_TM_2D_TILED_XTHICK or AddrTileMode.ADDR_TM_3D_TILED_XTHICK => 8,
             _ => 1,
         };
-    }
-
-    private static uint IsThickMacroTiled(AddrTileMode tileMode)
-    {
-        return tileMode switch
-        {
-            AddrTileMode.ADDR_TM_2D_TILED_THICK or AddrTileMode.ADDR_TM_2B_TILED_THICK or AddrTileMode.ADDR_TM_3D_TILED_THICK or AddrTileMode.ADDR_TM_3B_TILED_THICK => 1,
-            _ => 0,
-        };
-    }
-
-    private static uint ComputeMacroTileAspectRatio(AddrTileMode tileMode)
-    {
-        return tileMode switch
-        {
-            AddrTileMode.ADDR_TM_2D_TILED_THIN2 or AddrTileMode.ADDR_TM_2B_TILED_THIN2 => 2,
-            AddrTileMode.ADDR_TM_2D_TILED_THIN4 or AddrTileMode.ADDR_TM_2B_TILED_THIN4 => 4,
-            _ => 1,
-        };
-    }
-
-    private static uint AdjustPitchAlignment(uint flags, uint pitchAlign)
-    {
-        if (((flags >> 13) & 1) != 0)
-            pitchAlign = PowTwoAlign(pitchAlign, 0x20);
-
-        return pitchAlign;
-    }
-
-    private static uint IsBankSwappedTileMode(AddrTileMode tileMode)
-    {
-        return tileMode switch
-        {
-            AddrTileMode.ADDR_TM_2B_TILED_THIN1 or AddrTileMode.ADDR_TM_2B_TILED_THIN2 or AddrTileMode.ADDR_TM_2B_TILED_THIN4 or AddrTileMode.ADDR_TM_2B_TILED_THICK or AddrTileMode.ADDR_TM_3B_TILED_THIN1 or AddrTileMode.ADDR_TM_3B_TILED_THICK => 1,
-            _ => 0,
-        };
-    }
-
-    private static uint ComputeSurfaceBankSwappedWidth(AddrTileMode tileMode, uint bpp, uint numSamples, uint pitch)
-    {
-        if (IsBankSwappedTileMode(tileMode) == 0)
-            return 0;
-
-        uint bytesPerSample = 8 * bpp;
-        uint samplesPerTile, slicesPerTile;
-
-        if (bytesPerSample != 0)
-        {
-            samplesPerTile = 2048 / bytesPerSample;
-            slicesPerTile = Math.Max(1, numSamples / samplesPerTile);
-        }
-
-        else
-            slicesPerTile = 1;
-
-        if (IsThickMacroTiled(tileMode) != 0)
-            numSamples = 4;
-
-        uint bytesPerTileSlice = numSamples * bytesPerSample / slicesPerTile;
-
-        uint factor = ComputeMacroTileAspectRatio(tileMode);
-        uint swapTiles = Math.Max(1, 128 / bpp);
-
-        uint swapWidth = swapTiles * 32;
-        uint heightBytes = numSamples * factor * bpp * 2 / slicesPerTile;
-        uint swapMax = 0x4000 / heightBytes;
-        uint swapMin = 256 / bytesPerTileSlice;
-
-        uint bankSwapWidth = Math.Min(swapMax, Math.Max(swapMin, swapWidth));
-
-        while (bankSwapWidth >= 2 * pitch)
-            bankSwapWidth >>= 1;
-
-        return bankSwapWidth;
-    }
-
-    private static Tuple<uint, uint, uint> ComputeSurfaceAlignmentsLinear(uint tileMode, uint bpp, uint flags)
-    {
-        uint pixelsPerPipeInterleave;
-        uint baseAlign, pitchAlign, heightAlign;
-
-        if (tileMode == 0)
-        {
-            baseAlign = 1;
-            pitchAlign = bpp != 1 ? (uint)1 : 8;
-            heightAlign = 1;
-        }
-        else if (tileMode == 1)
-        {
-            pixelsPerPipeInterleave = 2048 / bpp;
-            baseAlign = 256;
-            pitchAlign = Math.Max(0x40, pixelsPerPipeInterleave);
-            heightAlign = 1;
-        }
-        else
-        {
-            baseAlign = 1;
-            pitchAlign = 1;
-            heightAlign = 1;
-        }
-
-        pitchAlign = AdjustPitchAlignment(flags, pitchAlign);
-
-        return new Tuple<uint, uint, uint>(baseAlign, pitchAlign, heightAlign);
     }
 
     private static uint ComputeSurfaceTileSlices(uint tileMode, uint bpp, uint numSamples)

@@ -1,14 +1,11 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services;
-using JustDanceEditor.Formats.UbiArt.Services.Layouts;
-using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 using Microsoft.Extensions.Logging;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.IO;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
@@ -337,13 +334,15 @@ public class LayeredFileSystem
                 continue;
 
             // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
-            List<string> candidates = new() { relativeFilePath };
-            if (pathCooked != null) candidates.Add(pathCooked);
+            List<string> candidates = [relativeFilePath];
+            if (pathCooked != null)
+                candidates.Add(pathCooked);
             if (!string.IsNullOrEmpty(PlatformType))
             {
                 string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
-                if (pathCooked != null) candidates.Add(Path.Combine(cookedPrefix, pathCooked));
+                if (pathCooked != null)
+                    candidates.Add(Path.Combine(cookedPrefix, pathCooked));
             }
 
             foreach (var cand in candidates)
@@ -426,7 +425,7 @@ public class LayeredFileSystem
                 continue;
 
             // Try both the requested relative folder and the cooked location inside IPK
-            List<string> ipkLocations = new() { relativeFolderPath };
+            List<string> ipkLocations = [relativeFolderPath];
             if (!string.IsNullOrEmpty(PlatformType))
             {
                 ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
@@ -467,7 +466,7 @@ public class LayeredFileSystem
 
     public Stream GetFileStream(CookedFile cookedFile)
     {
-        if (cookedFile == null) throw new ArgumentNullException(nameof(cookedFile));
+        ArgumentNullException.ThrowIfNull(cookedFile);
         string relativeFilePath = cookedFile.RelativePath;
 
         // For Uncooked, try direct paths under the input folder first
@@ -555,13 +554,15 @@ public class LayeredFileSystem
                 continue;
 
             // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
-            List<string> candidates = new() { relativeFilePath };
-            if (pathCooked != null) candidates.Add(pathCooked);
+            List<string> candidates = [relativeFilePath];
+            if (pathCooked != null)
+                candidates.Add(pathCooked);
             if (!string.IsNullOrEmpty(PlatformType))
             {
                 string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
-                if (pathCooked != null) candidates.Add(Path.Combine(cookedPrefix, pathCooked));
+                if (pathCooked != null)
+                    candidates.Add(Path.Combine(cookedPrefix, pathCooked));
             }
 
             foreach (var cand in candidates)
@@ -628,7 +629,7 @@ public class LayeredFileSystem
                 continue;
 
             // Check both the requested relative folder and the cooked location inside IPK
-            List<string> ipkLocations = new() { relativeFolderPath };
+            List<string> ipkLocations = [relativeFolderPath];
             if (!string.IsNullOrEmpty(PlatformType))
                 ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
 

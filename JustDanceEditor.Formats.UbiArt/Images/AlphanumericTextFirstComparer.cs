@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Numerics; // Preserving existing using
-
 namespace JustDanceEditor.Formats.UbiArt.Images;
 
 /// <summary>
@@ -14,9 +10,12 @@ public sealed class AlphanumericTextFirstComparer : IComparer<string>
 
     public int Compare(string? x, string? y)
     {
-        if (ReferenceEquals(x, y)) return 0;
-        if (x == null) return -1;
-        if (y == null) return 1;
+        if (ReferenceEquals(x, y))
+            return 0;
+        if (x == null)
+            return -1;
+        if (y == null)
+            return 1;
 
         int ix = 0, iy = 0;
         int nx = x.Length, ny = y.Length;
@@ -40,71 +39,80 @@ public sealed class AlphanumericTextFirstComparer : IComparer<string>
             int startX = ix;
             int startY = iy;
 
-            while (ix < nx && GetCharType(x[ix]) == typeX) ix++;
-            while (iy < ny && GetCharType(y[iy]) == typeY) iy++;
+            while (ix < nx && GetCharType(x[ix]) == typeX)
+                ix++;
+            while (iy < ny && GetCharType(y[iy]) == typeY)
+                iy++;
 
-            string segX = x.Substring(startX, ix - startX);
-            string segY = y.Substring(startY, iy - startY);
-
-            int cmp = 0;
-            switch (typeX)
+            string segX = x[startX..ix];
+            string segY = y[startY..iy];
+            int cmp = typeX switch
             {
-                case 1: // Digit
-                    cmp = CompareNumeric(segX, segY);
-                    break;
-                case 2: // Letter
-                    cmp = string.Compare(segX, segY, StringComparison.OrdinalIgnoreCase);
-                    break;
-                default: // Symbol
-                    // Compare symbols ordinally
-                    cmp = string.Compare(segX, segY, StringComparison.Ordinal);
-                    break;
-            }
-
-            if (cmp != 0) return cmp;
+                // Digit
+                1 => CompareNumeric(segX, segY),
+                // Letter
+                2 => string.Compare(segX, segY, StringComparison.OrdinalIgnoreCase),
+                // Symbol
+                _ => string.Compare(segX, segY, StringComparison.Ordinal),// Compare symbols ordinally
+            };
+            if (cmp != 0)
+                return cmp;
         }
 
         // Reached the end of one or both strings.
         // If one is shorter (a prefix of the other), it comes first.
-        if (ix < nx) return 1; // x has more characters -> x > y
-        if (iy < ny) return -1; // y has more characters -> x < y
+        if (ix < nx)
+            return 1; // x has more characters -> x > y
+        if (iy < ny)
+            return -1; // y has more characters -> x < y
         return 0;
     }
 
     private static int GetCharType(char c)
     {
         // Order: Symbol < Digit < Letter
-        if (char.IsDigit(c)) return 1;
-        if (char.IsLetter(c)) return 2;
+        if (char.IsDigit(c))
+            return 1;
+        if (char.IsLetter(c))
+            return 2;
         return 0; // Symbol
     }
 
     private static int CompareNumeric(string a, string b)
     {
         // Skip leading zeros
-        int ia = 0; while (ia < a.Length && a[ia] == '0') ia++;
-        int ib = 0; while (ib < b.Length && b[ib] == '0') ib++;
+        int ia = 0;
+        while (ia < a.Length && a[ia] == '0')
+            ia++;
+        int ib = 0;
+        while (ib < b.Length && b[ib] == '0')
+            ib++;
 
         // Calculate length of significant part
         int lenA = a.Length - ia;
         int lenB = b.Length - ib;
 
         // Both are zero (e.g. "0" vs "00")
-        if (lenA == 0 && lenB == 0) return a.Length.CompareTo(b.Length);
+        if (lenA == 0 && lenB == 0)
+            return a.Length.CompareTo(b.Length);
 
         // One is zero, the other is not
-        if (lenA == 0) return -1; // 0 < non-zero
-        if (lenB == 0) return 1;
+        if (lenA == 0)
+            return -1; // 0 < non-zero
+        if (lenB == 0)
+            return 1;
 
         // Different significant lengths -> longer is larger
-        if (lenA != lenB) return lenA.CompareTo(lenB);
+        if (lenA != lenB)
+            return lenA.CompareTo(lenB);
 
         // Same significant length -> compare digits lexicographically
         for (int i = 0; i < lenA; i++)
         {
             char ca = a[ia + i];
             char cb = b[ib + i];
-            if (ca != cb) return ca.CompareTo(cb);
+            if (ca != cb)
+                return ca.CompareTo(cb);
         }
 
         // Values are numerically equal (e.g. "1" vs "01"). 

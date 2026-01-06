@@ -66,7 +66,10 @@ public static class UbiArtCoverGenerator
                     logger?.LogWarning("Album/Coach art could not be converted for '{SongName}'.", song.Name);
                 }
             }
-            catch { logger?.LogWarning("Album/Coach art not found or unreadable for '{SongName}'.", song.Name); }
+            catch
+            {
+                logger?.LogWarning("Album/Coach art not found or unreadable for '{SongName}'.", song.Name);
+            }
         }
         else
             logger?.LogWarning("Album/Coach art not found for song '{SongName}'.", song.Name);
@@ -124,7 +127,11 @@ public static class UbiArtCoverGenerator
             using Stream s = context.FileSystem.GetFileStream(background);
             banner = textureService.ConvertToImage(s);
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
+
         if (banner is null)
             return null;
 

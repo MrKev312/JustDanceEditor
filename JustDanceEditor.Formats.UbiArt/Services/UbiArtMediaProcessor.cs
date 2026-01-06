@@ -5,14 +5,9 @@ using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
-public sealed class UbiArtMediaProcessor : IMediaProcessor
+public sealed class UbiArtMediaProcessor(IFileSystem? io = null) : IMediaProcessor
 {
-    private readonly IFileSystem _io;
-
-    public UbiArtMediaProcessor(IFileSystem? io = null)
-    {
-        _io = io ?? new SystemFileSystem();
-    }
+    private readonly IFileSystem _io = io ?? new SystemFileSystem();
 
     public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
     {

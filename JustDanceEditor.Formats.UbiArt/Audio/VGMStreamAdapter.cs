@@ -68,7 +68,7 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
         try
         {
             // Write the input stream to the temporary file and ensure it's flushed and closed before starting the process
-            await using (FileStream fs = new FileStream(tempInput, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (FileStream fs = new(tempInput, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 await input.CopyToAsync(fs);
                 await fs.FlushAsync();
@@ -108,7 +108,11 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
         }
         finally
         {
-            try { File.Delete(tempInput); } catch { }
+            try
+            {
+                File.Delete(tempInput);
+            }
+            catch { }
         }
     }
 

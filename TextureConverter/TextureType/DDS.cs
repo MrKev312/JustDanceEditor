@@ -49,13 +49,6 @@ public class DDS
         DDSFormat.BC5S
     ];
 
-    public static Image<Bgra32> GetImage(string inputPath)
-    {
-        using FileStream fileStream = File.OpenRead(inputPath);
-
-        return GetImage(fileStream);
-    }
-
     public static Image<Bgra32> GetImage(Stream data)
     {
         using IImage image = Pfimage.FromStream(data);

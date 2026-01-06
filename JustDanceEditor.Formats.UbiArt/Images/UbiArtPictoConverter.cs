@@ -10,7 +10,6 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 using System.Diagnostics;
-using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Images;
 

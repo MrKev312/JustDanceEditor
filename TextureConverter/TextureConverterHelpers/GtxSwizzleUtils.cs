@@ -9,8 +9,6 @@ internal static class GtxSwizzleUtils
         // Logic copied from original GTX implementation but extracted to a helper for clarity.
         // Keep implementation details local to this helper so GTX stays focused on parsing and conversion orchestration.
         uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        uint pipeSwizzleMask = pipeSwizzle; // preserve name for clarity
-
         uint samplePitch = pitch * height;
         uint sampleSliceSize = samplePitch * numSamples;
 
@@ -43,10 +41,10 @@ internal static class GtxSwizzleUtils
         // Basic linear addressing
         uint bytesPerPixel = (bpp + 7) / 8;
         ulong row = (ulong)y * pitch;
-        ulong sliceOff = (ulong)slice * (ulong)pitch * (ulong)height * depth;
-        ulong samp = (ulong)sample * (ulong)((pitch * height));
+        ulong sliceOff = slice * (ulong)pitch * height * depth;
+        ulong samp = sample * (ulong)(pitch * height);
 
-        return sliceOff + (ulong)x * bytesPerPixel + row + samp;
+        return sliceOff + ((ulong)x * bytesPerPixel) + row + samp;
     }
 
     private static uint ComputeSurfaceThickness(AddrTileMode tileMode)
@@ -60,13 +58,4 @@ internal static class GtxSwizzleUtils
             _ => 1
         };
     }
-
-    private static uint IsThickMacroTiled(AddrTileMode tileMode)
-    {
-        return (tileMode == AddrTileMode.ADDR_TM_2D_TILED_THICK || tileMode == AddrTileMode.ADDR_TM_2B_TILED_THICK ||
-                tileMode == AddrTileMode.ADDR_TM_3D_TILED_THICK || tileMode == AddrTileMode.ADDR_TM_3B_TILED_THICK) ? 1u : 0u;
-    }
-
-    private static uint ComputeSurfaceBankSwappedWidth(AddrTileMode tileMode, uint bpp, uint numSamples, uint pitch) =>
-        0u; // Placeholder - original implementation uses a complex calculation based on the tile mode. Kept minimal here.
 }

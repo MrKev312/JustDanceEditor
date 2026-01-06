@@ -1,9 +1,5 @@
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Services;
-
-using Microsoft.Extensions.Logging.Abstractions;
 
 using Moq;
 
@@ -15,7 +11,6 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class IFileSystemTests
 {
-
 
     [Fact]
     public void EngineDetector_Uses_IFileSystem_To_Detect_Cooked_JD2015()
@@ -36,7 +31,8 @@ public class IFileSystemTests
                 return [Path.Combine(cookedRoot, "some", "world")];
             else if (path == Path.Combine(cookedRoot, "some", "world"))
                 return [Path.Combine(cookedRoot, "some", "world", "jd2015")];
-            else return [];
+            else
+                return [];
         });
 
         UbiArtEngineDetector detector = new(mockFs.Object);

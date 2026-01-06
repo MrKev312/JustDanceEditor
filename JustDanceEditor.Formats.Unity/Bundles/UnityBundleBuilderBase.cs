@@ -38,7 +38,8 @@ public abstract class UnityBundleBuilderBase
 
     protected void ClearBundle(AssetsManager? manager)
     {
-        if (manager == null) return;
+        if (manager == null)
+            return;
         manager.UnloadAll();
     }
 }

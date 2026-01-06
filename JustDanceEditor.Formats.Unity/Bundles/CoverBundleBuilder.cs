@@ -25,14 +25,9 @@ public sealed record UnityCoverRequest(
     bool ForCustomServer,
     Image<Rgba32>? OverrideCoverImage = null);
 
-public sealed class CoverBundleBuilder : UnityBundleBuilderBase
+public sealed class CoverBundleBuilder(ILogger<CoverBundleBuilder> logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<CoverBundleBuilder> _logger;
-
-    public CoverBundleBuilder(ILogger<CoverBundleBuilder> logger)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<CoverBundleBuilder> _logger = logger;
 
     public static Task GenerateAsync(UnityCoverRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -148,8 +143,6 @@ public sealed class CoverBundleBuilder : UnityBundleBuilderBase
         return image;
     }
 
-
-
     private static void UpdateCoverTexture(string codename, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverInfo, Image<Rgba32> coverImage)
     {
         AssetTypeValueField coverBase = manager.GetBaseField(afileInst, coverInfo);
@@ -174,8 +167,6 @@ public sealed class CoverBundleBuilder : UnityBundleBuilderBase
         coverSpriteBase["m_Name"].AsString = $"{codename}_Cover_2x";
         coverSpriteInfo.SetNewData(coverSpriteBase);
     }
-
-
 
     private sealed record BundleContext(
         string Codename,

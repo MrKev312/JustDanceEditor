@@ -1,14 +1,9 @@
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
-public class SystemTempFolderManager : ITempFolderManager
+public class SystemTempFolderManager(JDI.Services.IFileSystem? io = null) : ITempFolderManager
 {
     private const string Root = "JustDanceEditor";
-    private readonly JDI.Services.IFileSystem _io;
-
-    public SystemTempFolderManager(JDI.Services.IFileSystem? io = null)
-    {
-        _io = io ?? new JDI.Services.SystemFileSystem();
-    }
+    private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
     public string GetMapFolder(string mapName)
     {

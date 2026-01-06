@@ -6,14 +6,9 @@ using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
-public class UbiArtEngineDetector : IUbiArtEngineDetector
+public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArtEngineDetector
 {
-    private readonly JDI.Services.IFileSystem _io;
-
-    public UbiArtEngineDetector(JDI.Services.IFileSystem? io = null)
-    {
-        _io = io ?? new JDI.Services.SystemFileSystem();
-    }
+    private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
     public UbiArtVersionProfile Detect(string inputPath)
     {
@@ -110,7 +105,8 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
 
     private static string NormalizeForTraversal(string path)
     {
-        if (string.IsNullOrEmpty(path)) return string.Empty;
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
         string p = path.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
         p = p.TrimEnd(Path.DirectorySeparatorChar);
         return p;

@@ -133,13 +133,6 @@ public class XTX
         return Image.LoadPixelData<Bgra32>(image.Data, image.Width, image.Height);
     }
 
-    public static Image<Bgra32> GetImage(string inputPath)
-    {
-        using FileStream fileStream = File.OpenRead(inputPath);
-
-        return GetImage(fileStream);
-    }
-
     public static Image<Bgra32> GetImage(Stream data)
     {
         XTX xtx = new();

@@ -1,9 +1,3 @@
-using Pfim;
-
-using System.Text;
-
-using TextureConverter.Enums;
-
 namespace TextureConverter.TextureType;
 
 internal sealed record GtxParseResult(GTX.GTXHeader Header, List<GTX.GX2Surface> Surfaces, List<byte[]> ImageDatas, Dictionary<uint, byte[]> MipDatas, List<GTX.GTXDataBlock> Blocks);
@@ -30,10 +24,10 @@ internal static class GtxReader
         uint imageInfo = 0;
         uint images = 0;
 
-        List<GTX.GX2Surface> surfaces = new();
-        List<byte[]> imagesData = new();
-        Dictionary<uint, byte[]> mipDatas = new();
-        List<GTX.GTXDataBlock> blocks = new();
+        List<GTX.GX2Surface> surfaces = [];
+        List<byte[]> imagesData = [];
+        Dictionary<uint, byte[]> mipDatas = [];
+        List<GTX.GTXDataBlock> blocks = [];
 
         while (reader.BaseStream.Position < reader.BaseStream.Length)
         {

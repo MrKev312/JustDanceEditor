@@ -20,7 +20,7 @@ public class MontageSortingTests
     [InlineData(new[] { "a2b", "a10b", "aB", "a1b" }, new[] { "a1b", "a2b", "a10b", "aB" })]
     public void SortsAsExpected(string[] input, string[] expected)
     {
-        List<string> items = new(input);
+        List<string> items = [.. input];
         items.Sort(AlphanumericTextFirstComparer.Instance);
 
         if (!expected.SequenceEqual(items))
@@ -59,7 +59,7 @@ public class MontageSortingTests
     [Fact]
     public void Comparer_Is_AntiSymmetric_For_Sample()
     {
-        string[] items = new[] { "a2b", "a10b", "aB", "a1b" };
+        string[] items = ["a2b", "a10b", "aB", "a1b"];
         var cmp = AlphanumericTextFirstComparer.Instance;
         for (int i = 0; i < items.Length; i++)
             for (int j = 0; j < items.Length; j++)
@@ -75,7 +75,7 @@ public class MontageSortingTests
     [Fact]
     public void SortedList_Is_Monotonic_By_Comparer()
     {
-        string[] inputs = new[] { "testhi", "test1" };
+        string[] inputs = ["testhi", "test1"];
         var list = new List<string>(inputs);
         list.Sort(AlphanumericTextFirstComparer.Instance);
 
@@ -87,8 +87,8 @@ public class MontageSortingTests
         }
 
         // Larger sample
-        inputs = new[] { "a2b", "a10b", "aB", "a1b" };
-        list = new List<string>(inputs);
+        inputs = ["a2b", "a10b", "aB", "a1b"];
+        list = [.. inputs];
         list.Sort(AlphanumericTextFirstComparer.Instance);
         for (int i = 0; i < list.Count - 1; i++)
         {

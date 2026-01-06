@@ -49,13 +49,14 @@ internal static class GtxFormatLookup
     public static uint GetBPP(GX2SurfaceFormat format)
     {
         int idx = (((int)format) & 0x3F) * 4;
-        if (idx < 0 || idx + 1 > HwFlat.Length) return 0;
+        if (idx < 0 || idx + 1 > HwFlat.Length)
+            return 0;
         return HwFlat[idx];
     }
 
     public static uint GetHwEntry(int hwFormat, int offset)
     {
-        int baseIdx = hwFormat * 4 + offset;
+        int baseIdx = (hwFormat * 4) + offset;
         if (baseIdx < 0 || baseIdx >= HwFlat.Length)
             return 0u;
         return HwFlat[baseIdx];
@@ -63,7 +64,7 @@ internal static class GtxFormatLookup
 
     public static uint GetExEntry(int exFormat, int offset)
     {
-        int baseIdx = exFormat * 4 + offset;
+        int baseIdx = (exFormat * 4) + offset;
         if (baseIdx < 0 || baseIdx >= ExFlat.Length)
             return 0u;
         return ExFlat[baseIdx];

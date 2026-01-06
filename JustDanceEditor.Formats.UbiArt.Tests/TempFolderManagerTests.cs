@@ -38,7 +38,11 @@ public class TempFolderManagerTests
         finally
         {
             // Best-effort cleanup
-            try { manager.DeleteMapFolder(mapName); } catch { }
+            try
+            {
+                manager.DeleteMapFolder(mapName);
+            }
+            catch { }
         }
     }
 

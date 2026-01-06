@@ -689,62 +689,6 @@ public partial class TimelineTrackPanel
         }
     }
 
-    private async Task<LibraryItemViewModel?> ShowLibraryPickerAsync(ItemType desired)
-    {
-        // Build picker window with LibraryToolView
-        Window? owner = this.GetVisualRoot() as Window;
-        Window win = new()
-        {
-            Title = "Choose Library Item",
-            Width = 640,
-            SizeToContent = SizeToContent.Height,
-            MaxHeight = 420,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new StackPanel()
-        };
-
-        StackPanel stack = (StackPanel)win.Content!;
-        LibraryToolView libView = new()
-        {
-            DataContext = new LibraryToolViewModel()
-        };
-        stack.Children.Add(libView);
-
-        // Footer buttons
-        StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        Button ok = new() { Content = "OK", Margin = new Thickness(6) };
-        Button cancel = new() { Content = "Cancel", Margin = new Thickness(6) };
-        footer.Children.Add(ok);
-        footer.Children.Add(cancel);
-        stack.Children.Add(footer);
-
-        LibraryItemViewModel? result = null;
-
-        ok.Click += (s, e) =>
-        {
-            // Find selected item in appropriate grid
-            DataGrid? dg = null;
-            switch (desired)
-            {
-                case ItemType.Pictogram: dg = libView.FindControl<DataGrid>("ItemsListPictograms"); break;
-                case ItemType.HandMove: dg = libView.FindControl<DataGrid>("ItemsListHandMoves"); break;
-                case ItemType.FullBodyMove: dg = libView.FindControl<DataGrid>("ItemsListFullBody"); break;
-            }
-
-            if (dg != null)
-                result = dg.SelectedItem as LibraryItemViewModel;
-
-            win.Close();
-        };
-
-        cancel.Click += (s, e) => win.Close();
-
-        Window ownerWindow = owner ?? (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw ? mw : null) ?? throw new InvalidOperationException("No owner window available");
-        await win.ShowDialog(ownerWindow);
-        return result;
-    }
-
     private async Task<string?> ShowInputDialogAsync(string prompt)
     {
         Window? owner = this.GetVisualRoot() as Window;

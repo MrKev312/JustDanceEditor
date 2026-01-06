@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace JustDanceEditor.Formats.JDI.Services;
 
 public interface IAudioConverter

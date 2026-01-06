@@ -14,7 +14,8 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     public IpkFileSystem(Stream ipkStream)
     {
         _stream = ipkStream ?? throw new ArgumentNullException(nameof(ipkStream));
-        if (!_stream.CanSeek) throw new ArgumentException("IPK stream must be seekable.", nameof(ipkStream));
+        if (!_stream.CanSeek)
+            throw new ArgumentException("IPK stream must be seekable.", nameof(ipkStream));
         _reader = new BinaryReader(_stream, System.Text.Encoding.UTF8, leaveOpen: true);
         _ownsStream = false;
         ParseIndex();
@@ -22,7 +23,8 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
 
     public IpkFileSystem(string ipkPath)
     {
-        if (!File.Exists(ipkPath)) throw new FileNotFoundException("IPK not found", ipkPath);
+        if (!File.Exists(ipkPath))
+            throw new FileNotFoundException("IPK not found", ipkPath);
         _stream = new FileStream(ipkPath, FileMode.Open, FileAccess.Read, FileShare.Read);
         _reader = new BinaryReader(_stream, System.Text.Encoding.UTF8, leaveOpen: true);
         _ownsStream = true;
@@ -34,7 +36,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         // Read header (copying the logic used by JustDanceIPKParser)
         _stream.Seek(0, SeekOrigin.Begin);
         byte[] magic = _reader.ReadBytes(4);
-        byte[] IdString = new byte[] { 0x50, 0xEC, 0x12, 0xBA };
+        byte[] IdString = [0x50, 0xEC, 0x12, 0xBA];
         if (!magic.SequenceEqual(IdString))
             throw new InvalidDataException("Invalid IPK file");
 
@@ -96,12 +98,14 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in _entries.Keys)
         {
-            if (!IsChildPath(norm, key)) continue;
-            var rel = key.Substring(norm.Length).TrimStart(Path.DirectorySeparatorChar);
+            if (!IsChildPath(norm, key))
+                continue;
+            var rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
             var first = rel.Split(Path.DirectorySeparatorChar)[0];
             dirs.Add(Path.Combine(norm, first));
         }
-        return dirs.ToArray();
+
+        return [.. dirs];
     }
 
     public string[] GetFiles(string path, string searchPattern = "*")
@@ -111,12 +115,16 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         var regex = WildcardToRegex(searchPattern);
         foreach (var key in _entries.Keys)
         {
-            if (!IsChildPath(norm, key)) continue;
-            var rel = key.Substring(norm.Length).TrimStart(Path.DirectorySeparatorChar);
-            if (rel.Contains(Path.DirectorySeparatorChar)) continue; // not a direct child
-            if (regex.IsMatch(rel)) files.Add(Path.GetFileName(key));
+            if (!IsChildPath(norm, key))
+                continue;
+            var rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
+            if (rel.Contains(Path.DirectorySeparatorChar))
+                continue; // not a direct child
+            if (regex.IsMatch(rel))
+                files.Add(Path.GetFileName(key));
         }
-        return files.ToArray();
+
+        return [.. files];
     }
 
     public string ReadAllText(string path)
@@ -175,7 +183,8 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
 
     private static string NormalizePath(string path)
     {
-        if (string.IsNullOrEmpty(path)) return string.Empty;
+        if (string.IsNullOrEmpty(path))
+            return string.Empty;
         string p = path.Replace('/', Path.DirectorySeparatorChar);
         p = p.TrimStart('.', Path.DirectorySeparatorChar);
         return p.Replace('\\', Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
@@ -185,7 +194,8 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     {
         string np = parent.TrimEnd(Path.DirectorySeparatorChar);
         string nc = candidate.TrimStart(Path.DirectorySeparatorChar);
-        if (string.IsNullOrEmpty(np)) return true;
+        if (string.IsNullOrEmpty(np))
+            return true;
         return nc.StartsWith(np + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || string.Equals(np, nc, StringComparison.OrdinalIgnoreCase);
     }
 

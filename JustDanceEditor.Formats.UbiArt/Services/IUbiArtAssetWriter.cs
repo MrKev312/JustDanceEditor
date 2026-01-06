@@ -2,8 +2,6 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
-using Microsoft.Extensions.Logging;
-
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public interface IUbiArtAssetWriter

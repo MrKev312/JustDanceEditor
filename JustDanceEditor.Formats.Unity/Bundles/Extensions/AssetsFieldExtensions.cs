@@ -1,7 +1,4 @@
 using AssetsTools.NET;
-using AssetsTools.NET.Extra;
-
-using System;
 
 namespace JustDanceEditor.Formats.Unity.Bundles.Extensions;
 
@@ -9,8 +6,9 @@ public static class AssetsFieldExtensions
 {
     public static AssetTypeValueField GetOrAdd(this AssetTypeValueField root, string path)
     {
-        if (root == null) throw new ArgumentNullException(nameof(root));
-        if (string.IsNullOrEmpty(path)) return root;
+        ArgumentNullException.ThrowIfNull(root);
+        if (string.IsNullOrEmpty(path))
+            return root;
 
         string[] parts = path.Split('.');
         AssetTypeValueField cur = root;

@@ -2,7 +2,6 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System.IO;

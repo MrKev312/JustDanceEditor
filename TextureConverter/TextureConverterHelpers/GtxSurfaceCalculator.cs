@@ -29,6 +29,7 @@ internal static class GtxSurfaceCalculator
             surfaceIn.Width = PowTwoAlign(surfaceIn.Width, 4);
             surfaceIn.Height = PowTwoAlign(surfaceIn.Height, 4);
         }
+
         surfaceOut.PixelBits = bpp;
 
         if (surfaceIn.Format != 0)
@@ -763,12 +764,12 @@ internal static class GtxSurfaceCalculator
 
         if (((pitch >> 3) * bpp) < 128 * widthAlignFactor)
         {
-            if ((baseTileMode >= 15) && (baseTileMode < 16))
+            if (baseTileMode is >= 15 and < 16)
             {
                 return 14;
             }
 
-            if ((baseTileMode >= 7) && (baseTileMode < 8))
+            if (baseTileMode is >= 7 and < 8)
             {
                 return 7;
             }
@@ -779,7 +780,7 @@ internal static class GtxSurfaceCalculator
             return baseTileMode;
         }
 
-        if (pitch < 64 && pitch >= 32)
+        if (pitch is < 64 and >= 32)
         {
             return 2;
         }

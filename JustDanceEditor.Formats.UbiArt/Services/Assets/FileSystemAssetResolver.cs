@@ -40,7 +40,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
 
     public CookedFile[] GetCoachTextures()
     {
-        CookedFile[] files = [.. _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_coach_*").Where(f => !((CookedFile)f).Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
+        CookedFile[] files = [.. _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_coach_*").Where(f => !f.Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
         return files;
     }
 
