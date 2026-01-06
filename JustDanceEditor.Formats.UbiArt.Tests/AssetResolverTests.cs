@@ -30,7 +30,7 @@ public class AssetResolverTests
     public void GetAlbumCoach_Returns_AlbumCoach_File_When_Present()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        string menuArtFolder = Path.Combine(root, "song", "menuart", "textures");
+        string menuArtFolder = Path.Combine(root, "World", "Maps", "song", "menuart", "textures");
         Directory.CreateDirectory(menuArtFolder);
 
         string fileName = "song_cover_albumcoach.png";

@@ -20,12 +20,17 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 /// <summary>
 /// Service for exporting UbiArt assets from intermediate package format.
 /// </summary>
-public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiArtAssetWriter
+public sealed class UbiArtAssetWriter : IUbiArtAssetWriter
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    private readonly ILogger<UbiArtAssetWriter> _logger = logger;
+    private readonly ILogger<UbiArtAssetWriter> _logger;
+
+    public UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
+    {
+        _logger = logger;
+    }
 
     public async Task ExportToUncookedAsync(
         IntermediateSongPackage package,
@@ -62,12 +67,12 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
         iofs.CreateDirectory(cinematicsFolder);
         iofs.CreateDirectory(pictosFolder);
         iofs.CreateDirectory(movesFolder);
-        iofs.CreateDirectory(videosFolder);
+        // VideosCoach folder is created only if videos exist, not unconditionally
 
         // Copy assets if materializedRoot is available
         if (!string.IsNullOrEmpty(materializedRoot))
         {
-            await CopyAssetsAsync(package, materializedRoot, outputFolder, iofs);
+            await CopyAssetsAsync(package, materializedRoot, mapWorldFolder, iofs);
         }
 
         // Write SongDesc.tpl
@@ -103,6 +108,8 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
         List<object> allClips = [];
 
         string movesRelative = layout.GetMovesFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
+        // For dtape/tape files, don't include the WiiU subfolder in the path
+        string movesRelativeForTape = movesRelative.Replace("/WiiU", "").Replace("\\WiiU", "");
         string pictosRelative = layout.GetPictosFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
 
         // Add MotionClips
@@ -129,7 +136,7 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
                         timeline.TrackId,
                         clip.StartTime,
                         move.Duration,
-                        ClassifierPath = $"{movesRelative}/{clip.MoveId}.msm",
+                        ClassifierPath = $"{movesRelativeForTape}/{clip.MoveId}.msm",
                         timeline.CoachId,
                         Color = $"0xFF{color}",
                         GoldMove = clip.IsGoldMove ? 1 : 0
@@ -357,7 +364,7 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        string baseRelative = layout.GetMapWorldFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
+        string baseRelative = layout.GetMapWorldFolder(string.Empty, mapName, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
 
         // 1. Write ISC file (scene descriptor)
         string iscContent = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -585,7 +592,7 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
             {
                 string comment = sec.Comment ?? string.Empty;
                 string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
-                trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {sec.SectionType}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
+                trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {(int)sec.SectionType}, marker = {markerStr}, comment = \"{comment.Replace("\"", "\\\"")}\" }} }},");
             }
 
             trkBuilder.AppendLine("},");

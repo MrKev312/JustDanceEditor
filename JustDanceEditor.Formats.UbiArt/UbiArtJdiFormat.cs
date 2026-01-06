@@ -101,17 +101,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (ubiRequest.Type != UbiArtType.Uncooked)
             throw new NotSupportedException("Only Uncooked export is supported for now.");
 
+        // Use the output path directly - the layout resolver will create World/Maps/SongName structure
         string outputFolder = ubiRequest.OutputPath;
-        if (!string.IsNullOrEmpty(ubiRequest.SongName))
-        {
-            outputFolder = _io.Combine(outputFolder, ubiRequest.SongName);
-        }
-        else if (importResult.Package.Metadata.MapName != null)
-        {
-            outputFolder = _io.Combine(outputFolder, importResult.Package.Metadata.MapName);
-        }
 
-        PrepareOutputDirectory(outputFolder);
+        // Ensure output directory exists (don't delete it - it's a user-provided folder)
+        _io.CreateDirectory(outputFolder);
 
         // Detect the best profile for the export (use materialized root if available)
         UbiArtVersionProfile exportProfile;

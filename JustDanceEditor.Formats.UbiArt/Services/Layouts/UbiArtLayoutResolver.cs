@@ -13,12 +13,12 @@ public class UbiArtLayoutResolver : IUbiArtLayout
             _ => Path.Combine("world", "maps"),
         };
 
-        // For uncooked Modern layouts use a flat layout (no world/maps)
+        // For uncooked Modern layouts use World/Maps structure
         if (containerStyle == UbiArtContainerStyle.Uncooked)
         {
             if (engineVersion == UbiArtEngineVersion.Modern)
             {
-                return string.IsNullOrWhiteSpace(songName) ? string.Empty : Path.Combine(songName);
+                return string.IsNullOrWhiteSpace(songName) ? Path.Combine("World", "Maps") : Path.Combine("World", "Maps", songName);
             }
 
             // Uncooked JD2014/JD2015 are under world/maps/jdX
@@ -35,7 +35,7 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "media");
 
     public string GetAudioFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "audio");
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "Audio");
 
     public string GetTimelineFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
         => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "timeline");
@@ -44,7 +44,7 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         => Path.Combine(GetTimelineFolder(inputPath, songName, containerStyle, engineVersion), "pictos");
 
     public string GetMovesFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "timeline", "moves", "wiiu");
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "timeline", "moves", "WiiU");
 
     public string GetSongDescRelativePath(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
         => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "songdesc.tpl");
