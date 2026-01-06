@@ -38,7 +38,7 @@ public class AssetResolverAudioTests
         Assert.True(found);
         Assert.NotNull(file);
         Assert.True(isPreMerged);
-        Assert.EndsWith("song.ogg", file!.FullPath);
+        Assert.EndsWith("song.ogg", file!.RelativePath);
 
         Directory.Delete(root, true);
     }
@@ -68,7 +68,7 @@ public class AssetResolverAudioTests
 
         Assert.True(found);
         Assert.NotNull(file);
-        Assert.EndsWith(baseName + ".wav", file!.FullPath);
+        Assert.EndsWith(baseName + ".wav", file!.RelativePath);
 
         Directory.Delete(root, true);
     }

@@ -64,7 +64,8 @@ public static class AudioConverter
             masterOutputFolder,
             previewOutputFolder,
             isPreMerged,
-            audioConverter);
+            audioConverter,
+            fileSystem);
     }
 
     private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, LayeredFileSystem fileSystem)

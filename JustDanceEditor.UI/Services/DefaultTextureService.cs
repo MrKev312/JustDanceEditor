@@ -9,11 +9,11 @@ namespace JustDanceEditor.UI.Services;
 
 internal sealed class DefaultTextureService : ITextureService
 {
-    public Image<Bgra32>? ConvertToImage(string path)
+    public Image<Bgra32>? ConvertToImage(Stream stream)
     {
         try
         {
-            return Image.Load<Bgra32>(path);
+            return Image.Load<Bgra32>(stream);
         }
         catch
         {
@@ -21,11 +21,11 @@ internal sealed class DefaultTextureService : ITextureService
         }
     }
 
-    public Task ConvertTextureAsync(string inputPath, string outputPath, CancellationToken cancellationToken = default)
+    public Task ConvertTextureAsync(Stream inputStream, string outputPath, CancellationToken cancellationToken = default)
     {
         return Task.Run(() =>
         {
-            using Image<Bgra32>? image = ConvertToImage(inputPath) ?? throw new InvalidOperationException($"Failed to convert texture: {inputPath}");
+            using Image<Bgra32>? image = ConvertToImage(inputStream) ?? throw new InvalidOperationException($"Failed to convert texture");
             string ext = Path.GetExtension(outputPath).ToLowerInvariant();
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 

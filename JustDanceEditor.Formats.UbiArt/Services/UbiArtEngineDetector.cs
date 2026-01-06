@@ -107,7 +107,28 @@ public class UbiArtEngineDetector : IUbiArtEngineDetector
                 return;
 
             string songDescFile = candidates[0];
-            string content = _io.ReadAllText(songDescFile).TrimEnd('\0');
+
+            // Read via a stream so we don't rely on a single text API; trim trailing NULs afterwards
+            string content;
+            try
+            {
+                if (_io is JDI.Services.SystemFileSystem)
+                {
+                    using Stream s = File.OpenRead(songDescFile);
+                    using StreamReader sr = new(s, System.Text.Encoding.UTF8);
+                    content = sr.ReadToEnd().TrimEnd('\0');
+                }
+                else
+                {
+                    // Use the IFileSystem abstraction for testable (mock) file reads
+                    content = _io.ReadAllText(songDescFile).TrimEnd('\0');
+                }
+            }
+            catch
+            {
+                // If we can't open the file via stream, fall back to path-based read
+                content = _io.ReadAllText(songDescFile).TrimEnd('\0');
+            }
 
             // Try JSON first
             try

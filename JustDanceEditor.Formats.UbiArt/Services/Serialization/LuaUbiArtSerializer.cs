@@ -7,10 +7,11 @@ namespace JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 public class LuaUbiArtSerializer : IUbiArtSerializer
 {
-    public T Deserialize<T>(byte[] content, JsonSerializerOptions? options = null) where T : new()
+    public T Deserialize<T>(Stream stream, JsonSerializerOptions? options = null) where T : new()
     {
-        // LuaTableSerializer expects a string; decode bytes and trim NULs
-        string text = Encoding.UTF8.GetString(content).TrimEnd('\0');
+        // LuaTableSerializer expects a string; decode stream and trim NULs
+        using StreamReader sr = new(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 8192, leaveOpen: true);
+        string text = sr.ReadToEnd().TrimEnd('\0');
         return LuaTableSerializer.Deserialize<T>(text);
     }
 }

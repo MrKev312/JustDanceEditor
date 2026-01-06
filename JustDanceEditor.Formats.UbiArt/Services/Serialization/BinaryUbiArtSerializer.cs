@@ -5,7 +5,7 @@ namespace JustDanceEditor.Formats.UbiArt.Services.Serialization;
 // Placeholder for binary formats (JD2014/JD2015). Not implemented yet.
 public class BinaryUbiArtSerializer : IUbiArtSerializer
 {
-    public T Deserialize<T>(byte[] content, JsonSerializerOptions? options = null) where T : new()
+    public T Deserialize<T>(Stream stream, JsonSerializerOptions? options = null) where T : new()
     {
         // For now, binary parsing is not implemented. The method will throw if used.
         throw new NotImplementedException("Binary serializer is not implemented yet.");

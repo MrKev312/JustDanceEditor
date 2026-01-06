@@ -2,10 +2,15 @@ namespace JustDanceEditor.Formats.UbiArt.Files;
 
 public class CookedFile
 {
-    public CookedFile(string path)
+    public CookedFile(string relativePath)
     {
-        DirectoryPath = Path.GetDirectoryName(path) + Path.DirectorySeparatorChar;
-        string inputFileName = Path.GetFileName(path);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentNullException(nameof(relativePath));
+
+        // Normalize to platform separators
+        RelativePath = relativePath.Replace('\\', Path.DirectorySeparatorChar);
+
+        string inputFileName = Path.GetFileName(RelativePath);
         Extension = Path.GetExtension(inputFileName);
 
         if (Extension == ".ckd")
@@ -18,23 +23,16 @@ public class CookedFile
         Name = Path.GetFileNameWithoutExtension(inputFileName);
     }
 
-    public string DirectoryPath { get; private set; }
+    // The relative path used for UbiArt resolution (e.g. "world/maps/song/songdesc.tpl")
+    public string RelativePath { get; private set; }
     public string Name { get; private set; }
     public string Extension { get; private set; }
     public bool IsCooked { get; private set; }
 
-    public string FullPath => this;
-    public string UncookedPath => DirectoryPath + Name + Extension;
+    // Uncooked (logical) path derived from the relative path components
+    public string UncookedPath => Path.Combine(Path.GetDirectoryName(RelativePath) ?? string.Empty, Name + Extension);
 
     public static implicit operator string(CookedFile v) => v.ToString();
 
-    public override string ToString()
-    {
-        string fullPath = DirectoryPath + Name + Extension;
-
-        if (IsCooked)
-            fullPath += ".ckd";
-
-        return fullPath;
-    }
+    public override string ToString() => RelativePath;
 }

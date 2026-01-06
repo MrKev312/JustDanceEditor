@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
@@ -173,7 +174,8 @@ public class LayeredFileSystem
             string directChild = _io.Combine(ConversionRequest.InputPath, relativeFilePath);
             if (_io.FileExists(directChild))
             {
-                filePath = new(directChild);
+                string relative = Path.GetRelativePath(ConversionRequest.InputPath, directChild).Replace('\\', Path.DirectorySeparatorChar);
+                filePath = new(relative);
                 return true;
             }
 
@@ -185,7 +187,8 @@ public class LayeredFileSystem
             string rootFile = _io.Combine(ConversionRequest.InputPath, fileName);
             if (_io.FileExists(rootFile))
             {
-                filePath = new(rootFile);
+                string relative = Path.GetRelativePath(ConversionRequest.InputPath, rootFile).Replace('\\', Path.DirectorySeparatorChar);
+                filePath = new(relative);
                 return true;
             }
         }
@@ -241,7 +244,7 @@ public class LayeredFileSystem
                 string file = _io.Combine(location, relativeFilePath);
                 if (_io.FileExists(file))
                 {
-                    filePath = new(file);
+                    filePath = new(relativeFilePath);
                     return true;
                 }
 
@@ -251,7 +254,7 @@ public class LayeredFileSystem
                 file = _io.Combine(location, pathCooked);
                 if (_io.FileExists(file))
                 {
-                    filePath = new(file);
+                    filePath = new(pathCooked);
                     return true;
                 }
             }
@@ -297,11 +300,11 @@ public class LayeredFileSystem
                     {
                         foreach (string file in _io.GetFiles(folder, pat))
                         {
-                            string relative = Path.GetRelativePath(searchPath, file);
-                            if (files.Any(x => x.FullPath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
+                            string relative = Path.GetRelativePath(searchPath, file).Replace('\\', Path.DirectorySeparatorChar);
+                            if (files.Any(x => x.RelativePath.EndsWith(relative, StringComparison.CurrentCultureIgnoreCase)))
                                 continue;
 
-                            files.Add(new(file));
+                            files.Add(new(relative));
                         }
                     }
                 }
@@ -309,6 +312,88 @@ public class LayeredFileSystem
         }
 
         return [.. files];
+    }
+
+    public Stream GetFileStream(CookedFile cookedFile)
+    {
+        if (cookedFile == null) throw new ArgumentNullException(nameof(cookedFile));
+        string relativeFilePath = cookedFile.RelativePath;
+
+        // For Uncooked, try direct paths under the input folder first
+        if (ConversionRequest.Type == UbiArtType.Uncooked)
+        {
+            string directChild = _io.Combine(ConversionRequest.InputPath, relativeFilePath);
+            if (_io.FileExists(directChild))
+                return File.OpenRead(directChild);
+
+            string fileName = Path.GetFileName(relativeFilePath);
+            string rootFile = _io.Combine(ConversionRequest.InputPath, fileName);
+            if (_io.FileExists(rootFile))
+                return File.OpenRead(rootFile);
+        }
+
+        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{PlatformType}")];
+
+        string[] allFolders = _io.GetDirectories(parentFolder);
+        PriorityQueue<string, uint> numberPatternFolders = new();
+        List<string> otherFolders = [];
+
+        foreach (string folder in allFolders)
+        {
+            if (searchPaths.Contains(folder))
+                continue;
+
+            string folderName = Path.GetFileName(folder);
+            string[] parts = folderName.Split('_');
+
+            if (parts.Length < 3)
+            {
+                otherFolders.Add(folder);
+                continue;
+            }
+
+            string secondToLastPart = parts[^2];
+
+            if (uint.TryParse(secondToLastPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint number))
+                numberPatternFolders.Enqueue(folder, number);
+            else
+                otherFolders.Add(folder);
+        }
+
+        while (numberPatternFolders.Count > 0)
+            searchPaths.Add(numberPatternFolders.Dequeue());
+
+        searchPaths.AddRange(otherFolders);
+
+        string? pathCooked = null;
+
+        if (Path.GetExtension(relativeFilePath) != ".ckd")
+            pathCooked = $"{relativeFilePath}.ckd";
+
+        foreach (string searchPath in searchPaths)
+        {
+            string[] searchLocations = [
+                searchPath,
+                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                ];
+
+            foreach (string location in searchLocations)
+            {
+                string file = _io.Combine(location, relativeFilePath);
+                if (_io.FileExists(file))
+                    return File.OpenRead(file);
+
+                if (pathCooked == null)
+                    continue;
+
+                file = _io.Combine(location, pathCooked);
+                if (_io.FileExists(file))
+                    return File.OpenRead(file);
+            }
+        }
+
+        throw new FileNotFoundException($"The file {relativeFilePath} was not found in the input folders.");
     }
 
     public bool GetFolderPath(string relativeFolderPath, [MaybeNullWhen(false)] out string folderPath)
@@ -356,5 +441,16 @@ public class LayeredFileSystem
     public string ReadWithoutNull(string filePath)
     {
         return _io.ReadAllText(filePath).TrimEnd('\0');
+    }
+
+    /// <summary>
+    /// Read the specified cooked file as text, trimming any trailing NUL characters.
+    /// Uses the same file resolution logic as <see cref="GetFileStream(CookedFile)"/>.
+    /// </summary>
+    public string ReadWithoutNull(CookedFile cookedFile)
+    {
+        using Stream s = GetFileStream(cookedFile);
+        using StreamReader sr = new(s, System.Text.Encoding.UTF8);
+        return sr.ReadToEnd().TrimEnd('\0');
     }
 }

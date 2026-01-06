@@ -47,7 +47,7 @@ public class AssetResolverTests
         CookedFile? file = resolver.GetAlbumCoach();
 
         Assert.NotNull(file);
-        Assert.EndsWith(fileName, file!.FullPath);
+        Assert.EndsWith(fileName, file!.RelativePath);
 
         Directory.Delete(root, true);
     }

@@ -23,7 +23,8 @@ public sealed record UbiArtAudioConversionRequest(
     string MasterOutputFolder,
     string PreviewOutputFolder,
     bool IsMainSongPreMerged,
-    IAudioConverter AudioConverter);
+    IAudioConverter AudioConverter,
+    Files.LayeredFileSystem FileSystem);
 
 public static class UbiArtAudioConverter
 {
@@ -76,14 +77,22 @@ public static class UbiArtAudioConverter
             if (io.FileExists(targetPath))
                 return;
 
-            request.AudioConverter.Convert(clipSource.File, targetPath).GetAwaiter().GetResult();
+            using Stream src = request.FileSystem.GetFileStream(clipSource.File);
+            string sourceFileName = clipSource.File.Name + clipSource.File.Extension;
+            if (clipSource.File.IsCooked)
+                sourceFileName += ".ckd";
+            request.AudioConverter.Convert(src, sourceFileName, targetPath, request.TempAudioFolder).GetAwaiter().GetResult();
         });
     }
 
     private static string ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
     {
         string targetPath = io.Combine(request.TempAudioFolder, "mainSong.wav");
-        request.AudioConverter.Convert(request.MainSongFile, targetPath).GetAwaiter().GetResult();
+        using Stream src = request.FileSystem.GetFileStream(request.MainSongFile);
+        string sourceFileName = request.MainSongFile.Name + request.MainSongFile.Extension;
+        if (request.MainSongFile.IsCooked)
+            sourceFileName += ".ckd";
+        request.AudioConverter.Convert(src, sourceFileName, targetPath, request.TempAudioFolder).GetAwaiter().GetResult();
         logger.LogDebug("Converted main song to {TargetPath}", targetPath);
         return targetPath;
     }

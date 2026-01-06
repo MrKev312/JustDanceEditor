@@ -69,10 +69,10 @@ internal static class IntermediateAssetWriter
 
         UbiArtPictoConversionRequest request = new(
             context.SongData,
-            pictoPaths,
+            pictoFiles,
             outputFolder);
 
-        await Task.Run(() => UbiArtPictoConverter.Convert(request, logger, textureService, io));
+        await Task.Run(() => UbiArtPictoConverter.Convert(request, logger, textureService, context.FileSystem, io));
     }
 
     private static async Task CopyAssetsToPackageAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
@@ -137,15 +137,24 @@ internal static class IntermediateAssetWriter
         for (int i = 0; i < coachFilesCooked.Length; i++)
         {
             string destination = io.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
-            using Image<Bgra32>? coach = textureService.ConvertToImage(coachFilesCooked[i].FullPath);
-            if (coach is null)
+            try
             {
-                logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i].FullPath);
+                using Stream s = context.FileSystem.GetFileStream(coachFilesCooked[i]);
+                using Image<Bgra32>? coach = textureService.ConvertToImage(s);
+                if (coach is null)
+                {
+                    logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i].RelativePath);
+                    continue;
+                }
+
+                SaveAsWebp(coach, destination, io);
+                logger.LogDebug("Saved coach asset: {FileName}", Path.GetFileName(destination));
+            }
+            catch (FileNotFoundException)
+            {
+                logger.LogWarning("Failed to convert coach image: {Path} (not found)", coachFilesCooked[i].RelativePath);
                 continue;
             }
-
-            SaveAsWebp(coach, destination, io);
-            logger.LogDebug("Saved coach asset: {FileName}", Path.GetFileName(destination));
         }
 
         using Image<Bgra32>? backgroundImage = UbiArtCoverGenerator.GetBackground(context, textureService);
@@ -187,9 +196,18 @@ internal static class IntermediateAssetWriter
             string name = $"{file.Name}{file.Extension}";
             if (!seen.Add(name))
                 continue;
-            string source = file;
             string destination = io.Combine(destinationFolder, name);
-            io.Copy(source, destination, true);
+            try
+            {
+                using Stream sourceStream = context.FileSystem.GetFileStream(file);
+                using FileStream destStream = File.Open(destination, FileMode.Create, FileAccess.Write);
+                sourceStream.CopyTo(destStream);
+            }
+            catch (FileNotFoundException)
+            {
+                // Skip missing files
+                continue;
+            }
         }
 
         return destinationFolder;
@@ -207,32 +225,40 @@ internal static class IntermediateAssetWriter
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
-        string? source = GetVideoFile(fileSystem);
-        if (source == null)
+        CookedFile? sourceFile = GetVideoFile(fileSystem);
+        if (sourceFile == null)
         {
             logger.LogWarning("No video file found in UbiArt input; skipping video copy.");
             return;
         }
 
         io.CreateDirectory(destinationFolder);
-        string destination = io.Combine(destinationFolder, Path.GetFileName(source));
-        io.Copy(source, destination, true);
-        logger.LogInformation("Copied master video into intermediate package without conversion.");
+        string destination = io.Combine(destinationFolder, Path.GetFileName(sourceFile.RelativePath));
+        try
+        {
+            using Stream src = fileSystem.GetFileStream(sourceFile);
+            using FileStream dest = File.Open(destination, FileMode.Create, FileAccess.Write);
+            src.CopyTo(dest);
+            logger.LogInformation("Copied master video into intermediate package without conversion.");
+        }
+        catch (FileNotFoundException)
+        {
+            logger.LogWarning("Video file not found, skipping.");
+        }
     }
 
-    private static string? GetVideoFile(LayeredFileSystem fileSystem)
+    private static CookedFile? GetVideoFile(LayeredFileSystem fileSystem)
     {
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {
             CookedFile[] mediaVideos = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.webm");
             if (mediaVideos.Length > 0)
-                return (string)mediaVideos[0];
+                return mediaVideos[0];
         }
 
         string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
         var coachVideos = fileSystem
             .GetAllFiles(videosCoachFolder, "*.webm")
-            .Select(file => (string)file)
             .ToArray();
 
         if (coachVideos.Length > 0)

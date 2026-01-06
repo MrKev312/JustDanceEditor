@@ -48,26 +48,67 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
             await Download();
     }
 
-    public async Task Convert(string input, string output)
+    public async Task Convert(Stream input, string sourceFileName, string output, string? tempFolder = null)
     {
         await Check();
 
         string vgmFullPath = _io.GetFullPath("Resources/VGMStream/vgmstream-cli.exe");
 
-        Process process = new()
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = vgmFullPath,
-                Arguments = $"-o \"{output}\" \"{input}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            }
-        };
+        // If provided, place temp inputs under tempFolder/raw; otherwise fall back to system temp
+        string workDir = tempFolder != null
+            ? Path.Combine(tempFolder, "raw")
+            : Path.GetTempPath();
 
-        process.Start();
-        process.WaitForExit();
+        if (tempFolder != null)
+            Directory.CreateDirectory(workDir);
+
+        // Use provided sourceFileName directly (caller decides if .ckd should be appended)
+        string tempInput = Path.Combine(workDir, sourceFileName);
+
+        try
+        {
+            // Write the input stream to the temporary file and ensure it's flushed and closed before starting the process
+            await using (FileStream fs = new FileStream(tempInput, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await input.CopyToAsync(fs);
+                await fs.FlushAsync();
+            }
+
+            if (!File.Exists(tempInput))
+                throw new Exception($"Temporary input file was not created: {tempInput}");
+
+            Process process = new()
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = vgmFullPath,
+                    Arguments = $"-o \"{output}\" \"{tempInput}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                }
+            };
+
+            process.Start();
+            string stderr = await process.StandardError.ReadToEndAsync();
+            string stdout = await process.StandardOutput.ReadToEndAsync();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+                throw new Exception($"vgmstream failed: {stderr}\n{stdout}");
+        }
+        finally
+        {
+            try { File.Delete(tempInput); } catch { }
+        }
+    }
+
+    // Backwards-compatible helper
+    public async Task Convert(string input, string output)
+    {
+        await using FileStream fs = File.OpenRead(input);
+        string name = Path.GetFileName(input);
+        await Convert(fs, name, output, Path.GetDirectoryName(input));
     }
 }

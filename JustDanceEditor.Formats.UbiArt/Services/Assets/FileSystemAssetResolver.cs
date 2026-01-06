@@ -31,7 +31,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         string pattern = $"{_fileSystem.SongName}_cover_*";
         CookedFile[] files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, pattern);
         if (files.Length > 0)
-            return files.OrderBy(f => f.FullPath, StringComparer.OrdinalIgnoreCase).First();
+            return files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).First();
 
         // Try more generic patterns
         files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, "*cover*");
@@ -49,7 +49,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         // Prefer exact album coach pattern: {song}_cover_albumcoach.*
         CookedFile[] files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_cover_albumcoach.*");
         if (files.Length > 0)
-            return files.OrderBy(f => f.FullPath, StringComparer.OrdinalIgnoreCase).First();
+            return files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).First();
 
         // Fallback: any file with "albumcoach" in the name
         files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, "*albumcoach*");
@@ -172,7 +172,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
             CookedFile[] all = _fileSystem.GetAllFiles(folderRelative);
             foreach (CookedFile f in all)
             {
-                string fileName = Path.GetFileName(f.FullPath);
+                string fileName = Path.GetFileName(f.RelativePath);
                 string rootName = fileName.Split('.')[0]; // strip all extensions
                 if (string.Equals(rootName, baseName, StringComparison.OrdinalIgnoreCase))
                 {

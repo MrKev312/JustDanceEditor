@@ -44,40 +44,40 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         _logger.LogInformation("Loading MusicTrack");
         string musicTrackRelativePath = Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songData.Name}_musictrack.tpl");
         CookedFile musicTrackPath = fileSystem.GetFilePath(musicTrackRelativePath);
-        byte[] musicBytes = _io.ReadAllBytes(musicTrackPath.FullPath);
+        using Stream musicStream = fileSystem.GetFileStream(musicTrackPath);
         songData.MusicTrack = fileSystem.Serializer != null
-            ? fileSystem.Serializer.Deserialize<MusicTrack>(musicBytes, options)
+            ? fileSystem.Serializer.Deserialize<MusicTrack>(musicStream, options)
             : throw new InvalidOperationException("Serializer not configured on FileSystem.");
 
         _logger.LogInformation("Loading MainSequence");
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
-        byte[] mainSeqBytes = _io.ReadAllBytes(mainSeqPath.FullPath);
+        using Stream mainSeqStream = fileSystem.GetFileStream(mainSeqPath);
         ClipTape mainSequenceTape = fileSystem.Serializer != null
-            ? fileSystem.Serializer.Deserialize<ClipTape>(mainSeqBytes, options)
+            ? fileSystem.Serializer.Deserialize<ClipTape>(mainSeqStream, options)
             : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
 
         _logger.LogInformation("Loading DanceTape");
         string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
         CookedFile danceTapePath = fileSystem.GetFilePath(danceTapeRelativePath);
-        byte[] danceTapeBytes = _io.ReadAllBytes(danceTapePath.FullPath);
+        using Stream danceTapeStream = fileSystem.GetFileStream(danceTapePath);
         ClipTape danceTape = fileSystem.Serializer != null
-            ? fileSystem.Serializer.Deserialize<ClipTape>(danceTapeBytes, options)
+            ? fileSystem.Serializer.Deserialize<ClipTape>(danceTapeStream, options)
             : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
 
         string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
         CookedFile timelineFile = fileSystem.GetFilePath(timelineIscPath);
 
-        if (ISC.GetActorPath(timelineFile, $"{songData.Name}_tml_karaoke", out string? karaokeActorRelativePath) &&
+        if (ISC.GetActorPath(timelineFile, $"{songData.Name}_tml_karaoke", out string? karaokeActorRelativePath, fileSystem) &&
             fileSystem.GetFilePath(karaokeActorRelativePath, out CookedFile? karaokeActorFile))
         {
             // Read karaoke actor using generic serializer if possible
-            byte[] karaokeActorBytes = _io.ReadAllBytes(karaokeActorFile.FullPath);
+            using Stream karaokeActorStream = fileSystem.GetFileStream(karaokeActorFile);
             ActorTemplate karaokeActor = fileSystem.Serializer != null
-                ? fileSystem.Serializer.Deserialize<ActorTemplate>(karaokeActorBytes, options)
-                : JsonSerializer.Deserialize<ActorTemplate>(Encoding.UTF8.GetString(karaokeActorBytes).TrimEnd('\0'), options)!;
+                ? fileSystem.Serializer.Deserialize<ActorTemplate>(karaokeActorStream, options)
+                : JsonSerializer.Deserialize<ActorTemplate>(new StreamReader(karaokeActorStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
 
             if (karaokeActor.COMPONENTS.Length > 0 &&
                 karaokeActor.COMPONENTS[0].TapesRack.Length > 0 &&
@@ -85,10 +85,10 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 fileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokeTapePathCooked))
             {
                 _logger.LogInformation("Loading KaraokeTape");
-                byte[] karaokeBytes = _io.ReadAllBytes(karaokeTapePathCooked.FullPath);
+                using Stream karaokeStream = fileSystem.GetFileStream(karaokeTapePathCooked);
                 ClipTape karaokeTape = fileSystem.Serializer != null
-                    ? fileSystem.Serializer.Deserialize<ClipTape>(karaokeBytes, options)
-                    : JsonSerializer.Deserialize<ClipTape>(Encoding.UTF8.GetString(karaokeBytes).TrimEnd('\0'), options)!;
+                    ? fileSystem.Serializer.Deserialize<ClipTape>(karaokeStream, options)
+                    : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
             else
@@ -118,12 +118,33 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         string songDescRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
         if (fileSystem.GetFilePath(songDescRelativePath, out CookedFile? songDescPathCooked))
         {
-            byte[] songDescBytes = _io.ReadAllBytes(songDescPathCooked.FullPath);
+            using Stream songDescStream = fileSystem.GetFileStream(songDescPathCooked);
             return fileSystem.Serializer != null
-                ? fileSystem.Serializer.Deserialize<SongDesc>(songDescBytes, options)
+                ? fileSystem.Serializer.Deserialize<SongDesc>(songDescStream, options)
                 : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         }
 
+        // Prefer stream-based access via FileSystem for jddb.json when available
+        if (fileSystem.GetFilePath("jddb.json", out CookedFile? rootJddbPath))
+        {
+            using Stream s = fileSystem.GetFileStream(rootJddbPath);
+            string jddbContent = new StreamReader(s, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            if (onlineDesc != null)
+                return (SongDesc)onlineDesc;
+        }
+
+        // Try parent folder via relative lookup
+        if (fileSystem.GetFilePath(Path.Combine("..", "jddb.json"), out CookedFile? parentJddbPath))
+        {
+            using Stream s = fileSystem.GetFileStream(parentJddbPath);
+            string jddbContent = new StreamReader(s, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
+            OnlineSongDesc? onlineDesc = JsonSerializer.Deserialize<OnlineSongDesc>(jddbContent, options);
+            if (onlineDesc != null)
+                return (SongDesc)onlineDesc;
+        }
+
+        // Fallback to existing behavior (direct IFileSystem access)
         string rootJddb = _io.Combine(fileSystem.InputFolders.InputFolder, "jddb.json");
         if (_io.FileExists(rootJddb))
         {
@@ -199,9 +220,9 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 yield break;
             }
 
-            byte[] tapeBytes = _io.ReadAllBytes(tapePath.FullPath);
+            using Stream tapeStream = fileSystem.GetFileStream(tapePath);
             ClipTape tape = fileSystem.Serializer != null
-                ? fileSystem.Serializer.Deserialize<ClipTape>(tapeBytes, options)
+                ? fileSystem.Serializer.Deserialize<ClipTape>(tapeStream, options)
                 : throw new InvalidOperationException("Serializer not configured on FileSystem.");
             int offset = parentOffset + reference.StartTime;
             foreach (Clip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))

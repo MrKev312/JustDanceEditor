@@ -18,20 +18,25 @@ public static class UbiArtCoverGenerator
         JDUbiArtSong song = context.SongData;
 
         CookedFile? cover = context.FileSystem.AssetResolver?.GetCoverArt();
-        if (cover != null && io.FileExists(cover.FullPath))
+        if (cover != null)
         {
-            Image<Bgra32>? image = textureService.ConvertToImage(cover.FullPath);
-            if (image != null)
+            try
             {
-                if (image.Width >= image.Height * 1.33)
+                using Stream s = context.FileSystem.GetFileStream(cover);
+                Image<Bgra32>? image = textureService.ConvertToImage(s);
+                if (image != null)
                 {
-                    logger?.LogInformation("Found existing cover: {FileName}", Path.GetFileName(cover.FullPath));
-                    image.Mutate(x => x.Resize(640, 360));
-                    return image;
-                }
+                    if (image.Width >= image.Height * 1.33)
+                    {
+                        logger?.LogInformation("Found existing cover: {FileName}", Path.GetFileName(cover.RelativePath));
+                        image.Mutate(x => x.Resize(640, 360));
+                        return image;
+                    }
 
-                image.Dispose();
+                    image.Dispose();
+                }
             }
+            catch { }
         }
 
         return null;
@@ -47,16 +52,21 @@ public static class UbiArtCoverGenerator
 
         if (coachFilesCooked is not null)
         {
-            using Image<Bgra32>? albumCoach = textureService.ConvertToImage(coachFilesCooked.FullPath);
-            if (albumCoach is not null)
+            try
             {
-                albumCoach.Mutate(x => x.Resize(1024, 1024));
-                coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+                using Stream s = context.FileSystem.GetFileStream(coachFilesCooked);
+                using Image<Bgra32>? albumCoach = textureService.ConvertToImage(s);
+                if (albumCoach is not null)
+                {
+                    albumCoach.Mutate(x => x.Resize(1024, 1024));
+                    coverImage.Mutate(x => x.DrawImage(albumCoach, new Point(512, 0), 1));
+                }
+                else
+                {
+                    logger?.LogWarning("Album/Coach art could not be converted for '{SongName}'.", song.Name);
+                }
             }
-            else
-            {
-                logger?.LogWarning("Album/Coach art could not be converted for '{SongName}'.", song.Name);
-            }
+            catch { logger?.LogWarning("Album/Coach art not found or unreadable for '{SongName}'.", song.Name); }
         }
         else
             logger?.LogWarning("Album/Coach art not found for song '{SongName}'.", song.Name);
@@ -75,7 +85,14 @@ public static class UbiArtCoverGenerator
             .FirstOrDefault();
 
         if (background is not null)
-            coverImage ??= textureService.ConvertToImage(background.FullPath);
+        {
+            try
+            {
+                using Stream s = context.FileSystem.GetFileStream(background);
+                coverImage ??= textureService.ConvertToImage(s);
+            }
+            catch { }
+        }
 
         coverImage ??= ProcessBanner(context, textureService);
 
@@ -101,7 +118,13 @@ public static class UbiArtCoverGenerator
         if (background is null)
             return null;
 
-        Image<Bgra32>? banner = textureService.ConvertToImage(background.FullPath);
+        Image<Bgra32>? banner;
+        try
+        {
+            using Stream s = context.FileSystem.GetFileStream(background);
+            banner = textureService.ConvertToImage(s);
+        }
+        catch { return null; }
         if (banner is null)
             return null;
 

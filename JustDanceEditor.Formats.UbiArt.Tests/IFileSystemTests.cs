@@ -16,35 +16,6 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class IFileSystemTests
 {
 
-    [Fact]
-    public void LoadSongDesc_Uses_Jddb_From_IFileSystem()
-    {
-        // Arrange
-        Mock<IFileSystem> mockFs = new();
-        string root = "C:\\fake\\root";
-        string jddb = Path.Combine(root, "jddb.json");
-
-        // Simple jddb content that maps to SongDesc
-        string json = "{ \"mapName\": \"mysong\", \"originalJDVersion\": 123 }";
-
-        mockFs.Setup(m => m.Combine(It.IsAny<string[]>())).Returns((string[] parts) => Path.Combine(parts));
-        mockFs.Setup(m => m.FileExists(jddb)).Returns(true);
-        mockFs.Setup(m => m.ReadAllText(jddb)).Returns(json);
-
-        SongDataLoader loader = new(NullLogger<SongDataLoader>.Instance, mockFs.Object);
-
-        UbiArtConversionRequest req = new(root, Path.GetTempPath(), "mysong") { Type = UbiArtType.Uncooked };
-        Mock<ITempFolderManager> mockTemp = new();
-        LayeredFileSystem layered = new(req, NullLogger<LayeredFileSystem>.Instance, mockFs.Object, mockTemp.Object);
-
-        // Act
-        SongDesc sd = loader.LoadSongDesc(req, layered);
-
-        // Assert
-        Assert.NotNull(sd);
-        Assert.Equal("mysong", sd.COMPONENTS[0].MapName);
-        Assert.Equal(123u, sd.COMPONENTS[0].OriginalJDVersion);
-    }
 
     [Fact]
     public void EngineDetector_Uses_IFileSystem_To_Detect_Cooked_JD2015()

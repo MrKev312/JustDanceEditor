@@ -8,10 +8,10 @@ public interface ITextureService
     /// <summary>
     /// Convert a texture file to an Image, or return null if it cannot be decoded.
     /// </summary>
-    Image<Bgra32>? ConvertToImage(string path);
+    Image<Bgra32>? ConvertToImage(Stream stream);
 
     /// <summary>
-    /// Convert or transcode a texture file to the target output path (e.g., PNG, WEBP).
+    /// Convert or transcode a texture stream to the target output path (e.g., PNG, WEBP).
     /// </summary>
-    Task ConvertTextureAsync(string inputPath, string outputPath, CancellationToken cancellationToken = default);
+    Task ConvertTextureAsync(Stream inputStream, string outputPath, CancellationToken cancellationToken = default);
 }

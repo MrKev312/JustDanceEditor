@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 
 using System.Diagnostics.CodeAnalysis;
@@ -8,20 +7,17 @@ namespace JustDanceEditor.Formats.UbiArt;
 
 public static class ISC
 {
-    public static bool GetActorPath(string input, string actorName, [MaybeNullWhen(false)] out string actorPath, IFileSystem? io = null)
+    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath, LayeredFileSystem? fileSystem = null)
     {
         actorPath = null;
 
-        IFileSystem fs = io ?? new SystemFileSystem();
+        if (fileSystem == null)
+            throw new ArgumentNullException(nameof(fileSystem), "LayeredFileSystem is required; use the stream-based overload.");
 
-        if (!fs.FileExists(input))
-            return false;
-
-        // Try to read as XML first (text-based ISC)
         try
         {
-            string text = fs.ReadAllText(input);
-            XDocument xmlDoc = XDocument.Parse(text);
+            using Stream s = fileSystem.GetFileStream(cookedFile);
+            XDocument xmlDoc = XDocument.Load(s);
             foreach (XElement actor in xmlDoc.Descendants("Actor"))
             {
                 XAttribute? attribute = actor.Attribute("USERFRIENDLY");
@@ -38,13 +34,9 @@ public static class ISC
         }
         catch
         {
-            // Not XML or failed to parse - could be binary in future. For now return false.
+            return false;
         }
 
         return false;
-    }
-    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath, IFileSystem? io = null)
-    {
-        return GetActorPath(cookedFile.FullPath, actorName, out actorPath, io);
     }
 }
