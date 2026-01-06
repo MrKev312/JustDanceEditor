@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, JDI.Services.IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, IUbiArtAssetWriter assetWriter, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
     private readonly Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
@@ -20,6 +20,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
     private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
     private readonly JDI.Services.ITextureService _textureService = textureService;
     private readonly ILogger<UbiArtJdiFormat> _logger = logger;
+    private readonly IUbiArtAssetWriter _assetWriter = assetWriter;
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
     public string DisplayName => "UbiArt";
@@ -121,7 +122,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         else
             exportProfile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
 
-        await UbiArtAssetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, _logger, exportProfile.Layout, exportProfile.ContainerStyle, exportProfile.EngineVersion);
+        await _assetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, exportProfile.Layout, exportProfile.ContainerStyle, exportProfile.EngineVersion);
     }
 
     private void PrepareOutputDirectory(string targetFolder)

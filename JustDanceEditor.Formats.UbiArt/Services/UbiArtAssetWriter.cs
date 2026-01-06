@@ -17,16 +17,25 @@ using Xabe.FFmpeg; // audio/video conversions
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
-public static class UbiArtAssetWriter
+/// <summary>
+/// Service for exporting UbiArt assets from intermediate package format.
+/// </summary>
+public sealed class UbiArtAssetWriter : IUbiArtAssetWriter
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    public static async Task ExportToUncookedAsync(
+    private readonly ILogger<UbiArtAssetWriter> _logger;
+
+    public UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task ExportToUncookedAsync(
         IntermediateSongPackage package,
         string? materializedRoot,
         string outputFolder,
-        ILogger logger,
         IUbiArtLayout? layout = null,
         UbiArtContainerStyle containerStyle = UbiArtContainerStyle.Uncooked,
         UbiArtEngineVersion engineVersion = UbiArtEngineVersion.Modern,
@@ -36,7 +45,7 @@ public static class UbiArtAssetWriter
 
         IFileSystem iofs = io ?? new SystemFileSystem();
 
-        logger.LogInformation("Exporting {MapName} to Uncooked UbiArt...", package.Metadata.MapName);
+        _logger.LogInformation("Exporting {MapName} to Uncooked UbiArt...", package.Metadata.MapName);
 
         // Ensure directories
         iofs.CreateDirectory(outputFolder);
@@ -63,35 +72,35 @@ public static class UbiArtAssetWriter
         // Copy assets if materializedRoot is available
         if (!string.IsNullOrEmpty(materializedRoot))
         {
-            await CopyAssetsAsync(package, materializedRoot, outputFolder, logger, iofs);
+            await CopyAssetsAsync(package, materializedRoot, outputFolder, iofs);
         }
 
         // Write SongDesc.tpl
-        logger.LogInformation("Writing SongDesc.tpl...");
+        _logger.LogInformation("Writing SongDesc.tpl...");
         string songDescLua = BuildSongDescTpl(package);
         await iofs.WriteAllTextAsync(iofs.Combine(mapWorldFolder, "songdesc.tpl"), songDescLua);
 
         // Write cinematics files
-        logger.LogInformation("Writing cinematics files...");
+        _logger.LogInformation("Writing cinematics files...");
         await WriteCinematicsAsync(package, cinematicsFolder, layout, containerStyle, engineVersion, iofs);
 
         // Prepare & Write MusicTrack.tpl (ensure WAV, external .trk and AMB if needed)
-        logger.LogInformation("Preparing and writing MusicTrack.tpl and audio assets...");
+        _logger.LogInformation("Preparing and writing MusicTrack.tpl and audio assets...");
         // Ensure audio files are present and create .wav, .trk and AMB slices as needed
-        await PrepareAudioForUncookedAsync(package, materializedRoot, mapWorldFolder, logger, iofs);
+        await PrepareAudioForUncookedAsync(package, materializedRoot, mapWorldFolder, iofs);
 
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string musicTrackTpl = BuildMusicTrackTpl(package.Metadata.MapName, mapNameLower);
         await iofs.WriteAllTextAsync(iofs.Combine(audioFolder, $"{package.Metadata.MapName}_musictrack.tpl"), musicTrackTpl);
 
         // Write Tapes
-        logger.LogInformation("Writing Tapes...");
-        await WriteTapesAsync(package, timelineFolder, logger, layout, containerStyle, engineVersion, iofs);
+        _logger.LogInformation("Writing Tapes...");
+        await WriteTapesAsync(package, timelineFolder, layout, containerStyle, engineVersion, iofs);
 
-        logger.LogInformation("Uncooked export completed.");
+        _logger.LogInformation("Uncooked export completed.");
     }
 
-    private static async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, ILogger logger, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IFileSystem io)
+    private async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IFileSystem io)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
@@ -110,7 +119,7 @@ public static class UbiArtAssetWriter
 
                 if (move == null)
                 {
-                    logger.LogWarning("MoveId '{MoveId}' not found in HandCoachMoves dictionary.", clip.MoveId);
+                    _logger.LogWarning("MoveId '{MoveId}' not found in HandCoachMoves dictionary.", clip.MoveId);
                     continue;
                 }
 
@@ -454,18 +463,18 @@ public static class UbiArtAssetWriter
     /// - Write an external .trk file containing the MusicTrack structure
     /// - Write AMB .ilu and .tpl entries under Audio/AMB
     /// </summary>
-    private static async Task PrepareAudioForUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string mapSubFolder, ILogger logger, IFileSystem io)
+    private async Task PrepareAudioForUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string mapSubFolder, IFileSystem io)
     {
         if (string.IsNullOrWhiteSpace(materializedRoot))
         {
-            logger.LogWarning("No materialized root available; skipping audio preparation.");
+            _logger.LogWarning("No materialized root available; skipping audio preparation.");
             return;
         }
 
         string audioSource = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.AudioMasterFile);
         if (!io.FileExists(audioSource))
         {
-            logger.LogWarning("Audio source not found: {AudioSource}", audioSource);
+            _logger.LogWarning("Audio source not found: {AudioSource}", audioSource);
             return;
         }
 
@@ -479,7 +488,7 @@ public static class UbiArtAssetWriter
         string tempWav = io.Combine(io.GetTempPath(), $"jdi_export_{Guid.NewGuid()}.wav");
         try
         {
-            logger.LogInformation("Converting intermediate audio to WAV...");
+            _logger.LogInformation("Converting intermediate audio to WAV...");
             // Convert whatever source (likely .opus) to WAV 48kHz stereo
             IConversion conversion = FFmpeg.Conversions.New();
             // Place -i before output options so ffmpeg parses options correctly
@@ -498,7 +507,7 @@ public static class UbiArtAssetWriter
                 // seconds per beat ≈ markers[1] / 48000
                 double secondsPerBeat = markers[1] / 48000.0;
                 cutDurationSeconds = Math.Abs(startBeat) * secondsPerBeat;
-                logger.LogInformation("StartBeat {StartBeat}: trimming {CutSeconds} seconds from start for AMB generation.", startBeat, cutDurationSeconds);
+                _logger.LogInformation("StartBeat {StartBeat}: trimming {CutSeconds} seconds from start for AMB generation.", startBeat, cutDurationSeconds);
             }
 
             // Generate AMB slice if necessary
@@ -507,7 +516,7 @@ public static class UbiArtAssetWriter
                 string ambFileName = $"amb_{mapName}_intro.wav";
                 string ambDest = io.Combine(audioAmbFolder, ambFileName);
 
-                logger.LogInformation("Creating AMB intro slice '{AmbFile}' ({CutSeconds}s)...", ambFileName, cutDurationSeconds);
+                _logger.LogInformation("Creating AMB intro slice '{AmbFile}' ({CutSeconds}s)...", ambFileName, cutDurationSeconds);
                 IConversion ambConversion = FFmpeg.Conversions.New();
                 ambConversion.AddParameter($"-y -i \"{tempWav}\" -t {cutDurationSeconds.ToString(CultureInfo.InvariantCulture)} -ar 48000 -ac 2");
                 ambConversion.SetOutput(ambDest);
@@ -529,14 +538,14 @@ public static class UbiArtAssetWriter
                 string tplPath = io.Combine(ambIluDir, tplFileName);
                 await io.WriteAllTextAsync(tplPath, tplContent);
 
-                logger.LogInformation("Wrote AMB ILU and TPL to {AmbIluDir}", ambIluDir);
+                _logger.LogInformation("Wrote AMB ILU and TPL to {AmbIluDir}", ambIluDir);
             }
 
             // Create master WAV starting after the intro slice (or full file if no cut)
             string masterWavDest = io.Combine(audioFolder, $"{package.Metadata.MapName}.wav");
             if (cutDurationSeconds > 0.001)
             {
-                logger.LogInformation("Creating trimmed master WAV (cut {CutSeconds}s) -> {MasterWavDest}", cutDurationSeconds, masterWavDest);
+                _logger.LogInformation("Creating trimmed master WAV (cut {CutSeconds}s) -> {MasterWavDest}", cutDurationSeconds, masterWavDest);
                 IConversion masterConv = FFmpeg.Conversions.New();
                 masterConv.AddParameter($"-y -ss {cutDurationSeconds.ToString(CultureInfo.InvariantCulture)} -i \"{tempWav}\" -ar 48000 -ac 2");
                 masterConv.SetOutput(masterWavDest);
@@ -545,7 +554,7 @@ public static class UbiArtAssetWriter
             }
             else
             {
-                logger.LogInformation("Copying full WAV to {MasterWavDest}", masterWavDest);
+                _logger.LogInformation("Copying full WAV to {MasterWavDest}", masterWavDest);
                 io.Copy(tempWav, masterWavDest, true);
             }
 
@@ -601,7 +610,7 @@ public static class UbiArtAssetWriter
             trkBuilder.AppendLine("} } ");
 
             await io.WriteAllTextAsync(trkPath, trkBuilder.ToString());
-            logger.LogInformation("Wrote track file: {TrackPath}", trkPath);
+            _logger.LogInformation("Wrote track file: {TrackPath}", trkPath);
         }
         finally
         {
@@ -619,9 +628,9 @@ public static class UbiArtAssetWriter
         return $"includeReference(\"world/Maps/{mapNameLower}/audio/{mapName}.trk\")\n\nparams =\n{{\n\tNAME = \"Actor_Template\",\n\tActor_Template =\n\t{{\n\t\tCOMPONENTS = \n\t\t{{\n\t\t\t{{\n\t\t\t\tNAME = \"MusicTrackComponent_Template\",\n\t\t\t\tMusicTrackComponent_Template =\n\t\t\t\t{{\n\t\t\t\t\ttrackData = {{ MusicTrackData = {{ path = \"world/Maps/{mapNameLower}/audio/{mapName}.wav\", structure = structure, volume = 0 }} }},\n\t\t\t\t}}\n\t\t\t}},\n\t\t}}\n\t}}\n}}\n";
     }
 
-    private static async Task CopyAssetsAsync(IntermediateSongPackage package, string materializedRoot, string mapSubFolder, ILogger logger, IFileSystem io)
+    private async Task CopyAssetsAsync(IntermediateSongPackage package, string materializedRoot, string mapSubFolder, IFileSystem io)
     {
-        logger.LogInformation("Copying assets from materialized root: {MaterializedRoot}", materializedRoot);
+        _logger.LogInformation("Copying assets from materialized root: {MaterializedRoot}", materializedRoot);
 
         // 1. Audio
         string audioSource = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.AudioMasterFile);
@@ -631,19 +640,19 @@ public static class UbiArtAssetWriter
             // For Uncooked export we must not copy .opus directly; it will be converted to WAV and trimmed.
             if (ext.Equals(".opus", StringComparison.OrdinalIgnoreCase))
             {
-                logger.LogInformation("Found source audio {AudioSource} (opus); skipping raw copy and will convert to WAV for Uncooked export.", audioSource);
+                _logger.LogInformation("Found source audio {AudioSource} (opus); skipping raw copy and will convert to WAV for Uncooked export.", audioSource);
             }
             else
             {
                 string audioDest = io.Combine(mapSubFolder, "Audio", $"{package.Metadata.MapName}{ext}");
                 io.CreateDirectory(Path.GetDirectoryName(audioDest)!);
                 io.Copy(audioSource, audioDest, true);
-                logger.LogInformation("Copied audio to {AudioDest}", audioDest);
+                _logger.LogInformation("Copied audio to {AudioDest}", audioDest);
             }
         }
         else
         {
-            logger.LogWarning("Audio source not found: {AudioSource}", audioSource);
+            _logger.LogWarning("Audio source not found: {AudioSource}", audioSource);
         }
 
         // 2. Video (Highest size)
@@ -657,16 +666,16 @@ public static class UbiArtAssetWriter
                 string videoDest = io.Combine(mapSubFolder, "VideosCoach", $"{package.Metadata.MapName}.webm");
                 io.CreateDirectory(Path.GetDirectoryName(videoDest)!);
                 io.Copy(largest, videoDest, true);
-                logger.LogInformation("Copied largest video to {VideoDest}", videoDest);
+                _logger.LogInformation("Copied largest video to {VideoDest}", videoDest);
             }
             else
             {
-                logger.LogWarning("No .webm files found in {VideoSourceDir}", videoSourceDir);
+                _logger.LogWarning("No .webm files found in {VideoSourceDir}", videoSourceDir);
             }
         }
         else
         {
-            logger.LogWarning("Video source directory not found: {VideoSourceDir}", videoSourceDir);
+            _logger.LogWarning("Video source directory not found: {VideoSourceDir}", videoSourceDir);
         }
 
         // 3. Pictograms
@@ -705,7 +714,7 @@ public static class UbiArtAssetWriter
                     }
                     catch (Exception e)
                     {
-                        logger.LogWarning(e, "Failed to convert pictogram {File} to PNG: {Message}", file, e.Message);
+                        _logger.LogWarning(e, "Failed to convert pictogram {File} to PNG: {Message}", file, e.Message);
                     }
                 }
                 else
@@ -716,11 +725,11 @@ public static class UbiArtAssetWriter
                 }
             }
 
-            logger.LogInformation("Copied {Copied} pictograms to {Dest}", copied, pictosDestDir);
+            _logger.LogInformation("Copied {Copied} pictograms to {Dest}", copied, pictosDestDir);
         }
         else
         {
-            logger.LogWarning("Pictograms source directory not found: {SourceDir}", pictosSourceDir);
+            _logger.LogWarning("Pictograms source directory not found: {SourceDir}", pictosSourceDir);
         }
 
         // 4. MSMs (Moves)
@@ -736,11 +745,11 @@ public static class UbiArtAssetWriter
                 io.Copy(file, destFile, true);
             }
 
-            logger.LogInformation("Copied {Count} MSMs.", files.Length);
+            _logger.LogInformation("Copied {Count} MSMs.", files.Length);
         }
         else
         {
-            logger.LogWarning("Moves source directory not found: {MovesSourceDir}", movesSourceDir);
+            _logger.LogWarning("Moves source directory not found: {MovesSourceDir}", movesSourceDir);
         }
     }
 }

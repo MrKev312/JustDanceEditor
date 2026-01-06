@@ -37,6 +37,8 @@ internal class Program
 
         // Unity services
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();
+        // UbiArt asset writer service (wrapper to allow DI/testing)
+        builder.Services.AddSingleton<JustDanceEditor.Formats.UbiArt.Services.IUbiArtAssetWriter, JustDanceEditor.Formats.UbiArt.Services.UbiArtAssetWriterService>();
 
         // Factories
         builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, Formats.UbiArt.Files.LayeredFileSystem>>(sp => (req, profile) => new Formats.UbiArt.Files.LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<Formats.UbiArt.Files.ITempFolderManager>()));

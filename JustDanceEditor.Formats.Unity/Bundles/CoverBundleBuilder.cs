@@ -25,20 +25,34 @@ public sealed record UnityCoverRequest(
     bool ForCustomServer,
     Image<Rgba32>? OverrideCoverImage = null);
 
-public static class CoverBundleBuilder
+public sealed class CoverBundleBuilder : UnityBundleBuilderBase
 {
+    private readonly ILogger<CoverBundleBuilder> _logger;
+
+    public CoverBundleBuilder(ILogger<CoverBundleBuilder> logger)
+    {
+        _logger = logger;
+    }
+
     public static Task GenerateAsync(UnityCoverRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
     public static void Generate(UnityCoverRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var builder = new CoverBundleBuilder(logger as ILogger<CoverBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        builder.Run(request);
+    }
+
+    private void Run(UnityCoverRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
 
-        using Image<Rgba32>? coverImage = PrepareCoverImage(request, logger);
+        using Image<Rgba32>? coverImage = PrepareCoverImage(request);
         if (coverImage == null)
         {
-            logger.LogWarning("Cover image could not be prepared, skipping cover bundle generation.");
+            _logger.LogWarning("Cover image could not be prepared, skipping cover bundle generation.");
             return;
         }
 
@@ -51,31 +65,43 @@ public static class CoverBundleBuilder
             request.OutputFolderPath,
             request.ForCustomServer);
 
-        GenerateBundle(internalRequest, logger);
+        GenerateBundle(internalRequest);
     }
 
-    private static void GenerateBundle(BundleContext request, ILogger logger)
+    private void GenerateBundle(BundleContext request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
         try
         {
-            logger.LogInformation("Starting generation for cover: {Codename}", request.Codename);
+            _logger.LogInformation("Starting generation for cover: {Codename}", request.Codename);
 
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? coverTextureInfo, AssetFileInfo? coverSpriteInfo) =
-                InitializeBundle(request.TemplatePath, request.Codename);
+                base.InitializeBundle(request.TemplatePath, request.Codename);
+
+            // Set cover-specific names on the asset bundle base
+            if (assetBundleBase != null)
+            {
+                assetBundleBase["m_Name"].AsString = $"{request.Codename}_Cover";
+                assetBundleBase["m_AssetBundleName"].AsString = $"{request.Codename}_Cover";
+            }
 
             UpdateCoverTexture(request.Codename, manager, afileInst, coverTextureInfo, request.CoverImage);
             UpdateCoverSprite(request.Codename, manager, afileInst, coverSpriteInfo);
 
+            // Ensure asset bundle base is available
+            if (assetBundleBase == null)
+                throw new InvalidOperationException("Asset bundle base not found in template bundle.");
+
+            // Use the base finalizer to commit changes and save the bundle
             FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
 
-            logger.LogInformation("Finished generating cover for {Codename}", request.Codename);
+            _logger.LogInformation("Finished generating cover for {Codename}", request.Codename);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to generate cover for {Codename}: {Message}", request.Codename, ex.Message);
+            _logger.LogError(ex, "Failed to generate cover for {Codename}: {Message}", request.Codename, ex.Message);
             throw;
         }
     }
@@ -103,7 +129,7 @@ public static class CoverBundleBuilder
             throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
     }
 
-    private static Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request, ILogger logger)
+    private Image<Rgba32>? PrepareCoverImage(UnityCoverRequest request)
     {
         if (request.OverrideCoverImage is not null)
             return request.OverrideCoverImage.CloneAs<Rgba32>();
@@ -113,36 +139,16 @@ public static class CoverBundleBuilder
 
         Image<Rgba32>? image = null;
         if (request.AllowOnlineLookup)
-            image = ImageLoader.TryImageWeb(request.SongName, "Cover", logger);
+            image = ImageLoader.TryImageWeb(request.SongName, "Cover", _logger);
 
         image ??= ImageLoader.TryLoadImage(request.MenuArt.CoverPath);
         if (image != null)
-            logger.LogDebug("Cover image prepared from intermediate assets.");
+            _logger.LogDebug("Cover image prepared from intermediate assets.");
 
         return image;
     }
 
-    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo CoverTextureInfo, AssetFileInfo CoverSpriteInfo)
-        InitializeBundle(string templatePath, string codename)
-    {
-        AssetsManager manager = new();
-        BundleFileInstance bunInst = manager.LoadBundleFile(templatePath, true);
-        AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
-        AssetsFile afile = afileInst.file;
-        afile.GenerateQuickLookup();
 
-        List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
-        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
-
-        assetBundleBase["m_Name"].AsString = $"{codename}_Cover";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{codename}_Cover";
-
-        AssetFileInfo coverTextureInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Texture2D);
-        AssetFileInfo coverSpriteInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Sprite);
-
-        return (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, coverTextureInfo, coverSpriteInfo);
-    }
 
     private static void UpdateCoverTexture(string codename, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo coverInfo, Image<Rgba32> coverImage)
     {
@@ -169,12 +175,7 @@ public static class CoverBundleBuilder
         coverSpriteInfo.SetNewData(coverSpriteBase);
     }
 
-    private static void FinalizeAndSaveBundle(string outputFolderPath, bool forCustomServer, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
-    {
-        setAssetBundleData(assetBundleBase);
-        bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        bun.SaveAndCompress(outputFolderPath, forCustomServer);
-    }
+
 
     private sealed record BundleContext(
         string Codename,

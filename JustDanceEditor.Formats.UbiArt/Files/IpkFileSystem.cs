@@ -1,5 +1,5 @@
-using JustDanceEditor.IPK;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.IPK;
 
 namespace JustDanceEditor.Formats.UbiArt.Files;
 

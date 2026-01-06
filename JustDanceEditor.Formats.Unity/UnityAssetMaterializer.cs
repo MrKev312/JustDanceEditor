@@ -14,8 +14,9 @@ using System.Globalization;
 
 namespace JustDanceEditor.Formats.Unity;
 
-public static class UnityAssetMaterializer
+public sealed class UnityAssetMaterializer(ILogger logger)
 {
+    private readonly ILogger _logger = logger;
 
     private static readonly WebpEncoder LosslessWebpEncoder = new()
     {
@@ -23,7 +24,7 @@ public static class UnityAssetMaterializer
         Quality = 100
     };
 
-    public static void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot, ILogger logger)
+    public void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityRoot);
@@ -31,33 +32,33 @@ public static class UnityAssetMaterializer
 
         string assetsRoot = ResolvePackagePath(targetRoot, IntermediatePackageLayout.Assets.Root);
         Directory.CreateDirectory(assetsRoot);
-        logger.LogInformation("Materializing Unity assets from '{UnityRoot}' into '{AssetsRoot}'.", unityRoot, assetsRoot);
+        _logger.LogInformation("Materializing Unity assets from '{UnityRoot}' into '{AssetsRoot}'.", unityRoot, assetsRoot);
 
         try
         {
-            logger.LogDebug("Extracting assets in parallel...");
+            _logger.LogDebug("Extracting assets in parallel...");
 
             // Parallelize all independent extraction operations
             Parallel.Invoke(
-                () => CopyAudio(unityRoot, targetRoot, logger),
-                () => CopyVideo(unityRoot, targetRoot, logger),
-                () => ExtractBrandingAssets(unityRoot, targetRoot, logger),
-                () => ExtractCoachAssets(unityRoot, targetRoot, logger),
-                () => ExtractPictograms(unityRoot, targetRoot, logger),
-                () => ExtractMotionScripts(unityRoot, targetRoot, logger),
-                () => ExtractGestureFiles(unityRoot, targetRoot, logger)
+                () => CopyAudio(unityRoot, targetRoot),
+                () => CopyVideo(unityRoot, targetRoot),
+                () => ExtractBrandingAssets(unityRoot, targetRoot),
+                () => ExtractCoachAssets(unityRoot, targetRoot),
+                () => ExtractPictograms(unityRoot, targetRoot),
+                () => ExtractMotionScripts(unityRoot, targetRoot),
+                () => ExtractGestureFiles(unityRoot, targetRoot)
             );
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unity asset extraction failed: {Message}", ex.Message);
+            _logger.LogError(ex, "Unity asset extraction failed: {Message}", ex.Message);
             throw;
         }
 
-        logger.LogInformation("Unity asset extraction complete.");
+        _logger.LogInformation("Unity asset extraction complete.");
     }
 
-    private static void CopyAudio(string unityRoot, string packageRoot, ILogger logger)
+    private void CopyAudio(string unityRoot, string packageRoot)
     {
         string audioFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder);
 
@@ -71,26 +72,26 @@ public static class UnityAssetMaterializer
 
         if (masterPath == null)
         {
-            logger.LogWarning("No master audio track found in Unity export; 'master.opus' will be missing.");
+            _logger.LogWarning("No master audio track found in Unity export; 'master.opus' will be missing.");
             TryDeleteFile(masterDestination);
         }
         else
         {
-            logger.LogInformation("Copied master audio track to assets/audio/master.opus.");
+            _logger.LogInformation("Copied master audio track to assets/audio/master.opus.");
         }
 
         if (previewPath == null)
         {
-            logger.LogWarning("No preview audio track found in Unity export; 'preview.opus' will be missing.");
+            _logger.LogWarning("No preview audio track found in Unity export; 'preview.opus' will be missing.");
             TryDeleteFile(previewDestination);
         }
         else
         {
-            logger.LogInformation("Copied preview audio track to assets/audio/preview.opus.");
+            _logger.LogInformation("Copied preview audio track to assets/audio/preview.opus.");
         }
     }
 
-    private static void CopyVideo(string unityRoot, string packageRoot, ILogger logger)
+    private void CopyVideo(string unityRoot, string packageRoot)
     {
         string backgroundSource = Path.Combine(unityRoot, "video");
         string backgroundDestination = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
@@ -102,30 +103,30 @@ public static class UnityAssetMaterializer
 
         if (backgroundCount == 0)
         {
-            logger.LogWarning("No background video files found in Unity export.");
+            _logger.LogWarning("No background video files found in Unity export.");
             TryDeleteDirectory(backgroundDestination);
         }
         else if (backgroundCount == 4)
         {
-            logger.LogInformation("Detected source-of-truth background videos (4 variants). Copied all variants.");
+            _logger.LogInformation("Detected source-of-truth background videos (4 variants). Copied all variants.");
         }
         else
         {
-            logger.LogInformation("Using single master background video from Unity export.");
+            _logger.LogInformation("Using single master background video from Unity export.");
         }
 
         if (previewCount == 0)
         {
-            logger.LogWarning("Preview videos missing or incomplete; they will be regenerated during export.");
+            _logger.LogWarning("Preview videos missing or incomplete; they will be regenerated during export.");
             TryDeleteDirectory(previewDestination);
         }
         else
         {
-            logger.LogInformation("Detected source-of-truth preview videos (4 variants). Copied all variants.");
+            _logger.LogInformation("Detected source-of-truth preview videos (4 variants). Copied all variants.");
         }
     }
 
-    private static void ExtractBrandingAssets(string unityRoot, string packageRoot, ILogger logger)
+    private void ExtractBrandingAssets(string unityRoot, string packageRoot)
     {
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
 
@@ -137,31 +138,31 @@ public static class UnityAssetMaterializer
 
         if (coverPath == null)
         {
-            logger.LogWarning("Unity export does not contain cover art; 'thumbnail.webp' will be empty.");
+            _logger.LogWarning("Unity export does not contain cover art; 'thumbnail.webp' will be empty.");
             TryDeleteFile(coverDest);
         }
         else
         {
-            logger.LogInformation("Extracted cover art to assets/branding/thumbnail.webp.");
+            _logger.LogInformation("Extracted cover art to assets/branding/thumbnail.webp.");
         }
 
         if (logoPath == null)
         {
-            logger.LogWarning("Unity export does not contain a song title logo; 'songTitleLogo.webp' will be empty.");
+            _logger.LogWarning("Unity export does not contain a song title logo; 'songTitleLogo.webp' will be empty.");
             TryDeleteFile(logoDest);
         }
         else
         {
-            logger.LogInformation("Extracted song title logo to assets/branding/songTitleLogo.webp.");
+            _logger.LogInformation("Extracted song title logo to assets/branding/songTitleLogo.webp.");
         }
     }
 
-    private static void ExtractCoachAssets(string unityRoot, string packageRoot, ILogger logger)
+    private void ExtractCoachAssets(string unityRoot, string packageRoot)
     {
         string coachFolder = Path.Combine(unityRoot, "CoachesLarge");
         if (!Directory.Exists(coachFolder))
         {
-            logger.LogWarning("Unity export does not include coach textures; 'assets/coaches' will be empty.");
+            _logger.LogWarning("Unity export does not include coach textures; 'assets/coaches' will be empty.");
             TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder));
             return;
         }
@@ -192,31 +193,31 @@ public static class UnityAssetMaterializer
 
         if (backgroundExported)
         {
-            logger.LogDebug("Saved coaches background to {BackgroundDest}", backgroundDest);
+            _logger.LogDebug("Saved coaches background to {BackgroundDest}", backgroundDest);
         }
         else
         {
-            logger.LogWarning("Coach background image not found in Unity export.");
+            _logger.LogWarning("Coach background image not found in Unity export.");
         }
 
         if (exportedCoaches == 0)
         {
-            logger.LogWarning("No coach imagery decoded from Unity export.");
+            _logger.LogWarning("No coach imagery decoded from Unity export.");
             TryDeleteDirectory(coachesFolder);
         }
         else
         {
-            logger.LogInformation("Extracted {ExportedCoaches} coach image(s).", exportedCoaches);
+            _logger.LogInformation("Extracted {ExportedCoaches} coach image(s).", exportedCoaches);
         }
     }
 
-    private static void ExtractPictograms(string unityRoot, string packageRoot, ILogger logger)
+    private void ExtractPictograms(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
         if (bundlePath == null)
         {
-            logger.LogWarning("No pictogram bundle found in Unity export.");
+            _logger.LogWarning("No pictogram bundle found in Unity export.");
             TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder));
             return;
         }
@@ -241,7 +242,7 @@ public static class UnityAssetMaterializer
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Failed to decode texture '{Name}': {Message}", baseField["m_Name"].AsString, ex.Message);
+                    _logger.LogWarning(ex, "Failed to decode texture '{Name}': {Message}", baseField["m_Name"].AsString, ex.Message);
                 }
             }
 
@@ -286,12 +287,12 @@ public static class UnityAssetMaterializer
 
             if (exported.Count == 0)
             {
-                logger.LogWarning("No pictograms could be decoded from Unity export.");
+                _logger.LogWarning("No pictograms could be decoded from Unity export.");
                 TryDeleteDirectory(pictogramsFolder);
             }
             else
             {
-                logger.LogInformation("Extracted {Count} pictogram(s).", exported.Count);
+                _logger.LogInformation("Extracted {Count} pictogram(s).", exported.Count);
             }
         }
         finally
@@ -302,7 +303,7 @@ public static class UnityAssetMaterializer
         }
     }
 
-    private static void ExtractMotionScripts(string unityRoot, string packageRoot, ILogger logger)
+    private void ExtractMotionScripts(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
@@ -313,16 +314,16 @@ public static class UnityAssetMaterializer
 
         if (exported == 0)
         {
-            logger.LogWarning("No motion scripts (*.msm) were exported from the Unity map package.");
+            _logger.LogWarning("No motion scripts (*.msm) were exported from the Unity map package.");
             TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder));
         }
         else
         {
-            logger.LogInformation("Extracted {Count} motion script(s).", exported);
+            _logger.LogInformation("Extracted {Count} motion script(s).", exported);
         }
     }
 
-    private static void ExtractGestureFiles(string unityRoot, string packageRoot, ILogger logger)
+    private void ExtractGestureFiles(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
@@ -333,12 +334,12 @@ public static class UnityAssetMaterializer
 
         if (exported == 0)
         {
-            logger.LogWarning("No gesture assets (*.gesture) were exported from the Unity map package.");
+            _logger.LogWarning("No gesture assets (*.gesture) were exported from the Unity map package.");
             TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder));
         }
         else
         {
-            logger.LogInformation("Extracted {Count} gesture asset(s).", exported);
+            _logger.LogInformation("Extracted {Count} gesture asset(s).", exported);
         }
     }
 

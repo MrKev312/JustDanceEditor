@@ -1,6 +1,6 @@
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 using Microsoft.Extensions.Logging;
 

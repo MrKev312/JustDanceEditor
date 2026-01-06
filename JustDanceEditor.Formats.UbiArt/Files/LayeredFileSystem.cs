@@ -681,7 +681,7 @@ public class LayeredFileSystem
     public void DiscoverAndRegisterIPKs()
     {
         string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
-        
+
         try
         {
             string[] ipkFiles = _io.GetFiles(parentFolder, "*.ipk");

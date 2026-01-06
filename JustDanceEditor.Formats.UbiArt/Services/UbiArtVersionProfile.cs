@@ -1,8 +1,9 @@
-using System.Collections.Generic;
-using System.Globalization;
 using JustDanceEditor.Formats.UbiArt.Images;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 using JustDanceEditor.Formats.UbiArt.Services.Serialization;
+
+using System.Collections.Generic;
+using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 

@@ -1,6 +1,7 @@
+using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 using JustDanceEditor.Formats.UbiArt.Services.Serialization;
-using JustDanceEditor.Formats.UbiArt.Files;
+
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;

@@ -24,12 +24,26 @@ public sealed record UnityCoachesLargeRequest(
     string OutputFolderPath,
     bool ForCustomServer);
 
-public static class CoachesLargeBundleBuilder
+public sealed class CoachesLargeBundleBuilder : UnityBundleBuilderBase
 {
+    private readonly ILogger<CoachesLargeBundleBuilder> _logger;
+
+    public CoachesLargeBundleBuilder(ILogger<CoachesLargeBundleBuilder> logger)
+    {
+        _logger = logger;
+    }
+
     public static Task GenerateAsync(UnityCoachesLargeRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
 
     public static void Generate(UnityCoachesLargeRequest request, ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var builder = new CoachesLargeBundleBuilder(logger as ILogger<CoachesLargeBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        builder.Run(request);
+    }
+
+    private void Run(UnityCoachesLargeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -51,7 +65,7 @@ public static class CoachesLargeBundleBuilder
                 request.OutputFolderPath,
                 request.ForCustomServer);
 
-            GenerateBundle(internalRequest, logger);
+            GenerateBundle(internalRequest);
         }
         finally
         {
@@ -61,15 +75,28 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void GenerateBundle(BundleContext request, ILogger logger)
+    private void GenerateBundle(BundleContext request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
-        logger.LogInformation("Converting CoachesLarge bundle for {Codename}...", request.Codename);
+        _logger.LogInformation("Converting CoachesLarge bundle for {Codename}...", request.Codename);
         try
         {
-            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, List<AssetFileInfo>? sortedAssetInfos, AssetTypeValueField? assetBundleBase) = InitializeBundle(request);
+            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? textureInfo, AssetFileInfo? spriteInfo) =
+                base.InitializeBundle(request.TemplatePath, request.Codename);
+
+            // Set coaches-specific bundle names
+            if (assetBundleBase != null)
+            {
+                assetBundleBase["m_Name"].AsString = $"{request.Codename}_CoachesLarge";
+                assetBundleBase["m_AssetBundleName"].AsString = $"{request.Codename}_CoachesLarge";
+            }
+
+            if (assetBundleBase == null)
+                throw new InvalidOperationException("Asset bundle base not found in template bundle.");
+
+            List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
 
             (AssetFileInfo? coachTextureTpl, AssetFileInfo? coachSpriteTpl, AssetFileInfo? backgroundTextureTpl, AssetFileInfo? backgroundSpriteTpl, long[]? textureIds, long[]? spriteIds) =
                 ClearBundleAndIdentifyTemplates(request, manager, afileInst, afile, assetBundleBase);
@@ -80,13 +107,17 @@ public static class CoachesLargeBundleBuilder
             PopulatePreloadTable(assetBundleBase["m_PreloadTable"]["Array"], textureIds, spriteIds);
             PopulateAssetContainer(request, assetBundleBase["m_Container"]["Array"], textureIds, spriteIds);
 
-            AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
-            FinalizeAndSaveBundle(request, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
-            logger.LogInformation("Finished CoachesLarge bundle for {Codename}", request.Codename);
+            AssetFileInfo assetBundleInfoFinal = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
+
+            if (assetBundleBase == null)
+                throw new InvalidOperationException("Asset bundle base not found in template bundle.");
+
+            base.FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData);
+            _logger.LogInformation("Finished CoachesLarge bundle for {Codename}", request.Codename);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to generate CoachesLarge bundle for {Codename}", request.Codename);
+            _logger.LogError(ex, "Failed to generate CoachesLarge bundle for {Codename}", request.Codename);
             throw;
         }
     }
@@ -134,24 +165,7 @@ public static class CoachesLargeBundleBuilder
             throw new ArgumentException("Output folder path must be provided.", nameof(request));
     }
 
-    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, List<AssetFileInfo> SortedAssetInfos, AssetTypeValueField AssetBundleBase)
-        InitializeBundle(BundleContext request)
-    {
-        AssetsManager manager = new();
-        BundleFileInstance bunInst = manager.LoadBundleFile(request.TemplatePath, true);
-        AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
-        AssetsFile afile = afileInst.file;
-        afile.GenerateQuickLookup();
 
-        List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
-        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
-
-        assetBundleBase["m_Name"].AsString = $"{request.Codename}_CoachesLarge";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{request.Codename}_CoachesLarge";
-
-        return (manager, bunInst, afileInst, afile, sortedAssetInfos, assetBundleBase);
-    }
 
     private static (AssetFileInfo coachTexture, AssetFileInfo coachSprite, AssetFileInfo backgroundTexture, AssetFileInfo backgroundSprite, long[] textureIds, long[] spriteIds)
         ClearBundleAndIdentifyTemplates(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetTypeValueField assetBundleBase)
@@ -334,12 +348,7 @@ public static class CoachesLargeBundleBuilder
         }
     }
 
-    private static void FinalizeAndSaveBundle(BundleContext request, AssetBundleFile bundle, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
-    {
-        setAssetBundleData(assetBundleBase);
-        bundle.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        bundle.SaveAndCompress(request.OutputFolderPath, request.ForCustomServer);
-    }
+
 
     private sealed record BundleContext(
         string Codename,

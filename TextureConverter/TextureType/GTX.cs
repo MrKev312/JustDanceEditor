@@ -5,6 +5,9 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
 
+using TextureConverter.Enums;
+using TextureConverter.TextureConverterHelpers;
+
 using static TextureConverter.TextureType.DDS;
 
 namespace TextureConverter.TextureType;
@@ -16,30 +19,7 @@ namespace TextureConverter.TextureType;
  */
 public class GTX
 {
-    public enum GX2SurfaceFormat : uint
-    {
-        GX2_SURFACE_FORMAT_INVALID = 0x000,
-        GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM = 0x01a,
-        GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_SRGB = 0x041a,
-        GX2_SURFACE_FORMAT_TCS_R10_G10_B10_A2_UNORM = 0x019,
-        GX2_SURFACE_FORMAT_TCS_R5_G6_B5_UNORM = 0x008,
-        GX2_SURFACE_FORMAT_TC_R5_G5_B5_A1_UNORM = 0x00a,
-        GX2_SURFACE_FORMAT_TC_R4_G4_B4_A4_UNORM = 0x00b,
-        GX2_SURFACE_FORMAT_TC_R8_UNORM = 0x001,
-        GX2_SURFACE_FORMAT_TC_R8_G8_UNORM = 0x007,
-        GX2_SURFACE_FORMAT_TC_R4_G4_UNORM = 0x002,
-        GX2_SURFACE_FORMAT_T_BC1_UNORM = 0x031,
-        GX2_SURFACE_FORMAT_T_BC1_SRGB = 0x431,
-        GX2_SURFACE_FORMAT_T_BC2_UNORM = 0x032,
-        GX2_SURFACE_FORMAT_T_BC2_SRGB = 0x432,
-        GX2_SURFACE_FORMAT_T_BC3_UNORM = 0x033,
-        GX2_SURFACE_FORMAT_T_BC3_SRGB = 0x433,
-        GX2_SURFACE_FORMAT_T_BC4_UNORM = 0x034,
-        GX2_SURFACE_FORMAT_T_BC4_SNORM = 0x234,
-        GX2_SURFACE_FORMAT_T_BC5_UNORM = 0x035,
-        GX2_SURFACE_FORMAT_T_BC5_SNORM = 0x235
-    }
-
+    // GX2SurfaceFormat has been moved to TextureConverter.Enums.GtxEnums
     public static readonly GX2SurfaceFormat[] BCnFormats =
     [
         GX2SurfaceFormat.GX2_SURFACE_FORMAT_T_BC1_UNORM,
@@ -77,47 +57,15 @@ public class GTX
         UserBlock = 0x16,
     }
 
-    static readonly uint[] formatHwInfo = [
-            0x00, 0x00, 0x00, 0x01, 0x08, 0x03, 0x00, 0x01, 0x08, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00, 0x00, 0x01, 0x10, 0x07, 0x00, 0x00, 0x10, 0x03, 0x00, 0x01, 0x10, 0x03, 0x00, 0x01,
-            0x10, 0x0B, 0x00, 0x01, 0x10, 0x01, 0x00, 0x01, 0x10, 0x03, 0x00, 0x01, 0x10, 0x03, 0x00, 0x01,
-            0x10, 0x03, 0x00, 0x01, 0x20, 0x03, 0x00, 0x00, 0x20, 0x07, 0x00, 0x00, 0x20, 0x03, 0x00, 0x00,
-            0x20, 0x03, 0x00, 0x01, 0x20, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x03, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x20, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00, 0x00, 0x01, 0x20, 0x0B, 0x00, 0x01, 0x20, 0x0B, 0x00, 0x01, 0x20, 0x0B, 0x00, 0x01,
-            0x40, 0x05, 0x00, 0x00, 0x40, 0x03, 0x00, 0x00, 0x40, 0x03, 0x00, 0x00, 0x40, 0x03, 0x00, 0x00,
-            0x40, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0x03, 0x00, 0x00, 0x80, 0x03, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x10, 0x01, 0x00, 0x00,
-            0x10, 0x01, 0x00, 0x00, 0x20, 0x01, 0x00, 0x00, 0x20, 0x01, 0x00, 0x00, 0x20, 0x01, 0x00, 0x00,
-            0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x60, 0x01, 0x00, 0x00,
-            0x60, 0x01, 0x00, 0x00, 0x40, 0x01, 0x00, 0x01, 0x80, 0x01, 0x00, 0x01, 0x80, 0x01, 0x00, 0x01,
-            0x40, 0x01, 0x00, 0x01, 0x80, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ];
+    // formatHwInfo moved into TextureConverter.TextureConverterHelpers.GtxFormatLookup (immutable lookup)
+    // See GtxFormatLookup.HwFlat for the original data; use GtxFormatLookup.GetHwEntry/getBPP instead.
 
-    static readonly uint[] formatExInfo = [
-        0x00, 0x01, 0x01, 0x03, 0x08, 0x01, 0x01, 0x03, 0x08, 0x01, 0x01, 0x03, 0x08, 0x01, 0x01, 0x03,
-        0x00, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03,
-        0x10, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03, 0x10, 0x01, 0x01, 0x03,
-        0x10, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03,
-        0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03,
-        0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03,
-        0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03,
-        0x40, 0x01, 0x01, 0x03, 0x40, 0x01, 0x01, 0x03, 0x40, 0x01, 0x01, 0x03, 0x40, 0x01, 0x01, 0x03,
-        0x40, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03, 0x80, 0x01, 0x01, 0x03, 0x80, 0x01, 0x01, 0x03,
-        0x00, 0x01, 0x01, 0x03, 0x01, 0x08, 0x01, 0x05, 0x01, 0x08, 0x01, 0x06, 0x10, 0x01, 0x01, 0x07,
-        0x10, 0x01, 0x01, 0x08, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03, 0x20, 0x01, 0x01, 0x03,
-        0x18, 0x03, 0x01, 0x04, 0x30, 0x03, 0x01, 0x04, 0x30, 0x03, 0x01, 0x04, 0x60, 0x03, 0x01, 0x04,
-        0x60, 0x03, 0x01, 0x04, 0x40, 0x04, 0x04, 0x09, 0x80, 0x04, 0x04, 0x0A, 0x80, 0x04, 0x04, 0x0B,
-        0x40, 0x04, 0x04, 0x0C, 0x40, 0x04, 0x04, 0x0D, 0x40, 0x04, 0x04, 0x0D, 0x40, 0x04, 0x04, 0x0D,
-        0x00, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03,
-        0x00, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03, 0x40, 0x01, 0x01, 0x03, 0x00, 0x01, 0x01, 0x03,
-    ];
+    // formatExInfo moved into TextureConverter.TextureConverterHelpers.GtxFormatLookup (immutable lookup)
+    // See GtxFormatLookup.ExFlat for the original data; use GtxFormatLookup.GetExEntry instead.
 
     public static uint GetBPP(GX2SurfaceFormat format)
     {
-        return formatHwInfo[((int)format & 0x3F) * 4];
+        return GtxFormatLookup.GetBPP(format);
     }
 
     private GTXHeader? header = null;
@@ -129,80 +77,12 @@ public class GTX
     public void LoadFile(Stream data)
     {
         using EndianBinaryReader reader = new(data, Encoding.Default, true, true);
-        header = new GTXHeader(reader);
-
-        bool shiftedType = header.MajorVersion switch
-        {
-            6 when header.MinorVersion == 0 => false,
-            6 or 7 => true,
-            _ => throw new Exception($"Unsupported GTX version {header.MajorVersion}"),
-        };
-
-        if (header.GpuVersion != 2)
-            throw new Exception($"Unsupported GPU version {header.GpuVersion}");
-
-        bool blockB = false;
-        bool blockC = false;
-
-        uint imageInfo = 0;
-        uint images = 0;
-
-        while (reader.BaseStream.Position < reader.BaseStream.Length)
-        {
-            GTXDataBlock block = new(reader, shiftedType);
-            Blocks.Add(block);
-
-            if (block.BlockType == BlockType.EndOfFile)
-                break;
-
-            switch (block.BlockType)
-            {
-                case BlockType.SurfaceInfo:
-                    {
-                        imageInfo++;
-                        blockB = true;
-
-                        MemoryStream stream = new(block.Data);
-                        EndianBinaryReader dataReader = new(stream, true);
-                        GX2Surface surface = new(dataReader);
-
-                        if (surface.TileMode is 0 or > 16)
-                            throw new Exception($"Invalid tileMode {surface.TileMode}!");
-
-                        if (surface.MipCount > 14)
-                            throw new Exception($"Invalid number of mip maps {surface.MipCount}!");
-
-                        GTXSurfaces.Add(surface);
-                        break;
-                    }
-                case BlockType.SurfaceData:
-                    {
-                        images++;
-                        blockC = true;
-
-                        ImageDatas.Add(block.Data);
-
-                        break;
-                    }
-                case BlockType.MipData2:
-                    {
-                        if (!blockC)
-                            throw new Exception("MipData2 block without SurfaceData block!");
-
-                        MipDatas.Add(images - 1, block.Data);
-
-                        break;
-                    }
-                default:
-                    break;
-            }
-        }
-
-        if (imageInfo != images)
-            throw new Exception("Number of imageInfo blocks does not match number of image blocks!");
-
-        if (!blockB || !blockC)
-            throw new Exception("Missing SurfaceInfo or SurfaceData block!");
+        var parsed = GtxReader.Parse(reader);
+        header = parsed.Header;
+        GTXSurfaces = parsed.Surfaces;
+        ImageDatas = parsed.ImageDatas;
+        MipDatas = parsed.MipDatas;
+        Blocks = parsed.Blocks;
     }
 
     public Image<Bgra32> ConvertToImage()
@@ -398,7 +278,7 @@ public class GTX
                 {
                     0 or 1 => ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height, depth),
                     2 or 3 => ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height, addrTileMode, isDepth),
-                    _ => ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel, pitch, height, numSamples, addrTileMode, isDepth, pipeSwizzle, bankSwizzle),
+                    _ => GtxSwizzleUtils.ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bitsPerPixel, pitch, height, numSamples, addrTileMode, isDepth, pipeSwizzle, bankSwizzle),
                 };
                 ulong pos2 = (((ulong)y * width) + x) * bytesPerPixel;
 
@@ -417,130 +297,12 @@ public class GTX
 
     private static ulong ComputeSurfaceAddrFromCoordMacroTiled(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint numSamples, uint tileMode, bool isDepth, uint pipeSwizzle, uint bankSwizzle)
     {
-        uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        ulong microTileBits = (ulong)numSamples * bpp * 64 * microTileThickness;
-        ulong microTileBytes = (microTileBits + 7) / 8;
-
-        ulong pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
-        ulong bytesPerSample = microTileBytes / numSamples;
-
-        ulong sampleOffset;
-        ulong pixelOffset;
-        if (isDepth)
-        {
-            sampleOffset = (ulong)bpp * sample;
-            pixelOffset = (ulong)numSamples * bpp * pixelIndex;
-        }
-        else
-        {
-            sampleOffset = sample * (microTileBits / numSamples);
-            pixelOffset = bpp * pixelIndex;
-        }
-
-        ulong elemOffset = sampleOffset + pixelOffset;
-
-        ulong numSampleSplits;
-        ulong sampleSlice;
-
-        if (numSamples <= 1 || microTileBytes <= 2048)
-        {
-            numSampleSplits = 1;
-            sampleSlice = 0;
-        }
-        else
-        {
-            ulong samplesPerSlice = 2048 / bytesPerSample;
-            numSampleSplits = numSamples / samplesPerSlice;
-            numSamples = (uint)samplesPerSlice;
-
-            ulong tileSliceBits = microTileBits / numSampleSplits;
-            sampleSlice = elemOffset / tileSliceBits;
-            elemOffset %= tileSliceBits;
-        }
-
-        elemOffset = (elemOffset + 7) / 8;
-
-        uint pipe = ((y >> 3) ^ (x >> 3)) & 1;
-        uint bank = (((y >> 5) ^ (x >> 3)) & 1) | (2 * (((y >> 4) ^ (x >> 4)) & 1));
-
-        uint swizzle = pipeSwizzle + (2 * bankSwizzle);
-        uint bankPipe = pipe + (2 * bank);
-        uint rotation = tileMode switch
-        {
-            >= 4 and <= 11 => 2,
-            >= 12 and <= 15 => 1,
-            _ => 0,
-        };
-
-        ulong sliceIn = slice;
-        if (tileMode is 7 or 11 or 13 or 15)
-        {
-            sliceIn >>= 2;
-        }
-
-        bankPipe ^= (uint)((2 * sampleSlice * 3) ^ (swizzle + (sliceIn * rotation)));
-        bankPipe %= 8;
-        pipe = bankPipe % 2;
-        bank = bankPipe / 2;
-
-        ulong sliceBytes = (((ulong)pitch * height * microTileThickness * bpp * numSamples) + 7) / 8;
-        ulong sliceOffset = sliceBytes * ((sampleSlice + (numSampleSplits * slice)) / microTileThickness);
-
-        ulong macroTilePitch = 32;
-        ulong macroTileHeight = 16;
-
-        if (tileMode is 5 or 9)
-        {
-            macroTilePitch = 16;
-            macroTileHeight = 32;
-        }
-        else if (tileMode is 6 or 10)
-        {
-            macroTilePitch = 8;
-            macroTileHeight = 64;
-        }
-
-        ulong macroTilesPerRow = pitch / (uint)macroTilePitch;
-        ulong macroTileBytes = (((ulong)numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch) + 7) / 8;
-        ulong macroTileIndexX = x / (uint)macroTilePitch;
-        ulong macroTileIndexY = y / (uint)macroTileHeight;
-        ulong macroTileOffset = macroTileBytes * (macroTileIndexX + (macroTileIndexY * macroTilesPerRow));
-
-        if (tileMode is 8 or 9 or 10 or 11 or 14 or 15)
-        {
-            uint[] bankSwapOrder = [0, 1, 3, 2, 6, 7, 5, 4, 0, 0];
-            uint bankSwapWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
-            ulong swapIndex = macroTilePitch * macroTileIndexX / bankSwapWidth;
-            bank ^= bankSwapOrder[swapIndex & 3UL];
-        }
-
-        ulong totalOffset = elemOffset + ((macroTileOffset + sliceOffset) >> 3);
-        return ((ulong)bank << 9) |
-            ((ulong)pipe << 8) |
-            (totalOffset & 0xFFUL) |
-            ((totalOffset & ~0xFFUL) << 3);
+        return GtxSwizzleUtils.ComputeSurfaceAddrFromCoordMacroTiled(x, y, slice, sample, bpp, pitch, height, numSamples, tileMode, isDepth, pipeSwizzle, bankSwizzle);
     }
 
     private static ulong ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice, uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
-        int microTileThickness = 1;
-        if ((AddrTileMode)tileMode == AddrTileMode.ADDR_TM_1D_TILED_THICK)
-            microTileThickness = 4;
-
-        ulong microTileBytes = (ulong)((64 * microTileThickness * bpp) + 7) / 8;
-        ulong microTilesPerRow = pitch >> 3;
-        ulong microTileIndexX = x >> 3;
-        ulong microTileIndexY = y >> 3;
-        ulong microTileIndexZ = slice / (uint)microTileThickness;
-
-        ulong microTileOffset = microTileBytes * (microTileIndexX + (microTileIndexY * microTilesPerRow));
-        ulong sliceBytes = (((ulong)pitch * height * (ulong)microTileThickness * bpp) + 7) / 8;
-        ulong sliceOffset = microTileIndexZ * sliceBytes;
-
-        uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
-        ulong pixelOffset = ((ulong)bpp * pixelIndex) >> 3;
-
-        return pixelOffset + microTileOffset + sliceOffset;
+        return GtxSwizzleUtils.ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bpp, pitch, height, tileMode, isDepth);
     }
 
     static uint ComputePixelIndexWithinMicroTile(uint x, uint y, uint z, uint bpp, uint tileMode, bool isDepth)
@@ -634,7 +396,7 @@ public class GTX
 
     private static ulong ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample, uint bpp, uint pitch, uint height, uint depth)
     {
-        return (((ulong)y * pitch) + x + (pitch * (ulong)height * (slice + (sample * (ulong)depth)))) * bpp;
+        return GtxSwizzleUtils.ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bpp, pitch, height, depth);
     }
 
     public SurfaceOut GetSurfaceInfo(
@@ -667,10 +429,10 @@ public class GTX
 
             width = ~(blockSize - 1) & (Math.Max(1, surfaceWidth >> level) + blockSize - 1);
 
-            pSurfOut.Bpp = formatHwInfo[hwFormat * 4];
+            pSurfOut.Bpp = GtxFormatLookup.GetHwEntry((int)hwFormat, 0);
             pSurfOut.Size = 96;
             pSurfOut.Pitch = width / blockSize;
-            pSurfOut.PixelBits = formatHwInfo[hwFormat * 4];
+            pSurfOut.PixelBits = GtxFormatLookup.GetHwEntry((int)hwFormat, 0);
             pSurfOut.BaseAlign = 1;
             pSurfOut.PitchAlign = 1;
             pSurfOut.HeightAlign = 1;
@@ -723,7 +485,7 @@ public class GTX
             aSurfIn.Size = 60;
             aSurfIn.TileMode = surfaceTileMode & 0xF;
             aSurfIn.Format = hwFormat;
-            aSurfIn.Bpp = formatHwInfo[hwFormat * 4];
+            aSurfIn.Bpp = GtxFormatLookup.GetHwEntry((int)hwFormat, 0);
             aSurfIn.NumSamples = (uint)1 << (int)surfaceAA;
             aSurfIn.NumFrags = aSurfIn.NumSamples;
             aSurfIn.Width = Math.Max(1, surfaceWidth >> level);
@@ -792,233 +554,8 @@ public class GTX
         pIn = aSurfIn;
         pOut = pSurfOut;
 
-        if (pIn.Bpp > 0x80)
-            return;
-
-        // 1. Calculate mip dimensions based on original pixels
-        ComputeMipLevel();
-        pOut.PixelBits = pIn.Bpp;
-
-        if (pIn.Format != 0)
-        {
-            (uint bpp, uint expandX, uint expandY, uint elemMode) = GetBitsPerPixel((int)pIn.Format);
-
-            // 2. Adjust for BCn: Divide width/height by 4, set bpp to 64 or 128
-            if (expandX > 1 || expandY > 1)
-            {
-                pIn.Width = Math.Max(1, pIn.Width / expandX);
-                pIn.Height = Math.Max(1, pIn.Height / expandY);
-            }
-
-            pIn.Bpp = elemMode switch
-            {
-                9 or 12 => 64,   // BC1, BC4
-                10 or 11 or 13 => 128, // BC2, BC3, BC5
-                _ => bpp
-            };
-        }
-
-        // 3. Calculate aligned Pitch and SurfSize based on adjusted dimensions
-        if (ComputeSurfaceInfoEx() == 0)
-        {
-            pOut.Bpp = pIn.Bpp;
-            pOut.PixelPitch = pOut.Pitch;
-            pOut.PixelHeight = pOut.Height;
-
-            // 4. Restore original pixel dimensions for the final output info
-            if (pIn.Format != 0)
-            {
-                (uint _, uint expandX, uint expandY, uint _) = GetBitsPerPixel((int)pIn.Format);
-                if (expandX > 1 || expandY > 1)
-                {
-                    pOut.PixelPitch *= expandX;
-                    pOut.PixelHeight *= expandY;
-                }
-            }
-
-            pOut.SliceSize = (uint)(((pIn.Flags >> 5) & 1) != 0
-                ? pOut.SurfSize
-                : pOut.SurfSize / pOut.Depth);
-
-            pOut.PitchTileMax = (pOut.Pitch >> 3) - 1;
-            pOut.HeightTileMax = (pOut.Height >> 3) - 1;
-            pOut.SliceTileMax = ((pOut.Height * pOut.Pitch) >> 6) - 1;
-        }
-    }
-
-    public enum AddrTileMode
-    {
-        ADDR_TM_LINEAR_GENERAL = 0x0,
-        ADDR_TM_LINEAR_ALIGNED = 0x1,
-        ADDR_TM_1D_TILED_THIN1 = 0x2,
-        ADDR_TM_1D_TILED_THICK = 0x3,
-        ADDR_TM_2D_TILED_THIN1 = 0x4,
-        ADDR_TM_2D_TILED_THIN2 = 0x5,
-        ADDR_TM_2D_TILED_THIN4 = 0x6,
-        ADDR_TM_2D_TILED_THICK = 0x7,
-        ADDR_TM_2B_TILED_THIN1 = 0x8,
-        ADDR_TM_2B_TILED_THIN2 = 0x9,
-        ADDR_TM_2B_TILED_THIN4 = 0x0A,
-        ADDR_TM_2B_TILED_THICK = 0x0B,
-        ADDR_TM_3D_TILED_THIN1 = 0x0C,
-        ADDR_TM_3D_TILED_THICK = 0x0D,
-        ADDR_TM_3B_TILED_THIN1 = 0x0E,
-        ADDR_TM_3B_TILED_THICK = 0x0F,
-        ADDR_TM_2D_TILED_XTHICK = 0x10,
-        ADDR_TM_3D_TILED_XTHICK = 0x11,
-        ADDR_TM_POWER_SAVE = 0x12,
-        ADDR_TM_COUNT = 0x13,
-    }
-
-    private uint ComputeSurfaceInfoEx()
-    {
-        uint tileMode = pIn.TileMode;
-        uint bpp = pIn.Bpp;
-        uint numSamples = Math.Max(1, pIn.NumSamples);
-        uint pitch = pIn.Width;
-        uint height = pIn.Height;
-        uint numSlices = pIn.NumSlices;
-        uint mipLevel = pIn.MipLevel;
-        uint flags = pIn.Flags;
-        uint pPitchOut = pOut.Pitch;
-        uint pHeightOut = pOut.Height;
-        uint pNumSlicesOut = pOut.Depth;
-        uint pTileModeOut = pOut.TileMode;
-        uint pSurfSize = (uint)pOut.SurfSize;
-        uint pBaseAlign = pOut.BaseAlign;
-        uint pPitchAlign = pOut.PitchAlign;
-        uint pHeightAlign = pOut.HeightAlign;
-        uint pDepthAlign = pOut.DepthAlign;
-        uint padDims = 0;
-        uint valid = 0;
-        uint baseTileMode = tileMode;
-
-        if ((((flags >> 4) & 1) != 0) && (mipLevel == 0))
-            padDims = 2;
-
-        tileMode = ((flags >> 6) & 1) != 0
-            ? tileMode switch
-            {
-                8 => 4,
-                9 => 5,
-                10 => 6,
-                11 => 7,
-                14 => 12,
-                15 => 13,
-                _ => tileMode,
-            }
-            : ComputeSurfaceMipLevelTileMode(
-            tileMode,
-            bpp,
-            mipLevel,
-            pitch,
-            height,
-            numSlices,
-            numSamples,
-            (flags >> 1) & 1, 0);
-
-        switch (tileMode)
-        {
-            case 0:
-            case 1:
-                uint[] compSurfInfoLinear = ComputeSurfaceInfoLinear(
-            tileMode,
-            bpp,
-            numSamples,
-            pitch,
-            height,
-            numSlices,
-            mipLevel,
-            padDims,
-            flags);
-
-                valid = compSurfInfoLinear[0];
-                pPitchOut = compSurfInfoLinear[1];
-                pHeightOut = compSurfInfoLinear[2];
-                pNumSlicesOut = compSurfInfoLinear[3];
-                pSurfSize = compSurfInfoLinear[4];
-                pBaseAlign = compSurfInfoLinear[5];
-                pPitchAlign = compSurfInfoLinear[6];
-                pHeightAlign = compSurfInfoLinear[7];
-                pDepthAlign = compSurfInfoLinear[8];
-
-                pTileModeOut = tileMode;
-                break;
-            case 2:
-            case 3:
-                uint[] compSurfInfoMicroTile = ComputeSurfaceInfoMicroTiled(
-            tileMode,
-            bpp,
-            numSamples,
-            pitch,
-            height,
-            numSlices,
-            mipLevel,
-            padDims,
-            flags);
-
-                valid = compSurfInfoMicroTile[0];
-                pPitchOut = compSurfInfoMicroTile[1];
-                pHeightOut = compSurfInfoMicroTile[2];
-                pNumSlicesOut = compSurfInfoMicroTile[3];
-                pSurfSize = compSurfInfoMicroTile[4];
-                pTileModeOut = compSurfInfoMicroTile[5];
-                pBaseAlign = compSurfInfoMicroTile[6];
-                pPitchAlign = compSurfInfoMicroTile[7];
-                pHeightAlign = compSurfInfoMicroTile[8];
-                pDepthAlign = compSurfInfoMicroTile[9];
-
-                break;
-            case 4:
-            case 5:
-            case 6:
-            case 7:
-            case 8:
-            case 9:
-            case 10:
-            case 11:
-            case 12:
-            case 13:
-            case 14:
-            case 15:
-                uint[] compSurfInfoMacoTile = ComputeSurfaceInfoMacroTiled(
-            tileMode,
-            baseTileMode,
-            bpp,
-            numSamples,
-            pitch,
-            height,
-            numSlices,
-            mipLevel,
-            padDims,
-            flags);
-
-                valid = compSurfInfoMacoTile[0];
-                pPitchOut = compSurfInfoMacoTile[1];
-                pHeightOut = compSurfInfoMacoTile[2];
-                pNumSlicesOut = compSurfInfoMacoTile[3];
-                pSurfSize = compSurfInfoMacoTile[4];
-                pTileModeOut = compSurfInfoMacoTile[5];
-                pBaseAlign = compSurfInfoMacoTile[6];
-                pPitchAlign = compSurfInfoMacoTile[7];
-                pHeightAlign = compSurfInfoMacoTile[8];
-                pDepthAlign = compSurfInfoMacoTile[9];
-                break;
-        }
-
-        pOut.Pitch = pPitchOut;
-        pOut.Height = pHeightOut;
-        pOut.Depth = pNumSlicesOut;
-        pOut.TileMode = pTileModeOut;
-        pOut.SurfSize = pSurfSize;
-        pOut.BaseAlign = pBaseAlign;
-        pOut.PitchAlign = pPitchAlign;
-        pOut.HeightAlign = pHeightAlign;
-        pOut.DepthAlign = pDepthAlign;
-
-        return (uint)(valid == 0
-            ? 3
-            : 0);
+        // Delegate to surface calculator which handles all the complex math
+        GtxSurfaceCalculator.ComputeSurfaceInfo(pIn, pOut);
     }
 
     private static uint ComputeSurfaceThickness(AddrTileMode tileMode)
@@ -1056,43 +593,6 @@ public class GTX
             pitchAlign = PowTwoAlign(pitchAlign, 0x20);
 
         return pitchAlign;
-    }
-
-    private static Tuple<uint, uint, uint, uint, uint> ComputeSurfaceAlignmentsMacroTiled(uint tileMode, uint bpp, uint flags, uint numSamples)
-    {
-        uint aspectRatio = ComputeMacroTileAspectRatio((AddrTileMode)tileMode);
-        uint thickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-
-        switch (bpp)
-        {
-            case 24:
-            case 48:
-            case 96:
-                bpp /= 3;
-                break;
-            case 3:
-                bpp = 1;
-                break;
-        }
-
-        uint macroTileWidth = 32 / aspectRatio;
-        uint macroTileHeight = aspectRatio * 16;
-
-        uint pitchAlign = Math.Max(macroTileWidth, macroTileWidth * (256 / bpp / (8 * thickness) / numSamples));
-        pitchAlign = AdjustPitchAlignment(flags, pitchAlign);
-
-        uint heightAlign = macroTileHeight;
-        uint macroTileBytes = numSamples * (((bpp * macroTileHeight * macroTileWidth) + 7) >> 3);
-
-        uint baseAlign = thickness == 1
-            ? Math.Max(macroTileBytes, ((numSamples * heightAlign * bpp * pitchAlign) + 7) >> 3)
-            : Math.Max(256, ((4 * heightAlign * bpp * pitchAlign) + 7) >> 3);
-        uint microTileBytes = ((thickness * numSamples * (bpp << 6)) + 7) >> 3;
-        uint numSlicesPerMicroTile = microTileBytes < 2048 ? 1 : microTileBytes / 2048;
-
-        baseAlign /= numSlicesPerMicroTile;
-
-        return new Tuple<uint, uint, uint, uint, uint>(baseAlign, pitchAlign, heightAlign, macroTileWidth, macroTileHeight);
     }
 
     private static uint IsBankSwappedTileMode(AddrTileMode tileMode)
@@ -1142,288 +642,6 @@ public class GTX
         return bankSwapWidth;
     }
 
-    private Tuple<uint, uint, uint> PadDimensions(uint tileMode, uint padDims, uint isCube, uint pitchAlign, uint heightAlign, uint sliceAlign)
-    {
-        uint thickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        if (padDims == 0)
-            padDims = 3;
-
-        if ((pitchAlign & (pitchAlign - 1)) == 0)
-            expPitch = PowTwoAlign(expPitch, pitchAlign);
-        else
-        {
-            expPitch += pitchAlign - 1;
-            expPitch /= pitchAlign;
-            expPitch *= pitchAlign;
-        }
-
-        if (padDims > 1)
-            expHeight = PowTwoAlign(expHeight, heightAlign);
-
-        if (padDims > 2 || thickness > 1)
-        {
-            if (isCube != 0)
-                expNumSlices = NextPow2(expNumSlices);
-
-            if (thickness > 1)
-                expNumSlices = PowTwoAlign(expNumSlices, sliceAlign);
-        }
-
-        return new Tuple<uint, uint, uint>(expPitch, expHeight, expNumSlices);
-    }
-
-    uint expPitch, expHeight, expNumSlices;
-    private uint[] ComputeSurfaceInfoMacroTiled(uint tileMode, uint baseTileMode, uint bpp, uint numSamples, uint pitch, uint height, uint numSlices, uint mipLevel, uint padDims, uint flags)
-    {
-        expPitch = pitch;
-        expHeight = height;
-        expNumSlices = numSlices;
-
-        uint valid = 1;
-        uint expTileMode = tileMode;
-        uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-
-        uint baseAlign, pitchAlign, heightAlign;
-        uint bankSwappedWidth, pitchAlignFactor;
-        uint result, pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pDepthAlign;
-
-        if (mipLevel != 0)
-        {
-            expPitch = NextPow2(pitch);
-            expHeight = NextPow2(height);
-
-            if (((flags >> 4) & 1) != 0)
-            {
-                expNumSlices = numSlices;
-
-                padDims = numSlices <= 1
-                    ? 2
-                    : (uint)0;
-            }
-            else
-                expNumSlices = NextPow2(numSlices);
-
-            if (expTileMode == 7 && expNumSlices < 4)
-            {
-                expTileMode = 4;
-                microTileThickness = 1;
-            }
-        }
-
-        if (tileMode == baseTileMode
-            || mipLevel == 0
-            || IsThickMacroTiled((AddrTileMode)baseTileMode) == 0
-            || IsThickMacroTiled((AddrTileMode)tileMode) != 0)
-        {
-            Tuple<uint, uint, uint, uint, uint> tup = ComputeSurfaceAlignmentsMacroTiled(
-                tileMode,
-                bpp,
-                flags,
-                numSamples);
-
-            baseAlign = tup.Item1;
-            pitchAlign = tup.Item2;
-            heightAlign = tup.Item3;
-
-            bankSwappedWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
-
-            if (bankSwappedWidth > pitchAlign)
-                pitchAlign = bankSwappedWidth;
-
-            Tuple<uint, uint, uint> padDimens = PadDimensions(
-                 tileMode,
-                 padDims,
-                 (flags >> 4) & 1,
-                 pitchAlign,
-                 heightAlign,
-                 microTileThickness);
-
-            expPitch = padDimens.Item1;
-            expHeight = padDimens.Item2;
-            expNumSlices = padDimens.Item3;
-
-            pPitchOut = expPitch;
-            pHeightOut = expHeight;
-            pNumSlicesOut = expNumSlices;
-            pSurfSize = ((expHeight * expPitch * expNumSlices * bpp * numSamples) + 7) / 8;
-            pTileModeOut = expTileMode;
-            pBaseAlign = baseAlign;
-            pDepthAlign = microTileThickness;
-            result = valid;
-        }
-
-        else
-        {
-            Tuple<uint, uint, uint, uint, uint> tup = ComputeSurfaceAlignmentsMacroTiled(
-                baseTileMode,
-                bpp,
-                flags,
-                numSamples);
-
-            pitchAlign = tup.Item2;
-            heightAlign = tup.Item3;
-
-            pitchAlignFactor = Math.Max(1, 32 / bpp);
-
-            if (expPitch < pitchAlign * pitchAlignFactor || expHeight < heightAlign)
-            {
-                uint[] microTileInfo = ComputeSurfaceInfoMicroTiled(
-                    2,
-                    bpp,
-                    numSamples,
-                    pitch,
-                    height,
-                    numSlices,
-                    mipLevel,
-                    padDims,
-                    flags);
-
-                result = microTileInfo[0];
-                pPitchOut = microTileInfo[1];
-                pHeightOut = microTileInfo[2];
-                pNumSlicesOut = microTileInfo[3];
-                pSurfSize = microTileInfo[4];
-                pTileModeOut = microTileInfo[5];
-                pBaseAlign = microTileInfo[6];
-                pDepthAlign = microTileInfo[9];
-            }
-
-            else
-            {
-                tup = ComputeSurfaceAlignmentsMacroTiled(
-                    tileMode,
-                    bpp,
-                    flags,
-                    numSamples);
-
-                baseAlign = tup.Item1;
-                pitchAlign = tup.Item2;
-                heightAlign = tup.Item3;
-
-                bankSwappedWidth = ComputeSurfaceBankSwappedWidth((AddrTileMode)tileMode, bpp, numSamples, pitch);
-                if (bankSwappedWidth > pitchAlign)
-                    pitchAlign = bankSwappedWidth;
-
-                Tuple<uint, uint, uint> padDimens = PadDimensions(
-                    tileMode,
-                    padDims,
-                    (flags >> 4) & 1,
-                    pitchAlign,
-                    heightAlign,
-                    microTileThickness);
-
-                expPitch = padDimens.Item1;
-                expHeight = padDimens.Item2;
-                expNumSlices = padDimens.Item3;
-
-                pPitchOut = expPitch;
-                pHeightOut = expHeight;
-                pNumSlicesOut = expNumSlices;
-                pSurfSize = ((expHeight * expPitch * expNumSlices * bpp * numSamples) + 7) / 8;
-
-                pTileModeOut = expTileMode;
-                pBaseAlign = baseAlign;
-                pDepthAlign = microTileThickness;
-                result = valid;
-            }
-        }
-
-        return [ result, pPitchOut, pHeightOut,
-                pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pitchAlign, heightAlign, pDepthAlign];
-    }
-
-    private static Tuple<uint, uint, uint> ComputeSurfaceAlignmentsMicroTiled(uint tileMode, uint bpp, uint flags, uint numSamples)
-    {
-        switch (bpp)
-        {
-            case 24:
-            case 48:
-            case 96:
-                bpp /= 3;
-                break;
-        }
-
-        uint thickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        uint baseAlign = 256;
-        uint pitchAlign = Math.Max(8, 256 / bpp / numSamples / thickness);
-        uint heightAlign = 8;
-
-        pitchAlign = AdjustPitchAlignment(flags, pitchAlign);
-
-        return new Tuple<uint, uint, uint>(baseAlign, pitchAlign, heightAlign);
-
-    }
-
-    private uint[] ComputeSurfaceInfoMicroTiled(uint tileMode, uint bpp, uint numSamples, uint pitch, uint height, uint numSlices, uint mipLevel, uint padDims, uint flags)
-    {
-        expPitch = pitch;
-        expHeight = height;
-        expNumSlices = numSlices;
-
-        uint valid = 1;
-        uint expTileMode = tileMode;
-        uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-        uint pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign;
-
-        if (mipLevel != 0)
-        {
-            expPitch = NextPow2(pitch);
-            expHeight = NextPow2(height);
-            if (((flags >> 4) & 1) != 0)
-            {
-                expNumSlices = numSlices;
-
-                padDims = numSlices <= 1
-                    ? 2
-                    : (uint)0;
-            }
-
-            else
-                expNumSlices = NextPow2(numSlices);
-
-            if (expTileMode == 3 && expNumSlices < 4)
-            {
-                expTileMode = 2;
-                microTileThickness = 1;
-            }
-        }
-
-        Tuple<uint, uint, uint> surfMicroAlign = ComputeSurfaceAlignmentsMicroTiled(
-            expTileMode,
-            bpp,
-            flags,
-            numSamples);
-
-        uint baseAlign = surfMicroAlign.Item1;
-        uint pitchAlign = surfMicroAlign.Item2;
-        uint heightAlign = surfMicroAlign.Item3;
-
-        Tuple<uint, uint, uint> padDimens = PadDimensions(
-            expTileMode,
-            padDims,
-            (flags >> 4) & 1,
-            pitchAlign,
-            heightAlign,
-            microTileThickness);
-
-        expPitch = padDimens.Item1;
-        expHeight = padDimens.Item2;
-        expNumSlices = padDimens.Item3;
-
-        pPitchOut = expPitch;
-        pHeightOut = expHeight;
-        pNumSlicesOut = expNumSlices;
-        pSurfSize = ((expHeight * expPitch * expNumSlices * bpp * numSamples) + 7) / 8;
-
-        pTileModeOut = expTileMode;
-        pBaseAlign = baseAlign;
-        pPitchAlign = pitchAlign;
-        pHeightAlign = heightAlign;
-        pDepthAlign = microTileThickness;
-
-        return [valid, pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pTileModeOut, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign];
-    }
-
     private static Tuple<uint, uint, uint> ComputeSurfaceAlignmentsLinear(uint tileMode, uint bpp, uint flags)
     {
         uint pixelsPerPipeInterleave;
@@ -1452,74 +670,6 @@ public class GTX
         pitchAlign = AdjustPitchAlignment(flags, pitchAlign);
 
         return new Tuple<uint, uint, uint>(baseAlign, pitchAlign, heightAlign);
-    }
-
-    private uint[] ComputeSurfaceInfoLinear(uint tileMode, uint bpp, uint numSamples, uint pitch, uint height, uint numSlices, uint mipLevel, uint padDims, uint flags)
-    {
-        expPitch = pitch;
-        expHeight = height;
-        expNumSlices = numSlices;
-
-        uint valid = 1;
-        uint microTileThickness = ComputeSurfaceThickness((AddrTileMode)tileMode);
-
-        uint baseAlign, pitchAlign, heightAlign, slices;
-        uint pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign;
-
-        Tuple<uint, uint, uint> compAllignLinear = ComputeSurfaceAlignmentsLinear(tileMode, bpp, flags);
-        baseAlign = compAllignLinear.Item1;
-        pitchAlign = compAllignLinear.Item2;
-        heightAlign = compAllignLinear.Item3;
-
-        if ((((flags >> 9) & 1) != 0) && (mipLevel == 0))
-        {
-            expPitch /= 3;
-            expPitch = NextPow2(expPitch);
-        }
-
-        if (mipLevel != 0)
-        {
-            expPitch = NextPow2(expPitch);
-            expHeight = NextPow2(expHeight);
-
-            if (((flags >> 4) & 1) != 0)
-            {
-                expNumSlices = numSlices;
-
-                padDims = numSlices <= 1
-                    ? 2
-                    : (uint)0;
-            }
-            else
-                expNumSlices = NextPow2(numSlices);
-        }
-
-        Tuple<uint, uint, uint> padimens = PadDimensions(
-        tileMode,
-        padDims,
-        (flags >> 4) & 1,
-        pitchAlign,
-        heightAlign,
-        microTileThickness);
-
-        expPitch = padimens.Item1;
-        expHeight = padimens.Item2;
-        expNumSlices = padimens.Item3;
-
-        if ((((flags >> 9) & 1) != 0) && (mipLevel == 0))
-            expPitch *= 3;
-
-        slices = expNumSlices * numSamples / microTileThickness;
-        pPitchOut = expPitch;
-        pHeightOut = expHeight;
-        pNumSlicesOut = expNumSlices;
-        pSurfSize = ((expHeight * expPitch * slices * bpp * numSamples) + 7) / 8;
-        pBaseAlign = baseAlign;
-        pPitchAlign = pitchAlign;
-        pHeightAlign = heightAlign;
-        pDepthAlign = microTileThickness;
-
-        return [valid, pPitchOut, pHeightOut, pNumSlicesOut, pSurfSize, pBaseAlign, pPitchAlign, pHeightAlign, pDepthAlign];
     }
 
     private static uint ComputeSurfaceTileSlices(uint tileMode, uint bpp, uint numSamples)
@@ -1671,8 +821,12 @@ public class GTX
 
     public static (uint Bpp, uint ExpandX, uint ExpandY, uint ElemMode) GetBitsPerPixel(int format)
     {
-        int fmtIdx = format * 4;
-        return (formatExInfo[fmtIdx], formatExInfo[fmtIdx + 1], formatExInfo[fmtIdx + 2], formatExInfo[fmtIdx + 3]);
+        return (
+            GtxFormatLookup.GetExEntry(format, 0),
+            GtxFormatLookup.GetExEntry(format, 1),
+            GtxFormatLookup.GetExEntry(format, 2),
+            GtxFormatLookup.GetExEntry(format, 3)
+        );
     }
 
     public void ComputeMipLevel()
@@ -1746,7 +900,7 @@ public class GTX
         return handled;
     }
 
-    private static uint NextPow2(uint dim)
+    public static uint NextPow2(uint dim)
     {
         uint newDim = 1;
 

@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System.IO;
@@ -45,7 +46,8 @@ public class UbiArtLayoutTests
 
         IntermediateSongPackage package = new() { Metadata = new JDI.Metadata.IntermediateMetadata { MapName = "song" } };
 
-        await UbiArtAssetWriter.ExportToUncookedAsync(package, null, root, NullLogger.Instance, layout, style, version);
+        var writer = new UbiArtAssetWriter(NullLogger<UbiArtAssetWriter>.Instance);
+        await writer.ExportToUncookedAsync(package, null, root, layout, style, version);
 
         // Check songdesc is written under the map world folder
         Assert.True(File.Exists(Path.Combine(mapWorldFolder, "songdesc.tpl")));

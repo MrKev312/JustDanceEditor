@@ -25,12 +25,15 @@ public sealed record UnitySongTitleRequest(
     bool ForCustomServer,
     Image<Rgba32>? OverrideTitleImage = null);
 
-public static class SongTitleBundleBuilder
+public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
 {
     public static Task GenerateAsync(UnitySongTitleRequest request, ILogger logger) =>
-        Task.Run(() => Generate(request, logger));
+        Task.Run(() => new SongTitleBundleBuilder().Run(request, logger));
 
-    public static void Generate(UnitySongTitleRequest request, ILogger logger)
+    // Backwards-compatibility wrapper for callers using the previous static API
+    public static void Generate(UnitySongTitleRequest request, ILogger logger) => new SongTitleBundleBuilder().Run(request, logger);
+
+    private void Run(UnitySongTitleRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateInput(request);
@@ -54,16 +57,17 @@ public static class SongTitleBundleBuilder
         GenerateBundle(internalRequest, logger);
     }
 
-    private static void GenerateBundle(BundleContext request, ILogger logger)
+    private void GenerateBundle(BundleContext request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateBundleRequest(request);
 
+        AssetsManager? manager = null;
         try
         {
             logger.LogInformation("Starting generation for song title logo: {Codename}", request.Codename);
 
-            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? textureInfo, AssetFileInfo? spriteInfo) =
+            (manager, BundleFileInstance bunInst, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo assetBundleInfo, AssetTypeValueField assetBundleBase, AssetFileInfo textureInfo, AssetFileInfo spriteInfo) =
                 InitializeBundle(request.TemplatePath, request.Codename);
 
             UpdateSongTitleTexture(request.Codename, manager, afileInst, textureInfo, request.TitleImage);
@@ -77,6 +81,10 @@ public static class SongTitleBundleBuilder
         {
             logger.LogError(ex, "Failed to generate song title logo for {Codename}: {Message}", request.Codename, ex.Message);
             throw;
+        }
+        finally
+        {
+            ClearBundle(manager);
         }
     }
 
@@ -129,28 +137,6 @@ public static class SongTitleBundleBuilder
         image.Mutate(x => x.Resize(1024, 512));
     }
 
-    private static (AssetsManager Manager, BundleFileInstance BunInst, AssetsFileInstance AFileInst, AssetsFile AFile, AssetFileInfo AssetBundleInfo, AssetTypeValueField AssetBundleBase, AssetFileInfo TextureInfo, AssetFileInfo SpriteInfo)
-        InitializeBundle(string templatePath, string codename)
-    {
-        AssetsManager manager = new();
-        BundleFileInstance bunInst = manager.LoadBundleFile(templatePath, true);
-        AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
-        AssetsFile afile = afileInst.file;
-        afile.GenerateQuickLookup();
-
-        List<AssetFileInfo> sortedAssetInfos = [.. afile.AssetInfos.OrderBy(x => x.TypeId)];
-        AssetFileInfo assetBundleInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.AssetBundle);
-        AssetTypeValueField assetBundleBase = manager.GetBaseField(afileInst, assetBundleInfo);
-
-        assetBundleBase["m_Name"].AsString = $"{codename}_SongTitleLogo";
-        assetBundleBase["m_AssetBundleName"].AsString = $"{codename}_SongTitleLogo";
-
-        AssetFileInfo textureInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Texture2D);
-        AssetFileInfo spriteInfo = sortedAssetInfos.First(x => x.TypeId == (int)AssetClassID.Sprite);
-
-        return (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, textureInfo, spriteInfo);
-    }
-
     private static void UpdateSongTitleTexture(string codename, AssetsManager manager, AssetsFileInstance afileInst, AssetFileInfo textureInfo, Image<Rgba32> image)
     {
         AssetTypeValueField textureBase = manager.GetBaseField(afileInst, textureInfo);
@@ -174,13 +160,6 @@ public static class SongTitleBundleBuilder
         AssetTypeValueField spriteBase = manager.GetBaseField(afileInst, spriteInfo);
         spriteBase["m_Name"].AsString = $"{codename}_Title";
         spriteInfo.SetNewData(spriteBase);
-    }
-
-    private static void FinalizeAndSaveBundle(string outputFolderPath, bool forCustomServer, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
-    {
-        setAssetBundleData(assetBundleBase);
-        bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        bun.SaveAndCompress(outputFolderPath, forCustomServer);
     }
 
     private sealed record BundleContext(

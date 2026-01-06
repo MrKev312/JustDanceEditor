@@ -4,13 +4,17 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.Unity.Services;
 
-public sealed class UnityAssetMaterializerService(ILogger<UnityAssetMaterializerService> logger) : IUnityAssetMaterializer
+public sealed class UnityAssetMaterializerService : IUnityAssetMaterializer
 {
-    private readonly ILogger<UnityAssetMaterializerService> _logger = logger;
+    private readonly UnityAssetMaterializer _materializer;
+
+    public UnityAssetMaterializerService(ILogger<UnityAssetMaterializerService> logger)
+    {
+        _materializer = new UnityAssetMaterializer(logger);
+    }
 
     public void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot)
     {
-        // Forward to the static helper but pass the injected logger
-        UnityAssetMaterializer.Materialize(package, unityRoot, targetRoot, _logger);
+        _materializer.Materialize(package, unityRoot, targetRoot);
     }
 }

@@ -74,6 +74,14 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
                 await fs.FlushAsync();
             }
 
+            // Wait for the file to actually be created - retry a few times to handle Windows file system caching
+            int retries = 5;
+            while (!File.Exists(tempInput) && retries > 0)
+            {
+                await Task.Delay(50); // Wait 50ms before retrying
+                retries--;
+            }
+
             if (!File.Exists(tempInput))
                 throw new Exception($"Temporary input file was not created: {tempInput}");
 
