@@ -148,9 +148,20 @@ public static class GX2Swizzle
             data = surface.Data;
         }
 
-        return DeswizzleSurface(width, height, surfInfo.Depth, surfInfo.Height,
+        // For macro-tiled textures, use the pitch and height values from the file header, not the recalculated aligned values.
+        // The file stores the data using the original pitch/height, not the alignment-padded dimensions.
+        uint actualPitch = surfInfo.Pitch;
+        uint actualHeight = surfInfo.Height;
+        if (mipLevel == 0 && ((uint)surface.TileMode > 3 && (uint)surface.TileMode != 16))
+        {
+            // Macro-tiled mode - use the values from the file
+            actualPitch = surface.Pitch;
+            actualHeight = surface.Height;
+        }
+
+        return DeswizzleSurface(width, height, surfInfo.Depth, actualHeight,
             (uint)surface.Format, (uint)surface.AA, surface.Use, surfInfo.TileMode,
-            swizzle, surfInfo.Pitch, surfInfo.Bpp, (uint)arrayLevel, 0, data);
+            swizzle, actualPitch, surfInfo.Bpp, (uint)arrayLevel, 0, data);
     }
 
     /// <summary>

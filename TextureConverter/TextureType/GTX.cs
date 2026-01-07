@@ -289,6 +289,9 @@ public class GTX
 
     public void LoadFile(Stream data)
     {
+        // Save the current stream position to support wrapped textures
+        long dataOffset = data.Position;
+        
         Blocks = [];
         Textures = [];
         TextureData = [];
@@ -328,7 +331,8 @@ public class GTX
         if (GpuVersion != 2)
             throw new NotSupportedException($"Unsupported GPU version: {GpuVersion}");
 
-        data.Seek(HeaderSize, SeekOrigin.Begin);
+        // Seek relative to the saved offset to support wrapped textures
+        data.Seek(dataOffset + HeaderSize, SeekOrigin.Begin);
 
         while (data.Position < data.Length)
         {
