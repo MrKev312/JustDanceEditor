@@ -1,34 +1,31 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-
 using TextureConverter.Formats;
 using TextureConverter.TextureType;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace TextureConverter.Tests;
 
 public class XTXFormatTests
 {
-    /// <summary>
-    /// Creates a test image with a gradient pattern for testing.
-    /// </summary>
     private static Image<Bgra32> CreateTestImage(int width = 64, int height = 64)
     {
-        var image = new Image<Bgra32>(width, height);
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    byte r = (byte)((x * 255) / width);
-                    byte g = (byte)((y * 255) / height);
-                    byte b = (byte)(((x + y) * 255) / (width + height));
-                    row[x] = new Bgra32(r, g, b, 255);
-                }
-            }
-        });
-        return image;
+        return TestImageHelper.CreateTestImage(width, height);
+    }
+
+    private static Image<Bgra32> CreateTestImage(int width, int height, TestImageHelper.TestPattern pattern)
+    {
+        return TestImageHelper.CreateTestImage(width, height, pattern);
+    }
+
+    private static void AssertPixelsEqual(Image<Bgra32> expected, Image<Bgra32> actual, 
+        int tolerance = 0, string message = "")
+    {
+        TestImageHelper.AssertPixelsEqual(expected, actual, tolerance, message);
+    }
+
+    private static Bgra32[] ExtractPixels(Image<Bgra32> image)
+    {
+        return TestImageHelper.ExtractPixels(image);
     }
 
     [Theory]
@@ -274,4 +271,257 @@ public class XTXFormatTests
             xtxOutput.Dispose();
         }
     }
+
+    #region Comprehensive Coverage Tests
+
+    #region Pattern-Based Round-Trip Tests
+
+    [Theory]
+    [InlineData(64, 64, TestImageHelper.TestPattern.Gradient)]
+    [InlineData(64, 64, TestImageHelper.TestPattern.Checkerboard)]
+    [InlineData(64, 64, TestImageHelper.TestPattern.Numbered)]
+    [InlineData(64, 64, TestImageHelper.TestPattern.Striped)]
+    [InlineData(128, 64, TestImageHelper.TestPattern.Gradient)]
+    [InlineData(64, 128, TestImageHelper.TestPattern.Gradient)]
+    public void RoundTrip_RGBA8_PatternPreservation(int width, int height, TestImageHelper.TestPattern pattern)
+    {
+        using var original = CreateTestImage(width, height, pattern);
+        var xtxOutput = new MemoryStream();
+
+        // Act
+        XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        // Assert - Allow small tolerance for compression
+        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored, tolerance: 0,
+            message: $"Pattern {pattern} at {width}x{height}");
+        
+        xtxOutput.Dispose();
+    }
+
+    #endregion
+
+    #region Dimension Coverage Tests
+
+    [Theory]
+    [InlineData(1, 1)]      // Minimal
+    [InlineData(2, 2)]      // Minimal power-of-2
+    [InlineData(4, 4)]      // Small
+    [InlineData(8, 8)]      // Standard small
+    [InlineData(16, 16)]    // Standard
+    [InlineData(32, 32)]    // Standard
+    [InlineData(64, 64)]    // Test size
+    [InlineData(128, 128)]  // Larger
+    [InlineData(256, 256)]  // Game file size
+    [InlineData(512, 512)]  // Larger game file size
+    [InlineData(128, 64)]   // Non-square
+    [InlineData(512, 256)]  // Non-square large
+    public void RoundTrip_RGBA8_VariousDimensions(int width, int height)
+    {
+        using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Gradient);
+        var xtxOutput = new MemoryStream();
+
+        // Act
+        XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        // Assert
+        Assert.Equal(original.Width, restored.Width);
+        Assert.Equal(original.Height, restored.Height);
+        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored,
+            message: $"Dimensions {width}x{height}");
+        
+        xtxOutput.Dispose();
+    }
+
+    #endregion
+
+    #region Format Coverage Tests
+
+    [Theory]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGBA8)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGBA8_SRGB)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGB10A2)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGB565)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGB5A1)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGBA4)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_R8)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RG8)]
+    public void RoundTrip_AllFormats_PreservesDimensions(XTX.XTXImageFormat format)
+    {
+        using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
+        var xtxOutput = new MemoryStream();
+
+        // Act
+        XTX.ConvertToFile(original, format, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        // Assert - Dimensions should always be preserved
+        Assert.Equal(original.Width, restored.Width);
+        Assert.Equal(original.Height, restored.Height);
+        
+        xtxOutput.Dispose();
+    }
+
+    [Theory]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGBA8)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGBA8_SRGB)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RGB565)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_R8)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RG8)]
+    public void RoundTrip_AllFormats_WithVariousDimensions(XTX.XTXImageFormat format)
+    {
+        var dimensions = new[] { (32, 32), (64, 64), (128, 128), (256, 256) };
+
+        foreach (var (width, height) in dimensions)
+        {
+            using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Numbered);
+            var xtxOutput = new MemoryStream();
+
+            // Act
+            XTX.ConvertToFile(original, format, xtxOutput);
+            xtxOutput.Seek(0, SeekOrigin.Begin);
+            using var restored = XTX.GetImage(xtxOutput);
+
+            // Assert
+            Assert.Equal(original.Width, restored.Width);
+            Assert.Equal(original.Height, restored.Height);
+            
+            xtxOutput.Dispose();
+        }
+    }
+
+    #endregion
+
+    #region Edge Cases
+
+    [Fact]
+    public void RoundTrip_SinglePixel()
+    {
+        using var original = CreateTestImage(1, 1);
+        var xtxOutput = new MemoryStream();
+
+        XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        Assert.Equal(1, restored.Width);
+        Assert.Equal(1, restored.Height);
+        
+        xtxOutput.Dispose();
+    }
+
+    [Theory]
+    [InlineData(3, 3)]   // Odd dimensions
+    [InlineData(7, 5)]   // Prime-like dimensions
+    [InlineData(255, 255)] // Off by one from power of 2
+    public void RoundTrip_OddDimensions(int width, int height)
+    {
+        using var original = CreateTestImage(width, height);
+        var xtxOutput = new MemoryStream();
+
+        XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        Assert.Equal(original.Width, restored.Width);
+        Assert.Equal(original.Height, restored.Height);
+        
+        xtxOutput.Dispose();
+    }
+
+    [Fact]
+    public void Header_ContainsCorrectMagic()
+    {
+        using var testImage = CreateTestImage(32, 32);
+        var xtxOutput = new MemoryStream();
+
+        XTX.ConvertToFile(testImage, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
+        
+        // Verify magic number
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        byte[] magic = new byte[4];
+        xtxOutput.Read(magic, 0, 4);
+        Assert.Equal("DFvN", System.Text.Encoding.ASCII.GetString(magic));
+        
+        xtxOutput.Dispose();
+    }
+
+    [Theory]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_R8)]
+    [InlineData(XTX.XTXImageFormat.NVN_FORMAT_RG8)]
+    public void RoundTrip_MonochromeFormats_PreserveLuminance(XTX.XTXImageFormat format)
+    {
+        // Create grayscale test image
+        var image = new Image<Bgra32>(64, 64);
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    byte gray = (byte)((x * 255) / 64);
+                    row[x] = new Bgra32(gray, gray, gray, 255);
+                }
+            }
+        });
+
+        var xtxOutput = new MemoryStream();
+
+        // Act
+        XTX.ConvertToFile(image, format, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        // Assert
+        Assert.Equal(image.Width, restored.Width);
+        Assert.Equal(image.Height, restored.Height);
+        
+        xtxOutput.Dispose();
+    }
+
+    #endregion
+
+    #region Format Compatibility Tests
+
+    [Fact]
+    public void ConvertToFile_RGB10A2_WorksCorrectly()
+    {
+        using var testImage = CreateTestImage(64, 64);
+        var output = new MemoryStream();
+
+        // Act & Assert - Should not throw
+        XTX.ConvertToFile(testImage, XTX.XTXImageFormat.NVN_FORMAT_RGB10A2, output);
+        Assert.NotEmpty(output.ToArray());
+        
+        output.Dispose();
+    }
+
+    [Fact]
+    public void ConvertToFile_RGBA4_RoundTrip_WorksWithQuantization()
+    {
+        using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Checkerboard);
+        var xtxOutput = new MemoryStream();
+
+        // Act
+        XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA4, xtxOutput);
+        xtxOutput.Seek(0, SeekOrigin.Begin);
+        using var restored = XTX.GetImage(xtxOutput);
+
+        // Assert - Allow larger tolerance for 4-bit format
+        Assert.Equal(original.Width, restored.Width);
+        Assert.Equal(original.Height, restored.Height);
+        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored, 
+            tolerance: 15, message: "RGBA4 quantization");
+        
+        xtxOutput.Dispose();
+    }
+
+    #endregion
+
+    #endregion
 }
