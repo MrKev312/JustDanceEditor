@@ -42,8 +42,8 @@ public class GameTextureDetector : IImageFormatDetector
 
         if (sig.SequenceEqual([(byte)'G', (byte)'f', (byte)'x', (byte)'2']))
         {
-            format = GtxFormat.Instance;
-            return true;
+           format = GtxFormat.Instance;
+           return true;
         }
 
         return false;

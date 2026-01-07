@@ -14,4 +14,7 @@
   <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
   <Project Path="JustDanceEditor.UI/JustDanceEditor.UI.csproj" />
   <Project Path="TextureConverter/TextureConverter.csproj" />
+  <Project Path="TextureConverter.Tests/TextureConverter.Tests.csproj">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
 </Solution>

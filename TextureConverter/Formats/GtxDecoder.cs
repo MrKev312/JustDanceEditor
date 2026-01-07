@@ -6,10 +6,11 @@ using TextureConverter.TextureType;
 
 namespace TextureConverter.Formats;
 
+/// <summary>
+/// Decoder for WiiU GTX texture format.
+/// </summary>
 public class GtxDecoder : IImageDecoder
 {
-    private const int TexWrapperOffset = 0x2C;
-
     public ImageInfo Identify(DecoderOptions options, Stream stream)
     {
         long pos = stream.CanSeek ? stream.Position : 0;
@@ -36,19 +37,6 @@ public class GtxDecoder : IImageDecoder
         long pos = stream.CanSeek ? stream.Position : 0;
         try
         {
-            // Check for .tex wrapper
-            byte[] header = new byte[7];
-            if (stream.Read(header, 0, header.Length) == header.Length && header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 && header[3] == 0x09 && header[4] == (byte)'T' && header[5] == (byte)'E' && header[6] == (byte)'X')
-            {
-                if (stream.CanSeek)
-                    stream.Seek(pos + TexWrapperOffset, SeekOrigin.Begin);
-            }
-            else
-            {
-                if (stream.CanSeek)
-                    stream.Seek(pos, SeekOrigin.Begin);
-            }
-
             Image<Bgra32> decoded = GTX.GetImage(stream);
 
             if (typeof(TPixel) == typeof(Bgra32))
@@ -68,7 +56,8 @@ public class GtxDecoder : IImageDecoder
         return Decode<Bgra32>(options, stream);
     }
 
-    public Task<Image<TPixel>> DecodeAsync<TPixel>(DecoderOptions options, Stream stream, CancellationToken cancellationToken = default) where TPixel : unmanaged, IPixel<TPixel>
+    public Task<Image<TPixel>> DecodeAsync<TPixel>(DecoderOptions options, Stream stream, CancellationToken cancellationToken = default)
+        where TPixel : unmanaged, IPixel<TPixel>
     {
         return Task.FromResult(Decode<TPixel>(options, stream));
     }

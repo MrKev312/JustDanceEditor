@@ -140,4 +140,51 @@ internal class Swizzle
 
         return address;
     }
+
+    internal static byte[] SwizzleData(uint width, uint height, XTX.XTXImageFormat format, byte[] data)
+    {
+        int pos_ = 0;
+
+        int bpp = XTX.GetBPP(format);
+
+        uint originWidth = width;
+        uint originHeight = height;
+
+        if (DDS.BCnFormats.Contains(XTX.ConvertXTXToDDSFormat(format)))
+        {
+            originWidth = (originWidth + 3) / 4;
+            originHeight = (originHeight + 3) / 4;
+        }
+
+        int xb = CountZeros(Pow2RoundUp(originWidth));
+        int yb = CountZeros(Pow2RoundUp(originHeight));
+
+        uint hh = Pow2RoundUp(originHeight) >> 1;
+
+        if (!IsPow2(originHeight) && originHeight <= hh + (hh / 3) && yb > 3)
+            yb -= 1;
+
+        width = RoundSize(originWidth, padds[bpp]);
+
+        // Fix: Allocate result buffer based on the padded stride to ensure all pixels fit.
+        // The swizzled size is width * height * bpp (where width is the padded width)
+        byte[] result = new byte[width * originHeight * bpp];
+
+        int xBase = xBases[bpp];
+
+        for (uint y = 0; y < originHeight; y++)
+        {
+            for (uint x = 0; x < originWidth; x++)
+            {
+                int pos = GetAddr(x, y, xb, yb, width, xBase) * bpp;
+
+                if (pos_ + bpp <= data.Length && pos + bpp <= result.Length)
+                    Array.Copy(data, pos_, result, pos, bpp);
+
+                pos_ += bpp;
+            }
+        }
+
+        return result;
+    }
 }
