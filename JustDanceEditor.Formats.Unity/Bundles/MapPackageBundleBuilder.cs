@@ -38,7 +38,7 @@ public sealed class MapPackageBundleBuilder(ILogger<MapPackageBundleBuilder> log
     public static void Generate(UnityMapPackageRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var builder = new MapPackageBundleBuilder(logger as ILogger<MapPackageBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        MapPackageBundleBuilder builder = new(logger as ILogger<MapPackageBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
         builder.Run(request);
     }
 

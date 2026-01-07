@@ -60,11 +60,103 @@ public class LayeredFileSystem
             DiscoverAndRegisterIPKs();
         }
 
-        InitializeSongID();
         InitializePlatformType();
+
+        // Only initialize SongID if explicitly requested or if a specific song name was provided
+        if (ConversionRequest.SongName != null)
+        {
+            SongName = ConversionRequest.SongName;
+        }
 
         // NOTE: LayeredFileSystem is read-only regarding file system mutations; temp folders are managed by ITempFolderManager and
         // should only be created by components that need them (e.g., exporters/converters).
+    }
+
+    /// <summary>
+    /// Explicitly initialize the song name. Call this after Initialize() when you need to determine the song.
+    /// For multi-song bundles, this will throw - use GetAvailableSongs() instead.
+    /// </summary>
+    public void InitializeSongID()
+    {
+        if (!string.IsNullOrWhiteSpace(SongName))
+            return; // Already initialized
+
+        var songs = GetAvailableSongs();
+        if (songs.Length == 0)
+            throw new DirectoryNotFoundException("No song folders found in the maps folder.");
+        if (songs.Length > 1)
+            throw new DirectoryNotFoundException($"Multiple songs found in the bundle. Use GetAvailableSongs() to list them: {string.Join(", ", songs.Select(s => s.SongName))}");
+
+        SongName = songs[0].SongName;
+    }
+
+    /// <summary>
+    /// Get all available songs in the current bundle/input, discovering from maps folders.
+    /// Returns an array of (SongName, SongDescPath) tuples.
+    /// Gets all folder names from the input's maps directory, then searches all bundles for their songdesc files.
+    /// </summary>
+    public (string SongName, string SongDescPath)[] GetAvailableSongs()
+    {
+        List<(string SongName, string SongDescPath)> songs = [];
+
+        // For explicitly specified song, return it immediately
+        if (!string.IsNullOrWhiteSpace(ConversionRequest.SongName))
+        {
+            string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, ConversionRequest.SongName, VersionProfile.ContainerStyle, VersionProfile.EngineVersion)
+                ?? Path.Combine("world", "maps", ConversionRequest.SongName);
+            string songDescPath = Path.Combine(mapFolder, "songdesc.tpl");
+            songs.Add((ConversionRequest.SongName, songDescPath));
+            return [..songs];
+        }
+
+        // Get all folder names in maps from the input (whether IPK or directory)
+        string[] songFolderNames = [];
+        
+        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_ipkFileSystems.TryGetValue(Path.GetFileNameWithoutExtension(ConversionRequest.InputPath), out var ipk))
+            {
+                string mapsRel = Path.Combine("world", "maps");
+                if (ipk.DirectoryExists(mapsRel))
+                {
+                    string[] songFolders = ipk.GetDirectories(mapsRel);
+                    songFolderNames = [.. songFolders.Select(f => Path.GetFileName(f))];
+                }
+            }
+        }
+        else
+        {
+            // For directory inputs, get folder names from maps
+            string mapsFolder = _io.Combine(ConversionRequest.InputPath, "world", "maps");
+            if (!_io.DirectoryExists(mapsFolder))
+            {
+                // Try layout-specific location
+                if (VersionProfile.Layout != null)
+                {
+                    string layoutMapsFolder = _io.Combine(ConversionRequest.InputPath, VersionProfile.Layout.GetMapWorldFolder(ConversionRequest.InputPath, "", VersionProfile.ContainerStyle, VersionProfile.EngineVersion));
+                    if (_io.DirectoryExists(layoutMapsFolder))
+                        mapsFolder = layoutMapsFolder;
+                }
+            }
+
+            if (_io.DirectoryExists(mapsFolder))
+            {
+                string[] songDirs = _io.GetDirectories(mapsFolder);
+                songFolderNames = [.. songDirs.Select(d => Path.GetFileName(d))];
+            }
+        }
+
+        // For each song folder name, search all bundles for its songdesc using GetFilePath
+        foreach (string songName in songFolderNames)
+        {
+            string songDescRel = Path.Combine("world", "maps", songName, "songdesc.tpl");
+            if (GetFilePath(songDescRel, out CookedFile? songDescPath))
+            {
+                songs.Add((songName, songDescPath.RelativePath));
+            }
+        }
+
+        return [..songs];
     }
 
     public UbiArtConversionRequest ConversionRequest { get; private set; }
@@ -101,74 +193,6 @@ public class LayeredFileSystem
 
         // Do not create or delete temp folders here; responsibility moved to ITempFolderManager consumers.
         // Cleanup is explicit and should be performed by the calling workflow when appropriate.
-    }
-
-    private void InitializeSongID()
-    {
-        if (ConversionRequest.SongName != null)
-        {
-            SongName = ConversionRequest.SongName;
-            return;
-        }
-
-        // If the request explicitly says Uncooked or the detected container style is Uncooked, derive the song name from the input folder
-        if (ConversionRequest.Type == UbiArtType.Uncooked || VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked)
-        {
-            SongName = Path.GetFileName(ConversionRequest.InputPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            return;
-        }
-
-        // If the input is an IPK, check the registered IPK filesystem(s) for world/maps
-        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
-        {
-            string mapsRel = Path.Combine("world", "maps");
-            foreach (var ipk in _ipkFileSystems.Values)
-            {
-                try
-                {
-                    if (ipk.DirectoryExists(mapsRel))
-                    {
-                        string[] ipkSongs = ipk.GetDirectories(mapsRel);
-                        if (ipkSongs.Length < 1)
-                            throw new DirectoryNotFoundException("No song folders found in the maps folder.");
-                        if (ipkSongs.Length > 1)
-                            throw new DirectoryNotFoundException("Multiple song folders found in the maps folder, please specify the song name in the request.");
-
-                        SongName = Path.GetFileName(ipkSongs[0]);
-                        return;
-                    }
-                }
-                catch
-                {
-                    // Ignore individual IPK read errors and try other IPKs
-                }
-            }
-
-            // If no maps folder found in any IPK, fall through to existing behavior which will attempt layout-based resolution and then fail
-        }
-
-        string mapsFolder = _io.Combine(ConversionRequest.InputPath, "world", "maps");
-        if (!_io.DirectoryExists(mapsFolder))
-        {
-            // If our configured layout provides a different location, try that too
-            if (VersionProfile.Layout != null)
-            {
-                string candidate = _io.Combine(ConversionRequest.InputPath, VersionProfile.Layout.GetMapWorldFolder(ConversionRequest.InputPath, string.Empty, VersionProfile.ContainerStyle, VersionProfile.EngineVersion));
-                if (!string.IsNullOrWhiteSpace(candidate) && _io.DirectoryExists(candidate))
-                    mapsFolder = candidate;
-            }
-
-            if (!_io.DirectoryExists(mapsFolder))
-                throw new DirectoryNotFoundException("The maps folder does not exist.");
-        }
-
-        string[] songs = _io.GetDirectories(mapsFolder);
-        if (songs.Length < 1)
-            throw new DirectoryNotFoundException("No song folders found in the maps folder.");
-        if (songs.Length > 1)
-            throw new DirectoryNotFoundException("Multiple song folders found in the maps folder, please specify the song name in the request.");
-
-        SongName = Path.GetFileName(songs[0]);
     }
 
     private void InitializePlatformType()

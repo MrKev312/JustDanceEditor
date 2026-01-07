@@ -39,6 +39,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);
         fileSystem.Initialize();
 
+        // Resolve selected song (may call into UI via request.SelectSongAsync)
+        string chosenSong = await ResolveSongAsync(ubiRequest, fileSystem);
+        if (!string.IsNullOrWhiteSpace(chosenSong))
+            fileSystem.UpdateSongName(chosenSong);
+
         ValidateUbiArtImport(ubiRequest, fileSystem);
 
         // Log song name and platform here (moved from FileSystem internals)
@@ -93,6 +98,36 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             SuggestedOutputFolder: outputFolder);
     }
 
+    public async Task<string> ResolveSongAsync(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
+    {
+        // If already specified, return it
+        if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
+            return fileSystem.SongName;
+
+        var available = fileSystem.GetAvailableSongs();
+        if (available.Length == 0)
+            throw new InvalidOperationException("No songs found in the input bundle.");
+        if (available.Length == 1)
+            return available[0].SongName;
+
+        // Multiple songs: if caller provided a selector, use it
+        if (request.SelectSongAsync != null)
+        {
+            string[] names = [.. available.Select(s => s.SongName)];
+            string? selected = await request.SelectSongAsync(names);
+            if (string.IsNullOrWhiteSpace(selected))
+                throw new OperationCanceledException("Song selection was canceled by the caller.");
+
+            if (!names.Contains(selected, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException("Selected song is not in the available songs list.", nameof(selected));
+
+            return selected;
+        }
+
+        // No selector provided: throw the MultipleSongsFoundException so UI can catch and handle
+        throw new MultipleSongsFoundException(available.Select(s => s.SongName));
+    }
+
     public async Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
         if (request is not UbiArtConversionRequest ubiRequest)
@@ -138,19 +173,17 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             LayeredFileSystem fs = _fileSystemFactory(req, profile);
             fs.Initialize();
 
-            // Use FileSystem.GetFilePath like SongDataLoader does to correctly find songdesc.tpl
-            string songDescRelativePath = _io.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
-            bool hasSongDesc = fs.GetFilePath(songDescRelativePath, out CookedFile? songDescCooked);
-
-            bool hasJddb = _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "jddb.json"))
-                || _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"));
-
-            if (!hasSongDesc && !hasJddb)
+            // For Check, we just need to verify that maps exist with songdesc files
+            // Don't try to initialize a specific song - just check if ANY songdesc.tpl exists in the maps folder
+            var availableSongs = fs.GetAvailableSongs();
+            if (availableSongs.Length == 0)
                 return false;
 
-            // Attempt to load song data to determine engine version and report platform
+            // Attempt to load song data from the first available song to determine engine version and report platform
             try
             {
+                // Update filesystem with first song temporarily for verification
+                fs.UpdateSongName(availableSongs[0].SongName);
                 SongDesc sd = _songDataLoader.LoadSongDesc(req, fs);
                 uint engine = sd.COMPONENTS[0].JDVersion;
                 uint original = sd.COMPONENTS[0].OriginalJDVersion;

@@ -1,7 +1,3 @@
-using JustDanceEditor.Formats.JDI;
-
-using Microsoft.Extensions.Logging;
-
 namespace JustDanceEditor.UI.Converting;
 
 /// <summary>

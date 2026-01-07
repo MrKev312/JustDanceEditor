@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
@@ -64,19 +65,43 @@ internal static class FormatConversionDialogue
 
         try
         {
-            JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+            while (true)
+            {
+                try
+                {
+                    JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
 
-            try
-            {
-                targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Conversion {sourceName} -> {targetName} completed successfully.");
-                Console.ResetColor();
-            }
-            finally
-            {
-                if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
-                    Directory.Delete(importResult.MaterializedRoot, true);
+                    try
+                    {
+                        targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine($"Conversion {sourceName} -> {targetName} completed successfully.");
+                        Console.ResetColor();
+                    }
+                    finally
+                    {
+                        if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
+                            Directory.Delete(importResult.MaterializedRoot, true);
+                    }
+
+                    break; // Success - exit the retry loop
+                }
+                catch (MultipleSongsFoundException msEx)
+                {
+                    // Multi-song bundle detected - ask user to select
+                    string[] songChoices = [.. msEx.AvailableSongs];
+                    int songSelection = Question.Ask(songChoices, 0, "Multiple songs found in the bundle. Which one should be converted?");
+                    string selectedSong = songChoices[songSelection];
+
+                    // Update the request with the selected song and retry
+                    if (importRequest is UbiArtConversionRequest ubiRequest)
+                    {
+                        ubiRequest.SongName = selectedSong;
+                    }
+
+                    // Retry the import with the selected song
+                    continue;
+                }
             }
         }
         catch (Exception ex)
@@ -184,18 +209,26 @@ internal static class FormatConversionDialogue
 
     private static string? ResolveUbiArtSongName(string inputPath)
     {
+        // Only try to detect from direct filesystem structure
+        // Bundled/IPK files will be detected during import and handled via MultipleSongsFoundException
         string mapsPath = Path.Combine(inputPath, "world", "maps");
         if (!Directory.Exists(mapsPath))
             return null;
 
         string[] maps = Directory.GetDirectories(mapsPath);
+        if (maps.Length == 0)
+            return null;
+
+        // Single map folder - auto-select it
         if (maps.Length == 1)
             return Path.GetFileName(maps[0]);
 
-        if (maps.Length > 1)
+        // Multiple direct folders - ask the user (but this is the old behavior)
+        // Note: If input is a bundle (IPK), this won't run, and the exception handler will catch it
+        string[] mapNames = [.. maps.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)];
+        if (mapNames.Length > 0)
         {
-            string[] mapNames = [.. maps.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)];
-            int selection = Question.Ask(mapNames, 0, "Multiple maps found. Which one should be converted?");
+            int selection = Question.Ask(mapNames, 0, "Multiple maps found in direct filesystem. Which one should be converted?");
             return mapNames[selection];
         }
 

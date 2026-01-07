@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.UbiArt.Images;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 using Xunit;
 
@@ -26,7 +27,7 @@ public class MontageSortingTests
         if (!expected.SequenceEqual(items))
         {
             var cmp = AlphanumericTextFirstComparer.Instance;
-            var details = new System.Text.StringBuilder();
+            StringBuilder details = new();
             details.AppendLine($"Sorted: {string.Join(", ", items)}");
             details.AppendLine($"Expect: {string.Join(", ", expected)}");
 
@@ -76,7 +77,7 @@ public class MontageSortingTests
     public void SortedList_Is_Monotonic_By_Comparer()
     {
         string[] inputs = ["testhi", "test1"];
-        var list = new List<string>(inputs);
+        List<string> list = new(inputs);
         list.Sort(AlphanumericTextFirstComparer.Instance);
 
         var cmp = AlphanumericTextFirstComparer.Instance;

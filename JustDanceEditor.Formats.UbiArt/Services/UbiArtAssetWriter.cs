@@ -20,17 +20,12 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 /// <summary>
 /// Service for exporting UbiArt assets from intermediate package format.
 /// </summary>
-public sealed class UbiArtAssetWriter : IUbiArtAssetWriter
+public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiArtAssetWriter
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
-    private readonly ILogger<UbiArtAssetWriter> _logger;
-
-    public UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<UbiArtAssetWriter> _logger = logger;
 
     public async Task ExportToUncookedAsync(
         IntermediateSongPackage package,

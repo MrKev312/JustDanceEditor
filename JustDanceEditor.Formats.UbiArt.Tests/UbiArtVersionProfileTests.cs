@@ -21,8 +21,8 @@ public class UbiArtVersionProfileTests
 
         var cmp = profile.PictoNameComparer;
 
-        var input = new List<string> { "amor_sh", "amor_po", "amor1_po" };
-        var sorted = input.OrderBy(s => s, cmp).ToList();
+        List<string> input = ["amor_sh", "amor_po", "amor1_po"];
+        List<string> sorted = [.. input.OrderBy(s => s, cmp)];
 
         Assert.Equal(["amor_po", "amor_sh", "amor1_po"], sorted);
     }
@@ -37,8 +37,8 @@ public class UbiArtVersionProfileTests
 
         var cmp = profile.PictoNameComparer;
 
-        var input = new List<string> { "amor_sh", "amor_po", "amor1_po" };
-        var sorted = input.OrderBy(s => s, cmp).ToList();
+        List<string> input = ["amor_sh", "amor_po", "amor1_po"];
+        List<string> sorted = [.. input.OrderBy(s => s, cmp)];
 
         Assert.Equal(["amor1_po", "amor_po", "amor_sh"], sorted);
     }

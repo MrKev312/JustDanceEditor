@@ -47,11 +47,30 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
 
         _stream.Seek(0x30, SeekOrigin.Begin);
 
+        // First pass: read all entries to detect if paths are swapped
+        List<(int Dummy1, int Size, int ZSize, long TimeStamp, long Offset, string Path, string Name, int Crc, int Dummy2)> tempEntries = [];
         for (int i = 0; i < filesCount; i++)
         {
             var entry = ReadFileEntry(_reader, baseOffset);
-            // Determine logical path
-            (string fileName, string folderPath) = entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name);
+            tempEntries.Add(entry);
+        }
+
+        // Detect if paths are swapped by checking if most Name entries contain "cache/itf_cooked"
+        // This is a marker for WiiU bundles where Name contains folder path and Path contains filename
+        bool pathsAreSwapped = false;
+        if (tempEntries.Count > 0)
+        {
+            int cacheCount = tempEntries.Count(e => e.Name.Contains("cache/itf_cooked", StringComparison.OrdinalIgnoreCase));
+            pathsAreSwapped = cacheCount > tempEntries.Count / 2;
+        }
+
+        // Second pass: add entries with correct path resolution
+        foreach (var entry in tempEntries)
+        {
+            // Determine logical path based on detection
+            (string fileName, string folderPath) = pathsAreSwapped
+                ? (entry.Path, entry.Name)  // WiiU bundles: Name is folder, Path is file
+                : (entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name));
             string logical = Path.Combine(folderPath ?? string.Empty, fileName ?? string.Empty).Replace('/', Path.DirectorySeparatorChar);
             _entries[logical] = (entry.Offset, entry.Size, entry.ZSize);
         }
@@ -95,7 +114,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     public string[] GetDirectories(string path)
     {
         string norm = NormalizePath(path);
-        var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> dirs = new(StringComparer.OrdinalIgnoreCase);
         foreach (var key in _entries.Keys)
         {
             if (!IsChildPath(norm, key))
@@ -111,7 +130,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     public string[] GetFiles(string path, string searchPattern = "*")
     {
         string norm = NormalizePath(path);
-        var files = new List<string>();
+        List<string> files = [];
         var regex = WildcardToRegex(searchPattern);
         foreach (var key in _entries.Keys)
         {

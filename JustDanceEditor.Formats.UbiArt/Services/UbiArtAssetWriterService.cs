@@ -15,7 +15,7 @@ public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory log
     {
         // Create instance with proper logger and delegate to it
         var writerLogger = _loggerFactory.CreateLogger<UbiArtAssetWriter>();
-        var writer = new UbiArtAssetWriter(writerLogger);
+        UbiArtAssetWriter writer = new(writerLogger);
         return writer.ExportToUncookedAsync(package, materializedRoot, outputFolder, layout, containerStyle, engineVersion, io ?? _io);
     }
 }

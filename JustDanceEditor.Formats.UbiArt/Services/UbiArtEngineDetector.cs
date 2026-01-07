@@ -15,7 +15,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         // If the input is an IPK file, use an IpkFileSystem and treat paths as relative (no inputPath prefix)
         if (Path.GetExtension(inputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
         {
-            using var ipk = new IpkFileSystem(inputPath);
+            using IpkFileSystem ipk = new(inputPath);
             return DetectWithFileSystem(string.Empty, ipk);
         }
 
@@ -44,14 +44,14 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd2015")))
             {
-                var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
+                UbiArtVersionProfile prof = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
 
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd5")))
             {
-                var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
+                UbiArtVersionProfile prof = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
@@ -60,14 +60,14 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
         {
-            var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
         {
-            var prof = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
@@ -114,8 +114,8 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
     private IEnumerable<string> GetDirectoriesRecursive(string root, JDI.Services.IFileSystem fs)
     {
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<string>();
+        HashSet<string> visited = new(StringComparer.OrdinalIgnoreCase);
+        Stack<string> stack = new();
         stack.Push(root);
 
         while (stack.Count > 0)
@@ -140,8 +140,8 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
     private IEnumerable<string> GetFilesRecursive(string root, string searchPattern, JDI.Services.IFileSystem fs)
     {
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var stack = new Stack<string>();
+        HashSet<string> visited = new(StringComparer.OrdinalIgnoreCase);
+        Stack<string> stack = new();
         stack.Push(root);
 
         while (stack.Count > 0)

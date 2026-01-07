@@ -1,7 +1,7 @@
-using TextureConverter.Formats;
-using TextureConverter.TextureType;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using TextureConverter.TextureType;
 
 namespace TextureConverter.Tests;
 
@@ -40,7 +40,7 @@ public class XTXFormatTests
     public void ConvertToFile_CreatesValidXTXFile(XTX.XTXImageFormat format)
     {
         using var testImage = CreateTestImage();
-        var output = new MemoryStream();
+        MemoryStream output = new();
 
         // Act
         XTX.ConvertToFile(testImage, format, output);
@@ -61,7 +61,7 @@ public class XTXFormatTests
     public void ConvertToFile_RGBA8_RoundTrip_PreservesImageDimensions()
     {
         using var original = CreateTestImage(32, 48);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act - Convert to XTX
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
@@ -80,14 +80,14 @@ public class XTXFormatTests
     [Fact]
     public void ConvertToFile_RGBA8_RoundTrip_PixelsMatch()
     {
-        var image = new Image<Bgra32>(4, 4);
-        var pixels = new Bgra32[] 
-        { 
+        Image<Bgra32> image = new(4, 4);
+        Bgra32[] pixels =
+        [
             new(255, 0, 0, 255),
             new(0, 255, 0, 255),
             new(0, 0, 255, 255),
             new(255, 255, 255, 255)
-        };
+        ];
 
         image.ProcessPixelRows(accessor =>
         {
@@ -101,7 +101,7 @@ public class XTXFormatTests
             }
         });
 
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(image, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
@@ -132,7 +132,7 @@ public class XTXFormatTests
     public void ConvertToFile_RGB565_RoundTrip_SimilarPixelValues()
     {
         using var original = CreateTestImage(16, 16);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act - Convert to XTX
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGB565, xtxOutput);
@@ -149,8 +149,8 @@ public class XTXFormatTests
         int totalPixels = 0;
 
         // Copy pixels outside the delegates to avoid ref-like type issues
-        var origPixels = new Bgra32[original.Width * original.Height];
-        var restPixels = new Bgra32[restored.Width * restored.Height];
+        Bgra32[] origPixels = new Bgra32[original.Width * original.Height];
+        Bgra32[] restPixels = new Bgra32[restored.Width * restored.Height];
 
         original.ProcessPixelRows(accessor =>
         {
@@ -208,7 +208,7 @@ public class XTXFormatTests
     public void ConvertToFile_R8Luminance_RoundTrip_PreservesLuminance()
     {
         // Create a simple grayscale test image
-        var image = new Image<Bgra32>(8, 8);
+        Image<Bgra32> image = new(8, 8);
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -216,13 +216,13 @@ public class XTXFormatTests
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    byte gray = (byte)((x + y * 8) * 255 / 64);
+                    byte gray = (byte)((x + (y * 8)) * 255 / 64);
                     row[x] = new Bgra32(gray, gray, gray, 255);
                 }
             }
         });
 
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(image, XTX.XTXImageFormat.NVN_FORMAT_R8, xtxOutput);
@@ -241,7 +241,7 @@ public class XTXFormatTests
     public void ConvertToFile_CompressedFormat_ThrowsNotImplemented()
     {
         using var testImage = CreateTestImage();
-        using var output = new MemoryStream();
+        using MemoryStream output = new();
 
         // Act & Assert
         Assert.Throws<NotImplementedException>(() => 
@@ -256,7 +256,7 @@ public class XTXFormatTests
         foreach (var (width, height) in sizes)
         {
             using var original = CreateTestImage(width, height);
-            var xtxOutput = new MemoryStream();
+            MemoryStream xtxOutput = new();
 
             // Act
             XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
@@ -286,7 +286,7 @@ public class XTXFormatTests
     public void RoundTrip_RGBA8_PatternPreservation(int width, int height, TestImageHelper.TestPattern pattern)
     {
         using var original = CreateTestImage(width, height, pattern);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
@@ -294,7 +294,7 @@ public class XTXFormatTests
         using var restored = XTX.GetImage(xtxOutput);
 
         // Assert - Allow small tolerance for compression
-        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored, tolerance: 0,
+        AssertPixelsEqual(original, restored, tolerance: 0,
             message: $"Pattern {pattern} at {width}x{height}");
         
         xtxOutput.Dispose();
@@ -320,7 +320,7 @@ public class XTXFormatTests
     public void RoundTrip_RGBA8_VariousDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Gradient);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
@@ -330,7 +330,7 @@ public class XTXFormatTests
         // Assert
         Assert.Equal(original.Width, restored.Width);
         Assert.Equal(original.Height, restored.Height);
-        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored,
+        AssertPixelsEqual(original, restored,
             message: $"Dimensions {width}x{height}");
         
         xtxOutput.Dispose();
@@ -352,7 +352,7 @@ public class XTXFormatTests
     public void RoundTrip_AllFormats_PreservesDimensions(XTX.XTXImageFormat format)
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(original, format, xtxOutput);
@@ -379,7 +379,7 @@ public class XTXFormatTests
         foreach (var (width, height) in dimensions)
         {
             using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Numbered);
-            var xtxOutput = new MemoryStream();
+            MemoryStream xtxOutput = new();
 
             // Act
             XTX.ConvertToFile(original, format, xtxOutput);
@@ -402,7 +402,7 @@ public class XTXFormatTests
     public void RoundTrip_SinglePixel()
     {
         using var original = CreateTestImage(1, 1);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
         xtxOutput.Seek(0, SeekOrigin.Begin);
@@ -421,7 +421,7 @@ public class XTXFormatTests
     public void RoundTrip_OddDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
         xtxOutput.Seek(0, SeekOrigin.Begin);
@@ -437,7 +437,7 @@ public class XTXFormatTests
     public void Header_ContainsCorrectMagic()
     {
         using var testImage = CreateTestImage(32, 32);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         XTX.ConvertToFile(testImage, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, xtxOutput);
         
@@ -456,7 +456,7 @@ public class XTXFormatTests
     public void RoundTrip_MonochromeFormats_PreserveLuminance(XTX.XTXImageFormat format)
     {
         // Create grayscale test image
-        var image = new Image<Bgra32>(64, 64);
+        Image<Bgra32> image = new(64, 64);
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -464,13 +464,13 @@ public class XTXFormatTests
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    byte gray = (byte)((x * 255) / 64);
+                    byte gray = (byte)(x * 255 / 64);
                     row[x] = new Bgra32(gray, gray, gray, 255);
                 }
             }
         });
 
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(image, format, xtxOutput);
@@ -492,7 +492,7 @@ public class XTXFormatTests
     public void ConvertToFile_RGB10A2_WorksCorrectly()
     {
         using var testImage = CreateTestImage(64, 64);
-        var output = new MemoryStream();
+        MemoryStream output = new();
 
         // Act & Assert - Should not throw
         XTX.ConvertToFile(testImage, XTX.XTXImageFormat.NVN_FORMAT_RGB10A2, output);
@@ -505,7 +505,7 @@ public class XTXFormatTests
     public void ConvertToFile_RGBA4_RoundTrip_WorksWithQuantization()
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Checkerboard);
-        var xtxOutput = new MemoryStream();
+        MemoryStream xtxOutput = new();
 
         // Act
         XTX.ConvertToFile(original, XTX.XTXImageFormat.NVN_FORMAT_RGBA4, xtxOutput);
@@ -515,7 +515,7 @@ public class XTXFormatTests
         // Assert - Allow larger tolerance for 4-bit format
         Assert.Equal(original.Width, restored.Width);
         Assert.Equal(original.Height, restored.Height);
-        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored, 
+        AssertPixelsEqual(original, restored, 
             tolerance: 15, message: "RGBA4 quantization");
         
         xtxOutput.Dispose();

@@ -33,7 +33,7 @@ public static class TestImageHelper
     /// </summary>
     public static Image<Bgra32> CreateTestImage(int width, int height, TestPattern pattern)
     {
-        var image = new Image<Bgra32>(width, height);
+        Image<Bgra32> image = new(width, height);
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -44,9 +44,9 @@ public static class TestImageHelper
                     var color = pattern switch
                     {
                         TestPattern.Gradient => new Bgra32(
-                            (byte)((x * 255) / width),
-                            (byte)((y * 255) / height),
-                            (byte)(((x + y) * 255) / (width + height)),
+                            (byte)(x * 255 / width),
+                            (byte)(y * 255 / height),
+                            (byte)((x + y) * 255 / (width + height)),
                             255),
                         TestPattern.Checkerboard => (((x >> 1) ^ (y >> 1)) & 1) == 0
                             ? new Bgra32(255, 255, 255, 255)
@@ -57,7 +57,7 @@ public static class TestImageHelper
                             (byte)((x + y) % 256),
                             255),
                         TestPattern.SingleColor => new Bgra32(128, 64, 32, 255),
-                        TestPattern.Striped => (y / 4) % 2 == 0
+                        TestPattern.Striped => y / 4 % 2 == 0
                             ? new Bgra32(255, 0, 0, 255)
                             : new Bgra32(0, 0, 255, 255),
                         _ => new Bgra32(255, 255, 255, 255)
@@ -74,7 +74,7 @@ public static class TestImageHelper
     /// </summary>
     public static Bgra32[] ExtractPixels(Image<Bgra32> image)
     {
-        var pixels = new Bgra32[image.Width * image.Height];
+        Bgra32[] pixels = new Bgra32[image.Width * image.Height];
         image.ProcessPixelRows(accessor =>
         {
             int idx = 0;

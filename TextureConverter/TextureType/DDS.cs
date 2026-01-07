@@ -1,10 +1,11 @@
+using BCnEncoder.Decoder;
+using BCnEncoder.ImageSharp;
+using BCnEncoder.Shared;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
-using BCnEncoder.Decoder;
-using BCnEncoder.Shared;
-using BCnEncoder.ImageSharp;
 
 namespace TextureConverter.TextureType;
 
@@ -106,18 +107,18 @@ public class DDS
     ];
 
     // Standard color masks for common formats
-    private static readonly uint[] A1R5G5B5_MASKS = { 0x7C00, 0x03E0, 0x001F, 0x8000 };
-    private static readonly uint[] X1R5G5B5_MASKS = { 0x7C00, 0x03E0, 0x001F, 0x0000 };
-    private static readonly uint[] A4R4G4B4_MASKS = { 0x0F00, 0x00F0, 0x000F, 0xF000 };
-    private static readonly uint[] X4R4G4B4_MASKS = { 0x0F00, 0x00F0, 0x000F, 0x0000 };
-    private static readonly uint[] R5G6B5_MASKS = { 0xF800, 0x07E0, 0x001F, 0x0000 };
-    private static readonly uint[] R8G8B8_MASKS = { 0xFF0000, 0x00FF00, 0x0000FF, 0x000000 };
-    private static readonly uint[] A8B8G8R8_MASKS = { 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 };
-    private static readonly uint[] X8B8G8R8_MASKS = { 0x000000FF, 0x0000FF00, 0x00FF0000, 0x00000000 };
-    private static readonly uint[] A8R8G8B8_MASKS = { 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 };
-    private static readonly uint[] X8R8G8B8_MASKS = { 0x00FF0000, 0x0000FF00, 0x000000FF, 0x00000000 };
-    private static readonly uint[] L8_MASKS = { 0x000000FF, 0x0000 };
-    private static readonly uint[] A8L8_MASKS = { 0x000000FF, 0x0F00 };
+    private static readonly uint[] A1R5G5B5_MASKS = [0x7C00, 0x03E0, 0x001F, 0x8000];
+    private static readonly uint[] X1R5G5B5_MASKS = [0x7C00, 0x03E0, 0x001F, 0x0000];
+    private static readonly uint[] A4R4G4B4_MASKS = [0x0F00, 0x00F0, 0x000F, 0xF000];
+    private static readonly uint[] X4R4G4B4_MASKS = [0x0F00, 0x00F0, 0x000F, 0x0000];
+    private static readonly uint[] R5G6B5_MASKS = [0xF800, 0x07E0, 0x001F, 0x0000];
+    private static readonly uint[] R8G8B8_MASKS = [0xFF0000, 0x00FF00, 0x0000FF, 0x000000];
+    private static readonly uint[] A8B8G8R8_MASKS = [0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000];
+    private static readonly uint[] X8B8G8R8_MASKS = [0x000000FF, 0x0000FF00, 0x00FF0000, 0x00000000];
+    private static readonly uint[] A8R8G8B8_MASKS = [0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000];
+    private static readonly uint[] X8R8G8B8_MASKS = [0x00FF0000, 0x0000FF00, 0x000000FF, 0x00000000];
+    private static readonly uint[] L8_MASKS = [0x000000FF, 0x0000];
+    private static readonly uint[] A8L8_MASKS = [0x000000FF, 0x0F00];
 
     public class DDSHeader
     {
@@ -151,9 +152,9 @@ public class DDS
 
     public static Image<Bgra32> GetImage(Stream data)
     {
-        using var reader = new BinaryReader(data, Encoding.Default, leaveOpen: true);
+        using BinaryReader reader = new(data, Encoding.Default, leaveOpen: true);
 
-        string magic = new string(reader.ReadChars(4));
+        string magic = new(reader.ReadChars(4));
         if (magic != "DDS ")
             throw new InvalidOperationException("Invalid DDS file signature");
 
@@ -165,14 +166,16 @@ public class DDS
 
     private static DDSHeader ReadHeader(BinaryReader reader)
     {
-        var header = new DDSHeader();
-        header.size = reader.ReadUInt32();
-        header.flags = reader.ReadUInt32();
-        header.height = reader.ReadUInt32();
-        header.width = reader.ReadUInt32();
-        header.pitchOrLinearSize = reader.ReadUInt32();
-        header.depth = reader.ReadUInt32();
-        header.mipmapCount = reader.ReadUInt32();
+        DDSHeader header = new()
+        {
+            size = reader.ReadUInt32(),
+            flags = reader.ReadUInt32(),
+            height = reader.ReadUInt32(),
+            width = reader.ReadUInt32(),
+            pitchOrLinearSize = reader.ReadUInt32(),
+            depth = reader.ReadUInt32(),
+            mipmapCount = reader.ReadUInt32()
+        };
         for (int i = 0; i < 11; i++)
             header.reserved1[i] = reader.ReadUInt32();
 
@@ -242,14 +245,14 @@ public class DDS
         };
 
         // Use BCnEncoder extension to decompress directly to Rgba32
-        var decoder = new BcDecoder();
+        BcDecoder decoder = new();
         using var decodedImage = decoder.DecodeRawToImageRgba32(data, width, height, format);
-        
+
         // Convert from Rgba32 to Bgra32
-        var result = new Image<Bgra32>(width, height);
-        
+        Image<Bgra32> result = new(width, height);
+
         // Extract RGBA32 data and copy to BGRA32
-        var pixelArray = new Rgba32[width * height];
+        Rgba32[] pixelArray = new Rgba32[width * height];
         decodedImage.CopyPixelDataTo(pixelArray);
         
         result.ProcessPixelRows(accessor =>
@@ -259,7 +262,7 @@ public class DDS
                 var row = accessor.GetRowSpan(y);
                 for (int x = 0; x < width; x++)
                 {
-                    var pixel = pixelArray[y * width + x];
+                    var pixel = pixelArray[(y * width) + x];
                     row[x] = new Bgra32(pixel.R, pixel.G, pixel.B, pixel.A);
                 }
             }
@@ -270,7 +273,7 @@ public class DDS
 
     private static Image<Bgra32> DecodeLuminance(byte[] data, DDSHeader header, uint bpp, bool hasAlpha)
     {
-        var image = new Image<Bgra32>((int)header.width, (int)header.height);
+        Image<Bgra32> image = new((int)header.width, (int)header.height);
         int offset = 0;
 
         image.ProcessPixelRows(accessor =>
@@ -292,7 +295,7 @@ public class DDS
 
     private static Image<Bgra32> DecodeRGB(byte[] data, DDSHeader header, uint bpp, bool hasAlpha)
     {
-        var image = new Image<Bgra32>((int)header.width, (int)header.height);
+        Image<Bgra32> image = new((int)header.width, (int)header.height);
         int offset = 0;
 
         if (bpp == 4)
@@ -346,21 +349,21 @@ public class DDS
                         ushort pixel = BitConverter.ToUInt16(data, offset);
                         offset += 2;
 
-                        uint b = (uint)((pixel & header.pixelFormat.bBitMask) >> CountTrailingZeros((uint)header.pixelFormat.bBitMask));
-                        uint g = (uint)((pixel & header.pixelFormat.gBitMask) >> CountTrailingZeros((uint)header.pixelFormat.gBitMask));
-                        uint r = (uint)((pixel & header.pixelFormat.rBitMask) >> CountTrailingZeros((uint)header.pixelFormat.rBitMask));
-                        uint a = hasAlpha ? (uint)((pixel & header.pixelFormat.aBitMask) >> CountTrailingZeros((uint)header.pixelFormat.aBitMask)) : 0xFF;
+                        uint b = (pixel & header.pixelFormat.bBitMask) >> CountTrailingZeros(header.pixelFormat.bBitMask);
+                        uint g = (pixel & header.pixelFormat.gBitMask) >> CountTrailingZeros(header.pixelFormat.gBitMask);
+                        uint r = (pixel & header.pixelFormat.rBitMask) >> CountTrailingZeros(header.pixelFormat.rBitMask);
+                        uint a = hasAlpha ? (pixel & header.pixelFormat.aBitMask) >> CountTrailingZeros(header.pixelFormat.aBitMask) : 0xFF;
 
                         // Normalize to 8-bit by replicating high bits into low bits
-                        int rBits = CountSetBits((uint)header.pixelFormat.rBitMask);
-                        int gBits = CountSetBits((uint)header.pixelFormat.gBitMask);
-                        int bBits = CountSetBits((uint)header.pixelFormat.bBitMask);
-                        int aBits = CountSetBits((uint)header.pixelFormat.aBitMask);
+                        int rBits = CountSetBits(header.pixelFormat.rBitMask);
+                        int gBits = CountSetBits(header.pixelFormat.gBitMask);
+                        int bBits = CountSetBits(header.pixelFormat.bBitMask);
+                        int aBits = CountSetBits(header.pixelFormat.aBitMask);
 
-                        byte rb = rBits > 0 ? (byte)((r << (8 - rBits)) | (r >> (2 * rBits - 8))) : (byte)255;
-                        byte gb = gBits > 0 ? (byte)((g << (8 - gBits)) | (g >> (2 * gBits - 8))) : (byte)255;
-                        byte bb = bBits > 0 ? (byte)((b << (8 - bBits)) | (b >> (2 * bBits - 8))) : (byte)255;
-                        byte ab = aBits > 0 ? (byte)((a << (8 - aBits)) | (a >> (2 * aBits - 8))) : (byte)255;
+                        byte rb = rBits > 0 ? (byte)((r << (8 - rBits)) | (r >> ((2 * rBits) - 8))) : (byte)255;
+                        byte gb = gBits > 0 ? (byte)((g << (8 - gBits)) | (g >> ((2 * gBits) - 8))) : (byte)255;
+                        byte bb = bBits > 0 ? (byte)((b << (8 - bBits)) | (b >> ((2 * bBits) - 8))) : (byte)255;
+                        byte ab = aBits > 0 ? (byte)((a << (8 - aBits)) | (a >> ((2 * aBits) - 8))) : (byte)255;
 
                         row[x] = new Bgra32(rb, gb, bb, ab);
                     }
@@ -381,6 +384,7 @@ public class DDS
             count++;
             value >>= 1;
         }
+
         return count;
     }
 
@@ -392,6 +396,7 @@ public class DDS
             count += (int)(value & 1);
             value >>= 1;
         }
+
         return count;
     }
 
@@ -751,7 +756,7 @@ public class DDS
                     uint g = (uint)(pixel.G >> 4) & 0xF;
                     uint b = (uint)(pixel.B >> 4) & 0xF;
                     uint a = (uint)(pixel.A >> 4) & 0xF;
-                    ushort packed = (ushort)((r) | (g << 4) | (b << 8) | (a << 12));
+                    ushort packed = (ushort)(r | (g << 4) | (b << 8) | (a << 12));
                     Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
                     offset += 2;
                 }
@@ -775,7 +780,7 @@ public class DDS
                 {
                     Bgra32 pixel = row[x];
                     // Convert to grayscale using standard luminosity formula
-                    byte luminance = (byte)(0.299f * pixel.R + 0.587f * pixel.G + 0.114f * pixel.B);
+                    byte luminance = (byte)((0.299f * pixel.R) + (0.587f * pixel.G) + (0.114f * pixel.B));
                     result[offset++] = luminance;
                 }
             }
@@ -797,7 +802,7 @@ public class DDS
                 for (int x = 0; x < row.Length; x++)
                 {
                     Bgra32 pixel = row[x];
-                    byte luminance = (byte)(0.299f * pixel.R + 0.587f * pixel.G + 0.114f * pixel.B);
+                    byte luminance = (byte)((0.299f * pixel.R) + (0.587f * pixel.G) + (0.114f * pixel.B));
                     result[offset++] = luminance;
                     result[offset++] = pixel.A;
                 }

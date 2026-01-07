@@ -239,7 +239,8 @@ public class XTX
             for (long pos = reader.BaseStream.Position; pos + 4 <= reader.BaseStream.Length; pos++)
             {
                 reader.BaseStream.Seek(pos, SeekOrigin.Begin);
-                if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "HBvN") continue;
+                if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "HBvN")
+                    continue;
                 reader.BaseStream.Seek(pos, SeekOrigin.Begin);
                 break;
             }
@@ -285,7 +286,8 @@ public class XTX
             MipCount = reader.ReadUInt32();
             SliceSize = reader.ReadUInt32();
             MipOffsets = new uint[MipCount];
-            for (int i = 0; i < MipCount; i++) MipOffsets[i] = reader.ReadUInt32();
+            for (int i = 0; i < MipCount; i++)
+                MipOffsets[i] = reader.ReadUInt32();
             TextureLayout1 = reader.ReadUInt32();
             TextureLayout2 = reader.ReadUInt32();
             Boolean = reader.ReadUInt32();
@@ -311,10 +313,12 @@ public class XTX
 
         writer.Write(Encoding.ASCII.GetBytes("DFvN"));
         writer.Write(48U); // HeaderSize
-        writer.Write(1U); writer.Write(0U);
+        writer.Write(1U);
+        writer.Write(0U);
 
         long currentPos = output.Position;
-        for (long i = currentPos; i < 48; i++) writer.Write((byte)0);
+        for (long i = currentPos; i < 48; i++)
+            writer.Write((byte)0);
 
         WriteTextureBlockHeader(writer, width, height, mipCount, format, alignment, (uint)textureData.Length);
         WriteDataBlockHeader(writer, textureData);
@@ -327,10 +331,18 @@ public class XTX
         {
             headerWriter.Write((ulong)dataSize);
             headerWriter.Write(alignment);
-            headerWriter.Write(width); headerWriter.Write(height); headerWriter.Write(1U); headerWriter.Write(1U);
-            headerWriter.Write((int)format); headerWriter.Write(mipCount); headerWriter.Write(dataSize);
-            for (int i = 0; i < mipCount; i++) headerWriter.Write(0U);
-            headerWriter.Write(0U); headerWriter.Write(0U); headerWriter.Write(0U);
+            headerWriter.Write(width);
+            headerWriter.Write(height);
+            headerWriter.Write(1U);
+            headerWriter.Write(1U);
+            headerWriter.Write((int)format);
+            headerWriter.Write(mipCount);
+            headerWriter.Write(dataSize);
+            for (int i = 0; i < mipCount; i++)
+                headerWriter.Write(0U);
+            headerWriter.Write(0U);
+            headerWriter.Write(0U);
+            headerWriter.Write(0U);
         }
 
         byte[] data = headerData.ToArray();
@@ -340,7 +352,8 @@ public class XTX
         writer.Write((ulong)data.Length);
         writer.Write(36L); // DataOffset (offset from start of this block to data)
         writer.Write(2U); // BlockType.Texture
-        writer.Write(0U); writer.Write(0U);
+        writer.Write(0U);
+        writer.Write(0U);
 
         writer.Write(data);
     }
@@ -352,7 +365,8 @@ public class XTX
         writer.Write((ulong)data.Length);
         writer.Write(36L);
         writer.Write(3U); // BlockType.Data
-        writer.Write(0U); writer.Write(0U);
+        writer.Write(0U);
+        writer.Write(0U);
 
         writer.Write(data);
     }
@@ -377,13 +391,17 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 4];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = row[x].B; result[offset++] = row[x].G; result[offset++] = row[x].R; result[offset++] = row[x].A;
+                    result[offset++] = row[x].B;
+                    result[offset++] = row[x].G;
+                    result[offset++] = row[x].R;
+                    result[offset++] = row[x].A;
                 }
             }
         });
@@ -394,16 +412,20 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 4];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    uint r = (uint)(row[x].R >> 6) & 0x3FF; uint g = (uint)(row[x].G >> 6) & 0x3FF;
-                    uint b = (uint)(row[x].B >> 6) & 0x3FF; uint a = (uint)(row[x].A >> 6) & 0x3;
+                    uint r = (uint)(row[x].R >> 6) & 0x3FF;
+                    uint g = (uint)(row[x].G >> 6) & 0x3FF;
+                    uint b = (uint)(row[x].B >> 6) & 0x3FF;
+                    uint a = (uint)(row[x].A >> 6) & 0x3;
                     uint packed = (a << 30) | (r << 20) | (g << 10) | b;
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 4); offset += 4;
+                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 4);
+                    offset += 4;
                 }
             }
         });
@@ -414,15 +436,19 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 2];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F; uint g = (uint)(row[x].G >> 2) & 0x3F; uint b = (uint)(row[x].B >> 3) & 0x1F;
+                    uint r = (uint)(row[x].R >> 3) & 0x1F;
+                    uint g = (uint)(row[x].G >> 2) & 0x3F;
+                    uint b = (uint)(row[x].B >> 3) & 0x1F;
                     ushort packed = (ushort)((r << 11) | (g << 5) | b);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2); offset += 2;
+                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
+                    offset += 2;
                 }
             }
         });
@@ -433,16 +459,20 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 2];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F; uint g = (uint)(row[x].G >> 3) & 0x1F; uint b = (uint)(row[x].B >> 3) & 0x1F;
+                    uint r = (uint)(row[x].R >> 3) & 0x1F;
+                    uint g = (uint)(row[x].G >> 3) & 0x1F;
+                    uint b = (uint)(row[x].B >> 3) & 0x1F;
                     uint a = (row[x].A > 128 ? 1U : 0U) & 0x1;
                     ushort packed = (ushort)((a << 15) | (r << 10) | (g << 5) | b);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2); offset += 2;
+                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
+                    offset += 2;
                 }
             }
         });
@@ -453,16 +483,20 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 2];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    uint r = (uint)(row[x].R >> 4) & 0xF; uint g = (uint)(row[x].G >> 4) & 0xF;
-                    uint b = (uint)(row[x].B >> 4) & 0xF; uint a = (uint)(row[x].A >> 4) & 0xF;
+                    uint r = (uint)(row[x].R >> 4) & 0xF;
+                    uint g = (uint)(row[x].G >> 4) & 0xF;
+                    uint b = (uint)(row[x].B >> 4) & 0xF;
+                    uint a = (uint)(row[x].A >> 4) & 0xF;
                     ushort packed = (ushort)((a << 12) | (b << 8) | (g << 4) | r);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2); offset += 2;
+                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
+                    offset += 2;
                 }
             }
         });
@@ -479,7 +513,7 @@ public class XTX
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = (byte)(0.299f * row[x].R + 0.587f * row[x].G + 0.114f * row[x].B);
+                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
                 }
             }
         });
@@ -496,7 +530,7 @@ public class XTX
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = (byte)(0.299f * row[x].R + 0.587f * row[x].G + 0.114f * row[x].B);
+                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
                     result[offset++] = row[x].A;
                 }
             }

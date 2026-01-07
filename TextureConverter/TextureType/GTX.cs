@@ -317,7 +317,7 @@ public class GTX
             dataBlockType = 0x0B;
             mipBlockType = 0x0C;
         }
-        else if (MajorVersion == 6 || MajorVersion == 7)
+        else if (MajorVersion is 6 or 7)
         {
             surfBlockType = 0x0B;
             dataBlockType = 0x0C;
@@ -340,8 +340,8 @@ public class GTX
             block.Read(reader);
             Blocks.Add(block);
 
-            bool isEmptyBlock = block.BlockType == BlockType.AlignData ||
-                               block.BlockType == BlockType.EndOfFile;
+            bool isEmptyBlock = block.BlockType is BlockType.AlignData or
+                               BlockType.EndOfFile;
 
             uint blockTypeValue = (uint)block.BlockType;
 
@@ -750,7 +750,7 @@ public class GTX
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = (byte)(0.299f * row[x].R + 0.587f * row[x].G + 0.114f * row[x].B);
+                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
                 }
             }
         });
@@ -768,7 +768,7 @@ public class GTX
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = (byte)(0.299f * row[x].R + 0.587f * row[x].G + 0.114f * row[x].B);
+                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
                     result[offset++] = row[x].A;
                 }
             }

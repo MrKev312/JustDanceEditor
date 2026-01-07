@@ -25,6 +25,10 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     // SongName is required to disambiguate if the input folder contains multiple maps
     public string? SongName { get; set; } = songName;
     public UbiArtType Type { get; set; } = UbiArtType.Cooked;
+
+    // Optional delegate to allow callers (UI) to select a song when multiple are present.
+    // Should return the chosen song name, or null/empty to cancel.
+    public Func<string[], Task<string?>>? SelectSongAsync { get; set; }
 }
 
 // Used for JDI -> Unity

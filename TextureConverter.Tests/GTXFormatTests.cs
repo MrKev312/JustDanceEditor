@@ -1,8 +1,10 @@
-using TextureConverter.Formats;
-using TextureConverter.TextureType;
-using TextureConverter.TextureConverterHelpers;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
+
+using TextureConverter.Formats;
+using TextureConverter.TextureConverterHelpers;
+using TextureConverter.TextureType;
 
 namespace TextureConverter.Tests;
 
@@ -39,7 +41,7 @@ public class GTXFormatTests
     public void ConvertToFile_CreatesValidGTXFile(GTX.GX2SurfaceFormat format)
     {
         using var testImage = CreateTestImage();
-        var output = new MemoryStream();
+        MemoryStream output = new();
 
         // Act
         GTX.ConvertToFile(testImage, format, output);
@@ -60,7 +62,7 @@ public class GTXFormatTests
     public void ConvertToFile_RGBA8_RoundTrip_PreservesImageDimensions()
     {
         using var original = CreateTestImage(32, 32);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act - Convert to GTX
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
@@ -79,14 +81,14 @@ public class GTXFormatTests
     [Fact]
     public void ConvertToFile_RGBA8_RoundTrip_PixelsMatch()
     {
-        var image = new Image<Bgra32>(4, 4);
-        var pixels = new Bgra32[] 
-        { 
+        Image<Bgra32> image = new(4, 4);
+        Bgra32[] pixels =
+        [
             new(255, 0, 0, 255),
             new(0, 255, 0, 255),
             new(0, 0, 255, 255),
             new(255, 255, 255, 255)
-        };
+        ];
 
         image.ProcessPixelRows(accessor =>
         {
@@ -100,7 +102,7 @@ public class GTXFormatTests
             }
         });
 
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act
         GTX.ConvertToFile(image, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
@@ -131,7 +133,7 @@ public class GTXFormatTests
     public void ConvertToFile_RGB565_RoundTrip_SimilarPixelValues()
     {
         using var original = CreateTestImage(16, 16);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act - Convert to GTX
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R5_G6_B5_UNORM, gtxOutput);
@@ -148,8 +150,8 @@ public class GTXFormatTests
         int totalPixels = 0;
 
         // Copy pixels outside the delegates to avoid ref-like type issues
-        var origPixels = new Bgra32[original.Width * original.Height];
-        var restPixels = new Bgra32[restored.Width * restored.Height];
+        Bgra32[] origPixels = new Bgra32[original.Width * original.Height];
+        Bgra32[] restPixels = new Bgra32[restored.Width * restored.Height];
 
         original.ProcessPixelRows(accessor =>
         {
@@ -207,14 +209,14 @@ public class GTXFormatTests
     public void GTX_LoadFile_ParsesHeaderCorrectly()
     {
         using var testImage = CreateTestImage(32, 32);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Create a GTX file
         GTX.ConvertToFile(testImage, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
         gtxOutput.Seek(0, SeekOrigin.Begin);
 
         // Load and verify
-        var gtx = new GTX();
+        GTX gtx = new();
         gtx.LoadFile(gtxOutput);
 
         Assert.Equal(7U, gtx.MajorVersion);
@@ -230,13 +232,13 @@ public class GTXFormatTests
     public void GtxDecoder_Identify_ReturnsCorrectImageInfo()
     {
         using var testImage = CreateTestImage(64, 48);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         GTX.ConvertToFile(testImage, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
         gtxOutput.Seek(0, SeekOrigin.Begin);
 
-        var decoder = new GtxDecoder();
-        var options = new SixLabors.ImageSharp.Formats.DecoderOptions();
+        GtxDecoder decoder = new();
+        DecoderOptions options = new();
         var info = decoder.Identify(options, gtxOutput);
 
         Assert.Equal(64, info.Size.Width);
@@ -320,7 +322,7 @@ public class GTXFormatTests
     public void RoundTrip_RGBA8_PatternPreservation(int width, int height, TestImageHelper.TestPattern pattern)
     {
         using var original = CreateTestImage(width, height, pattern);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
@@ -328,7 +330,7 @@ public class GTXFormatTests
         using var restored = GTX.GetImage(gtxOutput);
 
         // Assert
-        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored, 
+        AssertPixelsEqual(original, restored, 
             $"Pattern {pattern} at {width}x{height}");
         
         gtxOutput.Dispose();
@@ -357,7 +359,7 @@ public class GTXFormatTests
     public void RoundTrip_RGBA8_VariousDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Gradient);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
@@ -367,7 +369,7 @@ public class GTXFormatTests
         // Assert
         Assert.Equal(original.Width, restored.Width);
         Assert.Equal(original.Height, restored.Height);
-        AssertPixelsEqual((Image<Bgra32>)original, (Image<Bgra32>)restored,
+        AssertPixelsEqual(original, restored,
             $"Dimensions {width}x{height}");
         
         gtxOutput.Dispose();
@@ -389,7 +391,7 @@ public class GTXFormatTests
     {
         // Use size compatible with BC formats (must be multiple of 4)
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         // Act
         GTX.ConvertToFile(original, format, gtxOutput);
@@ -418,14 +420,14 @@ public class GTXFormatTests
         // Fill with pattern
         for (int i = 0; i < testData.Length; i += 4)
         {
-            testData[i + 0] = (byte)((i / 4) % 256);      // B
+            testData[i + 0] = (byte)(i / 4 % 256);      // B
             testData[i + 1] = (byte)(((i / 4) >> 8) % 256); // G
             testData[i + 2] = (byte)(((i / 4) >> 16) % 256); // R
             testData[i + 3] = 255;                           // A
         }
 
         // Create surface
-        var surface = new GTX.GX2Surface
+        GTX.GX2Surface surface = new()
         {
             Width = width,
             Height = height,
@@ -466,7 +468,7 @@ public class GTXFormatTests
     public void Deswizzle_LinearAligned_ProducesValidData(uint width, uint height)
     {
         // Create test surface with LinearAligned tiling
-        var surface = new GTX.GX2Surface
+        GTX.GX2Surface surface = new()
         {
             Width = width,
             Height = height,
@@ -490,7 +492,7 @@ public class GTXFormatTests
         {
             for (uint x = 0; x < width; x++)
             {
-                uint offset = (y * width + x) * 4;
+                uint offset = ((y * width) + x) * 4;
                 surface.Data[offset + 0] = (byte)(x % 256);
                 surface.Data[offset + 1] = (byte)(y % 256);
                 surface.Data[offset + 2] = (byte)((x + y) % 256);
@@ -519,7 +521,7 @@ public class GTXFormatTests
     public void RoundTrip_SinglePixel()
     {
         using var original = CreateTestImage(1, 1);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
         gtxOutput.Seek(0, SeekOrigin.Begin);
@@ -538,7 +540,7 @@ public class GTXFormatTests
     public void RoundTrip_OddDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         GTX.ConvertToFile(original, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
         gtxOutput.Seek(0, SeekOrigin.Begin);
@@ -554,7 +556,7 @@ public class GTXFormatTests
     public void Header_ContainsCorrectMagic()
     {
         using var testImage = CreateTestImage(32, 32);
-        var gtxOutput = new MemoryStream();
+        MemoryStream gtxOutput = new();
 
         GTX.ConvertToFile(testImage, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, gtxOutput);
         

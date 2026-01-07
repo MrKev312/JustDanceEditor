@@ -1,7 +1,7 @@
-using TextureConverter.Formats;
-using TextureConverter.TextureType;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using TextureConverter.TextureType;
 
 namespace TextureConverter.Tests;
 
@@ -40,7 +40,7 @@ public class DDSFormatTests
     public void ConvertToFile_CreatesValidDDSFile(DDS.DDSFormat format)
     {
         using var testImage = CreateTestImage();
-        using var output = new MemoryStream();
+        using MemoryStream output = new();
 
         // Act
         DDS.ConvertToFile(testImage, format, output);
@@ -59,7 +59,7 @@ public class DDSFormatTests
     public void ConvertToFile_RGBA8_RoundTrip_PreservesImageDimensions()
     {
         using var original = CreateTestImage(32, 48);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act - Convert to DDS
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA8, ddsOutput);
@@ -77,7 +77,7 @@ public class DDSFormatTests
     public void ConvertToFile_RGB565_RoundTrip_SimilarPixelValues()
     {
         using var original = CreateTestImage(16, 16);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act - Convert to DDS
         DDS.ConvertToFile(original, DDS.DDSFormat.RGB565, ddsOutput);
@@ -94,8 +94,8 @@ public class DDSFormatTests
         int totalPixels = 0;
 
         // Copy pixel data to compare outside of ProcessPixelRows
-        var origPixels = new Bgra32[original.Width * original.Height];
-        var restPixels = new Bgra32[restored.Width * restored.Height];
+        Bgra32[] origPixels = new Bgra32[original.Width * original.Height];
+        Bgra32[] restPixels = new Bgra32[restored.Width * restored.Height];
 
         original.ProcessPixelRows(accessor =>
         {
@@ -150,14 +150,14 @@ public class DDSFormatTests
     [Fact]
     public void ConvertToFile_RGBA8_AllOpaque_PixelsMatch()
     {
-        var image = new Image<Bgra32>(4, 4);
-        var pixels = new Bgra32[] 
-        { 
+        Image<Bgra32> image = new(4, 4);
+        Bgra32[] pixels =
+        [
             new(255, 0, 0, 255),
             new(0, 255, 0, 255),
             new(0, 0, 255, 255),
             new(255, 255, 255, 255)
-        };
+        ];
 
         image.ProcessPixelRows(accessor =>
         {
@@ -171,7 +171,7 @@ public class DDSFormatTests
             }
         });
 
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(image, DDS.DDSFormat.RGBA8, ddsOutput);
@@ -200,7 +200,7 @@ public class DDSFormatTests
     public void ConvertToFile_CompressedFormat_ThrowsNotImplemented()
     {
         using var testImage = CreateTestImage();
-        using var output = new MemoryStream();
+        using MemoryStream output = new();
 
         // Act & Assert
         Assert.Throws<NotImplementedException>(() => 
@@ -221,7 +221,7 @@ public class DDSFormatTests
     public void RoundTrip_RGBA8_PatternPreservation(int width, int height, TestImageHelper.TestPattern pattern)
     {
         using var original = CreateTestImage(width, height, pattern);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA8, ddsOutput);
@@ -229,8 +229,8 @@ public class DDSFormatTests
         using var restored = DDS.GetImage(ddsOutput);
 
         // Assert - RGBA8 should preserve exactly
-        var origPixels = ExtractPixels((Image<Bgra32>)original);
-        var restPixels = ExtractPixels((Image<Bgra32>)restored);
+        var origPixels = ExtractPixels(original);
+        var restPixels = ExtractPixels(restored);
         
         AssertPixelsClose(origPixels, restPixels, message: $"Pattern {pattern} at {width}x{height}");
     }
@@ -255,7 +255,7 @@ public class DDSFormatTests
     public void RoundTrip_RGBA8_VariousDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Gradient);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA8, ddsOutput);
@@ -266,8 +266,8 @@ public class DDSFormatTests
         Assert.Equal(original.Width, restored.Width);
         Assert.Equal(original.Height, restored.Height);
 
-        var origPixels = ExtractPixels((Image<Bgra32>)original);
-        var restPixels = ExtractPixels((Image<Bgra32>)restored);
+        var origPixels = ExtractPixels(original);
+        var restPixels = ExtractPixels(restored);
         AssertPixelsClose(origPixels, restPixels, message: $"Dimensions {width}x{height}");
     }
 
@@ -286,7 +286,7 @@ public class DDSFormatTests
     public void RoundTrip_AllFormats_PreservesDimensions(DDS.DDSFormat format)
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, format, ddsOutput);
@@ -313,7 +313,7 @@ public class DDSFormatTests
         foreach (var (width, height) in dimensions)
         {
             using var original = CreateTestImage(width, height, TestImageHelper.TestPattern.Numbered);
-            using var ddsOutput = new MemoryStream();
+            using MemoryStream ddsOutput = new();
 
             // Act
             DDS.ConvertToFile(original, format, ddsOutput);
@@ -334,7 +334,7 @@ public class DDSFormatTests
     public void RoundTrip_RGB565_AllowsQuantizationError()
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGB565, ddsOutput);
@@ -342,8 +342,8 @@ public class DDSFormatTests
         using var restored = DDS.GetImage(ddsOutput);
 
         // Assert - RGB565 has reduced precision
-        var origPixels = ExtractPixels((Image<Bgra32>)original);
-        var restPixels = ExtractPixels((Image<Bgra32>)restored);
+        var origPixels = ExtractPixels(original);
+        var restPixels = ExtractPixels(restored);
         
         // Allow up to 5% error due to 565 quantization
         AssertPixelsClose(origPixels, restPixels, 
@@ -355,7 +355,7 @@ public class DDSFormatTests
     public void RoundTrip_RGB5A1_HandlesAlpha()
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Checkerboard);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGB5A1, ddsOutput);
@@ -371,7 +371,7 @@ public class DDSFormatTests
     public void RoundTrip_RGBA4_AllowsQuantizationError()
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Striped);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA4, ddsOutput);
@@ -379,8 +379,8 @@ public class DDSFormatTests
         using var restored = DDS.GetImage(ddsOutput);
 
         // Assert - RGBA4 has very reduced precision
-        var origPixels = ExtractPixels((Image<Bgra32>)original);
-        var restPixels = ExtractPixels((Image<Bgra32>)restored);
+        var origPixels = ExtractPixels(original);
+        var restPixels = ExtractPixels(restored);
         
         // Allow larger tolerance for 4-bit format
         AssertPixelsClose(origPixels, restPixels,
@@ -392,7 +392,7 @@ public class DDSFormatTests
     public void RoundTrip_L8_Luminance()
     {
         // Create grayscale test image
-        var image = new Image<Bgra32>(64, 64);
+        Image<Bgra32> image = new(64, 64);
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -400,13 +400,13 @@ public class DDSFormatTests
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    byte gray = (byte)((x * 255) / 64);
+                    byte gray = (byte)(x * 255 / 64);
                     row[x] = new Bgra32(gray, gray, gray, 255);
                 }
             }
         });
 
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(image, DDS.DDSFormat.L8, ddsOutput);
@@ -422,7 +422,7 @@ public class DDSFormatTests
     public void RoundTrip_LA8_LuminanceAlpha()
     {
         // Create grayscale with alpha test image
-        var image = new Image<Bgra32>(64, 64);
+        Image<Bgra32> image = new(64, 64);
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -430,14 +430,14 @@ public class DDSFormatTests
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    byte gray = (byte)((x * 255) / 64);
-                    byte alpha = (byte)((y * 255) / 64);
+                    byte gray = (byte)(x * 255 / 64);
+                    byte alpha = (byte)(y * 255 / 64);
                     row[x] = new Bgra32(gray, gray, gray, alpha);
                 }
             }
         });
 
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(image, DDS.DDSFormat.LA8, ddsOutput);
@@ -457,7 +457,7 @@ public class DDSFormatTests
     public void RoundTrip_SinglePixel()
     {
         using var original = CreateTestImage(1, 1);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA8, ddsOutput);
         ddsOutput.Seek(0, SeekOrigin.Begin);
@@ -474,7 +474,7 @@ public class DDSFormatTests
     public void RoundTrip_OddDimensions(int width, int height)
     {
         using var original = CreateTestImage(width, height);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA8, ddsOutput);
         ddsOutput.Seek(0, SeekOrigin.Begin);
@@ -488,7 +488,7 @@ public class DDSFormatTests
     public void Header_ContainsCorrectMagic()
     {
         using var testImage = CreateTestImage(32, 32);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         DDS.ConvertToFile(testImage, DDS.DDSFormat.RGBA8, ddsOutput);
         
@@ -503,7 +503,7 @@ public class DDSFormatTests
     public void Header_ContainsRequiredFields()
     {
         using var testImage = CreateTestImage(64, 64);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         DDS.ConvertToFile(testImage, DDS.DDSFormat.RGBA8, ddsOutput);
         
@@ -519,7 +519,7 @@ public class DDSFormatTests
     public void RoundTrip_RGBA_SRGB_PreservesDimensions()
     {
         using var original = CreateTestImage(64, 64, TestImageHelper.TestPattern.Gradient);
-        using var ddsOutput = new MemoryStream();
+        using MemoryStream ddsOutput = new();
 
         // Act
         DDS.ConvertToFile(original, DDS.DDSFormat.RGBA_SRGB, ddsOutput);

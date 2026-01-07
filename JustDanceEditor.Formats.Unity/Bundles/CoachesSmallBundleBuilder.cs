@@ -32,7 +32,7 @@ public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder>
     public static void Generate(UnityCoachesSmallRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var builder = new CoachesSmallBundleBuilder(logger as ILogger<CoachesSmallBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoachesSmallBundleBuilder builder = new(logger as ILogger<CoachesSmallBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
         builder.Run(request);
     }
 

@@ -9,6 +9,7 @@ public class JustDanceIPKParser
     readonly Stream fileStream;
 
     readonly string outputDirectory;
+    private bool pathsAreSwapped = false;
 
     public JustDanceIPKParser(Stream fileStream, string outputPath)
     {
@@ -57,11 +58,66 @@ public class JustDanceIPKParser
         for (int i = 0; i < filesCount; i++)
             entries.Add(ReadFileEntry(reader));
 
+        // Detect if paths are swapped by checking if most Name entries contain "cache/itf_cooked"
+        // This is a marker for WiiU bundles where Name contains the full folder path and Path contains filename
+        if (entries.Count > 0)
+        {
+            int cacheCount = entries.Count(e => e.Name.Contains("cache/itf_cooked", StringComparison.OrdinalIgnoreCase));
+            pathsAreSwapped = cacheCount > entries.Count / 2;
+        }
+
         // Now process the file entries
         foreach (FileEntry entry in entries)
         {
             fileStream.Seek(entry.Offset, SeekOrigin.Begin);
-            ProcessFileEntry(entry, fileStream, outputDirectory, ShowInfo);
+            ProcessFileEntry(entry, fileStream, outputDirectory, pathsAreSwapped, ShowInfo);
+        }
+    }
+
+    public void ParseInfo()
+    {
+        using BinaryReader reader = new(fileStream);
+        byte[] magic = reader.ReadBytes(4);
+        // Check if the magic is correct
+        if (!magic.SequenceEqual(IdString))
+            throw new InvalidDataException("Invalid IPK file");
+
+        version = reader.ReadInt32BigEndian();
+        Console.WriteLine($"IPK version: {version}");
+
+        // Skipping dummy long
+        reader.ReadInt32BigEndian();
+        baseOffset = reader.ReadInt32BigEndian();
+        filesCount = reader.ReadInt32BigEndian();
+
+        Console.WriteLine($"Base offset: {baseOffset}");
+        Console.WriteLine($"Number of files: {filesCount}");
+
+        fileStream.Seek(0x30, SeekOrigin.Begin);
+
+        List<FileEntry> entries = [];
+
+        // First read all the file entries
+        for (int i = 0; i < filesCount; i++)
+            entries.Add(ReadFileEntry(reader));
+
+        // Detect if paths are swapped by checking if most Path entries contain "cache/itf_cooked"
+        if (entries.Count > 0)
+        {
+            int cacheCount = entries.Count(e => e.Path.Contains("cache/itf_cooked", StringComparison.OrdinalIgnoreCase));
+            pathsAreSwapped = cacheCount > entries.Count / 2;
+            Console.WriteLine($"Paths are swapped: {pathsAreSwapped}");
+        }
+
+        // Print first 20 entries
+        Console.WriteLine($"\nFirst {Math.Min(20, entries.Count)} file entries:");
+        for (int i = 0; i < Math.Min(20, entries.Count); i++)
+        {
+            var entry = entries[i];
+            var (fileName, folderPath) = pathsAreSwapped 
+                ? (entry.Path, entry.Name)
+                : (entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name));
+            Console.WriteLine($"  [{i}] Path: '{folderPath}', Name: '{fileName}', Size: {entry.Size}");
         }
     }
 
@@ -92,9 +148,12 @@ public class JustDanceIPKParser
         return entry;
     }
 
-    private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool ShowInfo = false)
+    private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool pathsAreSwapped, bool ShowInfo = false)
     {
-        (string fileName, string folderPath) = entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name);
+        // If paths are swapped (WiiU bundles), use swapped logic
+        (string fileName, string folderPath) = pathsAreSwapped 
+            ? (entry.Path, entry.Name)
+            : (entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name));
         BinaryReader reader = new(fileStream);
 
         folderPath = Path.Combine(outputDirectory, folderPath);

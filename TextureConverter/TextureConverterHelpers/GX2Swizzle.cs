@@ -152,7 +152,7 @@ public static class GX2Swizzle
         // The file stores the data using the original pitch/height, not the alignment-padded dimensions.
         uint actualPitch = surfInfo.Pitch;
         uint actualHeight = surfInfo.Height;
-        if (mipLevel == 0 && ((uint)surface.TileMode > 3 && (uint)surface.TileMode != 16))
+        if (mipLevel == 0 && (uint)surface.TileMode > 3 && (uint)surface.TileMode != 16)
         {
             // Macro-tiled mode - use the values from the file
             actualPitch = surface.Pitch;
@@ -192,9 +192,9 @@ public static class GX2Swizzle
         if (tileMode == 16) // Linear special
         {
             uint numSamples = (uint)(1 << (int)aa);
-            uint blockSize = hwFormat < 0x31 || hwFormat > 0x35 ? 1u : 4u;
+            uint blockSize = hwFormat is < 0x31 or > 0x35 ? 1u : 4u;
 
-            width = (uint)(~(blockSize - 1) & (Math.Max(1, width >> level) + blockSize - 1));
+            width = ~(blockSize - 1) & (Math.Max(1, width >> level) + blockSize - 1);
 
             pSurfOut.Bpp = FormatHwInfo[hwFormat * 4];
             pSurfOut.Pitch = width / blockSize;
@@ -235,14 +235,14 @@ public static class GX2Swizzle
             }
 
             pSurfOut.PixelPitch = width;
-            pSurfOut.PixelHeight = (uint)(~(blockSize - 1) & (pSurfOut.Height + blockSize - 1));
+            pSurfOut.PixelHeight = ~(blockSize - 1) & (pSurfOut.Height + blockSize - 1);
             pSurfOut.Height = pSurfOut.PixelHeight / blockSize;
-            pSurfOut.SurfSize = pSurfOut.Bpp * numSamples * pSurfOut.Depth * pSurfOut.Height * pSurfOut.Pitch >> 3;
+            pSurfOut.SurfSize = (pSurfOut.Bpp * numSamples * pSurfOut.Depth * pSurfOut.Height * pSurfOut.Pitch) >> 3;
 
             pSurfOut.SliceSize = surfaceDim == 2 ? (uint)pSurfOut.SurfSize : (uint)(pSurfOut.SurfSize / pSurfOut.Depth);
             pSurfOut.PitchTileMax = (pSurfOut.Pitch >> 3) - 1;
             pSurfOut.HeightTileMax = (pSurfOut.Height >> 3) - 1;
-            pSurfOut.SliceTileMax = (pSurfOut.Height * pSurfOut.Pitch >> 6) - 1;
+            pSurfOut.SliceTileMax = ((pSurfOut.Height * pSurfOut.Pitch) >> 6) - 1;
         }
         else
         {
@@ -292,11 +292,11 @@ public static class GX2Swizzle
             for (uint x = 0; x < width; x++)
             {
                 ulong pos;
-                if (tileMode == 0 || tileMode == 1)
+                if (tileMode is 0 or 1)
                 {
                     pos = ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height_, depth);
                 }
-                else if (tileMode == 2 || tileMode == 3)
+                else if (tileMode is 2 or 3)
                 {
                     pos = ComputeSurfaceAddrFromCoordMicroTiled(x, y, slice, bitsPerPixel, pitch, height_, tileMode, isDepth);
                 }
@@ -306,7 +306,7 @@ public static class GX2Swizzle
                         numSamples, tileMode, isDepth, pipeSwizzle, bankSwizzle);
                 }
 
-                uint pos_ = (y * width + x) * bytesPerPixel;
+                uint pos_ = ((y * width) + x) * bytesPerPixel;
 
                 if (toSwizzled)
                 {
@@ -337,22 +337,22 @@ public static class GX2Swizzle
     private static ulong ComputeSurfaceAddrFromCoordLinear(uint x, uint y, uint slice, uint sample,
         uint bpp, uint pitch, uint height, uint numSlices)
     {
-        uint sliceOffset = pitch * height * (slice + sample * numSlices);
-        return (y * pitch + x + sliceOffset) * bpp;
+        uint sliceOffset = pitch * height * (slice + (sample * numSlices));
+        return ((y * pitch) + x + sliceOffset) * bpp;
     }
 
     private static ulong ComputeSurfaceAddrFromCoordMicroTiled(uint x, uint y, uint slice,
         uint bpp, uint pitch, uint height, uint tileMode, bool isDepth)
     {
         int microTileThickness = tileMode == 3 ? 4 : 1;
-        uint microTileBytes = (uint)(64 * microTileThickness * bpp + 7) / 8;
+        uint microTileBytes = (uint)((64 * microTileThickness * bpp) + 7) / 8;
         uint microTilesPerRow = pitch >> 3;
         uint microTileIndexX = x >> 3;
         uint microTileIndexY = y >> 3;
         uint microTileIndexZ = slice / (uint)microTileThickness;
 
-        ulong microTileOffset = microTileBytes * (microTileIndexX + microTileIndexY * microTilesPerRow);
-        ulong sliceBytes = (ulong)(pitch * height * microTileThickness * bpp + 7) / 8;
+        ulong microTileOffset = microTileBytes * (microTileIndexX + (microTileIndexY * microTilesPerRow));
+        ulong sliceBytes = (ulong)((pitch * height * microTileThickness * bpp) + 7) / 8;
         ulong sliceOffset = microTileIndexZ * sliceBytes;
 
         uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
@@ -366,7 +366,7 @@ public static class GX2Swizzle
         uint pipeSwizzle, uint bankSwizzle)
     {
         uint microTileThickness = ComputeSurfaceThickness(tileMode);
-        uint microTileBits = numSamples * bpp * (microTileThickness * 64);
+        uint microTileBits = numSamples * bpp * microTileThickness * 64;
         uint microTileBytes = (microTileBits + 7) / 8;
 
         uint pixelIndex = ComputePixelIndexWithinMicroTile(x, y, slice, bpp, tileMode, isDepth);
@@ -389,7 +389,6 @@ public static class GX2Swizzle
 
         if (numSamples <= 1 || microTileBytes <= 2048)
         {
-            samplesPerSlice = numSamples;
             numSampleSplits = 1;
             sampleSlice = 0;
         }
@@ -409,22 +408,22 @@ public static class GX2Swizzle
         uint pipe = ComputePipeFromCoordWoRotation(x, y);
         uint bank = ComputeBankFromCoordWoRotation(x, y);
 
-        uint swizzle_ = pipeSwizzle + 2 * bankSwizzle;
-        uint bankPipe = pipe + 2 * bank;
+        uint swizzle_ = pipeSwizzle + (2 * bankSwizzle);
+        uint bankPipe = pipe + (2 * bank);
         uint rotation = ComputeSurfaceRotationFromTileMode(tileMode);
         uint sliceIn = slice;
 
         if (IsThickMacroTiled(tileMode) != 0)
             sliceIn >>= 2;
 
-        bankPipe ^= 2 * sampleSlice * 3 ^ (swizzle_ + sliceIn * rotation);
+        bankPipe ^= (2 * sampleSlice * 3) ^ (swizzle_ + (sliceIn * rotation));
         bankPipe %= 8;
 
         pipe = bankPipe % 2;
         bank = bankPipe / 2;
 
-        uint sliceBytes = (height * pitch * microTileThickness * bpp * numSamples + 7) / 8;
-        uint sliceOffset = sliceBytes * (sampleSlice + numSampleSplits * slice) / microTileThickness;
+        uint sliceBytes = ((height * pitch * microTileThickness * bpp * numSamples) + 7) / 8;
+        uint sliceOffset = sliceBytes * (sampleSlice + (numSampleSplits * slice)) / microTileThickness;
 
         uint macroTilePitch = 32;
         uint macroTileHeight = 16;
@@ -444,10 +443,10 @@ public static class GX2Swizzle
         }
 
         uint macroTilesPerRow = pitch / macroTilePitch;
-        uint macroTileBytes = (numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch + 7) / 8;
+        uint macroTileBytes = ((numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch) + 7) / 8;
         uint macroTileIndexX = x / macroTilePitch;
         uint macroTileIndexY = y / macroTileHeight;
-        ulong macroTileOffset = (macroTileIndexX + macroTilesPerRow * macroTileIndexY) * macroTileBytes;
+        ulong macroTileOffset = (macroTileIndexX + (macroTilesPerRow * macroTileIndexY)) * macroTileBytes;
 
         if (IsBankSwappedTileMode(tileMode) != 0)
         {
@@ -489,10 +488,15 @@ public static class GX2Swizzle
 
     private static uint ComputePixelIndexWithinMicroTile(uint x, uint y, uint z, uint bpp, uint tileMode, bool isDepth)
     {
-        uint pixelBit0 = 0, pixelBit1 = 0, pixelBit2 = 0, pixelBit3 = 0, pixelBit4 = 0, pixelBit5 = 0;
         uint pixelBit6 = 0, pixelBit7 = 0, pixelBit8 = 0;
         uint thickness = ComputeSurfaceThickness(tileMode);
 
+        uint pixelBit0;
+        uint pixelBit1;
+        uint pixelBit2;
+        uint pixelBit3;
+        uint pixelBit4;
+        uint pixelBit5;
         if (isDepth)
         {
             pixelBit0 = x & 1;
@@ -707,7 +711,7 @@ public static class GX2Swizzle
         if (level == 0)
             aSurfIn.Flags = (1 << 12) | (aSurfIn.Flags & 0xFFFFEFFF);
         else
-            aSurfIn.Flags = aSurfIn.Flags & 0xFFFFEFFF;
+            aSurfIn.Flags &= 0xFFFFEFFF;
 
         ComputeSurfaceInfoEx(aSurfIn, pSurfOut);
     }
@@ -778,7 +782,7 @@ public static class GX2Swizzle
         pOut.Pitch = pitch;
         pOut.Height = height;
         pOut.Depth = numSlices;
-        pOut.SurfSize = (height * pitch * slices * bpp * numSamples + 7) / 8;
+        pOut.SurfSize = ((height * pitch * slices * bpp * numSamples) + 7) / 8;
         pOut.BaseAlign = baseAlign;
         pOut.PitchAlign = pitchAlign;
         pOut.HeightAlign = heightAlign;
@@ -816,7 +820,7 @@ public static class GX2Swizzle
         pOut.Pitch = pitch;
         pOut.Height = height;
         pOut.Depth = numSlices;
-        pOut.SurfSize = (height * pitch * numSlices * bpp * numSamples + 7) / 8;
+        pOut.SurfSize = ((height * pitch * numSlices * bpp * numSamples) + 7) / 8;
         pOut.TileMode = expTileMode;
         pOut.BaseAlign = baseAlign;
         pOut.PitchAlign = pitchAlign;
@@ -859,7 +863,7 @@ public static class GX2Swizzle
         pOut.Pitch = pitch;
         pOut.Height = height;
         pOut.Depth = numSlices;
-        pOut.SurfSize = (height * pitch * numSlices * bpp * numSamples + 7) / 8;
+        pOut.SurfSize = ((height * pitch * numSlices * bpp * numSamples) + 7) / 8;
         pOut.TileMode = expTileMode;
         pOut.BaseAlign = baseAlign;
         pOut.PitchAlign = pitchAlign;
@@ -940,14 +944,14 @@ public static class GX2Swizzle
         pitchAlign = AdjustPitchAlignment(flags, pitchAlign);
         heightAlign = macroHeight;
 
-        uint macroTileBytes = numSamples * ((bpp * macroHeight * macroWidth + 7) >> 3);
+        uint macroTileBytes = numSamples * (((bpp * macroHeight * macroWidth) + 7) >> 3);
 
         if (thickness == 1)
-            baseAlign = Math.Max(macroTileBytes, (numSamples * heightAlign * bpp * pitchAlign + 7) >> 3);
+            baseAlign = Math.Max(macroTileBytes, ((numSamples * heightAlign * bpp * pitchAlign) + 7) >> 3);
         else
-            baseAlign = Math.Max(256, (4 * heightAlign * bpp * pitchAlign + 7) >> 3);
+            baseAlign = Math.Max(256, ((4 * heightAlign * bpp * pitchAlign) + 7) >> 3);
 
-        uint microTileBytes = (thickness * numSamples * (bpp << 6) + 7) >> 3;
+        uint microTileBytes = ((thickness * numSamples * (bpp << 6)) + 7) >> 3;
         uint numSlicesPerMicroTile = microTileBytes < 2048 ? 1u : microTileBytes / 2048;
         baseAlign /= numSlicesPerMicroTile;
     }
@@ -967,7 +971,7 @@ public static class GX2Swizzle
         if ((pitchAlign & (pitchAlign - 1)) == 0)
             pitch = PowTwoAlign(pitch, pitchAlign);
         else
-            pitch = ((pitch + pitchAlign - 1) / pitchAlign) * pitchAlign;
+            pitch = (pitch + pitchAlign - 1) / pitchAlign * pitchAlign;
 
         height = PowTwoAlign(height, heightAlign);
 
@@ -1002,14 +1006,14 @@ public static class GX2Swizzle
         {
             if (numSamples > 1 || isDepth != 0)
                 expTileMode = 2;
-            if (numSamples == 2 || numSamples == 4)
+            if (numSamples is 2 or 4)
                 expTileMode = 7;
         }
 
         if (level == 0)
             return expTileMode;
 
-        if (bpp == 24 || bpp == 48 || bpp == 96)
+        if (bpp is 24 or 48 or 96)
             bpp /= 3;
 
         uint widtha = NextPow2(width);
@@ -1018,7 +1022,7 @@ public static class GX2Swizzle
 
         expTileMode = ConvertToNonBankSwappedMode(expTileMode);
         uint thickness = ComputeSurfaceThickness(expTileMode);
-        uint microTileBytes = (numSamples * bpp * (thickness << 6) + 7) >> 3;
+        uint microTileBytes = ((numSamples * bpp * (thickness << 6)) + 7) >> 3;
 
         uint widthAlignFactor = 1;
         if (microTileBytes < 256)

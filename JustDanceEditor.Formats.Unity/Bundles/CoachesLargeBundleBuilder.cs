@@ -34,7 +34,7 @@ public sealed class CoachesLargeBundleBuilder(ILogger<CoachesLargeBundleBuilder>
     public static void Generate(UnityCoachesLargeRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var builder = new CoachesLargeBundleBuilder(logger as ILogger<CoachesLargeBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoachesLargeBundleBuilder builder = new(logger as ILogger<CoachesLargeBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
         builder.Run(request);
     }
 

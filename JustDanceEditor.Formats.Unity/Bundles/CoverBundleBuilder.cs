@@ -35,7 +35,7 @@ public sealed class CoverBundleBuilder(ILogger<CoverBundleBuilder> logger) : Uni
     public static void Generate(UnityCoverRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var builder = new CoverBundleBuilder(logger as ILogger<CoverBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoverBundleBuilder builder = new(logger as ILogger<CoverBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
         builder.Run(request);
     }
 
