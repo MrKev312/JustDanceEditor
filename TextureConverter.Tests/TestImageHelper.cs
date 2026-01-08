@@ -105,10 +105,10 @@ public static class TestImageHelper
         int errorCount = 0;
         for (int i = 0; i < expected.Length; i++)
         {
-            int rDiff = System.Math.Abs(expected[i].R - actual[i].R);
-            int gDiff = System.Math.Abs(expected[i].G - actual[i].G);
-            int bDiff = System.Math.Abs(expected[i].B - actual[i].B);
-            int aDiff = System.Math.Abs(expected[i].A - actual[i].A);
+            int rDiff = Math.Abs(expected[i].R - actual[i].R);
+            int gDiff = Math.Abs(expected[i].G - actual[i].G);
+            int bDiff = Math.Abs(expected[i].B - actual[i].B);
+            int aDiff = Math.Abs(expected[i].A - actual[i].A);
 
             if (rDiff > toleranceR || gDiff > toleranceG || bDiff > toleranceB || aDiff > toleranceA)
             {

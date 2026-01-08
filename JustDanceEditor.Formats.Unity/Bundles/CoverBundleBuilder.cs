@@ -73,7 +73,7 @@ public sealed class CoverBundleBuilder(ILogger<CoverBundleBuilder> logger) : Uni
             _logger.LogInformation("Starting generation for cover: {Codename}", request.Codename);
 
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? coverTextureInfo, AssetFileInfo? coverSpriteInfo) =
-                base.InitializeBundle(request.TemplatePath, request.Codename);
+                InitializeBundle(request.TemplatePath, request.Codename);
 
             // Set cover-specific names on the asset bundle base
             if (assetBundleBase != null)

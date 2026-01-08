@@ -71,7 +71,7 @@ public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder>
         try
         {
             (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase, AssetFileInfo? textureInfo, AssetFileInfo? spriteInfo) =
-                base.InitializeBundle(request.TemplatePath, request.Codename);
+                InitializeBundle(request.TemplatePath, request.Codename);
 
             // Set coaches-specific bundle names
             if (assetBundleBase != null)
@@ -96,7 +96,7 @@ public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder>
             if (assetBundleBase == null)
                 throw new InvalidOperationException("Asset bundle base not found in template bundle.");
 
-            base.FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData);
+            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData);
             _logger.LogInformation("Finished CoachesSmall bundle for {Codename}", request.Codename);
         }
         catch (Exception ex)

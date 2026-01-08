@@ -115,12 +115,4 @@ public sealed class VGMStreamAdapter : JDI.Services.IAudioConverter
             catch { }
         }
     }
-
-    // Backwards-compatible helper
-    public async Task Convert(string input, string output)
-    {
-        await using FileStream fs = File.OpenRead(input);
-        string name = Path.GetFileName(input);
-        await Convert(fs, name, output, Path.GetDirectoryName(input));
-    }
 }

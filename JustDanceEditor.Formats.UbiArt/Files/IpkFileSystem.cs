@@ -222,8 +222,8 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
 
     private static Regex WildcardToRegex(string pattern)
     {
-        string rx = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
-        return new Regex(rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        string rx = "^" + Regex.Escape(pattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
+        return new Regex(rx, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     public void Dispose()

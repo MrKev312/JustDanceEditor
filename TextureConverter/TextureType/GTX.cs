@@ -390,7 +390,7 @@ public class GTX
         DDSFormat ddsFormat = ConvertGX2ToDDSFormat(texture.Format);
         (uint compR, uint compG, uint compB, uint compA) = GetCompSel(texture.Format);
 
-        byte[] ddsHeader = DDS.GenerateHeader(
+        byte[] ddsHeader = GenerateHeader(
             texture.NumMips,
             texture.Width,
             texture.Height,

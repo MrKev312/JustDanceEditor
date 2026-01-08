@@ -8,10 +8,13 @@ using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 using System.Globalization; // for invariant number formatting
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using Xabe.FFmpeg; // audio/video conversions
 
@@ -20,7 +23,7 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 /// <summary>
 /// Service for exporting UbiArt assets from intermediate package format.
 /// </summary>
-public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiArtAssetWriter
+public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiArtAssetWriter
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
@@ -75,14 +78,14 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
         string songDescLua = BuildSongDescTpl(package);
         await iofs.WriteAllTextAsync(iofs.Combine(mapWorldFolder, "songdesc.tpl"), songDescLua);
 
-        // Write cinematics files
-        _logger.LogInformation("Writing cinematics files...");
-        await WriteCinematicsAsync(package, cinematicsFolder, layout, containerStyle, engineVersion, iofs);
-
         // Prepare & Write MusicTrack.tpl (ensure WAV, external .trk and AMB if needed)
         _logger.LogInformation("Preparing and writing MusicTrack.tpl and audio assets...");
         // Ensure audio files are present and create .wav, .trk and AMB slices as needed
         await PrepareAudioForUncookedAsync(package, materializedRoot, mapWorldFolder, iofs);
+
+        // Write cinematics files (depends on AMB intro generated above)
+        _logger.LogInformation("Writing cinematics files...");
+        await WriteCinematicsAsync(package, cinematicsFolder, layout, containerStyle, engineVersion, iofs);
 
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string musicTrackTpl = BuildMusicTrackTpl(package.Metadata.MapName, mapNameLower);
@@ -437,8 +440,70 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
 ";
         await io.WriteAllTextAsync(io.Combine(cinematicsFolder, $"{mapName}_MainSequence.tpl"), tplContent);
 
-        // 4. Write TAPE file (currently empty, would contain SoundSetClips for AMB effects)
-        string tapeContent = $@"params =
+        // 4. Write TAPE file (add SoundSetClip for AMB intro if present)
+        // Determine map root from cinematics folder (parent directory)
+        string? mapRoot = Path.GetDirectoryName(cinematicsFolder);
+        string ambWavPath = mapRoot != null ? io.Combine(mapRoot, "audio", "amb", $"amb_{mapName}_intro.wav") : string.Empty;
+        string ambTplPathWorld = $"world/Maps/{mapName.ToLowerInvariant()}/Audio/AMB/AMB_{mapName}_Intro.tpl";
+
+        string tapeContent;
+        if (!string.IsNullOrWhiteSpace(ambWavPath) && io.FileExists(ambWavPath))
+        {
+            // Create a deterministic track id and clip id based on map name
+            byte[] hash = SHA1.HashData(Encoding.UTF8.GetBytes(mapName));
+            long trackId = BitConverter.ToUInt32(hash, 0);
+            long clipId = BitConverter.ToUInt32(hash, 4);
+
+            int startBeat = package.TimelineStructure.StartBeat;
+            // Convert beats to internal clip time units (24 units per beat)
+            int startTime = startBeat * 24;
+            int duration = Math.Abs(startBeat) * 24;
+
+            var clips = new[]
+            {
+                new
+                {
+                    NAME = "SoundSetClip",
+                    SoundSetClip = new
+                    {
+                        Id = clipId,
+                        TrackId = trackId,
+                        StartTime = startTime,
+                        Duration = duration,
+                        SoundSetPath = ambTplPathWorld
+                    }
+                }
+            };
+
+            var tracks = new[]
+            {
+                new
+                {
+                    NAME = "TapeTrack",
+                    TapeTrack = new
+                    {
+                        id = trackId,
+                        name = "SOUND"
+                    }
+                }
+            };
+
+            var tapeObj = new
+            {
+                NAME = "Tape",
+                Tape = new
+                {
+                    Clips = clips,
+                    Tracks = tracks,
+                    TapeClock = 0
+                }
+            };
+
+            tapeContent = LuaTableSerializer.Serialize(tapeObj);
+        }
+        else
+        {
+            tapeContent = $@"params =
 {{
     NAME=""Tape"",
     Tape =
@@ -449,6 +514,8 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
     }}
 }}
 ";
+        }
+
         await io.WriteAllTextAsync(io.Combine(cinematicsFolder, $"{mapName}_MainSequence.tape"), tapeContent);
     }
 
@@ -748,5 +815,111 @@ public sealed class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger) : IUbiA
         {
             _logger.LogWarning("Moves source directory not found: {MovesSourceDir}", movesSourceDir);
         }
+
+        // 4a. MenuArt Textures (TGA)
+        try
+        {
+            string menuTexturesDir = io.Combine(mapSubFolder, "menuart", "textures");
+            io.CreateDirectory(menuTexturesDir);
+
+            // Coaches (up to 4)
+            string coachesSourceDir = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.CoachesFolder);
+            if (io.DirectoryExists(coachesSourceDir))
+            {
+                string[] coachFiles = [.. io.GetFiles(coachesSourceDir)
+                    .Where(f => CoachMatching().IsMatch(Path.GetFileName(f)))
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];
+                int coachIndex = 1;
+                foreach (string file in coachFiles)
+                {
+                    try
+                    {
+                        using Image<Bgra32> coachImg = Image.Load<Bgra32>(file);
+                        string dest = io.Combine(menuTexturesDir, $"{package.Metadata.MapName}_Coach_{coachIndex}.tga");
+                        SaveAsTga(coachImg, dest, io);
+                        coachIndex++;
+                        if (coachIndex > 4)
+                            break;
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogWarning(e, "Failed to convert coach {File} to TGA: {Message}", file, e.Message);
+                    }
+                }
+            }
+
+            // Cover / Album coach
+            string coverSource = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.CoverFile);
+            if (io.FileExists(coverSource))
+            {
+                try
+                {
+                    using Image<Bgra32> coverImg = Image.Load<Bgra32>(coverSource);
+                    string dest = io.Combine(menuTexturesDir, $"{package.Metadata.MapName}_Cover_Generic.tga");
+                    SaveAsTga(coverImg, dest, io);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning(e, "Failed to convert cover to TGA: {Message}", e.Message);
+                }
+            }
+
+            // Background (map_bkg)
+            string coachesBg = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile);
+            if (io.FileExists(coachesBg))
+            {
+                try
+                {
+                    using Image<Bgra32> bg = Image.Load<Bgra32>(coachesBg);
+                    string dest = io.Combine(menuTexturesDir, $"{package.Metadata.MapName}_map_bkg.tga");
+                    SaveAsTga(bg, dest, io);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning(e, "Failed to convert background to TGA: {Message}", e.Message);
+                }
+            }
+
+            _logger.LogInformation("Exported MenuArt textures to {Dir}", menuTexturesDir);
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "Failed to export MenuArt textures: {Message}", e.Message);
+        }
     }
+
+    private static void SaveAsTga(Image<Bgra32> image, string destination, IFileSystem io)
+    {
+        io.CreateDirectory(Path.GetDirectoryName(destination)!);
+        using FileStream fs = File.Open(destination, FileMode.Create, FileAccess.Write);
+
+        int width = image.Width;
+        int height = image.Height;
+
+        byte[] header = new byte[18];
+        header[2] = 2; // uncompressed true-color image
+        header[12] = (byte)(width & 0xFF);
+        header[13] = (byte)((width >> 8) & 0xFF);
+        header[14] = (byte)(height & 0xFF);
+        header[15] = (byte)((height >> 8) & 0xFF);
+        header[16] = 32; // bits per pixel
+        header[17] = (byte)(0x20 | 8); // top-left origin + 8 bits of alpha
+
+        fs.Write(header, 0, header.Length);
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Bgra32 p = image[x, y];
+                fs.WriteByte(p.B);
+                fs.WriteByte(p.G);
+                fs.WriteByte(p.R);
+                fs.WriteByte(p.A);
+            }
+        }
+    }
+
+    [GeneratedRegex("^coach_\\d{1,2}\\.webp$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-NL")]
+    private static partial Regex CoachMatching();
 }

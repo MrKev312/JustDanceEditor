@@ -1,9 +1,12 @@
+using JustDanceEditor.Formats.UbiArt.Tapes;
+
 using NLua;
 
 using System.Collections;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
@@ -18,6 +21,42 @@ public static class LuaTableSerializer
         lua.DoString("GameModeFlags = { None = 0 }");
         lua.DoString("GameModeStatus = { Available = 0 }");
         lua.DoString("structure = { }"); // For MusicTrack
+    }
+
+    private static string ResolveLuaIncludes(string luaContent, Files.LayeredFileSystem fileSystem)
+    {
+        // Find all includeReference() calls and load the referenced files
+        StringBuilder result = new(luaContent);
+        
+        // Match includeReference("path") - single argument pattern
+        System.Text.RegularExpressions.Regex includeRegex = new(
+            @"includeReference\s*\(\s*""([^""]+)""\s*\)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+
+        foreach (System.Text.RegularExpressions.Match match in includeRegex.Matches(luaContent))
+        {
+            string filePath = match.Groups[1].Value;
+            
+            try
+            {
+                if (fileSystem.GetFilePath(filePath, out Files.CookedFile? cookedFile))
+                {
+                    using Stream stream = fileSystem.GetFileStream(cookedFile);
+                    using StreamReader reader = new(stream, Encoding.UTF8);
+                    string includedContent = reader.ReadToEnd().TrimEnd('\0');
+                    
+                    // Replace the includeReference call with the actual file content
+                    result.Replace(match.Value, includedContent);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load included reference '{filePath}': {ex.Message}");
+            }
+        }
+
+        return result.ToString();
     }
 
     public static T Deserialize<T>(string luaContent) where T : new()
@@ -37,9 +76,93 @@ public static class LuaTableSerializer
             return (T)(object)MapToSongDesc(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
-        if (typeof(T) == typeof(Tapes.ClipTape))
+        if (typeof(T) == typeof(ClipTape))
         {
             return (T)(object)MapToClipTape(JsonSerializer.Deserialize<JsonElement>(json));
+        }
+
+        if (typeof(T) == typeof(MusicTrack))
+        {
+            return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
+        }
+
+        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+    }
+
+    public static T Deserialize<T>(string luaContent, Files.LayeredFileSystem fileSystem) where T : new()
+    {
+        using Lua lua = new();
+        InitializeLua(lua);
+
+        // Pre-process to resolve includeReference calls
+        string processedContent = ResolveLuaIncludes(luaContent, fileSystem);
+
+        lua.DoString(processedContent);
+
+        LuaTable? paramsTable = lua["params"] as LuaTable ?? throw new InvalidDataException("LUA script did not define 'params' table.");
+
+        // If requesting MusicTrack, extract it directly from the Lua VM to capture globals like 'structure'
+        if (typeof(T) == typeof(MusicTrack))
+        {
+            // Navigate to Actor_Template > COMPONENTS
+            if (paramsTable["Actor_Template"] is LuaTable actorTemplate && actorTemplate["COMPONENTS"] is LuaTable components)
+            {
+                foreach (object? compObj in components.Values)
+                {
+                    if (compObj is LuaTable compTable && compTable["MusicTrackComponent_Template"] is LuaTable mtComp)
+                    {
+                        object? tdObj = mtComp["trackData"];
+                        if (tdObj is LuaTable trackDataTable)
+                        {
+                            // MusicTrackData may be nested under MusicTrackData or be the trackData itself
+                            object? mtdObj = trackDataTable["MusicTrackData"] ?? trackDataTable;
+                            if (mtdObj is LuaTable mtdTable)
+                            {
+                                // Convert mtdTable to JSON via LuaTableToDictionary and then to TrackData
+                                IDictionary<string, object> mtdDict = LuaTableToDictionary(mtdTable);
+
+                                // If structure is a LuaTable at top-level, replace it with converted object
+                                if (mtdTable["structure"] is LuaTable structureTable)
+                                {
+                                    mtdDict["structure"] = LuaTableToDictionary(structureTable);
+                                }
+
+                                string mtdJson = JsonSerializer.Serialize(mtdDict);
+                                JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+                                options.Converters.Add(new FloatArrayFlexibleJsonConverter());
+                                options.Converters.Add(new StructureJsonConverter());
+                                options.Converters.Add(new Tapes.Clips.ClipConverter());
+
+                                TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, options)!;
+                                TrackDataHolder holder = new() { Class = "MusicTrackComponent_Template", TrackData = trackData };
+                                MusicTrack musicTrack = new() { Class = "MusicTrack", Components = [holder] };
+                                return (T)(object)musicTrack;
+                            }
+                        }
+                    }
+                }
+            }
+
+            throw new InvalidDataException("Could not extract MusicTrack from Actor_Template structure via Lua.");
+        }
+
+        IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
+        string json = JsonSerializer.Serialize(dict);
+        Console.WriteLine($"DEBUG JSON: {json}");
+
+        if (typeof(T) == typeof(SongDesc))
+        {
+            return (T)(object)MapToSongDesc(JsonSerializer.Deserialize<JsonElement>(json));
+        }
+
+        if (typeof(T) == typeof(ClipTape))
+        {
+            return (T)(object)MapToClipTape(JsonSerializer.Deserialize<JsonElement>(json));
+        }
+
+        if (typeof(T) == typeof(MusicTrack))
+        {
+            return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
         return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
@@ -126,14 +249,148 @@ public static class LuaTableSerializer
         throw new InvalidDataException("Could not find JD_SongDescTemplate in SongDesc LUA.");
     }
 
-    private static Tapes.ClipTape MapToClipTape(JsonElement root)
+    private static ClipTape MapToClipTape(JsonElement root)
     {
         if (root.TryGetProperty("Tape", out JsonElement tape))
         {
-            return JsonSerializer.Deserialize<Tapes.ClipTape>(tape.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            // Normalize clip entries to include a __class property and flatten wrapper objects.
+            // We need to deep-copy the JSON to avoid "node already has a parent" errors.
+            List<JsonNode> normalizedClips = [];
+            
+            if (tape.TryGetProperty("Clips", out JsonElement clipsElement) && clipsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement clipElement in clipsElement.EnumerateArray())
+                {
+                    if (JsonNode.Parse(clipElement.GetRawText()) is not JsonObject clipObj)
+                        continue;
+
+                    string? className = null;
+
+                    // Try to determine class name from NAME or wrapper property
+                    if (clipObj.TryGetPropertyValue("NAME", out JsonNode? nameNode) && nameNode is JsonValue nameVal)
+                        className = nameVal.ToString();
+
+                    if (string.IsNullOrEmpty(className))
+                    {
+                        foreach (KeyValuePair<string, JsonNode?> kv in clipObj)
+                        {
+                            if (kv.Value is JsonObject && kv.Key.EndsWith("Clip", StringComparison.Ordinal))
+                            {
+                                className = kv.Key;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(className))
+                        continue;
+
+                    // If there is a wrapper object like { "MotionClip": { ... } }, extract and flatten it
+                    JsonObject normalized = [];
+
+                    if (clipObj.TryGetPropertyValue(className, out JsonNode? inner) && inner is JsonObject innerObj)
+                    {
+                        // Deep-copy all properties from inner object
+                        foreach (KeyValuePair<string, JsonNode?> innerKv in innerObj)
+                        {
+                            if (innerKv.Value != null)
+                                normalized[innerKv.Key] = JsonNode.Parse(innerKv.Value.ToJsonString());
+                        }
+                    }
+
+                    // Add __class marker for the ClipConverter
+                    if (!normalized.ContainsKey("__class"))
+                        normalized["__class"] = className;
+
+                    normalizedClips.Add(normalized);
+                }
+            }
+
+            // Rebuild the Tape object with normalized Clips
+            JsonObject resultTape = [];
+
+            JsonArray normalizedClipsArray = [.. normalizedClips];
+            resultTape["Clips"] = normalizedClipsArray;
+
+            // Copy other Tape properties (Tracks, MapName, TapeClock, etc.)
+            foreach (JsonProperty prop in tape.EnumerateObject())
+            {
+                if (!prop.NameEquals("Clips"))
+                {
+                    resultTape[prop.Name] = JsonNode.Parse(prop.Value.GetRawText());
+                }
+            }
+
+            JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+            options.Converters.Add(new Tapes.Clips.ClipConverter());
+            options.Converters.Add(new FloatArrayFlexibleJsonConverter());
+
+            return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), options)!;
         }
 
         throw new InvalidDataException("Could not find Tape in ClipTape LUA.");
+    }
+
+    private static MusicTrack MapToMusicTrack(JsonElement root)
+    {
+        // MusicTrack from Lua is wrapped as Actor_Template > COMPONENTS
+        // We need to extract MusicTrackComponent_Template > trackData > MusicTrackData
+        
+        if (root.TryGetProperty("Actor_Template", out JsonElement actorTemplate))
+        {
+            if (actorTemplate.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == JsonValueKind.Array)
+            {
+                JsonElement.ArrayEnumerator componentArray = components.EnumerateArray();
+                foreach (JsonElement component in componentArray)
+                {
+                    // Look for MusicTrackComponent_Template
+                    foreach (JsonProperty prop in component.EnumerateObject())
+                    {
+                        if (prop.NameEquals("MusicTrackComponent_Template"))
+                        {
+                            if (prop.Value.TryGetProperty("trackData", out JsonElement trackData))
+                            {
+                                // Extract the MusicTrackData from the wrapper
+                                JsonElement musicTrackData;
+                                if (trackData.TryGetProperty("MusicTrackData", out JsonElement mtd))
+                                {
+                                    musicTrackData = mtd;
+                                }
+                                else
+                                {
+                                    musicTrackData = trackData;
+                                }
+
+                                // Create options with necessary converters
+                                JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+                                options.Converters.Add(new StructureJsonConverter());
+                                options.Converters.Add(new FloatArrayFlexibleJsonConverter());
+
+                                // Create a wrapper MusicTrack with a single component
+                                TrackDataHolder trackDataHolder = new()
+                                {
+                                    Class = "MusicTrackComponent_Template",
+                                    TrackData = JsonSerializer.Deserialize<TrackData>(
+                                        musicTrackData.GetRawText(),
+                                        options
+                                    )!
+                                };
+
+                                MusicTrack musicTrack = new()
+                                {
+                                    Class = "MusicTrack",
+                                    Components = [trackDataHolder]
+                                };
+
+                                return musicTrack;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        throw new InvalidDataException("Could not extract MusicTrack from Actor_Template structure.");
     }
 
     public static string Serialize<T>(T obj)

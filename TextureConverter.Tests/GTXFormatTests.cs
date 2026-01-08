@@ -293,19 +293,19 @@ public class GTXFormatTests
     [Fact]
     public void ConvertGX2ToDDSFormat_ConvertsCorrectly()
     {
-        Assert.Equal(TextureType.DDS.DDSFormat.RGBA8, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM));
-        Assert.Equal(TextureType.DDS.DDSFormat.BC1, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.T_BC1_UNORM));
-        Assert.Equal(TextureType.DDS.DDSFormat.BC3, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.T_BC3_UNORM));
-        Assert.Equal(TextureType.DDS.DDSFormat.RGB565, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.TCS_R5_G6_B5_UNORM));
+        Assert.Equal(DDS.DDSFormat.RGBA8, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM));
+        Assert.Equal(DDS.DDSFormat.BC1, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.T_BC1_UNORM));
+        Assert.Equal(DDS.DDSFormat.BC3, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.T_BC3_UNORM));
+        Assert.Equal(DDS.DDSFormat.RGB565, GTX.ConvertGX2ToDDSFormat(GTX.GX2SurfaceFormat.TCS_R5_G6_B5_UNORM));
     }
 
     [Fact]
     public void ConvertDDSToGX2Format_ConvertsCorrectly()
     {
-        Assert.Equal(GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, GTX.ConvertDDSToGX2Format(TextureType.DDS.DDSFormat.RGBA8));
-        Assert.Equal(GTX.GX2SurfaceFormat.T_BC1_UNORM, GTX.ConvertDDSToGX2Format(TextureType.DDS.DDSFormat.BC1));
-        Assert.Equal(GTX.GX2SurfaceFormat.T_BC3_UNORM, GTX.ConvertDDSToGX2Format(TextureType.DDS.DDSFormat.BC3));
-        Assert.Equal(GTX.GX2SurfaceFormat.TCS_R5_G6_B5_UNORM, GTX.ConvertDDSToGX2Format(TextureType.DDS.DDSFormat.RGB565));
+        Assert.Equal(GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, GTX.ConvertDDSToGX2Format(DDS.DDSFormat.RGBA8));
+        Assert.Equal(GTX.GX2SurfaceFormat.T_BC1_UNORM, GTX.ConvertDDSToGX2Format(DDS.DDSFormat.BC1));
+        Assert.Equal(GTX.GX2SurfaceFormat.T_BC3_UNORM, GTX.ConvertDDSToGX2Format(DDS.DDSFormat.BC3));
+        Assert.Equal(GTX.GX2SurfaceFormat.TCS_R5_G6_B5_UNORM, GTX.ConvertDDSToGX2Format(DDS.DDSFormat.RGB565));
     }
 
     #region Comprehensive Coverage Tests
