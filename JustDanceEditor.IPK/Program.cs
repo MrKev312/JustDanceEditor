@@ -32,7 +32,7 @@ internal class Program
         if (printOnly)
         {
             // Print mode: sequential processing with ShowInfo enabled
-            foreach (var file in list)
+            foreach (string file in list)
             {
                 try
                 {

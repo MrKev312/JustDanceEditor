@@ -2,7 +2,8 @@ namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 public sealed record KaraokeClip : Clip
 {
-    public override string __class { get; } = "KaraokeClip";
+    [System.Text.Json.Serialization.JsonPropertyName("__class")]
+    public override string Class { get; } = "KaraokeClip";
     public float Pitch { get; set; }
     public string Lyrics { get; set; } = string.Empty;
     public int IsEndOfLine { get; set; }

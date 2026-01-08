@@ -56,8 +56,7 @@ public class OnlineSongDesc
     {
         SongDesc songDesc = new()
         {
-            COMPONENTS =
-            [
+            Components = [
                 new()
                 {
                     Artist = onlineSongDesc.Artist,
@@ -72,7 +71,7 @@ public class OnlineSongDesc
                     Status = onlineSongDesc.Status,
                     OriginalJDVersion = (uint)onlineSongDesc.OriginalJDVersion,
                     MapName = onlineSongDesc.MapName,
-                    VideoPreviewPath = onlineSongDesc.Assets.videoPreview_HIGHvp9webm
+                    VideoPreviewPath = onlineSongDesc.Assets.VideoPreviewHighVp9Webm
                 }
             ]
         };
@@ -84,5 +83,6 @@ public class OnlineSongDesc
 // TODO: check what stuff is missing as this doesn't seem right. Will have to use real data to verify.
 public class Assets
 {
-    public string videoPreview_HIGHvp9webm { get; set; } = string.Empty;
+    [JsonPropertyName("videoPreview_HIGHvp9webm")]
+    public string VideoPreviewHighVp9Webm { get; set; } = string.Empty;
 }

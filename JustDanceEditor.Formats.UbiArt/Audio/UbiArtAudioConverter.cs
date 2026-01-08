@@ -24,7 +24,7 @@ public sealed record UbiArtAudioConversionRequest(
     string PreviewOutputFolder,
     bool IsMainSongPreMerged,
     IAudioConverter AudioConverter,
-    Files.LayeredFileSystem FileSystem);
+    LayeredFileSystem FileSystem);
 
 public static class UbiArtAudioConverter
 {
@@ -129,7 +129,7 @@ public static class UbiArtAudioConverter
         int upperMarker = (int)Math.Ceiling(Math.Abs(markerIndex));
         float offset;
 
-        int[] markers = request.SongData.MusicTrack.COMPONENTS[0].trackData.structure.markers;
+        int[] markers = request.SongData.MusicTrack.Components[0].TrackData.Structure.Markers;
 
         if (lowerMarker == upperMarker)
         {

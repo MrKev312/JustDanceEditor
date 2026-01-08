@@ -26,7 +26,7 @@ public class MontageSortingTests
 
         if (!expected.SequenceEqual(items))
         {
-            var cmp = AlphanumericTextFirstComparer.Instance;
+            AlphanumericTextFirstComparer cmp = AlphanumericTextFirstComparer.Instance;
             StringBuilder details = new();
             details.AppendLine($"Sorted: {string.Join(", ", items)}");
             details.AppendLine($"Expect: {string.Join(", ", expected)}");
@@ -61,7 +61,7 @@ public class MontageSortingTests
     public void Comparer_Is_AntiSymmetric_For_Sample()
     {
         string[] items = ["a2b", "a10b", "aB", "a1b"];
-        var cmp = AlphanumericTextFirstComparer.Instance;
+        AlphanumericTextFirstComparer cmp = AlphanumericTextFirstComparer.Instance;
         for (int i = 0; i < items.Length; i++)
             for (int j = 0; j < items.Length; j++)
             {
@@ -77,10 +77,10 @@ public class MontageSortingTests
     public void SortedList_Is_Monotonic_By_Comparer()
     {
         string[] inputs = ["testhi", "test1"];
-        List<string> list = new(inputs);
+        List<string> list = [.. inputs];
         list.Sort(AlphanumericTextFirstComparer.Instance);
 
-        var cmp = AlphanumericTextFirstComparer.Instance;
+        AlphanumericTextFirstComparer cmp = AlphanumericTextFirstComparer.Instance;
         for (int i = 0; i < list.Count - 1; i++)
         {
             int c = cmp.Compare(list[i], list[i + 1]);

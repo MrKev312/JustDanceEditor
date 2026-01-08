@@ -104,7 +104,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
             return fileSystem.SongName;
 
-        var available = fileSystem.GetAvailableSongs();
+        (string SongName, string SongDescPath)[] available = fileSystem.GetAvailableSongs();
         if (available.Length == 0)
             throw new InvalidOperationException("No songs found in the input bundle.");
         if (available.Length == 1)
@@ -175,7 +175,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
             // For Check, we just need to verify that maps exist with songdesc files
             // Don't try to initialize a specific song - just check if ANY songdesc.tpl exists in the maps folder
-            var availableSongs = fs.GetAvailableSongs();
+            (string SongName, string SongDescPath)[] availableSongs = fs.GetAvailableSongs();
             if (availableSongs.Length == 0)
                 return false;
 
@@ -185,8 +185,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
                 // Update filesystem with first song temporarily for verification
                 fs.UpdateSongName(availableSongs[0].SongName);
                 SongDesc sd = _songDataLoader.LoadSongDesc(req, fs);
-                uint engine = sd.COMPONENTS[0].JDVersion;
-                uint original = sd.COMPONENTS[0].OriginalJDVersion;
+                uint engine = sd.Components[0].JDVersion;
+                uint original = sd.Components[0].OriginalJDVersion;
 
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine($"Detected UbiArt platform: {fs.PlatformType}, engine version: {engine}");
@@ -229,7 +229,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (_io.GetFiles(root, fileName).Length > 0)
             return true;
 
-        foreach (var dir in _io.GetDirectories(root))
+        foreach (string dir in _io.GetDirectories(root))
         {
             if (ContainsFileRecursive(dir, fileName, fs))
                 return true;

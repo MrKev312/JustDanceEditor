@@ -158,7 +158,7 @@ public class DDS
         if (magic != "DDS ")
             throw new InvalidOperationException("Invalid DDS file signature");
 
-        var header = ReadHeader(reader);
+        DDSHeader header = ReadHeader(reader);
         byte[] imageData = reader.ReadBytes((int)(reader.BaseStream.Length - reader.BaseStream.Position));
 
         return DecodeImageData(imageData, header);
@@ -246,7 +246,7 @@ public class DDS
 
         // Use BCnEncoder extension to decompress directly to Rgba32
         BcDecoder decoder = new();
-        using var decodedImage = decoder.DecodeRawToImageRgba32(data, width, height, format);
+        using Image<Rgba32> decodedImage = decoder.DecodeRawToImageRgba32(data, width, height, format);
 
         // Convert from Rgba32 to Bgra32
         Image<Bgra32> result = new(width, height);
@@ -254,20 +254,20 @@ public class DDS
         // Extract RGBA32 data and copy to BGRA32
         Rgba32[] pixelArray = new Rgba32[width * height];
         decodedImage.CopyPixelDataTo(pixelArray);
-        
+
         result.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < height; y++)
             {
-                var row = accessor.GetRowSpan(y);
+                Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < width; x++)
                 {
-                    var pixel = pixelArray[(y * width) + x];
+                    Rgba32 pixel = pixelArray[(y * width) + x];
                     row[x] = new Bgra32(pixel.R, pixel.G, pixel.B, pixel.A);
                 }
             }
         });
-        
+
         return result;
     }
 

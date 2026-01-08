@@ -25,7 +25,7 @@ public class SystemTempFolderManager(JDI.Services.IFileSystem? io = null) : ITem
     {
         try
         {
-            var folder = GetMapFolder(mapName);
+            string folder = GetMapFolder(mapName);
             if (_io.DirectoryExists(folder))
                 _io.DeleteDirectory(folder, true);
         }

@@ -113,8 +113,8 @@ public class JustDanceIPKParser
         Console.WriteLine($"\nFirst {Math.Min(20, entries.Count)} file entries:");
         for (int i = 0; i < Math.Min(20, entries.Count); i++)
         {
-            var entry = entries[i];
-            var (fileName, folderPath) = pathsAreSwapped 
+            FileEntry entry = entries[i];
+            (string? fileName, string? folderPath) = pathsAreSwapped
                 ? (entry.Path, entry.Name)
                 : (entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name));
             Console.WriteLine($"  [{i}] Path: '{folderPath}', Name: '{fileName}', Size: {entry.Size}");
@@ -151,7 +151,7 @@ public class JustDanceIPKParser
     private static void ProcessFileEntry(FileEntry entry, Stream fileStream, string outputDirectory, bool pathsAreSwapped, bool ShowInfo = false)
     {
         // If paths are swapped (WiiU bundles), use swapped logic
-        (string fileName, string folderPath) = pathsAreSwapped 
+        (string fileName, string folderPath) = pathsAreSwapped
             ? (entry.Path, entry.Name)
             : (entry.Name.Contains('.') ? (entry.Name, entry.Path) : (entry.Path, entry.Name));
         BinaryReader reader = new(fileStream);

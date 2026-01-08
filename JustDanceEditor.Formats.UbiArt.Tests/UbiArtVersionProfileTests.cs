@@ -19,7 +19,7 @@ public class UbiArtVersionProfileTests
             EngineNumericVersion = 2018
         };
 
-        var cmp = profile.PictoNameComparer;
+        IComparer<string> cmp = profile.PictoNameComparer;
 
         List<string> input = ["amor_sh", "amor_po", "amor1_po"];
         List<string> sorted = [.. input.OrderBy(s => s, cmp)];
@@ -35,7 +35,7 @@ public class UbiArtVersionProfileTests
             EngineNumericVersion = 2019
         };
 
-        var cmp = profile.PictoNameComparer;
+        IComparer<string> cmp = profile.PictoNameComparer;
 
         List<string> input = ["amor_sh", "amor_po", "amor1_po"];
         List<string> sorted = [.. input.OrderBy(s => s, cmp)];

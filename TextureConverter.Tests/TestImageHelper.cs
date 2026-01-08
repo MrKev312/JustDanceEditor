@@ -41,7 +41,7 @@ public static class TestImageHelper
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    var color = pattern switch
+                    Bgra32 color = pattern switch
                     {
                         TestPattern.Gradient => new Bgra32(
                             (byte)(x * 255 / width),
@@ -80,7 +80,7 @@ public static class TestImageHelper
             int idx = 0;
             for (int y = 0; y < accessor.Height; y++)
             {
-                var row = accessor.GetRowSpan(y);
+                Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
                     pixels[idx++] = row[x];
@@ -93,7 +93,7 @@ public static class TestImageHelper
     /// <summary>
     /// Compares two pixel arrays with optional tolerance.
     /// </summary>
-    public static void AssertPixelsClose(Bgra32[] expected, Bgra32[] actual, 
+    public static void AssertPixelsClose(Bgra32[] expected, Bgra32[] actual,
         int toleranceR = 0, int toleranceG = 0, int toleranceB = 0, int toleranceA = 0,
         double maxErrorRate = 0.0, string message = "")
     {
@@ -145,8 +145,8 @@ public static class TestImageHelper
                 $"{message} Image dimensions mismatch: {expected.Width}x{expected.Height} vs {actual.Width}x{actual.Height}");
         }
 
-        var expectedPixels = ExtractPixels(expected);
-        var actualPixels = ExtractPixels(actual);
+        Bgra32[] expectedPixels = ExtractPixels(expected);
+        Bgra32[] actualPixels = ExtractPixels(actual);
 
         for (int i = 0; i < expectedPixels.Length; i++)
         {
@@ -170,10 +170,10 @@ public static class TestImageHelper
                 $"{message} Image dimensions mismatch: {expected.Width}x{expected.Height} vs {actual.Width}x{actual.Height}");
         }
 
-        var expectedPixels = ExtractPixels(expected);
-        var actualPixels = ExtractPixels(actual);
+        Bgra32[] expectedPixels = ExtractPixels(expected);
+        Bgra32[] actualPixels = ExtractPixels(actual);
 
-        AssertPixelsClose(expectedPixels, actualPixels, 
+        AssertPixelsClose(expectedPixels, actualPixels,
             toleranceR: tolerance, toleranceG: tolerance, toleranceB: tolerance, toleranceA: tolerance,
             message: message);
     }

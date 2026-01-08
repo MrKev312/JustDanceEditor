@@ -2,7 +2,8 @@ namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 public sealed record SoundSetClip : Clip
 {
-    public override string __class { get; } = "SoundSetClip";
+    [System.Text.Json.Serialization.JsonPropertyName("__class")]
+    public override string Class { get; } = "SoundSetClip";
     public string SoundSetPath { get; set; } = string.Empty;
     public int SoundChannel { get; set; }
     public int StartOffset { get; set; }

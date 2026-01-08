@@ -33,7 +33,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             // Search for jd5 or jd2015 anywhere inside cache/itf_cooked
             string cookedRoot = fs.Combine(basePath, "cache", "itf_cooked");
             // Search nested directories for world/jd5 or world/jd2015
-            var cookedDirs = GetDirectoriesRecursive(cookedRoot, fs).ToArray();
+            string[] cookedDirs = [.. GetDirectoriesRecursive(cookedRoot, fs)];
             // Check latest to oldest, as newer versions may have both jd2015 and jd5 folders
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/maps")))
             {
@@ -120,12 +120,12 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
         while (stack.Count > 0)
         {
-            var current = stack.Pop();
+            string current = stack.Pop();
             string nCurrent = NormalizeForTraversal(current);
             if (!visited.Add(nCurrent))
                 continue;
 
-            foreach (var dir in fs.GetDirectories(current))
+            foreach (string dir in fs.GetDirectories(current))
             {
                 string nDir = NormalizeForTraversal(dir);
                 // Skip self-references or malformed entries that would cause cycles
@@ -146,17 +146,17 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
         while (stack.Count > 0)
         {
-            var current = stack.Pop();
+            string current = stack.Pop();
             string nCurrent = NormalizeForTraversal(current);
             if (!visited.Add(nCurrent))
                 continue;
 
-            foreach (var file in fs.GetFiles(current, searchPattern))
+            foreach (string file in fs.GetFiles(current, searchPattern))
             {
                 yield return fs.Combine(current, file);
             }
 
-            foreach (var dir in fs.GetDirectories(current))
+            foreach (string dir in fs.GetDirectories(current))
             {
                 string nDir = NormalizeForTraversal(dir);
                 if (string.IsNullOrEmpty(nDir) || string.Equals(nDir, nCurrent, StringComparison.OrdinalIgnoreCase) || visited.Contains(nDir))
@@ -171,7 +171,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
     {
         try
         {
-            var candidates = GetFilesRecursive(inputPath, "songdesc.tpl*", fs).ToArray();
+            string[] candidates = [.. GetFilesRecursive(inputPath, "songdesc.tpl*", fs)];
             if (candidates.Length == 0)
                 return;
 
@@ -218,9 +218,9 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             try
             {
                 SongDesc songDesc = UbiArt.Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
-                if (songDesc?.COMPONENTS?.Length > 0)
+                if (songDesc?.Components?.Length > 0)
                 {
-                    profile.EngineNumericVersion = songDesc.COMPONENTS[0].JDVersion;
+                    profile.EngineNumericVersion = songDesc.Components[0].JDVersion;
                 }
             }
             catch { }

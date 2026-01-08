@@ -26,8 +26,8 @@ internal static class IntermediatePackageBuilder
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(context.SongData);
 
-        Trackdata trackData = context.SongData.MusicTrack.COMPONENTS.FirstOrDefault()?.trackData ?? new();
-        Structure structure = trackData.structure ?? new();
+        TrackData trackData = context.SongData.MusicTrack.Components.FirstOrDefault()?.TrackData ?? new();
+        Structure structure = trackData.Structure ?? new();
 
         (
             List<MoveTimeline> coachTimelines,
@@ -56,10 +56,10 @@ internal static class IntermediatePackageBuilder
 
     private static IntermediateMetadata BuildMetadata(ConversionContext context, Structure structure)
     {
-        InfoComponent info = context.SongData.SongDesc.COMPONENTS.First();
+        InfoComponent info = context.SongData.SongDesc.Components.First();
 
         double mapLengthSeconds = CalculateMapLengthSeconds(structure);
-        string lyricsColor = ConvertColor(info.DefaultColors.lyrics);
+        string lyricsColor = ConvertColor(info.DefaultColors.Lyrics);
 
         IntermediateMetadata metadata = new()
         {
@@ -92,38 +92,38 @@ internal static class IntermediatePackageBuilder
     {
         TimelineStructureDocument document = new()
         {
-            StartBeat = structure.startBeat,
-            EndBeat = structure.endBeat,
-            VideoStartOffset = structure.videoStartTime,
-            PreviewEntryBeat = structure.previewEntry,
-            PreviewLoopStartBeat = structure.previewLoopStart,
-            PreviewLoopEndBeat = structure.previewLoopEnd,
-            PrevewDuration = structure.previewDuration,
-            Markers = [.. structure.markers]
+            StartBeat = structure.StartBeat,
+            EndBeat = structure.EndBeat,
+            VideoStartOffset = structure.VideoStartTime,
+            PreviewEntryBeat = structure.PreviewEntry,
+            PreviewLoopStartBeat = structure.PreviewLoopStart,
+            PreviewLoopEndBeat = structure.PreviewLoopEnd,
+            PrevewDuration = structure.PreviewDuration,
+            Markers = structure.Markers?.ToList() ?? []
         };
 
-        if (structure.signatures is { Length: > 0 })
+        if (structure.Signatures is { Length: > 0 })
         {
-            foreach (Signature signature in structure.signatures)
+            foreach (Signature signature in structure.Signatures)
             {
                 document.Signatures.Add(new SignatureSegment
                 {
-                    Beats = signature.beats,
-                    Marker = signature.marker,
-                    Comment = signature.comment
+                    Beats = signature.Beats,
+                    Marker = signature.Marker,
+                    Comment = signature.Comment
                 });
             }
         }
 
-        if (structure.sections is { Length: > 0 })
+        if (structure.Sections is { Length: > 0 })
         {
-            foreach (Section section in structure.sections)
+            foreach (Section section in structure.Sections)
             {
                 document.Sections.Add(new SectionSegment
                 {
-                    StartBeat = section.marker,
-                    SectionType = (SongSectionType)section.sectionType,
-                    Comment = section.comment
+                    StartBeat = (int)section.Marker,
+                    SectionType = (SongSectionType)section.SectionType,
+                    Comment = section.Comment
                 });
             }
         }
@@ -321,14 +321,14 @@ internal static class IntermediatePackageBuilder
 
     private static double CalculateMapLengthSeconds(Structure structure)
     {
-        if (structure?.markers == null || structure.markers.Length == 0)
+        if (structure?.Markers == null || structure.Markers.Length == 0)
             return 0;
 
-        int startIndex = Math.Clamp(Math.Abs(structure.startBeat), 0, structure.markers.Length - 1);
-        int endIndex = Math.Clamp(structure.markers.Length - 1, 0, structure.markers.Length - 1);
+        int startIndex = Math.Clamp(Math.Abs(structure.StartBeat), 0, structure.Markers.Length - 1);
+        int endIndex = Math.Clamp(structure.Markers.Length - 1, 0, structure.Markers.Length - 1);
 
-        double startTime = structure.markers[startIndex] / 48d / 1000d;
-        double endTime = structure.markers[endIndex] / 48d / 1000d;
+        double startTime = structure.Markers[startIndex] / 48d / 1000d;
+        double endTime = structure.Markers[endIndex] / 48d / 1000d;
         return Math.Max(0, endTime - startTime);
     }
 

@@ -107,7 +107,7 @@ public static class AudioConverter
             }
         }
 
-        string relativePath = songData.MusicTrack.COMPONENTS[0].trackData.path;
+        string relativePath = songData.MusicTrack.Components[0].TrackData.Path;
 
         if (fileSystem.GetFilePath(relativePath, out CookedFile? mainSongPath))
             return mainSongPath;

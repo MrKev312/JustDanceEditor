@@ -100,23 +100,23 @@ public static class LuaTableSerializer
                                             float[] rgba = [a, r, g, b];
 
                                             if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.lyrics = rgba;
+                                                info.DefaultColors.Lyrics = rgba;
                                             else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.theme = Array.ConvertAll(rgba, v => (int)(v * 255));
+                                                info.DefaultColors.Theme = Array.ConvertAll(rgba, v => (int)(v * 255));
                                             else if (keyStr.Equals("songcolor_1a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.songcolor_1a = rgba;
+                                                info.DefaultColors.SongColor1a = rgba;
                                             else if (keyStr.Equals("songcolor_1b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.songcolor_1b = rgba;
+                                                info.DefaultColors.SongColor1b = rgba;
                                             else if (keyStr.Equals("songcolor_2a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.songcolor_2a = rgba;
+                                                info.DefaultColors.SongColor2a = rgba;
                                             else if (keyStr.Equals("songcolor_2b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.songcolor_2b = rgba;
+                                                info.DefaultColors.SongColor2b = rgba;
                                         }
                                     }
                                 }
                             }
 
-                            return new SongDesc { COMPONENTS = [info] };
+                            return new SongDesc { Components = [info] };
                         }
                     }
                 }

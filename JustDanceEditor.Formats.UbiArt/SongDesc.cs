@@ -1,20 +1,38 @@
+using System.Text.Json.Serialization;
+
 namespace JustDanceEditor.Formats.UbiArt;
 
 public class SongDesc
 {
-    public string __class { get; set; } = string.Empty;
-    public int WIP { get; set; }
-    public int LOWUPDATE { get; set; }
-    public int UPDATE_LAYER { get; set; }
-    public int PROCEDURAL { get; set; }
-    public int STARTPAUSED { get; set; }
-    public int FORCEISENVIRONMENT { get; set; }
-    public InfoComponent[] COMPONENTS { get; set; } = [];
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+
+    [JsonPropertyName("WIP")]
+    public int Wip { get; set; }
+
+    [JsonPropertyName("LOWUPDATE")]
+    public int LowUpdate { get; set; }
+
+    [JsonPropertyName("UPDATE_LAYER")]
+    public int UpdateLayer { get; set; }
+
+    [JsonPropertyName("PROCEDURAL")]
+    public int Procedural { get; set; }
+
+    [JsonPropertyName("STARTPAUSED")]
+    public int StartPaused { get; set; }
+
+    [JsonPropertyName("FORCEISENVIRONMENT")]
+    public int ForceIsEnvironment { get; set; }
+
+    [JsonPropertyName("COMPONENTS")]
+    public InfoComponent[] Components { get; set; } = [];
 }
 
 public class InfoComponent
 {
-    public string __class { get; set; } = string.Empty;
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
     public string MapName { get; set; } = string.Empty;
     public uint JDVersion { get; set; }
     public uint OriginalJDVersion { get; set; }
@@ -22,37 +40,41 @@ public class InfoComponent
     public string DancerName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Credits { get; set; } = string.Empty;
-    public Phoneimages PhoneImages { get; set; } = new();
+    public PhoneImages PhoneImages { get; set; } = new();
     public int NumCoach { get; set; }
     public int MainCoach { get; set; }
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }
-    public int backgroundType { get; set; }
+    public int BackgroundType { get; set; }
     public int LyricsType { get; set; }
     public string[] Tags { get; set; } = [];
     public float Status { get; set; }
     public long LocaleID { get; set; }
     public int MojoValue { get; set; }
     public int CountInProgression { get; set; }
-    public Defaultcolors DefaultColors { get; set; } = new();
+    public DefaultColors DefaultColors { get; set; } = new();
     public string VideoPreviewPath { get; set; } = string.Empty;
 }
 
-public class Phoneimages
+public class PhoneImages
 {
-    public string cover { get; set; } = string.Empty;
-    public string coach1 { get; set; } = string.Empty;
-    public string coach2 { get; set; } = string.Empty;
-    public string coach3 { get; set; } = string.Empty;
-    public string coach4 { get; set; } = string.Empty;
+    public string Cover { get; set; } = string.Empty;
+    public string Coach1 { get; set; } = string.Empty;
+    public string Coach2 { get; set; } = string.Empty;
+    public string Coach3 { get; set; } = string.Empty;
+    public string Coach4 { get; set; } = string.Empty;
 }
 
-public class Defaultcolors
+public class DefaultColors
 {
-    public float[] songcolor_2a { get; set; } = [];
-    public float[] lyrics { get; set; } = [];
-    public int[] theme { get; set; } = [];
-    public float[] songcolor_1a { get; set; } = [];
-    public float[] songcolor_2b { get; set; } = [];
-    public float[] songcolor_1b { get; set; } = [];
+    [JsonPropertyName("songcolor_2a")]
+    public float[] SongColor2a { get; set; } = [];
+    public float[] Lyrics { get; set; } = [];
+    public int[] Theme { get; set; } = [];
+    [JsonPropertyName("songcolor_1a")]
+    public float[] SongColor1a { get; set; } = [];
+    [JsonPropertyName("songcolor_2b")]
+    public float[] SongColor2b { get; set; } = [];
+    [JsonPropertyName("songcolor_1b")]
+    public float[] SongColor1b { get; set; } = [];
 }

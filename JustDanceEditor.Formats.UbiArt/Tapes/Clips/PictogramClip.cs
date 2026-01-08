@@ -2,7 +2,8 @@ namespace JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
 public sealed record PictogramClip : Clip
 {
-    public override string __class { get; } = "PictogramClip";
+    [System.Text.Json.Serialization.JsonPropertyName("__class")]
+    public override string Class { get; } = "PictogramClip";
     public string PictoPath { get; set; } = string.Empty;
     public long CoachCount { get; set; }
 }

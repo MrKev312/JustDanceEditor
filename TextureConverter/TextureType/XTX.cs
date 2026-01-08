@@ -507,7 +507,8 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);
@@ -524,7 +525,8 @@ public class XTX
     {
         byte[] result = new byte[image.Width * image.Height * 2];
         int offset = 0;
-        image.ProcessPixelRows(accessor => {
+        image.ProcessPixelRows(accessor =>
+        {
             for (int y = 0; y < accessor.Height; y++)
             {
                 Span<Bgra32> row = accessor.GetRowSpan(y);

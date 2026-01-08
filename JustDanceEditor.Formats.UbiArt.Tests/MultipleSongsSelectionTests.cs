@@ -114,10 +114,10 @@ public class MultipleSongsSelectionTests
         }
     }
 
-    class DummySongDataLoader : JustDanceEditor.Formats.UbiArt.Services.ISongDataLoader
+    class DummySongDataLoader : ISongDataLoader
     {
-        public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { Name = request.SongName ?? "", SongDesc = new SongDesc { COMPONENTS = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] } };
-        public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { COMPONENTS = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] };
+        public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { Name = request.SongName ?? "", SongDesc = new SongDesc { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] } };
+        public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] };
     }
 
     class DummyEngineDetector : IUbiArtEngineDetector

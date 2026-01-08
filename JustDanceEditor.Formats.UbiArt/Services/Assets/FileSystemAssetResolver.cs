@@ -125,7 +125,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         }
 
         // Try the MusicTrack path
-        string relativePath = songData.MusicTrack.COMPONENTS[0].trackData.path;
+        string relativePath = songData.MusicTrack.Components[0].TrackData.Path;
         return TryFindAudio(relativePath, out file);
     }
 
@@ -139,7 +139,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         {
             // For each extension add extension + .ckd as higher priority
             List<string> cookedExts = [];
-            foreach (var e in extList)
+            foreach (string e in extList)
             {
                 cookedExts.Add(e + ".ckd");
             }

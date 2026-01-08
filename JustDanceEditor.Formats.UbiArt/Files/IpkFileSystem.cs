@@ -1,6 +1,8 @@
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.IPK;
 
+using System.Text.RegularExpressions;
+
 namespace JustDanceEditor.Formats.UbiArt.Files;
 
 internal sealed class IpkFileSystem : IFileSystem, IDisposable
@@ -51,7 +53,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         List<(int Dummy1, int Size, int ZSize, long TimeStamp, long Offset, string Path, string Name, int Crc, int Dummy2)> tempEntries = [];
         for (int i = 0; i < filesCount; i++)
         {
-            var entry = ReadFileEntry(_reader, baseOffset);
+            (int Dummy1, int Size, int ZSize, long TimeStamp, long Offset, string Path, string Name, int Crc, int Dummy2) entry = ReadFileEntry(_reader, baseOffset);
             tempEntries.Add(entry);
         }
 
@@ -65,7 +67,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         }
 
         // Second pass: add entries with correct path resolution
-        foreach (var entry in tempEntries)
+        foreach ((int Dummy1, int Size, int ZSize, long TimeStamp, long Offset, string Path, string Name, int Crc, int Dummy2) entry in tempEntries)
         {
             // Determine logical path based on detection
             (string fileName, string folderPath) = pathsAreSwapped
@@ -115,12 +117,12 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     {
         string norm = NormalizePath(path);
         HashSet<string> dirs = new(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in _entries.Keys)
+        foreach (string key in _entries.Keys)
         {
             if (!IsChildPath(norm, key))
                 continue;
-            var rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
-            var first = rel.Split(Path.DirectorySeparatorChar)[0];
+            string rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
+            string first = rel.Split(Path.DirectorySeparatorChar)[0];
             dirs.Add(Path.Combine(norm, first));
         }
 
@@ -131,12 +133,12 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     {
         string norm = NormalizePath(path);
         List<string> files = [];
-        var regex = WildcardToRegex(searchPattern);
-        foreach (var key in _entries.Keys)
+        Regex regex = WildcardToRegex(searchPattern);
+        foreach (string key in _entries.Keys)
         {
             if (!IsChildPath(norm, key))
                 continue;
-            var rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
+            string rel = key[norm.Length..].TrimStart(Path.DirectorySeparatorChar);
             if (rel.Contains(Path.DirectorySeparatorChar))
                 continue; // not a direct child
             if (regex.IsMatch(rel))
@@ -155,7 +157,7 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
     public byte[] ReadAllBytes(string path)
     {
         string norm = NormalizePath(path);
-        if (!_entries.TryGetValue(norm, out var meta))
+        if (!_entries.TryGetValue(norm, out (long Offset, int Size, int ZSize) meta))
             throw new FileNotFoundException(path);
 
         lock (_stream)
@@ -218,10 +220,10 @@ internal sealed class IpkFileSystem : IFileSystem, IDisposable
         return nc.StartsWith(np + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || string.Equals(np, nc, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static System.Text.RegularExpressions.Regex WildcardToRegex(string pattern)
+    private static Regex WildcardToRegex(string pattern)
     {
         string rx = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
-        return new System.Text.RegularExpressions.Regex(rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        return new Regex(rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     public void Dispose()

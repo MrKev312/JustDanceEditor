@@ -39,9 +39,9 @@ public class GtxDecoder : IImageDecoder
         {
             // Check for wrapper header like XTX decoder does
             byte[] header = new byte[7];
-            if (stream.Read(header, 0, header.Length) == header.Length && 
-                header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 && 
-                header[3] == 0x09 && header[4] == (byte)'T' && header[5] == (byte)'E' && 
+            if (stream.Read(header, 0, header.Length) == header.Length &&
+                header[0] == 0x00 && header[1] == 0x00 && header[2] == 0x00 &&
+                header[3] == 0x09 && header[4] == (byte)'T' && header[5] == (byte)'E' &&
                 header[6] == (byte)'X')
             {
                 // Game texture wrapper found, skip to actual GTX data at offset 0x2C

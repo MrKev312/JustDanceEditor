@@ -139,8 +139,8 @@ public static class UbiArtCoverGenerator
         int height = banner.Height;
 
         // Extract colors from SongDesc
-        Defaultcolors? colors = song.SongDesc.COMPONENTS.FirstOrDefault()?.DefaultColors;
-        Bgra32 primaryColor = ParseColor(colors?.lyrics, new Bgra32(255, 255, 255, 255));
+        DefaultColors? colors = song.SongDesc.Components.FirstOrDefault()?.DefaultColors;
+        Bgra32 primaryColor = ParseColor(colors?.Lyrics, new Bgra32(255, 255, 255, 255));
 
         float boost = song.EngineVersion >= 2019 ? 0.2f : -0.1f;
         Bgra32 secondaryColor = AdjustBrightness(primaryColor, boost);

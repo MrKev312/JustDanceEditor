@@ -291,7 +291,7 @@ public class GTX
     {
         // Save the current stream position to support wrapped textures
         long dataOffset = data.Position;
-        
+
         Blocks = [];
         Textures = [];
         TextureData = [];
@@ -492,7 +492,7 @@ public class GTX
         };
 
         // Calculate surface info to get proper pitch alignment
-        var surfOut = GX2Swizzle.GetSurfaceInfo(format, width, height, 1, (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, 0);
+        GX2Swizzle.SurfaceOut surfOut = GX2Swizzle.GetSurfaceInfo(format, width, height, 1, (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, 0);
         surface.ImageSize = (uint)surfOut.SurfSize;
         surface.Pitch = surfOut.Pitch;
 
@@ -505,12 +505,12 @@ public class GTX
         uint dstRowBytes = surface.Pitch * bpp;
 
         byte[] paddedData = new byte[surface.ImageSize];
-        
+
         for (uint y = 0; y < height; y++)
         {
             uint srcOffset = y * srcRowBytes;
             uint dstOffset = y * dstRowBytes;
-            
+
             if (srcOffset + srcRowBytes <= data.Length && dstOffset + srcRowBytes <= paddedData.Length)
             {
                 Array.Copy(data, srcOffset, paddedData, dstOffset, srcRowBytes);

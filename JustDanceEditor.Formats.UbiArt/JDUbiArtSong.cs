@@ -6,7 +6,7 @@ namespace JustDanceEditor.Formats.UbiArt;
 public class JDUbiArtSong
 {
     public string Name { get; set; } = string.Empty;
-    public int CoachCount { get => SongDesc.COMPONENTS[0].NumCoach; set => SongDesc.COMPONENTS[0].NumCoach = value; }
+    public int CoachCount { get => SongDesc.Components[0].NumCoach; set => SongDesc.Components[0].NumCoach = value; }
     public uint EngineVersion = (uint)DateTime.Now.Year;
     public uint JDVersion = 2022;
     public List<Clip> Clips { get; set; } = [];
@@ -15,9 +15,9 @@ public class JDUbiArtSong
 
     public float GetSongStartTime()
     {
-        int beat = MusicTrack.COMPONENTS[0].trackData.structure.startBeat;
+        int beat = MusicTrack.Components[0].TrackData.Structure.StartBeat;
         int marker = Math.Abs(beat);
-        float time = MusicTrack.COMPONENTS[0].trackData.structure.markers[marker] / 48f / 1000f;
+        float time = MusicTrack.Components[0].TrackData.Structure.Markers[marker] / 48f / 1000f;
 
         if (beat > 0)
             time = -time;

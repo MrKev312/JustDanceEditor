@@ -29,15 +29,15 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         _logger.LogInformation("Loading SongDesc");
         songData.SongDesc = LoadSongDesc(request, fileSystem);
 
-        if (songData.SongDesc == null || songData.SongDesc.COMPONENTS.Length == 0)
+        if (songData.SongDesc == null || songData.SongDesc.Components.Length == 0)
             throw new InvalidDataException("SongDesc loaded but is invalid or empty.");
 
-        songData.Name = songData.SongDesc.COMPONENTS[0].MapName;
+        songData.Name = songData.SongDesc.Components[0].MapName;
 
         _logger.LogInformation("Loading JDVersion");
-        songData.EngineVersion = songData.SongDesc.COMPONENTS[0].JDVersion;
+        songData.EngineVersion = songData.SongDesc.Components[0].JDVersion;
         // Preserve original numeric version from source; normalization to consumer (Unity) is performed in the Unity pipeline
-        uint originalJDVersion = songData.SongDesc.COMPONENTS[0].OriginalJDVersion;
+        uint originalJDVersion = songData.SongDesc.Components[0].OriginalJDVersion;
         songData.JDVersion = originalJDVersion;
 
         // Propagate the numeric JD version into the LayeredFileSystem's profile so downstream
@@ -92,10 +92,10 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 ? fileSystem.VersionProfile.Serializer.Deserialize<ActorTemplate>(karaokeActorStream, options)
                 : JsonSerializer.Deserialize<ActorTemplate>(new StreamReader(karaokeActorStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
 
-            if (karaokeActor.COMPONENTS.Length > 0 &&
-                karaokeActor.COMPONENTS[0].TapesRack.Length > 0 &&
-                karaokeActor.COMPONENTS[0].TapesRack[0].Entries.Length > 0 &&
-                fileSystem.GetFilePath(karaokeActor.COMPONENTS[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokeTapePathCooked))
+            if (karaokeActor.Components.Length > 0 &&
+                karaokeActor.Components[0].TapesRack.Length > 0 &&
+                karaokeActor.Components[0].TapesRack[0].Entries.Length > 0 &&
+                fileSystem.GetFilePath(karaokeActor.Components[0].TapesRack[0].Entries[0].Path, out CookedFile? karaokeTapePathCooked))
             {
                 _logger.LogInformation("Loading KaraokeTape");
                 using Stream karaokeStream = fileSystem.GetFileStream(karaokeTapePathCooked);

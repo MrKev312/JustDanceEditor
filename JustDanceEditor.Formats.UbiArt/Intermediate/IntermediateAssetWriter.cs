@@ -257,9 +257,7 @@ internal static class IntermediateAssetWriter
         }
 
         string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
-        var coachVideos = fileSystem
-            .GetAllFiles(videosCoachFolder, "*.webm")
-            .ToArray();
+        CookedFile[] coachVideos = [.. fileSystem.GetAllFiles(videosCoachFolder, "*.webm")];
 
         if (coachVideos.Length > 0)
             return coachVideos[0];

@@ -1,32 +1,52 @@
+using System.Text.Json.Serialization;
+
 namespace JustDanceEditor.Formats.UbiArt;
 
 public class ActorTemplate
 {
-    public string __class { get; set; } = string.Empty;
-    public int WIP { get; set; }
-    public int LOWUPDATE { get; set; }
-    public int UPDATE_LAYER { get; set; }
-    public int PROCEDURAL { get; set; }
-    public int STARTPAUSED { get; set; }
-    public int FORCEISENVIRONMENT { get; set; }
-    public COMPONENT[] COMPONENTS { get; set; } = [];
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+
+    [JsonPropertyName("WIP")]
+    public int Wip { get; set; }
+
+    [JsonPropertyName("LOWUPDATE")]
+    public int LowUpdate { get; set; }
+
+    [JsonPropertyName("UPDATE_LAYER")]
+    public int UpdateLayer { get; set; }
+
+    [JsonPropertyName("PROCEDURAL")]
+    public int Procedural { get; set; }
+
+    [JsonPropertyName("STARTPAUSED")]
+    public int StartPaused { get; set; }
+
+    [JsonPropertyName("FORCEISENVIRONMENT")]
+    public int ForceIsEnvironment { get; set; }
+
+    [JsonPropertyName("COMPONENTS")]
+    public Component[] Components { get; set; } = [];
 }
 
-public class COMPONENT
+public class Component
 {
-    public string __class { get; set; } = string.Empty;
-    public Tapesrack[] TapesRack { get; set; } = [];
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+    public TapesRack[] TapesRack { get; set; } = [];
 }
 
-public class Tapesrack
+public class TapesRack
 {
-    public string __class { get; set; } = string.Empty;
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
     public Entry[] Entries { get; set; } = [];
 }
 
 public class Entry
 {
-    public string __class { get; set; } = string.Empty;
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
 }

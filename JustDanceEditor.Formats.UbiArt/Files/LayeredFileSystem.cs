@@ -81,7 +81,7 @@ public class LayeredFileSystem
         if (!string.IsNullOrWhiteSpace(SongName))
             return; // Already initialized
 
-        var songs = GetAvailableSongs();
+        (string SongName, string SongDescPath)[] songs = GetAvailableSongs();
         if (songs.Length == 0)
             throw new DirectoryNotFoundException("No song folders found in the maps folder.");
         if (songs.Length > 1)
@@ -106,15 +106,15 @@ public class LayeredFileSystem
                 ?? Path.Combine("world", "maps", ConversionRequest.SongName);
             string songDescPath = Path.Combine(mapFolder, "songdesc.tpl");
             songs.Add((ConversionRequest.SongName, songDescPath));
-            return [..songs];
+            return [.. songs];
         }
 
         // Get all folder names in maps from the input (whether IPK or directory)
         string[] songFolderNames = [];
-        
+
         if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
         {
-            if (_ipkFileSystems.TryGetValue(Path.GetFileNameWithoutExtension(ConversionRequest.InputPath), out var ipk))
+            if (_ipkFileSystems.TryGetValue(Path.GetFileNameWithoutExtension(ConversionRequest.InputPath), out IpkFileSystem? ipk))
             {
                 string mapsRel = Path.Combine("world", "maps");
                 if (ipk.DirectoryExists(mapsRel))
@@ -156,7 +156,7 @@ public class LayeredFileSystem
             }
         }
 
-        return [..songs];
+        return [.. songs];
     }
 
     public UbiArtConversionRequest ConversionRequest { get; private set; }
@@ -203,7 +203,7 @@ public class LayeredFileSystem
         if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
         {
             string rel = Path.Combine("cache", "itf_cooked");
-            foreach (var ipk in _ipkFileSystems.Values)
+            foreach (IpkFileSystem ipk in _ipkFileSystems.Values)
             {
                 try
                 {
@@ -348,7 +348,7 @@ public class LayeredFileSystem
         }
 
         // Now check IPKs, but only if a corresponding folder doesn't exist
-        foreach (var ipkEntry in _ipkFileSystems)
+        foreach (KeyValuePair<string, IpkFileSystem> ipkEntry in _ipkFileSystems)
         {
             string ipkName = ipkEntry.Key;
             IpkFileSystem ipk = ipkEntry.Value;
@@ -369,7 +369,7 @@ public class LayeredFileSystem
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
             }
 
-            foreach (var cand in candidates)
+            foreach (string cand in candidates)
             {
                 try
                 {
@@ -439,7 +439,7 @@ public class LayeredFileSystem
 
         // Now check IPKs, but only if a corresponding folder doesn't exist
         string[] allFolders = _io.GetDirectories(parentFolder);
-        foreach (var ipkEntry in _ipkFileSystems)
+        foreach (KeyValuePair<string, IpkFileSystem> ipkEntry in _ipkFileSystems)
         {
             string ipkName = ipkEntry.Key;
             IpkFileSystem ipk = ipkEntry.Value;
@@ -455,7 +455,7 @@ public class LayeredFileSystem
                 ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
             }
 
-            foreach (var loc in ipkLocations)
+            foreach (string loc in ipkLocations)
             {
                 try
                 {
@@ -568,7 +568,7 @@ public class LayeredFileSystem
         }
 
         // Now check IPKs, but only if a corresponding folder doesn't exist
-        foreach (var ipkEntry in _ipkFileSystems)
+        foreach (KeyValuePair<string, IpkFileSystem> ipkEntry in _ipkFileSystems)
         {
             string ipkName = ipkEntry.Key;
             IpkFileSystem ipk = ipkEntry.Value;
@@ -589,7 +589,7 @@ public class LayeredFileSystem
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
             }
 
-            foreach (var cand in candidates)
+            foreach (string cand in candidates)
             {
                 try
                 {
@@ -643,7 +643,7 @@ public class LayeredFileSystem
 
         // Now check IPKs, but only if a corresponding folder doesn't exist
         string[] allFolders = _io.GetDirectories(parentFolder);
-        foreach (var ipkEntry in _ipkFileSystems)
+        foreach (KeyValuePair<string, IpkFileSystem> ipkEntry in _ipkFileSystems)
         {
             string ipkName = ipkEntry.Key;
             IpkFileSystem ipk = ipkEntry.Value;
@@ -657,7 +657,7 @@ public class LayeredFileSystem
             if (!string.IsNullOrEmpty(PlatformType))
                 ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
 
-            foreach (var loc in ipkLocations)
+            foreach (string loc in ipkLocations)
             {
                 try
                 {

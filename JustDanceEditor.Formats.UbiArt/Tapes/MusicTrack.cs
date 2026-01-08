@@ -1,55 +1,74 @@
+using System.Text.Json.Serialization;
+
 namespace JustDanceEditor.Formats.UbiArt.Tapes;
 
 public sealed record MusicTrack
 {
-    public string __class { get; set; } = string.Empty;
-    public int WIP { get; set; }
-    public int LOWUPDATE { get; set; }
-    public int UPDATE_LAYER { get; set; }
-    public int PROCEDURAL { get; set; }
-    public int STARTPAUSED { get; set; }
-    public int FORCEISENVIRONMENT { get; set; }
-    public TrackDataHolder[] COMPONENTS { get; set; } = [];
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+
+    [JsonPropertyName("WIP")]
+    public int Wip { get; set; }
+
+    [JsonPropertyName("LOWUPDATE")]
+    public int LowUpdate { get; set; }
+
+    [JsonPropertyName("UPDATE_LAYER")]
+    public int UpdateLayer { get; set; }
+
+    [JsonPropertyName("PROCEDURAL")]
+    public int Procedural { get; set; }
+
+    [JsonPropertyName("STARTPAUSED")]
+    public int StartPaused { get; set; }
+
+    [JsonPropertyName("FORCEISENVIRONMENT")]
+    public int ForceIsEnvironment { get; set; }
+
+    [JsonPropertyName("COMPONENTS")]
+    public TrackDataHolder[] Components { get; set; } = [];
 }
 
 public sealed record TrackDataHolder
 {
-    public string __class { get; set; } = string.Empty;
-    public Trackdata trackData { get; set; } = new();
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+    public TrackData TrackData { get; set; } = new();
 }
 
-public sealed record Trackdata
+public sealed record TrackData
 {
-    public string __class { get; set; } = string.Empty;
-    public Structure structure { get; set; } = new();
-    public string path { get; set; } = string.Empty;
-    public string url { get; set; } = string.Empty;
+    [JsonPropertyName("__class")]
+    public string Class { get; set; } = string.Empty;
+    public Structure Structure { get; set; } = new();
+    public string Path { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
 }
 
 public class Structure
 {
-    public int startBeat { get; set; }
-    public int endBeat { get; set; }
-    public float videoStartTime { get; set; }
-    public int previewEntry { get; set; }
-    public int previewLoopStart { get; set; }
-    public int previewLoopEnd { get; set; }
-    public int previewDuration { get; set; } = 30; // 30 seconds default
-    public Signature[] signatures { get; set; } = [];
-    public int[] markers { get; set; } = [];
-    public Section[] sections { get; set; } = [];
+    public int StartBeat { get; set; }
+    public int EndBeat { get; set; }
+    public float VideoStartTime { get; set; }
+    public int PreviewEntry { get; set; }
+    public int PreviewLoopStart { get; set; }
+    public int PreviewLoopEnd { get; set; }
+    public int PreviewDuration { get; set; } = 30; // 30 seconds default
+    public Signature[] Signatures { get; set; } = [];
+    public int[] Markers { get; set; } = [];
+    public Section[] Sections { get; set; } = [];
 }
 
 public class Signature
 {
-    public int beats { get; set; }
-    public float marker { get; set; }
-    public string comment { get; set; } = string.Empty;
+    public int Beats { get; set; }
+    public float Marker { get; set; }
+    public string Comment { get; set; } = string.Empty;
 }
 
 public class Section
 {
-    public float marker { get; set; }
-    public int sectionType { get; set; }
-    public string comment { get; set; } = string.Empty;
+    public float Marker { get; set; }
+    public int SectionType { get; set; }
+    public string Comment { get; set; } = string.Empty;
 }

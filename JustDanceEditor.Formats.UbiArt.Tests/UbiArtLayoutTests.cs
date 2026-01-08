@@ -20,7 +20,7 @@ public class UbiArtLayoutTests
         UbiArtContainerStyle style = UbiArtContainerStyle.Uncooked;
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
 
-        var path = layout.GetMapWorldFolder("/root", "SongName", style, version);
+        string path = layout.GetMapWorldFolder("/root", "SongName", style, version);
         // Should be world/maps/jd5/SongName
         Assert.Contains("jd5", path);
     }

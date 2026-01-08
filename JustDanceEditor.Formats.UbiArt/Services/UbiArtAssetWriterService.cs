@@ -14,7 +14,7 @@ public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory log
     public Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, IUbiArtLayout? layout = null, UbiArtContainerStyle containerStyle = UbiArtContainerStyle.Uncooked, UbiArtEngineVersion engineVersion = UbiArtEngineVersion.Modern, IFileSystem? io = null)
     {
         // Create instance with proper logger and delegate to it
-        var writerLogger = _loggerFactory.CreateLogger<UbiArtAssetWriter>();
+        ILogger<UbiArtAssetWriter> writerLogger = _loggerFactory.CreateLogger<UbiArtAssetWriter>();
         UbiArtAssetWriter writer = new(writerLogger);
         return writer.ExportToUncookedAsync(package, materializedRoot, outputFolder, layout, containerStyle, engineVersion, io ?? _io);
     }

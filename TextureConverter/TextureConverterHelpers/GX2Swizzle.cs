@@ -118,7 +118,7 @@ public static class GX2Swizzle
         uint width = Math.Max(1, surface.Width >> mipLevel);
         uint height = Math.Max(1, surface.Height >> mipLevel);
 
-        var surfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
+        SurfaceOut surfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
             (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, mipLevel);
 
         uint swizzle = surface.Swizzle;
@@ -133,7 +133,7 @@ public static class GX2Swizzle
             uint mipOffset = surface.MipOffsets[mipLevel - 1];
             if (mipLevel == 1)
             {
-                var baseSurfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
+                SurfaceOut baseSurfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
                     (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, 0);
                 mipOffset -= (uint)baseSurfInfo.SurfSize;
             }
@@ -172,7 +172,7 @@ public static class GX2Swizzle
         uint width = Math.Max(1, surface.Width >> mipLevel);
         uint height = Math.Max(1, surface.Height >> mipLevel);
 
-        var surfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
+        SurfaceOut surfInfo = GetSurfaceInfo(surface.Format, surface.Width, surface.Height, surface.Depth,
             (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, mipLevel);
 
         return SwizzleSurface(width, height, surfInfo.Depth, surfInfo.Height,

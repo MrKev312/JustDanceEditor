@@ -174,9 +174,9 @@ public class PictogramScrollingPanel : Panel
     private void ManageSubscriptions()
     {
         // Determine current clips from children
-        HashSet<ClipViewModel> currentClips = new(Children.OfType<Control>()
-            .Where(c => c.DataContext is ClipViewModel)
-            .Select(c => c.DataContext as ClipViewModel)!);
+        HashSet<ClipViewModel> currentClips = [.. Children.OfType<Control>()
+            .Select(c => c.DataContext)
+            .OfType<ClipViewModel>()];
 
         // Unsubscribe removed clips
         List<ClipViewModel> toRemove = [];
