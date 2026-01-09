@@ -67,7 +67,7 @@ public class RakiAudioConverter : IAudioConverter
 
         stream.Position = rakiOffset + 0x20;
         uint firstChunkId = reader.ReadUInt32(); // Usually 'fmt ' (0x666D7420) or BE equivalent
-        
+
         // Check for 'fmt ' in either endianness
         if (firstChunkId != 0x20746D66 && firstChunkId != 0x666D7420)
             throw new InvalidDataException("Expected 'fmt ' chunk not found.");
@@ -131,7 +131,7 @@ public class RakiAudioConverter : IAudioConverter
             {
                 reader.BaseStream.Position = currentChunkPtr;
                 uint chunkId = reader.ReadUInt32(); // Read as native LE to check signature
-                
+
                 // "datL" in ASCII is 0x6461744C. In BE file, ReadUInt32 reads it reversed on LE machine? 
                 // Let's just read bytes to be safe against endianness confusion in detection.
                 reader.BaseStream.Position = currentChunkPtr;
@@ -145,7 +145,7 @@ public class RakiAudioConverter : IAudioConverter
                     isPlanar = true;
                     break;
                 }
-                
+
                 currentChunkPtr += 12; // Next chunk table entry
             }
         }
@@ -154,7 +154,7 @@ public class RakiAudioConverter : IAudioConverter
         // RAKI header offset 0x30 points to DSP Info. Info + 0x1C is usually the Coeffs.
         reader.BaseStream.Position = rakiOffset + 0x30;
         uint dspInfoOffset = ReadU32(reader, isBigEndian);
-        
+
         // Read 16 coefficients (shorts) per channel
         short[][] coefficients = new short[channels][];
         reader.BaseStream.Position = dspInfoOffset + 0x1C;
@@ -166,7 +166,7 @@ public class RakiAudioConverter : IAudioConverter
             {
                 coefficients[c][i] = (short)ReadU16(reader, isBigEndian);
             }
-            
+
             // In standard multi-channel DSP headers, usually all coeffs are contiguous.
             // However, some formats pad to 0x60 bytes. 
             // The RAKI "Cafe" reference implies coeffs are contiguous here for the initial set.
@@ -196,12 +196,12 @@ public class RakiAudioConverter : IAudioConverter
         {
             // Write temporary WAV header
             WriteWavHeader(writer, 0, 0, [], 1, channels, sampleRate, sampleRate * 2 * channels, (ushort)(2 * channels), 16);
-            
+
             long dataStart = startOffset;
             long dataLength = reader.BaseStream.Length - startOffset;
 
             DecodeGcAdpcm(reader, writer, dataStart, dataLength, channels, isPlanar, planarChunkSize, coefficients);
-            
+
             // Fix WAV header data size
             long totalBytes = writer.BaseStream.Length - 44;
             writer.Seek(4, SeekOrigin.Begin);
@@ -220,7 +220,7 @@ public class RakiAudioConverter : IAudioConverter
         // Interleaved: 8 bytes Ch1, 8 bytes Ch2...
         // Planar: [HeaderL][DataL]... [HeaderR][DataR]... (Usually 'datL' includes an 8-byte header itself inside the chunk data if counted purely)
         // But RAKI startOffset usually points to the chunk payload area. 
-        
+
         // Prepare decoding state
         short[] hist1 = new short[channels];
         short[] hist2 = new short[channels];
@@ -228,10 +228,10 @@ public class RakiAudioConverter : IAudioConverter
         // Total samples to decode (approx)
         // Each 8 bytes = 14 samples.
         long totalFrames = (isPlanar ? planarChunkSize : (dataLength / channels)) / 8;
-        
+
         // Buffers for one frame of samples
         short[][] pcmBuffer = new short[channels][];
-        for(int i=0; i<channels; i++) pcmBuffer[i] = new short[14];
+        for (int i = 0; i < channels; i++) pcmBuffer[i] = new short[14];
 
         for (long f = 0; f < totalFrames; f++)
         {
@@ -248,8 +248,8 @@ public class RakiAudioConverter : IAudioConverter
                     // Actually, startOffset usually points to the FIRST chunk data.
                     // So Ch0 starts at startOffset. 
                     // Ch1 starts at startOffset + PlanarChunkSize + 8 (Skip 'datR' header).
-                    
-                    long channelOffset = c == 0 ? 0 : (planarChunkSize + 8); 
+
+                    long channelOffset = c == 0 ? 0 : (planarChunkSize + 8);
                     readPos = dataStart + channelOffset + (f * 8);
                 }
                 else
@@ -291,12 +291,12 @@ public class RakiAudioConverter : IAudioConverter
 
         short yn1 = hist1;
         short yn2 = hist2;
-        
+
         for (int i = 0; i < 14; i++)
         {
             int byteIndex = 1 + (i / 2);
             int nibble;
-            
+
             if (i % 2 == 0)
                 nibble = (frame[byteIndex] >> 4) & 0x0F;
             else
@@ -310,12 +310,12 @@ public class RakiAudioConverter : IAudioConverter
             // Note: Use long for intermediate calculation to avoid overflow before shift
             long prediction = (long)coef1 * yn1 + (long)coef2 * yn2;
             long sample = (nibble * scale) << 11; // Standard shift is 11 for format 0, but logic varies.
-            
+
             // Standard Nintendo DSP logic:
             // val = (nibble << scale) << 11;
             // val += coef1 * hist1 + coef2 * hist2;
             // val >>= 11;
-            
+
             long val = ((long)nibble * scale) << 11;
             val += prediction;
             long final = (val + 1024) >> 11; // Rounding (+1024 before shift)
@@ -487,7 +487,7 @@ internal static class NxOpusToOggConverter
 
         reader.BaseStream.Seek(0x08, SeekOrigin.Current);
         uint preSkip = reader.ReadUInt32();
-        
+
         // Read output gain (affects volume level)
         short outputGainDb256 = reader.ReadInt16(); // Gain in 1/256 dB units
         float gainLinear = (float)Math.Pow(10.0, outputGainDb256 / (256.0 * 20.0)); // Convert dB to linear scale

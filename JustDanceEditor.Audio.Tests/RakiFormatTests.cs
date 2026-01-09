@@ -60,7 +60,7 @@ public class RakiFormatTests
 
         // Assert - verify output contains audio data
         Assert.True(output.Length > 0);
-        
+
         // Verify RAKI structure is present
         output.Seek(0, SeekOrigin.Begin);
         byte[] magic = new byte[4];
@@ -295,10 +295,10 @@ public class RakiFormatTests
         // Assert
         output.Seek(0, SeekOrigin.Begin);
         byte[] data = output.ToArray();
-        
+
         // Check RAKI header
         Assert.Equal("RAKI", System.Text.Encoding.ASCII.GetString(data, 0, 4));
-        
+
         // Check that the output is non-empty and has reasonable structure
         // The gain is stored in the Nintendo Opus header, which starts after RAKI (0x40 offset)
         // At offset 0x20 within the Nintendo header

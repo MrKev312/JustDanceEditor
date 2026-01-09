@@ -167,17 +167,6 @@ public class LayeredFileSystem
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
 
-    /// <summary>
-    /// Allows updating the numeric engine version on the active <see cref="VersionProfile"/> when it becomes available later in the loading pipeline.
-    /// </summary>
-    public void SetEngineNumericVersion(uint version)
-    {
-        if (VersionProfile == null)
-            throw new InvalidOperationException("VersionProfile is not initialized.");
-
-        VersionProfile.EngineNumericVersion = version;
-    }
-
     public void UpdateSongName(string? newSongName)
     {
         if (string.IsNullOrWhiteSpace(newSongName))

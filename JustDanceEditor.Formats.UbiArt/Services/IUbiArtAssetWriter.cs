@@ -12,6 +12,6 @@ public interface IUbiArtAssetWriter
         string outputFolder,
         IUbiArtLayout? layout = null,
         UbiArtContainerStyle containerStyle = UbiArtContainerStyle.Uncooked,
-        UbiArtEngineVersion engineVersion = UbiArtEngineVersion.Modern,
+        UbiArtEngineVersion engineVersion = UbiArtEngineVersion.JD2022,
         IFileSystem? io = null);
 }

@@ -37,7 +37,7 @@ public class AssetResolverTests
         string path = Path.Combine(menuArtFolder, fileName);
         File.WriteAllText(path, "PNG");
 
-        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();

@@ -28,25 +28,25 @@ public static class TestAudioHelper
     /// Creates a test audio stream with the specified parameters and pattern.
     /// Default duration is 1 second at 48kHz stereo.
     /// </summary>
-    public static WaveStream CreateTestAudio(int sampleRate = 48000, int channels = 2, 
+    public static WaveStream CreateTestAudio(int sampleRate = 48000, int channels = 2,
         float durationSeconds = 1f, TestPattern pattern = TestPattern.SineWave)
     {
         int samples = (int)(sampleRate * durationSeconds);
         float[] sampleData = GenerateAudioPattern(pattern, sampleRate, channels, samples);
-        
+
         // Create a WaveFormat
         WaveFormat format = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
-        
+
         // Create a MemoryStream containing WAV data
         MemoryStream stream = new();
         using (WaveFileWriter writer = new(stream, format))
         {
             writer.WriteSamples(sampleData, 0, sampleData.Length);
         }
-        
+
         byte[] wavData = stream.ToArray();
         MemoryStream wavStream = new(wavData);
-        
+
         // Return WaveFileReader wrapped in a stream that prevents closure
         return new SafeWaveFileReader(new WaveFileReader(wavStream));
     }
@@ -64,17 +64,17 @@ public static class TestAudioHelper
             float sample = pattern switch
             {
                 TestPattern.SineWave => (float)Math.Sin(2 * Math.PI * 440 * i / sampleRate) * 0.5f,
-                
-                TestPattern.SquareWave => 
+
+                TestPattern.SquareWave =>
                     (Math.Sin(2 * Math.PI * 440 * i / sampleRate) >= 0 ? 0.5f : -0.5f),
-                
+
                 TestPattern.Silence => 0f,
-                
+
                 TestPattern.WhiteNoise => ((float)random.NextDouble() - 0.5f) * 0.1f,
-                
-                TestPattern.Sweep => 
+
+                TestPattern.Sweep =>
                     (float)Math.Sin(2 * Math.PI * (440 + 440 * i / totalSamples) * i / sampleRate) * 0.5f,
-                
+
                 _ => 0f
             };
 
@@ -94,9 +94,9 @@ public static class TestAudioHelper
     public static float[] ExtractSamples(WaveStream source, int maxSamples = -1)
     {
         source.Position = 0;
-        
-        int sampleCount = maxSamples > 0 
-            ? maxSamples 
+
+        int sampleCount = maxSamples > 0
+            ? maxSamples
             : (int)(source.Length / source.WaveFormat.BlockAlign);
 
         List<float> samples = [];
@@ -120,7 +120,7 @@ public static class TestAudioHelper
     /// <summary>
     /// Compares two sample arrays with tolerance for quantization errors.
     /// </summary>
-    public static bool AssertSamplesClose(float[] expected, float[] actual, 
+    public static bool AssertSamplesClose(float[] expected, float[] actual,
         float tolerance = 0.01f, string message = "")
     {
         if (expected.Length != actual.Length)
@@ -223,4 +223,3 @@ internal sealed class SafeWaveFileReader : WaveStream
         base.Dispose(disposing);
     }
 }
-

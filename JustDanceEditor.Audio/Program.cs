@@ -38,7 +38,7 @@ class Program
         Parallel.ForEach(filePaths, file =>
         {
             Console.WriteLine(file);
-            
+
             try
             {
                 // Skip if already opus

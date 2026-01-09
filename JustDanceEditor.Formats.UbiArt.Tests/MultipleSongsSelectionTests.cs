@@ -49,7 +49,7 @@ public class MultipleSongsSelectionTests
                 assetWriter: null!,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
             fs.Initialize();
 
@@ -98,7 +98,7 @@ public class MultipleSongsSelectionTests
                 assetWriter: null!,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
             fs.Initialize();
 
@@ -122,6 +122,6 @@ public class MultipleSongsSelectionTests
 
     class DummyEngineDetector : IUbiArtEngineDetector
     {
-        public UbiArtVersionProfile Detect(string inputPath) => new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        public UbiArtVersionProfile Detect(string inputPath) => new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
     }
 }

@@ -37,7 +37,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             // Check latest to oldest, as newer versions may have both jd2015 and jd5 folders
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/maps")))
             {
-                UbiArtVersionProfile p = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer(), new DefaultUbiArtDataMapper());
+                UbiArtVersionProfile p = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer(), new DefaultUbiArtDataMapper());
                 TryPeekSongDescForJDVersion(basePath, p, fs);
                 return p;
             }
@@ -74,7 +74,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")))
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             // Try to peek into songdesc to extract JDVersion numeric if present
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
@@ -85,20 +85,20 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             fs.DirectoryExists(fs.Combine(basePath, "Cinematics")) ||
             fs.GetFiles(basePath, "*.tpl").Length != 0)
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
-        // If no cooked marker and no other markers, assume cooked-modern as fallback
+        // If no cooked marker and no other markers, assume uncooked as fallback
         if (!hasCooked)
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
-        UbiArtVersionProfile fallbackProfile = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        UbiArtVersionProfile fallbackProfile = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
         TryPeekSongDescForJDVersion(basePath, fallbackProfile, fs);
         return fallbackProfile;
     }
@@ -207,7 +207,9 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
                 {
                     JsonElement comp = components[0];
                     if (comp.TryGetProperty("JDVersion", out JsonElement jdVersionProp) && jdVersionProp.TryGetUInt32(out uint jdVersion))
-                        profile.EngineNumericVersion = jdVersion;
+                    {
+                        // JDVersion found but not used to override EngineVersion enum
+                    }
                 }
 
                 return;
@@ -220,7 +222,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
                 SongDesc songDesc = UbiArt.Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
                 if (songDesc?.Components?.Length > 0)
                 {
-                    profile.EngineNumericVersion = songDesc.Components[0].JDVersion;
+                    // JDVersion found but not used to override EngineVersion enum
                 }
             }
             catch { }

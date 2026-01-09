@@ -103,13 +103,13 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
                 try
                 {
                     uint argb = uint.Parse(hex, System.Globalization.NumberStyles.HexNumber);
-                    
+
                     // Parse as ARGB (most common for UbiArt)
                     byte a = (byte)((argb >> 24) & 0xFF);
                     byte r = (byte)((argb >> 16) & 0xFF);
                     byte g = (byte)((argb >> 8) & 0xFF);
                     byte b = (byte)(argb & 0xFF);
-                    
+
                     // Normalize to 0-1 range
                     return [r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f];
                 }
@@ -180,7 +180,7 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
                         }
                         else if (reader.TokenType == JsonTokenType.String && float.TryParse(reader.GetString(), out float parsed))
                             value = parsed;
-                        
+
                         values[key] = value;
                     }
                 }
@@ -209,7 +209,7 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
                 b = bv;
             if (values.TryGetValue("a", out float av) || values.TryGetValue("A", out av))
                 a = av;
-            
+
             return [r, g, b, a];
         }
         else if (reader.TokenType == JsonTokenType.Null)

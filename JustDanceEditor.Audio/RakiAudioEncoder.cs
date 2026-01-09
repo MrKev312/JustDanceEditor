@@ -19,7 +19,7 @@ public static class RakiAudioEncoder
         ArgumentNullException.ThrowIfNull(output);
 
         bool isBigEndian = CheckIsBigEndian(platform);
-        
+
         using BinaryWriter writer = new(output, Encoding.ASCII, leaveOpen: true);
 
         // Read audio data
@@ -109,14 +109,14 @@ public static class RakiAudioEncoder
         MemoryStream opusStream = new();
         ISampleProvider sampleProvider = source.ToSampleProvider();
         OpusEncoderHelper.EncodeToOpus(sampleProvider, opusStream, 128000);
-        
+
         byte[] opusData = opusStream.ToArray();
         opusStream.Dispose();
 
         // Build Nintendo Opus header
         uint headerSize = 0x30; // Nintendo Opus header size
         uint headerInnerSize = 0x20; // Inner header size
-        
+
         MemoryStream nxOpusStream = new();
         using (BinaryWriter nxWriter = new(nxOpusStream, Encoding.UTF8, leaveOpen: true))
         {
@@ -127,7 +127,7 @@ public static class RakiAudioEncoder
             nxWriter.Write(preSkip); // 0x1C: Pre-skip (LE)
             nxWriter.Write(outputGainDb256); // 0x20: Output gain in 1/256 dB (LE)
             nxWriter.Write(new byte[0x0C]); // 0x22-0x2D: Padding to align to 0x30
-            
+
             // Write Opus packets
             // Parse Ogg Opus to extract raw packets
             ParseAndWriteOpusPackets(opusData, nxWriter);
@@ -150,7 +150,7 @@ public static class RakiAudioEncoder
         // Simple Ogg parser - extract packets from Ogg page structure
         // Ogg pages start with "OggS" (0x4F 0x67 0x67 0x53)
         // This is a simplified implementation for Ogg Opus files
-        
+
         int position = 0;
         while (position < oggData.Length - 27) // Minimum page size
         {
@@ -162,7 +162,7 @@ public static class RakiAudioEncoder
                 int numSegments = oggData[position + 26];
                 int segmentTableStart = position + 27;
                 int payloadStart = segmentTableStart + numSegments;
-                
+
                 // Write each segment as a Nintendo Opus packet
                 int payloadPos = payloadStart;
                 for (int i = 0; i < numSegments && payloadPos < oggData.Length; i++)
@@ -176,11 +176,11 @@ public static class RakiAudioEncoder
                         writer.Write(sizeBytes);
                         writer.Write(new byte[4]); // Unknown field (zeros)
                         writer.Write(oggData, payloadPos, segmentSize);
-                        
+
                         payloadPos += segmentSize;
                     }
                 }
-                
+
                 // Move to next page
                 position = payloadStart + numSegments; // Rough estimate, should parse segment sizes properly
                 // For now, skip to next OggS marker or end
@@ -248,10 +248,10 @@ public static class RakiAudioEncoder
     {
         // Simplified ADPCM encoding - convert PCM samples to ADPCM nibbles
         // For testing purposes, we can use a simplified approach
-        
+
         int sampleCount = pcmData.Length / (format.BitsPerSample / 8) / format.Channels;
         int blockSize = 256; // Samples per block
-        
+
         List<byte> adpcmData = [];
 
         for (int i = 0; i < sampleCount; i += blockSize)

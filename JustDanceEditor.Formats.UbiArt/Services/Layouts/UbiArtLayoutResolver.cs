@@ -9,14 +9,13 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         {
             UbiArtEngineVersion.JD2014 => Path.Combine("world", "jd5"),
             UbiArtEngineVersion.JD2015 => Path.Combine("world", "jd2015"),
-            UbiArtEngineVersion.Modern => Path.Combine("world", "maps"),
             _ => Path.Combine("world", "maps"),
         };
 
         // For uncooked Modern layouts use World/Maps structure
         if (containerStyle == UbiArtContainerStyle.Uncooked)
         {
-            if (engineVersion == UbiArtEngineVersion.Modern)
+            if (engineVersion >= UbiArtEngineVersion.JD2016)
             {
                 return string.IsNullOrWhiteSpace(songName) ? Path.Combine("World", "Maps") : Path.Combine("World", "Maps", songName);
             }

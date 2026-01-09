@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.Core;
 using JustDanceEditor.Formats.UbiArt.Files;
+using JustDanceEditor.Formats.UbiArt.Services;
 
 using Microsoft.Extensions.Logging;
 
@@ -142,7 +143,7 @@ public static class UbiArtCoverGenerator
         DefaultColors? colors = song.SongDesc.Components.FirstOrDefault()?.DefaultColors;
         Bgra32 primaryColor = ParseColor(colors?.Lyrics, new Bgra32(255, 255, 255, 255));
 
-        float boost = song.EngineVersion >= 2019 ? 0.2f : -0.1f;
+        float boost = context.FileSystem.VersionProfile.EngineVersion >= UbiArtEngineVersion.JD2019 ? 0.2f : -0.1f;
         Bgra32 secondaryColor = AdjustBrightness(primaryColor, boost);
         float[] colorsA = [primaryColor.A / 255f, primaryColor.R / 255f, primaryColor.G / 255f, primaryColor.B / 255f];
         float[] colorsB = [secondaryColor.A / 255f, secondaryColor.R / 255f, secondaryColor.G / 255f, secondaryColor.B / 255f];

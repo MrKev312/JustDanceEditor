@@ -24,8 +24,7 @@ public class UbiArtEngineDetectorTests
         UbiArtVersionProfile profile = detector.Detect(root);
 
         Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
-        Assert.Equal(UbiArtEngineVersion.Modern, profile.EngineVersion);
-        Assert.Equal((uint)4884, profile.EngineNumericVersion);
+        Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
 
         Directory.Delete(root, true);
     }
@@ -58,7 +57,7 @@ public class UbiArtEngineDetectorTests
         UbiArtVersionProfile profile = detector.Detect(root);
 
         Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
-        Assert.Equal(UbiArtEngineVersion.Modern, profile.EngineVersion);
+        Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
         Assert.IsType<UbiArtLayoutResolver>(profile.Layout);
         Assert.IsType<LuaUbiArtSerializer>(profile.Serializer);
 

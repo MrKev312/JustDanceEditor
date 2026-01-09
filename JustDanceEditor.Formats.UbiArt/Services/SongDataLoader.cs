@@ -38,31 +38,17 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
         songData.Name = songData.SongDesc.Components[0].MapName;
 
-        _logger.LogInformation("Loading JDVersion");
-        songData.EngineVersion = songData.SongDesc.Components[0].JDVersion;
         // Preserve original numeric version from source; normalization to consumer (Unity) is performed in the Unity pipeline
         uint originalJDVersion = songData.SongDesc.Components[0].OriginalJDVersion;
         songData.JDVersion = originalJDVersion;
 
-        // Propagate the numeric JD version into the LayeredFileSystem's profile so downstream
-        // components (e.g., pictogram sorting) can select the correct behaviour.
-        try
-        {
-            fileSystem.SetEngineNumericVersion(originalJDVersion);
-        }
-        catch
-        {
-            // Non-fatal: if the filesystem isn't in a state to accept updates, log and continue.
-            _logger.LogDebug("Could not set EngineNumericVersion on FileSystem; continuing without numeric version.");
-        }
-
-        _logger.LogInformation("Loaded engine JDVersion: {EngineVersion}, original version: {OriginalVersion}", songData.EngineVersion, songData.JDVersion);
+        _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songData.SongDesc.Components[0].JDVersion, songData.JDVersion);
 
         _logger.LogInformation("Loading MusicTrack");
         string musicTrackRelativePath = Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songData.Name}_musictrack.tpl");
         CookedFile musicTrackPath = fileSystem.GetFilePath(musicTrackRelativePath);
         using Stream musicStream = fileSystem.GetFileStream(musicTrackPath);
-        
+
         // For Uncooked format, check for includeReference FIRST before using regular serializer
         string musicTrackContent = new StreamReader(musicStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
         if (fileSystem.VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked && musicTrackContent.Contains("includeReference"))
@@ -242,7 +228,11 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
     public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
     {
-        JsonSerializerOptions options = new();
+        JsonSerializerOptions options = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
         options.Converters.Add(new ClipConverter());
         options.Converters.Add(new IntFlexibleJsonConverter());
         options.Converters.Add(new BoolFlexibleJsonConverter());

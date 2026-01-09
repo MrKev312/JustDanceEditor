@@ -150,7 +150,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         else if (!string.IsNullOrWhiteSpace(ubiRequest.InputPath) && _io.DirectoryExists(ubiRequest.InputPath))
             exportProfile = _engineDetector.Detect(ubiRequest.InputPath);
         else
-            exportProfile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            exportProfile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
 
         await _assetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, exportProfile.Layout, exportProfile.ContainerStyle, exportProfile.EngineVersion);
     }

@@ -27,7 +27,7 @@ public static class LuaTableSerializer
     {
         // Find all includeReference() calls and load the referenced files
         StringBuilder result = new(luaContent);
-        
+
         // Match includeReference("path") - single argument pattern
         System.Text.RegularExpressions.Regex includeRegex = new(
             @"includeReference\s*\(\s*""([^""]+)""\s*\)",
@@ -37,7 +37,7 @@ public static class LuaTableSerializer
         foreach (System.Text.RegularExpressions.Match match in includeRegex.Matches(luaContent))
         {
             string filePath = match.Groups[1].Value;
-            
+
             try
             {
                 if (fileSystem.GetFilePath(filePath, out Files.CookedFile? cookedFile))
@@ -45,7 +45,7 @@ public static class LuaTableSerializer
                     using Stream stream = fileSystem.GetFileStream(cookedFile);
                     using StreamReader reader = new(stream, Encoding.UTF8);
                     string includedContent = reader.ReadToEnd().TrimEnd('\0');
-                    
+
                     // Replace the includeReference call with the actual file content
                     result.Replace(match.Value, includedContent);
                 }
@@ -256,7 +256,7 @@ public static class LuaTableSerializer
             // Normalize clip entries to include a __class property and flatten wrapper objects.
             // We need to deep-copy the JSON to avoid "node already has a parent" errors.
             List<JsonNode> normalizedClips = [];
-            
+
             if (tape.TryGetProperty("Clips", out JsonElement clipsElement) && clipsElement.ValueKind == JsonValueKind.Array)
             {
                 foreach (JsonElement clipElement in clipsElement.EnumerateArray())
@@ -335,7 +335,7 @@ public static class LuaTableSerializer
     {
         // MusicTrack from Lua is wrapped as Actor_Template > COMPONENTS
         // We need to extract MusicTrackComponent_Template > trackData > MusicTrackData
-        
+
         if (root.TryGetProperty("Actor_Template", out JsonElement actorTemplate))
         {
             if (actorTemplate.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == JsonValueKind.Array)

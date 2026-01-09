@@ -16,7 +16,13 @@ public enum UbiArtEngineVersion
     Unknown,
     JD2014,
     JD2015,
-    Modern
+    JD2016,
+    JD2017,
+    JD2018,
+    JD2019,
+    JD2020,
+    JD2021,
+    JD2022
 }
 
 public class UbiArtVersionProfile(UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IUbiArtLayout layout, IUbiArtSerializer serializer, IUbiArtDataMapper? mapper = null)
@@ -27,12 +33,9 @@ public class UbiArtVersionProfile(UbiArtContainerStyle containerStyle, UbiArtEng
     public IUbiArtSerializer Serializer { get; set; } = serializer;
     public IUbiArtDataMapper Mapper { get; set; } = mapper ?? new DefaultUbiArtDataMapper();
 
-    // If present, contains the numeric JD engine version found in SongDesc
-    public uint? EngineNumericVersion { get; set; }
-
     /// <summary>
     /// Returns an <see cref="IComparer{string}"/> suitable for pictogram name sorting
-    /// depending on the detected engine numeric version.
+    /// depending on the engine version.
     /// - JD2014-2018: use existing alphanumeric text-first comparer (preserves current behavior)
     /// - JD2019-2022: use ordinal (case-insensitive) comparer to match engine behavior
     /// </summary>
@@ -40,8 +43,7 @@ public class UbiArtVersionProfile(UbiArtContainerStyle containerStyle, UbiArtEng
     {
         get
         {
-            uint? v = EngineNumericVersion;
-            if (v.HasValue && v.Value >= 2019 && v.Value <= 2022)
+            if (EngineVersion >= UbiArtEngineVersion.JD2019 && EngineVersion <= UbiArtEngineVersion.JD2022)
             {
                 // Use a digits-first alphanumeric comparer for 2019+ to match observed montage ordering
                 return AlphanumericDigitsFirstComparer.Instance;

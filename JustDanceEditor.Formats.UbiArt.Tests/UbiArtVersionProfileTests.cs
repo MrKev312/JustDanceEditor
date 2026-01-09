@@ -14,10 +14,7 @@ public class UbiArtVersionProfileTests
     [Fact]
     public void PictoComparer_Alphanumeric_For_2018_Sorts_pictos_as_expected()
     {
-        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer())
-        {
-            EngineNumericVersion = 2018
-        };
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2018, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
 
         IComparer<string> cmp = profile.PictoNameComparer;
 
@@ -30,10 +27,7 @@ public class UbiArtVersionProfileTests
     [Fact]
     public void PictoComparer_NumericOrdering_For_2019_Sorts_pictos_as_expected()
     {
-        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.Modern, new UbiArtLayoutResolver(), new JsonUbiArtSerializer())
-        {
-            EngineNumericVersion = 2019
-        };
+        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2019, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
 
         IComparer<string> cmp = profile.PictoNameComparer;
 
