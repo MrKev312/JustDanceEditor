@@ -15,7 +15,7 @@ public sealed class AudioConversionOptions
 
 public static class AudioConverter
 {
-    private static readonly JDI.Services.IAudioConverter audioConverter = new RakiAudioConverter();
+    private static readonly IAudioConverter audioConverter = new RakiAudioConverter();
 
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,

@@ -1,6 +1,6 @@
 using NAudio.Wave;
 
-namespace JustDanceEditor.Formats.JDI.Services;
+namespace JustDanceEditor.Audio;
 
 public interface IAudioConverter
 {
