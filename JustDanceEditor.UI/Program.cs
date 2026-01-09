@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.Unity.Services;
+using JustDanceEditor.Audio;
 using JustDanceEditor.UI.Converting;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Services;
@@ -34,7 +35,7 @@ internal class Program
         builder.Services.AddSingleton<IMediaProcessor, UbiArtMediaProcessor>();
         builder.Services.AddSingleton<ISongDataLoader, SongDataLoader>();
         builder.Services.AddSingleton<IUbiArtEngineDetector, UbiArtEngineDetector>();
-        builder.Services.AddSingleton<IAudioConverter, Formats.UbiArt.Audio.VGMStreamAdapter>();
+        builder.Services.AddSingleton<IAudioConverter, RakiAudioConverter>();
 
         // Unity services
         builder.Services.AddSingleton<IUnityAssetMaterializer, UnityAssetMaterializerService>();

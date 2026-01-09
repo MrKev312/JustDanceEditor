@@ -1,15 +1,16 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
+
+using JustDanceEditor.Audio;
 
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-
-using System.Diagnostics;
-
-using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
 
@@ -26,6 +27,10 @@ public sealed record UbiArtAudioConversionRequest(
     IAudioConverter AudioConverter,
     LayeredFileSystem FileSystem);
 
+/// <summary>
+/// Converts UbiArt audio files to Opus format entirely in memory.
+/// Uses Concentus for Opus encoding instead of FFmpeg.
+/// </summary>
 public static class UbiArtAudioConverter
 {
     public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem? io = null) =>
@@ -38,88 +43,129 @@ public static class UbiArtAudioConverter
         ArgumentNullException.ThrowIfNull(request.SongData);
         ArgumentNullException.ThrowIfNull(request.MainSongFile);
         ArgumentNullException.ThrowIfNull(request.AudioClips);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.TempAudioFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.MasterOutputFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PreviewOutputFolder);
         ArgumentNullException.ThrowIfNull(request.AudioConverter);
 
-        iofs.CreateDirectory(request.TempAudioFolder);
-
         logger.LogInformation("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        string mainSongWavPath = ConvertMainSong(request, logger, iofs);
+        // Convert main song to WaveStream
+        WaveStream mainSongStream = ConvertMainSong(request, logger);
 
         logger.LogInformation("Finished converting audio files in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
-        string mergedWavPath = iofs.Combine(request.TempAudioFolder, "merged.wav");
+        ISampleProvider mergedAudio;
 
         if (request.IsMainSongPreMerged)
         {
-            iofs.Move(mainSongWavPath, mergedWavPath, true);
+            // Main song is already merged, just use it directly
+            mergedAudio = ApplyOffset(mainSongStream.ToSampleProvider(), request.SongData.GetSongStartTime());
         }
         else
         {
-            ConvertAudioClips(request, logger, iofs);
-            MergeAudioFiles(request, mainSongWavPath, mergedWavPath, logger, iofs);
+            // Convert audio clips and merge
+            ConcurrentDictionary<string, WaveStream> clipStreams = ConvertAudioClips(request, logger);
+            mergedAudio = MergeAudioStreams(request, mainSongStream, clipStreams, logger);
         }
 
-        string opusPath = ConvertToOpus(request, mergedWavPath, logger, iofs);
-        MoveOpusToOutput(request, opusPath, iofs);
+        // Encode to Opus and write to output
+        EncodeAndWriteOpus(request, mergedAudio, logger, iofs);
     }
 
-    private static void ConvertAudioClips(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
+    private static ConcurrentDictionary<string, WaveStream> ConvertAudioClips(UbiArtAudioConversionRequest request, ILogger logger)
     {
+        ConcurrentDictionary<string, WaveStream> clipStreams = new();
+
         // Parallelize audio clip conversions
         Parallel.ForEach(request.AudioClips, clipSource =>
         {
-            string targetPath = io.Combine(request.TempAudioFolder, clipSource.File.Name + clipSource.File.Extension);
-            if (io.FileExists(targetPath))
-                return;
+            try
+            {
+                using Stream src = request.FileSystem.GetFileStream(clipSource.File);
+                string sourceFileName = clipSource.File.Name + clipSource.File.Extension;
+                if (clipSource.File.IsCooked)
+                    sourceFileName += ".ckd";
 
-            using Stream src = request.FileSystem.GetFileStream(clipSource.File);
-            string sourceFileName = clipSource.File.Name + clipSource.File.Extension;
-            if (clipSource.File.IsCooked)
-                sourceFileName += ".ckd";
-            request.AudioConverter.Convert(src, sourceFileName, targetPath, request.TempAudioFolder).GetAwaiter().GetResult();
+                WaveStream waveStream = request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+                string clipKey = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
+                clipStreams[clipKey] = waveStream;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to convert audio clip {ClipName}", clipSource.File.Name);
+            }
         });
+
+        return clipStreams;
     }
 
-    private static string ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
+    private static WaveStream ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger)
     {
-        string targetPath = io.Combine(request.TempAudioFolder, "mainSong.wav");
         using Stream src = request.FileSystem.GetFileStream(request.MainSongFile);
         string sourceFileName = request.MainSongFile.Name + request.MainSongFile.Extension;
         if (request.MainSongFile.IsCooked)
             sourceFileName += ".ckd";
-        request.AudioConverter.Convert(src, sourceFileName, targetPath, request.TempAudioFolder).GetAwaiter().GetResult();
-        logger.LogDebug("Converted main song to {TargetPath}", targetPath);
-        return targetPath;
+
+        WaveStream waveStream = request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+        logger.LogDebug("Converted main song to WaveStream");
+        return waveStream;
     }
 
-    private static void MergeAudioFiles(UbiArtAudioConversionRequest request, string mainSongWavPath, string mergedWavPath, ILogger logger, IFileSystem io)
+    private static ISampleProvider MergeAudioStreams(
+        UbiArtAudioConversionRequest request,
+        WaveStream mainSongStream,
+        ConcurrentDictionary<string, WaveStream> clipStreams,
+        ILogger logger)
     {
-        logger.LogInformation("Merging audio files...");
+        logger.LogInformation("Merging audio streams...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
-        List<(string path, float offset)> audioFiles = [];
-        audioFiles.Add((mainSongWavPath, request.SongData.GetSongStartTime()));
+        List<ISampleProvider> sampleProviders = [];
 
+        // Add main song with offset
+        float mainSongOffset = request.SongData.GetSongStartTime();
+        sampleProviders.Add(ApplyOffset(mainSongStream.ToSampleProvider(), mainSongOffset));
+
+        // Add each audio clip with its calculated offset
         foreach (UbiArtAudioClipSource clipSource in request.AudioClips)
         {
-            string clipName = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
-            string wavPath = io.Combine(request.TempAudioFolder, clipName + ".wav");
-            if (!io.FileExists(wavPath))
+            string clipKey = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
+            if (!clipStreams.TryGetValue(clipKey, out WaveStream? clipStream))
                 continue;
 
             float offset = CalculateClipOffset(request, clipSource.Clip);
-            audioFiles.Add((wavPath, offset));
+            sampleProviders.Add(ApplyOffset(clipStream.ToSampleProvider(), offset));
         }
 
-        MergeAudioFilesInternal([.. audioFiles], mergedWavPath, logger, io);
+        if (sampleProviders.Count == 0)
+        {
+            throw new InvalidOperationException("No audio streams to merge.");
+        }
+
+        // Create mixer with the format of the first provider
+        MixingSampleProvider mixer = new(sampleProviders[0].WaveFormat);
+        foreach (ISampleProvider sampleProvider in sampleProviders)
+        {
+            mixer.AddMixerInput(sampleProvider);
+        }
 
         stopwatch.Stop();
-        logger.LogInformation("Finished merging audio files in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+        logger.LogInformation("Finished merging audio streams in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+
+        return mixer;
+    }
+
+    private static ISampleProvider ApplyOffset(ISampleProvider provider, float offsetSeconds)
+    {
+        OffsetSampleProvider offsetProvider = new(provider);
+
+        if (offsetSeconds >= 0)
+            offsetProvider.DelayBy = TimeSpan.FromSeconds(offsetSeconds);
+        else
+            offsetProvider.SkipOver = TimeSpan.FromSeconds(-offsetSeconds);
+
+        return offsetProvider;
     }
 
     private static float CalculateClipOffset(UbiArtAudioConversionRequest request, SoundSetClip clip)
@@ -150,80 +196,24 @@ public static class UbiArtAudioConverter
         return offset;
     }
 
-    private static string ConvertToOpus(UbiArtAudioConversionRequest request, string mergedWavPath, ILogger logger, IFileSystem io)
+    private static void EncodeAndWriteOpus(UbiArtAudioConversionRequest request, ISampleProvider audioSource, ILogger logger, IFileSystem io)
     {
-        string opusPath = io.Combine(request.TempAudioFolder, "merged.opus");
+        logger.LogInformation("Encoding to Opus...");
+        Stopwatch stopwatch = Stopwatch.StartNew();
 
-        IConversion conversion = FFmpeg.Conversions.New();
-        IMediaInfo mediaInfo = FFmpeg.GetMediaInfo(mergedWavPath).Result;
+        // Encode to Opus in memory
+        using MemoryStream opusStream = OpusEncoderHelper.EncodeToOpusStream(audioSource);
 
-        IStream stream = mediaInfo.AudioStreams.First()
-            .SetCodec(AudioCodec.libopus)
-            .SetSampleRate(48000);
+        stopwatch.Stop();
+        logger.LogInformation("Finished encoding to Opus in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
-        IConversionResult result = conversion.AddStream(stream)
-            .AddParameter("-sample_fmt flt")
-            .SetOverwriteOutput(true)
-            .UseMultiThread(true)
-            .SetOutput(opusPath)
-            .SetOverwriteOutput(true)
-            .Start().Result;
+        // Write to output file
+        io.CreateDirectory(request.MasterOutputFolder);
+        string outputPath = io.Combine(request.MasterOutputFolder, "master.opus");
 
-        logger.LogDebug("Converted song audio with \"{Arguments}\"", result.Arguments);
-        return opusPath;
-    }
+        using FileStream outputFile = new(outputPath, FileMode.Create, FileAccess.Write);
+        opusStream.CopyTo(outputFile);
 
-    private static void MoveOpusToOutput(UbiArtAudioConversionRequest request, string opusPath, IFileSystem io)
-    {
-        MoveAudioToOutput(opusPath, request.MasterOutputFolder, "master.opus", io);
-    }
-
-    private static void MoveAudioToOutput(string sourcePath, string destinationFolder, string targetFileName, IFileSystem io)
-    {
-        io.CreateDirectory(destinationFolder);
-
-        string targetPath = io.Combine(destinationFolder, targetFileName);
-
-        io.Move(sourcePath, targetPath, true);
-    }
-
-    private static void MergeAudioFilesInternal((string path, float startTime)[] audioFiles, string outputPath, ILogger logger, IFileSystem io)
-    {
-        if (audioFiles.Length == 0)
-            return;
-
-        List<ISampleProvider> sampleProviders = [];
-        bool anyExists = false;
-
-        foreach ((string path, float startTime) in audioFiles)
-        {
-            if (!io.FileExists(path))
-            {
-                logger.LogWarning("File {Path} does not exist!", path);
-                continue;
-            }
-
-            anyExists = true;
-
-            AudioFileReader reader = new(path);
-            OffsetSampleProvider offsetSampleProvider = new(reader);
-
-            if (startTime >= 0)
-                offsetSampleProvider.DelayBy = TimeSpan.FromSeconds(startTime);
-            else
-                offsetSampleProvider.SkipOver = TimeSpan.FromSeconds(-startTime);
-
-            sampleProviders.Add(offsetSampleProvider);
-        }
-
-        if (!anyExists)
-            return;
-
-        MixingSampleProvider mixer = new(sampleProviders[0].WaveFormat);
-        foreach (ISampleProvider sampleProvider in sampleProviders)
-            mixer.AddMixerInput(sampleProvider);
-
-        io.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-        WaveFileWriter.CreateWaveFile16(outputPath, mixer.ToWaveProvider16().ToSampleProvider());
+        logger.LogDebug("Wrote Opus file to {OutputPath}", outputPath);
     }
 }

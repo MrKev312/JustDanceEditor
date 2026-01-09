@@ -1,6 +1,8 @@
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
+using JustDanceEditor.Audio;
+
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
@@ -13,7 +15,7 @@ public sealed class AudioConversionOptions
 
 public static class AudioConverter
 {
-    private static readonly JDI.Services.IAudioConverter audioConverter = new VGMStreamAdapter();
+    private static readonly JDI.Services.IAudioConverter audioConverter = new RakiAudioConverter();
 
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,

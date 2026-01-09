@@ -1,8 +1,14 @@
+using NAudio.Wave;
+
 namespace JustDanceEditor.Formats.JDI.Services;
 
 public interface IAudioConverter
 {
-    // Convert audio from a source stream (sourceFileName is the original filename, used for format detection).
-    // tempFolder, if provided, may be used to write temporary input files (e.g., for external converters that require actual files).
-    Task Convert(Stream source, string sourceFileName, string targetPath, string? tempFolder = null);
+    /// <summary>
+    /// Converts audio from a source stream and returns a WaveStream for further processing.
+    /// </summary>
+    /// <param name="source">The source stream containing audio data.</param>
+    /// <param name="sourceFileName">The original filename, used for format detection.</param>
+    /// <returns>A WaveStream that can be used with NAudio for mixing/processing.</returns>
+    Task<WaveStream> ConvertAsync(Stream source, string sourceFileName);
 }
