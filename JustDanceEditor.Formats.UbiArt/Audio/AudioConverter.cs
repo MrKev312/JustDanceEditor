@@ -1,7 +1,6 @@
+using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
-
-using JustDanceEditor.Audio;
 
 using Microsoft.Extensions.Logging;
 

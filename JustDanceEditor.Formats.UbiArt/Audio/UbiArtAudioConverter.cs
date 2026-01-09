@@ -1,16 +1,15 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
-
+using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Files;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
-
-using JustDanceEditor.Audio;
 
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+
+using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace JustDanceEditor.Formats.UbiArt.Audio;
 

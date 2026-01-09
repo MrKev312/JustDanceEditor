@@ -1,6 +1,6 @@
-using System.Text;
-
 using NAudio.Wave;
+
+using System.Text;
 
 
 namespace JustDanceEditor.Audio;

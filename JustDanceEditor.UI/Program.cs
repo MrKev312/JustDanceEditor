@@ -1,8 +1,8 @@
+using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.Unity.Services;
-using JustDanceEditor.Audio;
 using JustDanceEditor.UI.Converting;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Services;

@@ -1,5 +1,6 @@
 using Concentus.Enums;
 using Concentus.Oggfile;
+
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -41,9 +42,11 @@ public static class OpusEncoderHelper
 
         // Create the Opus encoder
 #pragma warning disable CS0618 // Type or member is obsolete - OpusCodecFactory is preferred but this works
-        ConcentusOpusEncoder encoder = new(48000, channels, OpusApplication.OPUS_APPLICATION_AUDIO);
+        ConcentusOpusEncoder encoder = new(48000, channels, OpusApplication.OPUS_APPLICATION_AUDIO)
+        {
 #pragma warning restore CS0618
-        encoder.Bitrate = bitrate;
+            Bitrate = bitrate
+        };
 
         // Wrap the stream to prevent OpusOggWriteStream from closing it
         NonClosingStreamWrapper wrappedStream = new(outputStream);

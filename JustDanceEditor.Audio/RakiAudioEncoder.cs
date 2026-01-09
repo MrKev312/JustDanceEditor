@@ -1,6 +1,6 @@
-using System.Text;
-
 using NAudio.Wave;
+
+using System.Text;
 
 namespace JustDanceEditor.Audio;
 
@@ -252,7 +252,7 @@ public static class RakiAudioEncoder
         int sampleCount = pcmData.Length / (format.BitsPerSample / 8) / format.Channels;
         int blockSize = 256; // Samples per block
         
-        List<byte> adpcmData = new();
+        List<byte> adpcmData = [];
 
         for (int i = 0; i < sampleCount; i += blockSize)
         {
@@ -268,11 +268,12 @@ public static class RakiAudioEncoder
     {
         // Placeholder ADPCM block encoding
         // For real implementation, use proper ADPCM algorithm
-        List<byte> block = new();
-
-        // Write a simplified block header (predictor index and delta)
-        block.Add(0); // Predictor index
-        block.Add(0); // Delta
+        List<byte> block =
+        [
+            // Write a simplified block header (predictor index and delta)
+            0, // Predictor index
+            0, // Delta
+        ];
 
         // Encode samples as nibbles (simplified)
         for (int i = 0; i < sampleCount; i++)

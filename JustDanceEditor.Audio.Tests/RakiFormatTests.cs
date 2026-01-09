@@ -1,4 +1,5 @@
 using NAudio.Wave;
+
 using Xunit;
 
 namespace JustDanceEditor.Audio.Tests;

@@ -1,3 +1,4 @@
+using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.UbiArt.Core;
@@ -8,7 +9,6 @@ using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 using Microsoft.Extensions.Logging;
-using JustDanceEditor.Audio;
 
 namespace JustDanceEditor.Formats.UbiArt;
 

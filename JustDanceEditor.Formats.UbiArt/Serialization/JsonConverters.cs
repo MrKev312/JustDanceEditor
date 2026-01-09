@@ -1,6 +1,7 @@
+using JustDanceEditor.Formats.UbiArt.Tapes;
+
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using JustDanceEditor.Formats.UbiArt.Tapes;
 
 namespace JustDanceEditor.Formats.UbiArt.Serialization;
 

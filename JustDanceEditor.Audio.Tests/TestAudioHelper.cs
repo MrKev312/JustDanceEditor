@@ -1,5 +1,4 @@
 using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 
 namespace JustDanceEditor.Audio.Tests;
 
@@ -100,7 +99,7 @@ public static class TestAudioHelper
             ? maxSamples 
             : (int)(source.Length / source.WaveFormat.BlockAlign);
 
-        List<float> samples = new();
+        List<float> samples = [];
         byte[] buffer = new byte[65536];
 
         int bytesRead;
