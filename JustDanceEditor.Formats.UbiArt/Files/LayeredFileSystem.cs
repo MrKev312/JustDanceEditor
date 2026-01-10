@@ -60,8 +60,6 @@ public class LayeredFileSystem
             DiscoverAndRegisterIPKs();
         }
 
-        InitializePlatformType();
-
         // Only initialize SongID if explicitly requested or if a specific song name was provided
         if (ConversionRequest.SongName != null)
         {
@@ -102,7 +100,7 @@ public class LayeredFileSystem
         // For explicitly specified song, return it immediately
         if (!string.IsNullOrWhiteSpace(ConversionRequest.SongName))
         {
-            string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, ConversionRequest.SongName, VersionProfile.ContainerStyle, VersionProfile.EngineVersion)
+            string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, ConversionRequest.SongName, VersionProfile.Platform, VersionProfile.EngineVersion)
                 ?? Path.Combine("world", "maps", ConversionRequest.SongName);
             string songDescPath = Path.Combine(mapFolder, "songdesc.tpl");
             songs.Add((ConversionRequest.SongName, songDescPath));
@@ -133,7 +131,7 @@ public class LayeredFileSystem
                 // Try layout-specific location
                 if (VersionProfile.Layout != null)
                 {
-                    string layoutMapsFolder = _io.Combine(ConversionRequest.InputPath, VersionProfile.Layout.GetMapWorldFolder(ConversionRequest.InputPath, "", VersionProfile.ContainerStyle, VersionProfile.EngineVersion));
+                    string layoutMapsFolder = _io.Combine(ConversionRequest.InputPath, VersionProfile.Layout.GetMapWorldFolder(ConversionRequest.InputPath, "", VersionProfile.Platform, VersionProfile.EngineVersion));
                     if (_io.DirectoryExists(layoutMapsFolder))
                         mapsFolder = layoutMapsFolder;
                 }
@@ -162,7 +160,6 @@ public class LayeredFileSystem
     public UbiArtConversionRequest ConversionRequest { get; private set; }
 
     public string SongName { get; private set; } = "";
-    public string PlatformType { get; private set; } = "";
 
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
@@ -182,62 +179,6 @@ public class LayeredFileSystem
 
         // Do not create or delete temp folders here; responsibility moved to ITempFolderManager consumers.
         // Cleanup is explicit and should be performed by the calling workflow when appropriate.
-    }
-
-    private void InitializePlatformType()
-    {
-        string itfCookedFolder = _io.Combine(ConversionRequest.InputPath, "cache", "itf_cooked");
-
-        // If the input is an IPK, check registered IPKs for cache/itf_cooked
-        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
-        {
-            string rel = Path.Combine("cache", "itf_cooked");
-            foreach (IpkFileSystem ipk in _ipkFileSystems.Values)
-            {
-                try
-                {
-                    if (ipk.DirectoryExists(rel))
-                    {
-                        string[] ipkPlatformFolders = ipk.GetDirectories(rel);
-                        if (ipkPlatformFolders.Length == 0)
-                            throw new DirectoryNotFoundException("No platform folders found in the itf_cooked folder.");
-                        if (ipkPlatformFolders.Length > 1)
-                            throw new DirectoryNotFoundException("Multiple platform folders found in the itf_cooked folder, this is not supported.");
-
-                        PlatformType = Path.GetFileName(ipkPlatformFolders[0]);
-                        return;
-                    }
-                }
-                catch
-                {
-                    // Ignore IPK read errors and try next
-                }
-            }
-
-            // If not found in IPK, fall through to the directory-based logic which will handle layout overrides or throw
-        }
-
-        if (!_io.DirectoryExists(itfCookedFolder))
-        {
-            // If the request or the detected profile indicates Uncooked, set platform accordingly
-            if (VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked || ConversionRequest.Type == UbiArtType.Uncooked)
-            {
-                PlatformType = "uncooked";
-                return;
-            }
-
-            throw new DirectoryNotFoundException("The itf_cooked folder does not exist.");
-        }
-
-        string[] platformFolders = _io.GetDirectories(itfCookedFolder);
-
-        if (platformFolders.Length == 0)
-            throw new DirectoryNotFoundException("No platform folders found in the itf_cooked folder.");
-        if (platformFolders.Length > 1)
-            throw new DirectoryNotFoundException("Multiple platform folders found in the itf_cooked folder, this is not supported.");
-
-        PlatformType = Path.GetFileName(platformFolders[0]);
-
     }
 
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath)
@@ -270,7 +211,7 @@ public class LayeredFileSystem
         }
 
         string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
-        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{PlatformType}")];
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{VersionProfile.Platform}")];
 
         string[] allFolders = _io.GetDirectories(parentFolder);
         PriorityQueue<string, uint> numberPatternFolders = new();
@@ -312,7 +253,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
                 ];
 
             foreach (string location in searchLocations)
@@ -346,13 +287,13 @@ public class LayeredFileSystem
             if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<VersionProfile.Platform.ToString()>)
             List<string> candidates = [relativeFilePath];
             if (pathCooked != null)
                 candidates.Add(pathCooked);
-            if (!string.IsNullOrEmpty(PlatformType))
+            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
             {
-                string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString());
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
                 if (pathCooked != null)
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
@@ -390,7 +331,7 @@ public class LayeredFileSystem
         List<CookedFile> files = [];
         string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
         List<string> searchPaths = [
-            _io.Combine(parentFolder, $"patch_{PlatformType}"),
+            _io.Combine(parentFolder, $"patch_{VersionProfile.Platform}"),
             .._io.GetDirectories(parentFolder)
             ];
 
@@ -398,7 +339,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
                 ];
 
             foreach (string location in searchLocations)
@@ -439,9 +380,9 @@ public class LayeredFileSystem
 
             // Try both the requested relative folder and the cooked location inside IPK
             List<string> ipkLocations = [relativeFolderPath];
-            if (!string.IsNullOrEmpty(PlatformType))
+            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
             {
-                ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString(), relativeFolderPath));
             }
 
             foreach (string loc in ipkLocations)
@@ -496,7 +437,7 @@ public class LayeredFileSystem
         }
 
         string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
-        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{PlatformType}")];
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{VersionProfile.Platform}")];
 
         string[] allFolders = _io.GetDirectories(parentFolder);
         PriorityQueue<string, uint> numberPatternFolders = new();
@@ -538,7 +479,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
                 ];
 
             foreach (string location in searchLocations)
@@ -566,13 +507,13 @@ public class LayeredFileSystem
             if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<PlatformType>)
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<VersionProfile.Platform.ToString()>)
             List<string> candidates = [relativeFilePath];
             if (pathCooked != null)
                 candidates.Add(pathCooked);
-            if (!string.IsNullOrEmpty(PlatformType))
+            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
             {
-                string cookedPrefix = Path.Combine("cache", "itf_cooked", PlatformType);
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString());
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
                 if (pathCooked != null)
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
@@ -604,9 +545,9 @@ public class LayeredFileSystem
         string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
 
         List<string> searchPaths = [
-            _io.Combine(parentFolder, $"patch_{PlatformType}"),
+            _io.Combine(parentFolder, $"patch_{VersionProfile.Platform}"),
             InputFolders.InputFolder,
-            _io.Combine(parentFolder, $"bundle_{PlatformType}")
+            _io.Combine(parentFolder, $"bundle_{VersionProfile.Platform}")
             ];
 
         foreach (string searchPath in _io.GetDirectories(parentFolder))
@@ -617,7 +558,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", PlatformType)
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
                 ];
             foreach (string location in searchLocations)
             {
@@ -643,8 +584,8 @@ public class LayeredFileSystem
 
             // Check both the requested relative folder and the cooked location inside IPK
             List<string> ipkLocations = [relativeFolderPath];
-            if (!string.IsNullOrEmpty(PlatformType))
-                ipkLocations.Add(Path.Combine("cache", "itf_cooked", PlatformType, relativeFolderPath));
+            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString(), relativeFolderPath));
 
             foreach (string loc in ipkLocations)
             {

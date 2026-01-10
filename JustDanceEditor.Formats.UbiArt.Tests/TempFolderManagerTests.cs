@@ -53,7 +53,7 @@ public class TempFolderManagerTests
         Directory.CreateDirectory(root);
 
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = UbiArtType.Uncooked };
-        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
 
         // Replace internal temp manager with a Moq mock to verify delegation

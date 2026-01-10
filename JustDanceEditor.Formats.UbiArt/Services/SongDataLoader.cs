@@ -51,7 +51,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
         // For Uncooked format, check for includeReference FIRST before using regular serializer
         string musicTrackContent = new StreamReader(musicStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
-        if (fileSystem.VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked && musicTrackContent.Contains("includeReference"))
+        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked && musicTrackContent.Contains("includeReference"))
         {
             _logger.LogInformation("MusicTrack contains Lua includeReference, deserializing with file system support");
             songData.MusicTrack = LuaTableSerializer.Deserialize<MusicTrack>(musicTrackContent, fileSystem);
@@ -80,8 +80,8 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
         ClipTape danceTape;
 
-        // Prefer file type based on container style rather than file existence heuristics
-        if (fileSystem.VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked)
+        // Prefer file type based on platform rather than file existence heuristics
+        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
         {
             // In Uncooked layout prefer .tpl first, then fallback to .dtape
             if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
@@ -135,8 +135,8 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.ktape");
         string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.tpl");
 
-        // Select strategy based on container style
-        if (fileSystem.VersionProfile.ContainerStyle == UbiArtContainerStyle.Uncooked)
+        // Select strategy based on platform
+        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
         {
             // Prefer direct .ktape in Uncooked layout (we write .ktape when exporting Uncooked); fall back to .tpl
             if (fileSystem.GetFilePath(karaokeKtapeRelativePath, out CookedFile? karaokeKtapeFile))

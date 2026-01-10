@@ -27,31 +27,50 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
     {
         bool hasCooked = fs.DirectoryExists(fs.Combine(basePath, "cache", "itf_cooked"));
 
+        // Default platform when unknown (legacy behaviour)
+        UbiArtPlatform detectedPlatform = UbiArtPlatform.WiiU;
+
         // If cooked, look inside cooked cache for world/jd5 or world/jd2015 markers
         if (hasCooked)
         {
-            // Search for jd5 or jd2015 anywhere inside cache/itf_cooked
+            // Search for the platform folder under cache/itf_cooked first (expects a single platform folder)
             string cookedRoot = fs.Combine(basePath, "cache", "itf_cooked");
+            string[] platformFolders = fs.GetDirectories(cookedRoot);
+            if (platformFolders.Length == 0)
+                throw new DirectoryNotFoundException("No platform folders found in the itf_cooked folder.");
+            if (platformFolders.Length > 1)
+                throw new DirectoryNotFoundException("Multiple platform folders found in the itf_cooked folder, this is not supported.");
+
+            string platformFolderName = Path.GetFileName(platformFolders[0]);
+            // Parse the platform folder name into the enum via reflection and fail fast on unknown values
+            if (!Enum.TryParse<UbiArtPlatform>(platformFolderName, true, out detectedPlatform))
+                throw new InvalidOperationException($"Unknown UbiArt platform folder '{platformFolderName}' in cache/itf_cooked.");
+
+            // 'uncooked' is not a valid cooked platform; treat it as an error
+            if (detectedPlatform == UbiArtPlatform.Uncooked)
+                throw new InvalidOperationException($"Invalid platform 'uncooked' inside cache/itf_cooked.");
+
             // Search nested directories for world/jd5 or world/jd2015
+            // This uses the cookedRoot as base so checks include the platform folder
             string[] cookedDirs = [.. GetDirectoriesRecursive(cookedRoot, fs)];
             // Check latest to oldest, as newer versions may have both jd2015 and jd5 folders
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/maps")))
             {
-                UbiArtVersionProfile p = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer(), new DefaultUbiArtDataMapper());
+                UbiArtVersionProfile p = new(detectedPlatform, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer(), new DefaultUbiArtDataMapper());
                 TryPeekSongDescForJDVersion(basePath, p, fs);
                 return p;
             }
 
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd2015")))
             {
-                UbiArtVersionProfile prof = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
+                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
 
             if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd5")))
             {
-                UbiArtVersionProfile prof = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
+                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
@@ -60,21 +79,21 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
         {
-            UbiArtVersionProfile prof = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
         {
-            UbiArtVersionProfile prof = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")))
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             // Try to peek into songdesc to extract JDVersion numeric if present
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
@@ -85,7 +104,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             fs.DirectoryExists(fs.Combine(basePath, "Cinematics")) ||
             fs.GetFiles(basePath, "*.tpl").Length != 0)
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
@@ -93,12 +112,13 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         // If no cooked marker and no other markers, assume uncooked as fallback
         if (!hasCooked)
         {
-            UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, profile, fs);
             return profile;
         }
 
-        UbiArtVersionProfile fallbackProfile = new(UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        // If we got here, we had a cooked input but no recognizable world maps/jd folders - fall back to detected platform with JSON serializer
+        UbiArtVersionProfile fallbackProfile = new(detectedPlatform, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
         TryPeekSongDescForJDVersion(basePath, fallbackProfile, fs);
         return fallbackProfile;
     }

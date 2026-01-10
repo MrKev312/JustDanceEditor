@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Core;
+using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
@@ -82,7 +83,7 @@ internal static class IntermediatePackageBuilder
             CountInProgression = info.CountInProgression
         };
 
-        metadata.AdditionalMetadata["platformType"] = context.FileSystem.PlatformType;
+        metadata.AdditionalMetadata["platformType"] = context.FileSystem.VersionProfile.Platform.ToString();
         metadata.AdditionalMetadata["videoPreviewPath"] = info.VideoPreviewPath;
 
         return metadata;

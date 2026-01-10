@@ -17,7 +17,7 @@ public class UbiArtLayoutTests
     public void Layout_Should_Handle_Uncooked_JD2014_Symmetry()
     {
         UbiArtLayoutResolver layout = new();
-        UbiArtContainerStyle style = UbiArtContainerStyle.Uncooked;
+        UbiArtPlatform style = UbiArtPlatform.Uncooked;
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
 
         string path = layout.GetMapWorldFolder("/root", "SongName", style, version);
@@ -32,7 +32,7 @@ public class UbiArtLayoutTests
         Directory.CreateDirectory(root);
 
         UbiArtLayoutResolver layout = new();
-        UbiArtContainerStyle style = UbiArtContainerStyle.Uncooked;
+        UbiArtPlatform style = UbiArtPlatform.Uncooked;
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
         string mapWorldRelative = layout.GetMapWorldFolder(root, "song", style, version);
         string mapWorldFolder = Path.Combine(root, mapWorldRelative);

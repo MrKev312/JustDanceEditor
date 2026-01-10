@@ -4,11 +4,12 @@ using JustDanceEditor.Formats.UbiArt.Services.Serialization;
 
 namespace JustDanceEditor.Formats.UbiArt.Services;
 
-public enum UbiArtContainerStyle
+public enum UbiArtPlatform
 {
-    Unknown,
-    Cooked,
-    Uncooked
+    Uncooked,
+    WiiU,
+    NX,
+    PC
 }
 
 public enum UbiArtEngineVersion
@@ -25,9 +26,9 @@ public enum UbiArtEngineVersion
     JD2022
 }
 
-public class UbiArtVersionProfile(UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IUbiArtLayout layout, IUbiArtSerializer serializer, IUbiArtDataMapper? mapper = null)
+public class UbiArtVersionProfile(UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IUbiArtLayout layout, IUbiArtSerializer serializer, IUbiArtDataMapper? mapper = null)
 {
-    public UbiArtContainerStyle ContainerStyle { get; set; } = containerStyle;
+    public UbiArtPlatform Platform { get; set; } = platform;
     public UbiArtEngineVersion EngineVersion { get; set; } = engineVersion;
     public IUbiArtLayout Layout { get; set; } = layout;
     public IUbiArtSerializer Serializer { get; set; } = serializer;
@@ -43,7 +44,7 @@ public class UbiArtVersionProfile(UbiArtContainerStyle containerStyle, UbiArtEng
     {
         get
         {
-            if (EngineVersion >= UbiArtEngineVersion.JD2019 && EngineVersion <= UbiArtEngineVersion.JD2022)
+            if (EngineVersion is >= UbiArtEngineVersion.JD2019 and <= UbiArtEngineVersion.JD2022)
             {
                 // Use a digits-first alphanumeric comparer for 2019+ to match observed montage ordering
                 return AlphanumericDigitsFirstComparer.Instance;

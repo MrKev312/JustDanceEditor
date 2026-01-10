@@ -2,7 +2,7 @@ namespace JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
 public class UbiArtLayoutResolver : IUbiArtLayout
 {
-    public string GetMapWorldFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
+    public string GetMapWorldFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
     {
         // Engine-specific base path
         string engineFolder = engineVersion switch
@@ -12,8 +12,8 @@ public class UbiArtLayoutResolver : IUbiArtLayout
             _ => Path.Combine("world", "maps"),
         };
 
-        // For uncooked Modern layouts use World/Maps structure
-        if (containerStyle == UbiArtContainerStyle.Uncooked)
+        // For uncooked layouts use World/Maps structure
+        if (platform == UbiArtPlatform.Uncooked)
         {
             if (engineVersion >= UbiArtEngineVersion.JD2016)
             {
@@ -30,21 +30,21 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         return Path.Combine(engineFolder, songName);
     }
 
-    public string GetMediaFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "media");
+    public string GetMediaFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "media");
 
-    public string GetAudioFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "Audio");
+    public string GetAudioFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "Audio");
 
-    public string GetTimelineFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "timeline");
+    public string GetTimelineFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "timeline");
 
-    public string GetPictosFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetTimelineFolder(inputPath, songName, containerStyle, engineVersion), "pictos");
+    public string GetPictosFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetTimelineFolder(inputPath, songName, platform, engineVersion), "pictos");
 
-    public string GetMovesFolder(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "timeline", "moves", "WiiU");
+    public string GetMovesFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "timeline", "moves", "WiiU");
 
-    public string GetSongDescRelativePath(string inputPath, string songName, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, containerStyle, engineVersion), "songdesc.tpl");
+    public string GetSongDescRelativePath(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "songdesc.tpl");
 }

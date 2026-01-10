@@ -12,13 +12,16 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class IFileSystemTests
 {
 
-    [Fact]
-    public void EngineDetector_Uses_IFileSystem_To_Detect_Cooked_JD2015()
+
+    [Theory]
+    [InlineData("wiiu", UbiArtPlatform.WiiU)]
+    [InlineData("nx", UbiArtPlatform.NX)]
+    [InlineData("pc", UbiArtPlatform.PC)]
+    public void EngineDetector_Detects_Cooked_JD2015_Platforms(string platformFolder, UbiArtPlatform expectedPlatform)
     {
         Mock<IFileSystem> mockFs = new();
-        string root = "C:\\fake\\root2";
+        string root = "C:\\fake\\root3";
 
-        // Add cooked itf_cooked folder and a nested world/jd2015 folder
         string cookedRoot = Path.Combine(root, "cache", "itf_cooked");
 
         mockFs.Setup(m => m.Combine(It.IsAny<string[]>())).Returns((string[] parts) => Path.Combine(parts));
@@ -26,11 +29,11 @@ public class IFileSystemTests
         mockFs.Setup(m => m.GetDirectories(It.IsAny<string>())).Returns<string>(path =>
         {
             if (path == cookedRoot)
-                return [Path.Combine(cookedRoot, "some")];
-            else if (path == Path.Combine(cookedRoot, "some"))
-                return [Path.Combine(cookedRoot, "some", "world")];
-            else if (path == Path.Combine(cookedRoot, "some", "world"))
-                return [Path.Combine(cookedRoot, "some", "world", "jd2015")];
+                return [Path.Combine(cookedRoot, platformFolder)];
+            else if (path == Path.Combine(cookedRoot, platformFolder))
+                return [Path.Combine(cookedRoot, platformFolder, "world")];
+            else if (path == Path.Combine(cookedRoot, platformFolder, "world"))
+                return [Path.Combine(cookedRoot, platformFolder, "world", "jd2015")];
             else
                 return [];
         });
@@ -39,7 +42,7 @@ public class IFileSystemTests
 
         UbiArtVersionProfile profile = detector.Detect(root);
 
-        Assert.Equal(UbiArtContainerStyle.Cooked, profile.ContainerStyle);
+        Assert.Equal(expectedPlatform, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2015, profile.EngineVersion);
     }
 }

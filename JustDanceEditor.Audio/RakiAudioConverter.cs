@@ -2,7 +2,6 @@ using NAudio.Wave;
 
 using System.Text;
 
-
 namespace JustDanceEditor.Audio;
 
 /// <summary>
@@ -69,7 +68,7 @@ public class RakiAudioConverter : IAudioConverter
         uint firstChunkId = reader.ReadUInt32(); // Usually 'fmt ' (0x666D7420) or BE equivalent
 
         // Check for 'fmt ' in either endianness
-        if (firstChunkId != 0x20746D66 && firstChunkId != 0x666D7420)
+        if (firstChunkId is not 0x20746D66 and not 0x666D7420)
             throw new InvalidDataException("Expected 'fmt ' chunk not found.");
 
         stream.Position = rakiOffset + 0x24;

@@ -35,7 +35,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         // Detect engine/profile and configure filesystem accordingly BEFORE validation so that file lookups work correctly
         UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
-        _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.ContainerStyle, profile.EngineVersion);
+        _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.Platform, profile.EngineVersion);
 
         LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);
         fileSystem.Initialize();
@@ -51,10 +51,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
             _logger.LogInformation("Song name: {SongName}", fileSystem.SongName);
 
-        if (!fileSystem.PlatformType.Equals("nx", StringComparison.CurrentCultureIgnoreCase))
-            _logger.LogWarning("Platform: {Platform}, which is not officially supported. The conversion might not work as expected.", fileSystem.PlatformType);
+        string platformName = fileSystem.VersionProfile.Platform.ToString();
+        if (!platformName.Equals("nx", StringComparison.InvariantCultureIgnoreCase))
+            _logger.LogWarning("Platform: {Platform}, which is not officially supported. The conversion might not work as expected.", platformName);
         else
-            _logger.LogInformation("Platform: {Platform}", fileSystem.PlatformType);
+            _logger.LogInformation("Platform: {Platform}", platformName);
 
         ConversionContext context;
         try
@@ -150,9 +151,9 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         else if (!string.IsNullOrWhiteSpace(ubiRequest.InputPath) && _io.DirectoryExists(ubiRequest.InputPath))
             exportProfile = _engineDetector.Detect(ubiRequest.InputPath);
         else
-            exportProfile = new UbiArtVersionProfile(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+            exportProfile = new UbiArtVersionProfile(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
 
-        await _assetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, exportProfile.Layout, exportProfile.ContainerStyle, exportProfile.EngineVersion);
+        await _assetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, exportProfile.Layout, exportProfile.Platform, exportProfile.EngineVersion);
     }
 
     private void PrepareOutputDirectory(string targetFolder)
@@ -170,7 +171,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         try
         {
             UbiArtVersionProfile profile = _engineDetector.Detect(path);
-            UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.ContainerStyle == UbiArtContainerStyle.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
+            UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.Platform == UbiArtPlatform.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
             LayeredFileSystem fs = _fileSystemFactory(req, profile);
             fs.Initialize();
 
@@ -190,7 +191,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
                 uint original = sd.Components[0].OriginalJDVersion;
 
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"Detected UbiArt platform: {fs.PlatformType}, engine version: {engine}");
+                Console.WriteLine($"Detected UbiArt platform: {fs.VersionProfile.Platform}, engine version: {engine}");
                 Console.ResetColor();
             }
             catch (Exception ex)
@@ -267,7 +268,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         // Use layout-aware path resolution if available
         string songDescRelative;
         if (fs.VersionProfile.Layout != null)
-            songDescRelative = fs.VersionProfile.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.VersionProfile.ContainerStyle, fs.VersionProfile.EngineVersion);
+            songDescRelative = fs.VersionProfile.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.VersionProfile.Platform, fs.VersionProfile.EngineVersion);
         else
             songDescRelative = _io.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
         bool hasSongDesc = fs.GetFilePath(songDescRelative, out _);

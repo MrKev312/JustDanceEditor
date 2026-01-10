@@ -53,7 +53,7 @@ public class SongDataLoaderTests
         File.WriteAllText(Path.Combine(flatSongFolder, "karaoke_actor.tpl"), "{ \"COMPONENTS\": [ { \"TapesRack\": [ { \"Entries\": [ { \"Path\": \"karaoke.tape\" } ] } ] } ] }");
         File.WriteAllText(Path.Combine(flatSongFolder, "timeline", "karaoke.tape"), "{ \"Clips\": [] }");
 
-        UbiArtVersionProfile profile = new(UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song")
         {
             Type = UbiArtType.Uncooked

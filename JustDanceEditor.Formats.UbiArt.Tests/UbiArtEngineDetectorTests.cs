@@ -23,7 +23,7 @@ public class UbiArtEngineDetectorTests
         UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
-        Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
+        Assert.Equal(UbiArtPlatform.Uncooked, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
 
         Directory.Delete(root, true);
@@ -38,7 +38,7 @@ public class UbiArtEngineDetectorTests
         UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
-        Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
+        Assert.Equal(UbiArtPlatform.Uncooked, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2014, profile.EngineVersion);
         Assert.IsType<UbiArtLayoutResolver>(profile.Layout);
         Assert.IsType<LuaUbiArtSerializer>(profile.Serializer);
@@ -56,7 +56,7 @@ public class UbiArtEngineDetectorTests
         UbiArtEngineDetector detector = new();
         UbiArtVersionProfile profile = detector.Detect(root);
 
-        Assert.Equal(UbiArtContainerStyle.Uncooked, profile.ContainerStyle);
+        Assert.Equal(UbiArtPlatform.Uncooked, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
         Assert.IsType<UbiArtLayoutResolver>(profile.Layout);
         Assert.IsType<LuaUbiArtSerializer>(profile.Serializer);
@@ -68,7 +68,7 @@ public class UbiArtEngineDetectorTests
     public void Layout_Should_Resolve_JD2014_Uncooked_MapFolder()
     {
         UbiArtLayoutResolver layout = new();
-        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtContainerStyle.Uncooked, UbiArtEngineVersion.JD2014);
+        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "maps", "jd5", "song"), mapFolder);
     }
 
@@ -76,7 +76,7 @@ public class UbiArtEngineDetectorTests
     public void Layout_Should_Resolve_JD2014_Cooked_MapFolder()
     {
         UbiArtLayoutResolver layout = new();
-        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtContainerStyle.Cooked, UbiArtEngineVersion.JD2014);
+        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.WiiU, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "jd5", "song"), mapFolder);
     }
 }

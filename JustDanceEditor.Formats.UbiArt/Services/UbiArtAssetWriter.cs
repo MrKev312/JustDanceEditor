@@ -35,7 +35,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
         string? materializedRoot,
         string outputFolder,
         IUbiArtLayout? layout = null,
-        UbiArtContainerStyle containerStyle = UbiArtContainerStyle.Uncooked,
+        UbiArtPlatform platform = UbiArtPlatform.Uncooked,
         UbiArtEngineVersion engineVersion = UbiArtEngineVersion.JD2022,
         IFileSystem? io = null)
     {
@@ -48,17 +48,17 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
         // Ensure directories
         iofs.CreateDirectory(outputFolder);
 
-        string mapWorldRelative = layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion);
+        string mapWorldRelative = layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, platform, engineVersion);
         string mapWorldFolder = iofs.Combine(outputFolder, mapWorldRelative);
 
-        string audioFolder = iofs.Combine(outputFolder, layout.GetAudioFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
-        string timelineFolder = iofs.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
-        _ = iofs.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "..", "cinematics");
+        string audioFolder = iofs.Combine(outputFolder, layout.GetAudioFolder(outputFolder, package.Metadata.MapName, platform, engineVersion));
+        string timelineFolder = iofs.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, platform, engineVersion));
+        _ = iofs.Combine(outputFolder, layout.GetTimelineFolder(outputFolder, package.Metadata.MapName, platform, engineVersion), "..", "cinematics");
         // cinematics folder may be alongside timeline in some layouts; ensure path
-        string cinematicsFolder = iofs.Combine(outputFolder, layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "cinematics");
-        string pictosFolder = iofs.Combine(outputFolder, layout.GetPictosFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
-        string movesFolder = iofs.Combine(outputFolder, layout.GetMovesFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion));
-        string videosFolder = iofs.Combine(outputFolder, layout.GetMediaFolder(outputFolder, package.Metadata.MapName, containerStyle, engineVersion), "VideosCoach");
+        string cinematicsFolder = iofs.Combine(outputFolder, layout.GetMapWorldFolder(outputFolder, package.Metadata.MapName, platform, engineVersion), "cinematics");
+        string pictosFolder = iofs.Combine(outputFolder, layout.GetPictosFolder(outputFolder, package.Metadata.MapName, platform, engineVersion));
+        string movesFolder = iofs.Combine(outputFolder, layout.GetMovesFolder(outputFolder, package.Metadata.MapName, platform, engineVersion));
+        string videosFolder = iofs.Combine(outputFolder, layout.GetMediaFolder(outputFolder, package.Metadata.MapName, platform, engineVersion), "VideosCoach");
 
         iofs.CreateDirectory(audioFolder);
         iofs.CreateDirectory(timelineFolder);
@@ -85,7 +85,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
 
         // Write cinematics files (depends on AMB intro generated above)
         _logger.LogInformation("Writing cinematics files...");
-        await WriteCinematicsAsync(package, cinematicsFolder, layout, containerStyle, engineVersion, iofs);
+        await WriteCinematicsAsync(package, cinematicsFolder, layout, platform, engineVersion, iofs);
 
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string musicTrackTpl = BuildMusicTrackTpl(package.Metadata.MapName, mapNameLower);
@@ -93,22 +93,22 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
 
         // Write Tapes
         _logger.LogInformation("Writing Tapes...");
-        await WriteTapesAsync(package, timelineFolder, layout, containerStyle, engineVersion, iofs);
+        await WriteTapesAsync(package, timelineFolder, layout, platform, engineVersion, iofs);
 
         _logger.LogInformation("Uncooked export completed.");
     }
 
-    private async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IFileSystem io)
+    private async Task WriteTapesAsync(IntermediateSongPackage package, string timelineFolder, IUbiArtLayout layout, UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IFileSystem io)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
         // Build all clips: MotionClips + PictogramClips
         List<object> allClips = [];
 
-        string movesRelative = layout.GetMovesFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
+        string movesRelative = layout.GetMovesFolder(string.Empty, mapNameLower, platform, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
         // For dtape/tape files, don't include the WiiU subfolder in the path
         string movesRelativeForTape = movesRelative.Replace("/WiiU", "").Replace("\\WiiU", "");
-        string pictosRelative = layout.GetPictosFolder(string.Empty, mapNameLower, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
+        string pictosRelative = layout.GetPictosFolder(string.Empty, mapNameLower, platform, engineVersion).Replace(Path.DirectorySeparatorChar, '/');
 
         // Add MotionClips
         foreach (MoveTimeline timeline in package.CoachTimelines)
@@ -358,11 +358,11 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
         return sb.ToString();
     }
 
-    private static async Task WriteCinematicsAsync(IntermediateSongPackage package, string cinematicsFolder, IUbiArtLayout layout, UbiArtContainerStyle containerStyle, UbiArtEngineVersion engineVersion, IFileSystem io)
+    private static async Task WriteCinematicsAsync(IntermediateSongPackage package, string cinematicsFolder, IUbiArtLayout layout, UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IFileSystem io)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        string baseRelative = layout.GetMapWorldFolder(string.Empty, mapName, containerStyle, engineVersion).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
+        string baseRelative = layout.GetMapWorldFolder(string.Empty, mapName, platform, engineVersion).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
 
         // 1. Write ISC file (scene descriptor)
         string iscContent = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
