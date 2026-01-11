@@ -1,190 +1,146 @@
-using TextureConverter.TextureType;
+using System;
 
 namespace TextureConverter.TextureConverterHelpers;
 
-internal class Swizzle
+public static class Swizzle
 {
-    private static readonly Dictionary<int, int> padds = new()
+    private const int GOB_WIDTH_BYTES = 64;
+    private const int GOB_HEIGHT = 8;
+    private const int GOB_SIZE = 512;
+
+    public static byte[] Deswizzle(int width, int height, int bpp, int blockHeightLog2, byte[] data)
     {
-        { 1, 64 },
-        { 2, 32 },
-        { 4, 16 },
-        { 8, 8 },
-        { 16, 4 }
-    };
+        return SwizzleOperation(width, height, bpp, blockHeightLog2, data, toLinear: true);
+    }
 
-    private static readonly Dictionary<int, int> xBases = new()
+    public static byte[] SwizzleData(int width, int height, int bpp, int blockHeightLog2, byte[] data)
     {
-        { 1, 4 },
-        { 2, 3 },
-        { 4, 2 },
-        { 8, 1 },
-        { 16, 0 }
-    };
+        // For Swizzling, we must allocate the full aligned size including padding
+        int blockHeight = 1 << blockHeightLog2;
+        int widthInGobs = DivRoundUp(width * bpp, GOB_WIDTH_BYTES);
+        int heightInBlocks = DivRoundUp(height, GOB_HEIGHT * blockHeight);
+        int heightInGobs = heightInBlocks * blockHeight;
 
-    internal static byte[] Deswizzle(uint width, uint height, XTX.XTXImageFormat format, byte[] data)
+        int alignedSize = widthInGobs * heightInGobs * GOB_SIZE;
+
+        byte[] resultBuffer = new byte[alignedSize];
+        SwizzleOperation(width, height, bpp, blockHeightLog2, data, toLinear: false, resultBuffer);
+
+        return resultBuffer;
+    }
+
+    private static byte[] SwizzleOperation(int width, int height, int bpp, int blockHeightLog2, byte[] data, bool toLinear, byte[] outputBuffer = null)
     {
-        int pos_ = 0;
+        int blockHeight = 1 << blockHeightLog2;
+        int widthInGobs = DivRoundUp(width * bpp, GOB_WIDTH_BYTES);
 
-        int bpp = XTX.GetBPP(format);
+        // Calculate the aligned size
+        int heightInBlocks = DivRoundUp(height, GOB_HEIGHT * blockHeight);
+        int heightInGobs = heightInBlocks * blockHeight;
+        int alignedSize = widthInGobs * heightInGobs * GOB_SIZE;
 
-        uint originWidth = width;
-        uint originHeight = height;
+        int linearSize = width * height * bpp;
 
-        if (DDS.BCnFormats.Contains(XTX.ConvertXTXToDDSFormat(format)))
+        byte[] result = outputBuffer ?? new byte[toLinear ? linearSize : alignedSize];
+        byte[] source = data;
+
+        // Loop over the LINEAR image dimensions
+        // It is often easier to iterate source pixels and calculate destination address
+        for (int y = 0; y < height; y++)
         {
-            originWidth = (originWidth + 3) / 4;
-            originHeight = (originHeight + 3) / 4;
-        }
-
-        int xb = CountZeros(Pow2RoundUp(originWidth));
-        int yb = CountZeros(Pow2RoundUp(originHeight));
-
-        uint hh = Pow2RoundUp(originHeight) >> 1;
-
-        if (!IsPow2(originHeight) && originHeight <= hh + (hh / 3) && yb > 3)
-            yb -= 1;
-
-        width = RoundSize(originWidth, padds[bpp]);
-
-        byte[] result = new byte[data.Length];
-        Array.Copy(data, result, data.Length);
-
-        int xBase = xBases[bpp];
-
-        for (uint y = 0; y < originHeight; y++)
-        {
-            for (uint x = 0; x < originWidth; x++)
+            for (int x = 0; x < width; x++)
             {
-                int pos = GetAddr(x, y, xb, yb, width, xBase) * bpp;
+                int sourceOffset = ((y * width) + x) * bpp;
 
-                if (pos_ + bpp <= data.Length && pos + bpp <= data.Length)
-                    Array.Copy(data, pos, result, pos_, bpp);
+                // If we are reading past the available data (e.g. tight buffer), skip
+                if (sourceOffset + bpp > (toLinear ? result.Length : source.Length))
+                    continue;
 
-                pos_ += bpp;
+                // --- Calculate Swizzled Address ---
+
+                // 1. Determine which GOB this coordinate belongs to
+                int xBytes = x * bpp;
+                int gobX = xBytes / GOB_WIDTH_BYTES;
+                int gobY = y / GOB_HEIGHT;
+
+                // 2. Determine which SuperBlock (Block Linear) the GOB belongs to
+                int blockY = gobY / blockHeight;
+                int subBlockY = gobY % blockHeight; // The vertical GOB index within the SuperBlock
+
+                // 3. Calculate the Base Address of the GOB
+                //    Stride of a SuperBlock Row = (Width in GOBs) * (Size of SuperBlock Column)
+                //    Size of SuperBlock Column = blockHeight * GOB_SIZE
+                int superBlockRowOffset = blockY * widthInGobs * blockHeight * GOB_SIZE;
+                int gobColumnOffset = gobX * blockHeight * GOB_SIZE;
+                int gobRowOffset = subBlockY * GOB_SIZE;
+
+                int gobBaseAddress = superBlockRowOffset + gobColumnOffset + gobRowOffset;
+
+                // 4. Calculate the offset INSIDE the GOB (Tegra Internal Swizzling)
+                int gx = xBytes % GOB_WIDTH_BYTES;
+                int gy = y % GOB_HEIGHT;
+                int internalGobOffset = GetGobOffset(gx, gy);
+
+                int swizzledOffset = gobBaseAddress + internalGobOffset;
+
+                // Perform Copy
+                if (toLinear)
+                {
+                    // Swizzled -> Linear
+                    if (swizzledOffset + bpp <= source.Length && sourceOffset + bpp <= result.Length)
+                        Array.Copy(source, swizzledOffset, result, sourceOffset, bpp);
+                }
+                else
+                {
+                    // Linear -> Swizzled
+                    if (sourceOffset + bpp <= source.Length && swizzledOffset + bpp <= result.Length)
+                        Array.Copy(source, sourceOffset, result, swizzledOffset, bpp);
+                }
             }
         }
 
         return result;
     }
 
-    private static uint RoundSize(uint size, int pad)
+    // Reference: Tegra TRM v1.3 page 1218
+    // Calculates the offset within a 512-byte GOB for a specific (x, y) byte coordinate.
+    // x must be 0-63, y must be 0-7.
+    private static int GetGobOffset(int x, int y)
     {
-        uint mask = (uint)(pad - 1);
-        if ((size & mask) != 0)
-        {
-            size &= ~mask;
-            size += (uint)pad;
-        }
-
-        return size;
+        return (x % 64 / 32 * 256) +
+               (y % 8 / 2 * 64) +
+               (x % 32 / 16 * 32) +
+               (y % 2 * 16) +
+               (x % 16);
     }
 
-    private static uint Pow2RoundUp(uint v)
+    // Matches tegra_swizzle Rust library logic exactly
+    public static int GetBlockHeightMip0(int heightInBlocks)
     {
-        v -= 1;
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        return v + 1;
+        // "heightInBlocks" should be the height of the mipmap in compressed blocks (pixels / 4) for BCn
+        // or pixels for Uncompressed.
+
+        int heightAndHalf = heightInBlocks + (heightInBlocks / 2);
+
+        if (heightAndHalf >= 128)
+            return 16;
+        if (heightAndHalf >= 64)
+            return 8;
+        if (heightAndHalf >= 32)
+            return 4;
+        if (heightAndHalf >= 16)
+            return 2;
+        return 1;
     }
 
-    private static bool IsPow2(uint v)
+    public static int GetBlockHeightLog2(int heightInBlocks)
     {
-        return v != 0 && (v & (v - 1)) == 0;
+        int bh = GetBlockHeightMip0(heightInBlocks);
+        return (int)Math.Log2(bh);
     }
 
-    private static int CountZeros(uint v)
+    private static int DivRoundUp(int value, int divisor)
     {
-        int numZeros = 0;
-        for (int i = 0; i < 32; i++)
-        {
-            if ((v & (1 << i)) != 0)
-                break;
-
-            numZeros += 1;
-        }
-
-        return numZeros;
-    }
-
-    private static int GetAddr(uint x, uint y, int xb, int yb, uint width, int xBase)
-    {
-        int xCnt = xBase;
-        int yCnt = 1;
-        int xUsed = 0;
-        int yUsed = 0;
-        int address = 0;
-
-        while (xUsed < xBase + 2 && xUsed + xCnt < xb)
-        {
-            int xMask = (1 << xCnt) - 1;
-            int yMask = (1 << yCnt) - 1;
-
-            address |= (int)((x & (uint)xMask) << (xUsed + yUsed));
-            address |= (int)((y & (uint)yMask) << (xUsed + yUsed + xCnt));
-
-            x >>= xCnt;
-            y >>= yCnt;
-
-            xUsed += xCnt;
-            yUsed += yCnt;
-
-            xCnt = Math.Max(Math.Min(xb - xUsed, 1), 0);
-            yCnt = Math.Max(Math.Min(yb - yUsed, yCnt << 1), 0);
-        }
-
-        address |= (int)((x + (y * (width >> xUsed))) << (xUsed + yUsed));
-
-        return address;
-    }
-
-    internal static byte[] SwizzleData(uint width, uint height, XTX.XTXImageFormat format, byte[] data)
-    {
-        int pos_ = 0;
-
-        int bpp = XTX.GetBPP(format);
-
-        uint originWidth = width;
-        uint originHeight = height;
-
-        if (DDS.BCnFormats.Contains(XTX.ConvertXTXToDDSFormat(format)))
-        {
-            originWidth = (originWidth + 3) / 4;
-            originHeight = (originHeight + 3) / 4;
-        }
-
-        int xb = CountZeros(Pow2RoundUp(originWidth));
-        int yb = CountZeros(Pow2RoundUp(originHeight));
-
-        uint hh = Pow2RoundUp(originHeight) >> 1;
-
-        if (!IsPow2(originHeight) && originHeight <= hh + (hh / 3) && yb > 3)
-            yb -= 1;
-
-        width = RoundSize(originWidth, padds[bpp]);
-
-        // Fix: Allocate result buffer based on the padded stride to ensure all pixels fit.
-        // The swizzled size is width * height * bpp (where width is the padded width)
-        byte[] result = new byte[width * originHeight * bpp];
-
-        int xBase = xBases[bpp];
-
-        for (uint y = 0; y < originHeight; y++)
-        {
-            for (uint x = 0; x < originWidth; x++)
-            {
-                int pos = GetAddr(x, y, xb, yb, width, xBase) * bpp;
-
-                if (pos_ + bpp <= data.Length && pos + bpp <= result.Length)
-                    Array.Copy(data, pos_, result, pos, bpp);
-
-                pos_ += bpp;
-            }
-        }
-
-        return result;
+        return (value + divisor - 1) / divisor;
     }
 }

@@ -237,15 +237,24 @@ public class XTXFormatTests
         xtxOutput.Dispose();
     }
 
-    [Fact]
-    public void ConvertToFile_CompressedFormat_ThrowsNotImplemented()
+    [Theory]
+    [InlineData(XTX.XTXImageFormat.DXT1)]
+    [InlineData(XTX.XTXImageFormat.DXT3)]
+    [InlineData(XTX.XTXImageFormat.DXT5)]
+    public void ConvertToFile_CompressedFormat_RoundTrip_WorksCorrectly(XTX.XTXImageFormat format)
     {
-        using Image<Bgra32> testImage = CreateTestImage();
+        // Arrange
+        using Image<Bgra32> testImage = CreateTestImage(64, 64); // BCn requires 4x4 blocks
         using MemoryStream output = new();
 
-        // Act & Assert
-        Assert.Throws<NotImplementedException>(() =>
-            XTX.ConvertToFile(testImage, XTX.XTXImageFormat.DXT1, output));
+        // Act
+        XTX.ConvertToFile(testImage, format, output);
+        output.Position = 0;
+        using Image<Bgra32> restored = XTX.GetImage(output);
+
+        // Assert
+        Assert.Equal(testImage.Width, restored.Width);
+        Assert.Equal(testImage.Height, restored.Height);
     }
 
     [Fact]

@@ -1,3 +1,7 @@
+using BCnEncoder.Encoder;
+using BCnEncoder.ImageSharp;
+using BCnEncoder.Shared;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -38,6 +42,7 @@ public class XTX
             XTXImageFormat.NVN_FORMAT_RGB565 or XTXImageFormat.NVN_FORMAT_RGB5A1 or XTXImageFormat.NVN_FORMAT_RGBA4 => 2,
             XTXImageFormat.NVN_FORMAT_R8 => 1,
             XTXImageFormat.NVN_FORMAT_RG8 => 2,
+            // For BCn, GetBPP returns Bytes Per Block (16 bytes for 4x4 BC3)
             XTXImageFormat.DXT1 => 8,
             XTXImageFormat.DXT3 or XTXImageFormat.DXT5 => 16,
             XTXImageFormat.BC4U or XTXImageFormat.BC4S => 8,
@@ -52,7 +57,6 @@ public class XTX
         Data = 3,
     }
 
-    long dataOffset = 0;
     public uint HeaderSize { get; set; }
     public uint MajorVersion { get; set; }
     public uint MinorVersion { get; set; }
@@ -60,10 +64,11 @@ public class XTX
     public List<TextureHeader> TextureInfos { get; set; } = [];
     public List<byte[]> TextureBlocks { get; set; } = [];
 
+    long dataOffset = 0;
+
     public void LoadFile(Stream data)
     {
         dataOffset = data.Position;
-
         Blocks = [];
         TextureInfos = [];
         TextureBlocks = [];
@@ -82,9 +87,6 @@ public class XTX
         bool blockB = false;
         bool blockC = false;
 
-        uint imageInfo = 0;
-        uint images = 0;
-
         while (reader.BaseStream.Position < reader.BaseStream.Length)
         {
             BlockHeader blockHeader = new(reader);
@@ -93,9 +95,7 @@ public class XTX
             switch (blockHeader.BlockType)
             {
                 case BlockType.Texture:
-                    imageInfo += 1;
                     blockB = true;
-
                     MemoryStream stream = new(blockHeader.Data);
                     EndianBinaryReader dataReader = new(stream);
                     TextureHeader textureHeader = new(dataReader);
@@ -103,9 +103,7 @@ public class XTX
                     break;
 
                 case BlockType.Data:
-                    images += 1;
                     blockC = true;
-
                     TextureBlocks.Add(blockHeader.Data);
                     break;
             }
@@ -118,12 +116,9 @@ public class XTX
     public Image<Bgra32> ConvertToImage()
     {
         (byte[][] data, byte[] hdr) = DeswizzleData(0);
-
         byte[] output = [.. hdr, .. data.SelectMany(x => x)];
-
         MemoryStream memoryStream = new(output);
         memoryStream.Seek(0, SeekOrigin.Begin);
-
         return DDS.GetImage(memoryStream);
     }
 
@@ -131,7 +126,6 @@ public class XTX
     {
         XTX xtx = new();
         xtx.LoadFile(data);
-
         return xtx.ConvertToImage();
     }
 
@@ -145,41 +139,50 @@ public class XTX
 
         int bpp = GetBPP(texInfo.Format);
         DDSFormat ddsFormat = ConvertXTXToDDSFormat(texInfo.Format);
+        int blockHeightLog2 = (int)(texInfo.TextureLayout1 & 0x7);
 
         byte[][] result = new byte[texInfo.MipCount][];
         for (int level = 0; level < texInfo.MipCount; level++)
         {
-            int linearSize = BCnFormats.Contains(ddsFormat)
-                ? (int)(((Math.Max(1, texInfo.Width >> level) + 3) >> 2) * ((Math.Max(1, texInfo.Height >> level) + 3) >> 2) * bpp)
-                : (int)(Math.Max(1, texInfo.Width >> level) * Math.Max(1, texInfo.Height >> level) * bpp);
+            int mipWidth = Math.Max(1, (int)texInfo.Width >> level);
+            int mipHeight = Math.Max(1, (int)texInfo.Height >> level);
+
+            // Logic for BCn formats (Blocks vs Pixels)
+            int swizzleWidth = mipWidth;
+            int swizzleHeight = mipHeight;
+            bool isBCn = BCnFormats.Contains(ddsFormat);
+
+            if (isBCn)
+            {
+                // Convert pixel dims to block dims
+                swizzleWidth = (mipWidth + 3) / 4;
+                swizzleHeight = (mipHeight + 3) / 4;
+            }
+
+            int linearSize = isBCn
+                ? swizzleWidth * swizzleHeight * bpp
+                : mipWidth * mipHeight * bpp;
 
             int mipOffset = (int)texInfo.MipOffsets[level];
 
-            // Calculate length of aligned mip data.
-            // If offsets are provided for next level, use difference. Otherwise use rest of DataSize.
-            // Writer currently writes offsets as 0, so valid primarily for single mip or if offsets are corrected.
-            // We use DataSize for the single/last mip case.
-            int dataLength = (level < texInfo.MipCount - 1)
-                ? (int)(texInfo.MipOffsets[level + 1] - mipOffset)
-                : (int)(texInfo.DataSize - (ulong)mipOffset);
+            // Calculate available data length safely
+            int dataLength;
+            if (level < texInfo.MipCount - 1)
+                dataLength = (int)(texInfo.MipOffsets[level + 1] - mipOffset);
+            else
+                dataLength = (int)(texInfo.DataSize - (ulong)mipOffset);
 
-            // If offsets are 0 (e.g. from our Writer), default to using remaining data for level 0.
             if (dataLength <= 0 && level == 0)
-                dataLength = data.Length - mipOffset;
+                dataLength = data.Length - mipOffset; // Fallback
 
-            // Ensure we don't exceed array bounds
             dataLength = Math.Min(dataLength, data.Length - mipOffset);
-
             byte[] mipData = [.. data.Skip(mipOffset).Take(dataLength)];
 
-            byte[] deswizzled = Swizzle.Deswizzle(Math.Max(1, texInfo.Width >> level), Math.Max(1, texInfo.Height >> level), texInfo.Format, mipData);
-
-            // Result must be linear size for final image composition
+            byte[] deswizzled = Swizzle.Deswizzle(swizzleWidth, swizzleHeight, bpp, blockHeightLog2, mipData);
             result[level] = [.. deswizzled.Take(linearSize)];
         }
 
         byte[] hdr = GenerateHeader(texInfo.MipCount, texInfo.Width, texInfo.Height, ddsFormat, texInfo.GetCompSel(), (uint)texInfo.DataSize);
-
         return (result, hdr);
     }
 
@@ -214,13 +217,11 @@ public class XTX
         public BlockType BlockType { get; set; }
         public uint GlobalBlockIndex { get; set; }
         public uint IncBlockTypeIndex { get; set; }
-
         public byte[] Data { get; set; } = [];
 
         public BlockHeader(EndianBinaryReader reader)
         {
-            long blockHeaderStartPosition = reader.BaseStream.Position;
-
+            long startPos = reader.BaseStream.Position;
             string signature = Encoding.ASCII.GetString(reader.ReadBytes(4));
             if (signature != "HBvN")
                 throw new Exception($"Invalid signature {signature}! Expected HBvN.");
@@ -232,10 +233,10 @@ public class XTX
             GlobalBlockIndex = reader.ReadUInt32();
             IncBlockTypeIndex = reader.ReadUInt32();
 
-            reader.BaseStream.Seek(blockHeaderStartPosition + DataOffset, SeekOrigin.Begin);
+            reader.BaseStream.Seek(startPos + DataOffset, SeekOrigin.Begin);
             Data = reader.ReadBytes((int)DataSize);
 
-            // Align
+            // Re-align to next block for reading loop
             for (long pos = reader.BaseStream.Position; pos + 4 <= reader.BaseStream.Length; pos++)
             {
                 reader.BaseStream.Seek(pos, SeekOrigin.Begin);
@@ -285,8 +286,8 @@ public class XTX
             Format = (XTXImageFormat)reader.ReadInt32();
             MipCount = reader.ReadUInt32();
             SliceSize = reader.ReadUInt32();
-            MipOffsets = new uint[MipCount];
-            for (int i = 0; i < MipCount; i++)
+            MipOffsets = new uint[17];
+            for (int i = 0; i < 17; i++)
                 MipOffsets[i] = reader.ReadUInt32();
             TextureLayout1 = reader.ReadUInt32();
             TextureLayout2 = reader.ReadUInt32();
@@ -294,81 +295,126 @@ public class XTX
         }
     }
 
+    // --- ENCODING ---
+
     public static void ConvertToFile(Image<Bgra32> image, XTXImageFormat format, Stream output)
     {
         uint width = (uint)image.Width;
         uint height = (uint)image.Height;
         uint mipCount = 1;
-        uint alignment = 2048;
+        uint alignment = 512;
 
+        // 1. Convert Image to Raw Bytes (Linear)
         byte[] imageData = ConvertImageDataToFormat(image, format);
-        byte[] swizzledData = Swizzle.SwizzleData(width, height, format, imageData);
 
-        WriteXTXFile(output, width, height, mipCount, format, alignment, swizzledData);
+        // 2. Prepare Dimensions for Swizzling
+        int swizzleWidth = (int)width;
+        int swizzleHeight = (int)height;
+        int bpp = GetBPP(format);
+
+        bool isBCn = format is XTXImageFormat.DXT1 or XTXImageFormat.DXT3 or XTXImageFormat.DXT5 or
+                     XTXImageFormat.BC4U or XTXImageFormat.BC4S or
+                     XTXImageFormat.BC5U or XTXImageFormat.BC5S;
+
+        if (isBCn)
+        {
+            // For BCn, we operate on Blocks, not Pixels.
+            // Width/Height in Blocks. BPP is bytes-per-block (16 or 8).
+            swizzleWidth = ((int)width + 3) / 4;
+            swizzleHeight = ((int)height + 3) / 4;
+        }
+
+        // 3. Calculate Block Height Parameter based on Dimensions
+        int blockHeightLog2 = Swizzle.GetBlockHeightLog2(swizzleHeight);
+
+        // 4. Swizzle
+        byte[] swizzledData = Swizzle.SwizzleData(swizzleWidth, swizzleHeight, bpp, blockHeightLog2, imageData);
+
+        // 5. Write
+        WriteXTXFile(output, width, height, mipCount, format, alignment, swizzledData, (uint)blockHeightLog2);
     }
 
-    private static void WriteXTXFile(Stream output, uint width, uint height, uint mipCount, XTXImageFormat format, uint alignment, byte[] textureData)
+    private static void WriteXTXFile(Stream output, uint width, uint height, uint mipCount, XTXImageFormat format, uint alignment, byte[] textureData, uint blockHeightLog2)
     {
         using EndianBinaryWriter writer = new(output, Encoding.Default, true, false);
 
+        // 1. File Header
         writer.Write(Encoding.ASCII.GetBytes("DFvN"));
-        writer.Write(48U); // HeaderSize
-        writer.Write(1U);
-        writer.Write(0U);
+        writer.Write(16U); // HeaderSize
+        writer.Write(1U);  // Major Version
+        writer.Write(1U);  // Minor Version
 
-        long currentPos = output.Position;
-        for (long i = currentPos; i < 48; i++)
-            writer.Write((byte)0);
+        // 2. Texture Info Block
+        byte[] textureHeaderData = GenerateTextureHeader(width, height, mipCount, format, alignment, (uint)textureData.Length, blockHeightLog2);
 
-        WriteTextureBlockHeader(writer, width, height, mipCount, format, alignment, (uint)textureData.Length);
-        WriteDataBlockHeader(writer, textureData);
-    }
+        WriteBlockHeader(writer, BlockType.Texture, textureHeaderData.Length, (w) => w.Write(textureHeaderData));
 
-    private static void WriteTextureBlockHeader(EndianBinaryWriter writer, uint width, uint height, uint mipCount, XTXImageFormat format, uint alignment, uint dataSize)
-    {
-        MemoryStream headerData = new();
-        using (EndianBinaryWriter headerWriter = new(headerData, Encoding.Default, false))
+        // 3. Texture Data Block
+        WriteBlockHeader(writer, BlockType.Data, textureData.Length, (w) =>
         {
-            headerWriter.Write((ulong)dataSize);
-            headerWriter.Write(alignment);
-            headerWriter.Write(width);
-            headerWriter.Write(height);
-            headerWriter.Write(1U);
-            headerWriter.Write(1U);
-            headerWriter.Write((int)format);
-            headerWriter.Write(mipCount);
-            headerWriter.Write(dataSize);
-            for (int i = 0; i < mipCount; i++)
-                headerWriter.Write(0U);
-            headerWriter.Write(0U);
-            headerWriter.Write(0U);
-            headerWriter.Write(0U);
-        }
+            // Align start of data relative to file
+            long currentPos = w.BaseStream.Position;
+            long alignedPos = (currentPos + (alignment - 1)) & ~(alignment - 1);
+            int padding = (int)(alignedPos - currentPos);
+            for (int i = 0; i < padding; i++)
+                w.Write((byte)0);
 
-        byte[] data = headerData.ToArray();
-
-        writer.Write(Encoding.ASCII.GetBytes("HBvN"));
-        writer.Write(36U); // BlockSize (header size including self)
-        writer.Write((ulong)data.Length);
-        writer.Write(36L); // DataOffset (offset from start of this block to data)
-        writer.Write(2U); // BlockType.Texture
-        writer.Write(0U);
-        writer.Write(0U);
-
-        writer.Write(data);
+            w.Write(textureData);
+        });
     }
 
-    private static void WriteDataBlockHeader(EndianBinaryWriter writer, byte[] data)
+    private static byte[] GenerateTextureHeader(uint width, uint height, uint mipCount, XTXImageFormat format, uint alignment, uint dataSize, uint blockHeightLog2)
     {
+        using MemoryStream ms = new();
+        using EndianBinaryWriter headerWriter = new(ms, Encoding.Default, false);
+
+        headerWriter.Write((ulong)dataSize);
+        headerWriter.Write(alignment);
+        headerWriter.Write(width);
+        headerWriter.Write(height);
+        headerWriter.Write(1U); // Depth
+        headerWriter.Write(1U); // Target (2D)
+        headerWriter.Write((int)format);
+        headerWriter.Write(mipCount);
+        headerWriter.Write(dataSize); // SliceSize
+
+        for (int i = 0; i < 17; i++)
+            headerWriter.Write(0U); // Mip Offsets (Mip 0 is at 0)
+
+        headerWriter.Write(blockHeightLog2); // TextureLayout1
+
+        // IMPORTANT: 0x010007 indicates Block Linear swizzling
+        headerWriter.Write(0x010007U); // TextureLayout2
+
+        headerWriter.Write(0U); // Boolean
+
+        return ms.ToArray();
+    }
+
+    private static void WriteBlockHeader(EndianBinaryWriter writer, BlockType type, int estimatedDataSize, Action<EndianBinaryWriter> writeDataAction)
+    {
+        long headerStartPos = writer.BaseStream.Position;
+
         writer.Write(Encoding.ASCII.GetBytes("HBvN"));
         writer.Write(36U);
-        writer.Write((ulong)data.Length);
-        writer.Write(36L);
-        writer.Write(3U); // BlockType.Data
+        writer.Write(0UL); // DataSize holder
+        writer.Write(0L);  // DataOffset holder
+        writer.Write((uint)type);
         writer.Write(0U);
         writer.Write(0U);
 
-        writer.Write(data);
+        long dataStartPos = writer.BaseStream.Position;
+        writeDataAction(writer);
+        long endPos = writer.BaseStream.Position;
+
+        long calculatedDataStart = endPos - estimatedDataSize;
+        long actualDataOffset = calculatedDataStart - headerStartPos;
+
+        writer.BaseStream.Seek(headerStartPos + 4 + 4, SeekOrigin.Begin);
+        writer.Write((ulong)estimatedDataSize);
+        writer.Write((long)actualDataOffset);
+
+        writer.BaseStream.Seek(endPos, SeekOrigin.Begin);
     }
 
     private static byte[] ConvertImageDataToFormat(Image<Bgra32> image, XTXImageFormat format)
@@ -383,10 +429,37 @@ public class XTX
             XTXImageFormat.NVN_FORMAT_RGBA4 => ConvertToRGBA4(image),
             XTXImageFormat.NVN_FORMAT_R8 => ConvertToR8(image),
             XTXImageFormat.NVN_FORMAT_RG8 => ConvertToRG8(image),
+            XTXImageFormat.DXT1 => CompressBCn(image, CompressionFormat.Bc1),
+            XTXImageFormat.DXT3 => CompressBCn(image, CompressionFormat.Bc2),
+            XTXImageFormat.DXT5 => CompressBCn(image, CompressionFormat.Bc3),
+            XTXImageFormat.BC4U => CompressBCn(image, CompressionFormat.Bc4),
+            XTXImageFormat.BC5U => CompressBCn(image, CompressionFormat.Bc5),
             _ => throw new NotImplementedException($"Format {format} is not supported.")
         };
     }
 
+    private static byte[] CompressBCn(Image<Bgra32> image, CompressionFormat format)
+    {
+        using Image<Rgba32> rgba = new(image.Width, image.Height);
+        image.ProcessPixelRows(rgba, (srcAccessor, dstAccessor) =>
+        {
+            for (int y = 0; y < srcAccessor.Height; y++)
+            {
+                Span<Bgra32> srcRow = srcAccessor.GetRowSpan(y);
+                Span<Rgba32> dstRow = dstAccessor.GetRowSpan(y);
+                for (int x = 0; x < srcRow.Length; x++)
+                    dstRow[x] = new Rgba32(srcRow[x].R, srcRow[x].G, srcRow[x].B, srcRow[x].A);
+            }
+        });
+
+        BcEncoder encoder = new()
+        {
+            OutputOptions = { GenerateMipMaps = false, Quality = CompressionQuality.Balanced, Format = format }
+        };
+        return encoder.EncodeToRawBytes(rgba)[0];
+    }
+
+    // Helpers for uncompressed formats
     private static byte[] ConvertToBGRA8(Image<Bgra32> image)
     {
         byte[] result = new byte[image.Width * image.Height * 4];
@@ -398,9 +471,9 @@ public class XTX
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    result[offset++] = row[x].B;
-                    result[offset++] = row[x].G;
                     result[offset++] = row[x].R;
+                    result[offset++] = row[x].G;
+                    result[offset++] = row[x].B;
                     result[offset++] = row[x].A;
                 }
             }
@@ -423,7 +496,7 @@ public class XTX
                     uint g = (uint)(row[x].G >> 6) & 0x3FF;
                     uint b = (uint)(row[x].B >> 6) & 0x3FF;
                     uint a = (uint)(row[x].A >> 6) & 0x3;
-                    uint packed = (a << 30) | (r << 20) | (g << 10) | b;
+                    uint packed = (a << 30) | (b << 20) | (g << 10) | r;
                     Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 4);
                     offset += 4;
                 }
@@ -446,7 +519,7 @@ public class XTX
                     uint r = (uint)(row[x].R >> 3) & 0x1F;
                     uint g = (uint)(row[x].G >> 2) & 0x3F;
                     uint b = (uint)(row[x].B >> 3) & 0x1F;
-                    ushort packed = (ushort)((r << 11) | (g << 5) | b);
+                    ushort packed = (ushort)((b << 11) | (g << 5) | r);
                     Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
                     offset += 2;
                 }
@@ -470,7 +543,7 @@ public class XTX
                     uint g = (uint)(row[x].G >> 3) & 0x1F;
                     uint b = (uint)(row[x].B >> 3) & 0x1F;
                     uint a = (row[x].A > 128 ? 1U : 0U) & 0x1;
-                    ushort packed = (ushort)((a << 15) | (r << 10) | (g << 5) | b);
+                    ushort packed = (ushort)((a << 15) | (b << 10) | (g << 5) | r);
                     Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
                     offset += 2;
                 }
