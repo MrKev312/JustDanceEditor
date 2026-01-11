@@ -412,7 +412,7 @@ public class XTX
 
         writer.BaseStream.Seek(headerStartPos + 4 + 4, SeekOrigin.Begin);
         writer.Write((ulong)estimatedDataSize);
-        writer.Write((long)actualDataOffset);
+        writer.Write(actualDataOffset);
 
         writer.BaseStream.Seek(endPos, SeekOrigin.Begin);
     }

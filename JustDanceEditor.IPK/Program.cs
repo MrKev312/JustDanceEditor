@@ -5,84 +5,75 @@ internal class Program
     private static void Main(string[] args)
     {
         bool printOnly = args.Contains("--print");
-        List<string> fileArgs = [.. args.Where(a => !a.StartsWith("--"))];
-
-        List<string> list = [];
-        // For each argument, remove if the file doesn't exist
-        foreach (string arg in fileArgs)
-        {
-            if (File.Exists(arg))
-            {
-                list.Add(arg);
-            }
-            else
-            {
-                Console.WriteLine($"File {arg} doesn't exist.");
-            }
-        }
+        List<string> pathArgs = [.. args.Where(a => !a.StartsWith("--"))];
 
         // If there are no arguments, show the help
-        if (list.Count == 0)
+        if (pathArgs.Count == 0)
         {
             ShowHelp();
             return;
         }
 
-        // For each file extract the IPK using the parser in parallel (unless --print is used)
-        if (printOnly)
+        // Process sequentially to keep console output clean when mixing types
+        foreach (string path in pathArgs)
         {
-            // Print mode: sequential processing with ShowInfo enabled
-            foreach (string file in list)
+            try
             {
-                try
+                if (Directory.Exists(path))
                 {
-                    Console.WriteLine($"\n=== {file} ===");
-                    JustDanceIPKParser parser = new(file, "");
-                    parser.ParseInfo();
+                    // --- PACKING MODE ---
+                    // Input is a folder, create IPK next to it
+                    string parentDir = Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar))
+                                       ?? Path.GetPathRoot(path)!;
+                    string folderName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar));
+                    string outputPath = Path.Combine(parentDir, folderName + ".ipk");
+
+                    Console.WriteLine($"\n=== Packing: {path} ===");
+                    JustDanceIPKWriter writer = new(path, outputPath);
+                    writer.Pack();
                 }
-                catch (Exception ex)
+                else if (File.Exists(path))
                 {
-                    Console.WriteLine($"Error processing {file}: {ex.Message}");
+                    // --- EXTRACT/INFO MODE ---
+                    Console.WriteLine($"\n=== Processing File: {path} ===");
+
+                    if (printOnly)
+                    {
+                        JustDanceIPKParser parser = new(path, "");
+                        parser.ParseInfo();
+                    }
+                    else
+                    {
+                        string outputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path));
+                        JustDanceIPKParser parser = new(path, outputPath);
+                        parser.Parse(ShowInfo: true); // Enabled ShowInfo for better feedback
+                        Console.WriteLine($"Extracted to: {outputPath}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Path not found: {path}");
                 }
             }
-        }
-        else
-        {
-            // Extract mode: parallel processing
-            Parallel.ForEach(list, x =>
+            catch (Exception ex)
             {
-                try
-                {
-                    // Show the file being processed
-                    Console.WriteLine(x);
+                Console.WriteLine($"Error processing {path}: {ex.Message}");
+                Console.WriteLine(ex.StackTrace);
+            }
+        }
 
-                    // Create the output path
-                    string outputPath = Path.Combine(Path.GetDirectoryName(x)!, Path.GetFileNameWithoutExtension(x));
-
-                    // Create the parser
-                    JustDanceIPKParser parser = new(x, outputPath);
-                    parser.Parse();
-
-                    // Show that the file has been processed
-                    Console.WriteLine($"{x} has been processed.");
-                }
-                catch (Exception ex)
-                {
-                    // Show the exception
-                    Console.WriteLine($"Error processing {x}: {ex.Message}");
-                }
-            });
-
-            // Wait for any key
-            Console.WriteLine("Press any key to continue...");
+        if (!args.Contains("--no-wait"))
+        {
+            Console.WriteLine("\nPress any key to continue...");
             Console.ReadKey();
         }
     }
 
     private static void ShowHelp()
     {
-        // Show the help
-        Console.WriteLine("Usage: JustDanceEditor.IPK.exe [--print] <file1> <file2> ...");
-        Console.WriteLine("  --print  Print file information without extracting");
+        Console.WriteLine("Usage: JustDanceEditor.IPK.exe [options] <path1> <path2> ...");
+        Console.WriteLine("  <path>   Can be an .ipk file (to extract) or a folder (to pack)");
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --print  Print file information without extracting (files only)");
     }
 }

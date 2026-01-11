@@ -9,14 +9,15 @@
   <Project Path="JustDanceEditor.Editor.Tests/JustDanceEditor.Editor.Tests.csproj" />
   <Project Path="JustDanceEditor.Editor/JustDanceEditor.Editor.csproj" />
   <Project Path="JustDanceEditor.Formats.JDI/JustDanceEditor.Formats.JDI.csproj" />
-  <Project Path="JustDanceEditor.Formats.UbiArt/JustDanceEditor.Formats.UbiArt.csproj" />
   <Project Path="JustDanceEditor.Formats.UbiArt.Tests/JustDanceEditor.Formats.UbiArt.Tests.csproj" />
+  <Project Path="JustDanceEditor.Formats.UbiArt/JustDanceEditor.Formats.UbiArt.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity.Tests/JustDanceEditor.Formats.Unity.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
+  <Project Path="JustDanceEditor.IPK.Tests/JustDanceEditor.IPK.Tests.csproj" Id="83078f96-23be-42bb-a57d-ac14d79d1141" />
   <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
   <Project Path="JustDanceEditor.UI/JustDanceEditor.UI.csproj" />
-  <Project Path="TextureConverter/TextureConverter.csproj" />
   <Project Path="TextureConverter.Tests/TextureConverter.Tests.csproj">
     <Build Solution="Debug|*" Project="false" />
   </Project>
+  <Project Path="TextureConverter/TextureConverter.csproj" />
 </Solution>
