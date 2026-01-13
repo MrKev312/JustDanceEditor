@@ -152,6 +152,7 @@ internal sealed class NonClosingStreamWrapper : Stream
                 // Don't dispose the underlying stream - let the caller manage it
                 Flush();
             }
+
             _disposed = true;
         }
         // Don't call base.Dispose() to avoid closing the stream

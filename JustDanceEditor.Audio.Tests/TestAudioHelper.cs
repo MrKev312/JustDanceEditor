@@ -66,14 +66,14 @@ public static class TestAudioHelper
                 TestPattern.SineWave => (float)Math.Sin(2 * Math.PI * 440 * i / sampleRate) * 0.5f,
 
                 TestPattern.SquareWave =>
-                    (Math.Sin(2 * Math.PI * 440 * i / sampleRate) >= 0 ? 0.5f : -0.5f),
+                    Math.Sin(2 * Math.PI * 440 * i / sampleRate) >= 0 ? 0.5f : -0.5f,
 
                 TestPattern.Silence => 0f,
 
                 TestPattern.WhiteNoise => ((float)random.NextDouble() - 0.5f) * 0.1f,
 
                 TestPattern.Sweep =>
-                    (float)Math.Sin(2 * Math.PI * (440 + 440 * i / totalSamples) * i / sampleRate) * 0.5f,
+                    (float)Math.Sin(2 * Math.PI * (440 + (440 * i / totalSamples)) * i / sampleRate) * 0.5f,
 
                 _ => 0f
             };
@@ -81,7 +81,7 @@ public static class TestAudioHelper
             // Write to all channels
             for (int c = 0; c < channels; c++)
             {
-                samples[i * channels + c] = sample;
+                samples[(i * channels) + c] = sample;
             }
         }
 

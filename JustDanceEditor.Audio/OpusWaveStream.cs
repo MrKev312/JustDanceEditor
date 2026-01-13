@@ -105,8 +105,10 @@ public sealed class OpusWaveStream : WaveStream
                     _sourceStream.Dispose();
                 }
             }
+
             _disposed = true;
         }
+
         base.Dispose(disposing);
     }
 }

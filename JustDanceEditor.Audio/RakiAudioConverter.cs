@@ -230,7 +230,8 @@ public class RakiAudioConverter : IAudioConverter
 
         // Buffers for one frame of samples
         short[][] pcmBuffer = new short[channels][];
-        for (int i = 0; i < channels; i++) pcmBuffer[i] = new short[14];
+        for (int i = 0; i < channels; i++)
+            pcmBuffer[i] = new short[14];
 
         for (long f = 0; f < totalFrames; f++)
         {
@@ -257,7 +258,8 @@ public class RakiAudioConverter : IAudioConverter
                     readPos = dataStart + (f * 8 * channels) + (c * 8);
                 }
 
-                if (readPos + 8 > reader.BaseStream.Length) break;
+                if (readPos + 8 > reader.BaseStream.Length)
+                    break;
 
                 reader.BaseStream.Position = readPos;
                 byte[] frame = reader.ReadBytes(8);
@@ -283,7 +285,8 @@ public class RakiAudioConverter : IAudioConverter
         int predictorIdx = (header >> 4) & 0x0F;
 
         // Clamp predictor index just in case
-        if (predictorIdx > 7) predictorIdx = 0;
+        if (predictorIdx > 7)
+            predictorIdx = 0;
 
         short coef1 = coeffs[predictorIdx * 2];
         short coef2 = coeffs[predictorIdx * 2 + 1];
@@ -302,7 +305,8 @@ public class RakiAudioConverter : IAudioConverter
                 nibble = frame[byteIndex] & 0x0F;
 
             // Sign extend 4-bit nibble
-            if (nibble >= 8) nibble -= 16;
+            if (nibble >= 8)
+                nibble -= 16;
 
             // Prediction
             // sample = (nibble << scale) + ((coef1 * yn1) + (coef2 * yn2)) >> 11
@@ -320,8 +324,10 @@ public class RakiAudioConverter : IAudioConverter
             long final = (val + 1024) >> 11; // Rounding (+1024 before shift)
 
             // Clamp
-            if (final > 32767) final = 32767;
-            if (final < -32768) final = -32768;
+            if (final > 32767)
+                final = 32767;
+            if (final < -32768)
+                final = -32768;
 
             short outSample = (short)final;
             outSamples[i] = outSample;

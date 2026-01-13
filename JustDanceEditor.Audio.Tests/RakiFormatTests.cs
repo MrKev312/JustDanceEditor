@@ -374,4 +374,35 @@ public class RakiFormatTests
         // Assert
         Assert.True(output.Length > 100);
     }
+
+    /// <summary>
+    /// Tests that Nintendo Opus encoded audio can be decoded back.
+    /// This is a round-trip test to ensure the encoder produces valid output.
+    /// </summary>
+    [Fact]
+    public async Task EncodeToRakiNxOpus_RoundTrip_CanBeDecoded()
+    {
+        // Arrange
+        using WaveStream testAudio = TestAudioHelper.CreateTestAudio(
+            sampleRate: 48000,
+            channels: 2,
+            durationSeconds: 0.5f,
+            pattern: TestAudioHelper.TestPattern.SineWave);
+
+        using MemoryStream encodedOutput = new();
+
+        // Act - Encode
+        RakiAudioEncoder.EncodeToRakiNxOpus(testAudio, encodedOutput);
+        encodedOutput.Position = 0;
+
+        // Act - Decode
+        RakiAudioConverter converter = new();
+        using WaveStream decoded = await converter.ConvertAsync(encodedOutput, "test.wav.ckd");
+
+        // Assert
+        Assert.NotNull(decoded);
+        Assert.Equal(48000, decoded.WaveFormat.SampleRate);
+        Assert.Equal(2, decoded.WaveFormat.Channels);
+        Assert.True(decoded.Length > 0, "Decoded audio should have data");
+    }
 }
