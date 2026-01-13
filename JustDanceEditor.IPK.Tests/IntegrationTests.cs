@@ -1,6 +1,4 @@
-﻿using JustDanceEditor.IPK;
-
-using System.Text;
+﻿using System.Text;
 
 namespace JustDanceEditor.IPK.Tests;
 

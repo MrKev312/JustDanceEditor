@@ -1,5 +1,3 @@
-using System;
-
 namespace TextureConverter.TextureConverterHelpers;
 
 public static class Swizzle
@@ -29,7 +27,7 @@ public static class Swizzle
         return resultBuffer;
     }
 
-    private static byte[] SwizzleOperation(int width, int height, int bpp, int blockHeightLog2, byte[] data, bool toLinear, byte[] outputBuffer = null)
+    private static byte[] SwizzleOperation(int width, int height, int bpp, int blockHeightLog2, byte[] data, bool toLinear, byte[]? outputBuffer = null)
     {
         int blockHeight = 1 << blockHeightLog2;
         int widthInGobs = DivRoundUp(width * bpp, GOB_WIDTH_BYTES);

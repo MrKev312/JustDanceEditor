@@ -43,17 +43,28 @@ public static class UbiArtCRC
             int offset = length - (length % 0xc);
             int decide = (length % 0xc) - 1;
 
-            if (decide >= 0xa) c += (uint)data[offset + 0xa] << 0x18;
-            if (decide >= 0x9) c += (uint)data[offset + 0x9] << 0x10;
-            if (decide >= 0x8) c += (uint)data[offset + 0x8] << 0x8;
-            if (decide >= 0x7) b += (uint)data[offset + 0x7] << 0x18;
-            if (decide >= 0x6) b += (uint)data[offset + 0x6] << 0x10;
-            if (decide >= 0x5) b += (uint)data[offset + 0x5] << 0x8;
-            if (decide >= 0x4) b += data[offset + 0x4];
-            if (decide >= 0x3) a += (uint)data[offset + 0x3] << 0x18;
-            if (decide >= 0x2) a += (uint)data[offset + 0x2] << 0x10;
-            if (decide >= 0x1) a += (uint)data[offset + 0x1] << 0x8;
-            if (decide >= 0x0) a += data[offset + 0x0];
+            if (decide >= 0xa)
+                c += (uint)data[offset + 0xa] << 0x18;
+            if (decide >= 0x9)
+                c += (uint)data[offset + 0x9] << 0x10;
+            if (decide >= 0x8)
+                c += (uint)data[offset + 0x8] << 0x8;
+            if (decide >= 0x7)
+                b += (uint)data[offset + 0x7] << 0x18;
+            if (decide >= 0x6)
+                b += (uint)data[offset + 0x6] << 0x10;
+            if (decide >= 0x5)
+                b += (uint)data[offset + 0x5] << 0x8;
+            if (decide >= 0x4)
+                b += data[offset + 0x4];
+            if (decide >= 0x3)
+                a += (uint)data[offset + 0x3] << 0x18;
+            if (decide >= 0x2)
+                a += (uint)data[offset + 0x2] << 0x10;
+            if (decide >= 0x1)
+                a += (uint)data[offset + 0x1] << 0x8;
+            if (decide >= 0x0)
+                a += data[offset + 0x0];
 
             Shifter(ref a, ref b, ref c);
 

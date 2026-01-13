@@ -1,6 +1,4 @@
-﻿using JustDanceEditor.IPK;
-
-namespace JustDanceEditor.IPK.Tests;
+﻿namespace JustDanceEditor.IPK.Tests;
 
 public class CompressionTests
 {

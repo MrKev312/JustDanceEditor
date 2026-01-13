@@ -27,7 +27,7 @@ public class JustDanceIPKWriter
 
     public void Pack()
     {
-        var files = Directory.GetFiles(_inputDirectory, "*", SearchOption.AllDirectories);
+        string[] files = Directory.GetFiles(_inputDirectory, "*", SearchOption.AllDirectories);
         List<WriterFileEntry> entries = [];
         long currentOffset = 0;
 
@@ -45,7 +45,8 @@ public class JustDanceIPKWriter
 
             // Normalize path separators to forward slashes
             relativePath = relativePath.Replace("\\", "/");
-            if (relativePath == ".") relativePath = "";
+            if (relativePath == ".")
+                relativePath = "";
             if (!string.IsNullOrEmpty(relativePath) && !relativePath.EndsWith('/'))
                 relativePath += "/";
 
