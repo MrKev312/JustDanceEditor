@@ -507,7 +507,7 @@ public static class RakiAudioEncoder
                     float sample = sampleBuffer[i];
                     // Clamp to [-1.0, 1.0] and convert to 16-bit little-endian
                     short pcm16 = (short)Math.Max(-32768, Math.Min(32767, sample * 32767.0f));
-                    
+
                     pcmData.Add((byte)(pcm16 & 0xFF));
                     pcmData.Add((byte)((pcm16 >> 8) & 0xFF));
                 }

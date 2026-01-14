@@ -149,8 +149,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         Services.UbiArtEngineVersion exportEngineVersion = (Services.UbiArtEngineVersion)ubiRequest.ExportEngineVersion;
 
         // Create appropriate profile for export
-        IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked 
-            ? new Services.Serialization.LuaUbiArtSerializer() 
+        IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked
+            ? new Services.Serialization.LuaUbiArtSerializer()
             : new Services.Serialization.JsonUbiArtSerializer();
 
         UbiArtVersionProfile exportProfile = new(

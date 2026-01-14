@@ -49,11 +49,11 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     // SongName is required to disambiguate if the input folder contains multiple maps
     public string? SongName { get; set; } = songName;
     public UbiArtType Type { get; set; } = UbiArtType.Cooked;
-    
+
     // For IMPORT: which platform/engine are we importing FROM (will be auto-detected during import)
     public UbiArtPlatformType? ImportPlatform { get; set; }
     public UbiArtEngineVersionType? ImportEngineVersion { get; set; }
-    
+
     // For EXPORT: which platform and engine should we export TO
     public UbiArtPlatformType ExportPlatform { get; set; } = UbiArtPlatformType.Uncooked;
     public UbiArtEngineVersionType ExportEngineVersion { get; set; } = UbiArtEngineVersionType.JD2022;
