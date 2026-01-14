@@ -341,12 +341,6 @@ public static partial class UnityServerIntermediateBuilder
             PrevewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
         };
 
-        // Apply the default value logic for preview duration
-        if (document.PrevewDuration == 0)
-        {
-            document.PrevewDuration = 30;
-        }
-
         // Parse and transform arrays directly into the document's collections
         document.Markers.AddRange(ReadArray(structureField["markers"]["Array"],
             field => (int)field["VAL"].AsLong));
@@ -369,6 +363,20 @@ public static partial class UnityServerIntermediateBuilder
                 SectionType = (SongSectionType)field["MusicSection"]["sectionType"].AsInt,
                 Comment = field["MusicSection"]["comment"].AsString
             }));
+
+        // Apply the default value logic for preview duration
+        if (document.PrevewDuration == 0)
+        {
+            document.PrevewDuration = 30;
+        }
+
+        // If the preview loop end beat is zero, set it to the preview entry beat plus duration
+        if (document.PreviewLoopEndBeat == 0)
+        {
+            double start = document.GetSecondsAtBeat(document.PreviewEntryBeat);
+            double end = document.GetBeatAtSeconds(start + document.PrevewDuration);
+            document.PreviewLoopEndBeat = (int)Math.Round(end);
+        }
 
         return document;
     }
