@@ -68,7 +68,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         catch (NotImplementedException ex)
         {
             // If the configured serializer is binary (JD2014/JD2015), provide a friendly message
-            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
+            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is Services.Serialization.BinaryUbiArtSerializer)
                 throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
 
             throw;
@@ -135,25 +135,38 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (request is not UbiArtConversionRequest ubiRequest)
             throw new ArgumentException("UbiArt export expects a UbiArtConversionRequest.", nameof(request));
 
-        if (ubiRequest.Type != UbiArtType.Uncooked)
-            throw new NotSupportedException("Only Uncooked export is supported for now.");
+        // Create subfolder with {songname}_{platform} pattern in lowercase
+        string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
+        string platformName = ubiRequest.ExportPlatform.ToString().ToLowerInvariant();
+        string folderName = $"{songName.ToLowerInvariant()}_{platformName}";
+        string outputFolder = Path.Combine(ubiRequest.OutputPath, folderName);
 
-        // Use the output path directly - the layout resolver will create World/Maps/SongName structure
-        string outputFolder = ubiRequest.OutputPath;
-
-        // Ensure output directory exists (don't delete it - it's a user-provided folder)
+        // Ensure output directory exists
         _io.CreateDirectory(outputFolder);
 
-        // Detect the best profile for the export (use materialized root if available)
-        UbiArtVersionProfile exportProfile;
-        if (!string.IsNullOrWhiteSpace(importResult.MaterializedRoot))
-            exportProfile = _engineDetector.Detect(importResult.MaterializedRoot);
-        else if (!string.IsNullOrWhiteSpace(ubiRequest.InputPath) && _io.DirectoryExists(ubiRequest.InputPath))
-            exportProfile = _engineDetector.Detect(ubiRequest.InputPath);
-        else
-            exportProfile = new UbiArtVersionProfile(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        // Convert request enums to UbiArt Services enums
+        Services.UbiArtPlatform exportPlatform = (Services.UbiArtPlatform)ubiRequest.ExportPlatform;
+        Services.UbiArtEngineVersion exportEngineVersion = (Services.UbiArtEngineVersion)ubiRequest.ExportEngineVersion;
 
-        await _assetWriter.ExportToUncookedAsync(importResult.Package, importResult.MaterializedRoot, outputFolder, exportProfile.Layout, exportProfile.Platform, exportProfile.EngineVersion);
+        // Create appropriate profile for export
+        IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked 
+            ? new Services.Serialization.LuaUbiArtSerializer() 
+            : new Services.Serialization.JsonUbiArtSerializer();
+
+        UbiArtVersionProfile exportProfile = new(
+            exportPlatform,
+            exportEngineVersion,
+            new UbiArtLayoutResolver(),
+            serializer);
+
+        // Single export method handles both cooked and uncooked
+        await _assetWriter.ExportAsync(
+            importResult.Package,
+            importResult.MaterializedRoot,
+            outputFolder,
+            exportPlatform,
+            exportEngineVersion,
+            exportProfile.Layout);
     }
 
     private void PrepareOutputDirectory(string targetFolder)

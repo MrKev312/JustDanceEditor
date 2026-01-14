@@ -12,6 +12,30 @@ public enum UbiArtType
     Uncooked
 }
 
+// UbiArt Platform for export/import request - mirrored from Services for serialization independence
+public enum UbiArtPlatformType
+{
+    Uncooked,
+    WiiU,
+    NX,
+    PC
+}
+
+// UbiArt Engine Version for export/import request - mirrored from Services for serialization independence
+public enum UbiArtEngineVersionType
+{
+    Unknown,
+    JD2014,
+    JD2015,
+    JD2016,
+    JD2017,
+    JD2018,
+    JD2019,
+    JD2020,
+    JD2021,
+    JD2022
+}
+
 public abstract class ConversionRequestBase(string inputPath, string outputPath)
 {
     public string InputPath { get; set; } = inputPath;
@@ -25,6 +49,14 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     // SongName is required to disambiguate if the input folder contains multiple maps
     public string? SongName { get; set; } = songName;
     public UbiArtType Type { get; set; } = UbiArtType.Cooked;
+    
+    // For IMPORT: which platform/engine are we importing FROM (will be auto-detected during import)
+    public UbiArtPlatformType? ImportPlatform { get; set; }
+    public UbiArtEngineVersionType? ImportEngineVersion { get; set; }
+    
+    // For EXPORT: which platform and engine should we export TO
+    public UbiArtPlatformType ExportPlatform { get; set; } = UbiArtPlatformType.Uncooked;
+    public UbiArtEngineVersionType ExportEngineVersion { get; set; } = UbiArtEngineVersionType.JD2022;
 
     // Optional delegate to allow callers (UI) to select a song when multiple are present.
     // Should return the chosen song name, or null/empty to cancel.

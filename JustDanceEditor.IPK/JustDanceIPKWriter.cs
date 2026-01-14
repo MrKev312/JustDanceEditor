@@ -107,7 +107,7 @@ public class JustDanceIPKWriter
         long headerBaseSize = 48;
         long entriesSize = 0;
 
-        foreach (var entry in entries)
+        foreach (WriterFileEntry entry in entries)
         {
             entriesSize += 4; // Dummy1
             entriesSize += 4; // Size
@@ -133,7 +133,7 @@ public class JustDanceIPKWriter
         writer.WriteInt32BigEndian(entries.Count); // Num_Files2
 
         // --- Write Entries ---
-        foreach (var entry in entries)
+        foreach (WriterFileEntry entry in entries)
         {
             writer.WriteInt32BigEndian(1); // Dummy1 / NumOffset
             writer.WriteInt32BigEndian(entry.Size);

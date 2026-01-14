@@ -12,7 +12,6 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class IFileSystemTests
 {
 
-
     [Theory]
     [InlineData("wiiu", UbiArtPlatform.WiiU)]
     [InlineData("nx", UbiArtPlatform.NX)]

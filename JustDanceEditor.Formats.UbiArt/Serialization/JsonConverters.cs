@@ -305,8 +305,6 @@ public class StructureJsonConverter : JsonConverter<Structure>
                     signature.Beats = beats.GetInt32();
                 if (inner.TryGetProperty("marker", out JsonElement marker))
                     signature.Marker = marker.GetSingle();
-                if (inner.TryGetProperty("comment", out JsonElement comment))
-                    signature.Comment = comment.GetString() ?? "";
                 sigList.Add(signature);
             }
 

@@ -2,7 +2,6 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Core;
-using JustDanceEditor.Formats.UbiArt.Services;
 using JustDanceEditor.Formats.UbiArt.Tapes;
 using JustDanceEditor.Formats.UbiArt.Tapes.Clips;
 
@@ -110,8 +109,7 @@ internal static class IntermediatePackageBuilder
                 document.Signatures.Add(new SignatureSegment
                 {
                     Beats = signature.Beats,
-                    Marker = signature.Marker,
-                    Comment = signature.Comment
+                    Marker = signature.Marker
                 });
             }
         }

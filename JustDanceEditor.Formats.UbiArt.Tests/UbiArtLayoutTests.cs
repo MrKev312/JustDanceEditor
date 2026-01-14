@@ -46,7 +46,7 @@ public class UbiArtLayoutTests
         IntermediateSongPackage package = new() { Metadata = new JDI.Metadata.IntermediateMetadata { MapName = "song" } };
 
         UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
-        await writer.ExportToUncookedAsync(package, null, root, layout, style, version);
+        await writer.ExportAsync(package, null, root, style, version, layout);
 
         // Check songdesc is written under the map world folder
         Assert.True(File.Exists(Path.Combine(mapWorldFolder, "songdesc.tpl")));

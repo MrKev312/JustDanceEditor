@@ -11,11 +11,11 @@ public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory log
     private readonly IFileSystem? _io = io;
     private readonly ILoggerFactory _loggerFactory = loggerFactory;
 
-    public Task ExportToUncookedAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, IUbiArtLayout? layout = null, UbiArtPlatform platform = UbiArtPlatform.Uncooked, UbiArtEngineVersion engineVersion = UbiArtEngineVersion.JD2022, IFileSystem? io = null)
+    public Task ExportAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IUbiArtLayout? layout = null, IFileSystem? io = null)
     {
         // Create instance with proper logger and delegate to it
         ILogger<UbiArtAssetWriter> writerLogger = _loggerFactory.CreateLogger<UbiArtAssetWriter>();
         UbiArtAssetWriter writer = new(writerLogger);
-        return writer.ExportToUncookedAsync(package, materializedRoot, outputFolder, layout, platform, engineVersion, io ?? _io);
+        return writer.ExportAsync(package, materializedRoot, outputFolder, platform, engineVersion, layout, io ?? _io);
     }
 }

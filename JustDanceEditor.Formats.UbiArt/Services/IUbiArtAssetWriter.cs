@@ -6,12 +6,16 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 
 public interface IUbiArtAssetWriter
 {
-    Task ExportToUncookedAsync(
+    /// <summary>
+    /// Exports a song package to UbiArt format.
+    /// Routes to uncooked (Lua) or cooked (JSON + .ckd) based on platform.
+    /// </summary>
+    Task ExportAsync(
         IntermediateSongPackage package,
         string? materializedRoot,
         string outputFolder,
+        UbiArtPlatform platform,
+        UbiArtEngineVersion engineVersion,
         IUbiArtLayout? layout = null,
-        UbiArtPlatform platform = UbiArtPlatform.Uncooked,
-        UbiArtEngineVersion engineVersion = UbiArtEngineVersion.JD2022,
         IFileSystem? io = null);
 }

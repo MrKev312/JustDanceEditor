@@ -496,7 +496,7 @@ public static class RakiAudioEncoder
         {
             const int bufferSize = 4096;
             float[] sampleBuffer = new float[bufferSize * _waveFormat.Channels];
-            List<byte> pcmData = new();
+            List<byte> pcmData = [];
 
             int samplesRead;
             while ((samplesRead = sampleProvider.Read(sampleBuffer, 0, sampleBuffer.Length)) > 0)
@@ -513,7 +513,7 @@ public static class RakiAudioEncoder
                 }
             }
 
-            return pcmData.ToArray();
+            return [.. pcmData];
         }
     }
 }

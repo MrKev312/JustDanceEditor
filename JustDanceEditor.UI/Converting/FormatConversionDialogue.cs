@@ -199,12 +199,43 @@ internal static class FormatConversionDialogue
 
     private static ConversionRequestBase BuildUbiArtExportRequest(string inputPath, string outputPath)
     {
-        // For now, default to Uncooked export
+        // Ask user for platform and engine version
+        UbiArtPlatformType platform = AskUbiArtPlatform("Select the target platform for export");
+        UbiArtEngineVersionType engineVersion = AskUbiArtEngineVersion("Select the target engine version for export");
+
         string? songName = ResolveUbiArtSongName(inputPath);
-        return new UbiArtConversionRequest(inputPath, outputPath, songName)
+        UbiArtConversionRequest request = new(inputPath, outputPath, songName)
         {
-            Type = UbiArtType.Uncooked
+            Type = platform == UbiArtPlatformType.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked,
+            ExportPlatform = platform,
+            ExportEngineVersion = engineVersion
         };
+
+        if (platform != UbiArtPlatformType.Uncooked && engineVersion != UbiArtEngineVersionType.JD2022)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
+            Console.ResetColor();
+        }
+
+        return request;
+    }
+
+    private static UbiArtPlatformType AskUbiArtPlatform(string prompt)
+    {
+        string[] platforms = ["Uncooked", "WiiU", "NX", "PC"];
+        int selection = Question.Ask(platforms, 0, prompt);
+        return (UbiArtPlatformType)selection;
+    }
+
+    private static UbiArtEngineVersionType AskUbiArtEngineVersion(string prompt)
+    {
+        string[] versions = [
+            "Unknown", "JD2014", "JD2015", "JD2016", "JD2017", "JD2018",
+            "JD2019", "JD2020", "JD2021", "JD2022"
+        ];
+        int selection = Question.Ask(versions, 0, prompt);
+        return (UbiArtEngineVersionType)selection;
     }
 
     private static string? ResolveUbiArtSongName(string inputPath)

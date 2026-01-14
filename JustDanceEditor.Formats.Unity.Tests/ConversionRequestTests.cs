@@ -168,7 +168,7 @@ public class ExportTypeTests
     public void ExportType_CanBeParsedFromInt()
     {
         // Act
-        ExportType offlineCache = (ExportType)0;
+        ExportType offlineCache = 0;
         ExportType customServer = (ExportType)1;
 
         // Assert

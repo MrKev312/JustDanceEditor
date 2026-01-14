@@ -185,7 +185,7 @@ public class RakiAudioConverter : IAudioConverter
                 // In Ubi RAKI, the dsp_coef pointer is global. 
                 // Let's assume standard DSP header spacing of 0x60 bytes per channel entry.
                 // 32 bytes coeffs + 14 bytes misc + padding...
-                reader.BaseStream.Position = (dspInfoOffset + 0x1C) + ((c + 1) * 0x60);
+                reader.BaseStream.Position = dspInfoOffset + 0x1C + ((c + 1) * 0x60);
             }
         }
 

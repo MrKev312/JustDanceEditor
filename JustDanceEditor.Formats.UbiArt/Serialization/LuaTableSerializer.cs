@@ -7,10 +7,11 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
-public static class LuaTableSerializer
+public static partial class LuaTableSerializer
 {
     private static void InitializeLua(Lua lua)
     {
@@ -29,10 +30,7 @@ public static class LuaTableSerializer
         StringBuilder result = new(luaContent);
 
         // Match includeReference("path") - single argument pattern
-        System.Text.RegularExpressions.Regex includeRegex = new(
-            @"includeReference\s*\(\s*""([^""]+)""\s*\)",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase
-        );
+        System.Text.RegularExpressions.Regex includeRegex = IncludeReferenceRegex();
 
         foreach (System.Text.RegularExpressions.Match match in includeRegex.Matches(luaContent))
         {
@@ -537,4 +535,8 @@ public static class LuaTableSerializer
 
         return true;
     }
+
+    [GeneratedRegex(@"includeReference\s*\(\s*""([^""]+)""\s*\)", RegexOptions.IgnoreCase
+, "en-US")]
+    private static partial Regex IncludeReferenceRegex();
 }

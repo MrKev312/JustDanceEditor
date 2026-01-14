@@ -186,11 +186,7 @@ public class UnityExportDataBuilderSimpleTests
     public void Create_WithoutLyricsClips_EmptyCollection()
     {
         // Arrange
-        IntermediateSongPackage package = new()
-        {
-            Metadata = new IntermediateMetadata(),
-            Lyrics = null
-        };
+        IntermediateSongPackage package = new();
 
         // Act
         UnityExportData result = UnityExportDataBuilder.Create(package, NullLogger.Instance);
@@ -284,12 +280,7 @@ public class UnityExportDataBuilderSimpleTests
     public void Create_WithoutCoaches_EmptyMotionClips()
     {
         // Arrange
-        IntermediateSongPackage package = new()
-        {
-            Metadata = new IntermediateMetadata(),
-            CoachTimelines = null,
-            FullBodyCoachTimelines = null
-        };
+        IntermediateSongPackage package = new();
 
         // Act
         UnityExportData result = UnityExportDataBuilder.Create(package, NullLogger.Instance);

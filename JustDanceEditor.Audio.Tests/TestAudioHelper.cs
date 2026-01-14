@@ -114,7 +114,7 @@ public static class TestAudioHelper
             }
         }
 
-        return samples.ToArray();
+        return [.. samples];
     }
 
     /// <summary>
