@@ -16,16 +16,26 @@ public static class RakiAudioEncoder
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(output);
 
+        // Convert to 16-bit PCM if necessary
+        WaveStream audioStream = source;
+        if (source.WaveFormat.BitsPerSample != 16 || source.WaveFormat.Encoding != WaveFormatEncoding.Pcm)
+        {
+            ISampleProvider sampleProvider = source.ToSampleProvider();
+            audioStream = new SampleProvider16ToWaveStreamAdapter(sampleProvider, source.WaveFormat.SampleRate, source.WaveFormat.Channels);
+        }
+
         bool isBigEndian = CheckIsBigEndian(platform);
         using BinaryWriter writer = new(output, Encoding.ASCII, leaveOpen: true);
 
-        byte[] audioBuffer = new byte[source.Length];
-        source.Position = 0;
-        int bytesRead = source.Read(audioBuffer, 0, audioBuffer.Length);
+        byte[] audioBuffer = new byte[audioStream.Length];
+        audioStream.Position = 0;
+        int bytesRead = audioStream.Read(audioBuffer, 0, audioBuffer.Length);
 
-        WaveFormat format = source.WaveFormat;
+        WaveFormat format = audioStream.WaveFormat;
         ushort compressionCode = format.Encoding == WaveFormatEncoding.Pcm ? (ushort)1 : (ushort)2;
 
+        // Swap endianness if necessary (e.g. for Wii/Cafe/PS3)
+        // Nx (Switch) is Little Endian, so this usually won't run for Nx.
         if (isBigEndian && compressionCode == 1 && format.BitsPerSample == 16)
         {
             for (int i = 0; i < bytesRead; i += 2)
@@ -34,36 +44,59 @@ public static class RakiAudioEncoder
             }
         }
 
-        uint headerBaseSize = 32;
-        uint chunkTableSize = 2 * 12;
-        uint headerPadding = 8;
-        uint headerSize = headerBaseSize + chunkTableSize + headerPadding;
-        uint dataStartOffset = headerSize;
+        // --- Calculate Structure Layout ---
 
-        WriteRakiHeader(writer, platform, type, headerSize, dataStartOffset, 2, 0, isBigEndian);
+        // 1. RAKI Header: 32 bytes
+        uint rakiHeaderSize = 32;
 
+        // 2. Chunk Table: 2 entries (fmt + data) * 12 bytes = 24 bytes
+        uint chunkTableSize = 24;
+
+        // 3. Current Offset (End of Chunk Table) -> 32 + 24 = 56 (0x38)
+        uint currentOffset = rakiHeaderSize + chunkTableSize;
+
+        // 4. fmt Chunk
+        uint fmtOffset = currentOffset;
+        uint fmtSize = 16; // Standard PCM size (no extra bytes)
+        currentOffset += fmtSize;
+
+        // 5. data Chunk
+        // The hex dump provided shows tightly packed data (Offset 72 / 0x48).
+        // Standard PCM usually doesn't strictly require the 16-byte alignment that Opus does,
+        // but if you notice issues, you can re-add the alignment logic here.
+        uint dataOffset = currentOffset;
+        uint dataSize = (uint)bytesRead;
+
+        // 6. Final Header Size (Points to where data starts)
+        uint totalHeaderSize = dataOffset;
+
+        // --- Write Data ---
+
+        // RAKI Header
+        WriteRakiHeader(writer, platform, type, totalHeaderSize, dataOffset, 2, 0, isBigEndian);
+
+        // Chunk Table: fmt
         writer.Write(Encoding.ASCII.GetBytes("fmt "));
-        WriteU32(writer, 0x2C, isBigEndian);
-        WriteU32(writer, 20, isBigEndian);
+        WriteU32(writer, fmtOffset, isBigEndian);
+        WriteU32(writer, fmtSize, isBigEndian);
 
+        // Chunk Table: data
         writer.Write(Encoding.ASCII.GetBytes("data"));
-        WriteU32(writer, dataStartOffset, isBigEndian);
-        WriteU32(writer, (uint)bytesRead, isBigEndian);
+        WriteU32(writer, dataOffset, isBigEndian);
+        WriteU32(writer, dataSize, isBigEndian);
 
-        while (writer.BaseStream.Position < 0x2C)
-            writer.Write((byte)0);
-
+        // fmt Chunk Data
+        // We are now at offset 0x38 (56), exactly where the table said we'd be.
         WriteU16(writer, compressionCode, isBigEndian);
         WriteU16(writer, (ushort)format.Channels, isBigEndian);
         WriteU32(writer, (uint)format.SampleRate, isBigEndian);
         WriteU32(writer, (uint)format.AverageBytesPerSecond, isBigEndian);
         WriteU16(writer, (ushort)format.BlockAlign, isBigEndian);
         WriteU16(writer, (ushort)format.BitsPerSample, isBigEndian);
-        WriteU32(writer, 0, isBigEndian);
+        // Note: No extra 4 bytes of padding written here, matching the file size 16.
 
-        while (writer.BaseStream.Position < dataStartOffset)
-            writer.Write((byte)0);
-
+        // Audio Data
+        // We are now at offset 0x48 (72)
         writer.Write(audioBuffer, 0, bytesRead);
     }
 
@@ -418,4 +451,69 @@ public static class RakiAudioEncoder
     }
 
     private static byte[] EncodeToAdpcm(byte[] pcm, WaveFormat fmt) => new byte[pcm.Length];
+
+    /// <summary>
+    /// Adapter that wraps an ISampleProvider (float samples) into a WaveStream (16-bit PCM) format.
+    /// Buffers all audio data in memory for compatibility with audio encoding operations.
+    /// </summary>
+    private sealed class SampleProvider16ToWaveStreamAdapter : WaveStream
+    {
+        private readonly WaveFormat _waveFormat;
+        private byte[] _audioBuffer;
+        private long _position = 0;
+
+        public SampleProvider16ToWaveStreamAdapter(ISampleProvider sampleProvider, int sampleRate, int channels)
+        {
+            _waveFormat = new WaveFormat(sampleRate, 16, channels);
+            _audioBuffer = ConvertSamplesToPcm16(sampleProvider);
+        }
+
+        public override WaveFormat WaveFormat => _waveFormat;
+
+        public override long Length => _audioBuffer.Length;
+
+        public override long Position
+        {
+            get => _position;
+            set => _position = value;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            int bytesToRead = Math.Min(count, (int)(_audioBuffer.Length - _position));
+            if (bytesToRead <= 0)
+                return 0;
+
+            Array.Copy(_audioBuffer, _position, buffer, offset, bytesToRead);
+            _position += bytesToRead;
+            return bytesToRead;
+        }
+
+        /// <summary>
+        /// Converts all samples from the ISampleProvider to 16-bit PCM format.
+        /// </summary>
+        private byte[] ConvertSamplesToPcm16(ISampleProvider sampleProvider)
+        {
+            const int bufferSize = 4096;
+            float[] sampleBuffer = new float[bufferSize * _waveFormat.Channels];
+            List<byte> pcmData = new();
+
+            int samplesRead;
+            while ((samplesRead = sampleProvider.Read(sampleBuffer, 0, sampleBuffer.Length)) > 0)
+            {
+                // Convert float samples [-1.0, 1.0] to 16-bit PCM
+                for (int i = 0; i < samplesRead; i++)
+                {
+                    float sample = sampleBuffer[i];
+                    // Clamp to [-1.0, 1.0] and convert to 16-bit little-endian
+                    short pcm16 = (short)Math.Max(-32768, Math.Min(32767, sample * 32767.0f));
+                    
+                    pcmData.Add((byte)(pcm16 & 0xFF));
+                    pcmData.Add((byte)((pcm16 >> 8) & 0xFF));
+                }
+            }
+
+            return pcmData.ToArray();
+        }
+    }
 }

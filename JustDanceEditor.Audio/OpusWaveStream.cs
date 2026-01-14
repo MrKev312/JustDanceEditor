@@ -27,7 +27,7 @@ public sealed class OpusWaveStream : WaveStream
     /// </summary>
     /// <param name="fileName">Path to the Opus/Ogg file.</param>
     public OpusWaveStream(string fileName)
-        : this(System.IO.File.OpenRead(fileName), ownsStream: true)
+        : this(File.OpenRead(fileName), ownsStream: true)
     {
     }
 
@@ -79,7 +79,7 @@ public sealed class OpusWaveStream : WaveStream
             if (decodedSamples != null && decodedSamples.Length > 0)
             {
                 byte[] byteBuffer = new byte[decodedSamples.Length * 2];
-                System.Buffer.BlockCopy(decodedSamples, 0, byteBuffer, 0, byteBuffer.Length);
+                Buffer.BlockCopy(decodedSamples, 0, byteBuffer, 0, byteBuffer.Length);
 
                 long oldPos = _buffer.Position;
                 _buffer.Seek(0, SeekOrigin.End);
