@@ -1264,7 +1264,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
 
         // Write songdesc.tpl.ckd
         _logger.LogInformation("Writing songdesc.tpl.ckd...");
-        string songDescJson = BuildCookedSongDescJson(package, mapNameLower);
+        string songDescJson = BuildCookedSongDescJson(package, mapNameLower, engineVersion);
         await WriteCookedFileAsync(io, io.Combine(mapWorldFolder, "songdesc.tpl.ckd"), songDescJson);
 
         // Write songdesc.act.ckd
@@ -1432,7 +1432,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
     /// <summary>
     /// Builds a cooked SongDesc JSON.
     /// </summary>
-    private static string BuildCookedSongDescJson(IntermediateSongPackage package, string mapNameLower)
+    private static string BuildCookedSongDescJson(IntermediateSongPackage package, string mapNameLower, UbiArtEngineVersion engineVersion)
     {
         var songDesc = new
         {
@@ -1449,7 +1449,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 {
                     __class = "JD_SongDescTemplate",
                      package.Metadata.MapName,
-                    JDVersion = 2022,
+                    JDVersion = (int)engineVersion,
                      package.Metadata.OriginalJDVersion,
                      package.Metadata.Artist,
                     DancerName = "Unknown Dancer",
