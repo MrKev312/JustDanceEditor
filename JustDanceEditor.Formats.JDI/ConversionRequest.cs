@@ -25,7 +25,7 @@ public enum UbiArtPlatformType
 public enum UbiArtEngineVersionType
 {
     Unknown,
-    JD2014,
+    JD2014 = 2014,
     JD2015,
     JD2016,
     JD2017,
