@@ -211,11 +211,14 @@ internal static class FormatConversionDialogue
             ExportEngineVersion = engineVersion
         };
 
-        if (platform != UbiArtPlatformType.Uncooked && engineVersion != UbiArtEngineVersionType.JD2022)
+        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX
+            && engineVersion < UbiArtEngineVersionType.JD2019)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
             Console.ResetColor();
+
+            return request;
         }
 
         return request;
@@ -231,11 +234,12 @@ internal static class FormatConversionDialogue
     private static UbiArtEngineVersionType AskUbiArtEngineVersion(string prompt)
     {
         string[] versions = [
-            "Unknown", "JD2014", "JD2015", "JD2016", "JD2017", "JD2018",
+            "JD2014", "JD2015",
+            "JD2016", "JD2017", "JD2018",
             "JD2019", "JD2020", "JD2021", "JD2022"
         ];
         int selection = Question.Ask(versions, 0, prompt);
-        return (UbiArtEngineVersionType)selection;
+        return Enum.Parse<UbiArtEngineVersionType>(versions[selection]);
     }
 
     private static string? ResolveUbiArtSongName(string inputPath)

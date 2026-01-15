@@ -43,7 +43,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
 
             string platformFolderName = Path.GetFileName(platformFolders[0]);
             // Parse the platform folder name into the enum via reflection and fail fast on unknown values
-            if (!Enum.TryParse<UbiArtPlatform>(platformFolderName, true, out detectedPlatform))
+            if (!Enum.TryParse(platformFolderName, true, out detectedPlatform))
                 throw new InvalidOperationException($"Unknown UbiArt platform folder '{platformFolderName}' in cache/itf_cooked.");
 
             // 'uncooked' is not a valid cooked platform; treat it as an error

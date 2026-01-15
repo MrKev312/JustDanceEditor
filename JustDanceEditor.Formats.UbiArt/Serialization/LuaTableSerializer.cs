@@ -30,9 +30,9 @@ public static partial class LuaTableSerializer
         StringBuilder result = new(luaContent);
 
         // Match includeReference("path") - single argument pattern
-        System.Text.RegularExpressions.Regex includeRegex = IncludeReferenceRegex();
+        Regex includeRegex = IncludeReferenceRegex();
 
-        foreach (System.Text.RegularExpressions.Match match in includeRegex.Matches(luaContent))
+        foreach (Match match in includeRegex.Matches(luaContent))
         {
             string filePath = match.Groups[1].Value;
 

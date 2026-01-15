@@ -68,7 +68,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         catch (NotImplementedException ex)
         {
             // If the configured serializer is binary (JD2014/JD2015), provide a friendly message
-            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is Services.Serialization.BinaryUbiArtSerializer)
+            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
                 throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
 
             throw;
@@ -145,8 +145,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         _io.CreateDirectory(outputFolder);
 
         // Convert request enums to UbiArt Services enums
-        Services.UbiArtPlatform exportPlatform = (Services.UbiArtPlatform)ubiRequest.ExportPlatform;
-        Services.UbiArtEngineVersion exportEngineVersion = (Services.UbiArtEngineVersion)ubiRequest.ExportEngineVersion;
+        UbiArtPlatform exportPlatform = (UbiArtPlatform)ubiRequest.ExportPlatform;
+        UbiArtEngineVersion exportEngineVersion = (UbiArtEngineVersion)ubiRequest.ExportEngineVersion;
 
         // Create appropriate profile for export
         IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked

@@ -1483,7 +1483,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 }
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(songDesc, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(songDesc, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -1540,7 +1540,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             LUA = tplPath,
             COMPONENTS = Array.Empty<object>()
         };
-        return System.Text.Json.JsonSerializer.Serialize(actor, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(actor, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -1724,9 +1724,9 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
         JsonSerializerOptions options = new()
         {
             WriteIndented = false,
-            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
-        return System.Text.Json.JsonSerializer.Serialize(musicTrack, options);
+        return JsonSerializer.Serialize(musicTrack, options);
     }
 
     /// <summary>
@@ -1888,7 +1888,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             SoundwichEvent = ""
         };
 
-        return System.Text.Json.JsonSerializer.Serialize(dtape, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(dtape, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -1953,7 +1953,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             SoundwichEvent = ""
         };
 
-        return System.Text.Json.JsonSerializer.Serialize(ktape, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(ktape, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -1997,7 +1997,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 }
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(tpl, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tpl, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2511,7 +2511,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 hud = 0
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(sgs, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(sgs, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2548,7 +2548,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 new { __class = "TapeCase_Template" }
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(tpl, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tpl, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2565,7 +2565,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             MapName = mapName,
             SoundwichEvent = ""
         };
-        return System.Text.Json.JsonSerializer.Serialize(stape, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(stape, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2631,7 +2631,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 }
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(tpl, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tpl, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2691,7 +2691,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
                 }
             }
         };
-        return System.Text.Json.JsonSerializer.Serialize(tpl, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tpl, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2733,7 +2733,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             }
         };
         //path = $"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tape"
-        return System.Text.Json.JsonSerializer.Serialize(tpl, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tpl, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
@@ -2808,7 +2808,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger)
             MapName = mapName,
             SoundwichEvent = ""
         };
-        return System.Text.Json.JsonSerializer.Serialize(tape, new System.Text.Json.JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(tape, new JsonSerializerOptions { WriteIndented = false });
     }
 
     /// <summary>
