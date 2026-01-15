@@ -175,9 +175,8 @@ public static class TestAudioHelper
     /// <summary>
     /// Custom assertion exception for audio test failures.
     /// </summary>
-    public class AssertionException : Exception
+    public class AssertionException(string message) : Exception(message)
     {
-        public AssertionException(string message) : base(message) { }
     }
 }
 
@@ -185,15 +184,10 @@ public static class TestAudioHelper
 /// Wrapper around WaveFileReader that prevents disposal of the underlying reader,
 /// allowing the test stream to be safely disposed without closing resources prematurely.
 /// </summary>
-internal sealed class SafeWaveFileReader : WaveStream
+internal sealed class SafeWaveFileReader(WaveFileReader reader) : WaveStream
 {
-    private readonly WaveFileReader _reader;
+    private readonly WaveFileReader _reader = reader ?? throw new ArgumentNullException(nameof(reader));
     private bool _disposed;
-
-    public SafeWaveFileReader(WaveFileReader reader)
-    {
-        _reader = reader ?? throw new ArgumentNullException(nameof(reader));
-    }
 
     public override WaveFormat WaveFormat => _reader.WaveFormat;
     public override long Length => _reader.Length;

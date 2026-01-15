@@ -17,7 +17,7 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         {
             if (engineVersion >= UbiArtEngineVersion.JD2016)
             {
-                return string.IsNullOrWhiteSpace(songName) ? Path.Combine("World", "Maps") : Path.Combine("World", "Maps", songName);
+                return string.IsNullOrWhiteSpace(songName) ? Path.Combine("world", "maps") : Path.Combine("world", "maps", songName);
             }
 
             // Uncooked JD2014/JD2015 are under world/maps/jdX

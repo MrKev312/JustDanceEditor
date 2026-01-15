@@ -2,11 +2,9 @@
 
 namespace JustDanceEditor.IPK;
 
-public class JustDanceIPKWriter
+public class JustDanceIPKWriter(string inputDirectory, string outputPath)
 {
     private readonly byte[] IdString = [0x50, 0xEC, 0x12, 0xBA];
-    private readonly string _inputDirectory;
-    private readonly string _outputPath;
 
     // Hardcoded config matching the 2022 defaults for now
     private const int Version = 5;
@@ -19,15 +17,9 @@ public class JustDanceIPKWriter
         ".dtape.ckd", ".fx.fxb", ".m3d.ckd", ".png.ckd", ".tga.ckd"
     ];
 
-    public JustDanceIPKWriter(string inputDirectory, string outputPath)
-    {
-        _inputDirectory = inputDirectory;
-        _outputPath = outputPath;
-    }
-
     public void Pack()
     {
-        string[] files = Directory.GetFiles(_inputDirectory, "*", SearchOption.AllDirectories);
+        string[] files = Directory.GetFiles(inputDirectory, "*", SearchOption.AllDirectories);
         List<WriterFileEntry> entries = [];
         long currentOffset = 0;
 
@@ -35,13 +27,13 @@ public class JustDanceIPKWriter
         // Note: For huge archives, you might want to write to a temp file instead of MemoryStream
         using MemoryStream dataBlob = new();
 
-        Console.WriteLine($"Scanning {_inputDirectory}...");
+        Console.WriteLine($"Scanning {inputDirectory}...");
 
         foreach (string fullPath in files)
         {
             string fileName = Path.GetFileName(fullPath);
             // Get relative path
-            string relativePath = Path.GetRelativePath(_inputDirectory, Path.GetDirectoryName(fullPath)!);
+            string relativePath = Path.GetRelativePath(inputDirectory, Path.GetDirectoryName(fullPath)!);
 
             // Normalize path separators to forward slashes
             relativePath = relativePath.Replace("\\", "/");
@@ -92,9 +84,9 @@ public class JustDanceIPKWriter
             currentOffset += processedBytes.Length;
         }
 
-        Console.WriteLine($"\nWriting IPK to {_outputPath}...");
+        Console.WriteLine($"\nWriting IPK to {outputPath}...");
 
-        using FileStream fs = new(_outputPath, FileMode.Create, FileAccess.Write);
+        using FileStream fs = new(outputPath, FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(fs);
 
         // --- Write Header ---
