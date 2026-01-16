@@ -289,20 +289,53 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         UbiArtEngineVersion version,
         IUbiArtLayout layout)
     {
-        string videoSource = ctx.IO.Combine(materializedRoot, "assets", "video");
-        if (ctx.IO.DirectoryExists(videoSource))
+        string videoSourceDir = ctx.IO.Combine(materializedRoot, "assets", "video");
+
+        if (ctx.IO.DirectoryExists(videoSourceDir))
         {
-            string? file = ctx.IO.GetFiles(videoSource, "*.webm").OrderByDescending(f => new FileInfo(f).Length).FirstOrDefault();
-            if (file != null)
+            string? sourceFile;
+
+            // JD2017 Logic: Requires VP8 (libvpx) in a WebM container
+            if (version == UbiArtEngineVersion.JD2017)
+            {
+                // Use JdiVideoConverter to Ensure VP8 format (utilizing scratch cache)
+                // We pass "libvpx" for video
+                sourceFile = await JDI.Video.JdiVideoConverter.EnsureVideoFormatAsync(
+                    materializedRoot,
+                    ".webm",
+                    "libvpx",
+                    logger
+                );
+
+                // If conversion failed, fallback to raw copy (best effort)
+                if (sourceFile == null)
+                {
+                    sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
+                        .OrderByDescending(f => new FileInfo(f).Length)
+                        .FirstOrDefault();
+                }
+            }
+            else
+            {
+                // JD2018+ / Standard Logic: Just grab the largest webm (usually VP9 or VP8, engine supports both)
+                sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
+                    .OrderByDescending(f => new FileInfo(f).Length)
+                    .FirstOrDefault();
+            }
+
+            if (sourceFile != null && ctx.IO.FileExists(sourceFile))
             {
                 string relFolder = platform == UbiArtPlatform.Uncooked
                     ? layout.GetMediaFolder("", package.Metadata.MapName, platform, version)
                     : Path.Combine(rawMapWorldBase, "videoscoach");
 
+                // Filename logic
                 string destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.webm";
+
+                // On NX, newer engines (2018+) need a .vp9.720.webm naming convention
+                // but just .webm for 2017.
                 if (platform == UbiArtPlatform.NX)
                 {
-                    // On NX newer engines use .vp9.720.webm, but JD2017 uses plain .webm even on NX
                     destFileName = version == UbiArtEngineVersion.JD2017
                         ? $"{package.Metadata.MapName.ToLowerInvariant()}.webm"
                         : $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
@@ -312,10 +345,14 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
 
                 ctx.IO.CreateDirectory(Path.GetDirectoryName(fullDest)!);
-                ctx.IO.Copy(file, fullDest, true);
+
+                // Use Copy logic. Note: sourceFile might be in scratch (temp) or assets (input).
+                ctx.IO.Copy(sourceFile, fullDest, true);
+
+                logger.LogInformation("Video exported to {Path} (Source: {Source})", destFileName, Path.GetFileName(sourceFile));
             }
         }
-
+        
         string movesSource = ctx.IO.Combine(materializedRoot, "assets", "moves");
         if (ctx.IO.DirectoryExists(movesSource))
         {

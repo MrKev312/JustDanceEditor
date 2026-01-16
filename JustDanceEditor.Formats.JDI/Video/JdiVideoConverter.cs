@@ -383,4 +383,103 @@ public static class JdiVideoConverter
     {
         return Path.Combine(packageRoot, "scratch", "video");
     }
+
+    public static async Task<string?> EnsureVideoFormatAsync(
+        string packageRoot,
+        string targetFormatExtension,
+        string encoderCodec,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
+
+        await EnsureFFmpegInitializedAsync();
+
+        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string scratchFolder = GetScratchFolder(packageRoot);
+
+        // 1. Find Source
+        string? sourceVideo = SelectSourceVideo(assetsFolder);
+        if (sourceVideo == null)
+        {
+            logger.LogWarning("Cannot transcode video; no source video found in assets/video.");
+            return null;
+        }
+
+        string sourceName = Path.GetFileNameWithoutExtension(sourceVideo);
+        // Create a unique name for the cached file based on input name and target codec to avoid collisions
+        string cachedFileName = $"{sourceName}_{encoderCodec.Replace(":", "")}{targetFormatExtension}";
+        string cachedFilePath = Path.Combine(scratchFolder, cachedFileName);
+
+        // 2. Check Cache
+        if (File.Exists(cachedFilePath))
+        {
+            logger.LogDebug("Found cached transcoded video: {Path}", cachedFileName);
+            return cachedFilePath;
+        }
+
+        // 3. Transcode
+        try
+        {
+            Directory.CreateDirectory(scratchFolder);
+            logger.LogInformation("Transcoding video to {Codec} for legacy engine compatibility...", encoderCodec);
+
+            IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourceVideo, cancellationToken);
+            IVideoStream videoStream = mediaInfo.VideoStreams.First();
+
+            // Calculate bitrate from source to maintain quality
+            // Fallback to 4M if unknown, or use the source bitrate
+            long bitrate = videoStream.Bitrate > 0 ? videoStream.Bitrate : 4000000;
+
+            // Build conversion
+            IConversion conversion = FFmpeg.Conversions.New();
+
+            // Video Settings: Match codec, keep resolution/fps (default), match bitrate
+            conversion.AddParameter($"-i \"{sourceVideo}\"");
+            conversion.AddParameter($"-c:v {encoderCodec}");
+            conversion.AddParameter($"-b:v {bitrate}");
+            conversion.AddParameter($"-maxrate {bitrate * 1.5}");
+            conversion.AddParameter($"-bufsize {bitrate * 3}");
+
+            // Quality settings for VP8 (Good balance of speed/quality)
+            if (encoderCodec == "libvpx")
+            {
+                conversion.AddParameter("-quality good -cpu-used 1 -slices 4");
+            }
+            else if (encoderCodec == "libvpx-vp9")
+            {
+                conversion.AddParameter("-quality good -speed 4 -row-mt 1");
+            }
+
+            conversion.SetOutput(cachedFilePath);
+            conversion.SetOverwriteOutput(true);
+
+            await FFmpegSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                // Hook up logging
+                conversion.OnDataReceived += (sender, args) =>
+                {
+                    // Optional: verbose ffmpeg logging
+                };
+
+                await conversion.Start(cancellationToken);
+            }
+            finally
+            {
+                FFmpegSemaphore.Release();
+            }
+
+            logger.LogInformation("Transcoding complete: {Path}", cachedFileName);
+            return cachedFilePath;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to transcode video to {Codec}.", encoderCodec);
+            // Fallback to source if transcoding fails?
+            // Depending on strictness, we might return sourceVideo or null.
+            // For now, return null to signal failure.
+            return null;
+        }
+    }
 }
