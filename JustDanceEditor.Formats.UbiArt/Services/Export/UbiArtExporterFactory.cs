@@ -17,8 +17,14 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
 
     public IEngineContentGenerator GetEngineContentGenerator(UbiArtEngineVersion version)
     {
-        // 2019-2022 share the same schema
-        if (version is >= UbiArtEngineVersion.JD2019 and <= UbiArtEngineVersion.JD2022)
+        // JD2017 uses slightly less padding in menuart actors
+        if (version == UbiArtEngineVersion.JD2017)
+        {
+            return new JD2017EngineContentGenerator(version);
+        }
+
+        // 2018-2022 share the same schema
+        if (version is >= UbiArtEngineVersion.JD2018 and <= UbiArtEngineVersion.JD2022)
         {
             return new ModernEngineContentGenerator(version);
         }

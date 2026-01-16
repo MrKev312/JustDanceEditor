@@ -36,7 +36,6 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 {
                     __class = "JD_SongDescTemplate",
                     package.Metadata.MapName,
-                    // FIX: This must be the Engine Version (e.g. 2022), not the song's original version
                     JDVersion = (int)EngineVersion,
                     package.Metadata.OriginalJDVersion,
                     package.Metadata.Artist,
@@ -841,7 +840,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ms.ToArray();
     }
 
-    public byte[] GenerateMenuArtActor(string textureName, string mapName)
+    public virtual byte[] GenerateMenuArtActor(string textureName, string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         using MemoryStream ms = new();
@@ -914,7 +913,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ms.ToArray();
     }
 
-    private static void WriteString(BinaryWriter w, string s)
+    protected static void WriteString(BinaryWriter w, string s)
     {
         byte[] b = Encoding.UTF8.GetBytes(s);
         w.Write((byte)0);
@@ -924,7 +923,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         w.Write(b);
     }
 
-    private static void WriteBigEndian32(BinaryWriter w, uint val)
+    protected static void WriteBigEndian32(BinaryWriter w, uint val)
     {
         w.Write((byte)((val >> 24) & 0xFF));
         w.Write((byte)((val >> 16) & 0xFF));
@@ -932,7 +931,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         w.Write((byte)(val & 0xFF));
     }
 
-    private static void WriteBigEndianFloat(BinaryWriter w, float val)
+    protected static void WriteBigEndianFloat(BinaryWriter w, float val)
     {
         byte[] b = BitConverter.GetBytes(val);
         if (BitConverter.IsLittleEndian)
@@ -940,23 +939,23 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         w.Write(b);
     }
 
-    private static double[] ParseLyricsColor(string hexColor)
+    private static float[] ParseLyricsColor(string hexColor)
     {
         if (string.IsNullOrWhiteSpace(hexColor) || !hexColor.StartsWith('#') || hexColor.Length != 9)
-            return [1.0, 1.0, 1.0, 1.0];
+            return [1.0f, 1.0f, 1.0f, 1.0f];
         try
         {
             string hex = hexColor[1..];
             return [
-                int.Parse(hex.Substring(6, 2), NumberStyles.HexNumber) / 255.0,
-                int.Parse(hex[..2], NumberStyles.HexNumber) / 255.0,
-                int.Parse(hex.Substring(2, 2), NumberStyles.HexNumber) / 255.0,
-                int.Parse(hex.Substring(4, 2), NumberStyles.HexNumber) / 255.0
+                int.Parse(hex.Substring(6, 2), NumberStyles.HexNumber) / 255.0f,
+                int.Parse(hex[..2], NumberStyles.HexNumber) / 255.0f,
+                int.Parse(hex.Substring(2, 2), NumberStyles.HexNumber) / 255.0f,
+                int.Parse(hex.Substring(4, 2), NumberStyles.HexNumber) / 255.0f
             ];
         }
         catch
         {
-            return [1.0, 1.0, 1.0, 1.0];
+            return [1.0f, 1.0f, 1.0f, 1.0f];
         }
     }
 

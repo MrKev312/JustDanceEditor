@@ -211,8 +211,7 @@ internal static class FormatConversionDialogue
             ExportEngineVersion = engineVersion
         };
 
-        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX
-            && engineVersion < UbiArtEngineVersionType.JD2019)
+        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
