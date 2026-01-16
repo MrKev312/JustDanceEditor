@@ -289,7 +289,7 @@ public class RakiAudioConverter : IAudioConverter
             predictorIdx = 0;
 
         short coef1 = coeffs[predictorIdx * 2];
-        short coef2 = coeffs[predictorIdx * 2 + 1];
+        short coef2 = coeffs[(predictorIdx * 2) + 1];
 
         short yn1 = hist1;
         short yn2 = hist2;
@@ -311,7 +311,7 @@ public class RakiAudioConverter : IAudioConverter
             // Prediction
             // sample = (nibble << scale) + ((coef1 * yn1) + (coef2 * yn2)) >> 11
             // Note: Use long for intermediate calculation to avoid overflow before shift
-            long prediction = (long)coef1 * yn1 + (long)coef2 * yn2;
+            long prediction = ((long)coef1 * yn1) + ((long)coef2 * yn2);
             long sample = (nibble * scale) << 11; // Standard shift is 11 for format 0, but logic varies.
 
             // Standard Nintendo DSP logic:

@@ -106,7 +106,7 @@ public partial class TextureProcessor : ITextureProcessor
         if (coachImages.Count > 0)
         {
             // Convert dictionary to list sorted by ID
-            List<Image<Bgra32>> sortedCoaches = coachImages.OrderBy(x => x.Key).Select(x => x.Value).ToList();
+            List<Image<Bgra32>> sortedCoaches = [.. coachImages.OrderBy(x => x.Key).Select(x => x.Value)];
             Image<Bgra32> albumCoach = GenerateAlbumCoach(sortedCoaches);
             results.Add(new ProcessedTexture($"{mapNameLower}_cover_albumcoach", albumCoach));
         }

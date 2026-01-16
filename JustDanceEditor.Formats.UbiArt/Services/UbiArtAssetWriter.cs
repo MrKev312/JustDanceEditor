@@ -38,6 +38,12 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
         logger.LogInformation("Exporting {MapName} ({Platform}, {Version})...", mapName, platform, engineVersion);
 
+        // 1. Generate Colors from Background
+        if (!string.IsNullOrEmpty(materializedRoot))
+        {
+            await GenerateColorsAsync(package, materializedRoot, iofs);
+        }
+
         // 2. Process Audio
         await PrepareAndWriteAudioAsync(package, materializedRoot, mapWorldBase, exportContext, platformExporter, engineGenerator);
 
@@ -238,6 +244,42 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         }
     }
 
+    private async Task GenerateColorsAsync(IntermediateSongPackage package, string materializedRoot, IFileSystem io)
+    {
+        // Don't overwrite if manually set
+        if (package.Metadata.AdditionalMetadata.ContainsKey("songcolor_1a")) return;
+
+        string assetsDir = io.Combine(materializedRoot, "assets", "coaches");
+
+        // Look for coachesbackground (preferred) or just the cover
+        string? bkgFile = io.GetFiles(assetsDir)
+            .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals("coachesbackground", StringComparison.OrdinalIgnoreCase));
+
+        if (bkgFile == null) return;
+
+        try
+        {
+            // Load image
+            using var img = await Image.LoadAsync<Bgra32>(bkgFile); // Or use io.OpenRead logic if strictly required
+
+            // Generate Theme (Returns normal Colors)
+            var theme = ColorThemeGenerator.GenerateFromImage(img);
+
+            // Convert to UbiArt Array format and store in metadata
+            package.Metadata.AdditionalMetadata["songcolor_1a"] = theme.Color1A.ToHex();
+            package.Metadata.AdditionalMetadata["songcolor_1b"] = theme.Color1B.ToHex();
+            package.Metadata.AdditionalMetadata["songcolor_2a"] = theme.Color2A.ToHex();
+            package.Metadata.AdditionalMetadata["songcolor_2b"] = theme.Color2B.ToHex();
+
+            logger.LogInformation("Generated song colors: 1A={Color1A}, 1B={Color1B}, 2A={Color2A}, 2B={Color2B}",
+                theme.Color1A.ToHex(), theme.Color1B.ToHex(), theme.Color2A.ToHex(), theme.Color2B.ToHex());
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning("Failed to generate song colors from background: {Message}", ex.Message);
+        }
+    }
+
     private async Task ProcessRawAssetsAsync(
         IntermediateSongPackage package,
         string materializedRoot,
@@ -260,7 +302,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 string destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.webm";
                 if (platform == UbiArtPlatform.NX)
                 {
-                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
+                    // On NX newer engines use .vp9.720.webm, but JD2017 uses plain .webm even on NX
+                    destFileName = version == UbiArtEngineVersion.JD2017
+                        ? $"{package.Metadata.MapName.ToLowerInvariant()}.webm"
+                        : $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
                 }
 
                 string destPath = Path.Combine(relFolder, destFileName);

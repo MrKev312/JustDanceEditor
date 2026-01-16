@@ -60,12 +60,12 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                     CountInProgression = 1,
                     DefaultColors = new
                     {
-                        songcolor_1a = new[] { 1, 1, 1, 1 },
-                        songcolor_1b = new[] { 1, 1, 1, 1 },
-                        songcolor_2a = new[] { 1, 1, 1, 1 },
-                        songcolor_2b = new[] { 1, 1, 1, 1 },
-                        lyrics = ParseLyricsColor(package.Metadata.LyricsColor),
-                        theme = new[] { 1.0, 1, 1, 1 }
+                        songcolor_1a = ConvertColorToArray(package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_1a", "#FFFFFFFF")),
+                        songcolor_1b = ConvertColorToArray(package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_1b", "#FFFFFFFF")),
+                        songcolor_2a = ConvertColorToArray(package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2a", "#FFFFFFFF")),
+                        songcolor_2b = ConvertColorToArray(package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2b", "#FFFFFFFF")),
+                        lyrics = ConvertColorToArray(package.Metadata.LyricsColor),
+                        theme = new[] { 1, 1, 1, 1 }
                     }
                 }
             }
@@ -939,13 +939,13 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         w.Write(b);
     }
 
-    private static float[] ParseLyricsColor(string hexColor)
+    private static float[] ConvertColorToArray(string hexColor)
     {
-        if (string.IsNullOrWhiteSpace(hexColor) || !hexColor.StartsWith('#') || hexColor.Length != 9)
+        if (string.IsNullOrWhiteSpace(hexColor))
             return [1.0f, 1.0f, 1.0f, 1.0f];
         try
         {
-            string hex = hexColor[1..];
+            string hex = hexColor.TrimStart('#');
             return [
                 int.Parse(hex.Substring(6, 2), NumberStyles.HexNumber) / 255.0f,
                 int.Parse(hex[..2], NumberStyles.HexNumber) / 255.0f,
