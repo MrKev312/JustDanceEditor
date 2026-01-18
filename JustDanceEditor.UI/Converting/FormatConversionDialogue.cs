@@ -50,14 +50,6 @@ internal static class FormatConversionDialogue
 
         string targetName = AskFormat("Select the target format", targetCandidates);
 
-        if (string.Equals(sourceName, targetName, StringComparison.OrdinalIgnoreCase))
-        {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("Source and target formats are identical. No conversion will be performed.");
-            Console.ResetColor();
-            return;
-        }
-
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
@@ -211,7 +203,7 @@ internal static class FormatConversionDialogue
             ExportEngineVersion = engineVersion
         };
 
-        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX)
+        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX and not UbiArtPlatformType.PC)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
