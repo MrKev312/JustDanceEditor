@@ -10,7 +10,6 @@ namespace JustDanceEditor.Audio;
 
 public static class RakiAudioEncoder
 {
-    // PCM and ADPCM methods remain unchanged
     public static void EncodeToRakiPcm(WaveStream source, Stream output, string platform = "Win ", string type = "pcm ")
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -34,8 +33,6 @@ public static class RakiAudioEncoder
         WaveFormat format = audioStream.WaveFormat;
         ushort compressionCode = format.Encoding == WaveFormatEncoding.Pcm ? (ushort)1 : (ushort)2;
 
-        // Swap endianness if necessary (e.g. for Wii/Cafe/PS3)
-        // Nx (Switch) is Little Endian, so this usually won't run for Nx.
         if (isBigEndian && compressionCode == 1 && format.BitsPerSample == 16)
         {
             for (int i = 0; i < bytesRead; i += 2)
@@ -52,28 +49,48 @@ public static class RakiAudioEncoder
         // 2. Chunk Table: 2 entries (fmt + data) * 12 bytes = 24 bytes
         uint chunkTableSize = 24;
 
-        // 3. Current Offset (End of Chunk Table) -> 32 + 24 = 56 (0x38)
+        // 3. Current Offset (Start of fmt chunk) -> 32 + 24 = 56 (0x38)
         uint currentOffset = rakiHeaderSize + chunkTableSize;
 
         // 4. fmt Chunk
+        // FIX 1: Official file uses 18 bytes (WAVEFORMATEX with cbSize), not 16.
         uint fmtOffset = currentOffset;
-        uint fmtSize = 16; // Standard PCM size (no extra bytes)
-        currentOffset += fmtSize;
+        uint fmtSize = 18;
+        currentOffset += fmtSize; // Now at 74 (0x4A)
 
-        // 5. data Chunk
-        // The hex dump provided shows tightly packed data (Offset 72 / 0x48).
-        // Standard PCM usually doesn't strictly require the 16-byte alignment that Opus does,
-        // but if you notice issues, you can re-add the alignment logic here.
-        uint dataOffset = currentOffset;
+        // 5. Data Alignment
+        // FIX 2: Align data start offset to 16 bytes (0x10).
+        // 74 % 16 = 10. Padding needed: 6 bytes. 74 + 6 = 80 (0x50).
+        uint alignment = 0x10;
+        uint remainder = currentOffset % alignment;
+        uint padding = remainder > 0 ? alignment - remainder : 0;
+
+        uint dataOffset = currentOffset + padding;
         uint dataSize = (uint)bytesRead;
 
-        // 6. Final Header Size (Points to where data starts)
-        uint totalHeaderSize = dataOffset;
+        // 6. Header Size Field
+        // In the official file, this points to the end of the last header chunk (0x4A), not the start of data.
+        uint totalHeaderSize = fmtOffset + fmtSize;
 
         // --- Write Data ---
 
         // RAKI Header
-        WriteRakiHeader(writer, platform, type, totalHeaderSize, dataOffset, 2, 0, isBigEndian);
+        // FIX 3: Version is 0x0A (10), and the unknown field (index 7) is 3, not 0.
+        WriteRakiHeader(writer, platform, type, totalHeaderSize, dataOffset, 2, 3, isBigEndian);
+
+        // Manually overwrite the version to 0x0A if needed, though WriteRakiHeader below uses 0x0B.
+        // Let's modify the WriteRakiHeader call logic or seeking back. 
+        // Since WriteRakiHeader hardcodes 0x0B in your original code, we should adjust strictness.
+        // However, looking at the call below, I'm passing arguments to a modified logic.
+        // *Important*: See modified WriteRakiHeader call inside this function below vs your helper.
+        // If you cannot change the helper, seek back and overwrite. 
+        // Assuming we use the helper but need to patch the Version:
+
+        // Patch Version to 0x0A (Official Match)
+        long pos = writer.BaseStream.Position;
+        writer.BaseStream.Position = 4;
+        WriteU32(writer, 0x0A, isBigEndian);
+        writer.BaseStream.Position = pos;
 
         // Chunk Table: fmt
         writer.Write(Encoding.ASCII.GetBytes("fmt "));
@@ -86,17 +103,25 @@ public static class RakiAudioEncoder
         WriteU32(writer, dataSize, isBigEndian);
 
         // fmt Chunk Data
-        // We are now at offset 0x38 (56), exactly where the table said we'd be.
+        // We are now at offset 0x38 (56)
         WriteU16(writer, compressionCode, isBigEndian);
         WriteU16(writer, (ushort)format.Channels, isBigEndian);
         WriteU32(writer, (uint)format.SampleRate, isBigEndian);
         WriteU32(writer, (uint)format.AverageBytesPerSecond, isBigEndian);
         WriteU16(writer, (ushort)format.BlockAlign, isBigEndian);
         WriteU16(writer, (ushort)format.BitsPerSample, isBigEndian);
-        // Note: No extra 4 bytes of padding written here, matching the file size 16.
+
+        // FIX 1 (Continued): Write cbSize (2 bytes of 0)
+        WriteU16(writer, 0, isBigEndian);
+
+        // FIX 2 (Continued): Write Padding
+        for (int i = 0; i < padding; i++)
+        {
+            writer.Write((byte)0);
+        }
 
         // Audio Data
-        // We are now at offset 0x48 (72)
+        // We are now at offset 0x50 (80)
         writer.Write(audioBuffer, 0, bytesRead);
     }
 

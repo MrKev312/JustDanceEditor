@@ -247,7 +247,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
     private async Task GenerateColorsAsync(IntermediateSongPackage package, string materializedRoot, IFileSystem io)
     {
         // Don't overwrite if manually set
-        if (package.Metadata.AdditionalMetadata.ContainsKey("songcolor_1a")) return;
+        if (package.Metadata.AdditionalMetadata.ContainsKey("songcolor_1a"))
+            return;
 
         string assetsDir = io.Combine(materializedRoot, "assets", "coaches");
 
@@ -255,7 +256,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string? bkgFile = io.GetFiles(assetsDir)
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals("coachesbackground", StringComparison.OrdinalIgnoreCase));
 
-        if (bkgFile == null) return;
+        if (bkgFile == null)
+            return;
 
         try
         {

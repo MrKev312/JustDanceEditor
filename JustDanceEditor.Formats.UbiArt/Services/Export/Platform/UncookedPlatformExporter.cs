@@ -5,7 +5,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Tga;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace JustDanceEditor.Formats.UbiArt.Services.Export.Generators;
+namespace JustDanceEditor.Formats.UbiArt.Services.Export.Platform;
 
 public class UncookedPlatformExporter : IPlatformExporter
 {

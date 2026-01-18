@@ -1,6 +1,8 @@
 using BCnEncoder.Decoder;
+using BCnEncoder.Encoder;
 using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
+using BCnEncoder.Shared.ImageFiles;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -472,8 +474,8 @@ public class DDS
                 break;
         }
 
-        uint flags = 0x00000001 | 0x00001000 | 0x00000004 | 0x00000002;
-        uint caps = 0x00001000;
+        uint flags = 0x00000001 | 0x00001000 | 0x00000004 | 0x00000002; // CAPS | PIXELFORMAT | WIDTH | HEIGHT
+        uint caps = 0x00001000; // TEXTURE
 
         byte[] fourCC = new byte[4];
 
@@ -488,8 +490,8 @@ public class DDS
         uint pFlags;
         if (compressed)
         {
-            flags |= 0x00080000;
-            pFlags = 0x00000004;
+            flags |= 0x00080000; // LINEARSIZE
+            pFlags = 0x00000004; // FOURCC
 
             fourCC = format switch
             {
@@ -509,23 +511,14 @@ public class DDS
         }
         else
         {
-            flags |= 0x00080000;
+            flags |= 0x00080000; // LINEARSIZE
 
             if (RGB && hasAlpha)
-            {
-                // RGB with Alpha
-                pFlags = 0x00000040 | 0x00000001;
-            }
+                pFlags = 0x00000040 | 0x00000001; // RGB | ALPHAPIXELS
             else if (luminance)
-            {
                 pFlags = 0x00020000;
-                if (hasAlpha)
-                    pFlags |= 0x00000001;
-            }
             else if (RGB)
-            {
                 pFlags = 0x00000040;
-            }
             else
                 throw new Exception("Unsupported format!");
 
@@ -537,9 +530,9 @@ public class DDS
         Array.Copy(BitConverter.GetBytes(flags), 0, hdr, 8, 4);
         Array.Copy(BitConverter.GetBytes(height), 0, hdr, 12, 4);
         Array.Copy(BitConverter.GetBytes(width), 0, hdr, 16, 4);
-        Array.Copy(BitConverter.GetBytes(size), 0, hdr, 20, 4);
+        Array.Copy(BitConverter.GetBytes(size), 0, hdr, 20, 4); // PitchOrLinearSize
         Array.Copy(BitConverter.GetBytes(mipCount), 0, hdr, 28, 4);
-        Array.Copy(BitConverter.GetBytes((uint)32), 0, hdr, 76, 4);
+        Array.Copy(BitConverter.GetBytes((uint)32), 0, hdr, 76, 4); // PixelFormat Size
         Array.Copy(BitConverter.GetBytes(pFlags), 0, hdr, 80, 4);
 
         uint[] compSelsArr = [
@@ -598,40 +591,44 @@ public class DDS
             _ => (0, 1, 2, 3),
         };
 
-        // Generate DDS header
-        byte[] header = GenerateHeader(mipCount, width, height, format, cs, 0);
-
-        // Convert image data based on format
+        // Convert image data
         byte[] imageData = ConvertImageDataToFormat(image, format);
 
-        // Write header and data to output
+        // For BCn, size in header is typically pitch or linear size
+        uint size = 0;
+        if (BCnFormats.Contains(format))
+        {
+            // For DXT1, 8 bytes per block (4x4 pixels). DXT5, 16 bytes.
+            int blockSize = (format == DDSFormat.DXT1 || format == DDSFormat.BC1) ? 8 : 16;
+            int blocksWide = (int)((width + 3) / 4);
+            int blocksHigh = (int)((height + 3) / 4);
+            size = (uint)(blocksWide * blocksHigh * blockSize);
+        }
+        else
+        {
+            size = (uint)(width * (uint)GetBPP_DDS(format));
+        }
+
+        byte[] header = GenerateHeader(mipCount, width, height, format, cs, size);
+
         output.Write(header);
         output.Write(imageData);
     }
 
-    /// <summary>
-    /// Converts image pixel data to the specified DDS format.
-    /// </summary>
+    private static int GetBPP_DDS(DDSFormat format)
+    {
+        return format switch { DDSFormat.RGBA8 => 4, _ => 0 }; // Simplified
+    }
+
     private static byte[] ConvertImageDataToFormat(Image<Bgra32> image, DDSFormat format)
     {
-        // For now, we'll handle uncompressed formats by converting pixels directly
-        // Compressed formats would require additional compression libraries
         return format switch
         {
             DDSFormat.RGBA8 => ConvertToRGBA8(image),
-            DDSFormat.RGBA_SRGB => ConvertToRGBA8(image),
-            DDSFormat.RGB10A2 => ConvertToRGB10A2(image),
-            DDSFormat.RGB565 => ConvertToRGB565(image),
-            DDSFormat.RGB5A1 => ConvertToRGB5A1(image),
-            DDSFormat.RGBA4 => ConvertToRGBA4(image),
-            DDSFormat.L8 => ConvertToL8(image),
-            DDSFormat.LA8 => ConvertToLA8(image),
-            // Compressed formats - throw for now as they need compression
-            DDSFormat.DXT1 or DDSFormat.DXT3 or DDSFormat.DXT5 or
-            DDSFormat.BC1 or DDSFormat.BC2 or DDSFormat.BC3 or
-            DDSFormat.BC4U or DDSFormat.BC4S or DDSFormat.BC5U or DDSFormat.BC5S or
-            DDSFormat.ETC1 => throw new NotImplementedException($"Compression for {format} is not yet implemented."),
-            _ => throw new NotSupportedException($"Format {format} is not supported.")
+            DDSFormat.DXT1 or DDSFormat.BC1 => CompressBCn(image, CompressionFormat.Bc1),
+            DDSFormat.DXT3 or DDSFormat.BC2 => CompressBCn(image, CompressionFormat.Bc2),
+            DDSFormat.DXT5 or DDSFormat.BC3 => CompressBCn(image, CompressionFormat.Bc3),
+            _ => throw new NotImplementedException($"Format {format} is not supported.")
         };
     }
 
@@ -639,7 +636,6 @@ public class DDS
     {
         byte[] result = new byte[image.Width * image.Height * 4];
         int offset = 0;
-
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -647,168 +643,25 @@ public class DDS
                 Span<Bgra32> row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                 {
-                    Bgra32 pixel = row[x];
-                    result[offset++] = pixel.B;
-                    result[offset++] = pixel.G;
-                    result[offset++] = pixel.R;
-                    result[offset++] = pixel.A;
+                    result[offset++] = row[x].B;
+                    result[offset++] = row[x].G;
+                    result[offset++] = row[x].R;
+                    result[offset++] = row[x].A;
                 }
             }
         });
-
         return result;
     }
 
-    private static byte[] ConvertToRGB10A2(Image<Bgra32> image)
+    private static byte[] CompressBCn(Image<Bgra32> image, CompressionFormat format)
     {
-        byte[] result = new byte[image.Width * image.Height * 4];
-        int offset = 0;
+        // BCnEncoder expects Rgba32
+        using Image<Rgba32> rgba = image.CloneAs<Rgba32>();
 
-        image.ProcessPixelRows(accessor =>
+        BcEncoder encoder = new()
         {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    uint r = (uint)(pixel.R >> 6) & 0x3FF;
-                    uint g = (uint)(pixel.G >> 6) & 0x3FF;
-                    uint b = (uint)(pixel.B >> 6) & 0x3FF;
-                    uint a = (uint)(pixel.A >> 6) & 0x3;
-                    uint packed = (r << 22) | (g << 12) | (b << 2) | a;
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 4);
-                    offset += 4;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    private static byte[] ConvertToRGB565(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    uint r = (uint)(pixel.R >> 3) & 0x1F;
-                    uint g = (uint)(pixel.G >> 2) & 0x3F;
-                    uint b = (uint)(pixel.B >> 3) & 0x1F;
-                    ushort packed = (ushort)((r << 11) | (g << 5) | b);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    private static byte[] ConvertToRGB5A1(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    uint r = (uint)(pixel.R >> 3) & 0x1F;
-                    uint g = (uint)(pixel.G >> 3) & 0x1F;
-                    uint b = (uint)(pixel.B >> 3) & 0x1F;
-                    uint a = (pixel.A > 128 ? 1U : 0U) & 0x1;
-                    ushort packed = (ushort)((r << 10) | (g << 5) | b | (a << 15));
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    private static byte[] ConvertToRGBA4(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    uint r = (uint)(pixel.R >> 4) & 0xF;
-                    uint g = (uint)(pixel.G >> 4) & 0xF;
-                    uint b = (uint)(pixel.B >> 4) & 0xF;
-                    uint a = (uint)(pixel.A >> 4) & 0xF;
-                    ushort packed = (ushort)(r | (g << 4) | (b << 8) | (a << 12));
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    private static byte[] ConvertToL8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height];
-        int offset = 0;
-
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    // Convert to grayscale using standard luminosity formula
-                    byte luminance = (byte)((0.299f * pixel.R) + (0.587f * pixel.G) + (0.114f * pixel.B));
-                    result[offset++] = luminance;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    private static byte[] ConvertToLA8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    Bgra32 pixel = row[x];
-                    byte luminance = (byte)((0.299f * pixel.R) + (0.587f * pixel.G) + (0.114f * pixel.B));
-                    result[offset++] = luminance;
-                    result[offset++] = pixel.A;
-                }
-            }
-        });
-
-        return result;
+            OutputOptions = { GenerateMipMaps = false, Quality = CompressionQuality.BestQuality, Format = format }
+        };
+        return encoder.EncodeToRawBytes(rgba)[0];
     }
 }

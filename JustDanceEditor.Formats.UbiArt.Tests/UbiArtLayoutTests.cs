@@ -33,7 +33,7 @@ public class UbiArtLayoutTests
 
         UbiArtLayoutResolver layout = new();
         UbiArtPlatform style = UbiArtPlatform.Uncooked;
-        UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
+        UbiArtEngineVersion version = UbiArtEngineVersion.JD2022;
         string mapWorldRelative = layout.GetMapWorldFolder(root, "song", style, version);
         string mapWorldFolder = Path.Combine(root, mapWorldRelative);
 

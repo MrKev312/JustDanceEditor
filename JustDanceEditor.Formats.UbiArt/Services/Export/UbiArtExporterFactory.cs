@@ -10,6 +10,7 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
         return platform switch
         {
             UbiArtPlatform.NX => new NxCookedPlatformExporter(),
+            UbiArtPlatform.PC => new PcCookedPlatformExporter(),
             UbiArtPlatform.Uncooked => new UncookedPlatformExporter(),
             _ => throw new NotImplementedException($"Platform {platform} is not yet supported.")
         };
