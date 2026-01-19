@@ -537,6 +537,8 @@ public class GTXFormatTests
     [InlineData(3, 3)]   // Odd dimensions
     [InlineData(7, 5)]   // Prime-like dimensions
     [InlineData(255, 255)] // Off by one from power of 2
+    [InlineData(512, 354)] // Non-power-of-2 height (reported bug case)
+    [InlineData(354, 512)] // Swapped version
     public void RoundTrip_OddDimensions(int width, int height)
     {
         using Image<Bgra32> original = CreateTestImage(width, height);

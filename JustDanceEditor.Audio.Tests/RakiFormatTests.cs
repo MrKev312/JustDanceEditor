@@ -179,7 +179,7 @@ public class RakiFormatTests
         using MemoryStream output = new();
 
         // Act
-        RakiAudioEncoder.EncodeToRakiAdpcm(testAudio, output);
+        RakiAudioEncoder.EncodeToRakiCafeAdpcm(testAudio, output);
 
         // Assert
         byte[] data = output.ToArray();

@@ -335,6 +335,7 @@ public class RakiAudioConverter : IAudioConverter
                 writer.Seek(40, SeekOrigin.Begin);
                 writer.Write((uint)(totalBytes - 36));
             }
+
             pcmStream.Position = 0;
             return new WaveFileReader(pcmStream);
         }
@@ -471,7 +472,7 @@ public class RakiAudioConverter : IAudioConverter
         samp1 = (short)newSample;
 
         // Adapt delta
-        delta = (short)((MsAdpcmAdaptationTable[nibble] * delta) / 256);
+        delta = (short)(MsAdpcmAdaptationTable[nibble] * delta / 256);
         if (delta < 16)
             delta = 16;
 

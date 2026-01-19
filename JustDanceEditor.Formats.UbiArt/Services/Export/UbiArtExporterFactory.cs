@@ -11,6 +11,7 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
         {
             UbiArtPlatform.NX => new NxCookedPlatformExporter(),
             UbiArtPlatform.PC => new PcCookedPlatformExporter(),
+            UbiArtPlatform.WiiU => new WiiUCookedPlatformExporter(),
             UbiArtPlatform.Uncooked => new UncookedPlatformExporter(),
             _ => throw new NotImplementedException($"Platform {platform} is not yet supported.")
         };

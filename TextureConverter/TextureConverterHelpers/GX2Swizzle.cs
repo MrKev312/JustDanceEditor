@@ -278,6 +278,7 @@ public static class GX2Swizzle
         {
             width = (width + 3) / 4;
             height = (height + 3) / 4;
+            pitch = (pitch + 3) / 4;
         }
 
         uint pipeSwizzle = (swizzle >> 8) & 1;
@@ -462,6 +463,127 @@ public static class GX2Swizzle
     #endregion
 
     #region Helper Methods
+
+    /// <summary>
+    /// Gets the default tile mode for a GX2 surface based on its properties.
+    /// </summary>
+    public static uint GetDefaultGX2TileMode(uint dim, uint width, uint height, uint depth, GX2SurfaceFormat format, uint aa, uint use)
+    {
+        uint tileMode = 1; // Default to LinearAligned
+        bool isDepthBuffer = (use & 4) != 0;
+        bool isColorBuffer = (use & 2) != 0;
+
+        if (dim != 0 || aa != 0 || isDepthBuffer)
+        {
+            if (dim != 2 || isColorBuffer)
+                tileMode = 4; // Tiled2DThin1
+            else
+                tileMode = 7; // Tiled2DThick
+
+            // Check if the texture is too small for macro tiling
+            SurfaceOut surfOut = GetSurfaceInfo(format, width, height, depth, dim, tileMode, aa, 0);
+            if (width < surfOut.PitchAlign && height < surfOut.HeightAlign)
+            {
+                if (tileMode == 7)
+                    tileMode = 3; // Tiled1DThick
+                else
+                    tileMode = 2; // Tiled1DThin1
+            }
+        }
+
+        return tileMode;
+    }
+
+    /// <summary>
+    /// Creates the texture registers for a GX2Surface.
+    /// These are required for the game to properly interpret the texture.
+    /// Based on AboodXD's GTX-Extractor implementation.
+    /// </summary>
+    public static uint[] CreateRegisters(GX2Surface surface)
+    {
+        uint pitch = surface.Pitch;
+        
+        // For BCN formats, pitch is stored as pitch * 4 in the registers
+        if (IsFormatBCN(surface.Format))
+            pitch *= 4;
+        
+        byte[] compSel = surface.CompSel ?? [0, 1, 2, 3];
+        if (compSel.Length != 4)
+            compSel = [0, 1, 2, 3];
+        
+        // Adjust comp sel for RGB565 format
+        if ((uint)surface.Format == 8) // TCS_R5_G6_B5_UNORM
+            compSel = [0, 1, 2, 5];
+        
+        pitch = Math.Max(pitch, 8);
+        
+        uint format = (uint)surface.Format;
+        uint tileMode = (uint)surface.TileMode;
+        uint width = surface.Width;
+        uint height = surface.Height;
+        uint numMips = Math.Max(1, surface.NumMips);
+        uint dim = (uint)surface.Dim;
+        
+        // Register 0: width, pitch, tileType, tileMode, dim
+        uint register0 = (((width - 1) & 0x1FFF) << 19)
+                       | ((((pitch / 8) - 1) & 0x7FF) << 8)
+                       | ((0 & 1) << 7)  // tileType = 0
+                       | ((tileMode & 0xF) << 3)
+                       | (dim & 7);
+        
+        // Register 1: format, depth, height
+        int register1 = (((int)format & 0x3F) << 26)
+                      | ((0 & 0x1FFF) << 13)  // depth = 0
+                      | ((int)(height - 1) & 0x1FFF);
+        
+        // Register 2: component selectors and format flags
+        int formatComp = 0;
+        int numFormat = 0;
+        int forceDegamma = 0;
+        
+        if ((format & 0x200) != 0)
+            formatComp = 1;
+        
+        if ((format & 0x800) != 0)
+            numFormat = 2;
+        else if ((format & 0x100) != 0)
+            numFormat = 1;
+        
+        if ((format & 0x400) != 0)
+            forceDegamma = 1;
+        
+        int register2 = ((0 & 7) << 28)  // baseLevel = 0
+                      | ((compSel[3] & 7) << 25)
+                      | ((compSel[2] & 7) << 22)
+                      | ((compSel[1] & 7) << 19)
+                      | ((compSel[0] & 7) << 16)
+                      | ((2 & 3) << 14)  // requestSize = 2
+                      | ((0 & 3) << 12)  // endian = 0
+                      | ((forceDegamma & 1) << 11)
+                      | ((0 & 1) << 10)  // surfMode = 0
+                      | ((numFormat & 3) << 8)
+                      | ((formatComp & 3) << 6)
+                      | ((formatComp & 3) << 4)
+                      | ((formatComp & 3) << 2)
+                      | (formatComp & 3);
+        
+        // Register 3: yuvConv, lastArray, baseArray, lastLevel
+        int register3 = ((0 & 3) << 30)  // yuvConv = 0
+                      | ((0 & 0x1FFF) << 17)  // lastArray = 0
+                      | ((0 & 0x1FFF) << 4)   // baseArray = 0
+                      | (((int)numMips - 1) & 0xF);  // lastLevel
+        
+        // Register 4: type, advisClampLOD, advisFaultLOD, interlaced, perfModulation, maxAnisoRatio, MPEGClamp
+        int register4 = ((2 & 3) << 30)  // type = 2
+                      | ((0 & 0x3F) << 13)  // advisClampLOD = 0
+                      | ((0 & 0xF) << 9)    // advisFaultLOD = 0
+                      | ((0 & 1) << 8)      // interlaced = 0
+                      | ((7 & 7) << 5)      // perfModulation = 7
+                      | ((4 & 7) << 2)      // maxAnisoRatio = 4
+                      | (0 & 3);          // MPEGClamp = 0
+        
+        return [(uint)register0, (uint)register1, (uint)register2, (uint)register3, (uint)register4];
+    }
 
     private static uint GetBitsPerPixel(GX2SurfaceFormat format)
     {

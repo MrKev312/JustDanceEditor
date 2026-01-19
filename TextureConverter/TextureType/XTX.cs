@@ -454,7 +454,7 @@ public class XTX
 
         BcEncoder encoder = new()
         {
-            OutputOptions = { GenerateMipMaps = false, Quality = CompressionQuality.Balanced, Format = format }
+            OutputOptions = { GenerateMipMaps = false, Quality = CompressionQuality.BestQuality, Format = format }
         };
         return encoder.EncodeToRawBytes(rgba)[0];
     }

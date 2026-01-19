@@ -262,10 +262,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         try
         {
             // Load image
-            using var img = await Image.LoadAsync<Bgra32>(bkgFile); // Or use io.OpenRead logic if strictly required
+            using Image<Bgra32> img = await Image.LoadAsync<Bgra32>(bkgFile); // Or use io.OpenRead logic if strictly required
 
             // Generate Theme (Returns normal Colors)
-            var theme = ColorThemeGenerator.GenerateFromImage(img);
+            ColorThemeGenerator.SongTheme theme = ColorThemeGenerator.GenerateFromImage(img);
 
             // Convert to UbiArt Array format and store in metadata
             package.Metadata.AdditionalMetadata["songcolor_1a"] = theme.Color1A.ToHex();

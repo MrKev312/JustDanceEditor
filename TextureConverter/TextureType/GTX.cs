@@ -1,3 +1,5 @@
+using BCnEncoder.ImageSharp;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -388,7 +390,7 @@ public class GTX
         byte[] decodedData = DecodeTexture(texture);
 
         DDSFormat ddsFormat = ConvertGX2ToDDSFormat(texture.Format);
-        (uint compR, uint compG, uint compB, uint compA) = GetCompSel(texture.Format);
+        (uint compR, uint compG, uint compB, uint compA) = GetCompSel(texture.Format, texture.CompSel);
 
         byte[] ddsHeader = GenerateHeader(
             texture.NumMips,
@@ -411,8 +413,13 @@ public class GTX
         return gtx.ConvertToImage();
     }
 
-    private static (uint, uint, uint, uint) GetCompSel(GX2SurfaceFormat format)
+    private static (uint, uint, uint, uint) GetCompSel(GX2SurfaceFormat format, byte[] compSel = null)
     {
+        if (compSel != null && compSel.Length == 4)
+        {
+            return (compSel[0], compSel[1], compSel[2], compSel[3]);
+        }
+
         return format switch
         {
             GX2SurfaceFormat.TC_R8_UNORM => (0, 0, 0, 5),
@@ -467,20 +474,30 @@ public class GTX
 
     private static GX2Surface CreateGX2Surface(uint width, uint height, GX2SurfaceFormat format, byte[] data)
     {
+        // Get the optimal tile mode for the given dimensions
+        uint tileMode = GX2Swizzle.GetDefaultGX2TileMode(
+            (uint)GX2SurfaceDimension.Dim2D,
+            width,
+            height,
+            1,
+            format,
+            (uint)GX2AAMode.Mode1X,
+            1); // use = 1 (texture)
+
         GX2Surface surface = new()
         {
             Dim = GX2SurfaceDimension.Dim2D,
             Width = width,
             Height = height,
             Depth = 1,
-            NumMips = 1,
+            NumMips = 1, // Currently supporting single mip for import, similar to reference
             Format = format,
             AA = GX2AAMode.Mode1X,
             Use = 1,
-            TileMode = GX2TileMode.LinearAligned,
+            TileMode = (GX2TileMode)tileMode,
             Swizzle = 0,
-            Alignment = 4096,
-            Pitch = 0,
+            Alignment = 0, // Will be calculated
+            Pitch = 0, // Will be calculated
             Bpp = GetBitsPerPixel(format) / 8,
             MipOffsets = new uint[13],
             FirstMip = 0,
@@ -491,34 +508,48 @@ public class GTX
             TexRegs = new uint[5],
         };
 
-        // Calculate surface info to get proper pitch alignment
-        GX2Swizzle.SurfaceOut surfOut = GX2Swizzle.GetSurfaceInfo(format, width, height, 1, (uint)surface.Dim, (uint)surface.TileMode, (uint)surface.AA, 0);
+        // Correct Component Selectors based on format
+        (uint r, uint g, uint b, uint a) = GetCompSel(format);
+        surface.CompSel[0] = (byte)r;
+        surface.CompSel[1] = (byte)g;
+        surface.CompSel[2] = (byte)b;
+        surface.CompSel[3] = (byte)a;
+
+        // Calculate surface info to get proper pitch, alignment, and size
+        GX2Swizzle.SurfaceOut surfOut = GX2Swizzle.GetSurfaceInfo(
+            format,
+            width,
+            height,
+            1,
+            (uint)surface.Dim,
+            (uint)surface.TileMode,
+            (uint)surface.AA,
+            0);
+
         surface.ImageSize = (uint)surfOut.SurfSize;
         surface.Pitch = surfOut.Pitch;
+        surface.Alignment = surfOut.BaseAlign;
 
-        // Linear modes don't need swizzle
-        surface.Swizzle = 0;
+        // Construct proper swizzle value based on tile mode
+        // For macro-tiled modes (4-15), use 0xd0000 | swizzle << 8
+        // For linear/micro-tiled modes (0-3, 16), use swizzle << 8
+        uint swizzleValue;
+        if (tileMode is >= 4 and <= 15)
+            swizzleValue = 0xd0000; // Macro-tiled default swizzle pattern
+        else
+            swizzleValue = 0;
+        surface.Swizzle = swizzleValue;
 
-        // Layout data according to the aligned pitch
-        uint bpp = GetBitsPerPixel(format) / 8;
-        uint srcRowBytes = width * bpp;
-        uint dstRowBytes = surface.Pitch * bpp;
+        // Pad the input data to the aligned surface size before swizzling
+        byte[] paddedData = new byte[surfOut.SurfSize];
+        Array.Copy(data, 0, paddedData, 0, Math.Min(data.Length, paddedData.Length));
 
-        byte[] paddedData = new byte[surface.ImageSize];
-
-        for (uint y = 0; y < height; y++)
-        {
-            uint srcOffset = y * srcRowBytes;
-            uint dstOffset = y * dstRowBytes;
-
-            if (srcOffset + srcRowBytes <= data.Length && dstOffset + srcRowBytes <= paddedData.Length)
-            {
-                Array.Copy(data, srcOffset, paddedData, dstOffset, srcRowBytes);
-            }
-        }
-
-        surface.Data = paddedData;
+        // Swizzle the linear data
+        surface.Data = GX2Swizzle.Swizzle(surface, paddedData, 0, 0);
         surface.MipData = [];
+
+        // Compute the texture registers (required for game to interpret the texture)
+        surface.TexRegs = GX2Swizzle.CreateRegisters(surface);
 
         return surface;
     }
@@ -542,8 +573,8 @@ public class GTX
         // Write surface info block
         WriteSurfaceBlock(writer, surface);
 
-        // Write data block
-        WriteDataBlock(writer, surface.Data);
+        // Write data block (swizzled)
+        WriteDataBlock(writer, surface.Data, surface.Alignment);
 
         // Write EOF block
         WriteEOFBlock(writer);
@@ -571,10 +602,13 @@ public class GTX
         writer.Write(data);
     }
 
-    private static void WriteDataBlock(EndianBinaryWriter writer, byte[] data)
+    private static void WriteDataBlock(EndianBinaryWriter writer, byte[] data, uint alignment)
     {
         // Write align block first
-        uint alignment = 4096;
+        // If alignment is 0, use default 4096 (though it should be set by GetSurfaceInfo)
+        if (alignment == 0)
+            alignment = 4096;
+
         uint currentPos = (uint)((MemoryStream)writer.BaseStream).Position;
         uint alignSize = GetAlignBlockSize(currentPos + 32, alignment);
 
@@ -620,9 +654,11 @@ public class GTX
 
     private static uint GetAlignBlockSize(uint dataOffset, uint alignment)
     {
+        // Equivalent to RoundUp logic in reference
         uint alignedOffset = (dataOffset + alignment - 1) & ~(alignment - 1);
         if (alignedOffset <= dataOffset + 32)
-            return 0;
+            return 0; // Already aligned or padding included in header logic (which isn't here)
+                      // The reference calculates padding size needed *after* the block header.
         return alignedOffset - dataOffset - 32;
     }
 
@@ -636,8 +672,27 @@ public class GTX
             GX2SurfaceFormat.TC_R4_G4_B4_A4_UNORM => ConvertToRGBA4(image),
             GX2SurfaceFormat.TC_R8_UNORM => ConvertToR8(image),
             GX2SurfaceFormat.TC_R8_G8_UNORM => ConvertToRG8(image),
+            // Add BCn encoding if libraries are available, otherwise throws
+            GX2SurfaceFormat.T_BC1_UNORM or GX2SurfaceFormat.T_BC1_SRGB => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc1),
+            GX2SurfaceFormat.T_BC2_UNORM or GX2SurfaceFormat.T_BC2_SRGB => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc2),
+            GX2SurfaceFormat.T_BC3_UNORM or GX2SurfaceFormat.T_BC3_SRGB => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc3),
+            GX2SurfaceFormat.T_BC4_UNORM or GX2SurfaceFormat.T_BC4_SNORM => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc4),
+            GX2SurfaceFormat.T_BC5_UNORM or GX2SurfaceFormat.T_BC5_SNORM => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc5),
+
             _ => throw new NotImplementedException($"Format {format} is not supported for export.")
         };
+    }
+
+    private static byte[] CompressBCn(Image<Bgra32> image, BCnEncoder.Shared.CompressionFormat format)
+    {
+        // Uses BCnEncoder.ImageSharp to compress the image
+        using Image<Rgba32> rgba = image.CloneAs<Rgba32>();
+        var encoder = new BCnEncoder.Encoder.BcEncoder();
+        encoder.OutputOptions.GenerateMipMaps = false;
+        encoder.OutputOptions.Quality = BCnEncoder.Encoder.CompressionQuality.BestQuality;
+        encoder.OutputOptions.Format = format;
+
+        return encoder.EncodeToRawBytes(rgba)[0];
     }
 
     private static byte[] ConvertToRGBA8(Image<Bgra32> image)
@@ -677,8 +732,13 @@ public class GTX
                     uint g = (uint)(row[x].G >> 2) & 0x3F;
                     uint b = (uint)(row[x].B >> 3) & 0x1F;
                     ushort packed = (ushort)((r << 11) | (g << 5) | b);
-                    // Write little-endian for DDS compatibility
+                    // Write little-endian
                     byte[] bytes = BitConverter.GetBytes(packed);
+                    // Wii U is Big Endian, but GX2Swizzle usually handles byte swapping if necessary,
+                    // however raw pixel data in RGBA8 is usually handled as byte arrays.
+                    // For packed formats, we might need to swap if the system reads them as 16bit ints.
+                    // But typically textures are treated as byte streams. 
+                    // Let's stick to Little Endian for generation as the Swizzle method handles the rest.
                     Array.Copy(bytes, 0, result, offset, 2);
                     offset += 2;
                 }
@@ -702,8 +762,8 @@ public class GTX
                     uint g = (uint)(row[x].G >> 3) & 0x1F;
                     uint b = (uint)(row[x].B >> 3) & 0x1F;
                     uint a = (row[x].A > 128 ? 1U : 0U) & 0x1;
-                    ushort packed = (ushort)((a << 15) | (r << 10) | (g << 5) | b);
-                    // Write little-endian for DDS compatibility
+                    ushort packed = (ushort)((r << 11) | (g << 6) | (b << 1) | a);
+                    // Note: Format definition varies, using standard 5551
                     byte[] bytes = BitConverter.GetBytes(packed);
                     Array.Copy(bytes, 0, result, offset, 2);
                     offset += 2;
@@ -729,7 +789,6 @@ public class GTX
                     uint b = (uint)(row[x].B >> 4) & 0xF;
                     uint a = (uint)(row[x].A >> 4) & 0xF;
                     ushort packed = (ushort)((r << 12) | (g << 8) | (b << 4) | a);
-                    // Write little-endian for DDS compatibility
                     byte[] bytes = BitConverter.GetBytes(packed);
                     Array.Copy(bytes, 0, result, offset, 2);
                     offset += 2;

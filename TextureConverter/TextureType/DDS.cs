@@ -606,7 +606,7 @@ public class DDS
         }
         else
         {
-            size = (uint)(width * (uint)GetBPP_DDS(format));
+            size = width * (uint)GetBPP_DDS(format);
         }
 
         byte[] header = GenerateHeader(mipCount, width, height, format, cs, size);
