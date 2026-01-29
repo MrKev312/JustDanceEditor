@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 
-using SixLabors.ImageSharp;
-
 using System.Globalization;
 using System.Text;
 
@@ -13,7 +11,8 @@ namespace JustDanceEditor.Formats.JDI.Video;
 public static class JdiVideoConverter
 {
     private static readonly string[] AllowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
-    private static readonly SemaphoreSlim FFmpegSemaphore = new(Environment.ProcessorCount, Environment.ProcessorCount);
+    // Limit total concurrent FFmpeg processes
+    private static readonly SemaphoreSlim FFmpegSemaphore = new(Math.Max(1, Environment.ProcessorCount / 2), Math.Max(1, Environment.ProcessorCount / 2));
     private static readonly SemaphoreSlim InitLock = new(1, 1);
     private static bool _ffmpegInitialized = false;
 
@@ -21,16 +20,13 @@ public static class JdiVideoConverter
     {
         if (_ffmpegInitialized)
             return;
-
         await InitLock.WaitAsync();
         try
         {
             if (_ffmpegInitialized)
                 return;
-
             if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
                 await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
-
             _ffmpegInitialized = true;
         }
         finally
@@ -39,447 +35,324 @@ public static class JdiVideoConverter
         }
     }
 
-    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(package);
-        ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
+        (TimeSpan start, TimeSpan dur) = package.TimelineStructure.GetVideoPreviewTiming();
 
-        await EnsureFFmpegInitializedAsync();
-
-        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
-        string scratchFolder = GetScratchFolder(packageRoot);
-
-        // Check if originals exist in assets (source-of-truth)
-        if (HasCompletePreviewSet(assetsFolder))
-        {
-            logger.LogDebug("Source-of-truth preview videos found in assets.");
-            return;
-        }
-
-        // Check if already generated in scratch
-        if (HasCompletePreviewSet(scratchFolder) && ValidateManifest(scratchFolder, UnityVideoProfiles.Previews, "preview"))
-        {
-            logger.LogDebug("Preview videos already exist in scratch with valid manifest.");
-            return;
-        }
-
-        // Generate in scratch from source video
-        string videoFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string? sourceVideo = SelectSourceVideo(videoFolder);
-        if (sourceVideo == null)
-        {
-            logger.LogWarning("Cannot generate preview videos; no source video found in assets/video.");
-            return;
-        }
-
-        Directory.CreateDirectory(scratchFolder);
-        (TimeSpan previewStart, TimeSpan previewDuration) = package.TimelineStructure.GetVideoPreviewTiming();
-
-        logger.LogInformation("Generating {Count} preview videos in scratch...", UnityVideoProfiles.Previews.Length);
-        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Previews, previewStart, previewDuration, logger, cancellationToken);
-
-        WriteManifest(scratchFolder, UnityVideoProfiles.Previews, "preview", logger);
-        logger.LogInformation("Preview video generation complete.");
+        await ProcessBatchAsync(
+            packageRoot,
+            UnityVideoProfiles.Previews,
+            "preview",
+            IntermediatePackageLayout.Assets.PreviewVideoFolder,
+            logger,
+            ct,
+            start,
+            dur
+        );
     }
 
-    public static async Task EnsureBackgroundVideosAsync(string packageRoot, ILogger logger, CancellationToken cancellationToken = default)
+    public static async Task EnsureBackgroundVideosAsync(string packageRoot, ILogger logger, CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
+        await ProcessBatchAsync(
+            packageRoot,
+            UnityVideoProfiles.Masters,
+            "master",
+            IntermediatePackageLayout.Assets.VideoFolder, // Check assets for source-of-truth
+            logger,
+            ct
+        );
+    }
 
+    public static async Task<string?> EnsureWiiVideoAsync(string packageRoot, ILogger logger, CancellationToken ct = default)
+    {
         await EnsureFFmpegInitializedAsync();
-
         string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
         string scratchFolder = GetScratchFolder(packageRoot);
 
-        // Check if originals exist in assets (source-of-truth: 4 master videos)
-        if (HasCompleteMasterSet(assetsFolder))
-        {
-            logger.LogDebug("Source-of-truth background videos (4 variants) found in assets.");
-            return;
-        }
-
-        // Check if already generated in scratch (filter by master_ prefix)
-        if (HasCompleteMasterSet(scratchFolder) && ValidateManifest(scratchFolder, UnityVideoProfiles.Masters, "master"))
-        {
-            logger.LogDebug("Background videos already exist in scratch with valid manifest.");
-            return;
-        }
-
-        // Generate in scratch from largest source video
         string? sourceVideo = SelectSourceVideo(assetsFolder);
         if (sourceVideo == null)
+            return LogNotFound(logger);
+
+        string cachedPath = Path.Combine(scratchFolder, $"{Path.GetFileNameWithoutExtension(sourceVideo)}_wii.webm");
+        if (File.Exists(cachedPath))
+            return cachedPath;
+
+        Directory.CreateDirectory(scratchFolder);
+
+        // Wii Specifics: VP8, 512x384, Fixed Filters
+        string filter = "scale=512:384:flags=bicubic,setsar=1,setdar=4/3";
+        string codecArgs = "-c:v vp8 -profile:v 2 -pix_fmt yuv420p -auto-alt-ref 0 -b:v 2000k -quality good -cpu-used 16";
+
+        logger.LogInformation("Transcoding Wii video (2-pass)...");
+        await RunTwoPassEncodingAsync(sourceVideo, cachedPath, filter, codecArgs, TimeSpan.Zero, TimeSpan.Zero, logger, ct);
+
+        return cachedPath;
+    }
+
+    public static async Task<string?> EnsureVideoFormatAsync(string packageRoot, string targetExt, string codec, ILogger logger, CancellationToken ct = default)
+    {
+        await EnsureFFmpegInitializedAsync();
+        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string scratchFolder = GetScratchFolder(packageRoot);
+
+        string? sourceVideo = SelectSourceVideo(assetsFolder);
+        if (sourceVideo == null)
+            return LogNotFound(logger);
+
+        // Check if source already matches requirements
+        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourceVideo, ct);
+        IVideoStream? vidStream = mediaInfo.VideoStreams.FirstOrDefault();
+        if (vidStream?.Codec.Equals(codec, StringComparison.OrdinalIgnoreCase) == true &&
+            Path.GetExtension(sourceVideo).Equals(targetExt, StringComparison.OrdinalIgnoreCase))
         {
-            logger.LogWarning("Cannot generate background videos; no source video found in assets/video.");
+            return sourceVideo;
+        }
+
+        string cachedPath = Path.Combine(scratchFolder, $"{Path.GetFileNameWithoutExtension(sourceVideo)}_{codec.Replace(":", "")}{targetExt}");
+        if (File.Exists(cachedPath))
+            return cachedPath;
+
+        Directory.CreateDirectory(scratchFolder);
+
+        // Derive bitrate from source or default to 4M
+        long bitrate = vidStream?.Bitrate > 0 ? vidStream.Bitrate : 4_000_000;
+
+        string codecArgs;
+        if (codec == "vp8")
+            codecArgs = $"-c:v vp8 -b:v {bitrate} -maxrate {bitrate * 1.5} -bufsize {bitrate * 3} -quality good -cpu-used 1 -slices 4";
+        else if (codec == "vp9")
+            codecArgs = $"-c:v vp9 -b:v {bitrate} -maxrate {bitrate * 1.5} -bufsize {bitrate * 3} -quality good -speed 4 -row-mt 1";
+        else
+            codecArgs = $"-c:v {codec} -b:v {bitrate}";
+
+        logger.LogInformation("Transcoding legacy video to {Codec} (2-pass)...", codec);
+        await RunTwoPassEncodingAsync(sourceVideo, cachedPath, "", codecArgs, TimeSpan.Zero, TimeSpan.Zero, logger, ct);
+
+        return cachedPath;
+    }
+
+    // Shared logic for Previews and Backgrounds
+    private static async Task ProcessBatchAsync(
+        string packageRoot,
+        VideoQualityProfile[] profiles,
+        string type,
+        string truthFolderAbsPath,
+        ILogger logger,
+        CancellationToken ct,
+        TimeSpan start = default,
+        TimeSpan duration = default)
+    {
+        await EnsureFFmpegInitializedAsync();
+        string scratchFolder = GetScratchFolder(packageRoot);
+        string assetsVideoFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+
+        // 1. Check Source-of-Truth
+        if (HasCompleteSet(truthFolderAbsPath, profiles, type))
+        {
+            logger.LogDebug("Source-of-truth {Type} videos found.", type);
+            return;
+        }
+
+        // 2. Check Scratch
+        if (HasCompleteSet(scratchFolder, profiles, type) && ValidateManifest(scratchFolder, profiles, type))
+        {
+            logger.LogDebug("Scratch {Type} videos found and valid.", type);
+            return;
+        }
+
+        // 3. Find Source
+        string? sourceVideo = SelectSourceVideo(assetsVideoFolder);
+        if (sourceVideo == null)
+        {
+            logger.LogWarning("Cannot generate {Type} videos; no source found.", type);
             return;
         }
 
         Directory.CreateDirectory(scratchFolder);
+        logger.LogInformation("Generating {Count} {Type} videos...", profiles.Length, type);
 
-        logger.LogInformation("Generating {Count} background videos in scratch...", UnityVideoProfiles.Masters.Length);
-        await ConvertAllVideosAsync(sourceVideo, scratchFolder, UnityVideoProfiles.Masters, TimeSpan.Zero, TimeSpan.Zero, logger, cancellationToken);
+        // 4. Calculate Base Crop (once)
+        IMediaInfo info = await FFmpeg.GetMediaInfo(sourceVideo, ct);
+        IVideoStream vStream = info.VideoStreams.First();
+        string baseCrop = GetCropFilter(vStream.Width, vStream.Height);
 
-        WriteManifest(scratchFolder, UnityVideoProfiles.Masters, "master", logger);
-        logger.LogInformation("Background video generation complete.");
+        // 5. Run Parallel
+        await Parallel.ForEachAsync(profiles, new ParallelOptions { MaxDegreeOfParallelism = profiles.Length, CancellationToken = ct }, async (profile, token) =>
+        {
+            string targetPath = Path.Combine(scratchFolder, profile.FileName);
+            string filter = BuildFilterChain(baseCrop, profile.Width, profile.Height, duration);
+            string codecArgs = BuildVp9ProfileArgs(profile);
+
+            await RunTwoPassEncodingAsync(sourceVideo, targetPath, filter, codecArgs, start, duration, logger, token);
+        });
+
+        WriteManifest(scratchFolder, profiles, type, logger);
+        logger.LogInformation("{Type} generation complete.", type);
     }
 
-    private static bool HasCompleteMasterSet(string folder)
-    {
-        if (!Directory.Exists(folder))
-            return false;
-
-        int count = Directory.EnumerateFiles(folder)
-            .Where(IsVideoFile)
-            .Count(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase));
-        return count >= UnityVideoProfiles.Masters.Length;
-    }
-
-    private static bool HasCompletePreviewSet(string previewFolder)
-    {
-        if (!Directory.Exists(previewFolder))
-            return false;
-
-        int count = Directory.EnumerateFiles(previewFolder)
-            .Where(IsVideoFile)
-            .Count(f => Path.GetFileName(f).StartsWith("preview_", StringComparison.OrdinalIgnoreCase));
-        return count >= UnityVideoProfiles.Previews.Length;
-    }
-
-    private static string? SelectSourceVideo(string videoFolder)
-    {
-        if (!Directory.Exists(videoFolder))
-            return null;
-
-        return Directory.EnumerateFiles(videoFolder, "*", SearchOption.TopDirectoryOnly)
-            .Where(IsVideoFile)
-            .OrderByDescending(file => new FileInfo(file).Length)
-            .FirstOrDefault();
-    }
-
-    private static bool IsVideoFile(string path)
-    {
-        string extension = Path.GetExtension(path).ToLowerInvariant();
-        return AllowedExtensions.Contains(extension);
-    }
-
-    private static async Task ConvertAllVideosAsync(
-        string source,
-        string scratchFolder,
-        VideoQualityProfile[] profiles,
+    private static async Task RunTwoPassEncodingAsync(
+        string input,
+        string output,
+        string videoFilter,
+        string codecArgs,
         TimeSpan start,
         TimeSpan duration,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
-        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(source, cancellationToken);
-        IVideoStream stream = mediaInfo.VideoStreams.First();
+        string passLogPrefix = Path.Combine(Path.GetDirectoryName(output)!, $"ffmpeg2pass_{Guid.NewGuid()}");
+        string nullOutput = Path.DirectorySeparatorChar == '\\' ? "NUL" : "/dev/null";
 
-        // Build common filter for cropping only
-        List<string> baseFilters = [];
-        float currentRatio = stream.Width / (float)stream.Height;
-        float targetRatio = 16f / 9f;
-        if (Math.Abs(currentRatio - targetRatio) > 0.001f)
-            baseFilters.Add(currentRatio < targetRatio ? "crop=in_w:in_w*9/16" : "crop=in_h*16/9:in_h");
-
-        string baseCropFilter = baseFilters.Count > 0 ? string.Join(",", baseFilters) : string.Empty;
-
-        // Process all profiles in parallel for better CPU utilization
-        logger.LogInformation("Starting parallel 2-pass encoding for {Count} profiles...", profiles.Length);
-
-        Task[] encodingTasks = new Task[profiles.Length];
-        for (int i = 0; i < profiles.Length; i++)
-        {
-            int profileIndex = i; // Capture for closure
-            encodingTasks[i] = EncodeProfileAsync(source, scratchFolder, profiles[profileIndex], profileIndex,
-                start, duration, baseCropFilter, logger, cancellationToken);
-        }
-
-        await Task.WhenAll(encodingTasks);
-        logger.LogInformation("All 2-pass video conversions completed successfully.");
-    }
-
-    private static async Task EncodeProfileAsync(
-        string source,
-        string scratchFolder,
-        VideoQualityProfile profile,
-        int profileIndex,
-        TimeSpan start,
-        TimeSpan duration,
-        string baseCropFilter,
-        ILogger logger,
-        CancellationToken cancellationToken)
-    {
-        string targetPath = Path.Combine(scratchFolder, profile.FileName);
-        string passLogFile = Path.Combine(scratchFolder, $"ffmpeg2pass-{profileIndex}");
-
-        // Build profile-specific video filter
-        List<string> filters = [];
-        if (!string.IsNullOrEmpty(baseCropFilter))
-            filters.Add(baseCropFilter);
-
-        // Add scale for this specific profile
-        Size targetRes = new(profile.Width ?? 768, profile.Height ?? 432);
-        filters.Add($"scale={targetRes.Width}:{targetRes.Height}");
-
-        // Add fade effects only for preview videos (when duration is set)
-        if (duration > TimeSpan.Zero)
-        {
-            double fadeOutStart = Math.Max(0, duration.TotalSeconds - 1);
-            filters.Add($"fade=t=in:st=0:d=1");
-            filters.Add($"fade=t=out:st={fadeOutStart.ToString(CultureInfo.InvariantCulture)}:d=1");
-        }
-
-        string videoFilter = string.Join(",", filters);
-
-        // Build common VP9 arguments used for both passes
-        string commonVp9Args = BuildVp9Arguments(profile, passLogFile);
-
-        logger.LogInformation("Encoding {FileName} (pass 1/2)...", profile.FileName);
-
-        // Pass 1: Analysis pass
-        StringBuilder pass1Args = new();
+        // Construct timing args
+        string timeArgs = "";
         if (start > TimeSpan.Zero)
-            pass1Args.Append(CultureInfo.InvariantCulture, $"-ss {start.TotalSeconds} ");
+            timeArgs += string.Format(CultureInfo.InvariantCulture, "-ss {0} ", start.TotalSeconds);
         if (duration > TimeSpan.Zero)
-            pass1Args.Append(CultureInfo.InvariantCulture, $"-t {duration.TotalSeconds} ");
-        pass1Args.Append($"-i \"{source}\" ");
-        pass1Args.Append($"-vf \"{videoFilter}\" ");
-        pass1Args.Append("-quality good ");
-        pass1Args.Append("-pass 1 ");
-        pass1Args.Append(commonVp9Args);
-        pass1Args.Append("-an ");
-        pass1Args.Append("-f null -");
+            timeArgs += string.Format(CultureInfo.InvariantCulture, "-t {0} ", duration.TotalSeconds);
 
-        cancellationToken.ThrowIfCancellationRequested();
+        string vfArg = string.IsNullOrWhiteSpace(videoFilter) ? "" : $"-vf \"{videoFilter}\"";
 
-        await FFmpegSemaphore.WaitAsync(cancellationToken);
+        // Pass 1
+        await FFmpegSemaphore.WaitAsync(ct);
         try
         {
-            IConversion pass1 = FFmpeg.Conversions.New();
-            await pass1.Start(pass1Args.ToString(), cancellationToken);
+            // Note: -an (no audio) is standard for pass 1
+            string p1Args = $"{timeArgs} -i \"{input}\" {codecArgs} {vfArg} -pass 1 -passlogfile \"{passLogPrefix}\" -an -f null {nullOutput}";
+            await FFmpeg.Conversions.New().Start(p1Args, ct);
         }
         finally
         {
             FFmpegSemaphore.Release();
         }
 
-        logger.LogInformation("Encoding {FileName} (pass 2/2)...", profile.FileName);
-
-        // Pass 2: Final encoding pass
-        StringBuilder pass2Args = new();
-        if (start > TimeSpan.Zero)
-            pass2Args.Append(CultureInfo.InvariantCulture, $"-ss {start.TotalSeconds} ");
-        if (duration > TimeSpan.Zero)
-            pass2Args.Append(CultureInfo.InvariantCulture, $"-t {duration.TotalSeconds} ");
-        pass2Args.Append($"-i \"{source}\" ");
-        pass2Args.Append($"-vf \"{videoFilter}\" ");
-        pass2Args.Append("-quality good ");
-        pass2Args.Append("-pass 2 ");
-        pass2Args.Append(commonVp9Args);
-        pass2Args.Append("-an ");
-        pass2Args.Append("-y ");
-        pass2Args.Append($"\"{targetPath}\"");
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        await FFmpegSemaphore.WaitAsync(cancellationToken);
+        // Pass 2
+        await FFmpegSemaphore.WaitAsync(ct);
         try
         {
-            IConversion pass2 = FFmpeg.Conversions.New();
-            pass2.OnDataReceived += (sender, eventArgs) =>
+            // -an is explicitly kept from original code for Wii/Previews
+            string p2Args = $"{timeArgs} -i \"{input}\" {codecArgs} {vfArg} -pass 2 -passlogfile \"{passLogPrefix}\" -an -y \"{output}\"";
+            IConversion conv = FFmpeg.Conversions.New();
+            conv.OnDataReceived += (s, e) =>
             {
-                if (!string.IsNullOrWhiteSpace(eventArgs.Data))
-                    logger.LogDebug("FFmpeg [{FileName}]: {Data}", profile.FileName, eventArgs.Data);
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                    logger.LogTrace("{File}: {Data}", Path.GetFileName(output), e.Data);
             };
-            await pass2.Start(pass2Args.ToString(), cancellationToken);
+            await conv.Start(p2Args, ct);
         }
         finally
         {
             FFmpegSemaphore.Release();
         }
 
-        // Clean up pass log files
+        // Cleanup Logs
         try
         {
-            string[] passLogFiles = Directory.GetFiles(scratchFolder, $"ffmpeg2pass-{profileIndex}*");
-            foreach (string logFile in passLogFiles)
-                File.Delete(logFile);
+            foreach (string f in Directory.GetFiles(Path.GetDirectoryName(output)!, Path.GetFileName(passLogPrefix) + "*"))
+                File.Delete(f);
         }
-        catch { /* Ignore cleanup errors */ }
-
-        logger.LogInformation("Completed encoding {FileName}", profile.FileName);
+        catch { /* ignore */ }
     }
 
-    private static string BuildVp9Arguments(VideoQualityProfile profile, string passLogFile)
+    private static string BuildVp9ProfileArgs(VideoQualityProfile p)
     {
         int threadCount = Math.Min(Environment.ProcessorCount, 8);
         int tileColumns = (int)Math.Log2(threadCount);
 
-        StringBuilder args = new();
-        args.Append("-c:v libvpx-vp9 ");
-        args.Append($"-passlogfile \"{passLogFile}\" ");
-        args.Append($"-threads {threadCount} ");
-        args.Append("-lag-in-frames 16 ");
-        args.Append(CultureInfo.InvariantCulture, $"-b:v {profile.Bitrate} ");
-        if (!string.IsNullOrEmpty(profile.MaxBitrate))
-            args.Append($"-maxrate {profile.MaxBitrate} ");
-        if (!string.IsNullOrEmpty(profile.BufferSize))
-            args.Append($"-bufsize {profile.BufferSize} ");
-        args.Append("-g 250 ");
-        args.Append("-cpu-used 4 ");
-        args.Append("-auto-alt-ref 1 ");
-        args.Append("-arnr-maxframes 7 ");
-        args.Append("-arnr-strength 4 ");
-        args.Append("-aq-mode 0 ");
-        args.Append("-tile-rows 0 ");
-        args.Append($"-tile-columns {tileColumns} ");
-        args.Append("-row-mt 1 ");
-        args.Append("-r 25 ");
-        return args.ToString();
+        StringBuilder sb = new StringBuilder("-c:v vp9 ");
+        sb.Append(CultureInfo.InvariantCulture, $"-b:v {p.Bitrate} ");
+        if (!string.IsNullOrEmpty(p.MaxBitrate))
+            sb.Append($"-maxrate {p.MaxBitrate} ");
+        if (!string.IsNullOrEmpty(p.BufferSize))
+            sb.Append($"-bufsize {p.BufferSize} ");
+
+        sb.Append($"-threads {threadCount} -tile-columns {tileColumns} -tile-rows 0 -row-mt 1 ");
+        sb.Append("-g 250 -lag-in-frames 16 -cpu-used 4 -auto-alt-ref 1 -arnr-maxframes 7 -arnr-strength 4 -aq-mode 0 -r 25");
+        return sb.ToString();
     }
 
-    private static void WriteManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType, ILogger logger)
+    private static string GetCropFilter(int width, int height)
     {
-        string manifestPath = Path.Combine(scratchFolder, $"manifest_{videoType}.txt");
-        List<string> lines = [];
+        float ratio = width / (float)height;
+        // 16:9 is ~1.777
+        if (Math.Abs(ratio - (16f / 9f)) < 0.001f)
+            return "";
+        return ratio < (16f / 9f) ? "crop=in_w:in_w*9/16" : "crop=in_h*16/9:in_h";
+    }
 
-        foreach (VideoQualityProfile profile in profiles)
+    private static string BuildFilterChain(string baseCrop, int? w, int? h, TimeSpan duration)
+    {
+        List<string> f = [];
+        if (!string.IsNullOrEmpty(baseCrop))
+            f.Add(baseCrop);
+
+        if (w.HasValue && h.HasValue)
+            f.Add($"scale={w}:{h}");
+
+        if (duration > TimeSpan.Zero)
         {
-            lines.Add($"{profile.FileName}|{profile.Width}x{profile.Height}|{profile.Bitrate}|{profile.MaxBitrate}|{profile.BufferSize}");
+            double fadeOutStart = Math.Max(0, duration.TotalSeconds - 1);
+            f.Add($"fade=t=in:st=0:d=1");
+            f.Add(string.Format(CultureInfo.InvariantCulture, "fade=t=out:st={0}:d=1", fadeOutStart));
         }
-
-        File.WriteAllLines(manifestPath, lines);
-        logger.LogDebug("Wrote {VideoType} manifest with {Count} entries to scratch folder.", videoType, profiles.Length);
+        return string.Join(",", f);
     }
 
-    private static bool ValidateManifest(string scratchFolder, VideoQualityProfile[] profiles, string videoType)
-    {
-        string manifestPath = Path.Combine(scratchFolder, $"manifest_{videoType}.txt");
-        if (!File.Exists(manifestPath))
-            return false;
+    private static string GetScratchFolder(string root) => Path.Combine(root, "scratch", "video");
 
+    private static string? SelectSourceVideo(string folder)
+    {
+        if (!Directory.Exists(folder))
+            return null;
+        return Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+            .OrderByDescending(f => new FileInfo(f).Length)
+            .FirstOrDefault();
+    }
+
+    private static string? LogNotFound(ILogger log)
+    {
+        log.LogWarning("Source video not found.");
+        return null;
+    }
+
+    private static bool HasCompleteSet(string folder, VideoQualityProfile[] profiles, string prefix)
+    {
+        if (!Directory.Exists(folder))
+            return false;
+        int count = Directory.EnumerateFiles(folder)
+            .Count(f => Path.GetFileName(f).StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase)
+                     && AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()));
+        return count >= profiles.Length;
+    }
+
+    private static void WriteManifest(string folder, VideoQualityProfile[] profiles, string type, ILogger log)
+    {
+        IEnumerable<string> lines = profiles.Select(p => $"{p.FileName}|{p.Width}x{p.Height}|{p.Bitrate}|{p.MaxBitrate}|{p.BufferSize}");
+        File.WriteAllLines(Path.Combine(folder, $"manifest_{type}.txt"), lines);
+    }
+
+    private static bool ValidateManifest(string folder, VideoQualityProfile[] profiles, string type)
+    {
         try
         {
-            string[] lines = File.ReadAllLines(manifestPath);
+            string path = Path.Combine(folder, $"manifest_{type}.txt");
+            if (!File.Exists(path))
+                return false;
+
+            string[] lines = File.ReadAllLines(path);
             if (lines.Length != profiles.Length)
                 return false;
 
             for (int i = 0; i < profiles.Length; i++)
             {
-                VideoQualityProfile profile = profiles[i];
-                string expectedLine = $"{profile.FileName}|{profile.Width}x{profile.Height}|{profile.Bitrate}|{profile.MaxBitrate}|{profile.BufferSize}";
-                if (lines[i] != expectedLine)
+                if (lines[i] != $"{profiles[i].FileName}|{profiles[i].Width}x{profiles[i].Height}|{profiles[i].Bitrate}|{profiles[i].MaxBitrate}|{profiles[i].BufferSize}")
                     return false;
             }
-
             return true;
         }
         catch
         {
             return false;
-        }
-    }
-
-    private static string GetScratchFolder(string packageRoot)
-    {
-        return Path.Combine(packageRoot, "scratch", "video");
-    }
-
-    public static async Task<string?> EnsureVideoFormatAsync(
-        string packageRoot,
-        string targetFormatExtension,
-        string encoderCodec,
-        ILogger logger,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
-
-        await EnsureFFmpegInitializedAsync();
-
-        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string scratchFolder = GetScratchFolder(packageRoot);
-
-        // 1. Find Source
-        string? sourceVideo = SelectSourceVideo(assetsFolder);
-        if (sourceVideo == null)
-        {
-            logger.LogWarning("Cannot transcode video; no source video found in assets/video.");
-            return null;
-        }
-
-        string sourceName = Path.GetFileNameWithoutExtension(sourceVideo);
-        // Create a unique name for the cached file based on input name and target codec to avoid collisions
-        string cachedFileName = $"{sourceName}_{encoderCodec.Replace(":", "")}{targetFormatExtension}";
-        string cachedFilePath = Path.Combine(scratchFolder, cachedFileName);
-
-        // 2. Check Cache
-        if (File.Exists(cachedFilePath))
-        {
-            logger.LogDebug("Found cached transcoded video: {Path}", cachedFileName);
-            return cachedFilePath;
-        }
-
-        // 3. Transcode
-        try
-        {
-            Directory.CreateDirectory(scratchFolder);
-            logger.LogInformation("Transcoding video to {Codec} for legacy engine compatibility...", encoderCodec);
-
-            IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourceVideo, cancellationToken);
-            IVideoStream videoStream = mediaInfo.VideoStreams.First();
-
-            // Calculate bitrate from source to maintain quality
-            // Fallback to 4M if unknown, or use the source bitrate
-            long bitrate = videoStream.Bitrate > 0 ? videoStream.Bitrate : 4000000;
-
-            // Build conversion
-            IConversion conversion = FFmpeg.Conversions.New();
-
-            // Video Settings: Match codec, keep resolution/fps (default), match bitrate
-            conversion.AddParameter($"-i \"{sourceVideo}\"");
-            conversion.AddParameter($"-c:v {encoderCodec}");
-            conversion.AddParameter($"-b:v {bitrate}");
-            conversion.AddParameter($"-maxrate {bitrate * 1.5}");
-            conversion.AddParameter($"-bufsize {bitrate * 3}");
-
-            // Quality settings for VP8 (Good balance of speed/quality)
-            if (encoderCodec == "libvpx")
-            {
-                conversion.AddParameter("-quality good -cpu-used 1 -slices 4");
-            }
-            else if (encoderCodec == "libvpx-vp9")
-            {
-                conversion.AddParameter("-quality good -speed 4 -row-mt 1");
-            }
-
-            conversion.SetOutput(cachedFilePath);
-            conversion.SetOverwriteOutput(true);
-
-            await FFmpegSemaphore.WaitAsync(cancellationToken);
-            try
-            {
-                // Hook up logging
-                conversion.OnDataReceived += (sender, args) =>
-                {
-                    // Optional: verbose ffmpeg logging
-                };
-
-                await conversion.Start(cancellationToken);
-            }
-            finally
-            {
-                FFmpegSemaphore.Release();
-            }
-
-            logger.LogInformation("Transcoding complete: {Path}", cachedFileName);
-            return cachedFilePath;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to transcode video to {Codec}.", encoderCodec);
-            // Fallback to source if transcoding fails?
-            // Depending on strictness, we might return sourceVideo or null.
-            // For now, return null to signal failure.
-            return null;
         }
     }
 }

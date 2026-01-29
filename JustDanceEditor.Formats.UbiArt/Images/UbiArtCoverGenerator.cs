@@ -193,9 +193,6 @@ public static class UbiArtCoverGenerator
 
         // UbiArt colors are usually float 0-1. Order might be RGBA or ARGB?
         // DefaultColors class has float[] lyrics.
-        // Assuming RGBA or ARGB. Let's assume RGBA based on usage in UnityCoverArtGenerator (it parsed hex).
-        // Wait, UnityCoverArtGenerator parsed hex. UbiArt usually stores as float[4].
-        // Let's assume R, G, B, A.
 
         return new Bgra32(
             (byte)(colorValues[0] * 255),

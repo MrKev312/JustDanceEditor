@@ -4,8 +4,7 @@ namespace TextureConverter.Formats;
 
 public class GameTextureDetector : IImageFormatDetector
 {
-    // Need up to 0x2C + 4 bytes to check wrapper and the actual header
-    public int HeaderSize => 0x30; // 48
+    public int HeaderSize => 0x30;
 
     private static readonly byte[] TexHeader = [0x00, 0x00, 0x00, 0x09, 0x54, 0x45, 0x58];
 
@@ -27,10 +26,17 @@ public class GameTextureDetector : IImageFormatDetector
 
         ReadOnlySpan<byte> sig = header.Slice(offset, 4);
 
-        // DDS is "DDS " including space
+        // Little Endian DDS
         if (sig.SequenceEqual([(byte)'D', (byte)'D', (byte)'S', (byte)' ']))
         {
             format = DdsFormat.Instance;
+            return true;
+        }
+
+        // Big Endian DDS (Wii) - Magic is " SDD"
+        if (sig.SequenceEqual([(byte)' ', (byte)'S', (byte)'D', (byte)'D']))
+        {
+            format = SsdFormat.Instance;
             return true;
         }
 

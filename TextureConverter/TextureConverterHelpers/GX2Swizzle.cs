@@ -502,56 +502,56 @@ public static class GX2Swizzle
     public static uint[] CreateRegisters(GX2Surface surface)
     {
         uint pitch = surface.Pitch;
-        
+
         // For BCN formats, pitch is stored as pitch * 4 in the registers
         if (IsFormatBCN(surface.Format))
             pitch *= 4;
-        
+
         byte[] compSel = surface.CompSel ?? [0, 1, 2, 3];
         if (compSel.Length != 4)
             compSel = [0, 1, 2, 3];
-        
+
         // Adjust comp sel for RGB565 format
         if ((uint)surface.Format == 8) // TCS_R5_G6_B5_UNORM
             compSel = [0, 1, 2, 5];
-        
+
         pitch = Math.Max(pitch, 8);
-        
+
         uint format = (uint)surface.Format;
         uint tileMode = (uint)surface.TileMode;
         uint width = surface.Width;
         uint height = surface.Height;
         uint numMips = Math.Max(1, surface.NumMips);
         uint dim = (uint)surface.Dim;
-        
+
         // Register 0: width, pitch, tileType, tileMode, dim
         uint register0 = (((width - 1) & 0x1FFF) << 19)
                        | ((((pitch / 8) - 1) & 0x7FF) << 8)
                        | ((0 & 1) << 7)  // tileType = 0
                        | ((tileMode & 0xF) << 3)
                        | (dim & 7);
-        
+
         // Register 1: format, depth, height
         int register1 = (((int)format & 0x3F) << 26)
                       | ((0 & 0x1FFF) << 13)  // depth = 0
                       | ((int)(height - 1) & 0x1FFF);
-        
+
         // Register 2: component selectors and format flags
         int formatComp = 0;
         int numFormat = 0;
         int forceDegamma = 0;
-        
+
         if ((format & 0x200) != 0)
             formatComp = 1;
-        
+
         if ((format & 0x800) != 0)
             numFormat = 2;
         else if ((format & 0x100) != 0)
             numFormat = 1;
-        
+
         if ((format & 0x400) != 0)
             forceDegamma = 1;
-        
+
         int register2 = ((0 & 7) << 28)  // baseLevel = 0
                       | ((compSel[3] & 7) << 25)
                       | ((compSel[2] & 7) << 22)
@@ -566,13 +566,13 @@ public static class GX2Swizzle
                       | ((formatComp & 3) << 4)
                       | ((formatComp & 3) << 2)
                       | (formatComp & 3);
-        
+
         // Register 3: yuvConv, lastArray, baseArray, lastLevel
         int register3 = ((0 & 3) << 30)  // yuvConv = 0
                       | ((0 & 0x1FFF) << 17)  // lastArray = 0
                       | ((0 & 0x1FFF) << 4)   // baseArray = 0
                       | (((int)numMips - 1) & 0xF);  // lastLevel
-        
+
         // Register 4: type, advisClampLOD, advisFaultLOD, interlaced, perfModulation, maxAnisoRatio, MPEGClamp
         int register4 = ((2 & 3) << 30)  // type = 2
                       | ((0 & 0x3F) << 13)  // advisClampLOD = 0
@@ -581,8 +581,8 @@ public static class GX2Swizzle
                       | ((7 & 7) << 5)      // perfModulation = 7
                       | ((4 & 7) << 2)      // maxAnisoRatio = 4
                       | (0 & 3);          // MPEGClamp = 0
-        
-        return [(uint)register0, (uint)register1, (uint)register2, (uint)register3, (uint)register4];
+
+        return [register0, (uint)register1, (uint)register2, (uint)register3, (uint)register4];
     }
 
     private static uint GetBitsPerPixel(GX2SurfaceFormat format)

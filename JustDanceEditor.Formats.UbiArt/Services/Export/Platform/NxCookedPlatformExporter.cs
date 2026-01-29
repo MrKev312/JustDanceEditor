@@ -17,24 +17,23 @@ public class NxCookedPlatformExporter : IPlatformExporter
 
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "nx");
 
-    public async Task WriteTextFileAsync(ExportContext context, string relativePath, string content)
+    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        byte[] bytes = Encoding.UTF8.GetBytes(content);
         byte[] dataToWrite;
 
         // Check if this is an SGS file (Scene Graph Settings) which requires 'S' prefix
         if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
         {
-            dataToWrite = new byte[1 + bytes.Length + 1];
+            dataToWrite = new byte[1 + content.Length + 1];
             dataToWrite[0] = (byte)'S';
-            Array.Copy(bytes, 0, dataToWrite, 1, bytes.Length);
+            Array.Copy(content, 0, dataToWrite, 1, content.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
         else
         {
-            dataToWrite = new byte[bytes.Length + 1];
-            Array.Copy(bytes, dataToWrite, bytes.Length);
+            dataToWrite = new byte[content.Length + 1];
+            Array.Copy(content, dataToWrite, content.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
 

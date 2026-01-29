@@ -13,12 +13,12 @@ public class UncookedPlatformExporter : IPlatformExporter
 
     public string GetPlatformRootFolder(string mapName) => ""; // Root is purely relative in Uncooked
 
-    public async Task WriteTextFileAsync(ExportContext context, string relativePath, string content)
+    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
     {
         // No .ckd, no trailing null
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await File.WriteAllTextAsync(fullPath, content);
+        await File.WriteAllBytesAsync(fullPath, content);
     }
 
     public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)

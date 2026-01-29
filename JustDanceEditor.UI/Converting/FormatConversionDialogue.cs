@@ -203,21 +203,25 @@ internal static class FormatConversionDialogue
             ExportEngineVersion = engineVersion
         };
 
-        if (platform is not UbiArtPlatformType.Uncooked and not UbiArtPlatformType.NX and not UbiArtPlatformType.PC)
+        if (platform is UbiArtPlatformType.Uncooked
+            or UbiArtPlatformType.NX
+            or UbiArtPlatformType.WiiU
+            or UbiArtPlatformType.Wii
+            or UbiArtPlatformType.PC)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
-            Console.ResetColor();
-
             return request;
         }
+
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
+        Console.ResetColor();
 
         return request;
     }
 
     private static UbiArtPlatformType AskUbiArtPlatform(string prompt)
     {
-        string[] platforms = ["Uncooked", "WiiU", "NX", "PC"];
+        string[] platforms = ["Uncooked", "Wii", "WiiU", "NX", "PC"];
         int selection = Question.Ask(platforms, 0, prompt);
         return (UbiArtPlatformType)selection;
     }

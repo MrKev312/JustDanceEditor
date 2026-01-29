@@ -29,7 +29,7 @@ internal class ExtractorDialogue
             Console.WriteLine($"\nExtracting '{Path.GetFileName(inputPath)}' to '{outputPath}'...");
             // Extract the IPK file
             JustDanceIPKParser parser = new(inputPath, outputPath);
-            parser.Parse(ShowInfo: true); // Assuming ShowInfo: true provides progress/details
+            parser.Parse(ShowInfo: true);
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("\nIPK file extracted successfully!");

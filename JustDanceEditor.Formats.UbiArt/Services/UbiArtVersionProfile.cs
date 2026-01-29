@@ -7,6 +7,7 @@ namespace JustDanceEditor.Formats.UbiArt.Services;
 public enum UbiArtPlatform
 {
     Uncooked,
+    Wii,
     WiiU,
     NX,
     PC

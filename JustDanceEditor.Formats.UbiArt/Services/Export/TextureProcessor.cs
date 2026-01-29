@@ -86,7 +86,6 @@ public partial class TextureProcessor : ITextureProcessor
             Image<Bgra32> cover256 = genericCover.Clone(x => x.Resize(256, 256));
             results.Add(new ProcessedTexture($"{mapNameLower}_cover_online", cover256.Clone()));
             results.Add(new ProcessedTexture($"{mapNameLower}_cover_online_kids", cover256.Clone()));
-            results.Add(new ProcessedTexture($"{mapNameLower}_cover_albumbkg", cover256.Clone()));
 
             // Clean up intermediate
             cover256.Dispose();
@@ -97,6 +96,11 @@ public partial class TextureProcessor : ITextureProcessor
         {
             Image<Bgra32> mapBkg = coachBackground.Clone(x => x.Resize(2048, 1024));
             results.Add(new ProcessedTexture($"{mapNameLower}_map_bkg", mapBkg));
+
+            // Middle square for AlbumBkg
+            Image<Bgra32> albumbkg = coachBackground.Clone(x => x.Crop(new Rectangle((coachBackground.Width - coachBackground.Height) / 2, 0, coachBackground.Height, coachBackground.Height))
+                                                                        .Resize(256, 256));
+            results.Add(new ProcessedTexture($"{mapNameLower}_cover_albumbkg", albumbkg.Clone()));
 
             Image<Bgra32> banner = coachBackground.Clone(x => x.Resize(1024, 512));
             results.Add(new ProcessedTexture($"{mapNameLower}_banner_bkg", banner));

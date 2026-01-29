@@ -11,17 +11,19 @@ public interface IPlatformExporter
     UbiArtPlatform Platform { get; }
 
     /// <summary>
-    /// Writes a generic text file (Lua, JSON, XML). Handles platform-specific extensions (e.g. .ckd) and null-terminators.
+    /// Writes a generated engine resource file (SongDesc, Tapes, ISCs).
+    /// Handles platform-specific post-processing (e.g. null-termination for text-based platforms, .ckd extensions).
     /// </summary>
-    Task WriteTextFileAsync(ExportContext context, string relativePath, string content);
+    Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content);
 
     /// <summary>
-    /// Writes a binary file. Handles platform-specific extensions (e.g. .ckd).
+    /// Writes a raw binary file (e.g. specific pre-compiled actors, binary buffers).
+    /// Handles platform-specific extensions (e.g. .ckd).
     /// </summary>
     Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data);
 
     /// <summary>
-    /// Writes a texture. Handles resizing verification, format conversion (TGA vs XTX), and headers.
+    /// Writes a texture. Handles resizing verification, format conversion (TGA vs XTX vs GTX), and headers.
     /// </summary>
     Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image);
 

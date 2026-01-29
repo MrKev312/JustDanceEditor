@@ -4,6 +4,7 @@ using NAudio.Wave;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 using System.Text;
 
@@ -11,36 +12,18 @@ using TextureConverter.TextureType;
 
 namespace JustDanceEditor.Formats.UbiArt.Services.Export.Platform;
 
-public class WiiUCookedPlatformExporter : IPlatformExporter
+public class WiiCookedPlatformExporter : IPlatformExporter
 {
-    public UbiArtPlatform Platform => UbiArtPlatform.WiiU;
+    public UbiArtPlatform Platform => UbiArtPlatform.Wii;
 
-    public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "wiiu");
+    public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "wii");
 
     public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
     {
         // Text file logic is shared with NX (Standard UbiArt behavior)
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        byte[] dataToWrite;
-
-        // Check if this is an SGS file (Scene Graph Settings) which requires 'S' prefix
-        if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
-        {
-            dataToWrite = new byte[1 + content.Length + 1];
-            dataToWrite[0] = (byte)'S';
-            Array.Copy(content, 0, dataToWrite, 1, content.Length);
-            dataToWrite[^1] = 0; // Null terminator
-        }
-        else
-        {
-            dataToWrite = new byte[content.Length + 1];
-            Array.Copy(content, dataToWrite, content.Length);
-            dataToWrite[^1] = 0; // Null terminator
-        }
-
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await using FileStream fs = File.Create(fullPath);
-        await fs.WriteAsync(dataToWrite);
+        await File.WriteAllBytesAsync(fullPath, content);
     }
 
     public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)
@@ -56,18 +39,29 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-        // Convert Image to GTX (Wii U Texture)
-        using MemoryStream gtxStream = new();
-        // T_BC3_UNORM is equivalent to DXT5, which is standard for UbiArt transparency
-        GTX.ConvertToFile(image, GTX.GX2SurfaceFormat.T_BC3_UNORM, gtxStream);
-        byte[] gtxData = gtxStream.ToArray();
+        // If the file ends in _cover_albumbkg.tga, it should be 64x64
+        if (relativePath.EndsWith("_cover_albumbkg.tga", StringComparison.OrdinalIgnoreCase))
+            image.Mutate(x => x.Resize(64, 64));
+
+        // First resize everything to 256x256 max
+        if (image.Width > 256 || image.Height > 256)
+        {
+            int newWidth = Math.Min(image.Width, 256);
+            int newHeight = Math.Min(image.Height, 256);
+            image.Mutate(x => x.Resize(newWidth, newHeight));
+        }
+
+        // Convert Image to SSD (Wii Texture format)
+        using MemoryStream ssdStream = new();
+        SSD.ConvertToFile(image, ssdStream);
+        byte[] ssdData = ssdStream.ToArray();
 
         using FileStream fs = File.Create(fullPath);
         using BinaryWriter writer = new(fs);
 
-        // Wii U is Big Endian, so the wrapper must be written as BE
-        WriteTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, (uint)gtxData.Length);
-        writer.Write(gtxData);
+        // Let's write the TEX wrapper here.
+        WriteTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, (uint)ssdData.Length);
+        writer.Write(ssdData);
     }
 
     public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
@@ -85,15 +79,18 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
 
                 using FileStream output = File.Create(destPath);
 
-                // Ambient sounds usually use PCM, Songs use DSP ADPCM
+                // Ambient sounds usually use PCM on Wii as well, or ADPCM.
+                // Standard Wii songs use DSP ADPCM (Raki container).
                 if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
                 {
-                    // "Cafe" is the internal codename for Wii U
-                    RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Cafe", type: "pcm ");
+                    // "Wii " signature for Wii PCM
+                    //RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Wii ", type: "pcm ");
+                    // Nvm we also use ADPCM for ambient sounds on Wii, meaning this whole if else can be removed.
+                    RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output, true);
                 }
                 else
                 {
-                    // Use the DSP ADPCM encoder for Wii U songs
+                    // Use the DSP ADPCM encoder for Wii songs (same as GC/Wii/WiiU DSP)
                     RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output);
                 }
             });
@@ -107,23 +104,45 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
 
     private static void WriteTexWrapperHeader(BinaryWriter writer, ushort width, ushort height, uint textureSize)
     {
-        // Wii U TEX Wrapper (Big Endian)
-        WriteBigEndian32(writer, 9); // Magic (0x00000009)
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44); // Header Size (0x2C)
+        // Wii TEX Wrapper (Big Endian)
+        // Total size = 0x2C (44 bytes)
 
-        // Width/Height are 32-bit BE in Wii U UbiArt headers
+        // 0x00: Magic
+        WriteBigEndian32(writer, 9); // 0x00000009
+
+        // 0x04: "TEX\0"
+        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
+
+        // 0x08: Offset to data start (0x2C)
+        WriteBigEndian32(writer, 44);
+
+        // 0x0C: Width Info? (Often 0 or width related)
+        // On Wii, this is often just 0, or mirrors the texture format flags
+        WriteBigEndian32(writer, 0);
+
+        // 0x10: Width (32-bit BE)
         WriteBigEndian32(writer, width);
+
+        // 0x14: Height (32-bit BE)
         WriteBigEndian32(writer, height);
 
-        WriteBigEndian32(writer, 1); // Unknown (Resolution Factor?)
-        WriteBigEndian32(writer, 0x00000009); // Format Flags (Different from NX)
+        // 0x18: Resolution/Mips factor? (1)
+        WriteBigEndian32(writer, 1);
 
-        WriteBigEndian32(writer, 0); // Unknown
-        WriteBigEndian32(writer, 0); // Unknown
-        WriteBigEndian32(writer, 0); // Unknown
+        // 0x1C: Format Flags
+        // 0x00000009 seems standard for Wii/WiiU
+        WriteBigEndian32(writer, 0x00000009);
 
-        WriteBigEndian32(writer, textureSize); // Data Size
+        // 0x20: Compressed Size / Data Size
+        WriteBigEndian32(writer, textureSize);
+
+        // 0x24: Uncompressed Estimate (Width * Height * BPP)
+        // CMPR is 4 bits per pixel -> W * H / 2
+        uint uncompressedSize = (uint)(width * height / 2);
+        WriteBigEndian32(writer, uncompressedSize);
+
+        // 0x28: Unknown / Padding
+        WriteBigEndian32(writer, 0);
     }
 
     private static void WriteBigEndian32(BinaryWriter writer, uint value)

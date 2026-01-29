@@ -10,6 +10,7 @@ public static class ImageSharpConfiguration
         ImageFormatManager manager = Configuration.Default.ImageFormatsManager;
 
         manager.SetDecoder(DdsFormat.Instance, new DdsDecoder());
+        manager.SetDecoder(SsdFormat.Instance, new SsdDecoder());
         manager.SetDecoder(XtxFormat.Instance, new XtxDecoder());
         manager.SetDecoder(GtxFormat.Instance, new GtxDecoder());
 

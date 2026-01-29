@@ -57,7 +57,7 @@ public class JustDanceIPKWriter(string inputDirectory, string outputPath)
                 zSize = processedBytes.Length;
             }
 
-            // Flags logic (from Python script)
+            // Flags logic
             int flags = fileName.EndsWith(".ckd", StringComparison.OrdinalIgnoreCase) ? 2 : 0;
 
             // Timestamp

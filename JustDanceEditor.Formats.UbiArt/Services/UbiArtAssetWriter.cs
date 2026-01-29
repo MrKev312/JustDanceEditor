@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Services.Export;
+using JustDanceEditor.Formats.UbiArt.Services.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Services.Layouts;
 
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         IFileSystem iofs = io ?? new SystemFileSystem();
 
         IPlatformExporter platformExporter = _factory.GetPlatformExporter(platform);
-        IEngineContentGenerator engineGenerator = _factory.GetEngineContentGenerator(engineVersion);
+
+        // Get the appropriate engine content generator based on platform and version
+        IEngineContentGenerator engineGenerator = _factory.GetEngineContentGenerator(engineVersion, platform);
+
         ExportContext exportContext = new(outputFolder, layout, iofs);
 
         string mapName = package.Metadata.MapName;
@@ -84,55 +88,83 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string videosFolder = Path.Combine(mapWorldBase, "videoscoach");
         string graphFolder = Path.Combine(mapWorldBase, "graph");
 
+        // Check if using legacy format (Wii 2016-2020)
+        bool isLegacyFormat = generator is LegacyEngineContentGenerator;
+
         // SongDesc
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(mapWorldBase, "songdesc.tpl"), generator.GenerateSongDesc(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(mapWorldBase, "songdesc.act"), generator.GenerateGenericActor("JD_SongDescTemplate", $"world/maps/{mapNameLower}/songdesc.tpl"));
+        if (isLegacyFormat)
+        {
+            // Legacy format: SongDesc goes to cache/legacyconverteddata/{mapname}/songdesc.main_legacy.tpl.ckd
+            string legacyFolder = Path.Combine(platformRoot, "cache", "legacyconverteddata", mapNameLower);
+            await exporter.WriteBinaryFileAsync(ctx, Path.Combine(legacyFolder, "songdesc.main_legacy.tpl"), generator.GenerateSongDesc(package));
+            await exporter.WriteBinaryFileAsync(ctx, Path.Combine(mapWorldBase, "songdesc.act"), generator.GenerateGenericActor("JD_SongDescTemplate", $"cache/legacyconverteddata/{mapNameLower}/songdesc.main_legacy.tpl"));
+        }
+        else
+        {
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(mapWorldBase, "songdesc.tpl"), generator.GenerateSongDesc(package));
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(mapWorldBase, "songdesc.act"), generator.GenerateGenericActor("JD_SongDescTemplate", $"world/maps/{mapNameLower}/songdesc.tpl"));
+        }
 
         // MusicTrack
         if (platform != UbiArtPlatform.Uncooked)
         {
-            await exporter.WriteTextFileAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_musictrack.tpl"), generator.GenerateMusicTrack(package));
-            await exporter.WriteTextFileAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_sequence.tpl"), generator.GenerateSequenceTpl());
-            await exporter.WriteTextFileAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}.stape"), generator.GenerateSoundTape(mapName));
+            if (isLegacyFormat)
+            {
+                // Legacy format: MusicTrack goes to cache/legacyconverteddata/{mapname}/audio/{mapname}_musictrack.main_legacy.tpl.ckd
+                string legacyAudioFolder = Path.Combine(platformRoot, "cache", "legacyconverteddata", mapNameLower, "audio");
+                await exporter.WriteBinaryFileAsync(ctx, Path.Combine(legacyAudioFolder, $"{mapNameLower}_musictrack.main_legacy.tpl"), generator.GenerateMusicTrack(package));
+            }
+            else
+            {
+                await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_musictrack.tpl"), generator.GenerateMusicTrack(package));
+            }
+
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_sequence.tpl"), generator.GenerateSequenceTpl());
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}.stape"), generator.GenerateSoundTape(mapName));
             if (package.TimelineStructure.StartBeat < 0)
             {
-                await exporter.WriteTextFileAsync(ctx, Path.Combine(audioFolder, "amb", $"amb_{mapNameLower}_intro.tpl"), generator.GenerateAmbTpl(mapName));
+                await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, "amb", $"amb_{mapNameLower}_intro.tpl"), generator.GenerateAmbTpl(mapName));
             }
         }
 
         // Tapes
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.dtape"), generator.GenerateDanceTape(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.ktape"), generator.GenerateKaraokeTape(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.tape"), generator.GenerateMainSequenceTape(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.tpl"), generator.GenerateAutodanceTape(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.dtape"), generator.GenerateDanceTape(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.ktape"), generator.GenerateKaraokeTape(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.tape"), generator.GenerateMainSequenceTape(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.tpl"), generator.GenerateAutodanceTape(package));
 
         // Actors
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.act"), generator.GenerateGenericActor("TapeCase_Template", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl"));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.tpl"), generator.GenerateTapeCaseTpl(mapName, "dance"));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.act"), generator.GenerateGenericActor("TapeCase_Template", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl"));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.tpl"), generator.GenerateTapeCaseTpl(mapName, "karaoke"));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.act"), generator.GenerateGenericActor("TapeCase_Template", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl"));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_dance.tpl"), generator.GenerateTapeCaseTpl(mapName, "dance"));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.act"), generator.GenerateGenericActor("TapeCase_Template", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl"));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml_karaoke.tpl"), generator.GenerateTapeCaseTpl(mapName, "karaoke"));
 
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.act"), generator.GenerateGenericActor("MasterTape", $"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl"));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.tpl"), generator.GenerateMainSequenceTpl(mapName));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.act"), generator.GenerateGenericActor("MasterTape", $"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl"));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_mainsequence.tpl"), generator.GenerateMainSequenceTpl(mapName));
 
         // Scenes
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(mapWorldBase, $"{mapNameLower}_main_scene.isc"), generator.GenerateMainScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_audio.isc"), generator.GenerateAudioScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml.isc"), generator.GenerateTimelineScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_cine.isc"), generator.GenerateCinematicsScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(menuartFolder, $"{mapNameLower}_menuart.isc"), generator.GenerateMenuArtScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.isc"), generator.GenerateAutodanceScene(package));
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(graphFolder, $"{mapNameLower}_graph.isc"), generator.GenerateGraphScene());
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(mapWorldBase, $"{mapNameLower}_main_scene.isc"), generator.GenerateMainScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_audio.isc"), generator.GenerateAudioScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(timelineFolder, $"{mapNameLower}_tml.isc"), generator.GenerateTimelineScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(cinematicsFolder, $"{mapNameLower}_cine.isc"), generator.GenerateCinematicsScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(menuartFolder, $"{mapNameLower}_menuart.isc"), generator.GenerateMenuArtScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.isc"), generator.GenerateAutodanceScene(package));
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(graphFolder, $"{mapNameLower}_graph.isc"), generator.GenerateGraphScene(mapName));
 
         // Binary/Special
-        await exporter.WriteTextFileAsync(ctx, Path.Combine(mapWorldBase, $"{mapNameLower}_main_scene.sgs"), generator.GenerateSgs());
+        await exporter.WriteEngineResourceAsync(ctx, Path.Combine(mapWorldBase, $"{mapNameLower}_main_scene.sgs"), generator.GenerateSgs());
         if (platform != UbiArtPlatform.Uncooked)
         {
-            await exporter.WriteTextFileAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}_video.isc"), generator.GenerateVideoScene(mapName));
-            await exporter.WriteTextFileAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}_video_map_preview.isc"), generator.GenerateVideoMapPreviewScene(mapName));
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}_video.isc"), generator.GenerateVideoScene(mapName));
+            // Only Modern engines typically use map preview video scenes, but for 2015/Wii support we assume standard structure if generator supports it
+            if (version > UbiArtEngineVersion.JD2015) // Not strictly necessary for Wii but keeps symmetry
+                await exporter.WriteEngineResourceAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}_video_map_preview.isc"), generator.GenerateVideoMapPreviewScene(mapName));
 
             await exporter.WriteBinaryFileAsync(ctx, Path.Combine(videosFolder, "video_player_main.act"), generator.GenerateVideoPlayerActor(mapName, false));
-            await exporter.WriteBinaryFileAsync(ctx, Path.Combine(videosFolder, "video_player_map_preview.act"), generator.GenerateVideoPlayerActor(mapName, true));
+            // Only write preview actor if modern or if generator provides it (JD2015 generator might return empty or logic check)
+            if (version > UbiArtEngineVersion.JD2015)
+                await exporter.WriteBinaryFileAsync(ctx, Path.Combine(videosFolder, "video_player_map_preview.act"), generator.GenerateVideoPlayerActor(mapName, true));
+
             await exporter.WriteBinaryFileAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}.mpd"), generator.GenerateMpd());
             await exporter.WriteBinaryFileAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.act"), generator.GenerateAutodanceActor(mapName));
         }
@@ -154,6 +186,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string tempWav = ctx.IO.Combine(ctx.IO.GetTempPath(), $"jdi_{Guid.NewGuid()}.wav");
         try
         {
+            // First convert to WAV because encoders usually expect WAV input
             IConversion conv = FFmpeg.Conversions.New();
             conv.SetOverwriteOutput(true);
             conv.AddParameter($"-i \"{sourceFile}\" -ar 48000 -ac 2");
@@ -167,6 +200,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 cutSeconds = package.TimelineStructure.Markers[(int)Math.Abs(startBeat)] / 48000.0;
             }
 
+            // Create Amb (Intro) Audio if needed
             if (cutSeconds > 0.001)
             {
                 string ambTemp = ctx.IO.Combine(ctx.IO.GetTempPath(), $"amb_{Guid.NewGuid()}.wav");
@@ -180,6 +214,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 ctx.IO.DeleteFile(ambTemp);
             }
 
+            // Create Main Audio (cut after intro)
             string mainTemp = ctx.IO.Combine(ctx.IO.GetTempPath(), $"main_{Guid.NewGuid()}.wav");
             IConversion mainConv = FFmpeg.Conversions.New();
             mainConv.SetOverwriteOutput(true);
@@ -214,7 +249,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string menuRel = Path.Combine(mapWorldBase, "menuart", "textures");
         string actorsRel = Path.Combine(mapWorldBase, "menuart", "actors");
 
-        // 1. Pictograms (Still direct copy as TextureProcessor is mainly for MenuArt currently)
+        // 1. Pictograms
         string pictosSource = ctx.IO.Combine(materializedRoot, "assets", "pictograms");
         if (ctx.IO.DirectoryExists(pictosSource))
         {
@@ -226,7 +261,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             }
         }
 
-        // 2. MenuArt (Uses TextureProcessor)
+        // 2. MenuArt
         IEnumerable<ProcessedTexture> processedTextures = _textureProcessor.ProcessAssets(package, materializedRoot, ctx.IO);
 
         foreach (ProcessedTexture texture in processedTextures)
@@ -246,13 +281,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
     private async Task GenerateColorsAsync(IntermediateSongPackage package, string materializedRoot, IFileSystem io)
     {
-        // Don't overwrite if manually set
         if (package.Metadata.AdditionalMetadata.ContainsKey("songcolor_1a"))
             return;
 
         string assetsDir = io.Combine(materializedRoot, "assets", "coaches");
-
-        // Look for coachesbackground (preferred) or just the cover
         string? bkgFile = io.GetFiles(assetsDir)
             .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).Equals("coachesbackground", StringComparison.OrdinalIgnoreCase));
 
@@ -261,13 +293,9 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
         try
         {
-            // Load image
-            using Image<Bgra32> img = await Image.LoadAsync<Bgra32>(bkgFile); // Or use io.OpenRead logic if strictly required
-
-            // Generate Theme (Returns normal Colors)
+            using Image<Bgra32> img = await Image.LoadAsync<Bgra32>(bkgFile);
             ColorThemeGenerator.SongTheme theme = ColorThemeGenerator.GenerateFromImage(img);
 
-            // Convert to UbiArt Array format and store in metadata
             package.Metadata.AdditionalMetadata["songcolor_1a"] = theme.Color1A.ToHex();
             package.Metadata.AdditionalMetadata["songcolor_1b"] = theme.Color1B.ToHex();
             package.Metadata.AdditionalMetadata["songcolor_2a"] = theme.Color2A.ToHex();
@@ -297,29 +325,31 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             string? sourceFile;
 
-            // JD2017 Logic: Requires VP8 (libvpx) in a WebM container
-            if (version == UbiArtEngineVersion.JD2017)
+            // Wii needs special handling
+            if (platform == UbiArtPlatform.Wii)
             {
-                // Use JdiVideoConverter to Ensure VP8 format (utilizing scratch cache)
-                // We pass "libvpx" for video
+                // Use specific 2-pass encoding for Wii to meet strict requirements
+                sourceFile = await JDI.Video.JdiVideoConverter.EnsureWiiVideoAsync(materializedRoot, logger);
+            }
+            else if (version == UbiArtEngineVersion.JD2017)
+            {
                 sourceFile = await JDI.Video.JdiVideoConverter.EnsureVideoFormatAsync(
                     materializedRoot,
                     ".webm",
-                    "libvpx",
+                    "vp8",
                     logger
                 );
-
-                // If conversion failed, fallback to raw copy (best effort)
-                if (sourceFile == null)
-                {
-                    sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
-                        .OrderByDescending(f => new FileInfo(f).Length)
-                        .FirstOrDefault();
-                }
             }
             else
             {
-                // JD2018+ / Standard Logic: Just grab the largest webm (usually VP9 or VP8, engine supports both)
+                sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
+                    .OrderByDescending(f => new FileInfo(f).Length)
+                    .FirstOrDefault();
+            }
+
+            // Fallback if specific conversion failed or wasn't needed
+            if (sourceFile == null)
+            {
                 sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
                     .OrderByDescending(f => new FileInfo(f).Length)
                     .FirstOrDefault();
@@ -331,34 +361,38 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                     ? layout.GetMediaFolder("", package.Metadata.MapName, platform, version)
                     : Path.Combine(rawMapWorldBase, "videoscoach");
 
-                // Filename logic
                 string destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.webm";
 
-                // On NX, newer engines (2018+) need a .vp9.720.webm naming convention
-                // but just .webm for 2017.
                 if (platform == UbiArtPlatform.NX)
                 {
                     destFileName = version == UbiArtEngineVersion.JD2017
                         ? $"{package.Metadata.MapName.ToLowerInvariant()}.webm"
                         : $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
                 }
+                if (platform == UbiArtPlatform.Wii)
+                {
+                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.wii.webm";
+                }
 
                 string destPath = Path.Combine(relFolder, destFileName);
                 string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
 
                 ctx.IO.CreateDirectory(Path.GetDirectoryName(fullDest)!);
-
-                // Use Copy logic. Note: sourceFile might be in scratch (temp) or assets (input).
                 ctx.IO.Copy(sourceFile, fullDest, true);
 
                 logger.LogInformation("Video exported to {Path} (Source: {Source})", destFileName, Path.GetFileName(sourceFile));
             }
         }
-        
+
         string movesSource = ctx.IO.Combine(materializedRoot, "assets", "moves");
         if (ctx.IO.DirectoryExists(movesSource))
         {
-            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wiiu");
+            // Moves are platform specific (Wii/WiiU uses .msm, NX uses .msc usually but .msm often compatible)
+            // For Wii, we need to ensure they are put in the right folder.
+            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wiiu"); // "wiiu" is often the folder name even on wii/nx
+            if (platform == UbiArtPlatform.Wii)
+                movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wii");
+
             ctx.IO.CreateDirectory(ctx.IO.Combine(ctx.OutputFolder, movesFolder));
 
             foreach (string moveFile in ctx.IO.GetFiles(movesSource, "*.msm"))

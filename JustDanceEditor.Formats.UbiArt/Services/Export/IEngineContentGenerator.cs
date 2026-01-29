@@ -3,39 +3,37 @@ using JustDanceEditor.Formats.JDI;
 namespace JustDanceEditor.Formats.UbiArt.Services.Export;
 
 /// <summary>
-/// Handles generating the specific file content (JSON structures, XML, Lua) for a specific engine version.
+/// Handles generating the specific file content (JSON structures, XML, Lua, or Binary) for a specific engine version.
 /// </summary>
 public interface IEngineContentGenerator
 {
-    // Text (JSON/Lua) Generators
-    string GenerateSongDesc(IntermediateSongPackage package);
-    string GenerateMusicTrack(IntermediateSongPackage package);
-    string GenerateDanceTape(IntermediateSongPackage package);
-    string GenerateKaraokeTape(IntermediateSongPackage package);
-    string GenerateAutodanceTape(IntermediateSongPackage package);
-    string GenerateMainSequenceTape(IntermediateSongPackage package);
-    string GenerateTapeCaseTpl(string mapName, string tapeType); // e.g. tapeType="dance"
-    string GenerateSequenceTpl();
-    string GenerateSoundTape(string mapName);
-    string GenerateAmbTpl(string mapName);
-    string GenerateMainSequenceTpl(string mapName);
-    string GenerateSgs();
+    // Content Generators (Text or Binary)
+    byte[] GenerateSongDesc(IntermediateSongPackage package);
+    byte[] GenerateMusicTrack(IntermediateSongPackage package);
+    byte[] GenerateDanceTape(IntermediateSongPackage package);
+    byte[] GenerateKaraokeTape(IntermediateSongPackage package);
+    byte[] GenerateAutodanceTape(IntermediateSongPackage package);
+    byte[] GenerateMainSequenceTape(IntermediateSongPackage package);
+    byte[] GenerateTapeCaseTpl(string mapName, string tapeType); // e.g. tapeType="dance"
+    byte[] GenerateSequenceTpl();
+    byte[] GenerateSoundTape(string mapName);
+    byte[] GenerateAmbTpl(string mapName);
+    byte[] GenerateMainSequenceTpl(string mapName);
+    byte[] GenerateSgs();
 
-    // Actor Generators (JSON wrapper for .act files)
-    string GenerateGenericActor(string className, string luaPath);
+    // Actor Generators (JSON wrapper for .act files or Binary .act)
+    byte[] GenerateGenericActor(string className, string luaPath);
 
-    // Scene Generators (ISC XML)
-    string GenerateMainScene(IntermediateSongPackage package);
-    string GenerateAudioScene(IntermediateSongPackage package);
-    string GenerateTimelineScene(IntermediateSongPackage package);
-    string GenerateCinematicsScene(IntermediateSongPackage package);
-    string GenerateMenuArtScene(IntermediateSongPackage package);
-    string GenerateAutodanceScene(IntermediateSongPackage package);
-    string GenerateGraphScene();
-    string GenerateVideoScene(string mapName);
-    string GenerateVideoMapPreviewScene(string mapName);
-
-    // Binary Generators
+    // Scene Generators (ISC XML or Binary)
+    byte[] GenerateMainScene(IntermediateSongPackage package);
+    byte[] GenerateAudioScene(IntermediateSongPackage package);
+    byte[] GenerateTimelineScene(IntermediateSongPackage package);
+    byte[] GenerateCinematicsScene(IntermediateSongPackage package);
+    byte[] GenerateMenuArtScene(IntermediateSongPackage package);
+    byte[] GenerateAutodanceScene(IntermediateSongPackage package);
+    byte[] GenerateGraphScene(string mapName);
+    byte[] GenerateVideoScene(string mapName);
+    byte[] GenerateVideoMapPreviewScene(string mapName);
     byte[] GenerateVideoPlayerActor(string mapName, bool isPreview);
     byte[] GenerateMpd();
     byte[] GenerateAutodanceActor(string mapName);

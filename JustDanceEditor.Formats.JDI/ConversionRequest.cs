@@ -16,6 +16,7 @@ public enum UbiArtType
 public enum UbiArtPlatformType
 {
     Uncooked,
+    Wii,
     WiiU,
     NX,
     PC

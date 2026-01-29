@@ -1,3 +1,4 @@
+using BCnEncoder.Encoder;
 using BCnEncoder.ImageSharp;
 
 using SixLabors.ImageSharp;
@@ -687,7 +688,7 @@ public class GTX
     {
         // Uses BCnEncoder.ImageSharp to compress the image
         using Image<Rgba32> rgba = image.CloneAs<Rgba32>();
-        var encoder = new BCnEncoder.Encoder.BcEncoder();
+        BcEncoder encoder = new BCnEncoder.Encoder.BcEncoder();
         encoder.OutputOptions.GenerateMipMaps = false;
         encoder.OutputOptions.Quality = BCnEncoder.Encoder.CompressionQuality.BestQuality;
         encoder.OutputOptions.Format = format;

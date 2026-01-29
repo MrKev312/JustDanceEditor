@@ -16,9 +16,11 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    private byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
+
     #region JSON/Lua Generators
 
-    public string GenerateSongDesc(IntermediateSongPackage package)
+    public byte[] GenerateSongDesc(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         var songDesc = new
@@ -70,10 +72,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 }
             }
         };
-        return JsonSerializer.Serialize(songDesc, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(songDesc, _jsonOptions));
     }
 
-    public string GenerateMusicTrack(IntermediateSongPackage package)
+    public byte[] GenerateMusicTrack(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -114,10 +116,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             ]
         };
 
-        return JsonSerializer.Serialize(musicTrack, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(musicTrack, _jsonOptions));
     }
 
-    public string GenerateDanceTape(IntermediateSongPackage package)
+    public byte[] GenerateDanceTape(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> clips = [];
@@ -151,7 +153,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             }
         }
 
-        foreach (JDI.Timelines.PictogramClip pictoClip in package.Pictograms.Clips)
+        foreach (PictogramClip pictoClip in package.Pictograms.Clips)
         {
             clips.Add(new
             {
@@ -166,7 +168,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             });
         }
 
-        foreach (JDI.Timelines.GoldEffectClip goldClip in package.GoldEffects.Clips)
+        foreach (GoldEffectClip goldClip in package.GoldEffects.Clips)
         {
             clips.Add(new
             {
@@ -191,10 +193,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             SoundwichEvent = ""
         };
 
-        return JsonSerializer.Serialize(dtape, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(dtape, _jsonOptions));
     }
 
-    public string GenerateKaraokeTape(IntermediateSongPackage package)
+    public byte[] GenerateKaraokeTape(IntermediateSongPackage package)
     {
         var clips = package.Lyrics.Clips.Select(lyric => new
         {
@@ -224,10 +226,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             SoundwichEvent = ""
         };
 
-        return JsonSerializer.Serialize(ktape, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(ktape, _jsonOptions));
     }
 
-    public string GenerateTapeCaseTpl(string mapName, string tapeType)
+    public byte[] GenerateTapeCaseTpl(string mapName, string tapeType)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         string label = tapeType == "dance" ? "tml_motion" : "tml_karaoke";
@@ -266,10 +268,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 }
             }
         };
-        return JsonSerializer.Serialize(tpl, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public string GenerateSequenceTpl()
+    public byte[] GenerateSequenceTpl()
     {
         var tpl = new
         {
@@ -282,10 +284,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             FORCEISENVIRONMENT = 0,
             COMPONENTS = new object[] { new { __class = "TapeCase_Template" } }
         };
-        return JsonSerializer.Serialize(tpl, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public string GenerateSoundTape(string mapName)
+    public byte[] GenerateSoundTape(string mapName)
     {
         var stape = new
         {
@@ -296,10 +298,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             MapName = mapName,
             SoundwichEvent = ""
         };
-        return JsonSerializer.Serialize(stape, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(stape, _jsonOptions));
     }
 
-    public string GenerateAmbTpl(string mapName)
+    public byte[] GenerateAmbTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         var tpl = new
@@ -357,10 +359,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 }
             }
         };
-        return JsonSerializer.Serialize(tpl, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public string GenerateMainSequenceTpl(string mapName)
+    public byte[] GenerateMainSequenceTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         var tpl = new
@@ -396,10 +398,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 }
             }
         };
-        return JsonSerializer.Serialize(tpl, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public string GenerateSgs()
+    public byte[] GenerateSgs()
     {
         var sgs = new
         {
@@ -414,10 +416,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 hud = 0
             }
         };
-        return JsonSerializer.Serialize(sgs, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(sgs, _jsonOptions));
     }
 
-    public string GenerateGenericActor(string className, string luaPath)
+    public byte[] GenerateGenericActor(string className, string luaPath)
     {
         var actor = new
         {
@@ -432,10 +434,10 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             LUA = luaPath,
             COMPONENTS = Array.Empty<object>()
         };
-        return JsonSerializer.Serialize(actor, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(actor, _jsonOptions));
     }
 
-    public string GenerateAutodanceTape(IntermediateSongPackage package)
+    public byte[] GenerateAutodanceTape(IntermediateSongPackage package)
     {
         var tpl = new
         {
@@ -465,17 +467,17 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
                 }
             }
         };
-        return JsonSerializer.Serialize(tpl, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public string GenerateMainSequenceTape(IntermediateSongPackage package)
+    public byte[] GenerateMainSequenceTape(IntermediateSongPackage package)
     {
         List<object> clips = [];
         long clipIdCounter = 12345;
         if (package.HideUserInterface?.Clips != null)
         {
             long trackId = 1111;
-            foreach (JDI.Timelines.HideUserInterfaceClip hideClip in package.HideUserInterface.Clips)
+            foreach (HideUserInterfaceClip hideClip in package.HideUserInterface.Clips)
             {
                 clips.Add(new
                 {
@@ -523,18 +525,18 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             MapName = package.Metadata.MapName,
             SoundwichEvent = ""
         };
-        return JsonSerializer.Serialize(tape, _jsonOptions);
+        return ToBytes(JsonSerializer.Serialize(tape, _jsonOptions));
     }
 
     #endregion
 
     #region XML Scene Generators
 
-    public string GenerateMainScene(IntermediateSongPackage package)
+    public byte[] GenerateMainScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
 	<Scene ENGINE_VERSION=""326704"" GRIDUNIT=""2.000000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
 		<PLATFORM_FILTER>
@@ -546,7 +548,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateAudioScene(package).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateAudioScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -554,7 +556,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateCinematicsScene(package).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateCinematicsScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -562,7 +564,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_GRAPH"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/graph/{mapNameLower}_graph.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateGraphScene().Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateGraphScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -570,7 +572,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateTimelineScene(package).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateTimelineScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -578,7 +580,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_VIDEO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateVideoScene(mapName).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateVideoScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -593,7 +595,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_menuart"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/menuart/{mapNameLower}_menuart.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""3"" />
 				<SCENE>
-					{GenerateMenuArtScene(package).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>", "")}
+					{Encoding.UTF8.GetString(GenerateMenuArtScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -601,7 +603,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUTODANCE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -0.033823"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{GenerateAutodanceScene(package).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{Encoding.UTF8.GetString(GenerateAutodanceScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -618,12 +620,13 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 		</sceneConfigs>
 	</Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateAudioScene(IntermediateSongPackage package)
+    public byte[] GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""MusicTrack"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""1.125962 -0.418641"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/audio/{mapNameLower}_musictrack.tpl""><COMPONENTS NAME=""MusicTrackComponent""><MusicTrackComponent /></COMPONENTS></Actor></ACTORS>
@@ -631,12 +634,13 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateTimelineScene(IntermediateSongPackage package)
+    public byte[] GenerateTimelineScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000001"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_tml_dance"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-1.157740 0.006158"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl""><COMPONENTS NAME=""TapeCase_Component""><TapeCase_Component /></COMPONENTS></Actor></ACTORS>
@@ -644,25 +648,27 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateCinematicsScene(IntermediateSongPackage package)
+    public byte[] GenerateCinematicsScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_MainSequence"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl""><COMPONENTS NAME=""MasterTape""><MasterTape /></COMPONENTS></Actor></ACTORS>
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateMenuArtScene(IntermediateSongPackage package)
+    public byte[] GenerateMenuArtScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""1"" isPopup=""0"">
         <PLATFORM_FILTER><TargetFilterList platform=""WIIU""><objects VAL=""{mapName}_cover_generic"" /><objects VAL=""{mapName}_cover_albumbkg"" /></TargetFilterList></PLATFORM_FILTER>
@@ -677,36 +683,39 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateAutodanceScene(IntermediateSongPackage package)
+    public byte[] GenerateAutodanceScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_Autodance"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl""><COMPONENTS NAME=""JD_AutodanceComponent""><JD_AutodanceComponent /></COMPONENTS></Actor></ACTORS>
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateGraphScene()
+    public byte[] GenerateGraphScene(string mapName)
     {
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""10.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""Camera_JD_Dummy"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/tpl_emptyactor.tpl"" LUA=""enginedata/actortemplates/tpl_emptyactor.tpl"" /></ACTORS>
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateVideoScene(string mapName)
+    public byte[] GenerateVideoScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""-1.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""VideoScreen"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -4.500000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/_common/videoscreen/video_player_main.tpl""><COMPONENTS NAME=""PleoComponent""><PleoComponent video=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm"" dashMPD=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd"" /></COMPONENTS></Actor></ACTORS>
@@ -714,18 +723,20 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
-    public string GenerateVideoMapPreviewScene(string mapName)
+    public byte[] GenerateVideoMapPreviewScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        return $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
+        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
     <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
         <ACTORS NAME=""Actor""><Actor RELATIVEZ=""-1.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""VideoScreen"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -4.500000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/_common/videoscreen/video_player_map_preview.tpl""><COMPONENTS NAME=""PleoComponent""><PleoComponent video=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm"" dashMPD=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd"" channelID=""{mapName}"" /></COMPONENTS></Actor></ACTORS>
         <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
     </Scene>
 </root>";
+        return ToBytes(content);
     }
 
     #endregion

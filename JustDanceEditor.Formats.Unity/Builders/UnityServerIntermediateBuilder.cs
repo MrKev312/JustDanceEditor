@@ -350,9 +350,6 @@ public static partial class UnityServerIntermediateBuilder
             {
                 Beats = field["MusicSignature"]["beats"].AsInt,
                 Marker = (float)field["MusicSignature"]["marker"].AsDouble,
-                // Note: The original 'BuildTimelineStructure' tried to access 'signature.comment',
-                // but the 'Signature' class in 'ParseStructure' didn't have a 'comment' field.
-                // This version assumes there is no comment for signatures.
                 Comment = string.Empty
             }));
 
