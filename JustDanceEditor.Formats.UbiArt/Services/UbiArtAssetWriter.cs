@@ -389,9 +389,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             // Moves are platform specific (Wii/WiiU uses .msm, NX uses .msc usually but .msm often compatible)
             // For Wii, we need to ensure they are put in the right folder.
-            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wiiu"); // "wiiu" is often the folder name even on wii/nx
-            if (platform == UbiArtPlatform.Wii)
-                movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wii");
+            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wiiu");
 
             ctx.IO.CreateDirectory(ctx.IO.Combine(ctx.OutputFolder, movesFolder));
 
