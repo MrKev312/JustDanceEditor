@@ -863,7 +863,7 @@ public class RakiAudioConverter : IAudioConverter
                 sampleProvider = sampleProvider.ToMono().ToStereo();
         }
 
-        Concentus.Structs.OpusEncoder encoder = new(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO)
+        OpusEncoder encoder = new(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO)
         {
             Bitrate = 192000,
             ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_20_MS

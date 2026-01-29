@@ -73,12 +73,13 @@ public static class RakiAudioEncoder
         WriteU16(writer, (ushort)format.BitsPerSample, isBigEndian);
         WriteU16(writer, 0, isBigEndian);
 
-        for (int i = 0; i < padding; i++) writer.Write((byte)0);
+        for (int i = 0; i < padding; i++)
+            writer.Write((byte)0);
 
         writer.Write(audioBuffer, 0, bytesRead);
     }
 
-    public static void EncodeToRakiCafeAdpcm(WaveStream source, Stream output)
+    public static void EncodeToRakiCafeAdpcm(WaveStream source, Stream output, bool splitChannels = false)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(output);
@@ -94,13 +95,10 @@ public static class RakiAudioEncoder
 
         WaveStream pcmStream = new SampleProvider16ToWaveStreamAdapter(resampled, 32000, 2);
         byte[] pcmBytes = new byte[pcmStream.Length];
-        pcmStream.Read(pcmBytes, 0, pcmBytes.Length);
+        pcmStream.ReadExactly(pcmBytes);
 
         int sampleCount = pcmBytes.Length / 4; // 2 bytes * 2 channels
-        short[][] channelSamples = new short[2][];
-        channelSamples[0] = new short[sampleCount];
-        channelSamples[1] = new short[sampleCount];
-
+        short[][] channelSamples = [new short[sampleCount], new short[sampleCount]];
         for (int i = 0; i < sampleCount; i++)
         {
             channelSamples[0][i] = BitConverter.ToInt16(pcmBytes, i * 4);
@@ -115,78 +113,182 @@ public static class RakiAudioEncoder
             encodedData[c] = DspAdpcmEncoder.Encode(channelSamples[c], out coefficients[c]);
         }
 
-        // Interleave (datS)
-        int blocks = encodedData[0].Length / 8;
-        byte[] interleavedData = new byte[encodedData[0].Length * 2];
-        for (int i = 0; i < blocks; i++)
-        {
-            Array.Copy(encodedData[0], i * 8, interleavedData, i * 16, 8);
-            Array.Copy(encodedData[1], i * 8, interleavedData, (i * 16) + 8, 8);
-        }
-
         using BinaryWriter writer = new(output, Encoding.ASCII, leaveOpen: true);
 
-        // Constants matching your working tool
+        // Offsets & Sizes logic
         uint rakiHeaderSize = 32;
-        uint chunkTableSize = 48; // 4 chunks * 12
-        uint fmtOffset = 0x50;
-        uint dspLOffset = 0x62;
-        uint dspROffset = 0xC2;
-        uint datSOffset = 0x140;
 
-        // Write RAKI
-        WriteRakiHeader(writer, "Cafe", "adpc", 0x122, datSOffset, 4, 3, true);
+        // Split uses 5 chunks (fmt, dspL, dspR, datL, datR), Interleaved uses 4 (fmt, dspL, dspR, datS)
+        uint chunkCount = splitChannels ? 5u : 4u;
+        uint chunkTableSize = chunkCount * 12;
 
-        // Chunk Table
+        uint fmtOffset = rakiHeaderSize + chunkTableSize;
+        uint fmtSize = 18; // Fixed size for fmt 
+
+        uint dspLOffset = fmtOffset + fmtSize;
+        uint dspSize = 96; // Fixed size for dsp header
+
+        uint dspROffset = dspLOffset + dspSize;
+
+        // Data Start is aligned to 0x140 in both formats usually, 
+        // effectively 0x20 alignment relative to the end of dspR
+        uint dataStartOffset = dspROffset + dspSize;
+        uint alignment = 0x20;
+        uint remainder = dataStartOffset % alignment;
+        if (remainder > 0)
+        {
+            dataStartOffset += alignment - remainder;
+        }
+
+        // Ensure we hit the standard 0x140 offset if the math allows (matches dumps)
+        if (dataStartOffset < 0x140)
+            dataStartOffset = 0x140;
+
+        uint headerSize = dspROffset + dspSize; // Header Size covers up to end of chunks
+
+        // Amb/Split format specifics based on Dump B
+        // Version is 0x09 instead of 0x0B
+        // Unk field is 0 instead of 3
+        // Loop flag is usually enabled for Ambience
+        uint version = splitChannels ? 9u : 0x0Bu;
+        uint unkParam = splitChannels ? 0u : 3u;
+        ushort loopFlag = (ushort)(splitChannels ? 1 : 0);
+
+        // Write RAKI Header
+        WriteRakiHeader(writer, "Cafe", "adpc", headerSize, dataStartOffset, chunkCount, unkParam, true, version);
+
+        // Write Chunk Table
         writer.Write(Encoding.ASCII.GetBytes("fmt "));
         WriteU32(writer, fmtOffset, true);
-        WriteU32(writer, 18, true);
+        WriteU32(writer, fmtSize, true);
 
         writer.Write(Encoding.ASCII.GetBytes("dspL"));
         WriteU32(writer, dspLOffset, true);
-        WriteU32(writer, 96, true);
+        WriteU32(writer, dspSize, true);
 
         writer.Write(Encoding.ASCII.GetBytes("dspR"));
         WriteU32(writer, dspROffset, true);
-        WriteU32(writer, 96, true);
+        WriteU32(writer, dspSize, true);
 
-        writer.Write(Encoding.ASCII.GetBytes("datS"));
-        WriteU32(writer, datSOffset, true);
-        WriteU32(writer, (uint)interleavedData.Length, true);
+        if (splitChannels)
+        {
+            uint datLSize = (uint)encodedData[0].Length;
+            uint datRSize = (uint)encodedData[1].Length;
 
-        // fmt Chunk
+            // Right channel starts after Left channel, aligned to 0x20
+            uint datLOffset = dataStartOffset;
+            uint datROffset = datLOffset + datLSize;
+
+            uint rRemainder = datROffset % 0x20;
+            if (rRemainder > 0)
+                datROffset += 0x20 - rRemainder;
+
+            writer.Write(Encoding.ASCII.GetBytes("datL"));
+            WriteU32(writer, datLOffset, true);
+            WriteU32(writer, datLSize, true);
+
+            writer.Write(Encoding.ASCII.GetBytes("datR"));
+            WriteU32(writer, datROffset, true);
+            WriteU32(writer, datRSize, true);
+        }
+        else
+        {
+            // Interleaved datS
+            int blocks = encodedData[0].Length / 8;
+            uint totalSize = (uint)(encodedData[0].Length + encodedData[1].Length);
+
+            writer.Write(Encoding.ASCII.GetBytes("datS"));
+            WriteU32(writer, dataStartOffset, true);
+            WriteU32(writer, totalSize, true);
+        }
+
+        // Write fmt Chunk
         writer.BaseStream.Position = fmtOffset;
-        WriteU16(writer, 2, true); // Code 2 often used for ADPCM in this container
+        WriteU16(writer, 2, true); // Format Code
         WriteU16(writer, 2, true); // Channels
         WriteU32(writer, 32000, true);
-        WriteU32(writer, 64000, true); // Average bytes
+        WriteU32(writer, 64000, true); // Avg bytes
         WriteU16(writer, 2, true); // Block align
         WriteU16(writer, 16, true);
         WriteU16(writer, 0, true);
 
-        // DSP Chunks
+        // Write DSP Chunks
         for (int c = 0; c < 2; c++)
         {
+            uint nibbleCount = (uint)encodedData[c].Length * 2;
+
             writer.BaseStream.Position = c == 0 ? dspLOffset : dspROffset;
-            WriteU32(writer, (uint)sampleCount, true);
-            WriteU32(writer, (uint)sampleCount, true); // Nibbles (approx)
-            WriteU32(writer, 32000, true);
-            WriteU16(writer, 0, true); // Loop flag
-            WriteU16(writer, 0, true); // Format
-            WriteU32(writer, 0, true); // Loop start
-            WriteU32(writer, (uint)sampleCount - 1, true); // Loop end
-            WriteU32(writer, 0, true); // Cur address
-            for (int i = 0; i < 16; i++) WriteU16(writer, (ushort)coefficients[c][i], true);
-            WriteU16(writer, 0, true); // Gain
-            writer.Write(encodedData[c][0]); // Initial Predictor
-            writer.Write((byte)0);
-            WriteU16(writer, 0, true); // Hist 1
-            WriteU16(writer, 0, true); // Hist 2
+
+            WriteU32(writer, (uint)sampleCount, true); // Word 0: Sample Count
+            WriteU32(writer, nibbleCount, true);        // Word 1: Nibble Count (FIXED)
+            WriteU32(writer, 32000, true);             // Word 2: Sample Rate
+
+            WriteU16(writer, loopFlag, true);          // Word 3: Loop Flag
+            WriteU16(writer, 0, true);                 // Word 3: Format (0 = ADPCM)
+
+            WriteU32(writer, 0, true);                 // Word 4: Loop Start Address (Nibble 0)
+            WriteU32(writer, nibbleCount - 1, true);   // Word 5: Loop End Address (Nibble count - 1) (FIXED)
+            WriteU32(writer, 2, true);                 // Word 6: Current Address (Skip first byte)
+
+            // Coefficients
+            for (int i = 0; i < 16; i++)
+                WriteU16(writer, (ushort)coefficients[c][i], true);
+
+            WriteU16(writer, 0, true);                 // Gain
+
+            // Initial Predictor/Scale (Must match the first byte of encoded data)
+            writer.Write(encodedData[c][0]);
+            writer.Write((byte)0);                     // Padding/Reserved
+
+            WriteU16(writer, 0, true);                 // History 1
+            WriteU16(writer, 0, true);                 // History 2
         }
 
-        // Data
-        writer.BaseStream.Position = datSOffset;
-        writer.Write(interleavedData);
+        // Write Data
+        writer.BaseStream.Position = dataStartOffset;
+
+        if (splitChannels)
+        {
+            // Write Left
+            writer.Write(encodedData[0]);
+
+            // Pad alignment for Right
+            long currentPos = writer.BaseStream.Position;
+            long remainderPos = currentPos % 0x20;
+            if (remainderPos > 0)
+            {
+                int pad = (int)(0x20 - remainderPos);
+                writer.Write(new byte[pad]);
+            }
+
+            // Write Right
+            writer.Write(encodedData[1]);
+        }
+        else
+        {
+            // Interleave logic (Original)
+            int blocks = encodedData[0].Length / 8;
+            byte[] interleavedData = new byte[encodedData[0].Length * 2];
+            for (int i = 0; i < blocks; i++)
+            {
+                Array.Copy(encodedData[0], i * 8, interleavedData, i * 16, 8);
+                Array.Copy(encodedData[1], i * 8, interleavedData, (i * 16) + 8, 8);
+            }
+            writer.Write(interleavedData);
+        }
+    }
+
+    // UPDATED HELPER: Added 'version' parameter with default 0x0B
+    private static void WriteRakiHeader(BinaryWriter writer, string platform, string type, uint headerSize, uint dataStartOffset, uint chunkCount, uint unk, bool isBigEndian, uint version = 0x0B)
+    {
+        writer.Write(Encoding.ASCII.GetBytes("RAKI"));
+        WriteU32(writer, version, isBigEndian); // Now using the version parameter
+        writer.Write(Encoding.ASCII.GetBytes(platform.PadRight(4).Substring(0, 4)));
+        writer.Write(Encoding.ASCII.GetBytes(type.PadRight(4).Substring(0, 4)));
+        WriteU32(writer, headerSize, isBigEndian);
+        WriteU32(writer, dataStartOffset, isBigEndian);
+        WriteU32(writer, chunkCount, isBigEndian);
+        WriteU32(writer, unk, isBigEndian);
     }
 
     public static void EncodeToRakiNxOpus(WaveStream source, Stream output, IList<int>? markers = null, uint preSkip = 120, short outputGainDb256 = 0)
@@ -222,7 +324,8 @@ public static class RakiAudioEncoder
             int samplesRead;
             while ((samplesRead = sampleProvider.Read(bufferFloat, 0, bufferFloat.Length)) > 0)
             {
-                if (samplesRead < bufferFloat.Length) Array.Clear(bufferFloat, samplesRead, bufferFloat.Length - samplesRead);
+                if (samplesRead < bufferFloat.Length)
+                    Array.Clear(bufferFloat, samplesRead, bufferFloat.Length - samplesRead);
                 for (int i = 0; i < bufferFloat.Length; i++)
                 {
                     float f = bufferFloat[i];
@@ -271,11 +374,14 @@ public static class RakiAudioEncoder
         WriteRakiHeader(writer, "Nx  ", "Nx  ", headerSize, dataStartOffset, hasMarkers ? 5u : 3u, 3, false);
 
         writer.Write(Encoding.ASCII.GetBytes("fmt "));
-        writer.Write(0x48u); writer.Write(0x10u);
+        writer.Write(0x48u);
+        writer.Write(0x10u);
         writer.Write(Encoding.ASCII.GetBytes("AdIn"));
-        writer.Write(headerSize - 4); writer.Write(4u);
+        writer.Write(headerSize - 4);
+        writer.Write(4u);
         writer.Write(Encoding.ASCII.GetBytes("data"));
-        writer.Write(dataStartOffset); writer.Write((uint)fullNxData.Length);
+        writer.Write(dataStartOffset);
+        writer.Write((uint)fullNxData.Length);
 
         writer.BaseStream.Position = 0x48;
         WriteU16(writer, 0x0063, false);
@@ -307,21 +413,24 @@ public static class RakiAudioEncoder
     private static void WriteU32(BinaryWriter writer, uint value, bool isBigEndian)
     {
         byte[] bytes = BitConverter.GetBytes(value);
-        if (isBigEndian) Array.Reverse(bytes);
+        if (isBigEndian)
+            Array.Reverse(bytes);
         writer.Write(bytes);
     }
 
     private static void WriteU16(BinaryWriter writer, ushort value, bool isBigEndian)
     {
         byte[] bytes = BitConverter.GetBytes(value);
-        if (isBigEndian) Array.Reverse(bytes);
+        if (isBigEndian)
+            Array.Reverse(bytes);
         writer.Write(bytes);
     }
 
     private static void WriteU32BE(BinaryWriter writer, uint value)
     {
         byte[] bytes = BitConverter.GetBytes(value);
-        if (BitConverter.IsLittleEndian) Array.Reverse(bytes);
+        if (BitConverter.IsLittleEndian)
+            Array.Reverse(bytes);
         writer.Write(bytes);
     }
 
@@ -342,10 +451,12 @@ public static class RakiAudioEncoder
                 short[] chunk = new short[16];
                 chunk[0] = (i >= 2) ? pcmSamples[i - 2] : (short)0;
                 chunk[1] = (i >= 1) ? pcmSamples[i - 1] : (short)0;
-                for (int j = 0; j < len; j++) chunk[j + 2] = pcmSamples[i + j];
+                for (int j = 0; j < len; j++)
+                    chunk[j + 2] = pcmSamples[i + j];
 
                 EncodeChunk(chunk, len, encodedBuffer, d, coefficients);
             }
+
             return encodedBuffer;
         }
 
@@ -354,20 +465,24 @@ public static class RakiAudioEncoder
             int samples = pcm.Length;
             int numBlocks = (samples + 13) / 14;
             double[][] bufferArray = new double[8][];
-            for (int i = 0; i < 8; i++) bufferArray[i] = new double[3];
+            for (int i = 0; i < 8; i++)
+                bufferArray[i] = new double[3];
 
             double[] sChunkBuffer = new double[3];
             double[] omgBuffer = new double[3];
             double[][] pChannels = new double[3][];
-            for (int i = 0; i < 3; i++) pChannels[i] = new double[3];
+            for (int i = 0; i < 3; i++)
+                pChannels[i] = new double[3];
 
-            List<double[]> multiBuffer = new();
+            List<double[]> multiBuffer = [];
             short[] chunkBuffer = new short[28];
 
             for (int i = 0; i < samples; i += 14)
             {
-                for (int z = 0; z < 14; z++) chunkBuffer[z] = chunkBuffer[z + 14];
-                for (int z = 0; z < 14; z++) chunkBuffer[z + 14] = (i + z < samples) ? pcm[i + z] : (short)0;
+                for (int z = 0; z < 14; z++)
+                    chunkBuffer[z] = chunkBuffer[z + 14];
+                for (int z = 0; z < 14; z++)
+                    chunkBuffer[z + 14] = (i + z < samples) ? pcm[i + z] : (short)0;
 
                 CalculateAutocorrelation(chunkBuffer, 14, sChunkBuffer);
                 if (Math.Abs(sChunkBuffer[0]) > 10.0)
@@ -381,7 +496,8 @@ public static class RakiAudioEncoder
                         {
                             double[] reflection = new double[3];
                             reflection[0] = 1.0;
-                            for (int z = 1; z <= 2; z++) reflection[z] = Math.Clamp(omgBuffer[z], -0.9999999999, 0.9999999999);
+                            for (int z = 1; z <= 2; z++)
+                                reflection[z] = Math.Clamp(omgBuffer[z], -0.9999999999, 0.9999999999);
                             double[] lpc = new double[3];
                             ReflectionToLpc(reflection, lpc);
                             multiBuffer.Add(lpc);
@@ -390,19 +506,23 @@ public static class RakiAudioEncoder
                 }
             }
 
-            double[] avgLpc = new double[3] { 1.0, 0.0, 0.0 };
+            double[] avgLpc = [1.0, 0.0, 0.0];
             if (multiBuffer.Count > 0)
             {
                 for (int i = 0; i < multiBuffer.Count; i++)
                 {
                     LpcToAutocorrelation(multiBuffer[i], bufferArray[0]);
-                    for (int y = 1; y <= 2; y++) avgLpc[y] += bufferArray[0][y];
+                    for (int y = 1; y <= 2; y++)
+                        avgLpc[y] += bufferArray[0][y];
                 }
-                for (int y = 1; y <= 2; y++) avgLpc[y] /= multiBuffer.Count;
+
+                for (int y = 1; y <= 2; y++)
+                    avgLpc[y] /= multiBuffer.Count;
             }
 
             LpcToReflection(avgLpc, omgBuffer, bufferArray[0], out _);
-            for (int y = 1; y <= 2; y++) omgBuffer[y] = Math.Clamp(omgBuffer[y], -0.9999999999, 0.9999999999);
+            for (int y = 1; y <= 2; y++)
+                omgBuffer[y] = Math.Clamp(omgBuffer[y], -0.9999999999, 0.9999999999);
             ReflectionToLpc(omgBuffer, bufferArray[0]);
 
             for (int w = 0; w < 3; w++)
@@ -420,6 +540,7 @@ public static class RakiAudioEncoder
                     coeffs[(z * 2) + y] = (short)Math.Clamp(d > 0 ? d + 0.5 : d - 0.5, -32768, 32767);
                 }
             }
+
             return coeffs;
         }
 
@@ -438,11 +559,17 @@ public static class RakiAudioEncoder
                 {
                     int pred = ((source[s + 1] * c1) + (source[s] * c2)) / 2048;
                     int err = source[s + 2] - pred;
-                    if (Math.Abs(err) > Math.Abs(maxErr)) maxErr = err;
+                    if (Math.Abs(err) > Math.Abs(maxErr))
+                        maxErr = err;
                 }
 
                 int scale = 0;
-                while (scale <= 12 && (maxErr > 7 || maxErr < -8)) { scale++; maxErr /= 2; }
+                while (scale <= 12 && (maxErr > 7 || maxErr < -8))
+                {
+                    scale++;
+                    maxErr /= 2;
+                }
+
                 scale = Math.Max(0, scale);
 
                 double totalDist = 0;
@@ -450,17 +577,24 @@ public static class RakiAudioEncoder
                 int prev1 = source[1], prev2 = source[0];
                 for (int s = 0; s < samples; s++)
                 {
-                    int pred = ((prev1 * c1) + (prev2 * c2));
+                    int pred = (prev1 * c1) + (prev2 * c2);
                     int rawErr = (source[s + 2] << 11) - pred;
                     int encoded = Math.Clamp((int)Math.Round((double)rawErr / (2048 * (1 << scale))), -8, 7);
                     pcmOut[s] = encoded;
                     int decoded = (pred + ((encoded * (1 << scale)) << 11) + 1024) >> 11;
                     decoded = Math.Clamp(decoded, -32768, 32767);
                     totalDist += Math.Pow(source[s + 2] - decoded, 2);
-                    prev2 = prev1; prev1 = decoded;
+                    prev2 = prev1;
+                    prev1 = decoded;
                 }
 
-                if (totalDist < bestDist) { bestDist = totalDist; bestIdx = i; bestScale = scale; bestPcm = pcmOut; }
+                if (totalDist < bestDist)
+                {
+                    bestDist = totalDist;
+                    bestIdx = i;
+                    bestScale = scale;
+                    bestPcm = pcmOut;
+                }
             }
 
             dest[destOff] = (byte)((bestIdx << 4) | (bestScale & 0xF));
@@ -473,7 +607,8 @@ public static class RakiAudioEncoder
             for (int i = 0; i <= 2; i++)
             {
                 dest[i] = 0;
-                for (int j = i; j < n; j++) dest[i] -= (double)src[j - i] * src[j];
+                for (int j = i; j < n; j++)
+                    dest[i] -= (double)src[j - i] * src[j];
             }
         }
 
@@ -483,7 +618,8 @@ public static class RakiAudioEncoder
                 for (int y = 1; y <= 2; y++)
                 {
                     outList[x][y] = 0;
-                    for (int z = 0; z < n; z++) outList[x][y] += (double)src[z - x + 14] * src[z - y + 14];
+                    for (int z = 0; z < n; z++)
+                        outList[x][y] += (double)src[z - x + 14] * src[z - y + 14];
                 }
         }
 
@@ -494,8 +630,10 @@ public static class RakiAudioEncoder
             for (int i = 1; i <= 2; i++)
             {
                 double max = 0;
-                for (int j = 1; j <= 2; j++) max = Math.Max(max, Math.Abs(mat[i][j]));
-                if (max == 0) return true;
+                for (int j = 1; j <= 2; j++)
+                    max = Math.Max(max, Math.Abs(mat[i][j]));
+                if (max == 0)
+                    return true;
                 scales[i] = 1.0 / max;
             }
 
@@ -504,30 +642,44 @@ public static class RakiAudioEncoder
                 for (int i = 1; i < j; i++)
                 {
                     double sum = mat[i][j];
-                    for (int k = 1; k < i; k++) sum -= mat[i][k] * mat[k][j];
+                    for (int k = 1; k < i; k++)
+                        sum -= mat[i][k] * mat[k][j];
                     mat[i][j] = sum;
                 }
-                double max = 0; int p = j;
+
+                double max = 0;
+                int p = j;
                 for (int i = j; i <= 2; i++)
                 {
                     double sum = mat[i][j];
-                    for (int k = 1; k < j; k++) sum -= mat[i][k] * mat[k][j];
+                    for (int k = 1; k < j; k++)
+                        sum -= mat[i][k] * mat[k][j];
                     mat[i][j] = sum;
-                    if (Math.Abs(sum) * scales[i] >= max) { max = Math.Abs(sum) * scales[i]; p = i; }
+                    if (Math.Abs(sum) * scales[i] >= max)
+                    {
+                        max = Math.Abs(sum) * scales[i];
+                        p = i;
+                    }
                 }
+
                 if (p != j)
                 {
-                    for (int k = 1; k <= 2; k++) (mat[p][k], mat[j][k]) = (mat[j][k], mat[p][k]);
+                    for (int k = 1; k <= 2; k++)
+                        (mat[p][k], mat[j][k]) = (mat[j][k], mat[p][k]);
                     scales[p] = scales[j];
                 }
+
                 pivot[j] = p;
-                if (mat[j][j] == 0) return true;
+                if (mat[j][j] == 0)
+                    return true;
                 if (j != 2)
                 {
                     double tmp = 1.0 / mat[j][j];
-                    for (int i = j + 1; i <= 2; i++) mat[i][j] *= tmp;
+                    for (int i = j + 1; i <= 2; i++)
+                        mat[i][j] *= tmp;
                 }
             }
+
             return false;
         }
 
@@ -538,14 +690,19 @@ public static class RakiAudioEncoder
                 int ip = pivot[i];
                 double sum = vec[ip];
                 vec[ip] = vec[i];
-                if (ii != 0) for (int j = ii; j < i; j++) sum -= mat[i][j] * vec[j];
-                else if (sum != 0) ii = i;
+                if (ii != 0)
+                    for (int j = ii; j < i; j++)
+                        sum -= mat[i][j] * vec[j];
+                else if (sum != 0)
+                    ii = i;
                 vec[i] = sum;
             }
+
             for (int i = 2; i >= 1; i--)
             {
                 double sum = vec[i];
-                for (int j = i + 1; j <= 2; j++) sum -= mat[i][j] * vec[j];
+                for (int j = i + 1; j <= 2; j++)
+                    sum -= mat[i][j] * vec[j];
                 vec[i] = sum / mat[i][i];
             }
         }
@@ -554,7 +711,8 @@ public static class RakiAudioEncoder
         {
             double v2 = lpc[2];
             double tmp = 1.0 - (v2 * v2);
-            if (tmp == 0) return 1;
+            if (tmp == 0)
+                return 1;
             refl[1] = (lpc[1] - (lpc[1] * v2)) / tmp;
             refl[2] = v2;
             return Math.Abs(refl[1]) > 1.0 ? 1 : 0;
@@ -570,73 +728,98 @@ public static class RakiAudioEncoder
         private static void LpcToAutocorrelation(double[] lpc, double[] auto)
         {
             double[][] work = new double[3][];
-            for (int i = 0; i < 3; i++) work[i] = new double[3];
-            for (int i = 1; i <= 2; i++) work[2][i] = -lpc[i];
+            for (int i = 0; i < 3; i++)
+                work[i] = new double[3];
+            for (int i = 1; i <= 2; i++)
+                work[2][i] = -lpc[i];
             for (int i = 2; i > 0; i--)
             {
                 double denom = 1.0 - (work[i][i] * work[i][i]);
-                for (int j = 1; j < i; j++) work[i - 1][j] = ((work[i][i] * work[i][j]) + work[i][j]) / denom;
+                for (int j = 1; j < i; j++)
+                    work[i - 1][j] = ((work[i][i] * work[i][j]) + work[i][j]) / denom;
             }
+
             auto[0] = 1.0;
             for (int i = 1; i <= 2; i++)
             {
                 auto[i] = 0;
-                for (int j = 1; j <= i; j++) auto[i] += work[i][j] * auto[i - j];
+                for (int j = 1; j <= i; j++)
+                    auto[i] += work[i][j] * auto[i - j];
             }
         }
 
         private static int LpcToReflection(double[] lpc, double[] refl, double[] workLpc, out double finalAuto)
         {
-            int bad = 0; double auto = lpc[0];
+            int bad = 0;
+            double auto = lpc[0];
             workLpc[0] = 1.0;
             for (int i = 1; i <= 2; i++)
             {
                 double sum = 0;
-                for (int j = 1; j < i; j++) sum += workLpc[j] * lpc[i - j];
+                for (int j = 1; j < i; j++)
+                    sum += workLpc[j] * lpc[i - j];
                 workLpc[i] = (auto > 0) ? -(sum + lpc[i]) / auto : 0;
                 refl[i] = workLpc[i];
-                if (Math.Abs(refl[i]) > 1.0) bad++;
-                for (int j = 1; j < i; j++) workLpc[j] += workLpc[i] * workLpc[i - j];
+                if (Math.Abs(refl[i]) > 1.0)
+                    bad++;
+                for (int j = 1; j < i; j++)
+                    workLpc[j] += workLpc[i] * workLpc[i - j];
                 auto *= 1.0 - (workLpc[i] * workLpc[i]);
             }
-            finalAuto = auto; return bad;
+
+            finalAuto = auto;
+            return bad;
         }
 
         private static void InitialCoefficientStep(double[][] coeffs, double[] vec, int n, double step)
         {
             for (int i = 0; i < n; i++)
-                for (int j = 0; j <= 2; j++) coeffs[n + i][j] = (step * vec[j]) + coeffs[i][j];
+                for (int j = 0; j <= 2; j++)
+                    coeffs[n + i][j] = (step * vec[j]) + coeffs[i][j];
         }
 
         private static void RefineCoefficients(double[][] coeffs, int n, List<double[]> multi)
         {
             double[][] newList = new double[n][];
             int[] counts = new int[n];
-            for (int i = 0; i < n; i++) newList[i] = new double[3];
+            for (int i = 0; i < n; i++)
+                newList[i] = new double[3];
 
             for (int x = 0; x < 2; x++)
             {
                 Array.Clear(counts, 0, n);
-                for (int i = 0; i < n; i++) Array.Clear(newList[i], 0, 3);
-                foreach (var lpc in multi)
+                for (int i = 0; i < n; i++)
+                    Array.Clear(newList[i], 0, 3);
+                foreach (double[] lpc in multi)
                 {
-                    int best = 0; double minErr = 1e30;
+                    int best = 0;
+                    double minErr = 1e30;
                     for (int i = 0; i < n; i++)
                     {
                         double err = CalculateLpcError(coeffs[i], lpc);
-                        if (err < minErr) { minErr = err; best = i; }
+                        if (err < minErr)
+                        {
+                            minErr = err;
+                            best = i;
+                        }
                     }
+
                     counts[best]++;
                     double[] auto = new double[3];
                     LpcToAutocorrelation(lpc, auto);
-                    for (int j = 0; j <= 2; j++) newList[best][j] += auto[j];
+                    for (int j = 0; j <= 2; j++)
+                        newList[best][j] += auto[j];
                 }
+
                 for (int i = 0; i < n; i++)
                 {
-                    if (counts[i] > 0) for (int j = 0; j <= 2; j++) newList[i][j] /= counts[i];
+                    if (counts[i] > 0)
+                        for (int j = 0; j <= 2; j++)
+                            newList[i][j] /= counts[i];
                     double[] refl = new double[3], work = new double[3];
                     LpcToReflection(newList[i], refl, work, out _);
-                    for (int j = 1; j <= 2; j++) refl[j] = Math.Clamp(refl[j], -0.9999999999, 0.9999999999);
+                    for (int j = 1; j <= 2; j++)
+                        refl[j] = Math.Clamp(refl[j], -0.9999999999, 0.9999999999);
                     ReflectionToLpc(refl, coeffs[i]);
                 }
             }
@@ -646,7 +829,7 @@ public static class RakiAudioEncoder
         {
             double v2 = -c2[1], v3 = -c2[2];
             double val = ((v3 * v2) + v2) / (1.0 - (v3 * v3));
-            double[] b = { 1.0, val, (v2 * val) + v3 };
+            double[] b = [1.0, val, (v2 * val) + v3];
             double r1 = (c1[0] * c1[0]) + (c1[1] * c1[1]) + (c1[2] * c1[2]);
             double r2 = (c1[0] * c1[1]) + (c1[1] * c1[2]);
             double r3 = c1[0] * c1[2];
@@ -665,7 +848,7 @@ public static class RakiAudioEncoder
             _waveFormat = new WaveFormat(sampleRate, 16, channels);
             const int bufferSize = 4096;
             float[] sampleBuffer = new float[bufferSize * channels];
-            List<byte> pcmData = new();
+            List<byte> pcmData = [];
             int read;
             while ((read = sampleProvider.Read(sampleBuffer, 0, sampleBuffer.Length)) > 0)
             {
@@ -676,7 +859,8 @@ public static class RakiAudioEncoder
                     pcmData.Add((byte)((pcm16 >> 8) & 0xFF));
                 }
             }
-            _audioBuffer = pcmData.ToArray();
+
+            _audioBuffer = [.. pcmData];
         }
 
         public override WaveFormat WaveFormat => _waveFormat;
@@ -685,7 +869,8 @@ public static class RakiAudioEncoder
         public override int Read(byte[] buffer, int offset, int count)
         {
             int toRead = (int)Math.Min(count, _audioBuffer.Length - _position);
-            if (toRead <= 0) return 0;
+            if (toRead <= 0)
+                return 0;
             Array.Copy(_audioBuffer, _position, buffer, offset, toRead);
             _position += toRead;
             return toRead;
