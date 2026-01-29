@@ -27,7 +27,8 @@ internal sealed class IntermediateToUnityConverter
 
     static readonly JsonSerializerOptions serializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     public IntermediateToUnityConverter(

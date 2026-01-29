@@ -28,9 +28,9 @@ public sealed record UnityMapPackageRequest(
     string OutputFolderPath,
     bool ForCustomServer);
 
-public sealed class MapPackageBundleBuilder(ILogger<MapPackageBundleBuilder> logger) : UnityBundleBuilderBase
+public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<MapPackageBundleBuilder> _logger = logger;
+    private readonly ILogger _logger = logger;
 
     public static Task GenerateAsync(UnityMapPackageRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -38,7 +38,7 @@ public sealed class MapPackageBundleBuilder(ILogger<MapPackageBundleBuilder> log
     public static void Generate(UnityMapPackageRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        MapPackageBundleBuilder builder = new(logger as ILogger<MapPackageBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        MapPackageBundleBuilder builder = new(logger);
         builder.Run(request);
     }
 

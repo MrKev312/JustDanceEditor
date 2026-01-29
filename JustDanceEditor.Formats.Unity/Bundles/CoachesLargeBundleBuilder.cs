@@ -24,9 +24,9 @@ public sealed record UnityCoachesLargeRequest(
     string OutputFolderPath,
     bool ForCustomServer);
 
-public sealed class CoachesLargeBundleBuilder(ILogger<CoachesLargeBundleBuilder> logger) : UnityBundleBuilderBase
+public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<CoachesLargeBundleBuilder> _logger = logger;
+    private readonly ILogger _logger = logger;
 
     public static Task GenerateAsync(UnityCoachesLargeRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -34,7 +34,7 @@ public sealed class CoachesLargeBundleBuilder(ILogger<CoachesLargeBundleBuilder>
     public static void Generate(UnityCoachesLargeRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        CoachesLargeBundleBuilder builder = new(logger as ILogger<CoachesLargeBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoachesLargeBundleBuilder builder = new(logger);
         builder.Run(request);
     }
 

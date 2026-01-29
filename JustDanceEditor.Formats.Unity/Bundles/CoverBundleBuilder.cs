@@ -25,9 +25,9 @@ public sealed record UnityCoverRequest(
     bool ForCustomServer,
     Image<Rgba32>? OverrideCoverImage = null);
 
-public sealed class CoverBundleBuilder(ILogger<CoverBundleBuilder> logger) : UnityBundleBuilderBase
+public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<CoverBundleBuilder> _logger = logger;
+    private readonly ILogger _logger = logger;
 
     public static Task GenerateAsync(UnityCoverRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -35,7 +35,7 @@ public sealed class CoverBundleBuilder(ILogger<CoverBundleBuilder> logger) : Uni
     public static void Generate(UnityCoverRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        CoverBundleBuilder builder = new(logger as ILogger<CoverBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoverBundleBuilder builder = new(logger);
         builder.Run(request);
     }
 

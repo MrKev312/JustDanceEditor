@@ -22,9 +22,9 @@ public sealed record UnityCoachesSmallRequest(
     string OutputFolderPath,
     bool ForCustomServer);
 
-public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder> logger) : UnityBundleBuilderBase
+public sealed class CoachesSmallBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
-    private readonly ILogger<CoachesSmallBundleBuilder> _logger = logger;
+    private readonly ILogger _logger = logger;
 
     public static Task GenerateAsync(UnityCoachesSmallRequest request, ILogger logger) =>
         Task.Run(() => Generate(request, logger));
@@ -32,7 +32,7 @@ public sealed class CoachesSmallBundleBuilder(ILogger<CoachesSmallBundleBuilder>
     public static void Generate(UnityCoachesSmallRequest request, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(request);
-        CoachesSmallBundleBuilder builder = new(logger as ILogger<CoachesSmallBundleBuilder> ?? throw new ArgumentNullException(nameof(logger)));
+        CoachesSmallBundleBuilder builder = new(logger);
         builder.Run(request);
     }
 
