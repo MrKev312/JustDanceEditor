@@ -1,8 +1,8 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.UbiArt.Files;
-using JustDanceEditor.Formats.UbiArt.Services;
-using JustDanceEditor.Formats.UbiArt.Services.Layouts;
-using JustDanceEditor.Formats.UbiArt.Services.Serialization;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Import.Layouts;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -56,7 +56,7 @@ public class SongDataLoaderTests
         UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song")
         {
-            Type = UbiArtType.Uncooked
+            Type = CookedType.Uncooked
         };
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();

@@ -1,5 +1,5 @@
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Formats.UbiArt.Import;
 
 using Moq;
 

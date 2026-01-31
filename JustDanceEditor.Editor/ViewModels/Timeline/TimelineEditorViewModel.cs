@@ -1,4 +1,4 @@
-﻿// File: .\ViewModels\Timeline\TimelineEditorViewModel.cs
+// File: .\ViewModels\Timeline\TimelineEditorViewModel.cs
 using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;

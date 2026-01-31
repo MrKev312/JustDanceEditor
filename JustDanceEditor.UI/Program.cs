@@ -1,7 +1,10 @@
 using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt.Services;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Export;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.Unity.Services;
 using JustDanceEditor.UI.Converting;
 using JustDanceEditor.UI.DependencyInjection;
@@ -29,7 +32,7 @@ internal class Program
         builder.Services.AddSingleton<IFileSystem, SystemFileSystem>();
         // Register system implementations used by non-UI projects
         builder.Services.AddSingleton<SystemFileSystem>();
-        builder.Services.AddSingleton<Formats.UbiArt.Files.ITempFolderManager, Formats.UbiArt.Files.SystemTempFolderManager>();
+        builder.Services.AddSingleton<ITempFolderManager, SystemTempFolderManager>();
 
         builder.Services.AddSingleton<ITextureService, DefaultTextureService>();
         builder.Services.AddSingleton<IMediaProcessor, UbiArtMediaProcessor>();
@@ -47,7 +50,7 @@ internal class Program
         builder.Services.AddSingleton<IConversionWorkflow, ConversionWorkflow>();
 
         // Factories
-        builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, Formats.UbiArt.Files.LayeredFileSystem>>(sp => (req, profile) => new Formats.UbiArt.Files.LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<Formats.UbiArt.Files.LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<Formats.UbiArt.Files.ITempFolderManager>()));
+        builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem>>(sp => (req, profile) => new LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<ITempFolderManager>()));
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services

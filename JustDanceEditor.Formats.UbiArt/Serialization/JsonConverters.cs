@@ -1,4 +1,4 @@
-using JustDanceEditor.Formats.UbiArt.Tapes;
+using JustDanceEditor.Formats.UbiArt.Model;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;

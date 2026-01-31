@@ -1,4 +1,4 @@
-using JustDanceEditor.Formats.UbiArt.Images;
+using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
 
 using System;
 using System.Collections.Generic;

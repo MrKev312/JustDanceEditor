@@ -1,4 +1,5 @@
-using JustDanceEditor.Formats.UbiArt.Tapes;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Model;
 
 using NLua;
 
@@ -24,7 +25,7 @@ public static partial class LuaTableSerializer
         lua.DoString("structure = { }"); // For MusicTrack
     }
 
-    private static string ResolveLuaIncludes(string luaContent, Files.LayeredFileSystem fileSystem)
+    private static string ResolveLuaIncludes(string luaContent, LayeredFileSystem fileSystem)
     {
         // Find all includeReference() calls and load the referenced files
         StringBuilder result = new(luaContent);
@@ -38,7 +39,7 @@ public static partial class LuaTableSerializer
 
             try
             {
-                if (fileSystem.GetFilePath(filePath, out Files.CookedFile? cookedFile))
+                if (fileSystem.GetFilePath(filePath, out CookedFile? cookedFile))
                 {
                     using Stream stream = fileSystem.GetFileStream(cookedFile);
                     using StreamReader reader = new(stream, Encoding.UTF8);
@@ -87,7 +88,7 @@ public static partial class LuaTableSerializer
         return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
     }
 
-    public static T Deserialize<T>(string luaContent, Files.LayeredFileSystem fileSystem) where T : new()
+    public static T Deserialize<T>(string luaContent, LayeredFileSystem fileSystem) where T : new()
     {
         using Lua lua = new();
         InitializeLua(lua);
@@ -129,7 +130,7 @@ public static partial class LuaTableSerializer
                                 JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
                                 options.Converters.Add(new FloatArrayFlexibleJsonConverter());
                                 options.Converters.Add(new StructureJsonConverter());
-                                options.Converters.Add(new Tapes.Clips.ClipConverter());
+                                options.Converters.Add(new Model.Clips.ClipConverter());
 
                                 TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, options)!;
                                 TrackDataHolder holder = new() { Class = "MusicTrackComponent_Template", TrackData = trackData };
@@ -320,7 +321,7 @@ public static partial class LuaTableSerializer
             }
 
             JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
-            options.Converters.Add(new Tapes.Clips.ClipConverter());
+            options.Converters.Add(new Model.Clips.ClipConverter());
             options.Converters.Add(new FloatArrayFlexibleJsonConverter());
 
             return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), options)!;

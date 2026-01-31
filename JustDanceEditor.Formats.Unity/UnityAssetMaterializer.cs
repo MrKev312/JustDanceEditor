@@ -168,7 +168,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         }
 
         string coachesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder);
-        string backgroundDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesBackgroundFile);
+        string backgroundDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile);
         bool backgroundExported = false;
         int exportedCoaches = 0;
 
@@ -176,6 +176,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         {
             if (name.EndsWith("_map_bkg", StringComparison.OrdinalIgnoreCase))
             {
+                EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BackgroundsFolder);
                 SaveAsWebp(image, backgroundDest);
                 backgroundExported = true;
                 return true;
@@ -193,11 +194,11 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
         if (backgroundExported)
         {
-            _logger.LogDebug("Saved coaches background to {BackgroundDest}", backgroundDest);
+            _logger.LogDebug("Saved map background to {BackgroundDest}", backgroundDest);
         }
         else
         {
-            _logger.LogWarning("Coach background image not found in Unity export.");
+            _logger.LogWarning("Map background image not found in Unity export.");
         }
 
         if (exportedCoaches == 0)

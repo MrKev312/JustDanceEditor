@@ -1,5 +1,7 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
@@ -17,9 +19,8 @@ internal static class FormatConversionDialogue
         IJdiFormat[] formats = [.. formatsEnumerable];
 
         IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
-        IJdiFormat[] targetCandidates = [.. formats.Where(f => f.CanExport)];
 
-        if (sourceCandidates.Length == 0 || targetCandidates.Length == 0)
+        if (sourceCandidates.Length == 0)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("No compatible format combinations are available in this build.");
@@ -48,12 +49,16 @@ internal static class FormatConversionDialogue
             sourceName = AskFormat("Select the source format", sourceCandidates);
         }
 
-        string targetName = AskFormat("Select the target format", targetCandidates);
+        // Ask for target platform/version (unified flow)
+        TargetSelection target = PlatformVersionSelector.AskTarget();
 
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
+
+        // Determine target format based on selection
+        string targetName = target.FormatName;
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, targetName, inputPath);
+        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, target, inputPath);
 
         try
         {
@@ -119,39 +124,37 @@ internal static class FormatConversionDialogue
         return options[selection].DisplayName;
     }
 
-    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, string target, string inputPath)
+    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, TargetSelection target, string inputPath)
     {
+        string targetName = target.FormatName;
         string outputPath = AskOutputPath(target);
 
-        string intermediatePath = target == "JDI" ? outputPath : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
+        string intermediatePath = target.IsJdi ? outputPath : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
 
         ConversionRequestBase importRequest = source switch
         {
             "UbiArt" => BuildUbiArtImportRequest(inputPath, intermediatePath),
-            "Unity" => BuildUnityImportRequest(inputPath, intermediatePath, target),
+            "Unity" => BuildUnityImportRequest(inputPath, intermediatePath, targetName),
             "JDI" => new JdiConversionRequest(inputPath, intermediatePath),
             _ => throw new NotSupportedException($"Unknown source format '{source}'.")
         };
 
-        ConversionRequestBase exportRequest = target switch
-        {
-            "Unity" => BuildUnityExportRequest(outputPath),
-            "UbiArt" => BuildUbiArtExportRequest(inputPath, outputPath),
-            "JDI" => new JdiConversionRequest(inputPath, outputPath),
-            _ => throw new NotSupportedException("Exporting to the selected target is not supported.")
-        };
+        ConversionRequestBase exportRequest = target.IsJdi
+            ? new JdiConversionRequest(inputPath, outputPath)
+            : target.IsUnityEngine
+                ? BuildUnityExportRequest(outputPath)
+                : BuildUbiArtExportRequest(inputPath, outputPath, target);
 
         return (importRequest, exportRequest);
     }
 
-    private static string AskOutputPath(string target)
+    private static string AskOutputPath(TargetSelection target)
     {
-        string prompt = target switch
-        {
-            "Unity" => "Enter the Unity output root (custom server layout)",
-            "JDI" => "Enter the folder where the JDI package should be written",
-            _ => "Enter the destination folder for the converted files"
-        };
+        string prompt = target.IsUnityEngine
+            ? "Enter the Unity output root (custom server layout)"
+            : target.IsJdi
+                ? "Enter the folder where the JDI package should be written"
+                : "Enter the destination folder for the converted files";
 
         string path = Question.AskFolder(prompt, false);
         Directory.CreateDirectory(path);
@@ -189,52 +192,25 @@ internal static class FormatConversionDialogue
         return request;
     }
 
-    private static ConversionRequestBase BuildUbiArtExportRequest(string inputPath, string outputPath)
+    private static ConversionRequestBase BuildUbiArtExportRequest(string inputPath, string outputPath, TargetSelection target)
     {
-        // Ask user for platform and engine version
-        UbiArtPlatformType platform = AskUbiArtPlatform("Select the target platform for export");
-        UbiArtEngineVersionType engineVersion = AskUbiArtEngineVersion("Select the target engine version for export");
+        if (target.IsUnityEngine)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Note: JD2023+ uses the Unity engine. Use Unity export instead.");
+            Console.ResetColor();
+            throw new NotSupportedException("Cannot export to UbiArt format for JD2023+. Use Unity format.");
+        }
 
         string? songName = ResolveUbiArtSongName(inputPath);
         UbiArtConversionRequest request = new(inputPath, outputPath, songName)
         {
-            Type = platform == UbiArtPlatformType.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked,
-            ExportPlatform = platform,
-            ExportEngineVersion = engineVersion
+            Type = target.Platform == TargetPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked,
+            ExportPlatform = target.ToUbiArtPlatform(),
+            ExportEngineVersion = target.ToUbiArtEngineVersion()
         };
 
-        if (platform is UbiArtPlatformType.Uncooked
-            or UbiArtPlatformType.NX
-            or UbiArtPlatformType.WiiU
-            or UbiArtPlatformType.Wii
-            or UbiArtPlatformType.PC)
-        {
-            return request;
-        }
-
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"Note: Cooked export for {engineVersion} {platform} is experimental and may not be fully functional yet.");
-        Console.ResetColor();
-
         return request;
-    }
-
-    private static UbiArtPlatformType AskUbiArtPlatform(string prompt)
-    {
-        string[] platforms = ["Uncooked", "Wii", "WiiU", "NX", "PC"];
-        int selection = Question.Ask(platforms, 0, prompt);
-        return (UbiArtPlatformType)selection;
-    }
-
-    private static UbiArtEngineVersionType AskUbiArtEngineVersion(string prompt)
-    {
-        string[] versions = [
-            "JD2014", "JD2015",
-            "JD2016", "JD2017", "JD2018",
-            "JD2019", "JD2020", "JD2021", "JD2022"
-        ];
-        int selection = Question.Ask(versions, 0, prompt);
-        return Enum.Parse<UbiArtEngineVersionType>(versions[selection]);
     }
 
     private static string? ResolveUbiArtSongName(string inputPath)

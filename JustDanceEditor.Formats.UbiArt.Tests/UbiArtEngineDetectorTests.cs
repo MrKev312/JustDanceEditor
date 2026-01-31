@@ -1,6 +1,6 @@
-using JustDanceEditor.Formats.UbiArt.Services;
-using JustDanceEditor.Formats.UbiArt.Services.Layouts;
-using JustDanceEditor.Formats.UbiArt.Services.Serialization;
+using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Import.Layouts;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using System.IO;
 

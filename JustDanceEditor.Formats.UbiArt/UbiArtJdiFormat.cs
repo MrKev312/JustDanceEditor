@@ -1,12 +1,13 @@
 using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
-using JustDanceEditor.Formats.UbiArt.Core;
-using JustDanceEditor.Formats.UbiArt.Files;
-using JustDanceEditor.Formats.UbiArt.Intermediate;
-using JustDanceEditor.Formats.UbiArt.Services;
-using JustDanceEditor.Formats.UbiArt.Services.Layouts;
-using JustDanceEditor.Formats.UbiArt.Services.Serialization;
+using JustDanceEditor.Formats.UbiArt.Export;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Import.Core;
+using JustDanceEditor.Formats.UbiArt.Import.Intermediate;
+using JustDanceEditor.Formats.UbiArt.Import.Layouts;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using Microsoft.Extensions.Logging;
 
@@ -150,8 +151,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         // Create appropriate profile for export
         IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked
-            ? new Services.Serialization.LuaUbiArtSerializer()
-            : new Services.Serialization.JsonUbiArtSerializer();
+            ? new LuaUbiArtSerializer()
+            : new JsonUbiArtSerializer();
 
         UbiArtVersionProfile exportProfile = new(
             exportPlatform,
@@ -184,7 +185,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         try
         {
             UbiArtVersionProfile profile = _engineDetector.Detect(path);
-            UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.Platform == UbiArtPlatform.Uncooked ? UbiArtType.Uncooked : UbiArtType.Cooked };
+            UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked };
             LayeredFileSystem fs = _fileSystemFactory(req, profile);
             fs.Initialize();
 

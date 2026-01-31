@@ -1,4 +1,6 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.Formats.Unity.Bundles;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.UI.DependencyInjection;
@@ -134,13 +136,18 @@ public sealed class ConversionWorkflow(
     {
         try
         {
-            if (!CheckTemplate())
+            Console.WriteLine("Starting batch conversion process for all songs in a folder.");
+
+            // Ask for target format first
+            TargetSelection target = PlatformVersionSelector.AskTarget("Select the export target for all songs");
+
+            // Check template only for Unity exports
+            if (target.IsUnityEngine && !CheckTemplate())
                 return;
 
-            Console.WriteLine("Starting batch conversion process for all songs in a folder.");
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
-            bool onlineCover = AskOnlineCover();
+            bool onlineCover = target.IsUnityEngine && AskOnlineCover();
             List<string> existingSongs = Directory.Exists(outputFolder)
                 ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)]
                 : [];
@@ -231,16 +238,22 @@ public sealed class ConversionWorkflow(
                         continue;
                     }
 
-                    Console.WriteLine($"   Converting '{songName}'...");
-                    UbiArtConversionRequest importRequest = new(songParentFolder, outputFolder, songName);
-                    UnityConversionRequest exportRequest = new(outputFolder, outputFolder, "./Template")
+                    Console.WriteLine($"   Converting '{songName}' to {target.FormatName}...");
+
+                    try
                     {
-                        ExportType = ExportType.CustomServer,
-                        OnlineCover = onlineCover
-                    };
-                    RunUbiArtToUnityConversion(importRequest, exportRequest);
-                    convertedCount++;
-                    Console.WriteLine($"   Conversion of '{songName}' finished.");
+                        RunBatchConversion(songParentFolder, outputFolder, songName, target, onlineCover);
+                        convertedCount++;
+                        Console.WriteLine($"   Conversion of '{songName}' finished.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to convert song '{SongName}': {Message}", songName, ex.Message);
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"   Failed to convert '{songName}': {ex.Message}");
+                        Console.ResetColor();
+                        skippedCount++;
+                    }
                 }
             }
 
@@ -254,6 +267,51 @@ public sealed class ConversionWorkflow(
             Console.WriteLine($"\nAn error occurred during batch conversion: {e.Message}");
             Console.ResetColor();
             _logger.LogCritical(e, "Batch conversion failed: {Message}", e.Message);
+        }
+    }
+
+    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, TargetSelection target, bool onlineCover)
+    {
+        // Import from UbiArt (auto-detected)
+        UbiArtConversionRequest importRequest = new(inputFolder, outputFolder, songName);
+
+        // Export based on target selection
+        if (target.IsUnityEngine)
+        {
+            UnityConversionRequest exportRequest = new(outputFolder, outputFolder, "./Template")
+            {
+                ExportType = ExportType.CustomServer,
+                OnlineCover = onlineCover
+            };
+            RunUbiArtToUnityConversion(importRequest, exportRequest);
+        }
+        else
+        {
+            // UbiArt export
+            UbiArtConversionRequest exportRequest = new(outputFolder, outputFolder, songName)
+            {
+                Type = target.Platform == TargetPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked,
+                ExportPlatform = target.ToUbiArtPlatform(),
+                ExportEngineVersion = target.ToUbiArtEngineVersion()
+            };
+            RunUbiArtToUbiArtConversion(importRequest, exportRequest);
+        }
+    }
+
+    private void RunUbiArtToUbiArtConversion(UbiArtConversionRequest importRequest, UbiArtConversionRequest exportRequest)
+    {
+        IJdiFormat format = _formats.Get("UbiArt");
+
+        JdiImportResult importResult = format.ImportAsync(importRequest).GetAwaiter().GetResult();
+
+        try
+        {
+            format.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
+                Directory.Delete(importResult.MaterializedRoot, true);
         }
     }
 

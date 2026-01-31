@@ -441,17 +441,7 @@ internal sealed class IntermediateToUnityConverter
 
     private string? ResolveCoachBackground()
     {
-        string[] patterns =
-        [
-            $"{_songFolderName}_map_bkg*.*",
-            "coachesBackground*.*",
-            "coachBackground*.*",
-            "*map_bkg*.*"
-        ];
-
-        return GetAssetFileIfExists(IntermediatePackageLayout.Assets.CoachesBackgroundFile)
-            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.CoachesFolder, patterns)
-            ?? FindFirstFileInFolder(IntermediatePackageLayout.Assets.CoverAssetsFolder, patterns);
+        return GetAssetFileIfExists(IntermediatePackageLayout.Assets.MapBackgroundFile);
     }
 
     private string ResolveSongName(UnityExportData unityData)

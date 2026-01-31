@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI.Serialization;
+using JustDanceEditor.Formats.JDI.Services;
 
 namespace JustDanceEditor.Formats.JDI;
 
@@ -34,7 +35,7 @@ public sealed class JdiFormat : IJdiFormat
         return File.Exists(metadata);
     }
 
-    public Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
+    public async Task ExportAsync(JdiImportResult importResult, ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
         if (request is not JdiConversionRequest jdiRequest)
             throw new ArgumentException("JDI export expects a JdiConversionRequest.", nameof(request));
@@ -51,8 +52,15 @@ public sealed class JdiFormat : IJdiFormat
         if (string.IsNullOrWhiteSpace(suggestedOutput))
             throw new InvalidOperationException("Suggested output folder is required for JDI exports.");
 
+        // Generate all derived assets before exporting
+        IntermediateImageService imageService = new(
+            importResult.MaterializedRoot,
+            importResult.Package,
+            new SystemFileSystem());
+        await imageService.GenerateAllMissingImagesAsync(cancellationToken);
+
         if (string.Equals(importResult.MaterializedRoot, suggestedOutput, StringComparison.OrdinalIgnoreCase))
-            return Task.CompletedTask;
+            return;
 
         // If the input is temporary, we can move it directly
         if (importResult.MaterializedRootIsTemporary)
@@ -64,8 +72,6 @@ public sealed class JdiFormat : IJdiFormat
         {
             CopyDirectory(importResult.MaterializedRoot, suggestedOutput);
         }
-
-        return Task.CompletedTask;
     }
 
     static void CopyDirectory(string sourceDir, string destDir, bool overwrite = true)

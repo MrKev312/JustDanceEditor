@@ -1,6 +1,6 @@
-﻿using System.Buffers.Binary;
-using System.Text;
+using System.Buffers.Binary;
 using System.IO.Hashing;
+using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
