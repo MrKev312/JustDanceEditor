@@ -59,7 +59,7 @@ public class SSD
             }
 
             string tagName = Encoding.ASCII.GetString(tag);
-            if (tagName == "TTVN" || tagName == "AAPM")
+            if (tagName is "TTVN" or "AAPM")
             {
                 uint tagVersion = reader.ReadUInt32();
                 uint tagSize = reader.ReadUInt32();
@@ -125,7 +125,7 @@ public class SSD
 
                 Span<Rgba32> alphaRow = decodedAlphaImage != null
                     ? decodedAlphaImage.DangerousGetPixelRowMemory(y).Span
-                    : Span<Rgba32>.Empty;
+                    : [];
 
                 for (int x = 0; x < srcRow.Length; x++)
                 {

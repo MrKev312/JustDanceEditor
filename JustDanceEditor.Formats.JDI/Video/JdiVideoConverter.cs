@@ -258,7 +258,7 @@ public static class JdiVideoConverter
         int threadCount = Math.Min(Environment.ProcessorCount, 8);
         int tileColumns = (int)Math.Log2(threadCount);
 
-        StringBuilder sb = new StringBuilder("-c:v vp9 ");
+        StringBuilder sb = new("-c:v vp9 ");
         sb.Append(CultureInfo.InvariantCulture, $"-b:v {p.Bitrate} ");
         if (!string.IsNullOrEmpty(p.MaxBitrate))
             sb.Append($"-maxrate {p.MaxBitrate} ");
@@ -294,6 +294,7 @@ public static class JdiVideoConverter
             f.Add($"fade=t=in:st=0:d=1");
             f.Add(string.Format(CultureInfo.InvariantCulture, "fade=t=out:st={0}:d=1", fadeOutStart));
         }
+
         return string.Join(",", f);
     }
 
@@ -348,6 +349,7 @@ public static class JdiVideoConverter
                 if (lines[i] != $"{profiles[i].FileName}|{profiles[i].Width}x{profiles[i].Height}|{profiles[i].Bitrate}|{profiles[i].MaxBitrate}|{profiles[i].BufferSize}")
                     return false;
             }
+
             return true;
         }
         catch

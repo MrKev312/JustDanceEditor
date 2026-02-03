@@ -19,7 +19,6 @@ public sealed record UnityCoverRequest(
     string SongName,
     UnityExportData? UnityData,
     UnityMenuArtSource? MenuArt,
-    bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer,
@@ -132,11 +131,7 @@ public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
         if (request.UnityData == null || request.MenuArt == null)
             return null;
 
-        Image<Rgba32>? image = null;
-        if (request.AllowOnlineLookup)
-            image = ImageLoader.TryImageWeb(request.SongName, "Cover", _logger);
-
-        image ??= ImageLoader.TryLoadImage(request.MenuArt.CoverPath);
+        Image<Rgba32>? image = ImageLoader.TryLoadImage(request.MenuArt.CoverPath);
         if (image != null)
             _logger.LogDebug("Cover image prepared from intermediate assets.");
 

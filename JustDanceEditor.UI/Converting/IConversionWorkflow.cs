@@ -6,11 +6,6 @@ namespace JustDanceEditor.UI.Converting;
 public interface IConversionWorkflow
 {
     /// <summary>
-    /// Updates covers and song title logos for maps.
-    /// </summary>
-    void UpdateCovers();
-
-    /// <summary>
     /// Converts all songs in a folder in batch mode.
     /// </summary>
     void ConvertAllSongsInFolder();

@@ -179,7 +179,6 @@ internal sealed class IntermediateToUnityConverter
             songName,
             unityData,
             menuArt,
-            _request.OnlineCover,
             _templates.Cover,
             coverFolder,
             forCustomServer);
@@ -188,7 +187,6 @@ internal sealed class IntermediateToUnityConverter
             songName,
             unityData,
             menuArt,
-            _request.OnlineCover,
             _templates.SongTitleLogo,
             songTitleFolder,
             forCustomServer);

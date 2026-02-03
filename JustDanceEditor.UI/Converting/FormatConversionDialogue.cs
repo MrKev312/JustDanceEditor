@@ -1,5 +1,7 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.UI.DependencyInjection;
@@ -60,6 +62,9 @@ internal static class FormatConversionDialogue
 
         (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, target, inputPath);
 
+        // Ask about downloading online assets BEFORE conversion
+        bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for this song?") == 0;
+
         try
         {
             while (true)
@@ -67,6 +72,24 @@ internal static class FormatConversionDialogue
                 try
                 {
                     JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+
+                    // Download online assets after successful conversion if requested
+                    if (downloadOnlineAssets && importResult.Package is not null && importResult.MaterializedRoot is not null)
+                    {
+                        try
+                        {
+                            OnlineAssetDownloader downloader = new(logger);
+                            downloader.DownloadAssetsAsync(importResult.MaterializedRoot, importResult.Package).GetAwaiter().GetResult();
+                            Console.WriteLine("Online assets downloaded successfully.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"Failed to download online assets: {ex.Message}");
+                            Console.ResetColor();
+                            logger.LogWarning(ex, "Online asset download failed: {Message}", ex.Message);
+                        }
+                    }
 
                     try
                     {
@@ -172,8 +195,7 @@ internal static class FormatConversionDialogue
         // Template path is unused during import; supply outputPath to satisfy constructor.
         UnityConversionRequest request = new(inputPath, outputPath, outputPath)
         {
-            ExportType = ExportType.CustomServer,
-            OnlineCover = target == "Unity" && Question.AskYesNo("Attempt to download missing covers from the internet?")
+            ExportType = ExportType.CustomServer
         };
 
         return request;
@@ -185,8 +207,7 @@ internal static class FormatConversionDialogue
 
         UnityConversionRequest request = new(outputPath, outputPath, templatePath)
         {
-            ExportType = ExportType.CustomServer,
-            OnlineCover = Question.AskYesNo("Attempt to download missing covers from the internet?")
+            ExportType = ExportType.CustomServer
         };
 
         return request;

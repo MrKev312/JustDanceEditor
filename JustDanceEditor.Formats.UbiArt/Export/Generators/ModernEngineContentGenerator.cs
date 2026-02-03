@@ -223,7 +223,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             TapeClock = 0,
             TapeBarCount = 1,
             FreeResourcesAfterPlay = 0,
-            MapName = package.Metadata.MapName,
+            package.Metadata.MapName,
             SoundwichEvent = ""
         };
 
@@ -523,7 +523,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             TapeClock = 0,
             TapeBarCount = 1,
             FreeResourcesAfterPlay = 0,
-            MapName = package.Metadata.MapName,
+            package.Metadata.MapName,
             SoundwichEvent = ""
         };
         return ToBytes(JsonSerializer.Serialize(tape, _jsonOptions));

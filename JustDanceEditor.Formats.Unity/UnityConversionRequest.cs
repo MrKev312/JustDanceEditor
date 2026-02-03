@@ -21,30 +21,20 @@ public enum ExportType
 /// <summary>
 /// Conversion request for Unity format operations.
 /// </summary>
-public class UnityConversionRequest : ConversionRequestBase
+/// <remarks>
+/// Creates a new Unity conversion request.
+/// </remarks>
+/// <param name="inputPath">Input folder path (JDI package or Unity song folder).</param>
+/// <param name="outputPath">Output folder path.</param>
+/// <param name="templatePath">Path to the Unity template folder containing bundle templates.</param>
+public class UnityConversionRequest(string inputPath, string outputPath, string templatePath) : ConversionRequestBase(inputPath, outputPath)
 {
-    /// <summary>
-    /// Creates a new Unity conversion request.
-    /// </summary>
-    /// <param name="inputPath">Input folder path (JDI package or Unity song folder).</param>
-    /// <param name="outputPath">Output folder path.</param>
-    /// <param name="templatePath">Path to the Unity template folder containing bundle templates.</param>
-    public UnityConversionRequest(string inputPath, string outputPath, string templatePath)
-        : base(inputPath, outputPath)
-    {
-        TemplatePath = templatePath;
-    }
 
     /// <summary>
     /// Path to the Unity template folder containing bundle templates.
     /// Required for export operations.
     /// </summary>
-    public string TemplatePath { get; set; }
-
-    /// <summary>
-    /// Whether to attempt to download cover/title images from online sources if not found locally.
-    /// </summary>
-    public bool OnlineCover { get; set; }
+    public string TemplatePath { get; set; } = templatePath;
 
     /// <summary>
     /// The export type (OfflineCache or CustomServer).

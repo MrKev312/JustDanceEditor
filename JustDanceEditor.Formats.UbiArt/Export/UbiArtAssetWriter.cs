@@ -307,10 +307,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         }
 
         // 7. Album Coach (1024x1024 composite)
-        using (Image<Bgra32> albumCoach = await imageService.GetAlbumCoachAsync(width: 1024, height: 1024))
-        {
-            await WriteMenuArtTextureAsync($"{mapNameLower}_cover_albumcoach", albumCoach, menuRel, actorsRel, ctx, exporter, generator, package, platform);
-        }
+        using Image<Bgra32> albumCoach = await imageService.GetAlbumCoachAsync(width: 1024, height: 1024);
+        await WriteMenuArtTextureAsync($"{mapNameLower}_cover_albumcoach", albumCoach, menuRel, actorsRel, ctx, exporter, generator, package, platform);
     }
 
     private async Task WriteMenuArtTextureAsync(
@@ -343,7 +341,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             IntermediateImageService imageService = new(materializedRoot, package, io);
             using Image<Bgra32> img = await imageService.GetMapBackgroundAsync(width: 2048, height: 1024);
-            
+
             ColorThemeGenerator.SongTheme theme = ColorThemeGenerator.GenerateFromImage(img);
 
             package.Metadata.AdditionalMetadata["songcolor_1a"] = theme.Color1A.ToHex();
@@ -398,12 +396,9 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             }
 
             // Fallback if specific conversion failed or wasn't needed
-            if (sourceFile == null)
-            {
-                sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
+            sourceFile ??= ctx.IO.GetFiles(videoSourceDir, "*.webm")
                     .OrderByDescending(f => new FileInfo(f).Length)
                     .FirstOrDefault();
-            }
 
             if (sourceFile != null && ctx.IO.FileExists(sourceFile))
             {
@@ -419,6 +414,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                         ? $"{package.Metadata.MapName.ToLowerInvariant()}.webm"
                         : $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
                 }
+
                 if (platform == UbiArtPlatform.Wii)
                 {
                     destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.wii.webm";

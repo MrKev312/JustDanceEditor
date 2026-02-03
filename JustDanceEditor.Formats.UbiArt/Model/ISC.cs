@@ -3,7 +3,7 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
-namespace JustDanceEditor.Formats.UbiArt;
+namespace JustDanceEditor.Formats.UbiArt.Model;
 
 public static class ISC
 {

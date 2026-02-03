@@ -1,7 +1,6 @@
-using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
-namespace JustDanceEditor.Formats.UbiArt;
+namespace JustDanceEditor.Formats.UbiArt.Model;
 
 public class JDUbiArtSong
 {

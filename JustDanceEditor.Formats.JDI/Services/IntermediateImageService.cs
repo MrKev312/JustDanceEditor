@@ -12,7 +12,20 @@ namespace JustDanceEditor.Formats.JDI.Services;
 /// Implementation of <see cref="IIntermediateImageService"/> that works with
 /// a package root folder on the file system.
 /// </summary>
-public sealed class IntermediateImageService : IIntermediateImageService
+/// <remarks>
+/// Initializes a new instance of <see cref="IntermediateImageService"/>.
+/// </remarks>
+/// <param name="packageRoot">Root folder path of the intermediate package.</param>
+/// <param name="package">The song package metadata.</param>
+/// <param name="fileSystem">File system abstraction.</param>
+/// <param name="imageFormat">Image format provider for saving images.</param>
+/// <param name="logger">Optional logger.</param>
+public sealed class IntermediateImageService(
+    string packageRoot,
+    IntermediateSongPackage package,
+    IFileSystem fileSystem,
+    IImageFormatProvider? imageFormat = null,
+    ILogger? logger = null) : IIntermediateImageService
 {
     // Default resolutions for each asset type
     private const int CoverWidth = 640;
@@ -29,33 +42,10 @@ public sealed class IntermediateImageService : IIntermediateImageService
     private const int SongTitleWidth = 512;
     private const int SongTitleHeight = 256;
 
-    private readonly string _packageRoot;
-    private readonly IntermediateSongPackage _package;
-    private readonly IFileSystem _fileSystem;
-    private readonly IImageFormatProvider _imageFormat;
-    private readonly ILogger? _logger;
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="IntermediateImageService"/>.
-    /// </summary>
-    /// <param name="packageRoot">Root folder path of the intermediate package.</param>
-    /// <param name="package">The song package metadata.</param>
-    /// <param name="fileSystem">File system abstraction.</param>
-    /// <param name="imageFormat">Image format provider for saving images.</param>
-    /// <param name="logger">Optional logger.</param>
-    public IntermediateImageService(
-        string packageRoot,
-        IntermediateSongPackage package,
-        IFileSystem fileSystem,
-        IImageFormatProvider? imageFormat = null,
-        ILogger? logger = null)
-    {
-        _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
-        _package = package ?? throw new ArgumentNullException(nameof(package));
-        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _imageFormat = imageFormat ?? WebpImageFormatProvider.Lossless;
-        _logger = logger;
-    }
+    private readonly string _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
+    private readonly IntermediateSongPackage _package = package ?? throw new ArgumentNullException(nameof(package));
+    private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly IImageFormatProvider _imageFormat = imageFormat ?? WebpImageFormatProvider.Lossless;
 
     /// <inheritdoc />
     public async Task<Image<Bgra32>> GetCoverAsync(int? width = null, int? height = null, CancellationToken cancellationToken = default)
@@ -66,7 +56,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(coverPath))
         {
-            _logger?.LogDebug("Cover image not found at {Path}, returning placeholder", coverPath);
+            logger?.LogDebug("Cover image not found at {Path}, returning placeholder", coverPath);
             return CoverComposer.CreatePlaceholder("Cover", targetWidth, targetHeight);
         }
 
@@ -83,7 +73,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // If square cover doesn't exist, generate it from regular cover
         if (!_fileSystem.FileExists(squareCoverPath))
         {
-            _logger?.LogDebug("Square cover not found, attempting to generate from cover");
+            logger?.LogDebug("Square cover not found, attempting to generate from cover");
             Image<Bgra32> cover = await GetCoverAsync(cancellationToken: cancellationToken);
 
             // If cover is a placeholder, return a square placeholder
@@ -124,7 +114,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(albumCoachPath))
         {
-            _logger?.LogDebug("Album coach image not found at {Path}, attempting to generate", albumCoachPath);
+            logger?.LogDebug("Album coach image not found at {Path}, attempting to generate", albumCoachPath);
             // Try to generate from individual coaches
             Image<Bgra32>? generated = await GenerateAlbumCoachAsync(cancellationToken);
             if (generated != null)
@@ -132,6 +122,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
                 await SaveImageAsync(generated, albumCoachPath, cancellationToken);
                 return ScaleImage(generated, width, height);
             }
+
             return CoverComposer.CreatePlaceholder("Album Coach", targetSize, targetSize);
         }
 
@@ -150,7 +141,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(coachPath))
         {
-            _logger?.LogDebug("Coach {Index} image not found at {Path}, returning placeholder", coachIndex, coachPath);
+            logger?.LogDebug("Coach {Index} image not found at {Path}, returning placeholder", coachIndex, coachPath);
             return CoverComposer.CreatePlaceholder($"Coach {coachIndex}", targetSize, targetSize);
         }
 
@@ -174,13 +165,14 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(bgPath))
         {
-            _logger?.LogDebug("Map background not found, attempting to generate from coaches background");
+            logger?.LogDebug("Map background not found, attempting to generate from coaches background");
             Image<Bgra32>? generated = await GenerateMapBackgroundAsync(cancellationToken);
             if (generated != null)
             {
                 await SaveImageAsync(generated, bgPath, cancellationToken);
                 return ScaleImage(generated, width, height);
             }
+
             return CoverComposer.CreatePlaceholder("Map Background", targetWidth, targetHeight);
         }
 
@@ -197,13 +189,14 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(bannerPath))
         {
-            _logger?.LogDebug("Banner not found, attempting to generate from coaches background");
+            logger?.LogDebug("Banner not found, attempting to generate from coaches background");
             Image<Bgra32>? generated = await GenerateBannerAsync(cancellationToken);
             if (generated != null)
             {
                 await SaveImageAsync(generated, bannerPath, cancellationToken);
                 return ScaleImage(generated, width, height);
             }
+
             return CoverComposer.CreatePlaceholder("Banner", targetWidth, targetHeight);
         }
 
@@ -219,13 +212,14 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(albumBgPath))
         {
-            _logger?.LogDebug("Album background not found, attempting to generate from coaches background");
+            logger?.LogDebug("Album background not found, attempting to generate from coaches background");
             Image<Bgra32>? generated = await GenerateAlbumBackgroundAsync(cancellationToken);
             if (generated != null)
             {
                 await SaveImageAsync(generated, albumBgPath, cancellationToken);
                 return ScaleImage(generated, width, height);
             }
+
             return CoverComposer.CreatePlaceholder("Album Background", targetSize, targetSize);
         }
 
@@ -243,7 +237,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(pictoPath))
         {
-            _logger?.LogDebug("Pictogram {Id} not found at {Path}, returning placeholder", pictogramId, pictoPath);
+            logger?.LogDebug("Pictogram {Id} not found at {Path}, returning placeholder", pictogramId, pictoPath);
             return CoverComposer.CreatePlaceholder($"Pictogram {pictogramId}", targetSize, targetSize);
         }
 
@@ -272,7 +266,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
         if (!_fileSystem.FileExists(titlePath))
         {
-            _logger?.LogDebug("Song title logo not found at {Path}, returning placeholder", titlePath);
+            logger?.LogDebug("Song title logo not found at {Path}, returning placeholder", titlePath);
             return CoverComposer.CreatePlaceholder("Song Title", targetWidth, targetHeight);
         }
 
@@ -283,12 +277,12 @@ public sealed class IntermediateImageService : IIntermediateImageService
     /// <inheritdoc />
     public async Task GenerateAllMissingImagesAsync(CancellationToken cancellationToken = default)
     {
-        _logger?.LogInformation("Generating all missing images for package at {Root}", _packageRoot);
+        logger?.LogInformation("Generating all missing images for package at {Root}", _packageRoot);
 
         // Generate square cover if missing
         if (!HasImage(ImageAssetType.SquareCover) && HasImage(ImageAssetType.Cover))
         {
-            _logger?.LogDebug("Generating square cover");
+            logger?.LogDebug("Generating square cover");
             using Image<Bgra32> squareCover = await GetSquareCoverAsync(cancellationToken: cancellationToken);
             // GetSquareCoverAsync already saves it
         }
@@ -296,7 +290,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Generate album coach composite if missing
         if (!HasImage(ImageAssetType.AlbumCoach))
         {
-            _logger?.LogDebug("Generating album coach composite");
+            logger?.LogDebug("Generating album coach composite");
             using Image<Bgra32> albumCoach = await GetAlbumCoachAsync(cancellationToken: cancellationToken);
             // GetAlbumCoachAsync already saves it if generated
         }
@@ -304,7 +298,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Generate map background if missing
         if (!HasImage(ImageAssetType.MapBackground))
         {
-            _logger?.LogDebug("Generating map background");
+            logger?.LogDebug("Generating map background");
             using Image<Bgra32> mapBg = await GetMapBackgroundAsync(cancellationToken: cancellationToken);
             // GetMapBackgroundAsync already saves it if generated
         }
@@ -312,7 +306,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Generate banner if missing (from map background)
         if (!HasImage(ImageAssetType.Banner) && HasImage(ImageAssetType.MapBackground))
         {
-            _logger?.LogDebug("Generating banner");
+            logger?.LogDebug("Generating banner");
             using Image<Bgra32> banner = await GetBannerAsync(cancellationToken: cancellationToken);
             // GetBannerAsync already saves it if generated
         }
@@ -320,12 +314,12 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Generate album background if missing (from map background)
         if (!HasImage(ImageAssetType.AlbumBackground) && HasImage(ImageAssetType.MapBackground))
         {
-            _logger?.LogDebug("Generating album background");
+            logger?.LogDebug("Generating album background");
             using Image<Bgra32> albumBg = await GetAlbumBackgroundAsync(cancellationToken: cancellationToken);
             // GetAlbumBackgroundAsync already saves it if generated
         }
 
-        _logger?.LogInformation("Finished generating missing images");
+        logger?.LogInformation("Finished generating missing images");
     }
 
     /// <inheritdoc />
@@ -394,7 +388,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Failed to load image from {Path}", path);
+            logger?.LogError(ex, "Failed to load image from {Path}", path);
             return null;
         }
     }
@@ -426,7 +420,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
             _fileSystem.CreateDirectory(directory);
 
         await _imageFormat.SaveAsync(image, path, cancellationToken);
-        _logger?.LogDebug("Saved image to {Path}", path);
+        logger?.LogDebug("Saved image to {Path}", path);
     }
 
     private async Task<Image<Bgra32>?> GenerateAlbumCoachAsync(CancellationToken cancellationToken)
@@ -434,7 +428,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         int coachCount = _package.Metadata.CoachCount;
         if (coachCount <= 0)
         {
-            _logger?.LogWarning("Cannot generate album coach: CoachCount is {Count}", coachCount);
+            logger?.LogWarning("Cannot generate album coach: CoachCount is {Count}", coachCount);
             return null;
         }
 
@@ -457,7 +451,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
 
             if (coachImages.Count == 0)
             {
-                _logger?.LogWarning("Cannot generate album coach: No individual coach images found");
+                logger?.LogWarning("Cannot generate album coach: No individual coach images found");
                 return null;
             }
 
@@ -482,7 +476,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Check if we have a real map background file
         if (!HasImage(ImageAssetType.MapBackground))
         {
-            _logger?.LogWarning("Cannot generate banner: map background not found");
+            logger?.LogWarning("Cannot generate banner: map background not found");
             return null;
         }
 
@@ -498,7 +492,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Check if we have a real map background file
         if (!HasImage(ImageAssetType.MapBackground))
         {
-            _logger?.LogWarning("Cannot generate album background: map background not found");
+            logger?.LogWarning("Cannot generate album background: map background not found");
             return null;
         }
 
@@ -527,7 +521,7 @@ public sealed class IntermediateImageService : IIntermediateImageService
         // Check if bottom row has any non-transparent pixels
         bool hasOpaquePixels = false;
         int lastRow = image.Height - 1;
-        
+
         for (int x = 0; x < image.Width; x++)
         {
             if (image[x, lastRow].A > 0)

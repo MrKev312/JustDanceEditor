@@ -1,15 +1,10 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.Unity;
-using JustDanceEditor.Formats.Unity.Bundles;
-using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;
-
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace JustDanceEditor.UI.Converting;
 
@@ -22,115 +17,6 @@ public sealed class ConversionWorkflow(
 {
     private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
     private readonly ILogger<ConversionWorkflow> _logger = logger;
-
-    public void UpdateCovers()
-    {
-        try
-        {
-            if (!CheckTemplate())
-                return;
-
-            Console.WriteLine("This tool will update covers and song title logos for maps.");
-
-            int choice = Question.Ask([
-                "Update all songs",
-                "Update only songs with missing song title logos"
-            ], 0, "Please select an update mode:");
-
-            bool updateOnlyMissing = choice == 1;
-
-            string inputFolder = Question.AskFolder("Please enter the path to the folder containing the song folders to update.", true);
-
-            string[] mapFolders = Directory.GetDirectories(inputFolder);
-
-            if (updateOnlyMissing)
-            {
-                mapFolders = [.. mapFolders.Where(mapFolder => !Directory.Exists(Path.Combine(mapFolder, "songTitleLogo")))];
-                Console.WriteLine($"Found {mapFolders.Length} map(s) with missing song title logos.");
-            }
-
-            if (mapFolders.Length == 0)
-            {
-                Console.WriteLine("No map folders to update.");
-                return;
-            }
-
-            Console.WriteLine($"\nFound {mapFolders.Length} potential map(s). Starting processing...");
-            int updatedCovers = 0;
-            int updatedLogos = 0;
-
-            Parallel.ForEach(mapFolders, new ParallelOptions { MaxDegreeOfParallelism = 4 }, mapFolder =>
-            {
-                string mapName = Path.GetFileName(mapFolder);
-
-                int found = 0;
-
-                // Update cover
-                using (Image<Rgba32>? coverImage = ImageLoader.TryImageWeb(mapName, "Cover", _logger))
-                {
-                    if (coverImage is not null)
-                    {
-                        string templateCoverPath = Directory.GetFiles(Path.Combine("./Template", "Cover"))[0];
-                        string outputCoverFolder = Path.Combine(inputFolder, mapName, "Cover");
-                        if (Directory.Exists(outputCoverFolder))
-                            Directory.Delete(outputCoverFolder, true);
-                        UnityCoverRequest coverRequest = new(
-                            mapName,
-                            null,
-                            null,
-                            false,
-                            templateCoverPath,
-                            outputCoverFolder,
-                            true,
-                            coverImage);
-                        CoverBundleBuilder.Generate(coverRequest, _logger);
-                        Interlocked.Increment(ref updatedCovers);
-                        found++;
-                    }
-                }
-
-                // Update song title logo
-                using Image<Rgba32>? titleLogoImage = ImageLoader.TryImageWeb(mapName, "Title", _logger);
-                if (titleLogoImage is not null)
-                {
-                    string templateLogoPath = Directory.GetFiles(Path.Combine("./Template", "SongTitleLogo"))[0];
-                    string outputLogoFolder = Path.Combine(inputFolder, mapName, "songTitleLogo");
-                    if (Directory.Exists(outputLogoFolder))
-                        Directory.Delete(outputLogoFolder, true);
-                    UnitySongTitleRequest titleRequest = new(
-                        mapName,
-                        null,
-                        null,
-                        false,
-                        templateLogoPath,
-                        outputLogoFolder,
-                        true,
-                        titleLogoImage);
-                    SongTitleBundleBuilder.Generate(titleRequest, _logger);
-                    Interlocked.Increment(ref updatedLogos);
-                    found++;
-                }
-
-                if (found == 0)
-                    _logger.LogInformation("No online cover or title logo found for map '{MapName}'", mapName);
-                else if (found == 2)
-                    _logger.LogInformation("Updated both cover and title logo for map '{MapName}'", mapName);
-                else
-                    _logger.LogWarning("Somehow only one of cover or title logo was updated for map '{MapName}'", mapName);
-            });
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"\nUpdate process finished. Updated covers: {updatedCovers}. Updated song title logos: {updatedLogos}.");
-            Console.ResetColor();
-        }
-        catch (Exception e)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"\nAn error occurred during cover update: {e.Message}");
-            Console.ResetColor();
-            _logger.LogCritical(e, "Cover update failed: {Message}", e.Message);
-        }
-    }
 
     public void ConvertAllSongsInFolder()
     {
@@ -147,7 +33,6 @@ public sealed class ConversionWorkflow(
 
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
-            bool onlineCover = target.IsUnityEngine && AskOnlineCover();
             List<string> existingSongs = Directory.Exists(outputFolder)
                 ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)]
                 : [];
@@ -242,7 +127,7 @@ public sealed class ConversionWorkflow(
 
                     try
                     {
-                        RunBatchConversion(songParentFolder, outputFolder, songName, target, onlineCover);
+                        RunBatchConversion(songParentFolder, outputFolder, songName, target);
                         convertedCount++;
                         Console.WriteLine($"   Conversion of '{songName}' finished.");
                     }
@@ -270,7 +155,7 @@ public sealed class ConversionWorkflow(
         }
     }
 
-    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, TargetSelection target, bool onlineCover)
+    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, TargetSelection target)
     {
         // Import from UbiArt (auto-detected)
         UbiArtConversionRequest importRequest = new(inputFolder, outputFolder, songName);
@@ -280,8 +165,7 @@ public sealed class ConversionWorkflow(
         {
             UnityConversionRequest exportRequest = new(outputFolder, outputFolder, "./Template")
             {
-                ExportType = ExportType.CustomServer,
-                OnlineCover = onlineCover
+                ExportType = ExportType.CustomServer
             };
             RunUbiArtToUnityConversion(importRequest, exportRequest);
         }
@@ -319,15 +203,13 @@ public sealed class ConversionWorkflow(
     {
         (string inputPath, string songName) = AskInputFolder();
         string outputPath = AskOutputFolder();
-        bool onlineCover = AskOnlineCover();
 
         Directory.CreateDirectory(outputPath);
 
         UbiArtConversionRequest importRequest = new(inputPath, outputPath, songName);
         UnityConversionRequest exportRequest = new(outputPath, outputPath, "./Template")
         {
-            ExportType = ExportType.CustomServer,
-            OnlineCover = onlineCover
+            ExportType = ExportType.CustomServer
         };
 
         return (importRequest, exportRequest);
@@ -429,9 +311,6 @@ public sealed class ConversionWorkflow(
 
         return (inputPath, maps[index]);
     }
-
-    private static bool AskOnlineCover() =>
-        Question.AskYesNo("Do you want to attempt to download cover art from the internet if not found locally?");
 
     private static string AskOutputFolder() =>
         Question.AskFolder("Please enter the full path for the output folder where converted files will be saved");

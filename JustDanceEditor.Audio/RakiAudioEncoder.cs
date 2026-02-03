@@ -274,6 +274,7 @@ public static class RakiAudioEncoder
                 Array.Copy(encodedData[0], i * 8, interleavedData, i * 16, 8);
                 Array.Copy(encodedData[1], i * 8, interleavedData, (i * 16) + 8, 8);
             }
+
             writer.Write(interleavedData);
         }
     }
@@ -283,8 +284,8 @@ public static class RakiAudioEncoder
     {
         writer.Write(Encoding.ASCII.GetBytes("RAKI"));
         WriteU32(writer, version, isBigEndian); // Now using the version parameter
-        writer.Write(Encoding.ASCII.GetBytes(platform.PadRight(4).Substring(0, 4)));
-        writer.Write(Encoding.ASCII.GetBytes(type.PadRight(4).Substring(0, 4)));
+        writer.Write(Encoding.ASCII.GetBytes(platform.PadRight(4)[..4]));
+        writer.Write(Encoding.ASCII.GetBytes(type.PadRight(4)[..4]));
         WriteU32(writer, headerSize, isBigEndian);
         WriteU32(writer, dataStartOffset, isBigEndian);
         WriteU32(writer, chunkCount, isBigEndian);
@@ -402,8 +403,8 @@ public static class RakiAudioEncoder
     {
         writer.Write(Encoding.ASCII.GetBytes("RAKI"));
         WriteU32(writer, 0x0B, isBigEndian);
-        writer.Write(Encoding.ASCII.GetBytes(platform.PadRight(4).Substring(0, 4)));
-        writer.Write(Encoding.ASCII.GetBytes(type.PadRight(4).Substring(0, 4)));
+        writer.Write(Encoding.ASCII.GetBytes(platform.PadRight(4)[..4]));
+        writer.Write(Encoding.ASCII.GetBytes(type.PadRight(4)[..4]));
         WriteU32(writer, headerSize, isBigEndian);
         WriteU32(writer, dataStartOffset, isBigEndian);
         WriteU32(writer, chunkCount, isBigEndian);
@@ -434,7 +435,7 @@ public static class RakiAudioEncoder
         writer.Write(bytes);
     }
 
-    private static bool CheckIsBigEndian(string platform) => platform.Trim() == "Wii" || platform.Trim() == "Cafe";
+    private static bool CheckIsBigEndian(string platform) => platform.Trim() is "Wii" or "Cafe";
 
     private static class DspAdpcmEncoder
     {

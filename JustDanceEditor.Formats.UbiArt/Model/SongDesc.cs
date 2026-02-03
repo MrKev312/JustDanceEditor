@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace JustDanceEditor.Formats.UbiArt;
+namespace JustDanceEditor.Formats.UbiArt.Model;
 
 public class SongDesc
 {

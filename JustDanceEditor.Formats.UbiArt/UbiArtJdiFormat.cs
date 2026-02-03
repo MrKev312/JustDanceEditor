@@ -7,6 +7,7 @@ using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
+using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using Microsoft.Extensions.Logging;

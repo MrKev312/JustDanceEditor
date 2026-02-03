@@ -22,25 +22,20 @@ public enum CookedType
 /// <summary>
 /// Conversion request for UbiArt format operations.
 /// </summary>
-public class UbiArtConversionRequest : ConversionRequestBase
+/// <remarks>
+/// Creates a new UbiArt conversion request.
+/// </remarks>
+/// <param name="inputPath">Input folder or IPK path.</param>
+/// <param name="outputPath">Output folder path.</param>
+/// <param name="songName">Optional song name to select when multiple songs are present.</param>
+public class UbiArtConversionRequest(string inputPath, string outputPath, string? songName = null) : ConversionRequestBase(inputPath, outputPath)
 {
-    /// <summary>
-    /// Creates a new UbiArt conversion request.
-    /// </summary>
-    /// <param name="inputPath">Input folder or IPK path.</param>
-    /// <param name="outputPath">Output folder path.</param>
-    /// <param name="songName">Optional song name to select when multiple songs are present.</param>
-    public UbiArtConversionRequest(string inputPath, string outputPath, string? songName = null)
-        : base(inputPath, outputPath)
-    {
-        SongName = songName;
-    }
 
     /// <summary>
     /// Song name to disambiguate when the input contains multiple maps.
     /// If null or empty, and multiple songs are found, <see cref="SelectSongAsync"/> will be invoked.
     /// </summary>
-    public string? SongName { get; set; }
+    public string? SongName { get; set; } = songName;
 
     /// <summary>
     /// Whether the input/output content is cooked or uncooked.

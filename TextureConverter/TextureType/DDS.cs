@@ -599,7 +599,7 @@ public class DDS
         if (BCnFormats.Contains(format))
         {
             // For DXT1, 8 bytes per block (4x4 pixels). DXT5, 16 bytes.
-            int blockSize = (format == DDSFormat.DXT1 || format == DDSFormat.BC1) ? 8 : 16;
+            int blockSize = (format is DDSFormat.DXT1 or DDSFormat.BC1) ? 8 : 16;
             int blocksWide = (int)((width + 3) / 4);
             int blocksHigh = (int)((height + 3) / 4);
             size = (uint)(blocksWide * blocksHigh * blockSize);

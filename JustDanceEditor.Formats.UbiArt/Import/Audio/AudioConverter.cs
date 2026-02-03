@@ -1,5 +1,6 @@
 using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
 using Microsoft.Extensions.Logging;

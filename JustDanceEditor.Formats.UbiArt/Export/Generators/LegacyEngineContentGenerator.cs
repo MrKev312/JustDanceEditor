@@ -325,6 +325,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         {
             writer.Write([0x00, 0x00, 0x00, 0x06, 0x24, 0xA8, 0x08, 0xD7, 0x3E, 0x50, 0xD0, 0xD2, 0x3F, 0x57, 0xD7, 0xD9, 0x3F, 0x80, 0x00, 0x00]);
         }
+
         writer.Write([0x3F, 0x80, 0x00, 0x00, 0x31, 0xD3, 0xB3, 0x47]);
 
         // Colors
@@ -693,8 +694,8 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 
         string tplName = Path.GetFileName(luaPath);
         string tplPath = (Path.GetDirectoryName(luaPath)?.Replace("\\", "/") + "/") ?? "";
-        if (tplPath.StartsWith("/"))
-            tplPath = tplPath.Substring(1);
+        if (tplPath.StartsWith('/'))
+            tplPath = tplPath[1..];
 
         WritePathAndString(writer, tplName, tplPath);
 
@@ -735,16 +736,16 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         writer.Write((byte)scenes.Length);
 
         // 2. Loop through Actors
-        foreach ((string Suffix, string Folder, byte EndByte, bool IsSongDesc) scene in scenes)
+        foreach ((string Suffix, string Folder, byte EndByte, bool IsSongDesc) in scenes)
         {
-            if (scene.Suffix == "SongDesc")
+            if (Suffix == "SongDesc")
             {
                 WriteSongDescActor(writer, mapName, mapNameLower);
                 continue;
             }
 
-            WriteSubSceneDefinition(writer, mapName, mapNameLower, scene.Suffix, scene.Folder, scene.EndByte);
-            WriteEmbeddedContent(writer, scene.Suffix, mapName, mapNameLower, standardPreData);
+            WriteSubSceneDefinition(writer, mapName, mapNameLower, Suffix, Folder, EndByte);
+            WriteEmbeddedContent(writer, Suffix, mapName, mapNameLower, standardPreData);
         }
 
         // 3. Footer
@@ -937,7 +938,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     }
 
-    private void WriteCoverActor(BinaryWriter writer, string name, byte[] preData, string tgaName, string tgaPath, byte[] specificPostData = null)
+    private void WriteCoverActor(BinaryWriter writer, string name, byte[] preData, string tgaName, string tgaPath, byte[]? specificPostData = null)
     {
         writer.Write([0x97, 0xCA, 0x62, 0x8B]);
         writer.Write(preData);

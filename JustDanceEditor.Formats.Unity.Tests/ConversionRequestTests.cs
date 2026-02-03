@@ -35,16 +35,6 @@ public class UnityConversionRequestTests
     }
 
     [Fact]
-    public void UnityConversionRequest_DefaultsOnlineCoverToFalse()
-    {
-        // Act
-        UnityConversionRequest request = new("/in", "/out", "/template");
-
-        // Assert
-        Assert.False(request.OnlineCover);
-    }
-
-    [Fact]
     public void UnityConversionRequest_CanSetExportType()
     {
         // Arrange
@@ -56,20 +46,6 @@ public class UnityConversionRequestTests
 
         // Assert
         Assert.Equal(ExportType.OfflineCache, request.ExportType);
-    }
-
-    [Fact]
-    public void UnityConversionRequest_CanSetOnlineCover()
-    {
-        // Arrange
-        UnityConversionRequest request = new("/in", "/out", "/template")
-        {
-            // Act
-            OnlineCover = true
-        };
-
-        // Assert
-        Assert.True(request.OnlineCover);
     }
 
     [Fact]

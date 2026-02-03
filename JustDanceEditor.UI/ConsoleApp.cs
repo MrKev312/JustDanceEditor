@@ -50,7 +50,6 @@ internal sealed class ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnu
                 "Exit Program",
                 "Convert Between Formats (Experimental)",
                 "Batch Convert All Songs in a Folder",
-                "Update All Covers",
                 "Extract IPK Archive File",
                 "Generate a New Cache Structure",
                 "Optimize Cache Folders for exFAT (Spread Caches equally)"
@@ -71,18 +70,14 @@ internal sealed class ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnu
                     _conversionWorkflow.ConvertAllSongsInFolder();
                     break;
                 case 3:
-                    Console.WriteLine("--- Update Covers ---");
-                    _conversionWorkflow.UpdateCovers();
-                    break;
-                case 4:
                     Console.WriteLine("--- Extract IPK Archive ---");
                     ExtractorDialogue.ExtractDialogue(_logger);
                     break;
-                case 5:
+                case 4:
                     Console.WriteLine("--- Generate New Cache ---");
                     CacheDialogue.GenerateCacheDialogue(_logger);
                     break;
-                case 6:
+                case 5:
                     Console.WriteLine("--- Spread Cache for exFAT ---");
                     CacheDialogue.SpreadCacheDialogue(_logger);
                     break;

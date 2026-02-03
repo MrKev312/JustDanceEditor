@@ -1,6 +1,7 @@
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
+using JustDanceEditor.Formats.UbiArt.Model;
 
 using Microsoft.Extensions.Logging;
 

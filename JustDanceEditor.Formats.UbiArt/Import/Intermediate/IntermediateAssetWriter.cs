@@ -4,6 +4,7 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
+using JustDanceEditor.Formats.UbiArt.Model;
 
 using Microsoft.Extensions.Logging;
 
@@ -89,17 +90,17 @@ internal static class IntermediateAssetWriter
     {
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder, io);
         ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile), logger, textureService, io);
-        
+
         // Import square cover if it exists in MenuArt
         ExportSquareCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SquareCoverFile), logger, textureService, io);
-        
+
         // Import album coach if it exists in MenuArt
         ExportAlbumCoachImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AlbumCoachFile), logger, textureService, io);
-        
+
         // Import banner if it exists in MenuArt
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BackgroundsFolder, io);
         ExportBannerImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BannerFile), logger, textureService, io);
-        
+
         // Import map background if it exists in MenuArt
         ExportMapBackgroundImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile), logger, textureService, io);
     }
@@ -139,17 +140,14 @@ internal static class IntermediateAssetWriter
     private static void ExportSquareCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
-        
+
         // Try to find square cover in MenuArt (prefer cover_generic as it's the highest resolution)
         CookedFile? squareCover = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_generic.*")
             .FirstOrDefault();
-        
+
         // Fall back to cover_online if cover_generic doesn't exist
-        if (squareCover == null)
-        {
-            squareCover = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_online.*")
+        squareCover ??= context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_online.*")
                 .FirstOrDefault();
-        }
 
         if (squareCover != null)
         {
@@ -176,7 +174,7 @@ internal static class IntermediateAssetWriter
     private static void ExportAlbumCoachImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
-        
+
         // Try to find album coach in MenuArt
         CookedFile? albumCoach = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
             .FirstOrDefault();
@@ -206,7 +204,7 @@ internal static class IntermediateAssetWriter
     private static void ExportBannerImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
-        
+
         // Try to find banner in MenuArt
         CookedFile? banner = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_banner_bkg.*")
             .FirstOrDefault();
@@ -236,7 +234,7 @@ internal static class IntermediateAssetWriter
     private static void ExportMapBackgroundImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
-        
+
         // Try to find map background in MenuArt
         CookedFile? mapBkg = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_map_bkg.*")
             .FirstOrDefault();
@@ -253,6 +251,7 @@ internal static class IntermediateAssetWriter
                     {
                         SaveAsWebp(img, destination, io);
                     }
+
                     logger.LogInformation("Imported map background image from MenuArt");
                     return;
                 }

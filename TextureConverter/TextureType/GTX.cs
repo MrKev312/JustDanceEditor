@@ -414,7 +414,7 @@ public class GTX
         return gtx.ConvertToImage();
     }
 
-    private static (uint, uint, uint, uint) GetCompSel(GX2SurfaceFormat format, byte[] compSel = null)
+    private static (uint, uint, uint, uint) GetCompSel(GX2SurfaceFormat format, byte[]? compSel = null)
     {
         if (compSel != null && compSel.Length == 4)
         {
@@ -688,7 +688,7 @@ public class GTX
     {
         // Uses BCnEncoder.ImageSharp to compress the image
         using Image<Rgba32> rgba = image.CloneAs<Rgba32>();
-        BcEncoder encoder = new BCnEncoder.Encoder.BcEncoder();
+        BcEncoder encoder = new();
         encoder.OutputOptions.GenerateMipMaps = false;
         encoder.OutputOptions.Quality = BCnEncoder.Encoder.CompressionQuality.BestQuality;
         encoder.OutputOptions.Format = format;

@@ -19,7 +19,6 @@ public sealed record UnitySongTitleRequest(
     string SongName,
     UnityExportData? UnityData,
     UnityMenuArtSource? MenuArt,
-    bool AllowOnlineLookup,
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer,
@@ -119,11 +118,7 @@ public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
         if (request.UnityData == null || request.MenuArt == null)
             return null;
 
-        Image<Rgba32>? image = null;
-        if (request.AllowOnlineLookup)
-            image = ImageLoader.TryImageWeb(request.SongName, "Title", logger);
-
-        return image ?? ImageLoader.TryLoadImage(request.MenuArt.SongTitleLogoPath);
+        return ImageLoader.TryLoadImage(request.MenuArt.SongTitleLogoPath);
     }
 
     private static void NormalizeSongTitleImage(Image<Rgba32> image)

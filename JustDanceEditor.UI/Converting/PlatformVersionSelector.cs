@@ -139,7 +139,7 @@ public static class PlatformVersionSelector
             return versions[0];
         }
 
-        string[] versionLabels = versions.Select(v => v == 2023 ? "JD2023+ (Unity)" : $"JD{v}").ToArray();
+        string[] versionLabels = [.. versions.Select(v => v == 2023 ? "JD2023+ (Unity)" : $"JD{v}")];
         int selection = Helpers.Question.Ask(versionLabels, 0, prompt);
         return versions[selection];
     }
@@ -168,6 +168,7 @@ public static class PlatformVersionSelector
             string versionStr = version.HasValue ? $"JD{version}" : "versionless";
             Console.WriteLine($"Selected: {platform} / {versionStr} ({selection.FormatName} engine)");
         }
+
         Console.ResetColor();
 
         return selection;
