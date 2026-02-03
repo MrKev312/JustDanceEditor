@@ -20,7 +20,7 @@ public class AssetResolverAudioTests
     public void TryFindMainAudio_Returns_PreMergedOgg_From_MediaFolder()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        string mediaFolder = Path.Combine(root, "World", "Maps", "song", "media");
+        string mediaFolder = Path.Combine(root, "world", "maps", "song", "media");
         Directory.CreateDirectory(mediaFolder);
 
         // Create a pre-merged ogg in the media folder
@@ -47,7 +47,7 @@ public class AssetResolverAudioTests
     public void TryFindAudio_Fallsback_To_Wav_Extension_If_Tpl_Not_Present()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        string audioFolder = Path.Combine(root, "World", "Maps", "song", "Audio");
+        string audioFolder = Path.Combine(root, "world", "maps", "song", "audio");
         Directory.CreateDirectory(audioFolder);
 
         // Create WAV file matching expected base name

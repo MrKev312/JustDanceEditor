@@ -34,7 +34,7 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "media");
 
     public string GetAudioFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "Audio");
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "audio");
 
     public string GetTimelineFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
         => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "timeline");
@@ -43,7 +43,7 @@ public class UbiArtLayoutResolver : IUbiArtLayout
         => Path.Combine(GetTimelineFolder(inputPath, songName, platform, engineVersion), "pictos");
 
     public string GetMovesFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
-        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "timeline", "moves", "WiiU");
+        => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "timeline", "moves", "wiiu");
 
     public string GetSongDescRelativePath(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
         => Path.Combine(GetMapWorldFolder(inputPath, songName, platform, engineVersion), "songdesc.tpl");
