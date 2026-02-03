@@ -173,10 +173,60 @@ public static class CoverComposer
     {
         ArgumentNullException.ThrowIfNull(coachesBackground);
 
+        // 1. Resize and convert to Grayscale to get baseline luminance
         Image<Bgra32> result = coachesBackground.Clone();
         result.Mutate(x => x
             .Resize(BannerWidth, BannerHeight)
             .Grayscale());
+
+        // 2. Find Min/Max for Range Expansion (Normalization)
+        byte min = 255;
+        byte max = 0;
+        result.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                foreach (ref Bgra32 p in row)
+                {
+                    if (p.R < min)
+                        min = p.R;
+                    if (p.R > max)
+                        max = p.R;
+                }
+            }
+        });
+
+        float range = (max - min) < 1 ? 1 : (max - min);
+
+        // 3. Map values to channels
+        result.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    // Calculate the expanded grayscale value (0 to 255)
+                    float normalized = (row[x].R - min) / range * 255f;
+                    byte gray = (byte)Math.Clamp(normalized, 0, 255);
+
+                    // Red: Standard B&W version (kept as is)
+                    byte r = row[x].R;
+
+                    // Green: Purely black for most of the image, ramps up at the 
+                    // end to create the highlights
+                    byte g = (byte)Math.Clamp((gray - 160) * 2.7, 0, 255);
+
+                    // Blue: A darkened version that is used for most of the image,
+                    // ramps down to black for the highlights
+                    byte b = (byte)Math.Clamp((100 - gray) * 2.5, 0, 255);
+
+                    row[x] = new Bgra32(r, g, b, row[x].A);
+                }
+            }
+        });
+
         return result;
     }
 
