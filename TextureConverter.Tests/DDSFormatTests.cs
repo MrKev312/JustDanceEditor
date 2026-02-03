@@ -197,14 +197,20 @@ public class DDSFormatTests
     }
 
     [Fact]
-    public void ConvertToFile_CompressedFormat_ThrowsNotImplemented()
+    public void ConvertToFile_CompressedFormat_DXT1_Succeeds()
     {
         using Image<Bgra32> testImage = CreateTestImage();
         using MemoryStream output = new();
 
-        // Act & Assert
-        Assert.Throws<NotImplementedException>(() =>
-            DDS.ConvertToFile(testImage, DDS.DDSFormat.DXT1, output));
+        // Act - DXT1 compression is supported
+        DDS.ConvertToFile(testImage, DDS.DDSFormat.DXT1, output);
+
+        // Assert
+        Assert.True(output.Length > 0);
+        output.Seek(0, SeekOrigin.Begin);
+        byte[] header = new byte[4];
+        output.Read(header, 0, 4);
+        Assert.Equal("DDS ", System.Text.Encoding.ASCII.GetString(header));
     }
 
     #region Comprehensive Coverage Tests

@@ -421,14 +421,14 @@ public class XTX
     {
         return format switch
         {
-            XTXImageFormat.NVN_FORMAT_RGBA8 => ConvertToBGRA8(image),
-            XTXImageFormat.NVN_FORMAT_RGBA8_SRGB => ConvertToBGRA8(image),
-            XTXImageFormat.NVN_FORMAT_RGB10A2 => ConvertToRGB10A2(image),
-            XTXImageFormat.NVN_FORMAT_RGB565 => ConvertToRGB565(image),
-            XTXImageFormat.NVN_FORMAT_RGB5A1 => ConvertToRGB5A1(image),
-            XTXImageFormat.NVN_FORMAT_RGBA4 => ConvertToRGBA4(image),
-            XTXImageFormat.NVN_FORMAT_R8 => ConvertToR8(image),
-            XTXImageFormat.NVN_FORMAT_RG8 => ConvertToRG8(image),
+            XTXImageFormat.NVN_FORMAT_RGBA8 => PixelFormatConverter.ConvertToBGRA8(image),
+            XTXImageFormat.NVN_FORMAT_RGBA8_SRGB => PixelFormatConverter.ConvertToBGRA8(image),
+            XTXImageFormat.NVN_FORMAT_RGB10A2 => PixelFormatConverter.ConvertToRGB10A2(image),
+            XTXImageFormat.NVN_FORMAT_RGB565 => PixelFormatConverter.ConvertToRGB565(image),
+            XTXImageFormat.NVN_FORMAT_RGB5A1 => PixelFormatConverter.ConvertToRGB5A1(image),
+            XTXImageFormat.NVN_FORMAT_RGBA4 => PixelFormatConverter.ConvertToRGBA4(image),
+            XTXImageFormat.NVN_FORMAT_R8 => PixelFormatConverter.ConvertToR8(image),
+            XTXImageFormat.NVN_FORMAT_RG8 => PixelFormatConverter.ConvertToRG8(image),
             XTXImageFormat.DXT1 => CompressBCn(image, CompressionFormat.Bc1),
             XTXImageFormat.DXT3 => CompressBCn(image, CompressionFormat.Bc2),
             XTXImageFormat.DXT5 => CompressBCn(image, CompressionFormat.Bc3),
@@ -459,157 +459,5 @@ public class XTX
         return encoder.EncodeToRawBytes(rgba)[0];
     }
 
-    // Helpers for uncompressed formats
-    private static byte[] ConvertToBGRA8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 4];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = row[x].R;
-                    result[offset++] = row[x].G;
-                    result[offset++] = row[x].B;
-                    result[offset++] = row[x].A;
-                }
-            }
-        });
-        return result;
-    }
 
-    private static byte[] ConvertToRGB10A2(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 4];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 6) & 0x3FF;
-                    uint g = (uint)(row[x].G >> 6) & 0x3FF;
-                    uint b = (uint)(row[x].B >> 6) & 0x3FF;
-                    uint a = (uint)(row[x].A >> 6) & 0x3;
-                    uint packed = (a << 30) | (b << 20) | (g << 10) | r;
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 4);
-                    offset += 4;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRGB565(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F;
-                    uint g = (uint)(row[x].G >> 2) & 0x3F;
-                    uint b = (uint)(row[x].B >> 3) & 0x1F;
-                    ushort packed = (ushort)((b << 11) | (g << 5) | r);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRGB5A1(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F;
-                    uint g = (uint)(row[x].G >> 3) & 0x1F;
-                    uint b = (uint)(row[x].B >> 3) & 0x1F;
-                    uint a = (row[x].A > 128 ? 1U : 0U) & 0x1;
-                    ushort packed = (ushort)((a << 15) | (b << 10) | (g << 5) | r);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRGBA4(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 4) & 0xF;
-                    uint g = (uint)(row[x].G >> 4) & 0xF;
-                    uint b = (uint)(row[x].B >> 4) & 0xF;
-                    uint a = (uint)(row[x].A >> 4) & 0xF;
-                    ushort packed = (ushort)((a << 12) | (b << 8) | (g << 4) | r);
-                    Array.Copy(BitConverter.GetBytes(packed), 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToR8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRG8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
-                    result[offset++] = row[x].A;
-                }
-            }
-        });
-        return result;
-    }
 }

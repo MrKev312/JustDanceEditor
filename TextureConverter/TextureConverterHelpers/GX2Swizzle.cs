@@ -148,20 +148,9 @@ public static class GX2Swizzle
             data = surface.Data;
         }
 
-        // For macro-tiled textures, use the pitch and height values from the file header, not the recalculated aligned values.
-        // The file stores the data using the original pitch/height, not the alignment-padded dimensions.
-        uint actualPitch = surfInfo.Pitch;
-        uint actualHeight = surfInfo.Height;
-        if (mipLevel == 0 && (uint)surface.TileMode > 3 && (uint)surface.TileMode != 16)
-        {
-            // Macro-tiled mode - use the values from the file
-            actualPitch = surface.Pitch;
-            actualHeight = surface.Height;
-        }
-
-        return DeswizzleSurface(width, height, surfInfo.Depth, actualHeight,
+        return DeswizzleSurface(width, height, surfInfo.Depth, surfInfo.Height,
             (uint)surface.Format, (uint)surface.AA, surface.Use, surfInfo.TileMode,
-            swizzle, actualPitch, surfInfo.Bpp, (uint)arrayLevel, 0, data);
+            swizzle, surfInfo.Pitch, surfInfo.Bpp, (uint)arrayLevel, 0, data);
     }
 
     /// <summary>
@@ -278,7 +267,6 @@ public static class GX2Swizzle
         {
             width = (width + 3) / 4;
             height = (height + 3) / 4;
-            pitch = (pitch + 3) / 4;
         }
 
         uint pipeSwizzle = (swizzle >> 8) & 1;
@@ -295,7 +283,7 @@ public static class GX2Swizzle
                 ulong pos;
                 if (tileMode is 0 or 1)
                 {
-                    pos = ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height_, depth);
+                    pos = ComputeSurfaceAddrFromCoordLinear(x, y, slice, sample, bytesPerPixel, pitch, height, depth);
                 }
                 else if (tileMode is 2 or 3)
                 {
@@ -788,37 +776,41 @@ public static class GX2Swizzle
             Format = hwFormat,
             Bpp = FormatHwInfo[hwFormat * 4],
             NumSamples = (uint)(1 << (int)aa),
-            Width = Math.Max(1, width >> level)
+            Width = Math.Max(1, width >> level),
+            // Default initialization
+            Height = 1,
+            NumSlices = 1
         };
 
         aSurfIn.NumFrags = aSurfIn.NumSamples;
 
+        // 1. Setup Dimensions based on Surface Type
         switch (surfaceDim)
         {
-            case 0:
+            case 0: // DIM_1D
                 aSurfIn.Height = 1;
                 aSurfIn.NumSlices = 1;
                 break;
-            case 1:
-            case 6:
+            case 1: // DIM_2D
+            case 6: // DIM_2D_MSAA
                 aSurfIn.Height = Math.Max(1, height >> level);
                 aSurfIn.NumSlices = 1;
                 break;
-            case 2:
+            case 2: // DIM_3D
                 aSurfIn.Height = Math.Max(1, height >> level);
                 aSurfIn.NumSlices = Math.Max(1, depth >> level);
                 break;
-            case 3:
+            case 3: // DIM_CUBE
                 aSurfIn.Height = Math.Max(1, height >> level);
                 aSurfIn.NumSlices = Math.Max(6, depth);
-                aSurfIn.Flags |= 0x10;
+                aSurfIn.Flags |= 0x10; // Cube Flag
                 break;
-            case 4:
+            case 4: // DIM_1D_ARRAY
                 aSurfIn.Height = 1;
                 aSurfIn.NumSlices = depth;
                 break;
-            case 5:
-            case 7:
+            case 5: // DIM_2D_ARRAY
+            case 7: // DIM_2D_MSAA_ARRAY
                 aSurfIn.Height = Math.Max(1, height >> level);
                 aSurfIn.NumSlices = depth;
                 break;
@@ -827,7 +819,7 @@ public static class GX2Swizzle
         aSurfIn.Slice = 0;
         aSurfIn.MipLevel = (uint)level;
 
-        if (surfaceDim == 2)
+        if (surfaceDim == 2) // DIM_3D
             aSurfIn.Flags |= 0x20;
 
         if (level == 0)
@@ -835,7 +827,77 @@ public static class GX2Swizzle
         else
             aSurfIn.Flags &= 0xFFFFEFFF;
 
+        // 2. Apply Power-of-Two alignment logic
+        ComputeMipLevel(aSurfIn);
+
+        // 3. Handle Special Format Expansion
+        // This handles compressed formats or specific HW formats that need dimension scaling
+        if (aSurfIn.Format != 0)
+        {
+            uint expandX = FormatExInfo[(aSurfIn.Format * 4) + 1];
+            uint expandY = FormatExInfo[(aSurfIn.Format * 4) + 2];
+            uint elemMode = FormatExInfo[(aSurfIn.Format * 4) + 3];
+
+            // Adjust dimensions for compressed formats
+            if (expandX > 1 || expandY > 1)
+            {
+                uint widthA, heightA;
+                if (elemMode == 4)
+                {
+                    widthA = expandX * aSurfIn.Width;
+                    heightA = expandY * aSurfIn.Height;
+                }
+                else
+                {
+                    // Check if BCN (elemMode 9-13 usually implies compressed/special handling if BPP check passes)
+                    widthA = (aSurfIn.Width + expandX - 1) / expandX;
+                    heightA = (aSurfIn.Height + expandY - 1) / expandY;
+                }
+
+                aSurfIn.Width = Math.Max(1, widthA);
+                aSurfIn.Height = Math.Max(1, heightA);
+            }
+        }
+
+        // 4. Calculate final Surface Info
         ComputeSurfaceInfoEx(aSurfIn, pSurfOut);
+    }
+
+    private static void ComputeMipLevel(SurfaceIn pIn)
+    {
+        // Handle specific hardware formats (49-55) logic first
+        uint hwlHandled = HwlComputeMipLevel(pIn);
+
+        // If not handled by HWL and is a mipmap (level > 0) or has specific flag
+        if (hwlHandled == 0 && pIn.MipLevel != 0 && ((pIn.Flags >> 12) & 1) != 0)
+        {
+            if (pIn.Format is not 47 and not 48)
+            {
+                pIn.Width = NextPow2(pIn.Width);
+                pIn.Height = NextPow2(pIn.Height);
+                pIn.NumSlices = NextPow2(pIn.NumSlices);
+            }
+        }
+    }
+
+    private static uint HwlComputeMipLevel(SurfaceIn pIn)
+    {
+        uint handled = 0;
+
+        // Special handling for formats 49-55
+        if (pIn.Format is >= 49 and <= 55)
+        {
+            if (pIn.MipLevel != 0)
+            {
+                // Align to NextPow2
+                pIn.Width = NextPow2(pIn.Width);
+                pIn.Height = NextPow2(pIn.Height);
+            }
+
+            handled = 1;
+        }
+
+        return handled;
     }
 
     private static void ComputeSurfaceInfoEx(SurfaceIn pIn, SurfaceOut pOut)
@@ -1227,13 +1289,19 @@ public static class GX2Swizzle
 
     private static uint NextPow2(uint v)
     {
-        v -= 1;
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        return v + 1;
+        if (v == 0)
+            return 1;
+
+        uint newDim = 1;
+        if (v < 0x7FFFFFFF)
+        {
+            while (newDim < v)
+                newDim *= 2;
+        }
+        else
+            newDim = 0x80000000;
+
+        return newDim;
     }
 
     private static uint PowTwoAlign(uint x, uint align)

@@ -272,7 +272,6 @@ public class SSD
         // FourCC
         // Opaque: "1TXD" (0x31545844) -> Write as is (ASCII bytes)
         // Transparent: "CMPA" (0x41504D43) -> Write as is
-        // Note: The "official" Opaque dump shows "04 31 54 58 44" (04 flags, then 1TXD).
         // Standard DXT1 FourCC is 0x31545844.
         if (hasTransparency)
         {

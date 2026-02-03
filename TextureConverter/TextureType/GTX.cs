@@ -452,10 +452,29 @@ public class GTX
             byte[] deswizzled = GX2Swizzle.Deswizzle(texture, 0, mipLevel);
 
             // Take only the linear size from the deswizzled data
-            result.AddRange(deswizzled.Take(linearSize));
+            byte[] mipData = deswizzled.Take(linearSize).ToArray();
+
+            // Swap endianness for 16-bit packed formats (Wii U is big-endian)
+            if (Is16BitPackedFormat(texture.Format))
+            {
+                mipData = SwapEndianness16(mipData);
+            }
+
+            result.AddRange(mipData);
         }
 
         return [.. result];
+    }
+
+    /// <summary>
+    /// Checks if the format is a 16-bit packed format that requires endianness swapping.
+    /// </summary>
+    private static bool Is16BitPackedFormat(GX2SurfaceFormat format)
+    {
+        return format is GX2SurfaceFormat.TCS_R5_G6_B5_UNORM
+            or GX2SurfaceFormat.TC_R5_G5_B5_A1_UNORM
+            or GX2SurfaceFormat.TC_R4_G4_B4_A4_UNORM
+            or GX2SurfaceFormat.TC_A1_B5_G5_R5_UNORM;
     }
 
     #endregion
@@ -667,12 +686,12 @@ public class GTX
     {
         return format switch
         {
-            GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM or GX2SurfaceFormat.TCS_R8_G8_B8_A8_SRGB => ConvertToRGBA8(image),
-            GX2SurfaceFormat.TCS_R5_G6_B5_UNORM => ConvertToRGB565(image),
-            GX2SurfaceFormat.TC_R5_G5_B5_A1_UNORM => ConvertToRGB5A1(image),
-            GX2SurfaceFormat.TC_R4_G4_B4_A4_UNORM => ConvertToRGBA4(image),
-            GX2SurfaceFormat.TC_R8_UNORM => ConvertToR8(image),
-            GX2SurfaceFormat.TC_R8_G8_UNORM => ConvertToRG8(image),
+            GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM or GX2SurfaceFormat.TCS_R8_G8_B8_A8_SRGB => PixelFormatConverter.ConvertToBGRA8(image),
+            GX2SurfaceFormat.TCS_R5_G6_B5_UNORM => SwapEndianness16(PixelFormatConverter.ConvertToRGB565(image)),
+            GX2SurfaceFormat.TC_R5_G5_B5_A1_UNORM => SwapEndianness16(PixelFormatConverter.ConvertToRGB5A1(image)),
+            GX2SurfaceFormat.TC_R4_G4_B4_A4_UNORM => SwapEndianness16(PixelFormatConverter.ConvertToRGBA4(image)),
+            GX2SurfaceFormat.TC_R8_UNORM => PixelFormatConverter.ConvertToR8(image),
+            GX2SurfaceFormat.TC_R8_G8_UNORM => PixelFormatConverter.ConvertToRG8(image),
             // Add BCn encoding if libraries are available, otherwise throws
             GX2SurfaceFormat.T_BC1_UNORM or GX2SurfaceFormat.T_BC1_SRGB => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc1),
             GX2SurfaceFormat.T_BC2_UNORM or GX2SurfaceFormat.T_BC2_SRGB => CompressBCn(image, BCnEncoder.Shared.CompressionFormat.Bc2),
@@ -696,144 +715,18 @@ public class GTX
         return encoder.EncodeToRawBytes(rgba)[0];
     }
 
-    private static byte[] ConvertToRGBA8(Image<Bgra32> image)
+    /// <summary>
+    /// Swaps endianness for 16-bit packed values (RGB565, RGB5A1, RGBA4).
+    /// Converts from little-endian to big-endian byte order for Wii U compatibility.
+    /// </summary>
+    private static byte[] SwapEndianness16(byte[] data)
     {
-        // Write as BGRA to match DDS mask expectations when read as little-endian uint
-        byte[] result = new byte[image.Width * image.Height * 4];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
+        for (int i = 0; i < data.Length; i += 2)
         {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = row[x].B;
-                    result[offset++] = row[x].G;
-                    result[offset++] = row[x].R;
-                    result[offset++] = row[x].A;
-                }
-            }
-        });
-        return result;
-    }
+            (data[i], data[i + 1]) = (data[i + 1], data[i]);
+        }
 
-    private static byte[] ConvertToRGB565(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F;
-                    uint g = (uint)(row[x].G >> 2) & 0x3F;
-                    uint b = (uint)(row[x].B >> 3) & 0x1F;
-                    ushort packed = (ushort)((r << 11) | (g << 5) | b);
-                    // Write little-endian
-                    byte[] bytes = BitConverter.GetBytes(packed);
-                    // Wii U is Big Endian, but GX2Swizzle usually handles byte swapping if necessary,
-                    // however raw pixel data in RGBA8 is usually handled as byte arrays.
-                    // For packed formats, we might need to swap if the system reads them as 16bit ints.
-                    // But typically textures are treated as byte streams. 
-                    // Let's stick to Little Endian for generation as the Swizzle method handles the rest.
-                    Array.Copy(bytes, 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRGB5A1(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 3) & 0x1F;
-                    uint g = (uint)(row[x].G >> 3) & 0x1F;
-                    uint b = (uint)(row[x].B >> 3) & 0x1F;
-                    uint a = (row[x].A > 128 ? 1U : 0U) & 0x1;
-                    ushort packed = (ushort)((r << 11) | (g << 6) | (b << 1) | a);
-                    // Note: Format definition varies, using standard 5551
-                    byte[] bytes = BitConverter.GetBytes(packed);
-                    Array.Copy(bytes, 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRGBA4(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    uint r = (uint)(row[x].R >> 4) & 0xF;
-                    uint g = (uint)(row[x].G >> 4) & 0xF;
-                    uint b = (uint)(row[x].B >> 4) & 0xF;
-                    uint a = (uint)(row[x].A >> 4) & 0xF;
-                    ushort packed = (ushort)((r << 12) | (g << 8) | (b << 4) | a);
-                    byte[] bytes = BitConverter.GetBytes(packed);
-                    Array.Copy(bytes, 0, result, offset, 2);
-                    offset += 2;
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToR8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
-                }
-            }
-        });
-        return result;
-    }
-
-    private static byte[] ConvertToRG8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 2];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = (byte)((0.299f * row[x].R) + (0.587f * row[x].G) + (0.114f * row[x].B));
-                    result[offset++] = row[x].A;
-                }
-            }
-        });
-        return result;
+        return data;
     }
 
     #endregion

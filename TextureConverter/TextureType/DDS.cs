@@ -9,6 +9,8 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
 
+using TextureConverter.TextureConverterHelpers;
+
 namespace TextureConverter.TextureType;
 
 public class DDS
@@ -617,14 +619,25 @@ public class DDS
 
     private static int GetBPP_DDS(DDSFormat format)
     {
-        return format switch { DDSFormat.RGBA8 => 4, _ => 0 }; // Simplified
+        return format switch
+        {
+            DDSFormat.RGBA8 or DDSFormat.RGBA_SRGB or DDSFormat.RGB10A2 => 4,
+            DDSFormat.RGB565 or DDSFormat.RGB5A1 or DDSFormat.RGBA4 or DDSFormat.LA8 => 2,
+            DDSFormat.L8 => 1,
+            _ => 0
+        };
     }
 
     private static byte[] ConvertImageDataToFormat(Image<Bgra32> image, DDSFormat format)
     {
         return format switch
         {
-            DDSFormat.RGBA8 => ConvertToRGBA8(image),
+            DDSFormat.RGBA8 or DDSFormat.RGBA_SRGB => PixelFormatConverter.ConvertToBGRA8(image),
+            DDSFormat.RGB565 => PixelFormatConverter.ConvertToRGB565(image),
+            DDSFormat.RGB5A1 => PixelFormatConverter.ConvertToRGB5A1(image),
+            DDSFormat.RGBA4 => PixelFormatConverter.ConvertToRGBA4(image),
+            DDSFormat.L8 => PixelFormatConverter.ConvertToL8(image),
+            DDSFormat.LA8 => PixelFormatConverter.ConvertToLA8(image),
             DDSFormat.DXT1 or DDSFormat.BC1 => CompressBCn(image, CompressionFormat.Bc1),
             DDSFormat.DXT3 or DDSFormat.BC2 => CompressBCn(image, CompressionFormat.Bc2),
             DDSFormat.DXT5 or DDSFormat.BC3 => CompressBCn(image, CompressionFormat.Bc3),
@@ -632,26 +645,9 @@ public class DDS
         };
     }
 
-    private static byte[] ConvertToRGBA8(Image<Bgra32> image)
-    {
-        byte[] result = new byte[image.Width * image.Height * 4];
-        int offset = 0;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    result[offset++] = row[x].B;
-                    result[offset++] = row[x].G;
-                    result[offset++] = row[x].R;
-                    result[offset++] = row[x].A;
-                }
-            }
-        });
-        return result;
-    }
+
+
+
 
     private static byte[] CompressBCn(Image<Bgra32> image, CompressionFormat format)
     {
