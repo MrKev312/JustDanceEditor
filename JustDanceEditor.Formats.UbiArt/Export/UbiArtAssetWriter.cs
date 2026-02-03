@@ -35,9 +35,9 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string mapNameLower = mapName.ToLowerInvariant();
         string platformRoot = platformExporter.GetPlatformRootFolder(mapNameLower);
 
-        string mapWorldRelative = layout.GetMapWorldFolder("", mapName, platform, engineVersion);
+        string mapWorldRelative = layout.GetMapWorldFolder("", mapNameLower, platform, engineVersion);
         string mapWorldBase = Path.Combine(platformRoot, mapWorldRelative);
-        string rawMapWorldBase = layout.GetMapWorldFolder("", mapName, UbiArtPlatform.Uncooked, engineVersion);
+        string rawMapWorldBase = layout.GetMapWorldFolder("", mapNameLower, UbiArtPlatform.Uncooked, engineVersion);
 
         logger.LogInformation("Exporting {MapName} ({Platform}, {Version})...", mapName, platform, engineVersion);
 
