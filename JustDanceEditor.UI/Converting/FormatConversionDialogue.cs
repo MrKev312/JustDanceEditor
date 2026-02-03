@@ -1,8 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.Formats.UbiArt.FileSystem;
-using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;

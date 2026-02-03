@@ -1,10 +1,8 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Import;
-using JustDanceEditor.Formats.UbiArt.Model;
 
 using System.Globalization;
-using System.IO;
 using System.IO.Hashing;
 using System.Text;
 

@@ -452,7 +452,7 @@ public class GTX
             byte[] deswizzled = GX2Swizzle.Deswizzle(texture, 0, mipLevel);
 
             // Take only the linear size from the deswizzled data
-            byte[] mipData = deswizzled.Take(linearSize).ToArray();
+            byte[] mipData = [.. deswizzled.Take(linearSize)];
 
             // Swap endianness for 16-bit packed formats (Wii U is big-endian)
             if (Is16BitPackedFormat(texture.Format))

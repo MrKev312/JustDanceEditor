@@ -1,12 +1,7 @@
-using JustDanceEditor.Formats.JDI.Utilities;
-
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.PixelFormats;
 
-using System.Net.Http;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.JDI.Services;

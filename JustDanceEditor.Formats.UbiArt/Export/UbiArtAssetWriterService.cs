@@ -1,6 +1,5 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 

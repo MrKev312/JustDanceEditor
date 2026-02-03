@@ -458,6 +458,4 @@ public class XTX
         };
         return encoder.EncodeToRawBytes(rgba)[0];
     }
-
-
 }

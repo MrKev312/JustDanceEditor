@@ -1,5 +1,3 @@
-using JustDanceEditor.Formats.UbiArt.Serialization;
-
 using System.Text;
 using System.Text.Json;
 

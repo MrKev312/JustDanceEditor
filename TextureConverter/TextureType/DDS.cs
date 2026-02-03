@@ -2,7 +2,6 @@ using BCnEncoder.Decoder;
 using BCnEncoder.Encoder;
 using BCnEncoder.ImageSharp;
 using BCnEncoder.Shared;
-using BCnEncoder.Shared.ImageFiles;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -644,10 +643,6 @@ public class DDS
             _ => throw new NotImplementedException($"Format {format} is not supported.")
         };
     }
-
-
-
-
 
     private static byte[] CompressBCn(Image<Bgra32> image, CompressionFormat format)
     {

@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Assets;

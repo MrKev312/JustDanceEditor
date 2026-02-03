@@ -1070,7 +1070,7 @@ public class RakiAudioConverter : IAudioConverter
     private sealed class SampleProvider16ToWaveStreamAdapter : WaveStream
     {
         private readonly WaveFormat _waveFormat;
-        private byte[] _audioBuffer;
+        private readonly byte[] _audioBuffer;
         private long _position = 0;
 
         public SampleProvider16ToWaveStreamAdapter(ISampleProvider sampleProvider, int sampleRate, int channels)
