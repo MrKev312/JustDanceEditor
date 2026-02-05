@@ -21,6 +21,12 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
 
     public IEngineContentGenerator GetEngineContentGenerator(UbiArtEngineVersion version, UbiArtPlatform platform)
     {
+        // Uncooked platform always uses Lua format, regardless of engine version
+        if (platform == UbiArtPlatform.Uncooked)
+        {
+            return new UncookedEngineContentGenerator(version);
+        }
+
         // Special case: Wii 2016-2020 uses legacy binary format
         if (platform == UbiArtPlatform.Wii && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
         {

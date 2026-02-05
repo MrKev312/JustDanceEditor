@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
@@ -10,6 +11,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 using System.Globalization;
+using System.Text;
 
 using Xabe.FFmpeg;
 
@@ -123,6 +125,21 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             if (package.TimelineStructure.StartBeat < 0)
             {
                 await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, "amb", $"amb_{mapNameLower}_intro.tpl"), generator.GenerateAmbTpl(mapName));
+            }
+        }
+        else
+        {
+            // Uncooked platform needs musictrack.tpl, .trk file, and AMB files
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapName}_musictrack.tpl"), generator.GenerateMusicTrack(package));
+            
+            // Write .trk file with structure data
+            await WriteUncookedTrkFileAsync(package, ctx, Path.Combine(audioFolder, $"{mapName}.trk"));
+            
+            // Write AMB files if there's a negative start beat
+            if (package.TimelineStructure.StartBeat < 0)
+            {
+                string ambFolder = Path.Combine(mapWorldBase, "Audio", "AMB");
+                await WriteUncookedAmbFilesAsync(package, ctx, ambFolder, mapName);
             }
         }
 
@@ -400,9 +417,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
             if (sourceFile != null && ctx.IO.FileExists(sourceFile))
             {
-                string relFolder = platform == UbiArtPlatform.Uncooked
-                    ? layout.GetMediaFolder("", package.Metadata.MapName, platform, version)
-                    : Path.Combine(rawMapWorldBase, "videoscoach");
+                // All platforms use videoscoach folder for video files
+                string relFolder = Path.Combine(rawMapWorldBase, "videoscoach");
 
                 string destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.webm";
 
@@ -446,5 +462,130 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 ctx.IO.Copy(moveFile, fullDest, true);
             }
         }
+    }
+
+    private static async Task WriteUncookedTrkFileAsync(IntermediateSongPackage package, ExportContext ctx, string trkPath)
+    {
+        StringBuilder trkBuilder = new();
+        trkBuilder.AppendLine("structure = { MusicTrackStructure = {");
+
+        // markers
+        trkBuilder.AppendLine("markers = {");
+        foreach (int m in package.TimelineStructure.Markers)
+        {
+            trkBuilder.AppendLine($"    {{ VAL = {m} }},");
+        }
+        trkBuilder.AppendLine("},");
+
+        // signatures
+        trkBuilder.AppendLine("signatures = {");
+        foreach (SignatureSegment s in package.TimelineStructure.Signatures)
+        {
+            string comment = EscapeLuaString(s.Comment ?? string.Empty);
+            string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
+            trkBuilder.AppendLine($"    {{ MusicSignature = {{ beats = {s.Beats}, marker = {markerStr}, comment = \"{comment}\" }} }},");
+        }
+        trkBuilder.AppendLine("},");
+
+        // sections
+        trkBuilder.AppendLine("sections = {");
+        foreach (SectionSegment sec in package.TimelineStructure.Sections)
+        {
+            string comment = EscapeLuaString(sec.Comment ?? string.Empty);
+            string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
+            trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {(int)sec.SectionType}, marker = {markerStr}, comment = \"{comment}\" }} }},");
+        }
+        trkBuilder.AppendLine("},");
+
+        // comments
+        trkBuilder.AppendLine("comments = {},");
+
+        // basic fields
+        trkBuilder.AppendLine($"startBeat = {package.TimelineStructure.StartBeat},");
+        trkBuilder.AppendLine($"endBeat = {package.TimelineStructure.EndBeat},");
+        trkBuilder.AppendLine($"videoStartTime = {package.TimelineStructure.VideoStartOffset.ToString(CultureInfo.InvariantCulture)},");
+        trkBuilder.AppendLine($"previewEntry = {package.TimelineStructure.PreviewEntryBeat},");
+        trkBuilder.AppendLine($"previewLoopStart = {package.TimelineStructure.PreviewLoopStartBeat},");
+        trkBuilder.AppendLine($"previewLoopEnd = {package.TimelineStructure.PreviewLoopEndBeat},");
+        trkBuilder.AppendLine($"previewDuration = {package.TimelineStructure.PrevewDuration},");
+
+        trkBuilder.AppendLine("} } ");
+
+        string fullPath = ctx.IO.Combine(ctx.OutputFolder, trkPath);
+        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        await File.WriteAllTextAsync(fullPath, trkBuilder.ToString());
+    }
+
+    private static async Task WriteUncookedAmbFilesAsync(IntermediateSongPackage package, ExportContext ctx, string ambFolder, string mapName)
+    {
+        string mapNameLower = mapName.ToLowerInvariant();
+        string audioWorldPath = $"world/maps/{mapNameLower}/audio/amb/amb_{mapName}_intro.wav";
+
+        // Write .ilu file
+        string iluContent = $@"DESCRIPTOR = 
+{{
+    {{
+		SoundDescriptor_Template=
+		{{
+			name=""amb_{mapName}_intro"",  
+			volume=-50,
+			category=""AMB"",
+			limitMode=LimiterMode.RejectNew,
+			params=
+			{{SoundParams={{
+				numChannels=2,
+				loop=0, 
+				playMode=PlayMode.Random,
+				randomVolMin=0.0,
+				randomVolMax=0.0,
+				randomPitchMin=1.0,
+				randomPitchMax=1.0,
+				fadeInTime=0.0,
+				fadeOutTime=0.0,
+			}}}},
+			files=
+			{{
+				{{
+					VAL=""{audioWorldPath}"",
+				}},
+			}},
+		}}
+	}},
+}}
+
+appendTable(component.SoundComponent_Template.soundList,DESCRIPTOR)";
+
+        string iluPath = Path.Combine(ambFolder, $"AMB_{mapName}_Intro.ilu");
+        string fullIluPath = ctx.IO.Combine(ctx.OutputFolder, iluPath);
+        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullIluPath)!);
+        await File.WriteAllTextAsync(fullIluPath, iluContent);
+
+        // Write .tpl file
+        string tplContent = $@"params=
+{{
+	NAME=""Actor_Template"",
+	Actor_Template=
+	{{
+		COMPONENTS=
+		{{
+		}}
+	}}
+}}
+includeReference(""world/maps/{mapNameLower}/audio/amb/amb_{mapName}_intro.wav"")
+";
+
+        string tplPath = Path.Combine(ambFolder, $"AMB_{mapName}_Intro.tpl");
+        string fullTplPath = ctx.IO.Combine(ctx.OutputFolder, tplPath);
+        await File.WriteAllTextAsync(fullTplPath, tplContent);
+    }
+
+    private static string EscapeLuaString(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")
+            .Replace("\t", "\\t");
     }
 }
