@@ -7,6 +7,29 @@ using SixLabors.ImageSharp.Processing;
 namespace JustDanceEditor.Formats.JDI.Services.Images;
 
 /// <summary>
+/// Defines how banner colors are applied when generating map backgrounds.
+/// </summary>
+public enum BannerColorMode
+{
+    /// <summary>
+    /// Use only primary colors (songcolor_1a and songcolor_1b).
+    /// Recommended for pre-JD2019 songs.
+    /// </summary>
+    Main,
+
+    /// <summary>
+    /// Use only alternate colors (songcolor_2a and songcolor_2b).
+    /// </summary>
+    Alternate,
+
+    /// <summary>
+    /// Use gradient blending: top is pure 1b, middle blends 1a with white, bottom blends 1b with white.
+    /// Recommended for JD2019+ songs.
+    /// </summary>
+    Gradient
+}
+
+/// <summary>
 /// Provides cover image generation and composition utilities.
 /// </summary>
 public static class CoverComposer
@@ -228,6 +251,148 @@ public static class CoverComposer
         });
 
         return result;
+    }
+
+    /// <summary>
+    /// Generates a map background from a banner image using song colors.
+    /// This processes the banner's blue and green channels to create a colored background.
+    /// </summary>
+    /// <param name="banner">The banner image to process.</param>
+    /// <param name="songColor1A">Primary color A (hex format like "#FFFFFFFF" or "#RRGGBBAA").</param>
+    /// <param name="songColor1B">Primary color B (hex format like "#FFFFFFFF" or "#RRGGBBAA").</param>
+    /// <param name="songColor2A">Alternate color A (hex format like "#FFFFFFFF" or "#RRGGBBAA").</param>
+    /// <param name="songColor2B">Alternate color B (hex format like "#FFFFFFFF" or "#RRGGBBAA").</param>
+    /// <param name="colorMode">The color mode to use for blending.</param>
+    /// <returns>A map background image sized to 2048x1024.</returns>
+    public static Image<Bgra32> GenerateMapBackgroundFromBanner(
+        Image<Bgra32> banner,
+        string songColor1A,
+        string songColor1B,
+        string songColor2A,
+        string songColor2B,
+        BannerColorMode colorMode = BannerColorMode.Main)
+    {
+        ArgumentNullException.ThrowIfNull(banner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(songColor1A);
+        ArgumentException.ThrowIfNullOrWhiteSpace(songColor1B);
+        ArgumentException.ThrowIfNullOrWhiteSpace(songColor2A);
+        ArgumentException.ThrowIfNullOrWhiteSpace(songColor2B);
+
+        int width = banner.Width;
+        int height = banner.Height;
+
+        // Parse all color values
+        Bgra32 color1A = ParseHexColor(songColor1A, new Bgra32(255, 255, 255, 255));
+        Bgra32 color1B = ParseHexColor(songColor1B, new Bgra32(255, 255, 255, 255));
+        Bgra32 color2A = ParseHexColor(songColor2A, new Bgra32(255, 255, 255, 255));
+        Bgra32 color2B = ParseHexColor(songColor2B, new Bgra32(255, 255, 255, 255));
+
+        // Process banner pixels
+        Image<Bgra32> resultImage = new(width, height);
+        for (int y = 0; y < height; y++)
+        {
+            // Determine which color pair to use based on mode and y position
+            (Bgra32 colorA, Bgra32 colorB) = colorMode switch
+            {
+                BannerColorMode.Main => (color1A, color1B),
+                BannerColorMode.Alternate => (color2A, color2B),
+                BannerColorMode.Gradient => GetGradientColors(y, height, color1A, color1B, color2A, color2B),
+                _ => (color1A, color1B)
+            };
+
+            for (int x = 0; x < width; x++)
+            {
+                Bgra32 pixel = banner[x, y];
+                
+                // Use blue channel as weight between colorA and colorB
+                float weight = pixel.B / 255f;
+                Bgra32 newColor = GetWeightedAverage(colorA, colorB, weight);
+                
+                // Add green channel to brighten highlights
+                if (colorMode != BannerColorMode.Gradient)
+                    newColor = AddGreenChannel(newColor, pixel.G);
+                
+                resultImage[x, y] = newColor;
+            }
+        }
+
+        // Resize to standard map background dimensions
+        resultImage.Mutate(x => x.Resize(BackgroundWidth, BackgroundHeight));
+        
+        return resultImage;
+    }
+
+    /// <summary>
+    /// Determines which color pair to use for gradient mode based on vertical position.
+    /// Transitions from 1b/1b to 1a/white, then to 1a/1a.
+    /// </summary>
+    private static (Bgra32 colorA, Bgra32 colorB) GetGradientColors(
+        int y,
+        int height,
+        Bgra32 color1A,
+        Bgra32 color1B,
+        Bgra32 color2A,
+        Bgra32 color2B)
+    {
+        float position = (float)y / height;
+        Bgra32 white = new(255, 255, 255, 255);
+
+        Bgra32 resA, resB;
+
+        // Base gradient logic: 1b,1b -> 1a,white -> 1a,1a
+        if (position < 0.5f)
+        {
+            // Transition from 1b,1b to 1a,white
+            float blend = position / 0.5f; // 0 to 1
+            resA = BlendColors(color1B, color1A, blend);
+            resB = BlendColors(color1B, white, blend);
+        }
+        else
+        {
+            // Transition from 1a,white to 1a,1a
+            float blend = (position - 0.5f) / 0.5f; // 0 to 1
+            resA = color1A;
+            resB = BlendColors(white, color1A, blend);
+        }
+
+        // Overlay: softened, lower-intensity fade to 1b — wider vertical spread and gentler peak
+        // - Spread: expanded vertically so effect is less localized
+        // - Intensity: peak reduced (was 40%) and eased with smoothstep for gentler edges
+        if (position > 0.60f && position < 0.95f)
+        {
+            const float center = 0.825f;
+            const float halfWidth = 0.175f; // affects ~0.60 -> 0.95
+
+            float dist = Math.Abs(position - center);
+            float t = Math.Clamp(1.0f - (dist / halfWidth), 0f, 1f); // 0..1
+            // smoothstep to produce a gentler falloff
+            float smooth = t * t * (3f - 2f * t);
+
+            const float maxBlend = 0.20f; // reduce peak from 40% -> 20%
+            float blendAmount = smooth * maxBlend;
+
+            resA = BlendColors(resA, color1B, blendAmount);
+            resB = BlendColors(resB, color1B, blendAmount);
+        }
+
+        return (resA, resB);
+    }
+
+    /// <summary>
+    /// Blends two colors using linear interpolation.
+    /// </summary>
+    /// <param name="from">Starting color (blend = 0).</param>
+    /// <param name="to">Target color (blend = 1).</param>
+    /// <param name="blend">Blend factor from 0 to 1.</param>
+    /// <returns>The blended color.</returns>
+    private static Bgra32 BlendColors(Bgra32 from, Bgra32 to, float blend)
+    {
+        return new Bgra32(
+            (byte)(from.R + (to.R - from.R) * blend),
+            (byte)(from.G + (to.G - from.G) * blend),
+            (byte)(from.B + (to.B - from.B) * blend),
+            (byte)(from.A + (to.A - from.A) * blend)
+        );
     }
 
     /// <summary>
@@ -543,5 +708,75 @@ public static class CoverComposer
         });
 
         return found ? (minX, maxX) : (0, img.Width);
+    }
+
+    /// <summary>
+    /// Parses a hex color string (e.g., "#FFFFFFFF" or "#RRGGBBAA") into a Bgra32 color.
+    /// </summary>
+    private static Bgra32 ParseHexColor(string hexColor, Bgra32 fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hexColor))
+            return fallback;
+
+        string hex = hexColor.TrimStart('#');
+        
+        // Support both RRGGBB and RRGGBBAA formats
+        if (hex.Length == 6)
+            hex += "FF"; // Add full opacity if alpha not provided
+        
+        if (hex.Length != 8)
+            return fallback;
+
+        try
+        {
+            byte r = Convert.ToByte(hex.Substring(0, 2), 16);
+            byte g = Convert.ToByte(hex.Substring(2, 2), 16);
+            byte b = Convert.ToByte(hex.Substring(4, 2), 16);
+            byte a = Convert.ToByte(hex.Substring(6, 2), 16);
+            return new Bgra32(r, g, b, a);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    /// <summary>
+    /// Adjusts the brightness of a color by a given factor.
+    /// </summary>
+    private static Bgra32 AdjustBrightness(Bgra32 color, float delta)
+    {
+        static byte Clamp(float value) => (byte)Math.Clamp(value, 0, 255);
+        float factor = 1 + delta;
+        return new Bgra32(
+            Clamp(color.R * factor),
+            Clamp(color.G * factor),
+            Clamp(color.B * factor),
+            color.A);
+    }
+
+    /// <summary>
+    /// Calculates a weighted average between two colors.
+    /// </summary>
+    private static Bgra32 GetWeightedAverage(Bgra32 colorA, Bgra32 colorB, float weight)
+    {
+        return new(
+            (byte)((colorA.R * weight) + (colorB.R * (1 - weight))),
+            (byte)((colorA.G * weight) + (colorB.G * (1 - weight))),
+            (byte)((colorA.B * weight) + (colorB.B * (1 - weight))),
+            (byte)((colorA.A * weight) + (colorB.A * (1 - weight)))
+        );
+    }
+
+    /// <summary>
+    /// Adds a green channel value to a color, clamping to valid byte range.
+    /// </summary>
+    private static Bgra32 AddGreenChannel(Bgra32 color, byte greenValue)
+    {
+        return new(
+            (byte)Math.Min(color.R + greenValue, byte.MaxValue),
+            (byte)Math.Min(color.G + greenValue, byte.MaxValue),
+            (byte)Math.Min(color.B + greenValue, byte.MaxValue),
+            color.A);
     }
 }

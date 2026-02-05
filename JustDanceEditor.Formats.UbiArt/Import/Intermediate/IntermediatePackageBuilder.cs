@@ -60,6 +60,12 @@ internal static class IntermediatePackageBuilder
 
         double mapLengthSeconds = CalculateMapLengthSeconds(structure);
         string lyricsColor = ConvertColor(info.DefaultColors.Lyrics);
+        
+        // Extract song colors for background generation
+        string songColor1A = ConvertColor(info.DefaultColors.SongColor1a);
+        string songColor1B = ConvertColor(info.DefaultColors.SongColor1b);
+        string songColor2A = ConvertColor(info.DefaultColors.SongColor2a);
+        string songColor2B = ConvertColor(info.DefaultColors.SongColor2b);
 
         IntermediateMetadata metadata = new()
         {
@@ -84,6 +90,12 @@ internal static class IntermediatePackageBuilder
 
         metadata.AdditionalMetadata["platformType"] = context.FileSystem.VersionProfile.Platform.ToString();
         metadata.AdditionalMetadata["videoPreviewPath"] = info.VideoPreviewPath;
+        
+        // Store song colors for background generation
+        metadata.AdditionalMetadata["songcolor_1a"] = songColor1A;
+        metadata.AdditionalMetadata["songcolor_1b"] = songColor1B;
+        metadata.AdditionalMetadata["songcolor_2a"] = songColor2A;
+        metadata.AdditionalMetadata["songcolor_2b"] = songColor2B;
 
         return metadata;
     }

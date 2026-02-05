@@ -308,4 +308,253 @@ public class CoverComposerTests
     }
 
     #endregion
+
+    #region GenerateMapBackgroundFromBanner Tests
+
+    [Fact]
+    public void GenerateMapBackgroundFromBanner_WithMainMode_GeneratesBackground()
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateTestBannerImage();
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.GenerateMapBackgroundFromBanner(
+            banner,
+            "#FF5733FF", // Orange 1a
+            "#FFB347FF", // Light orange 1b
+            "#3498DBFF", // Blue 2a
+            "#5DADE2FF", // Light blue 2b
+            BannerColorMode.Main);
+
+        // Assert
+        Assert.Equal(CoverComposer.BackgroundWidth, result.Width);
+        Assert.Equal(CoverComposer.BackgroundHeight, result.Height);
+        Assert.True(HasAnyNonZeroPixels(result));
+    }
+
+    [Fact]
+    public void GenerateMapBackgroundFromBanner_WithAlternateMode_UsesAlternateColors()
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateSolidGrayscaleBanner(128);
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.GenerateMapBackgroundFromBanner(
+            banner,
+            "#FF0000FF", // Red 1a
+            "#FF0000FF", // Red 1b
+            "#00FF00FF", // Green 2a
+            "#00FF00FF", // Green 2b
+            BannerColorMode.Alternate);
+
+        // Assert
+        // Should have green tint from 2a/2b colors
+        Bgra32 centerPixel = result[result.Width / 2, result.Height / 2];
+        Assert.True(centerPixel.G > centerPixel.R, "Should use green (alternate) colors, not red (main) colors");
+    }
+
+    [Fact]
+    public void GenerateMapbackgroundFromBanner_WithGradientMode_CreatesVerticalGradient()
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateSolidGrayscaleBanner(128);
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.GenerateMapBackgroundFromBanner(
+            banner,
+            "#FF0000FF", // Red 1a
+            "#FF0000FF", // Red 1b
+            "#0000FFFF", // Blue 2a (ignored in gradient mode)
+            "#0000FFFF", // Blue 2b (ignored in gradient mode)
+            BannerColorMode.Gradient);
+
+        // Assert - gradient mode uses only 1a/1b colors throughout
+        // Creates gradient: top 1b,1b -> middle 1a,white blend -> bottom 1a,1a
+        int topY = result.Height / 6;      // Top third (pure 1b = red)
+        int middleY = result.Height / 2;   // Middle third (1a blended)
+        int bottomY = result.Height * 5 / 6; // Bottom third (pure 1a = red)
+
+        Bgra32 topPixel = result[result.Width / 2, topY];
+        Bgra32 middlePixel = result[result.Width / 2, middleY];
+        Bgra32 bottomPixel = result[result.Width / 2, bottomY];
+
+        // All positions should have red as primary color (from 1a/1b)
+        // Top should be pure red (1b)
+        Assert.True(topPixel.R > topPixel.B, "Top should be red from 1b");
+        Assert.True(topPixel.R > topPixel.G, "Top should be pure red (no green added)");
+        
+        // Middle should also be red (from 1a), but with some white blend
+        Assert.True(middlePixel.R > 0, "Middle should contain red from 1a");
+        
+        // Bottom should be red (1a)
+        Assert.True(bottomPixel.R > bottomPixel.B, "Bottom should be red from 1a");
+    }
+
+    [Fact]
+    public void GenerateMapBackgroundFromBanner_WithBlueChannelGradient_CreatesHorizontalBlending()
+    {
+        // Arrange - create a banner with strong horizontal gradient
+        using Image<Bgra32> banner = CreateStrongGradientBanner();
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.GenerateMapBackgroundFromBanner(
+            banner,
+            "#FF0000FF", // Red 1a
+            "#00FF00FF", // Green 1b
+            "#0000FFFF", // Blue 2a
+            "#FFFF00FF", // Yellow 2b
+            BannerColorMode.Main);
+
+        // Assert - sample multiple points across the horizontal gradient
+        Bgra32 leftPixel = result[100, result.Height / 2];
+        Bgra32 middlePixel = result[result.Width / 2, result.Height / 2];
+        Bgra32 rightPixel = result[result.Width - 100, result.Height / 2];
+
+        // Calculate brightness to check gradient effect
+        int brightnessLeft = leftPixel.R + leftPixel.G + leftPixel.B;
+        int brightnessMiddle = middlePixel.R + middlePixel.G + middlePixel.B;
+        int brightnessRight = rightPixel.R + rightPixel.G + rightPixel.B;
+
+        // The gradient should create variation in brightness
+        bool hasVariation = Math.Abs(brightnessLeft - brightnessRight) > 20 ||
+                           Math.Abs(brightnessLeft - brightnessMiddle) > 20 ||
+                           Math.Abs(brightnessMiddle - brightnessRight) > 20;
+        
+        Assert.True(hasVariation, 
+            $"Gradient should create brightness variation (L:{brightnessLeft}, M:{brightnessMiddle}, R:{brightnessRight})");
+    }
+
+    [Theory]
+    [InlineData(BannerColorMode.Main)]
+    [InlineData(BannerColorMode.Alternate)]
+    [InlineData(BannerColorMode.Gradient)]
+    public void GenerateMapBackgroundFromBanner_WithAllModes_ProducesValidOutput(BannerColorMode mode)
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateTestBannerImage();
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.GenerateMapBackgroundFromBanner(
+            banner,
+            "#FF5733FF",
+            "#FFB347FF",
+            "#3498DBFF",
+            "#5DADE2FF",
+            mode);
+
+        // Assert
+        Assert.Equal(CoverComposer.BackgroundWidth, result.Width);
+        Assert.Equal(CoverComposer.BackgroundHeight, result.Height);
+        Assert.True(HasAnyNonZeroPixels(result));
+    }
+
+    [Fact]
+    public void GenerateMapBackgroundFromBanner_WithNullBanner_ThrowsArgumentNullException()
+    {
+        // Arrange
+        Image<Bgra32> banner = null!;
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackgroundFromBanner(
+            banner, "#FFFFFFFF", "#FFFFFFFF", "#FFFFFFFF", "#FFFFFFFF"));
+    }
+
+    [Theory]
+    [InlineData(null, "#FF", "#FF", "#FF")]
+    [InlineData("#FF", null, "#FF", "#FF")]
+    [InlineData("#FF", "#FF", null, "#FF")]
+    [InlineData("#FF", "#FF", "#FF", null)]
+    public void GenerateMapBackgroundFromBanner_WithNullColors_ThrowsArgumentNullException(
+        string? color1a, string? color1b, string? color2a, string? color2b)
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateTestBannerImage();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackgroundFromBanner(
+            banner, color1a!, color1b!, color2a!, color2b!));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void GenerateMapBackgroundFromBanner_WithEmptyOrWhitespaceColor_ThrowsArgumentException(string invalidColor)
+    {
+        // Arrange
+        using Image<Bgra32> banner = CreateTestBannerImage();
+
+        // Act & Assert - try with invalid color in each position
+        Assert.Throws<ArgumentException>(() => CoverComposer.GenerateMapBackgroundFromBanner(
+            banner, invalidColor, "#FFFFFFFF", "#FFFFFFFF", "#FFFFFFFF"));
+    }
+
+    private static Image<Bgra32> CreateTestBannerImage()
+    {
+        Image<Bgra32> banner = new(1024, 512);
+        // Create a simple pattern with varying blue and green channels
+        for (int y = 0; y < banner.Height; y++)
+        {
+            for (int x = 0; x < banner.Width; x++)
+            {
+                byte blue = (byte)(x * 255 / banner.Width);
+                byte green = (byte)(y * 255 / banner.Height);
+                banner[x, y] = new Bgra32(128, green, blue, 255);
+            }
+        }
+        return banner;
+    }
+
+    private static Image<Bgra32> CreateSolidGrayscaleBanner(byte grayValue)
+    {
+        Image<Bgra32> banner = new(1024, 512);
+        Bgra32 pixel = new(grayValue, grayValue, grayValue, 255);
+        for (int y = 0; y < banner.Height; y++)
+        {
+            for (int x = 0; x < banner.Width; x++)
+            {
+                banner[x, y] = pixel;
+            }
+        }
+        return banner;
+    }
+
+    private static Image<Bgra32> CreateStrongGradientBanner()
+    {
+        Image<Bgra32> banner = new(1024, 512);
+        for (int y = 0; y < banner.Height; y++)
+        {
+            for (int x = 0; x < banner.Width; x++)
+            {
+                // Create a strong horizontal gradient: left = full blue (weight 1.0), right = no blue (weight 0.0)
+                byte blue = (byte)(255 - (x * 255 / banner.Width));
+                // Also vary green to add highlights
+                byte green = (byte)(x * 100 / banner.Width);
+                banner[x, y] = new Bgra32(128, green, blue, 255);
+            }
+        }
+        return banner;
+    }
+
+    private static bool HasAnyNonZeroPixels(Image<Bgra32> image)
+    {
+        bool found = false;
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height && !found; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    if (row[x].R != 0 || row[x].G != 0 || row[x].B != 0)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        });
+        return found;
+    }
+
+    #endregion
 }

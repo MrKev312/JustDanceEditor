@@ -125,7 +125,6 @@ public enum ImageAssetType
     AlbumCoach,
     AlbumBackground,
     Coach,
-    CoachesBackground,
     MapBackground,
     Banner,
     Pictogram,

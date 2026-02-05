@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 using Xabe.FFmpeg.Downloader;
 
@@ -109,32 +110,44 @@ internal static class IntermediateAssetWriter
     {
         logger.LogDebug("Attempting to export cover image from menu art folder: {MenuArtFolder}", context.FileSystem.InputFolders.MenuArtFolder);
 
-        Image<Bgra32>? cover = UbiArtCoverGenerator.ExistingCover(context, textureService, io, logger);
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
 
+        // Look for existing cover art in MenuArt folder
+        CookedFile? cover = context.FileSystem.AssetResolver?.GetCoverArt();
         if (cover != null)
         {
-            logger.LogInformation("Using existing cover image");
-        }
-        else
-        {
-            logger.LogInformation("No existing cover found, generating own cover");
-            cover = UbiArtCoverGenerator.GenerateOwnCover(context, textureService, logger);
+            try
+            {
+                using Stream s = context.FileSystem.GetFileStream(cover);
+                Image<Bgra32>? image = textureService.ConvertToImage(s);
+                if (image != null)
+                {
+                    using (image)
+                    {
+                        // Check if it's a suitable cover format (16:9 aspect ratio or wider)
+                        if (image.Width >= image.Height * 1.33)
+                        {
+                            // Resize to standard cover dimensions
+                            image.Mutate(x => x.Resize(640, 360));
+                            
+                            io.CreateDirectory(Path.GetDirectoryName(destination)!);
+                            image.Save(destination, Encoder);
+                            logger.LogInformation("Saved existing cover image: {FileName}", Path.GetFileName(cover.RelativePath));
+                            return destination;
+                        }
+                        
+                        logger.LogDebug("Cover art found but has incorrect aspect ratio, will be generated from background");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to load existing cover art");
+            }
         }
 
-        if (cover == null)
-        {
-            logger.LogWarning("Cover art could not be prepared for intermediate export.");
-            return null;
-        }
-
-        using (cover)
-        {
-            io.CreateDirectory(Path.GetDirectoryName(destination)!);
-            cover.Save(destination, Encoder);
-            logger.LogInformation("Saved cover image to: {Destination}", destination);
-        }
-
-        return destination;
+        logger.LogDebug("Cover art not found in MenuArt, will be generated from background and album coach by JDI services");
+        return null;
     }
 
     private static void ExportSquareCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)

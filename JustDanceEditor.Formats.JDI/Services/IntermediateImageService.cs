@@ -56,7 +56,14 @@ public sealed class IntermediateImageService(
 
         if (!_fileSystem.FileExists(coverPath))
         {
-            logger?.LogDebug("Cover image not found at {Path}, returning placeholder", coverPath);
+            logger?.LogDebug("Cover image not found at {Path}, attempting to generate", coverPath);
+            Image<Bgra32>? generated = await GenerateCoverAsync(cancellationToken);
+            if (generated != null)
+            {
+                await SaveImageAsync(generated, coverPath, cancellationToken);
+                return ScaleImage(generated, width, height);
+            }
+
             return CoverComposer.CreatePlaceholder("Cover", targetWidth, targetHeight);
         }
 
@@ -280,11 +287,19 @@ public sealed class IntermediateImageService(
         logger?.LogInformation("Generating all missing images for package at {Root}", _packageRoot);
 
         // Generate square cover if missing
-        if (!HasImage(ImageAssetType.SquareCover) && HasImage(ImageAssetType.Cover))
+        if (!HasImage(ImageAssetType.SquareCover))
         {
             logger?.LogDebug("Generating square cover");
             using Image<Bgra32> squareCover = await GetSquareCoverAsync(cancellationToken: cancellationToken);
             // GetSquareCoverAsync already saves it
+        }
+
+        // Generate wide cover if missing
+        if (!HasImage(ImageAssetType.Cover))
+        {
+            logger?.LogDebug("Generating cover");
+            using Image<Bgra32> cover = await GetCoverAsync(cancellationToken: cancellationToken);
+            // GetCoverAsync already saves it
         }
 
         // Generate album coach composite if missing
@@ -423,6 +438,47 @@ public sealed class IntermediateImageService(
         logger?.LogDebug("Saved image to {Path}", path);
     }
 
+    private async Task<Image<Bgra32>?> GenerateCoverAsync(CancellationToken cancellationToken)
+    {
+        // Need a map background to compose a cover
+        Image<Bgra32> background = await GetMapBackgroundAsync(cancellationToken: cancellationToken);
+        if (IsPlaceholder(background))
+        {
+            background.Dispose();
+            logger?.LogDebug("Cannot generate cover: no map background available");
+            return null;
+        }
+
+        // Album coach is optional for cover composition
+        Image<Bgra32>? albumCoach = null;
+        try
+        {
+            Image<Bgra32> coach = await GetAlbumCoachAsync(cancellationToken: cancellationToken);
+            if (!IsPlaceholder(coach))
+                albumCoach = coach;
+            else
+                coach.Dispose();
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "Could not load album coach for cover composition, proceeding without it");
+        }
+
+        try
+        {
+            using (background)
+            using (albumCoach)
+            {
+                return CoverComposer.ComposeCover(background, albumCoach);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to generate cover from map background and album coach");
+            return null;
+        }
+    }
+
     private async Task<Image<Bgra32>?> GenerateAlbumCoachAsync(CancellationToken cancellationToken)
     {
         int coachCount = _package.Metadata.CoachCount;
@@ -467,8 +523,56 @@ public sealed class IntermediateImageService(
 
     private async Task<Image<Bgra32>?> GenerateMapBackgroundAsync(CancellationToken cancellationToken)
     {
-        // Map background is stored directly, not generated
-        return null;
+        // Check if we have a banner to generate from
+        string bannerPath = ResolvePath(IntermediatePackageLayout.Assets.BannerFile);
+        if (!_fileSystem.FileExists(bannerPath))
+        {
+            logger?.LogDebug("Cannot generate map background: no banner available");
+            return null;
+        }
+
+        try
+        {
+            // Load banner directly (not through getter to avoid potential infinite recursion)
+            Image<Bgra32>? banner = await LoadAndScaleImageAsync(bannerPath, width: null, height: null, cancellationToken);
+            if (banner == null || IsPlaceholder(banner))
+            {
+                banner?.Dispose();
+                logger?.LogDebug("Banner is placeholder or failed to load, cannot generate map background");
+                return null;
+            }
+
+            using (banner)
+            {
+                // Get song colors from metadata (with fallback to white)
+                string songColor1A = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_1a", "#FFFFFFFF");
+                string songColor1B = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_1b", "#FFFFFFFF");
+                string songColor2A = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2a", "#FFFFFFFF");
+                string songColor2B = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2b", "#FFFFFFFF");
+                
+                // Determine color mode based on JD version
+                // Pre-JD2019 uses Main mode (1a/1b only), JD2019+ uses Gradient mode
+                BannerColorMode colorMode = BannerColorMode.Main;
+                if (_package.Metadata.OriginalJDVersion >= 2019)
+                {
+                    colorMode = BannerColorMode.Gradient;
+                }
+
+                logger?.LogInformation("Generating map background from banner using {ColorMode} mode", colorMode);
+                return CoverComposer.GenerateMapBackgroundFromBanner(
+                    banner,
+                    songColor1A,
+                    songColor1B,
+                    songColor2A,
+                    songColor2B,
+                    colorMode);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to generate map background from banner");
+            return null;
+        }
     }
 
     private async Task<Image<Bgra32>?> GenerateBannerAsync(CancellationToken cancellationToken)
