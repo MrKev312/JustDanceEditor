@@ -14,7 +14,9 @@ public static class TimelineResources
     public static readonly SolidColorBrush SelectionOverlay = new(new Color(120, 255, 215, 0));
 
     // Audio/section pens and brushes
-    public static readonly Pen WaveformPen = new(new SolidColorBrush(Colors.LimeGreen, 0.8), 1);
+    public static readonly Pen WaveformPen = new(Brushes.DarkGray, 1);
+    public static readonly SolidColorBrush WaveformFill = new(Colors.LightGray, 0.3);
+    public static readonly Pen WaveformEdgePen = new(Brushes.White, 1);
     public static readonly Pen SectionBorderPen = new(Brushes.White, 1, new DashStyle(new double[] { 2, 2 }, 0));
     public static readonly SolidColorBrush SectionBgBrush = new(Colors.Black, 0.5);
 

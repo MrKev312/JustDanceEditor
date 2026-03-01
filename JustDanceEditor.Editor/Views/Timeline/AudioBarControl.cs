@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
@@ -60,8 +61,16 @@ public class AudioBarControl : Control
     private double _lastPixelsPerBeat = -1;
     private Size _lastBounds = default;
 
+    // Waveform envelope cache: one min/max pair per pixel column
+    private float[]? _envelopeMax;
+    private float[]? _envelopeMin;
+    private int _envelopeCacheWidth;
+    private float[]? _envelopeCacheSamples;
+
     // scrubbing state
     private bool _isScrubbing = false;
+    private ScrollViewer? _parentScrollViewer;
+    private EventHandler<ScrollChangedEventArgs>? _scrollChangedHandler;
 
     static AudioBarControl()
     {
@@ -81,6 +90,31 @@ public class AudioBarControl : Control
                 _sectionColors[type] = Colors.Gray;
             }
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        
+        // Find parent ScrollViewer and attach scroll listener for viewport changes
+        _parentScrollViewer = this.FindAncestorOfType<ScrollViewer>();
+        if (_parentScrollViewer != null)
+        {
+            _scrollChangedHandler = (s, ev) => InvalidateVisual();
+            _parentScrollViewer.ScrollChanged += _scrollChangedHandler;
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_parentScrollViewer != null && _scrollChangedHandler != null)
+        {
+            _parentScrollViewer.ScrollChanged -= _scrollChangedHandler;
+            _parentScrollViewer = null;
+            _scrollChangedHandler = null;
+        }
+        
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -206,19 +240,75 @@ public class AudioBarControl : Control
         // 2. Draw Waveform
         if (Samples != null && Samples.Length > 0)
         {
-            double totalWidth = bounds.Width;
+            int totalWidth = (int)bounds.Width;
             double centerY = bounds.Height / 2;
 
-            int step = Math.Max(1, Samples.Length / (int)Math.Max(1, totalWidth));
-            for (int x = 0; x < (int)totalWidth; x++)
+            // Rebuild envelope cache when samples or control width change
+            if (_envelopeCacheSamples != Samples || _envelopeCacheWidth != totalWidth)
             {
-                int sampleIdx = (int)(x / totalWidth * Samples.Length);
-                if (sampleIdx >= Samples.Length)
-                    break;
+                _envelopeCacheWidth = totalWidth;
+                _envelopeCacheSamples = Samples;
+                _envelopeMax = new float[totalWidth];
+                _envelopeMin = new float[totalWidth];
 
-                float val = Samples[sampleIdx];
-                double h = val * centerY * 0.8;
-                context.DrawLine(TimelineResources.WaveformPen, new Point(x, centerY - h), new Point(x, centerY + h));
+                for (int x = 0; x < totalWidth; x++)
+                {
+                    int startIdx = (int)((double)x / totalWidth * Samples.Length);
+                    int endIdx = (int)((double)(x + 1) / totalWidth * Samples.Length);
+                    if (endIdx > Samples.Length) endIdx = Samples.Length;
+                    if (startIdx >= endIdx) endIdx = startIdx + 1;
+
+                    float maxV = 0, minV = 0;
+                    for (int i = startIdx; i < endIdx && i < Samples.Length; i++)
+                    {
+                        float val = Samples[i];
+                        if (val > maxV) maxV = val;
+                        if (val < minV) minV = val;
+                    }
+                    _envelopeMax[x] = maxV;
+                    _envelopeMin[x] = minV;
+                }
+            }
+
+            // Find the visible pixel range from the parent ScrollViewer
+            int visibleStartX = 0;
+            int visibleEndX = totalWidth;
+
+            ScrollViewer? sv = this.FindAncestorOfType<ScrollViewer>();
+            if (sv != null)
+            {
+                visibleStartX = Math.Max(0, (int)sv.Offset.X);
+                visibleEndX = Math.Min(totalWidth, (int)(sv.Offset.X + sv.Viewport.Width));
+            }
+
+            // Add 10% buffer on both sides for smooth scrolling
+            int bufferSize = Math.Max(1, (visibleEndX - visibleStartX) / 10);
+            int renderStartX = Math.Max(0, visibleStartX - bufferSize);
+            int renderEndX = Math.Min(totalWidth, visibleEndX + bufferSize);
+
+            // Draw only visible + buffered columns using cached envelope
+            for (int x = renderStartX; x < renderEndX; x++)
+            {
+                float maxV = _envelopeMax![x];
+                float minV = _envelopeMin![x];
+
+                double topH = maxV * centerY * 0.8;
+                double botH = minV * centerY * 0.8;
+
+                double topY = centerY - topH;
+                double botY = centerY - botH;
+                double height = botY - topY;
+
+                if (height < 0.5)
+                    continue;
+
+                // Semi-transparent fill
+                Rect columnRect = new(x, topY, 1, height);
+                context.FillRectangle(TimelineResources.WaveformFill, columnRect);
+
+                // White edge pixels at top and bottom
+                context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, topY), new Point(x + 1, topY));
+                context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, botY), new Point(x + 1, botY));
             }
         }
 
