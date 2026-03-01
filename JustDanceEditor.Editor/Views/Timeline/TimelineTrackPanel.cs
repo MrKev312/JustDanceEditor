@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Views.Timeline.Interactions;
+using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
@@ -57,6 +58,15 @@ public partial class TimelineTrackPanel : Control
         set => SetValue(MaxBeatProperty, value);
     }
 
+    public static readonly StyledProperty<IEnumerable<SignatureSegment>> SignaturesProperty =
+        AvaloniaProperty.Register<TimelineTrackPanel, IEnumerable<SignatureSegment>>(nameof(Signatures));
+
+    public IEnumerable<SignatureSegment> Signatures
+    {
+        get => GetValue(SignaturesProperty);
+        set => SetValue(SignaturesProperty, value);
+    }
+
     public static readonly StyledProperty<IBrush?> BackgroundProperty =
         AvaloniaProperty.Register<TimelineTrackPanel, IBrush?>(nameof(Background), Brushes.Transparent);
 
@@ -95,7 +105,8 @@ public partial class TimelineTrackPanel : Control
             PixelsPerBeatProperty,
             BeatOffsetProperty,
             MaxBeatProperty,
-            BackgroundProperty);
+            BackgroundProperty,
+            SignaturesProperty);
 
         AffectsMeasure<TimelineTrackPanel>(
             PixelsPerBeatProperty,

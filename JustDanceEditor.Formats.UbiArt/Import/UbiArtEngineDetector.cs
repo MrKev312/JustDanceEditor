@@ -240,7 +240,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             // Try LUA deserialization
             try
             {
-                SongDesc songDesc = UbiArt.Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
+                SongDesc songDesc = Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
                 if (songDesc?.Components?.Length > 0)
                 {
                     // JDVersion found but not used to override EngineVersion enum

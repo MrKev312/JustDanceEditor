@@ -53,6 +53,15 @@ public class AudioBarControl : Control
         set => SetValue(SectionsProperty, value);
     }
 
+    public static readonly StyledProperty<IEnumerable<SignatureSegment>> SignaturesProperty =
+        AvaloniaProperty.Register<AudioBarControl, IEnumerable<SignatureSegment>>(nameof(Signatures));
+
+    public IEnumerable<SignatureSegment> Signatures
+    {
+        get => GetValue(SignaturesProperty);
+        set => SetValue(SignaturesProperty, value);
+    }
+
     private static readonly Dictionary<SongSectionType, Color> _sectionColors = [];
 
     // Cached/render resources moved to TimelineResources
@@ -74,7 +83,7 @@ public class AudioBarControl : Control
 
     static AudioBarControl()
     {
-        AffectsRender<AudioBarControl>(SamplesProperty, PixelsPerBeatProperty, SectionsProperty, BeatOffsetProperty);
+        AffectsRender<AudioBarControl>(SamplesProperty, PixelsPerBeatProperty, SectionsProperty, BeatOffsetProperty, SignaturesProperty);
 
         // Pre-cache section colors
         foreach (SongSectionType type in Enum.GetValues<SongSectionType>())
@@ -237,6 +246,15 @@ public class AudioBarControl : Control
             }
         }
 
+        // 1.5. Draw Measure Backgrounds (alternating pattern)
+        double maxBeat = bounds.Width / Math.Max(1.0, ppb);
+        DrawMeasureBackgrounds(context, bounds, ppb, (int)offset, maxBeat);
+
+        // 1.75. Draw Grid Lines
+        double visibleStartBeat = offset - 1;
+        double visibleEndBeat = offset + (bounds.Width / Math.Max(1.0, ppb)) + 1;
+        DrawGridLines(context, bounds, ppb, (int)offset, visibleStartBeat, visibleEndBeat);
+
         // 2. Draw Waveform
         if (Samples != null && Samples.Length > 0)
         {
@@ -352,6 +370,88 @@ public class AudioBarControl : Control
                         context.DrawText(text, new Point(x + 4, 3));
                     }
                 }
+            }
+        }
+    }
+
+    private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double maxBeat)
+    {
+        if (Signatures != null)
+        {
+            List<SignatureSegment> sortedSig = [.. Signatures.OrderBy(s => s.Marker)];
+            if (sortedSig.Count == 0)
+            {
+                DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
+            }
+            else
+            {
+                for (int i = 0; i < sortedSig.Count; i++)
+                {
+                    double startBeat = sortedSig[i].Marker - offset;
+                    double endBeat = (i + 1 < sortedSig.Count) ? sortedSig[i + 1].Marker - offset : maxBeat;
+                    int beatsPerMeasure = sortedSig[i].Beats;
+
+                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height, bounds.Width);
+                }
+            }
+        }
+        else
+        {
+            DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
+        }
+    }
+
+    private static void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height, double boundsWidth)
+    {
+        double actualStartBeat = startBeat + offset;
+        double actualEndBeat = endBeat + offset;
+
+        SolidColorBrush brushA = new(Colors.White, 0.05);
+        SolidColorBrush brushB = new(Colors.White, 0.02);
+
+        int measureIndex = 0;
+        for (double b = actualStartBeat; b < actualEndBeat; b += bpm)
+        {
+            double mStart = b;
+            double mEnd = Math.Min(actualEndBeat, b + bpm);
+
+            double xStart = (mStart - offset) * ppb;
+            double xEnd = (mEnd - offset) * ppb;
+
+            if (xEnd < 0)
+            {
+                measureIndex++;
+                continue;
+            }
+
+            if (xStart > boundsWidth)
+                break;
+
+            SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
+            context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
+
+            measureIndex++;
+        }
+    }
+
+    private void DrawGridLines(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    {
+        // Draw measure and beat grid lines
+        for (int beat = (int)visibleStartBeat; beat <= (int)visibleEndBeat; beat++)
+        {
+            double x = (beat - offset) * ppb;
+            if (x < 0 || x > bounds.Width)
+                continue;
+
+            // Measure lines every 4 beats (opaque)
+            if (beat % 4 == 0)
+            {
+                context.DrawLine(TimelineResources.MeasureGridPen, new Point(x, 0), new Point(x, bounds.Height));
+            }
+            // Beat lines (semi-transparent)
+            else if (beat % 1 == 0)
+            {
+                context.DrawLine(TimelineResources.BeatGridPen, new Point(x, 0), new Point(x, bounds.Height));
             }
         }
     }

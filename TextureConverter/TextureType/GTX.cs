@@ -709,7 +709,7 @@ public class GTX
         using Image<Rgba32> rgba = image.CloneAs<Rgba32>();
         BcEncoder encoder = new();
         encoder.OutputOptions.GenerateMipMaps = false;
-        encoder.OutputOptions.Quality = BCnEncoder.Encoder.CompressionQuality.BestQuality;
+        encoder.OutputOptions.Quality = CompressionQuality.BestQuality;
         encoder.OutputOptions.Format = format;
 
         return encoder.EncodeToRawBytes(rgba)[0];

@@ -139,6 +139,7 @@
 							       PixelsPerBeat="{Binding PixelsPerBeat}"
 							       BeatOffset="{Binding BeatOffset}"
 							       Sections="{Binding TimelineStructure.Sections}"
+							       Signatures="{Binding TimelineStructure.Signatures}"
 							       Width="{Binding TimelineWidth}"/>
 
 						    <!-- Tracks Panels -->
@@ -150,6 +151,7 @@
 									      PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
 									      BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
 									      MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
+									      Signatures="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Signatures}"
 									      Background="#1e1e1e1e">
 									    </local:TimelineTrackPanel>
 								    </DataTemplate>

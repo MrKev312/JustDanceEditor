@@ -4,8 +4,11 @@ using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI.Timelines;
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
@@ -32,10 +35,13 @@ public partial class TimelineTrackPanel
         int offset = BeatOffset;
 
         double visibleStartBeat = offset - 1;
-        double visibleEndBeat = offset + (bounds.Width / System.Math.Max(1.0, ppb)) + 1;
+        double visibleEndBeat = offset + (bounds.Width / Math.Max(1.0, ppb)) + 1;
 
         if (Background != null)
             context.FillRectangle(Background, new Rect(bounds.Size));
+
+        // Draw alternating measure backgrounds
+        DrawMeasureBackgrounds(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat);
 
         // Marker lines
         if (BeatOffset != 0)
@@ -54,13 +60,16 @@ public partial class TimelineTrackPanel
                 context.DrawLine(TimelineResources.LinePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
         }
 
+        // Draw beat/measure grid lines (behind clips)
+        DrawGridLines(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat);
+
         // Draw box selection if active even when Clips is null
         if (_boxSelectionHandler?.IsActive == true)
         {
-            double x = System.Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
-            double y = System.Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
-            double w = System.Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
-            double h = System.Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
+            double x = Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
+            double y = Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
+            double w = Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
+            double h = Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
 
             Rect rect = new(x, y, w, h);
             context.FillRectangle(TimelineResources.BoxSelectionFill, rect);
@@ -87,17 +96,17 @@ public partial class TimelineTrackPanel
             if (endX < 0 || startX > bounds.Width)
                 continue;
 
-            Rect rect = new(startX, 2, System.Math.Max(0, width), System.Math.Max(1, bounds.Height - 4));
+            Rect rect = new(startX, 2, Math.Max(0, width), Math.Max(1, bounds.Height - 4));
 
             // Use cached brush for clip background (use RenderColor source-of-truth)
             SolidColorBrush clipBrush = GetOrCreateBrush(clip.RenderColor);
             context.FillRectangle(clipBrush, rect);
 
-            // Use cached outline pen with computed thickness
-            double outlineThickness = System.Math.Max(1.0, rect.Height * 0.05);
-            Pen outlinePen = (outlineThickness == 1.0)
-                ? TimelineResources.BlackOutlinePen
-                : new Pen(Brushes.Black, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+            // Create darker outline from clip color
+            Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
+            SolidColorBrush outlineBrush = GetOrCreateBrush(outlineColor);
+            double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
+            Pen outlinePen = new(outlineBrush, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
             context.DrawRectangle(null, outlinePen, rect);
 
             // Selection visual
@@ -140,6 +149,98 @@ public partial class TimelineTrackPanel
                 if (textX < startX)
                     textX = startX;
                 context.DrawText(ft, new Point(textX, textY));
+            }
+        }
+    }
+
+    private static Color DarkenColor(Color color, double factor)
+    {
+        // factor should be between 0 and 1, where 1 is fully darkened to black
+        byte r = (byte)(color.R * (1 - factor));
+        byte g = (byte)(color.G * (1 - factor));
+        byte b = (byte)(color.B * (1 - factor));
+        return new Color(color.A, r, g, b);
+    }
+
+    private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    {
+        double maxBeat = visibleEndBeat;
+        if (Signatures != null)
+        {
+            List<SignatureSegment> sortedSig = [.. Signatures.OrderBy(s => s.Marker)];
+            if (sortedSig.Count == 0)
+            {
+                DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
+            }
+            else
+            {
+                for (int i = 0; i < sortedSig.Count; i++)
+                {
+                    double startBeat = sortedSig[i].Marker - offset;
+                    double endBeat = (i + 1 < sortedSig.Count) ? sortedSig[i + 1].Marker - offset : maxBeat;
+                    int beatsPerMeasure = sortedSig[i].Beats;
+
+                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height, bounds.Width);
+                }
+            }
+        }
+        else
+        {
+            DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
+        }
+    }
+
+    private static void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height, double boundsWidth)
+    {
+        double actualStartBeat = startBeat + offset;
+        double actualEndBeat = endBeat + offset;
+
+        SolidColorBrush brushA = new(Colors.White, 0.05);
+        SolidColorBrush brushB = new(Colors.White, 0.02);
+
+        int measureIndex = 0;
+        for (double b = actualStartBeat; b < actualEndBeat; b += bpm)
+        {
+            double mStart = b;
+            double mEnd = Math.Min(actualEndBeat, b + bpm);
+
+            double xStart = (mStart - offset) * ppb;
+            double xEnd = (mEnd - offset) * ppb;
+
+            if (xEnd < 0)
+            {
+                measureIndex++;
+                continue;
+            }
+
+            if (xStart > boundsWidth)
+                break;
+
+            SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
+            context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
+
+            measureIndex++;
+        }
+    }
+
+    private void DrawGridLines(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    {
+        // Draw measure and beat grid lines
+        for (int beat = (int)visibleStartBeat; beat <= (int)visibleEndBeat; beat++)
+        {
+            double x = (beat - offset) * ppb;
+            if (x < 0 || x > bounds.Width)
+                continue;
+
+            // Measure lines every 4 beats (opaque)
+            if (beat % 4 == 0)
+            {
+                context.DrawLine(TimelineResources.MeasureGridPen, new Point(x, 0), new Point(x, bounds.Height));
+            }
+            // Beat lines (semi-transparent)
+            else if (beat % 1 == 0)
+            {
+                context.DrawLine(TimelineResources.BeatGridPen, new Point(x, 0), new Point(x, bounds.Height));
             }
         }
     }

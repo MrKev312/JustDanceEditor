@@ -27,6 +27,10 @@ public static class TimelineResources
     public static readonly Pen TickPen = new(Brushes.Gray, 1);
     public static readonly IBrush LabelBrush = Brushes.LightGray;
 
+    // Grid line pens for beat/measure visualization
+    public static readonly Pen BeatGridPen = new(new SolidColorBrush(Colors.Gray, 0.2), 1, new DashStyle(new[] { 2.0, 2.0 }, 0));
+    public static readonly Pen MeasureGridPen = new(new SolidColorBrush(Colors.Gray, 0.4), 1);
+
     // Clip-specific label color (used for clip text within timeline tracks)
     public static readonly IBrush ClipLabelBrush = Brushes.Black;
 
