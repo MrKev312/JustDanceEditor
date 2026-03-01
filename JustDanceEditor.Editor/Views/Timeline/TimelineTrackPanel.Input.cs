@@ -106,13 +106,7 @@ public partial class TimelineTrackPanel
             // Right-click context: offer quick 'Create Clip' actions via a context menu
             if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
             {
-                ContextMenu menu = new();
-                MenuItem add = new() { Header = "Add Clip" };
-                add.Click += async (s, args) => await ShowCreateClipMenuAsync(e);
-                // Add item to the menu's items collection (Items has no setter)
-                if (menu.Items is System.Collections.IList list)
-                    list.Add(add);
-                menu.Open(this);
+                OpenAddClipMenu(e);
                 e.Handled = true;
             }
 
@@ -541,6 +535,35 @@ public partial class TimelineTrackPanel
         );
 
         track.Clips.Add(clipVm);
+    }
+
+    public static ContextMenu? CurrentContextMenu { get; private set; }
+
+    /// <summary>
+    /// Opens a minimal context menu offering the Add Clip command.  Previous
+    /// global menus are closed first.  This helper exists to simplify testing.
+    /// </summary>
+    public void OpenAddClipMenu(PointerPressedEventArgs e)
+    {
+        CurrentContextMenu?.Close();
+
+        ContextMenu menu = new();
+        MenuItem add = new() { Header = "Add Clip" };
+        add.Click += async (s, args) => await ShowCreateClipMenuAsync(e);
+        if (menu.Items is System.Collections.IList list)
+            list.Add(add);
+
+        CurrentContextMenu = menu;
+        menu.Closed += (s, args) =>
+        {
+            if (CurrentContextMenu == menu)
+                CurrentContextMenu = null;
+        };
+
+        if (Application.Current != null)
+        {
+            menu.Open(this);
+        }
     }
 
     private async Task ShowCreateClipMenuAsync(PointerPressedEventArgs e)

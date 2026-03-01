@@ -3,7 +3,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 
-using System.Globalization;
+using System.Reflection;
 using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
@@ -968,14 +968,14 @@ public class UncookedEngineContentGenerator(UbiArtEngineVersion EngineVersion) :
     private static int GetStartTime(object clip)
     {
         // Use reflection to get StartTime from the anonymous type
-        var type = clip.GetType();
-        var nameProperty = type.GetProperty("NAME");
+        Type type = clip.GetType();
+        PropertyInfo? nameProperty = type.GetProperty("NAME");
         if (nameProperty?.GetValue(clip) is string name)
         {
-            var innerProperty = type.GetProperty(name);
+            PropertyInfo? innerProperty = type.GetProperty(name);
             if (innerProperty?.GetValue(clip) is object inner)
             {
-                var startTimeProperty = inner.GetType().GetProperty("StartTime");
+                PropertyInfo? startTimeProperty = inner.GetType().GetProperty("StartTime");
                 if (startTimeProperty?.GetValue(inner) is int startTime)
                     return startTime;
             }

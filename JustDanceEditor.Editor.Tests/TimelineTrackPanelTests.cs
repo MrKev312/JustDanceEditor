@@ -1,0 +1,56 @@
+using Avalonia.Controls;
+
+using JustDanceEditor.Editor.Views.Timeline;
+
+using System.Reflection;
+
+namespace JustDanceEditor.Editor.Tests
+{
+    public class TimelineTrackPanelTests
+    {
+        private class TestMenu : ContextMenu
+        {
+            public bool CloseCalled { get; private set; }
+
+            public override void Close()
+            {
+                CloseCalled = true;
+                base.Close();
+            }
+        }
+
+        [Fact]
+        public void OpenAddClipMenu_ClosesPreviousMenu()
+        {
+            // arrange: stub out an existing menu and verify close is invoked
+            TimelineTrackPanel panel = new();
+            TestMenu stub = new();
+
+            FieldInfo f = typeof(TimelineTrackPanel)
+                .GetField("_currentContextMenu", BindingFlags.Static | BindingFlags.NonPublic)!;
+            f.SetValue(null, stub);
+
+            // act
+            panel.OpenAddClipMenu(null!);
+
+            // assert
+            Assert.True(stub.CloseCalled);
+            Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
+        }
+
+        [Fact]
+        public void OpenAddClipMenu_ReplacesCurrentMenu()
+        {
+            TimelineTrackPanel panel = new();
+
+            panel.OpenAddClipMenu(null!);
+            ContextMenu? first = TimelineTrackPanel.CurrentContextMenu;
+            Assert.NotNull(first);
+
+            panel.OpenAddClipMenu(null!);
+            ContextMenu? second = TimelineTrackPanel.CurrentContextMenu;
+
+            Assert.NotSame(first, second);
+        }
+    }
+}
