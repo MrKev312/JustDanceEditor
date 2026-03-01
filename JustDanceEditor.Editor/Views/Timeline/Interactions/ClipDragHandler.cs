@@ -22,6 +22,25 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
     private double _dragOriginalStartBeat;
     private Dictionary<ClipViewModel, double>? _multiDragOriginalStarts;
 
+    /// <summary>
+    /// Clamps a clip's position to timeline bounds.
+    /// </summary>
+    private static double ClampStartBeat(ClipViewModel clip, double newStart, TimelineEditorViewModel? vm)
+    {
+        if (vm?.TimelineStructure == null)
+            return newStart;
+
+        double minStart = vm.TimelineStructure.StartBeat;
+        double maxEnd = vm.TimelineStructure.EndBeat;
+
+        newStart = Math.Max(newStart, minStart);
+        double clipEnd = newStart + clip.DurationBeats;
+        if (clipEnd > maxEnd)
+            newStart = Math.Max(minStart, maxEnd - clip.DurationBeats);
+
+        return newStart;
+    }
+
     public bool IsActive => _isDragging || _isMultiDragging;
 
     public void StartSingleDrag(ClipViewModel clip, Point pointerPos, PointerEventArgs e)
@@ -90,7 +109,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 }
             }
 
-            _draggingClip.StartBeat = newStart;
+            _draggingClip.StartBeat = ClampStartBeat(_draggingClip, newStart, vm);
             _panel.InvalidateVisual();
             return;
         }
@@ -144,7 +163,8 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
 
             foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts.ToList())
             {
-                kv.Key.StartBeat = kv.Value + applyDelta;
+                double newStart = kv.Value + applyDelta;
+                kv.Key.StartBeat = ClampStartBeat(kv.Key, newStart, vm);
             }
 
             _panel.InvalidateMeasure();

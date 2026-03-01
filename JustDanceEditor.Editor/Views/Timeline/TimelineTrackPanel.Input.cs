@@ -481,6 +481,11 @@ public partial class TimelineTrackPanel
 
     private static void AddPictogramAtBeat(string pictogramId, double dropBeat, TrackViewModel track, TimelineEditorViewModel vm, int durationFrames = 24)
     {
+        // Clamp beat to timeline bounds
+        double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+        double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+        dropBeat = Math.Max(minBeat, Math.Min(dropBeat, maxBeat - (durationFrames / 24.0)));
+
         PictogramClip raw = new()
         {
             PictogramId = pictogramId,
@@ -508,6 +513,11 @@ public partial class TimelineTrackPanel
 
     private static void AddMoveAtBeat(string moveId, double dropBeat, bool isFullBody, TrackViewModel track, TimelineEditorViewModel vm, double durationFrames = 24.0, bool isGold = false)
     {
+        // Clamp beat to timeline bounds
+        double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+        double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+        dropBeat = Math.Max(minBeat, Math.Min(dropBeat, maxBeat - durationFrames));
+
         MoveClip raw = new()
         {
             MoveId = moveId,
@@ -615,9 +625,14 @@ public partial class TimelineTrackPanel
             HideHudCreationResult? res = await app.DialogService.ShowDialogAsync<HideHudCreationResult>(dialogVm);
             if (res != null)
             {
+                // Clamp beat to timeline bounds
+                double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+                double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+                double clampedBeat = Math.Max(minBeat, Math.Min(SnappingService.FindSnapBeat(beat, vm), maxBeat - (res.Frames / 24.0)));
+
                 HideUserInterfaceClip raw = new()
                 {
-                    StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0),
+                    StartTime = (int)(clampedBeat * 24.0),
                     Duration = res.Frames,
                     IsActive = true
                 };
@@ -652,12 +667,17 @@ public partial class TimelineTrackPanel
 
             if (res != null)
             {
+                // Clamp beat to timeline bounds
+                double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+                double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+                double clampedBeat = Math.Max(minBeat, Math.Min(SnappingService.FindSnapBeat(beat, vm), maxBeat - (res.Frames / 24.0)));
+
                 KaraokeClip raw = new()
                 {
                     Lyrics = res.Lyrics,
                     Duration = res.Frames,
                     IsEndOfLine = res.IsEndOfLine,
-                    StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0)
+                    StartTime = (int)(clampedBeat * 24.0)
                 };
 
                 KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);
@@ -690,11 +710,16 @@ public partial class TimelineTrackPanel
             GoldEffectCreationResult? res = await app.DialogService.ShowDialogAsync<GoldEffectCreationResult>(dialogVm);
             if (res != null)
             {
+                // Clamp beat to timeline bounds
+                double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+                double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+                double clampedBeat = Math.Max(minBeat, Math.Min(SnappingService.FindSnapBeat(beat, vm), maxBeat - (res.Frames / 24.0)));
+
                 GoldEffectClip raw = new()
                 {
                     Duration = res.Frames,
                     EffectType = res.EffectType,
-                    StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0)
+                    StartTime = (int)(clampedBeat * 24.0)
                 };
 
                 GoldEffectClipViewModel clipVm = new(raw, raw.Duration, Colors.Gold, "Gold Effect", vm.RootPath, vm);
@@ -722,11 +747,16 @@ public partial class TimelineTrackPanel
         string? fallback = await ShowInputDialogAsync("Enter lyrics text (empty to create placeholder):");
         if (fallback != null && vm != null)
         {
+            // Clamp beat to timeline bounds
+            double minBeat = vm.TimelineStructure?.StartBeat ?? 0;
+            double maxBeat = vm.TimelineStructure?.EndBeat ?? double.MaxValue;
+            double clampedBeat = Math.Max(minBeat, Math.Min(SnappingService.FindSnapBeat(beat, vm), maxBeat - (24.0 / 24.0)));
+
             KaraokeClip raw = new()
             {
                 Lyrics = fallback,
                 Duration = 24,
-                StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0)
+                StartTime = (int)(clampedBeat * 24.0)
             };
 
             KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);

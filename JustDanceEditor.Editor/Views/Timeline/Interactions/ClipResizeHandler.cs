@@ -23,6 +23,27 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
     private const double ResizeHitThreshold = 6.0;
 
+    /// <summary>
+    /// Clamps a clip's position and size to timeline bounds.
+    /// </summary>
+    private static (double clampedStart, double clampedDuration) ClampToTimelineBounds(ClipViewModel clip, double newStart, double newDuration, TimelineEditorViewModel? vm)
+    {
+        if (vm?.TimelineStructure == null)
+            return (newStart, newDuration);
+
+        double minStart = vm.TimelineStructure.StartBeat;
+        double maxEnd = vm.TimelineStructure.EndBeat;
+        double availableSpan = maxEnd - minStart;
+
+        // Clamp start to minimum
+        newStart = Math.Max(newStart, minStart);
+        // Clamp duration so end doesn't exceed max
+        double maxEnd_atStart = maxEnd - newStart;
+        newDuration = Math.Min(newDuration, maxEnd_atStart);
+
+        return (newStart, newDuration);
+    }
+
     public bool IsActive => _isResizingLeft || _isResizingRight;
 
     public static bool IsNearLeft(double localX) => localX <= ResizeHitThreshold;
@@ -79,8 +100,20 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
             if (newDuration >= 0.5)
             {
-                _resizingClip.StartBeat = finalStart;
-                _resizingClip.DurationBeats = newDuration;
+                // Clamp start to timeline bounds, but preserve the fixed end position
+                if (vm?.TimelineStructure != null)
+                {
+                    finalStart = Math.Max(finalStart, vm.TimelineStructure.StartBeat);
+                    // Recalculate duration based on fixed end, but don't let end exceed max
+                    double clampedEnd = Math.Min(fixedEnd, vm.TimelineStructure.EndBeat);
+                    newDuration = clampedEnd - finalStart;
+                }
+
+                if (newDuration >= 0.5)
+                {
+                    _resizingClip.StartBeat = finalStart;
+                    _resizingClip.DurationBeats = newDuration;
+                }
             }
         }
         else if (_isResizingRight)
@@ -97,11 +130,12 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
 
             if (newDuration >= 0.5)
             {
+                (_, newDuration) = ClampToTimelineBounds(_resizingClip, _resizeOriginalStart, newDuration, vm);
                 _resizingClip.DurationBeats = newDuration;
             }
         }
 
-        _panel.InvalidateVisual();
+        _panel?.InvalidateVisual();
     }
 
     public void Complete(TimelineEditorViewModel? vm, PointerEventArgs? e = null)
