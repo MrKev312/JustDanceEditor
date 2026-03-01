@@ -39,6 +39,12 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
 
     public TimelineClipBase RawClip { get; } = clip;
 
+    /// <summary>
+    /// Whether the clip may be resized via edge dragging (affects cursor and input logic).
+    /// Subclasses override when they support resizing.
+    /// </summary>
+    public virtual bool IsResizable => false;
+
     protected readonly string? _rootPath = rootPath;
     protected readonly TimelineEditorViewModel? _parentTimeline = parentTimeline;
 

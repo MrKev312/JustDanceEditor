@@ -332,6 +332,9 @@ public partial class TimelineEditorViewModel : Document
             {
                 switch (clip)
                 {
+                    case HideUserInterfaceClip hic:
+                        track.Clips.Add(new HideUserInterfaceClipViewModel(hic, hic.Duration, Colors.MediumPurple, string.Empty, RootPath, this));
+                        break;
                     case KaraokeClip kc:
                         track.Clips.Add(new KaraokeClipViewModel(kc, kc.Duration, lyricsColor, kc.Lyrics, RootPath, this));
                         break;
@@ -361,6 +364,9 @@ public partial class TimelineEditorViewModel : Document
         }
 
         // Build tracks using configuration-style calls (keeps BuildTimeline concise)
+        // first a special track for the HUD hide events (below the audio waveform)
+        AddTrack("Hide HUD", 30, Colors.MediumPurple, _package.HideUserInterface.Clips.Cast<TimelineClipBase>());
+
         AddTrack("Lyrics", 40, Colors.Goldenrod, _package.Lyrics.Clips.Cast<TimelineClipBase>());
         AddTrack("Pictograms", 60, Colors.CornflowerBlue, _package.Pictograms.Clips.Cast<TimelineClipBase>());
 
@@ -455,6 +461,8 @@ public partial class TimelineEditorViewModel : Document
                     k.Duration = (int)(clipVm.DurationBeats * 24);
                 else if (clipVm.RawClip is PictogramClip p)
                     p.Duration = (int)(clipVm.DurationBeats * 24);
+                else if (clipVm.RawClip is HideUserInterfaceClip h)
+                    h.Duration = (int)(clipVm.DurationBeats * 24);
                 // MoveClip has no duration field in the intermediate representation; move default durations are stored in coach move definitions
             }
         }

@@ -204,7 +204,7 @@ public partial class TimelineTrackPanel
         double localClipX = point.X - clickedStartX;
         bool nearLeft = localClipX <= ResizeHitThreshold;
         bool nearRight = localClipX >= (clickedWidth - ResizeHitThreshold);
-        bool isResizableType = clickedClip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
+        bool isResizableType = clickedClip.IsResizable;
 
         if (isResizableType && nearLeft)
         {
@@ -603,6 +603,42 @@ public partial class TimelineTrackPanel
             if (moveRes != null)
                 AddMoveAtBeat(moveRes.MoveId, SnappingService.FindSnapBeat(beat, vm), isFull, track, vm, moveRes.Frames, moveRes.IsGold);
 
+            return;
+        }
+
+        if (string.Equals(title, "Hide HUD", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Application.Current is not App app)
+                return;
+
+            HideHudCreationViewModel dialogVm = new();
+            HideHudCreationResult? res = await app.DialogService.ShowDialogAsync<HideHudCreationResult>(dialogVm);
+            if (res != null)
+            {
+                HideUserInterfaceClip raw = new()
+                {
+                    StartTime = (int)(SnappingService.FindSnapBeat(beat, vm) * 24.0),
+                    Duration = res.Frames,
+                    IsActive = true
+                };
+
+                HideUserInterfaceClipViewModel clipVm = new(raw, raw.Duration, Colors.MediumPurple, string.Empty, vm.RootPath, vm);
+
+                vm.PushUndo(
+                    undo: () =>
+                    {
+                        if (track.Clips.Contains(clipVm))
+                            track.Clips.Remove(clipVm);
+                    },
+                    redo: () =>
+                    {
+                        if (!track.Clips.Contains(clipVm))
+                            track.Clips.Add(clipVm);
+                    }
+                );
+
+                track.Clips.Add(clipVm);
+            }
             return;
         }
 

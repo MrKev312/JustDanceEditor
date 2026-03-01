@@ -18,6 +18,23 @@ public class ClipInteractionHandlerTests
     }
 
     [Fact]
+    public void ClipViewModel_IsResizableFlag_CorrectlySet()
+    {
+        TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root");
+        PictogramClipViewModel p = new(new PictogramClip(), 24, Colors.LightBlue, "", "", timeline);
+        KaraokeClipViewModel k = new(new KaraokeClip(), 24, Colors.Goldenrod, "", "", timeline);
+        MoveClipViewModel m = new(new MoveClip(), 24, Colors.LightGray, "", "", timeline);
+        HideUserInterfaceClipViewModel h = new(new HideUserInterfaceClip(), 24, Colors.MediumPurple, string.Empty, "", timeline);
+        GoldEffectClipViewModel g = new(new GoldEffectClip(), 24, Colors.Gold, "", "", timeline);
+
+        Assert.True(p.IsResizable);
+        Assert.True(k.IsResizable);
+        Assert.True(m.IsResizable);
+        Assert.True(h.IsResizable);
+        Assert.False(g.IsResizable);
+    }
+
+    [Fact]
     public void SingleDrag_NoUndo_When_NoMovement()
     {
         IntermediateSongPackage package = new();
@@ -152,6 +169,34 @@ public class ClipInteractionHandlerTests
 
         Assert.True(timeline.UndoService.CanUndo);
 
+        timeline.UndoService.Undo();
+        Assert.Equal(2.0, clip.DurationBeats, 6);
+    }
+
+    [Fact]
+    public void HideHudResize_RecordsUndo_When_Changed()
+    {
+        IntermediateSongPackage package = new();
+        TimelineEditorViewModel timeline = new(package, "root");
+
+        HideUserInterfaceClipViewModel clip = new(new HideUserInterfaceClip(), 24, Colors.MediumPurple, string.Empty, "", timeline)
+        {
+            StartBeat = 1.0,
+            DurationBeats = 2.0
+        };
+
+        ClipResizeHandler handler = new(null!);
+        SetPrivateField(handler, "_resizingClip", clip);
+        SetPrivateField(handler, "_resizeOriginalStart", 1.0);
+        SetPrivateField(handler, "_resizeOriginalDuration", 2.0);
+        SetPrivateField(handler, "_isResizingRight", true);
+
+        // extend
+        clip.DurationBeats = 4.0;
+
+        handler.Complete(timeline, null);
+
+        Assert.True(timeline.UndoService.CanUndo);
         timeline.UndoService.Undo();
         Assert.Equal(2.0, clip.DurationBeats, 6);
     }

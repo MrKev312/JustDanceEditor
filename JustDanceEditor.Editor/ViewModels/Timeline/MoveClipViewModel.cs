@@ -13,6 +13,7 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class MoveClipViewModel : ClipViewModel
 {
+    public override bool IsResizable => true;
     [Inspectable("Move Id", "Move")]
     [ObservableProperty]
     public partial string MoveId { get; set; } = string.Empty;

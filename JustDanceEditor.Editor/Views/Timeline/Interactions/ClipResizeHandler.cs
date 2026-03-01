@@ -168,7 +168,7 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
             if (pointerPos.X >= x && pointerPos.X <= x + w)
             {
                 double localX = pointerPos.X - x;
-                bool isResizable = clip is PictogramClipViewModel or KaraokeClipViewModel or MoveClipViewModel;
+                bool isResizable = clip.IsResizable;
 
                 if (isResizable && IsNearLeft(localX))
                 {

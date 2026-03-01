@@ -15,6 +15,8 @@ public partial class PictogramClipViewModel : ClipViewModel
     [ObservableProperty]
     public partial string PictogramId { get; set; } = string.Empty;
 
+    public override bool IsResizable => true;
+
     public PictogramClipViewModel(PictogramClip clip, double duration, Color color, string pictogramId, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
         : base(clip, duration, color, pictogramId, rootPath, parentTimeline)
     {

@@ -9,6 +9,7 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class KaraokeClipViewModel : ClipViewModel
 {
+    public override bool IsResizable => true;
     [Inspectable("Lyrics", "Karaoke")]
     [ObservableProperty]
     public partial string Lyrics { get; set; } = string.Empty;

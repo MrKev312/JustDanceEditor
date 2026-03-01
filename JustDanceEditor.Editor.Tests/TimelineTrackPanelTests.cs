@@ -26,9 +26,10 @@ namespace JustDanceEditor.Editor.Tests
             TimelineTrackPanel panel = new();
             TestMenu stub = new();
 
-            FieldInfo f = typeof(TimelineTrackPanel)
-                .GetField("_currentContextMenu", BindingFlags.Static | BindingFlags.NonPublic)!;
-            f.SetValue(null, stub);
+            // use reflection to bypass the private setter on the public property
+            PropertyInfo prop = typeof(TimelineTrackPanel)
+                .GetProperty("CurrentContextMenu", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+            prop.SetValue(null, stub);
 
             // act
             panel.OpenAddClipMenu(null!);
