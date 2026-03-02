@@ -510,7 +510,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         trkBuilder.AppendLine($"previewEntry = {package.TimelineStructure.PreviewEntryBeat},");
         trkBuilder.AppendLine($"previewLoopStart = {package.TimelineStructure.PreviewLoopStartBeat},");
         trkBuilder.AppendLine($"previewLoopEnd = {package.TimelineStructure.PreviewLoopEndBeat},");
-        trkBuilder.AppendLine($"previewDuration = {package.TimelineStructure.PrevewDuration},");
+        trkBuilder.AppendLine($"previewDuration = {package.TimelineStructure.PreviewDuration},");
 
         trkBuilder.AppendLine("} } ");
 

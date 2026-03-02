@@ -338,7 +338,7 @@ public static partial class UnityServerIntermediateBuilder
             PreviewEntryBeat = (int)Math.Round(ReadDouble(structureField, "previewEntry")),
             PreviewLoopStartBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopStart")),
             PreviewLoopEndBeat = (int)Math.Round(ReadDouble(structureField, "previewLoopEnd")),
-            PrevewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
+            PreviewDuration = (int)Math.Round(ReadDouble(structureField, "previewDuration"))
         };
 
         // Parse and transform arrays directly into the document's collections
@@ -362,16 +362,16 @@ public static partial class UnityServerIntermediateBuilder
             }));
 
         // Apply the default value logic for preview duration
-        if (document.PrevewDuration == 0)
+        if (document.PreviewDuration == 0)
         {
-            document.PrevewDuration = 30;
+            document.PreviewDuration = 30;
         }
 
         // If the preview loop end beat is zero, set it to the preview entry beat plus duration
         if (document.PreviewLoopEndBeat == 0)
         {
             double start = document.GetSecondsAtBeat(document.PreviewEntryBeat);
-            double end = document.GetBeatAtSeconds(start + document.PrevewDuration);
+            double end = document.GetBeatAtSeconds(start + document.PreviewDuration);
             document.PreviewLoopEndBeat = (int)Math.Round(end);
         }
 

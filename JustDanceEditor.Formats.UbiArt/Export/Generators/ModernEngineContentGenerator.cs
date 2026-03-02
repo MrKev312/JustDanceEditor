@@ -92,7 +92,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             PreviewEntry = package.TimelineStructure.PreviewEntryBeat,
             PreviewLoopStart = package.TimelineStructure.PreviewLoopStartBeat,
             PreviewLoopEnd = package.TimelineStructure.PreviewLoopEndBeat,
-            PreviewDuration = package.TimelineStructure.PrevewDuration,
+            PreviewDuration = package.TimelineStructure.PreviewDuration,
             Markers = [.. package.TimelineStructure.Markers],
             Signatures = signatures,
             Sections = sections

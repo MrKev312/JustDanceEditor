@@ -64,7 +64,7 @@ public static class NewSongPackageCreator
             PreviewEntryBeat = 0,
             PreviewLoopStartBeat = Math.Max(0, 16),
             PreviewLoopEndBeat = Math.Min(endBeat - 1, 16 + 64),
-            PrevewDuration = 30
+            PreviewDuration = 30
         };
 
         // Build metadata

@@ -298,7 +298,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         structureField["previewLoopStart"].AsDouble = trackStructure.PreviewLoopStartBeat;
         structureField["previewLoopEnd"].AsDouble = trackStructure.PreviewLoopEndBeat;
         if (!structureField["previewDuration"].IsDummy)
-            structureField["previewDuration"].AsDouble = trackStructure.PrevewDuration;
+            structureField["previewDuration"].AsDouble = trackStructure.PreviewDuration;
 
         AssetTypeValueField signaturesArray = structureField["signatures"]["Array"];
         signaturesArray.Children.Clear();

@@ -11,7 +11,7 @@ public class TimelineStructureDocument
     public int PreviewEntryBeat { get; set; }
     public int PreviewLoopStartBeat { get; set; }
     public int PreviewLoopEndBeat { get; set; }
-    public int PrevewDuration { get; set; }
+    public int PreviewDuration { get; set; }
 
     private const double SampleRate = 48000.0;
     private const double InvSampleRate = 1.0 / SampleRate;

@@ -110,7 +110,7 @@ internal static class IntermediatePackageBuilder
             PreviewEntryBeat = structure.PreviewEntry,
             PreviewLoopStartBeat = structure.PreviewLoopStart,
             PreviewLoopEndBeat = structure.PreviewLoopEnd,
-            PrevewDuration = structure.PreviewDuration,
+            PreviewDuration = structure.PreviewDuration,
             Markers = structure.Markers?.ToList() ?? []
         };
 
