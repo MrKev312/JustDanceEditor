@@ -11,14 +11,12 @@ public partial class HideUserInterfaceClipViewModel : ClipViewModel
         : base(clip, duration, color, name, rootPath, parentTimeline)
     {
         // nothing extra to track; clips are always active
-        PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(DurationBeats) && RawClip is HideUserInterfaceClip h2)
-            {
-                h2.Duration = (int)(DurationBeats * 24);
-                NotifyClipDataChanged(nameof(DurationBeats));
-            }
-        };
+    }
+
+    protected override void SyncRawDuration(int frames)
+    {
+        if (RawClip is HideUserInterfaceClip h)
+            h.Duration = frames;
     }
 
     /// <summary>

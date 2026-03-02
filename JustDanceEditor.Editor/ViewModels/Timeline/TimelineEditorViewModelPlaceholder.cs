@@ -7,7 +7,7 @@ public sealed class TimelineEditorViewModelPlaceholder : TimelineEditorViewModel
 {
     public static TimelineEditorViewModelPlaceholder Instance { get; } = Create();
 
-    private TimelineEditorViewModelPlaceholder() : base(null!, string.Empty) { }
+    private TimelineEditorViewModelPlaceholder() : base(null!, string.Empty, null!, null!) { }
 
     private static TimelineEditorViewModelPlaceholder Create()
     {

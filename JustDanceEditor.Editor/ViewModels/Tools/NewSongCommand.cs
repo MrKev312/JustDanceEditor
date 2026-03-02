@@ -49,7 +49,7 @@ public class NewSongCommand : IRunCommand
             // Open it in the timeline editor
             if (mainWindow.DataContext is MainWindowViewModel mvm)
             {
-                mvm.OpenPackage(package, rootPath);
+                await mvm.OpenPackage(package, rootPath);
             }
         }
         catch (Exception ex)

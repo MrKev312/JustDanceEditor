@@ -325,22 +325,22 @@ public partial class TimelineTrackPanel
             return;
         }
 
-        // Determine track title (DataContext is TrackViewModel)
+        // Determine track type (DataContext is TrackViewModel)
         TrackViewModel? track = DataContext as TrackViewModel;
-        string title = track?.Title ?? string.Empty;
+        TrackType trackType = track?.TrackType ?? TrackType.Unknown;
 
         bool valid = false;
 
         switch (item.Type)
         {
             case ItemType.Pictogram:
-                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+                valid = trackType == TrackType.Pictogram;
                 break;
             case ItemType.FullBodyMove:
-                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
+                valid = trackType == TrackType.CoachFullBody;
                 break;
             case ItemType.HandMove:
-                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
+                valid = trackType == TrackType.CoachHand;
                 break;
         }
 
@@ -367,19 +367,19 @@ public partial class TimelineTrackPanel
             return;
 
         TrackViewModel? track = DataContext as TrackViewModel;
-        string title = track?.Title ?? string.Empty;
+        TrackType trackType = track?.TrackType ?? TrackType.Unknown;
         bool valid = false;
 
         switch (item.Type)
         {
             case ItemType.Pictogram:
-                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+                valid = trackType == TrackType.Pictogram;
                 break;
             case ItemType.FullBodyMove:
-                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
+                valid = trackType == TrackType.CoachFullBody;
                 break;
             case ItemType.HandMove:
-                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
+                valid = trackType == TrackType.CoachHand;
                 break;
         }
 
@@ -426,9 +426,6 @@ public partial class TimelineTrackPanel
             return;
         }
 
-        // Validate same rules as OnDragOver
-        string title = track.Title;
-
         // Helper functions moved to instance methods - use them to add clips
         Point p = e.GetPosition(this);
         double beat = (p.X / PixelsPerBeat) + BeatOffset;
@@ -455,28 +452,9 @@ public partial class TimelineTrackPanel
             return;
         }
 
-        // Validate same rules as OnDragOver
-        bool valid = false;
-
-        switch (item.Type)
-        {
-            case ItemType.Pictogram:
-                valid = string.Equals(title, "Pictograms", StringComparison.OrdinalIgnoreCase);
-                break;
-            case ItemType.FullBodyMove:
-                valid = title.Contains("FullBody", StringComparison.OrdinalIgnoreCase);
-                break;
-            case ItemType.HandMove:
-                valid = title.Contains("Coach", StringComparison.OrdinalIgnoreCase) && title.IndexOf("FullBody", StringComparison.OrdinalIgnoreCase) < 0;
-                break;
-        }
-
-        if (!valid)
-        {
-            e.DragEffects = DragDropEffects.None;
-            e.Handled = true;
-            return;
-        }
+        // Unrecognised item type — reject
+        e.DragEffects = DragDropEffects.None;
+        e.Handled = true;
     }
 
     private static void AddPictogramAtBeat(string pictogramId, double dropBeat, TrackViewModel track, TimelineEditorViewModel vm, int durationFrames = 24)

@@ -3,11 +3,12 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class KaraokeClipViewModel : ClipViewModel
+public partial class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
 {
     public override bool IsResizable => true;
     [Inspectable("Lyrics", "Karaoke")]
@@ -25,16 +26,6 @@ public partial class KaraokeClipViewModel : ClipViewModel
         IsEndOfLine = clip.IsEndOfLine;
         // keep Name in sync for display
         Name = Lyrics;
-
-        // Keep duration in sync with underlying model when edited
-        PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName == nameof(DurationBeats) && RawClip is KaraokeClip k)
-            {
-                k.Duration = (int)(DurationBeats * 24);
-                NotifyClipDataChanged(nameof(DurationBeats));
-            }
-        };
 
         // If we have a parent timeline, subscribe to timeline PropertyChanged so
         // we can refresh rendering when the lyrics definition color changes.
@@ -107,5 +98,19 @@ public partial class KaraokeClipViewModel : ClipViewModel
             NotifyClipDataChanged(nameof(BackgroundColor));
             OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RenderColor)));
         }
+    }
+
+    // IHasSharedColorSource
+    public (object Target, string PropertyName)? GetColorEditTarget(string inspectedProperty, TimelineEditorViewModel timeline)
+    {
+        if (inspectedProperty != nameof(BackgroundColor))
+            return null;
+        return (timeline, nameof(TimelineEditorViewModel.LyricsDefinitionColor));
+    }
+
+    protected override void SyncRawDuration(int frames)
+    {
+        if (RawClip is KaraokeClip k)
+            k.Duration = frames;
     }
 }

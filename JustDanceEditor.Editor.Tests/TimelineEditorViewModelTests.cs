@@ -22,9 +22,9 @@ public class TimelineEditorViewModelTests
     {
         TimelineEditorViewModel vm = (TimelineEditorViewModel)RuntimeHelpers.GetUninitializedObject(typeof(TimelineEditorViewModel));
 
-        // set the private readonly _package field
+        // set the Package backing field
         FieldInfo pkgField = typeof(TimelineEditorViewModel)
-            .GetField("_package", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            .GetField("<Package>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         pkgField.SetValue(vm, package);
 
         // initialize tracks collection backing field

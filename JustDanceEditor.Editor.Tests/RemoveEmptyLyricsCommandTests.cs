@@ -13,7 +13,7 @@ public class RemoveEmptyLyricsCommandTests
     [Fact]
     public void RemovesEmptyLyricsAndSetsPrevEol_AndRecordsUndo()
     {
-        TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root");
+        TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root", new PlaybackService(), new TimelineSettingsService());
         // Create a track with Karaoke clips
         TrackViewModel track = new();
         KaraokeClipViewModel c1 = new(new KaraokeClip { Lyrics = "A" }, 24, Colors.Goldenrod, "A", "root", timeline);

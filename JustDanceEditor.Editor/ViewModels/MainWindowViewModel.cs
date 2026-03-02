@@ -14,6 +14,8 @@ using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -32,9 +34,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(ITimelineContextService timelineContext)
     {
-        _timelineContext = ((App)Avalonia.Application.Current!).TimelineContext ?? throw new InvalidOperationException("TimelineContext must not be null");
+        _timelineContext = timelineContext ?? throw new ArgumentNullException(nameof(timelineContext));
         _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
 
         // 1. Initialize Dock Factory
@@ -188,7 +190,7 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(path);
-                OpenPackage(package, path);
+                await OpenPackage(package, path);
             }
             catch
             {
@@ -200,9 +202,14 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// Opens a loaded IntermediateSongPackage in a new timeline editor tab.
     /// </summary>
-    public void OpenPackage(IntermediateSongPackage package, string rootPath)
+    public async Task OpenPackage(IntermediateSongPackage package, string rootPath)
     {
-        TimelineEditorViewModel editorVm = new(package, rootPath);
+        IPlaybackService playback = new PlaybackService();
+        TimelineSettingsService settings = ((App)Avalonia.Application.Current!).Services
+            .GetRequiredService<TimelineSettingsService>();
+
+        TimelineEditorViewModel editorVm = new(package, rootPath, playback, settings);
+        await editorVm.InitializeAsync();
 
         if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
         {

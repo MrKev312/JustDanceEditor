@@ -19,5 +19,9 @@ public partial class TrackViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial Color TrackColor { get; set; } = Colors.Gray;
+
+    [ObservableProperty]
+    public partial TrackType TrackType { get; set; } = TrackType.Unknown;
+
     public ObservableCollection<ClipViewModel> Clips { get; } = [];
 }

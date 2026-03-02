@@ -1,5 +1,6 @@
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -12,7 +13,7 @@ public class MoveClipViewModelTests
     public void ChangingMoveId_AdoptsDefinitionColorAndDuration()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         // register a move definition and set properties
         MoveDefinitionViewModel def = timeline.GetOrRegisterMove("moveX", false);
@@ -39,7 +40,7 @@ public class MoveClipViewModelTests
     public void BackgroundColorChange_PropagatesToDefinition_WhenNotSuppressing()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         MoveDefinitionViewModel def = timeline.GetOrRegisterMove("m1", false);
         def.Color = Colors.Green;

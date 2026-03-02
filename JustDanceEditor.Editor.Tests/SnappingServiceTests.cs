@@ -13,7 +13,7 @@ public class SnappingServiceTests
     public void SnapToPlayhead_HasHighestPriority()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root")
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService())
         {
             SnapToCurrentTimeMarker = true,
             CurrentBeat = 5.0
@@ -27,7 +27,7 @@ public class SnappingServiceTests
     public void SnapToGrid_Works()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root")
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService())
         {
             SnapToGrid = true,
             SnapGridSize = 1.0
@@ -41,7 +41,7 @@ public class SnappingServiceTests
     public void SnapToClips_ExcludesSpecifiedClips()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root")
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService())
         {
             SnapToClips = true
         };

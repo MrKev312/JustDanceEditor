@@ -88,24 +88,19 @@ public partial class TimelineEditorViewModel : Document
     [ObservableProperty]
     public partial bool SnapToClips { get; set; } = false;
 
-    // Static synchronization for snapping across all timeline instances
-    private static bool _globalSnapToGrid = false;
-    private static event Action<bool>? SnapToGridChangedGlobal;
+    /// <summary>True while the initial audio conversion and media load is in progress.</summary>
+    [ObservableProperty]
+    public partial bool IsMediaLoading { get; set; } = false;
 
-    private static bool _globalSnapToPlayhead = false;
-    private static event Action<bool>? SnapToPlayheadChangedGlobal;
+    /// <summary>Non-null when <see cref="InitializeMedia"/> failed; contains a human-readable message.</summary>
+    [ObservableProperty]
+    public partial string? MediaLoadError { get; set; }
 
-    private static double _globalSnapGridSize = 1.0;
-    private static event Action<double>? SnapGridSizeChangedGlobal;
-
-    private static double _globalSnapThreshold = 0.25;
-    private static event Action<double>? SnapThresholdChangedGlobal;
-
-    private static bool _globalSnapToClips = false;
-    private static event Action<bool>? SnapToClipsChangedGlobal;
+    // Static synchronization for snapping across all timeline instances is now handled by TimelineSettingsService.
 
     // suppress broadcasting when applying remote changes
     private bool _suppressSnapBroadcast = false;
+    private TimelineSettingsService _settings = null!;
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
     public IPlaybackService Playback { get; }
@@ -163,7 +158,11 @@ public partial class TimelineEditorViewModel : Document
     private readonly Stack<(Action Undo, Action Redo)> _undoStack = new();
     private readonly Stack<(Action Undo, Action Redo)> _redoStack = new();
 
-    public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
+    public TimelineEditorViewModel(
+        IntermediateSongPackage package,
+        string rootPath,
+        IPlaybackService playback,
+        TimelineSettingsService settings)
     {
         Package = package;
         RootPath = rootPath;
@@ -174,7 +173,7 @@ public partial class TimelineEditorViewModel : Document
         UndoService = new UndoService();
         HookUndoServiceStateChanged();
 
-        Playback = new PlaybackService();
+        Playback = playback;
         Playback.TimeChanged += (s, e) => CurrentBeat = Playback.CurrentBeat;
 
         BeatOffset = Package.TimelineStructure.StartBeat;
@@ -182,116 +181,116 @@ public partial class TimelineEditorViewModel : Document
         UpdateTimelineWidth();
 
         BuildTimeline();
-        _ = InitializeMedia();
-        SnapToGrid = _globalSnapToGrid;
-        SnapToCurrentTimeMarker = _globalSnapToPlayhead;
-        SnapGridSize = _globalSnapGridSize;
-        SnapThreshold = _globalSnapThreshold;
-        SnapToClips = _globalSnapToClips;
 
-        SnapToGridChangedGlobal += (v) =>
-        {
-            if (v == SnapToGrid)
-                return;
-            _suppressSnapBroadcast = true;
-            SnapToGrid = v;
-        };
+        // Bind to the shared snap settings service
+        _settings = settings;
+        _suppressSnapBroadcast = true;
+        SnapToGrid = settings.SnapToGrid;
+        SnapToCurrentTimeMarker = settings.SnapToCurrentTimeMarker;
+        SnapGridSize = settings.SnapGridSize;
+        SnapThreshold = settings.SnapThreshold;
+        SnapToClips = settings.SnapToClips;
+        _suppressSnapBroadcast = false;
 
-        SnapToPlayheadChangedGlobal += (v) =>
+        // Keep in sync when another timeline changes the settings
+        settings.PropertyChanged += (s, e) =>
         {
-            if (v == SnapToCurrentTimeMarker)
-                return;
             _suppressSnapBroadcast = true;
-            SnapToCurrentTimeMarker = v;
-        };
-
-        SnapGridSizeChangedGlobal += (v) =>
-        {
-            if (Math.Abs(v - SnapGridSize) < 1e-9)
-                return;
-            _suppressSnapBroadcast = true;
-            SnapGridSize = v;
-        };
-
-        SnapThresholdChangedGlobal += (v) =>
-        {
-            if (Math.Abs(v - SnapThreshold) < 1e-9)
-                return;
-            _suppressSnapBroadcast = true;
-            SnapThreshold = v;
-        };
-
-        SnapToClipsChangedGlobal += (v) =>
-        {
-            if (v == SnapToClips)
-                return;
-            _suppressSnapBroadcast = true;
-            SnapToClips = v;
+            switch (e.PropertyName)
+            {
+                case nameof(TimelineSettingsService.SnapToGrid) when SnapToGrid != settings.SnapToGrid:
+                    SnapToGrid = settings.SnapToGrid; break;
+                case nameof(TimelineSettingsService.SnapToCurrentTimeMarker) when SnapToCurrentTimeMarker != settings.SnapToCurrentTimeMarker:
+                    SnapToCurrentTimeMarker = settings.SnapToCurrentTimeMarker; break;
+                case nameof(TimelineSettingsService.SnapGridSize) when Math.Abs(SnapGridSize - settings.SnapGridSize) > 1e-9:
+                    SnapGridSize = settings.SnapGridSize; break;
+                case nameof(TimelineSettingsService.SnapThreshold) when Math.Abs(SnapThreshold - settings.SnapThreshold) > 1e-9:
+                    SnapThreshold = settings.SnapThreshold; break;
+                case nameof(TimelineSettingsService.SnapToClips) when SnapToClips != settings.SnapToClips:
+                    SnapToClips = settings.SnapToClips; break;
+            }
+            _suppressSnapBroadcast = false;
         };
     }
 
-    private async Task InitializeMedia()
+    /// <summary>
+    /// Performs the async media initialisation (audio conversion, video discovery, playback load).
+    /// Must be called after construction — not invoked from the constructor to avoid fire-and-forget.
+    /// </summary>
+    public async Task InitializeAsync()
     {
-        AudioPath = Path.Combine(RootPath, IntermediatePackageLayout.Assets.AudioMasterFile);
-        string videoDir = Path.Combine(RootPath, IntermediatePackageLayout.Assets.VideoFolder);
-        VideoPath = "";
+        IsMediaLoading = true;
+        MediaLoadError = null;
 
-        if (Directory.Exists(videoDir))
+        try
         {
-            string[] files = Directory.GetFiles(videoDir, "*.webm");
-            if (files.Length > 0)
+            AudioPath = Path.Combine(RootPath, IntermediatePackageLayout.Assets.AudioMasterFile);
+            string videoDir = Path.Combine(RootPath, IntermediatePackageLayout.Assets.VideoFolder);
+            VideoPath = "";
+
+            if (Directory.Exists(videoDir))
             {
-                // Select the largest file (highest quality heuristic)
-                VideoPath = files
-                    .Select(f => new FileInfo(f))
-                    .OrderByDescending(fi => fi.Length)
-                    .First()
-                    .FullName;
+                string[] files = Directory.GetFiles(videoDir, "*.webm");
+                if (files.Length > 0)
+                {
+                    // Select the largest file (highest quality heuristic)
+                    VideoPath = files
+                        .Select(f => new FileInfo(f))
+                        .OrderByDescending(fi => fi.Length)
+                        .First()
+                        .FullName;
+                }
             }
+
+            StartBeatValue = Package.TimelineStructure.StartBeat;
+            VideoOffset = -Package.TimelineStructure.VideoStartOffset;
+
+            // Prepare audio (Opus -> WAV)
+            if (File.Exists(AudioPath))
+            {
+                string tempDir = Path.Combine(Path.GetTempPath(), "JustDanceEditor");
+                Directory.CreateDirectory(tempDir);
+                PreparedAudioPath = Path.Combine(tempDir, $"{Id}_{Guid.NewGuid():N}.wav");
+
+                IConversion conversion = await FFmpeg.Conversions.FromSnippet.Convert(AudioPath, PreparedAudioPath);
+                await conversion.Start();
+            }
+
+            // Marker-based timing logic
+            TimelineStructureDocument ts = Package.TimelineStructure;
+            double startOffset = ts.GetSongStartOffset();
+
+            // Ensure this timeline is loaded
+            await Playback.LoadMediaAsync(
+                PreparedAudioPath,
+                b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
+                s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)));
+
+            // Initialize metronome timing so it's ready when enabled
+            UpdateMetronomeTiming();
+
+            // Record where audio starts/ends in beat-space for waveform clipping
+            // (must be before SetExtendedEnd, as Duration will be overridden after that)
+            AudioStartBeat = ts.StartBeat;
+            double durSec = Playback.Duration.TotalSeconds;
+            AudioEndBeat = durSec > 0 && ts.Markers.Count >= 2
+                ? ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(durSec))
+                : ts.EndBeat;
+
+            // Extend playback with silence so the song plays through ts.EndBeat even if audio is short
+            double endSec = ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(ts.EndBeat));
+            Playback.SetExtendedEnd(TimeSpan.FromSeconds(endSec));
+
+            WaveformSamples = await AudioConversionService.GetWaveformDataAsync(AudioPath);
         }
-
-        StartBeatValue = Package.TimelineStructure.StartBeat;
-        VideoOffset = -Package.TimelineStructure.VideoStartOffset;
-
-        // Prepare audio (Opus -> WAV)
-        if (File.Exists(AudioPath))
+        catch (Exception ex)
         {
-            string tempDir = Path.Combine(Path.GetTempPath(), "JustDanceEditor");
-            Directory.CreateDirectory(tempDir);
-            PreparedAudioPath = Path.Combine(tempDir, $"{Id}_{Guid.NewGuid():N}.wav");
-
-            IConversion conversion = await FFmpeg.Conversions.FromSnippet.Convert(AudioPath, PreparedAudioPath);
-            await conversion.Start();
+            MediaLoadError = $"Failed to load media: {ex.Message}";
         }
-
-        // Marker-based timing logic
-        TimelineStructureDocument ts = Package.TimelineStructure;
-        double startOffset = ts.GetSongStartOffset();
-
-        // Ensure this timeline is loaded
-        await Playback.LoadMediaAsync(
-            PreparedAudioPath,
-            VideoPath,
-            b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
-            s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)),
-            VideoOffset);
-
-        // Initialize metronome timing so it's ready when enabled
-        UpdateMetronomeTiming();
-
-        // Record where audio starts/ends in beat-space for waveform clipping
-        // (must be before SetExtendedEnd, as Duration will be overridden after that)
-        AudioStartBeat = ts.StartBeat;
-        double durSec = Playback.Duration.TotalSeconds;
-        AudioEndBeat = durSec > 0 && ts.Markers.Count >= 2
-            ? ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(durSec))
-            : ts.EndBeat;
-
-        // Extend playback with silence so the song plays through ts.EndBeat even if audio is short
-        double endSec = ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(ts.EndBeat));
-        Playback.SetExtendedEnd(TimeSpan.FromSeconds(endSec));
-
-        WaveformSamples = await AudioConversionService.GetWaveformDataAsync(AudioPath);
+        finally
+        {
+            IsMediaLoading = false;
+        }
     }
 
     private void BuildTimeline()
@@ -349,9 +348,9 @@ public partial class TimelineEditorViewModel : Document
         catch { }
 
         // Helper-local to capture lyricsColor where needed
-        void AddTrack(string title, double height, Color color, IEnumerable<TimelineClipBase> clips, bool isFullBody = false)
+        void AddTrack(string title, double height, Color color, TrackType trackType, IEnumerable<TimelineClipBase> clips, bool isFullBody = false)
         {
-            TrackViewModel track = new() { Title = title, Height = height, TrackColor = color };
+            TrackViewModel track = new() { Title = title, Height = height, TrackColor = color, TrackType = trackType };
             foreach (TimelineClipBase clip in clips)
             {
                 switch (clip)
@@ -389,19 +388,19 @@ public partial class TimelineEditorViewModel : Document
 
         // Build tracks using configuration-style calls (keeps BuildTimeline concise)
         // first a special track for the HUD hide events (below the audio waveform)
-        AddTrack("Hide HUD", 30, Colors.MediumPurple, Package.HideUserInterface.Clips.Cast<TimelineClipBase>());
+        AddTrack("Hide HUD", 30, Colors.MediumPurple, TrackType.HideHud, Package.HideUserInterface.Clips.Cast<TimelineClipBase>());
 
-        AddTrack("Lyrics", 40, Colors.Goldenrod, Package.Lyrics.Clips.Cast<TimelineClipBase>());
-        AddTrack("Pictograms", 60, Colors.CornflowerBlue, Package.Pictograms.Clips.Cast<TimelineClipBase>());
+        AddTrack("Lyrics", 40, Colors.Goldenrod, TrackType.Lyrics, Package.Lyrics.Clips.Cast<TimelineClipBase>());
+        AddTrack("Pictograms", 60, Colors.CornflowerBlue, TrackType.Pictogram, Package.Pictograms.Clips.Cast<TimelineClipBase>());
 
         // One track per coach timeline to preserve coach id in title
         foreach (MoveTimeline coachTimeline in Package.CoachTimelines)
-            AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, coachTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: false);
+            AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, TrackType.CoachHand, coachTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: false);
 
         foreach (MoveTimeline fullBodyTimeline in Package.FullBodyCoachTimelines)
-            AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
+            AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, TrackType.CoachFullBody, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
 
-        AddTrack("Gold Effects", 30, Colors.OrangeRed, Package.GoldEffects.Clips.Cast<TimelineClipBase>());
+        AddTrack("Gold Effects", 30, Colors.OrangeRed, TrackType.GoldEffect, Package.GoldEffects.Clips.Cast<TimelineClipBase>());
     }
 
     /// <summary>
@@ -438,10 +437,8 @@ public partial class TimelineEditorViewModel : Document
         {
             await Playback.LoadMediaAsync(
                 PreparedAudioPath,
-                VideoPath,
                 b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
-                s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)),
-                VideoOffset);
+                s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)));
 
             // Refresh metronome timing after edit
             UpdateMetronomeTiming();
@@ -533,21 +530,6 @@ public partial class TimelineEditorViewModel : Document
             Package.Metadata.LyricsColor = LyricsDefinitionColor.ToString();
         }
         catch { }
-
-        // Other clip sync: KaraokeClip and Pictogram durations are updated by their viewmodels on edit already, but be defensive and ensure durations are set
-        foreach (TrackViewModel track in Tracks)
-        {
-            foreach (ClipViewModel clipVm in track.Clips)
-            {
-                if (clipVm.RawClip is KaraokeClip k)
-                    k.Duration = (int)(clipVm.DurationBeats * 24);
-                else if (clipVm.RawClip is PictogramClip p)
-                    p.Duration = (int)(clipVm.DurationBeats * 24);
-                else if (clipVm.RawClip is HideUserInterfaceClip h)
-                    h.Duration = (int)(clipVm.DurationBeats * 24);
-                // MoveClip has no duration field in the intermediate representation; move default durations are stored in coach move definitions
-            }
-        }
 
         // Finally, write package to disk
         IntermediatePackageSerializer.WriteToFolder(Package, RootPath);
@@ -1064,8 +1046,7 @@ public partial class TimelineEditorViewModel : Document
             return;
         }
 
-        _globalSnapToGrid = value;
-        SnapToGridChangedGlobal?.Invoke(value);
+        _settings.SnapToGrid = value;
     }
 
     partial void OnSnapToCurrentTimeMarkerChanged(bool value)
@@ -1076,8 +1057,7 @@ public partial class TimelineEditorViewModel : Document
             return;
         }
 
-        _globalSnapToPlayhead = value;
-        SnapToPlayheadChangedGlobal?.Invoke(value);
+        _settings.SnapToCurrentTimeMarker = value;
     }
 
     partial void OnSnapGridSizeChanged(double value)
@@ -1088,8 +1068,7 @@ public partial class TimelineEditorViewModel : Document
             return;
         }
 
-        _globalSnapGridSize = value;
-        SnapGridSizeChangedGlobal?.Invoke(value);
+        _settings.SnapGridSize = value;
     }
 
     partial void OnSnapThresholdChanged(double value)
@@ -1100,8 +1079,7 @@ public partial class TimelineEditorViewModel : Document
             return;
         }
 
-        _globalSnapThreshold = value;
-        SnapThresholdChangedGlobal?.Invoke(value);
+        _settings.SnapThreshold = value;
     }
 
     partial void OnSnapToClipsChanged(bool value)
@@ -1112,7 +1090,6 @@ public partial class TimelineEditorViewModel : Document
             return;
         }
 
-        _globalSnapToClips = value;
-        SnapToClipsChangedGlobal?.Invoke(value);
+        _settings.SnapToClips = value;
     }
 }

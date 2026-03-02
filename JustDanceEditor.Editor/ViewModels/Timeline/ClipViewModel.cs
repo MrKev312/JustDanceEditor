@@ -60,9 +60,17 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, double durati
 
     partial void OnDurationBeatsChanged(double value)
     {
-        // Subclasses may override to update underlying RawClip duration.
+        // Sync the underlying model's duration field through the virtual hook.
+        SyncRawDuration((int)(value * 24));
         WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, nameof(DurationBeats)));
     }
+
+    /// <summary>
+    /// Called when <see cref="DurationBeats"/> changes so that subclasses can
+    /// write the new frame-count back to their concrete <see cref="RawClip"/> type.
+    /// The default implementation is a no-op (for clip types without a Duration field).
+    /// </summary>
+    protected virtual void SyncRawDuration(int frames) { }
 
     partial void OnNameChanged(string value)
     {

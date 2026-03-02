@@ -1,6 +1,4 @@
-﻿using LibVLCSharp.Shared;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -13,18 +11,16 @@ public interface IPlaybackService : IDisposable
     TimeSpan Duration { get; }
     double CurrentBeat { get; }
 
-    // Exposed for the Video View control
-    MediaPlayer? MediaPlayer { get; }
-
     event EventHandler TimeChanged;
     event EventHandler PlayStateChanged;
 
+    /// <summary>
+    /// Loads audio and initialises beat-mapping. Video sync is handled separately by VideoToolViewModel.
+    /// </summary>
     Task LoadMediaAsync(
         string audioPath,
-        string videoPath,
         Func<double, double> beatToSeconds,
-        Func<double, double> secondsToBeat,
-        double videoStartOffset);
+        Func<double, double> secondsToBeat);
     void Play();
     void Pause();
     void Seek(TimeSpan time);

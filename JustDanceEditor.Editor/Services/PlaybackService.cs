@@ -2,8 +2,6 @@
 
 using JustDanceEditor.Audio.Providers;
 
-using LibVLCSharp.Shared;
-
 using NAudio.Wave;
 
 using System;
@@ -24,13 +22,11 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private Func<double, double> _beatToSeconds = b => b * 0.5;
     private Func<double, double> _secondsToBeat = s => s / 0.5;
-    private double _videoStartOffset = 0;
 
     private TimeSpan _baseTime = TimeSpan.Zero;
     private readonly DispatcherTimer _updateTimer;
     private readonly Stopwatch _stopwatch = new();
 
-    public MediaPlayer? MediaPlayer => null; // Tools now manage their own video
     public bool IsPlaying { get; private set; }
 
     public TimeSpan CurrentTime
@@ -83,16 +79,13 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public async Task LoadMediaAsync(
         string audioPath,
-        string videoPath,
         Func<double, double> beatToSeconds,
-        Func<double, double> secondsToBeat,
-        double videoStartOffset)
+        Func<double, double> secondsToBeat)
     {
         Pause();
 
         _beatToSeconds = beatToSeconds;
         _secondsToBeat = secondsToBeat;
-        _videoStartOffset = videoStartOffset;
 
         // ---------- AUDIO (NAudio) ----------
         CleanUpAudio();

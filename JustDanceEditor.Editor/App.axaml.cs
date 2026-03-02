@@ -7,24 +7,27 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.Views;
 
+using LibVLCSharp.Shared;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using System;
 using System.Linq;
 
 namespace JustDanceEditor.Editor;
 
 public partial class App : Application
 {
-    public ITimelineContextService TimelineContext { get; } = new TimelineContextService();
-    public IDialogService DialogService { get; } = new AvaloniaDialogService();
+    public IServiceProvider Services { get; private set; } = null!;
 
-    public LibVLCSharp.Shared.LibVLC LibVLC { get; } = new(
-        // Optimization arguments
-        "--avcodec-hw=any",       // Enable hardware acceleration
-        "--no-stats",              // Disable stats for less overhead
-        "--no-video-title-show",   // Disable overlay title
-        "--network-caching=300",  // Lower caching for better sync/latency
-        "--clock-jitter=0",        // Treat clock jitter as zero for timeline sync
-        "--no-osd"                 // Disable on-screen display
-    );
+    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
+    public LibVLC LibVLC => Services.GetRequiredService<LibVLC>();
+
+    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
+    public ITimelineContextService TimelineContext => Services.GetRequiredService<ITimelineContextService>();
+
+    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
+    public IDialogService DialogService => Services.GetRequiredService<IDialogService>();
 
     public override void Initialize()
     {
@@ -33,6 +36,27 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // ── Build DI container ──────────────────────────────────────────────────
+        ServiceCollection sc = new();
+
+        sc.AddSingleton<LibVLC>(_ => new LibVLC(
+            "--avcodec-hw=any",
+            "--no-stats",
+            "--no-video-title-show",
+            "--network-caching=300",
+            "--clock-jitter=0",
+            "--no-osd"));
+
+        sc.AddSingleton<TimelineSettingsService>();
+        sc.AddSingleton<ITimelineContextService, TimelineContextService>();
+        sc.AddSingleton<IDialogService, AvaloniaDialogService>();
+
+        // MainWindowViewModel is transient so each app launch gets a fresh instance
+        sc.AddTransient<MainWindowViewModel>();
+
+        Services = sc.BuildServiceProvider();
+        // ───────────────────────────────────────────────────────────────────────
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
@@ -40,7 +64,7 @@ public partial class App : Application
             DisableAvaloniaDataAnnotationValidation();
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainWindowViewModel(),
+                DataContext = Services.GetRequiredService<MainWindowViewModel>(),
             };
         }
 

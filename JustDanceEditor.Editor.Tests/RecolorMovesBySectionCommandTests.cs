@@ -1,5 +1,6 @@
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Formats.JDI;
@@ -18,7 +19,7 @@ public class RecolorMovesBySectionCommandTests
         package.TimelineStructure.Sections.Add(new SectionSegment { StartBeat = 10, SectionType = SongSectionType.Chorus });
         package.TimelineStructure.EndBeat = 20;
 
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         // create two move clips for same id in different sections
         TrackViewModel track = new();

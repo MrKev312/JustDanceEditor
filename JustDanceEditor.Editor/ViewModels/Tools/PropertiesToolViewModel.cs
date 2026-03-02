@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -94,28 +95,30 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
                     if (consistent)
                     {
-                        // For Move clip color we want to edit the MoveDefinition.Color (not per-clip state).
-                        // Detect BackgroundColor on MoveClipViewModel and create a PropertyItem bound to the definitions.
                         PropertyItemViewModel propVm;
-                        if (item.Property.Name == "BackgroundColor" && first is MoveClipViewModel)
+                        if (item.Property.Name == "BackgroundColor" && first is IHasSharedColorSource colorSource)
                         {
-                            List<MoveDefinitionViewModel?> defs = selection.OfType<MoveClipViewModel>().Select(m => m.Definition).Where(d => d != null).Distinct().ToList()!;
-                            if (defs.Count == 0)
-                                continue; // no definitions found
-
-                            // Create property item targeting the definitions' Color property
-                            propVm = new([.. defs.Cast<object>()], "Color", item.Attribute!, ActiveTimeline!.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
-                        }
-                        else if (item.Property.Name == "BackgroundColor" && first is KaraokeClipViewModel)
-                        {
-                            // Target the timeline's LyricsDefinition color exposed directly on the timeline
-                            if (ActiveTimeline == null)
+                            // Gather redirect targets from all selected clips that implement the interface.
+                            List<object> redirectTargets = selection
+                                .OfType<IHasSharedColorSource>()
+                                .Select(c => c.GetColorEditTarget("BackgroundColor", ActiveTimeline!))
+                                .Where(t => t.HasValue)
+                                .Select(t => t!.Value.Target)
+                                .Distinct()
+                                .ToList();
+                            if (redirectTargets.Count == 0)
                                 continue;
 
-                            propVm = new([ActiveTimeline], "LyricsDefinitionColor", item.Attribute!, ActiveTimeline.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
+                            string redirectProp = colorSource.GetColorEditTarget("BackgroundColor", ActiveTimeline!)!.Value.PropertyName;
+                            propVm = new([.. redirectTargets], redirectProp, item.Attribute!, ActiveTimeline!.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
                         }
                         else
                         {
+                            // Skip BackgroundColor for clips that don't provide a shared color source —
+                            // they are not intended to expose per-clip color editing in the Properties pane.
+                            if (item.Property.Name is "BackgroundColor" or "Color" && first is ClipViewModel)
+                                continue;
+
                             propVm = new(
                                 selection,
                                 item.Property.Name,
@@ -125,21 +128,15 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                                 ActiveTimeline.Tracks,
                                 ActiveTimeline);
 
-                            // Special handling for Color property on Clips: allow MoveClip (Coach) and KaraokeClip (Lyrics)
-                            if (item.Property.Name is "BackgroundColor" or "Color")
+                            // Populate dynamic options via IHasDynamicOptions
+                            if (first is IHasDynamicOptions dynOpts)
                             {
-                                if (first is ClipViewModel cv)
+                                IEnumerable<object>? options = dynOpts.GetDynamicOptions(item.Property.Name, ActiveTimeline!);
+                                if (options != null)
                                 {
-                                    // With strongly-typed ClipViewModels we can check concrete types directly
-                                    if (cv is not (MoveClipViewModel or KaraokeClipViewModel))
-                                        continue; // Skip color for non-moves and non-lyrics
+                                    propVm.Options = options.ToList();
+                                    propVm.IsEditable = dynOpts.IsDynamicPropertyEditable(item.Property.Name);
                                 }
-                            }
-
-                            // Populate Options for MoveId and PictogramId
-                            if (item.Property.Name is "MoveId" or "PictogramId")
-                            {
-                                PopulateOptions(propVm, selection, ActiveTimeline);
                             }
                         }
 
@@ -152,79 +149,6 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
             }
         }
     }
-
-    private static void PopulateOptions(PropertyItemViewModel propVm, List<object> selection, TimelineEditorViewModel timeline)
-    {
-        // Check if we are dealing with ClipViewModels
-        if (selection[0] is not ClipViewModel firstClip)
-            return;
-
-        // Determine type of clip
-        if (firstClip is MoveClipViewModel)
-        {
-            // Find track for firstClip
-            TrackViewModel? track = timeline.Tracks.FirstOrDefault(t => t.Clips.Contains(firstClip));
-            if (track != null)
-            {
-                // Heuristic: Check Title
-                if (track.Title.Contains("FullBody", StringComparison.OrdinalIgnoreCase))
-                {
-                    propVm.Options = timeline.AvailableFullBodyCoachMoves.ToList();
-                    propVm.IsEditable = false;
-                }
-                else
-                {
-                    propVm.Options = timeline.AvailableHandCoachMoves.ToList();
-                    propVm.IsEditable = false;
-                }
-            }
-        }
-        else if (firstClip is PictogramClipViewModel)
-        {
-            List<PictogramOptionViewModel> list = [];
-            string dir = System.IO.Path.Combine(timeline.RootPath, "assets", "pictograms");
-            if (System.IO.Directory.Exists(dir))
-            {
-                string[] files = System.IO.Directory.GetFiles(dir);
-                foreach (string file in files)
-                {
-                    string name = System.IO.Path.GetFileNameWithoutExtension(file);
-                    // If multiple extensions exist for same name, first one wins
-                    if (!list.Any(x => x.Name == name))
-                    {
-                        list.Add(new PictogramOptionViewModel(name, file));
-                    }
-                }
-                // Sort by name
-                list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
-            }
-
-            propVm.Options = list;
-            propVm.IsEditable = true; // Allow custom
-        }
-    }
-}
-
-public class PictogramOptionViewModel
-{
-    public string Name { get; }
-    public string ImagePath { get; }
-    public Avalonia.Media.Imaging.Bitmap? PreviewImage { get; }
-
-    public PictogramOptionViewModel(string name, string path)
-    {
-        Name = name;
-        ImagePath = path;
-        if (System.IO.File.Exists(path))
-        {
-            try
-            {
-                PreviewImage = new Avalonia.Media.Imaging.Bitmap(path);
-            }
-            catch { }
-        }
-    }
-    public override string ToString() => Name;
 }
 
 public class PropertyCategoryViewModel(string name) : ObservableObject
@@ -245,11 +169,21 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     private bool _isColorPickerActive = false;
     private object? _colorPickerInitialValue;
 
+    /// <summary>
+    /// True while the Value setter is iterating through targets. Suppresses
+    /// <see cref="Target_PropertyChanged"/> to avoid intermediate binding
+    /// reads that see an inconsistent mix of old/new values across targets.
+    /// </summary>
+    private bool _isBatchSetting;
+
     // Direct subscriptions for INotifyPropertyChanged targets (unsubscribed in Dispose)
     private readonly List<INotifyPropertyChanged> _inpcSubscriptions = [];
 
     private void Target_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (_isBatchSetting)
+            return;
+
         if (e.PropertyName == _propertyName)
         {
             // Refresh bound value when underlying property changed
@@ -328,8 +262,15 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         _isColorPickerActive = true;
         _colorPickerInitialValue = null;
 
+        // Redirect targets are MoveDefinitionViewModel objects (from IHasSharedColorSource)
+        if (_targets.Count > 0 && _targets[0] is MoveDefinitionViewModel)
+        {
+            List<(MoveDefinitionViewModel Def, Color Color)> list =
+                [.. _targets.OfType<MoveDefinitionViewModel>().Select(d => (d, d.Color))];
+            _colorPickerInitialValue = new MoveDefinitionsSnapshot(list);
+        }
         // If editing a ClipViewModel's BackgroundColor, capture a full snapshot
-        if (_targets.Count > 0 && _targets[0] is ClipViewModel cv)
+        else if (_targets.Count > 0 && _targets[0] is ClipViewModel cv)
         {
             // Lyrics: capture all lyrics clips and metadata
             if (cv is KaraokeClipViewModel)
@@ -357,8 +298,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         }
         else
         {
-            // Fallback: store the simple initial value
-            _colorPickerInitialValue = GetValue(_targets[0]);
+            // Fallback: store per-target initial values
+            _colorPickerInitialValue = _targets.Select(t => (t, GetValue(t))).ToList();
         }
     }
 
@@ -438,26 +379,44 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            // Fallback behavior when we didn't capture snapshot: push if value changed
+            // Fallback behavior when we captured per-target initial values
+            if (_colorPickerInitialValue is List<(object Target, object? Value)> perTarget)
+            {
+                List<object?> initialList = [.. perTarget.Select(p => p.Value)];
+                List<object> targets = [.. perTarget.Select(p => p.Target)];
+                List<object?> finalList = [.. targets.Select(GetValue)];
+
+                bool anyChanged = initialList.Where((v, i) => !Equals(v, finalList[i])).Any();
+
+                if (anyChanged)
+                {
+                    _undoService.Record(
+                        undo: () =>
+                        {
+                            for (int i = 0; i < targets.Count; i++)
+                                SetValue(targets[i], initialList[i]);
+                        },
+                        redo: () =>
+                        {
+                            for (int i = 0; i < targets.Count; i++)
+                                SetValue(targets[i], finalList[i]);
+                        }
+                    );
+                }
+
+                _colorPickerInitialValue = null;
+                return;
+            }
+
+            // Legacy scalar fallback (single target, non-snapshot)
             object? finalValue = GetValue(_targets[0]);
             if (!Equals(_colorPickerInitialValue, finalValue))
             {
-                List<object?> oldValues = [.. _targets.Select(t => _colorPickerInitialValue)];
-                string oldStr = oldValues.Count > 0 ? (oldValues[0] is Color c ? ClipViewModel.ColorToRgbaHex(c) : oldValues[0]?.ToString() ?? "null") : "null";
-                string finalStr = finalValue is Color fc ? ClipViewModel.ColorToRgbaHex(fc) : finalValue?.ToString() ?? "null";
+                object? capturedInitial = _colorPickerInitialValue;
                 _undoService.Record(
-                    undo: () =>
-                    {
-                        for (int i = 0; i < _targets.Count; i++)
-                            SetValue(_targets[i], oldValues[i]);
-                    },
-                    redo: () =>
-                    {
-                        for (int i = 0; i < _targets.Count; i++)
-                            SetValue(_targets[i], finalValue);
-                    }
+                    undo: () => SetValue(_targets[0], capturedInitial),
+                    redo: () => SetValue(_targets[0], finalValue)
                 );
-                // Ensure we unregister when this view model is disposed (see Dispose() below)
             }
 
             _colorPickerInitialValue = null;
@@ -514,32 +473,40 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // Special-case: when changing MoveId on multiple MoveClipViewModels in one operation,
             // suppress Definition color propagation on each clip while we assign the new MoveId to avoid
             // intermediate clip color writes from stomping definition colors.
-            if (_propertyName == "MoveId" && _targets.Count > 1 && _targets.All(t => t is MoveClipViewModel))
+            _isBatchSetting = true;
+            try
             {
-                List<MoveClipViewModel> moveClips = [.. _targets.Cast<MoveClipViewModel>()];
-                try
+                if (_propertyName == "MoveId" && _targets.Count > 1 && _targets.All(t => t is MoveClipViewModel))
                 {
-                    // Begin suppression on all involved clips
-                    foreach (MoveClipViewModel mc in moveClips)
-                        mc.BeginSuppressDefinitionColorUpdates();
+                    List<MoveClipViewModel> moveClips = [.. _targets.Cast<MoveClipViewModel>()];
+                    try
+                    {
+                        // Begin suppression on all involved clips
+                        foreach (MoveClipViewModel mc in moveClips)
+                            mc.BeginSuppressDefinitionColorUpdates();
 
-                    // Now perform the assignments (this will invoke each clip's MoveId setter)
-                    foreach (object target in _targets)
-                        SetValue(target, value);
+                        // Now perform the assignments (this will invoke each clip's MoveId setter)
+                        foreach (object target in _targets)
+                            SetValue(target, value);
+                    }
+                    finally
+                    {
+                        // End suppression
+                        foreach (MoveClipViewModel mc in moveClips)
+                            mc.EndSuppressDefinitionColorUpdates();
+                    }
                 }
-                finally
+                else
                 {
-                    // End suppression
-                    foreach (MoveClipViewModel mc in moveClips)
-                        mc.EndSuppressDefinitionColorUpdates();
+                    foreach (object target in _targets)
+                    {
+                        SetValue(target, value);
+                    }
                 }
             }
-            else
+            finally
             {
-                foreach (object target in _targets)
-                {
-                    SetValue(target, value);
-                }
+                _isBatchSetting = false;
             }
 
             OnPropertyChanged(nameof(Value));

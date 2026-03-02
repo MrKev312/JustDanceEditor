@@ -1,5 +1,6 @@
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Views.Timeline.Interactions;
 using JustDanceEditor.Formats.JDI;
@@ -27,13 +28,13 @@ public class ClipInteractionHandlerTests
                 EndBeat = (int)endBeat
             }
         };
-        return new TimelineEditorViewModel(package, "root");
+        return new TimelineEditorViewModel(package, "root", new PlaybackService(), new TimelineSettingsService());
     }
 
     [Fact]
     public void ClipViewModel_IsResizableFlag_CorrectlySet()
     {
-        TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root");
+        TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root", new PlaybackService(), new TimelineSettingsService());
         PictogramClipViewModel p = new(new PictogramClip(), 24, Colors.LightBlue, "", "", timeline);
         KaraokeClipViewModel k = new(new KaraokeClip(), 24, Colors.Goldenrod, "", "", timeline);
         MoveClipViewModel m = new(new MoveClip(), 24, Colors.LightGray, "", "", timeline);
@@ -51,7 +52,7 @@ public class ClipInteractionHandlerTests
     public void SingleDrag_NoUndo_When_NoMovement()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
         {
@@ -72,7 +73,7 @@ public class ClipInteractionHandlerTests
     public void SingleDrag_RecordsUndo_When_Moved()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
         {
@@ -100,7 +101,7 @@ public class ClipInteractionHandlerTests
     public void MultiDrag_RecordsUndo_When_Changed()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         PictogramClipViewModel c1 = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline);
         PictogramClipViewModel c2 = new(new PictogramClip { PictogramId = "b" }, 24, Colors.LightBlue, "b", "", timeline);
@@ -134,7 +135,7 @@ public class ClipInteractionHandlerTests
     public void Resize_NoUndo_When_NoChange()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
         {
@@ -161,7 +162,7 @@ public class ClipInteractionHandlerTests
     public void Resize_RecordsUndo_When_Changed()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
         {
@@ -190,7 +191,7 @@ public class ClipInteractionHandlerTests
     public void HideHudResize_RecordsUndo_When_Changed()
     {
         IntermediateSongPackage package = new();
-        TimelineEditorViewModel timeline = new(package, "root");
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
         HideUserInterfaceClipViewModel clip = new(new HideUserInterfaceClip(), 24, Colors.MediumPurple, string.Empty, "", timeline)
         {
