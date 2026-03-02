@@ -63,8 +63,10 @@ public partial class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
                 if (!list.Any(x => x.Name == name))
                     list.Add(new PictogramOptionViewModel(name, file));
             }
+
             list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
         }
+
         return list;
     }
 

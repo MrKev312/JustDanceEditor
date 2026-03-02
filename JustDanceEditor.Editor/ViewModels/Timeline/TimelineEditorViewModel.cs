@@ -1,9 +1,14 @@
 // File: .\ViewModels\Timeline\TimelineEditorViewModel.cs
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using Dock.Model.Core;
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
@@ -101,6 +106,11 @@ public partial class TimelineEditorViewModel : Document
     // suppress broadcasting when applying remote changes
     private bool _suppressSnapBroadcast = false;
     private TimelineSettingsService _settings = null!;
+    private string _baseTitle = string.Empty;
+
+    /// <summary>Set to true by <see cref="PromptSaveOnCloseAsync"/> to allow the
+    /// second <see cref="OnClose"/> call to proceed after the user confirms.</summary>
+    private bool _allowClose = false;
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
     public IPlaybackService Playback { get; }
@@ -167,7 +177,8 @@ public partial class TimelineEditorViewModel : Document
         Package = package;
         RootPath = rootPath;
         Id = package.Metadata.SongID.ToString();
-        Title = package.Metadata.MapName;
+        _baseTitle = package.Metadata.MapName;
+        Title = _baseTitle;
 
         // Create undo service for this timeline
         UndoService = new UndoService();
@@ -209,6 +220,7 @@ public partial class TimelineEditorViewModel : Document
                 case nameof(TimelineSettingsService.SnapToClips) when SnapToClips != settings.SnapToClips:
                     SnapToClips = settings.SnapToClips; break;
             }
+
             _suppressSnapBroadcast = false;
         };
     }
@@ -412,7 +424,8 @@ public partial class TimelineEditorViewModel : Document
         Playback.Pause();
 
         // Sync scalar properties from the updated package
-        Title = Package.Metadata.MapName;
+        _baseTitle = Package.Metadata.MapName;
+        Title = UndoService.IsDirty ? $"{_baseTitle} *" : _baseTitle;
         BeatOffset = Package.TimelineStructure.StartBeat;
         MaxBeat = Package.TimelineStructure.EndBeat - Package.TimelineStructure.StartBeat;
         StartBeatValue = Package.TimelineStructure.StartBeat;
@@ -533,6 +546,10 @@ public partial class TimelineEditorViewModel : Document
 
         // Finally, write package to disk
         IntermediatePackageSerializer.WriteToFolder(Package, RootPath);
+
+        // Mark this stack position as saved so the dirty indicator clears
+        UndoService.MarkSaved();
+        Title = _baseTitle;
     }
 
     private void UpdateTimelineWidth()
@@ -602,24 +619,27 @@ public partial class TimelineEditorViewModel : Document
     private void HookUndoServiceStateChanged()
     {
         UndoService?.StateChanged += (s, e) =>
+        {
+            // Update title with unsaved indicator
+            Title = UndoService.IsDirty ? $"{_baseTitle} *" : _baseTitle;
+
+            // Notify bindings
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+
+            // Notify generated commands to requery CanExecute
+            try
             {
-                // Notify bindings
-                OnPropertyChanged(nameof(CanUndo));
-                OnPropertyChanged(nameof(CanRedo));
+                UndoCommand.NotifyCanExecuteChanged();
+            }
+            catch { }
 
-                // Notify generated commands to requery CanExecute
-                try
-                {
-                    UndoCommand.NotifyCanExecuteChanged();
-                }
-                catch { }
-
-                try
-                {
-                    RedoCommand.NotifyCanExecuteChanged();
-                }
-                catch { }
-            };
+            try
+            {
+                RedoCommand.NotifyCanExecuteChanged();
+            }
+            catch { }
+        };
     }
 
     [RelayCommand]
@@ -1025,6 +1045,14 @@ public partial class TimelineEditorViewModel : Document
 
     public override bool OnClose()
     {
+        if (UndoService.IsDirty && !_allowClose)
+        {
+            // Cancel this close attempt and show a save-prompt asynchronously.
+            // When the user confirms, _allowClose is set and Close() is re-triggered.
+            Dispatcher.UIThread.InvokeAsync(PromptSaveOnCloseAsync);
+            return false;
+        }
+
         Playback.Dispose();
         if (!string.IsNullOrEmpty(PreparedAudioPath) && File.Exists(PreparedAudioPath))
         {
@@ -1036,6 +1064,81 @@ public partial class TimelineEditorViewModel : Document
         }
 
         return base.OnClose();
+    }
+
+    /// <summary>
+    /// Shows a "Save / Don't Save / Cancel" dialog when the user tries to close a
+    /// dirty tab. On confirmation the dockable is closed programmatically.
+    /// </summary>
+    private async Task PromptSaveOnCloseAsync()
+    {
+        Window? mainWindow =
+            Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime al
+                ? al.MainWindow
+                : null;
+        if (mainWindow == null)
+            return;
+
+        Button saveBtn = new() { Content = "Save", Width = 96, Margin = new Thickness(6) };
+        Button discardBtn = new() { Content = "Don't Save", Width = 96, Margin = new Thickness(6) };
+        Button cancelBtn = new() { Content = "Cancel", Width = 96, Margin = new Thickness(6) };
+
+        StackPanel buttons = new()
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        };
+        buttons.Children.AddRange([saveBtn, discardBtn, cancelBtn]);
+
+        StackPanel body = new() { Margin = new Thickness(20, 16, 20, 12) };
+        body.Children.Add(new TextBlock
+        {
+            Text = $"\"{_baseTitle}\" has unsaved changes. Do you want to save before closing?",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 16)
+        });
+        body.Children.Add(buttons);
+
+        Window dialog = new()
+        {
+            Title = "Unsaved Changes",
+            Width = 440,
+            Height = 160,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = body
+        };
+
+        string choice = "cancel";
+        saveBtn.Click += (_, _) =>
+        {
+            choice = "save";
+            dialog.Close();
+        };
+        discardBtn.Click += (_, _) =>
+        {
+            choice = "discard";
+            dialog.Close();
+        };
+        cancelBtn.Click += (_, _) => dialog.Close();
+
+        await dialog.ShowDialog(mainWindow);
+
+        if (choice == "save")
+        {
+            try
+            {
+                Save();
+            }
+            catch { /* save failure – still allow close */ }
+        }
+
+        if (choice is "save" or "discard")
+        {
+            _allowClose = true;
+            // Trigger the real close through the Dock factory
+            (Owner as IDock)?.Factory?.CloseDockable(this);
+        }
     }
 
     partial void OnSnapToGridChanged(bool value)

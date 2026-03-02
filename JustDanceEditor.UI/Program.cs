@@ -54,7 +54,7 @@ internal class Program
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services
-        builder.Services.AddKeyedSingleton<IJdiFormat, Formats.UbiArt.UbiArtJdiFormat>("UbiArt");
+        builder.Services.AddKeyedSingleton<IJdiFormat, UbiArtJdiFormat>("UbiArt");
         builder.Services.AddKeyedSingleton<IJdiFormat, Formats.Unity.UnityJdiFormat>("Unity");
         builder.Services.AddSingleton<IJdiFormat, JdiFormat>();
 

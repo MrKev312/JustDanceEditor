@@ -20,11 +20,8 @@ public partial class VideoToolView : UserControl
 
         DataContextChanged += (s, e) =>
         {
-            if (_subscribedVm != null)
-            {
-                _subscribedVm.PropertyChanged -= OnVmPropertyChanged;
-                _subscribedVm = null;
-            }
+            _subscribedVm?.PropertyChanged -= OnVmPropertyChanged;
+            _subscribedVm = null;
 
             if (DataContext is VideoToolViewModel vm)
             {
@@ -44,14 +41,9 @@ public partial class VideoToolView : UserControl
 
     protected override void OnUnloaded(Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (_videoView != null)
-            _videoView.MediaPlayer = null;
-
-        if (_subscribedVm != null)
-        {
-            _subscribedVm.PropertyChanged -= OnVmPropertyChanged;
-            _subscribedVm = null;
-        }
+        _videoView?.MediaPlayer = null;
+        _subscribedVm?.PropertyChanged -= OnVmPropertyChanged;
+        _subscribedVm = null;
 
         base.OnUnloaded(e);
     }

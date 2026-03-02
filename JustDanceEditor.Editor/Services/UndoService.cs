@@ -9,11 +9,23 @@ namespace JustDanceEditor.Editor.Services;
 /// </summary>
 public class UndoService : IUndoService
 {
-    private readonly Stack<(Action Undo, Action Redo)> _undoStack = new();
-    private readonly Stack<(Action Undo, Action Redo)> _redoStack = new();
+    // Each recorded action receives a unique monotonically-increasing sequence
+    // number. Tracking the sequence at the top of the undo stack (0 = empty)
+    // lets us detect dirty state correctly even when undo + new-record reaches
+    // the same stack *depth* as the saved position but at a different history branch.
+    private long _nextSequence = 1;
+    private long _topSequence = 0;      // current top-of-undo-stack sequence (0 = empty)
+    private long _savepointSequence = 0; // sequence when last saved (0 = initial clean)
+
+    private readonly Stack<(Action Undo, Action Redo, long Seq)> _undoStack = new();
+    private readonly Stack<(Action Undo, Action Redo, long Seq)> _redoStack = new();
 
     public bool CanUndo => _undoStack.Count > 0;
     public bool CanRedo => _redoStack.Count > 0;
+
+    public bool IsDirty => _topSequence != _savepointSequence;
+
+    public void MarkSaved() => _savepointSequence = _topSequence;
 
     public event EventHandler? StateChanged;
 
@@ -22,8 +34,10 @@ public class UndoService : IUndoService
         ArgumentNullException.ThrowIfNull(undo);
         ArgumentNullException.ThrowIfNull(redo);
 
-        _undoStack.Push((undo, redo));
+        long seq = _nextSequence++;
+        _undoStack.Push((undo, redo, seq));
         _redoStack.Clear();
+        _topSequence = seq;
 
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -33,9 +47,10 @@ public class UndoService : IUndoService
         if (!CanUndo)
             return;
 
-        (Action? undo, Action? redo) = _undoStack.Pop();
+        (Action undo, Action redo, long seq) = _undoStack.Pop();
         undo();
-        _redoStack.Push((undo, redo));
+        _redoStack.Push((undo, redo, seq));
+        _topSequence = _undoStack.TryPeek(out (Action Undo, Action Redo, long Seq) top) ? top.Seq : 0;
 
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -45,9 +60,10 @@ public class UndoService : IUndoService
         if (!CanRedo)
             return;
 
-        (Action? undo, Action? redo) = _redoStack.Pop();
+        (Action undo, Action redo, long seq) = _redoStack.Pop();
         redo();
-        _undoStack.Push((undo, redo));
+        _undoStack.Push((undo, redo, seq));
+        _topSequence = seq;
 
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -59,6 +75,7 @@ public class UndoService : IUndoService
 
         _undoStack.Clear();
         _redoStack.Clear();
+        _topSequence = 0;
 
         StateChanged?.Invoke(this, EventArgs.Empty);
     }

@@ -99,13 +99,12 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                         if (item.Property.Name == "BackgroundColor" && first is IHasSharedColorSource colorSource)
                         {
                             // Gather redirect targets from all selected clips that implement the interface.
-                            List<object> redirectTargets = selection
+                            List<object> redirectTargets = [.. selection
                                 .OfType<IHasSharedColorSource>()
                                 .Select(c => c.GetColorEditTarget("BackgroundColor", ActiveTimeline!))
                                 .Where(t => t.HasValue)
                                 .Select(t => t!.Value.Target)
-                                .Distinct()
-                                .ToList();
+                                .Distinct()];
                             if (redirectTargets.Count == 0)
                                 continue;
 

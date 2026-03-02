@@ -40,8 +40,8 @@ public class EditSongCommand : IRunCommand
             if (mainWindow == null)
                 return;
 
-            // Block if there are unsaved changes (non-empty undo stack)
-            if (timeline.UndoService.CanUndo)
+            // Block if there are unsaved changes (dirty relative to last save)
+            if (timeline.UndoService.IsDirty)
             {
                 Window warnWin = new()
                 {

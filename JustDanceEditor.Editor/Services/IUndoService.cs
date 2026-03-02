@@ -40,6 +40,20 @@ public interface IUndoService
     void Clear();
 
     /// <summary>
+    /// Gets whether the current state differs from the last saved position.
+    /// Uses a sequence-based savepoint so that undo + new-action is always
+    /// considered dirty even if the stack depth matches the saved depth.
+    /// </summary>
+    bool IsDirty { get; }
+
+    /// <summary>
+    /// Marks the current undo-stack position as saved, clearing the dirty flag
+    /// until the next <see cref="Record"/>, <see cref="Undo"/>, or
+    /// <see cref="Redo"/> call that moves away from this position.
+    /// </summary>
+    void MarkSaved();
+
+    /// <summary>
     /// Fires when the undo/redo state changes (CanUndo or CanRedo).
     /// </summary>
     event EventHandler? StateChanged;

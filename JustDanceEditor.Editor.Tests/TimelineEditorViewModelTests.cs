@@ -1,12 +1,12 @@
+using Avalonia.Media;
+
+using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Editor.ViewModels.Timeline;
 
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-
-using Avalonia.Media;
 
 namespace JustDanceEditor.Editor.Tests;
 

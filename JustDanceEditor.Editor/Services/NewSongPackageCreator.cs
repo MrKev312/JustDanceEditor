@@ -1,3 +1,5 @@
+using JustDanceEditor.Audio;
+using JustDanceEditor.Audio.Providers;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
@@ -7,14 +9,11 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
-using JustDanceEditor.Audio;
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using JustDanceEditor.Audio.Providers;
 
 namespace JustDanceEditor.Editor.Services;
 

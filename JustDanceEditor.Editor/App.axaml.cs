@@ -39,7 +39,7 @@ public partial class App : Application
         // ── Build DI container ──────────────────────────────────────────────────
         ServiceCollection sc = new();
 
-        sc.AddSingleton<LibVLC>(_ => new LibVLC(
+        sc.AddSingleton(_ => new LibVLC(
             "--avcodec-hw=any",
             "--no-stats",
             "--no-video-title-show",
