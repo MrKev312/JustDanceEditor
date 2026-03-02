@@ -188,21 +188,29 @@ public partial class MainWindowViewModel : ViewModelBase
             try
             {
                 IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(path);
-                TimelineEditorViewModel editorVm = new(package, path);
-
-                if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
-                {
-                    _factory?.AddDockable(mainDock, editorVm);
-                    _factory?.SetActiveDockable(editorVm);
-                    _factory?.SetFocusedDockable(mainDock, editorVm);
-
-                    _timelineContext.UpdateActiveTimeline(editorVm);
-                }
+                OpenPackage(package, path);
             }
             catch
             {
                 // ignore load errors
             }
+        }
+    }
+
+    /// <summary>
+    /// Opens a loaded IntermediateSongPackage in a new timeline editor tab.
+    /// </summary>
+    public void OpenPackage(IntermediateSongPackage package, string rootPath)
+    {
+        TimelineEditorViewModel editorVm = new(package, rootPath);
+
+        if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
+        {
+            _factory?.AddDockable(mainDock, editorVm);
+            _factory?.SetActiveDockable(editorVm);
+            _factory?.SetFocusedDockable(mainDock, editorVm);
+
+            _timelineContext.UpdateActiveTimeline(editorVm);
         }
     }
 }

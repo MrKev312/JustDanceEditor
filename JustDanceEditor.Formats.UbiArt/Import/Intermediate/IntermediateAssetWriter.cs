@@ -129,13 +129,13 @@ internal static class IntermediateAssetWriter
                         {
                             // Resize to standard cover dimensions
                             image.Mutate(x => x.Resize(640, 360));
-                            
+
                             io.CreateDirectory(Path.GetDirectoryName(destination)!);
                             image.Save(destination, Encoder);
                             logger.LogInformation("Saved existing cover image: {FileName}", Path.GetFileName(cover.RelativePath));
                             return destination;
                         }
-                        
+
                         logger.LogDebug("Cover art found but has incorrect aspect ratio, will be generated from background");
                     }
                 }

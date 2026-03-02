@@ -303,22 +303,22 @@ public static class CoverComposer
             for (int x = 0; x < width; x++)
             {
                 Bgra32 pixel = banner[x, y];
-                
+
                 // Use blue channel as weight between colorA and colorB
                 float weight = pixel.B / 255f;
                 Bgra32 newColor = GetWeightedAverage(colorA, colorB, weight);
-                
+
                 // Add green channel to brighten highlights
                 if (colorMode != BannerColorMode.Gradient)
                     newColor = AddGreenChannel(newColor, pixel.G);
-                
+
                 resultImage[x, y] = newColor;
             }
         }
 
         // Resize to standard map background dimensions
         resultImage.Mutate(x => x.Resize(BackgroundWidth, BackgroundHeight));
-        
+
         return resultImage;
     }
 
@@ -358,7 +358,7 @@ public static class CoverComposer
         // Overlay: softened, lower-intensity fade to 1b — wider vertical spread and gentler peak
         // - Spread: expanded vertically so effect is less localized
         // - Intensity: peak reduced (was 40%) and eased with smoothstep for gentler edges
-        if (position > 0.60f && position < 0.95f)
+        if (position is > 0.60f and < 0.95f)
         {
             const float center = 0.825f;
             const float halfWidth = 0.175f; // affects ~0.60 -> 0.95
@@ -366,7 +366,7 @@ public static class CoverComposer
             float dist = Math.Abs(position - center);
             float t = Math.Clamp(1.0f - (dist / halfWidth), 0f, 1f); // 0..1
             // smoothstep to produce a gentler falloff
-            float smooth = t * t * (3f - 2f * t);
+            float smooth = t * t * (3f - (2f * t));
 
             const float maxBlend = 0.20f; // reduce peak from 40% -> 20%
             float blendAmount = smooth * maxBlend;
@@ -388,10 +388,10 @@ public static class CoverComposer
     private static Bgra32 BlendColors(Bgra32 from, Bgra32 to, float blend)
     {
         return new Bgra32(
-            (byte)(from.R + (to.R - from.R) * blend),
-            (byte)(from.G + (to.G - from.G) * blend),
-            (byte)(from.B + (to.B - from.B) * blend),
-            (byte)(from.A + (to.A - from.A) * blend)
+            (byte)(from.R + ((to.R - from.R) * blend)),
+            (byte)(from.G + ((to.G - from.G) * blend)),
+            (byte)(from.B + ((to.B - from.B) * blend)),
+            (byte)(from.A + ((to.A - from.A) * blend))
         );
     }
 
@@ -719,11 +719,11 @@ public static class CoverComposer
             return fallback;
 
         string hex = hexColor.TrimStart('#');
-        
+
         // Support both RRGGBB and RRGGBBAA formats
         if (hex.Length == 6)
             hex += "FF"; // Add full opacity if alpha not provided
-        
+
         if (hex.Length != 8)
             return fallback;
 

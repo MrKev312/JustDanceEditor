@@ -654,6 +654,7 @@ public partial class TimelineTrackPanel
 
                 track.Clips.Add(clipVm);
             }
+
             return;
         }
 

@@ -1,10 +1,13 @@
 ﻿using Avalonia.Threading;
 
+using JustDanceEditor.Audio.Providers;
+
 using LibVLCSharp.Shared;
 
 using NAudio.Wave;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -15,7 +18,9 @@ public class PlaybackService : IPlaybackService, IDisposable
 {
     // NAudio (audio only)
     private IWavePlayer? _outputDevice;
-    private WaveStream? _audioFile;
+    private AudioFileReader? _audioFile;
+    private EndlessSampleProvider? _endless;
+    private MetronomeSampleProvider? _metronome;
 
     private Func<double, double> _beatToSeconds = b => b * 0.5;
     private Func<double, double> _secondsToBeat = s => s / 0.5;
@@ -42,7 +47,16 @@ public class PlaybackService : IPlaybackService, IDisposable
     public double CurrentBeat
         => _secondsToBeat(CurrentTime.TotalSeconds);
 
-    public TimeSpan Duration => _audioFile?.TotalTime ?? TimeSpan.Zero;
+    public TimeSpan Duration
+    {
+        get
+        {
+            TimeSpan audioDur = _audioFile?.TotalTime ?? TimeSpan.Zero;
+            return field > audioDur ? field : audioDur;
+        }
+
+        private set;
+    } = TimeSpan.Zero;
 
     public event EventHandler? TimeChanged;
     public event EventHandler? PlayStateChanged;
@@ -89,8 +103,10 @@ public class PlaybackService : IPlaybackService, IDisposable
             {
                 // Load WAV with NAudio (reliable)
                 _audioFile = new AudioFileReader(audioPath);
+                _endless = new EndlessSampleProvider(_audioFile, _audioFile.TotalTime);
+                _metronome = new MetronomeSampleProvider(_endless);
                 _outputDevice = new WaveOutEvent();
-                _outputDevice.Init(_audioFile);
+                _outputDevice.Init(_metronome);
             });
         }
 
@@ -115,7 +131,14 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = true;
         _stopwatch.Restart();
 
-        _audioFile?.CurrentTime = CurrentTime;
+        if (_audioFile != null)
+        {
+            TimeSpan audioPos = CurrentTime < _audioFile.TotalTime ? CurrentTime : _audioFile.TotalTime;
+            _audioFile.CurrentTime = audioPos;
+        }
+
+        _endless?.Reset(CurrentTime.TotalSeconds);
+        _metronome?.ResetPosition(CurrentTime.TotalSeconds);
 
         _outputDevice?.Play();
 
@@ -146,10 +169,18 @@ public class PlaybackService : IPlaybackService, IDisposable
         _baseTime = time;
         if (_baseTime < TimeSpan.Zero)
             _baseTime = TimeSpan.Zero;
-        if (_audioFile != null && _baseTime > _audioFile.TotalTime)
-            _baseTime = _audioFile.TotalTime;
+        if (_baseTime > Duration)
+            _baseTime = Duration;
 
-        _audioFile?.CurrentTime = _baseTime;
+        // Clamp audio file reader to its own duration (CurrentTime can't go past TotalTime)
+        if (_audioFile != null)
+        {
+            TimeSpan audioPos = _baseTime < _audioFile.TotalTime ? _baseTime : _audioFile.TotalTime;
+            _audioFile.CurrentTime = audioPos;
+        }
+
+        _endless?.Reset(_baseTime.TotalSeconds);
+        _metronome?.ResetPosition(_baseTime.TotalSeconds);
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
@@ -171,6 +202,32 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         _outputDevice = null;
         _audioFile = null;
+        _endless = null;
+        _metronome = null;
+        Duration = TimeSpan.Zero;
+    }
+
+    // ─── Extended end (silence padding) ───
+
+    public void SetExtendedEnd(TimeSpan end)
+    {
+        Duration = end;
+    }
+
+    // ─── Metronome ───
+
+    public bool IsMetronomeEnabled
+    {
+        get => _metronome?.Enabled ?? false;
+        set
+        {
+            _metronome?.Enabled = value;
+        }
+    }
+
+    public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
+    {
+        _metronome?.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
     }
 
     public void Dispose()

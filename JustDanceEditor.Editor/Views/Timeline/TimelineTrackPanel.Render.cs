@@ -164,84 +164,104 @@ public partial class TimelineTrackPanel
 
     private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
     {
-        double maxBeat = visibleEndBeat;
-        if (Signatures != null)
-        {
-            List<SignatureSegment> sortedSig = [.. Signatures.OrderBy(s => s.Marker)];
-            if (sortedSig.Count == 0)
-            {
-                DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
-            }
-            else
-            {
-                for (int i = 0; i < sortedSig.Count; i++)
-                {
-                    double startBeat = sortedSig[i].Marker - offset;
-                    double endBeat = (i + 1 < sortedSig.Count) ? sortedSig[i + 1].Marker - offset : maxBeat;
-                    int beatsPerMeasure = sortedSig[i].Beats;
-
-                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height, bounds.Width);
-                }
-            }
-        }
-        else
-        {
-            DrawMeasures(context, 0, maxBeat, 4, ppb, offset, bounds.Height, bounds.Width);
-        }
-    }
-
-    private static void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height, double boundsWidth)
-    {
-        double actualStartBeat = startBeat + offset;
-        double actualEndBeat = endBeat + offset;
+        List<SignatureSegment> sortedSigs = Signatures?.OrderBy(s => s.Marker).ToList() ?? [];
+        List<double> sectionStarts = Sections != null
+            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
+            : [];
 
         SolidColorBrush brushA = new(Colors.White, 0.05);
         SolidColorBrush brushB = new(Colors.White, 0.02);
+        SolidColorBrush brushErr = new(Colors.Red, 0.08);
 
-        int measureIndex = 0;
-        for (double b = actualStartBeat; b < actualEndBeat; b += bpm)
+        double rangeStart = offset;
+        double rangeEnd = offset + MaxBeat;
+
+        List<(double start, double end)> intervals = [];
+        if (sectionStarts.Count == 0)
         {
-            double mStart = b;
-            double mEnd = Math.Min(actualEndBeat, b + bpm);
-
-            double xStart = (mStart - offset) * ppb;
-            double xEnd = (mEnd - offset) * ppb;
-
-            if (xEnd < 0)
+            intervals.Add((rangeStart, rangeEnd));
+        }
+        else
+        {
+            for (int i = 0; i < sectionStarts.Count; i++)
             {
-                measureIndex++;
+                double sStart = sectionStarts[i];
+                double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
+                intervals.Add((sStart, sEnd));
+            }
+        }
+
+        int colorIndex = 0;
+        for (int si = 0; si < intervals.Count; si++)
+        {
+            bool isLastSection = si == intervals.Count - 1;
+            (double sStart, double sEnd) = intervals[si];
+
+            if (sEnd <= rangeStart)
+            {
+                colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
                 continue;
             }
 
-            if (xStart > boundsWidth)
+            if (sStart >= rangeEnd)
                 break;
 
-            SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
-            context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
+            int sectionColor = colorIndex;
+            int groupInSection = 0;
+            double pos = sStart;
 
-            measureIndex++;
+            while (pos < sEnd - 0.01 && pos < rangeEnd)
+            {
+                int blockSize = TimelineRenderHelper.GetActiveBlockSize(pos, sortedSigs);
+                double gEnd = pos + blockSize;
+
+                bool isPartialSectionEnd = gEnd > sEnd + 0.01;
+                if (isPartialSectionEnd)
+                    gEnd = sEnd;
+
+                double nextSig = TimelineRenderHelper.GetNextSigChange(pos, sortedSigs);
+                bool isPartialSigChange = false;
+                if (!isPartialSectionEnd && nextSig < gEnd - 0.01)
+                {
+                    gEnd = nextSig;
+                    isPartialSigChange = true;
+                }
+
+                bool isPartial = isPartialSigChange || (isPartialSectionEnd && !isLastSection);
+
+                double xStart = (pos - offset) * ppb;
+                double xEnd = (gEnd - offset) * ppb;
+                if (xEnd >= 0 && xStart <= bounds.Width)
+                {
+                    SolidColorBrush brush = isPartial ? brushErr : ((sectionColor + groupInSection) % 2 == 0 ? brushA : brushB);
+                    context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, bounds.Height));
+                }
+
+                groupInSection++;
+                pos = gEnd;
+            }
+
+            colorIndex += groupInSection;
         }
     }
 
     private void DrawGridLines(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
     {
-        // Draw measure and beat grid lines
+        List<double> sectionStarts = Sections != null
+            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
+            : [];
+
         for (int beat = (int)visibleStartBeat; beat <= (int)visibleEndBeat; beat++)
         {
             double x = (beat - offset) * ppb;
             if (x < 0 || x > bounds.Width)
                 continue;
 
-            // Measure lines every 4 beats (opaque)
-            if (beat % 4 == 0)
-            {
+            bool isMeasure = TimelineRenderHelper.IsBaseGroupBeat(beat, sectionStarts);
+            if (isMeasure)
                 context.DrawLine(TimelineResources.MeasureGridPen, new Point(x, 0), new Point(x, bounds.Height));
-            }
-            // Beat lines (semi-transparent)
-            else if (beat % 1 == 0)
-            {
+            else
                 context.DrawLine(TimelineResources.BeatGridPen, new Point(x, 0), new Point(x, bounds.Height));
-            }
         }
     }
 }

@@ -382,10 +382,10 @@ public class CoverComposerTests
         // Top should be pure red (1b)
         Assert.True(topPixel.R > topPixel.B, "Top should be red from 1b");
         Assert.True(topPixel.R > topPixel.G, "Top should be pure red (no green added)");
-        
+
         // Middle should also be red (from 1a), but with some white blend
         Assert.True(middlePixel.R > 0, "Middle should contain red from 1a");
-        
+
         // Bottom should be red (1a)
         Assert.True(bottomPixel.R > bottomPixel.B, "Bottom should be red from 1a");
     }
@@ -419,8 +419,8 @@ public class CoverComposerTests
         bool hasVariation = Math.Abs(brightnessLeft - brightnessRight) > 20 ||
                            Math.Abs(brightnessLeft - brightnessMiddle) > 20 ||
                            Math.Abs(brightnessMiddle - brightnessRight) > 20;
-        
-        Assert.True(hasVariation, 
+
+        Assert.True(hasVariation,
             $"Gradient should create brightness variation (L:{brightnessLeft}, M:{brightnessMiddle}, R:{brightnessRight})");
     }
 
@@ -501,6 +501,7 @@ public class CoverComposerTests
                 banner[x, y] = new Bgra32(128, green, blue, 255);
             }
         }
+
         return banner;
     }
 
@@ -515,6 +516,7 @@ public class CoverComposerTests
                 banner[x, y] = pixel;
             }
         }
+
         return banner;
     }
 
@@ -532,6 +534,7 @@ public class CoverComposerTests
                 banner[x, y] = new Bgra32(128, green, blue, 255);
             }
         }
+
         return banner;
     }
 

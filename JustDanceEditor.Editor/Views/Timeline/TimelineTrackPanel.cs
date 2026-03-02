@@ -67,6 +67,15 @@ public partial class TimelineTrackPanel : Control
         set => SetValue(SignaturesProperty, value);
     }
 
+    public static readonly StyledProperty<IEnumerable<SectionSegment>> SectionsProperty =
+        AvaloniaProperty.Register<TimelineTrackPanel, IEnumerable<SectionSegment>>(nameof(Sections));
+
+    public IEnumerable<SectionSegment> Sections
+    {
+        get => GetValue(SectionsProperty);
+        set => SetValue(SectionsProperty, value);
+    }
+
     public static readonly StyledProperty<IBrush?> BackgroundProperty =
         AvaloniaProperty.Register<TimelineTrackPanel, IBrush?>(nameof(Background), Brushes.Transparent);
 
@@ -106,7 +115,8 @@ public partial class TimelineTrackPanel : Control
             BeatOffsetProperty,
             MaxBeatProperty,
             BackgroundProperty,
-            SignaturesProperty);
+            SignaturesProperty,
+            SectionsProperty);
 
         AffectsMeasure<TimelineTrackPanel>(
             PixelsPerBeatProperty,
@@ -131,6 +141,45 @@ public partial class TimelineTrackPanel : Control
         AddHandler(DragDrop.DragOverEvent, OnExternalDragOver, handledEventsToo: false);
         AddHandler(DragDrop.DragLeaveEvent, OnExternalDragLeave, handledEventsToo: false);
         AddHandler(DragDrop.DropEvent, OnExternalDrop, handledEventsToo: false);
+    }
+
+    // Track the subscribed parent VM so we can unsubscribe cleanly
+    private TimelineEditorViewModel? _subscribedTimelineVm;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        SubscribeToTimelineVm();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        UnsubscribeFromTimelineVm();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void SubscribeToTimelineVm()
+    {
+        TimelineEditorViewModel? vm = GetTimelineVM();
+        if (vm != null && vm != _subscribedTimelineVm)
+        {
+            _subscribedTimelineVm = vm;
+            vm.PropertyChanged += OnTimelineVmPropertyChanged;
+        }
+    }
+
+    private void UnsubscribeFromTimelineVm()
+    {
+        _subscribedTimelineVm?.PropertyChanged -= OnTimelineVmPropertyChanged;
+        _subscribedTimelineVm = null;
+    }
+
+    private void OnTimelineVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
+        {
+            InvalidateVisual();
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

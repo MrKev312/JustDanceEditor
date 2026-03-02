@@ -4,54 +4,53 @@ using JustDanceEditor.Editor.Views.Timeline;
 
 using System.Reflection;
 
-namespace JustDanceEditor.Editor.Tests
+namespace JustDanceEditor.Editor.Tests;
+
+public class TimelineTrackPanelTests
 {
-    public class TimelineTrackPanelTests
+    private class TestMenu : ContextMenu
     {
-        private class TestMenu : ContextMenu
+        public bool CloseCalled { get; private set; }
+
+        public override void Close()
         {
-            public bool CloseCalled { get; private set; }
-
-            public override void Close()
-            {
-                CloseCalled = true;
-                base.Close();
-            }
+            CloseCalled = true;
+            base.Close();
         }
+    }
 
-        [Fact]
-        public void OpenAddClipMenu_ClosesPreviousMenu()
-        {
-            // arrange: stub out an existing menu and verify close is invoked
-            TimelineTrackPanel panel = new();
-            TestMenu stub = new();
+    [Fact]
+    public void OpenAddClipMenu_ClosesPreviousMenu()
+    {
+        // arrange: stub out an existing menu and verify close is invoked
+        TimelineTrackPanel panel = new();
+        TestMenu stub = new();
 
-            // use reflection to bypass the private setter on the public property
-            PropertyInfo prop = typeof(TimelineTrackPanel)
-                .GetProperty("CurrentContextMenu", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
-            prop.SetValue(null, stub);
+        // use reflection to bypass the private setter on the public property
+        PropertyInfo prop = typeof(TimelineTrackPanel)
+            .GetProperty("CurrentContextMenu", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        prop.SetValue(null, stub);
 
-            // act
-            panel.OpenAddClipMenu(null!);
+        // act
+        panel.OpenAddClipMenu(null!);
 
-            // assert
-            Assert.True(stub.CloseCalled);
-            Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
-        }
+        // assert
+        Assert.True(stub.CloseCalled);
+        Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
+    }
 
-        [Fact]
-        public void OpenAddClipMenu_ReplacesCurrentMenu()
-        {
-            TimelineTrackPanel panel = new();
+    [Fact]
+    public void OpenAddClipMenu_ReplacesCurrentMenu()
+    {
+        TimelineTrackPanel panel = new();
 
-            panel.OpenAddClipMenu(null!);
-            ContextMenu? first = TimelineTrackPanel.CurrentContextMenu;
-            Assert.NotNull(first);
+        panel.OpenAddClipMenu(null!);
+        ContextMenu? first = TimelineTrackPanel.CurrentContextMenu;
+        Assert.NotNull(first);
 
-            panel.OpenAddClipMenu(null!);
-            ContextMenu? second = TimelineTrackPanel.CurrentContextMenu;
+        panel.OpenAddClipMenu(null!);
+        ContextMenu? second = TimelineTrackPanel.CurrentContextMenu;
 
-            Assert.NotSame(first, second);
-        }
+        Assert.NotSame(first, second);
     }
 }

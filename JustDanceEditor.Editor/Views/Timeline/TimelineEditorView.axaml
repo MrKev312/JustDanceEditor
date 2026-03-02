@@ -84,6 +84,10 @@
 			</StackPanel>
 
 			<Separator Width="1" Background="#555"/>
+			<ToggleButton IsChecked="{Binding IsMetronomeEnabled}" Content="{Binding MetronomeIcon}" 
+			              ToolTip.Tip="Toggle Metronome" FontSize="16" MinWidth="36" MinHeight="24" Padding="6,2" VerticalAlignment="Center"/>
+
+			<Separator Width="1" Background="#555"/>
 			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="White" FontSize="12" Margin="6,0"/>
 		</StackPanel>
 
@@ -131,6 +135,7 @@
 							        BeatOffset="{Binding BeatOffset}"
 							        MaxBeat="{Binding MaxBeat}"
 							        Signatures="{Binding TimelineStructure.Signatures}"
+							        Sections="{Binding TimelineStructure.Sections}"
 							        Width="{Binding TimelineWidth}"/>
 
 						    <!-- Audio Waveform -->
@@ -140,24 +145,27 @@
 							       BeatOffset="{Binding BeatOffset}"
 							       Sections="{Binding TimelineStructure.Sections}"
 							       Signatures="{Binding TimelineStructure.Signatures}"
-							       Width="{Binding TimelineWidth}"/>
+						       AudioStartBeat="{Binding AudioStartBeat}"
+						       AudioEndBeat="{Binding AudioEndBeat}"
+						       Width="{Binding TimelineWidth}"/>
 
-						    <!-- Tracks Panels -->
-						    <ItemsControl ItemsSource="{Binding Tracks}">
-							    <ItemsControl.ItemTemplate>
-								    <DataTemplate x:DataType="vm:TrackViewModel">
-									    <local:TimelineTrackPanel Height="{StaticResource TrackHeight}"
-									      Clips="{Binding Clips}"
-									      PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
-									      BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
-									      MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
-									      Signatures="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Signatures}"
-									      Background="#1e1e1e1e">
-									    </local:TimelineTrackPanel>
-								    </DataTemplate>
-							    </ItemsControl.ItemTemplate>
-						    </ItemsControl>
-					    </StackPanel>
+					    <!-- Tracks Panels -->
+					    <ItemsControl ItemsSource="{Binding Tracks}">
+						    <ItemsControl.ItemTemplate>
+							    <DataTemplate x:DataType="vm:TrackViewModel">
+								    <local:TimelineTrackPanel Height="{StaticResource TrackHeight}"
+								      Clips="{Binding Clips}"
+								      PixelsPerBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).PixelsPerBeat}"
+								      BeatOffset="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).BeatOffset}"
+								      MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
+								      Signatures="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Signatures}"
+								      Sections="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Sections}"
+								      Background="#1e1e1e1e">
+								    </local:TimelineTrackPanel>
+							    </DataTemplate>
+						    </ItemsControl.ItemTemplate>
+					    </ItemsControl>
+				    </StackPanel>
 
 					    <!-- Playhead Overlay -->
 					    <Canvas x:Name="OverlayCanvas" IsHitTestVisible="False" ZIndex="100" Width="{Binding TimelineWidth}" Height="{Binding Path=Bounds.Height, ElementName=TracksStack}">

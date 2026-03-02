@@ -549,7 +549,7 @@ public sealed class IntermediateImageService(
                 string songColor1B = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_1b", "#FFFFFFFF");
                 string songColor2A = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2a", "#FFFFFFFF");
                 string songColor2B = _package.Metadata.AdditionalMetadata.GetValueOrDefault("songcolor_2b", "#FFFFFFFF");
-                
+
                 // Determine color mode based on JD version
                 // Pre-JD2019 uses Main mode (1a/1b only), JD2019+ uses Gradient mode
                 BannerColorMode colorMode = BannerColorMode.Main;

@@ -24,7 +24,8 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class TimelineEditorViewModel : Document
 {
-    private readonly IntermediateSongPackage _package;
+    /// <summary>Exposes the underlying song package for commands that need direct access.</summary>
+    public IntermediateSongPackage Package { get; }
 
     public string RootPath { get; }
 
@@ -63,6 +64,14 @@ public partial class TimelineEditorViewModel : Document
     [ObservableProperty]
     public partial float[] WaveformSamples { get; set; } = [];
 
+    /// <summary>Beat label where the audio file begins (= TimelineStructure.StartBeat).</summary>
+    [ObservableProperty]
+    public partial double AudioStartBeat { get; set; }
+
+    /// <summary>Beat label where the audio file ends (derived from Playback.Duration).</summary>
+    [ObservableProperty]
+    public partial double AudioEndBeat { get; set; } = double.MaxValue;
+
     // Snapping options (can be bound to UI toggles)
     [ObservableProperty]
     public partial bool SnapToGrid { get; set; } = false;
@@ -100,7 +109,7 @@ public partial class TimelineEditorViewModel : Document
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
     public IPlaybackService Playback { get; }
-    public TimelineStructureDocument TimelineStructure => _package.TimelineStructure;
+    public TimelineStructureDocument TimelineStructure => Package.TimelineStructure;
 
     // Registry of known move definitions keyed by (id,isFullBody)
     private readonly Dictionary<(string id, bool isFullBody), MoveDefinitionViewModel> _moveDefinitions = [];
@@ -111,11 +120,11 @@ public partial class TimelineEditorViewModel : Document
     public string PreparedAudioPath { get; private set; } = "";
     public double StartBeatValue { get; private set; }
     public double VideoOffset { get; private set; }
-    public int CoachCount => _package.Metadata.CoachCount;
-    public string LyricsColor => _package.Metadata.LyricsColor;
+    public int CoachCount => Package.Metadata.CoachCount;
+    public string LyricsColor => Package.Metadata.LyricsColor;
 
-    public IEnumerable<string> AvailableHandCoachMoves => _package.HandCoachMoves.Keys;
-    public IEnumerable<string> AvailableFullBodyCoachMoves => _package.FullBodyCoachMoves.Keys;
+    public IEnumerable<string> AvailableHandCoachMoves => Package.HandCoachMoves.Keys;
+    public IEnumerable<string> AvailableFullBodyCoachMoves => Package.FullBodyCoachMoves.Keys;
 
     /// <summary>
     /// Attempt to retrieve a color associated with the given move id from the package coach move definitions.
@@ -124,7 +133,7 @@ public partial class TimelineEditorViewModel : Document
     public bool TryGetCoachMoveColor(string moveId, out Color color)
     {
         CoachMoveDefinition? def = null;
-        if (_package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+        if (Package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || Package.FullBodyCoachMoves.TryGetValue(moveId, out d))
             def = d;
 
         if (def != null && Color.TryParse(def.Color, out Color c))
@@ -156,7 +165,7 @@ public partial class TimelineEditorViewModel : Document
 
     public TimelineEditorViewModel(IntermediateSongPackage package, string rootPath)
     {
-        _package = package;
+        Package = package;
         RootPath = rootPath;
         Id = package.Metadata.SongID.ToString();
         Title = package.Metadata.MapName;
@@ -168,8 +177,8 @@ public partial class TimelineEditorViewModel : Document
         Playback = new PlaybackService();
         Playback.TimeChanged += (s, e) => CurrentBeat = Playback.CurrentBeat;
 
-        BeatOffset = _package.TimelineStructure.StartBeat;
-        MaxBeat = _package.TimelineStructure.EndBeat - _package.TimelineStructure.StartBeat;
+        BeatOffset = Package.TimelineStructure.StartBeat;
+        MaxBeat = Package.TimelineStructure.EndBeat - Package.TimelineStructure.StartBeat;
         UpdateTimelineWidth();
 
         BuildTimeline();
@@ -241,8 +250,8 @@ public partial class TimelineEditorViewModel : Document
             }
         }
 
-        StartBeatValue = _package.TimelineStructure.StartBeat;
-        VideoOffset = -_package.TimelineStructure.VideoStartOffset;
+        StartBeatValue = Package.TimelineStructure.StartBeat;
+        VideoOffset = -Package.TimelineStructure.VideoStartOffset;
 
         // Prepare audio (Opus -> WAV)
         if (File.Exists(AudioPath))
@@ -256,7 +265,7 @@ public partial class TimelineEditorViewModel : Document
         }
 
         // Marker-based timing logic
-        TimelineStructureDocument ts = _package.TimelineStructure;
+        TimelineStructureDocument ts = Package.TimelineStructure;
         double startOffset = ts.GetSongStartOffset();
 
         // Ensure this timeline is loaded
@@ -267,22 +276,37 @@ public partial class TimelineEditorViewModel : Document
             s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)),
             VideoOffset);
 
-        WaveformSamples = await AudioWaveformService.GetWaveformDataAsync(AudioPath);
+        // Initialize metronome timing so it's ready when enabled
+        UpdateMetronomeTiming();
+
+        // Record where audio starts/ends in beat-space for waveform clipping
+        // (must be before SetExtendedEnd, as Duration will be overridden after that)
+        AudioStartBeat = ts.StartBeat;
+        double durSec = Playback.Duration.TotalSeconds;
+        AudioEndBeat = durSec > 0 && ts.Markers.Count >= 2
+            ? ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(durSec))
+            : ts.EndBeat;
+
+        // Extend playback with silence so the song plays through ts.EndBeat even if audio is short
+        double endSec = ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(ts.EndBeat));
+        Playback.SetExtendedEnd(TimeSpan.FromSeconds(endSec));
+
+        WaveformSamples = await AudioConversionService.GetWaveformDataAsync(AudioPath);
     }
 
     private void BuildTimeline()
     {
         // Determine lyrics color once
         Color lyricsColor = Colors.Yellow;
-        if (!string.IsNullOrEmpty(_package.Metadata.LyricsColor))
+        if (!string.IsNullOrEmpty(Package.Metadata.LyricsColor))
         {
-            lyricsColor = ClipViewModel.ParseRgbaHex(_package.Metadata.LyricsColor);
+            lyricsColor = ClipViewModel.ParseRgbaHex(Package.Metadata.LyricsColor);
         }
 
         // Store the lyrics definition color directly on the timeline as a Color field
         _lyricsDefinitionColor = new Color(255, lyricsColor.R, lyricsColor.G, lyricsColor.B);
         // Persist to metadata for consistency
-        _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+        Package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
         // Ensure UI knows lyrics color changed
         OnPropertyChanged(nameof(LyricsColor));
         OnPropertyChanged(nameof(LyricsDefinitionColor));
@@ -291,7 +315,7 @@ public partial class TimelineEditorViewModel : Document
         try
         {
             // Hand coach moves
-            foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.HandCoachMoves)
+            foreach (KeyValuePair<string, CoachMoveDefinition> kv in Package.HandCoachMoves)
             {
                 string id = kv.Key;
                 CoachMoveDefinition def = kv.Value;
@@ -307,7 +331,7 @@ public partial class TimelineEditorViewModel : Document
             }
 
             // Full body coach moves
-            foreach (KeyValuePair<string, CoachMoveDefinition> kv in _package.FullBodyCoachMoves)
+            foreach (KeyValuePair<string, CoachMoveDefinition> kv in Package.FullBodyCoachMoves)
             {
                 string id = kv.Key;
                 CoachMoveDefinition def = kv.Value;
@@ -365,19 +389,77 @@ public partial class TimelineEditorViewModel : Document
 
         // Build tracks using configuration-style calls (keeps BuildTimeline concise)
         // first a special track for the HUD hide events (below the audio waveform)
-        AddTrack("Hide HUD", 30, Colors.MediumPurple, _package.HideUserInterface.Clips.Cast<TimelineClipBase>());
+        AddTrack("Hide HUD", 30, Colors.MediumPurple, Package.HideUserInterface.Clips.Cast<TimelineClipBase>());
 
-        AddTrack("Lyrics", 40, Colors.Goldenrod, _package.Lyrics.Clips.Cast<TimelineClipBase>());
-        AddTrack("Pictograms", 60, Colors.CornflowerBlue, _package.Pictograms.Clips.Cast<TimelineClipBase>());
+        AddTrack("Lyrics", 40, Colors.Goldenrod, Package.Lyrics.Clips.Cast<TimelineClipBase>());
+        AddTrack("Pictograms", 60, Colors.CornflowerBlue, Package.Pictograms.Clips.Cast<TimelineClipBase>());
 
         // One track per coach timeline to preserve coach id in title
-        foreach (MoveTimeline coachTimeline in _package.CoachTimelines)
+        foreach (MoveTimeline coachTimeline in Package.CoachTimelines)
             AddTrack($"Coach {coachTimeline.CoachId}", 40, Colors.MediumPurple, coachTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: false);
 
-        foreach (MoveTimeline fullBodyTimeline in _package.FullBodyCoachTimelines)
+        foreach (MoveTimeline fullBodyTimeline in Package.FullBodyCoachTimelines)
             AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
 
-        AddTrack("Gold Effects", 30, Colors.OrangeRed, _package.GoldEffects.Clips.Cast<TimelineClipBase>());
+        AddTrack("Gold Effects", 30, Colors.OrangeRed, Package.GoldEffects.Clips.Cast<TimelineClipBase>());
+    }
+
+    /// <summary>
+    /// Rebuilds the timeline in-place from the current (already-updated) package,
+    /// and reloads playback with the new beat mapping. Audio is not re-converted.
+    /// </summary>
+    public async Task RebuildFromPackageAsync()
+    {
+        Playback.Pause();
+
+        // Sync scalar properties from the updated package
+        Title = Package.Metadata.MapName;
+        BeatOffset = Package.TimelineStructure.StartBeat;
+        MaxBeat = Package.TimelineStructure.EndBeat - Package.TimelineStructure.StartBeat;
+        StartBeatValue = Package.TimelineStructure.StartBeat;
+        VideoOffset = -Package.TimelineStructure.VideoStartOffset;
+        UpdateTimelineWidth();
+
+        // Notify the view that the structure document's sub-properties
+        // (Sections, Signatures, Markers, etc.) have been replaced.
+        OnPropertyChanged(nameof(StartBeatValue));
+        OnPropertyChanged(nameof(VideoOffset));
+        OnPropertyChanged(nameof(TimelineStructure));
+
+        // Rebuild track list from the updated package
+        Tracks.Clear();
+        _moveDefinitions.Clear();
+        BuildTimeline();
+
+        // Reload playback with updated beat-to-time mapping
+        // (reuse the already-converted WAV — no FFmpeg re-conversion needed)
+        TimelineStructureDocument ts = Package.TimelineStructure;
+        if (!string.IsNullOrEmpty(PreparedAudioPath) && File.Exists(PreparedAudioPath))
+        {
+            await Playback.LoadMediaAsync(
+                PreparedAudioPath,
+                VideoPath,
+                b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
+                s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)),
+                VideoOffset);
+
+            // Refresh metronome timing after edit
+            UpdateMetronomeTiming();
+
+            // Refresh audio beat bounds after re-load
+            // (must be before SetExtendedEnd, as Duration will be overridden after that)
+            AudioStartBeat = ts.StartBeat;
+            double durSec = Playback.Duration.TotalSeconds;
+            AudioEndBeat = durSec > 0 && ts.Markers.Count >= 2
+                ? ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(durSec))
+                : ts.EndBeat;
+
+            // Extend playback with silence so the song plays through ts.EndBeat even if audio is short
+            double endSec = ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(ts.EndBeat));
+            Playback.SetExtendedEnd(TimeSpan.FromSeconds(endSec));
+
+            WaveformSamples = await AudioConversionService.GetWaveformDataAsync(AudioPath);
+        }
     }
 
     public MoveDefinitionViewModel GetOrRegisterMove(string moveId, bool isFullBody)
@@ -394,7 +476,7 @@ public partial class TimelineEditorViewModel : Document
         double duration = 24.0;
         try
         {
-            if (_package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || _package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+            if (Package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || Package.FullBodyCoachMoves.TryGetValue(moveId, out d))
             {
                 if (d != null)
                 {
@@ -440,15 +522,15 @@ public partial class TimelineEditorViewModel : Document
             };
 
             if (isFull)
-                _package.FullBodyCoachMoves[id] = coachDef;
+                Package.FullBodyCoachMoves[id] = coachDef;
             else
-                _package.HandCoachMoves[id] = coachDef;
+                Package.HandCoachMoves[id] = coachDef;
         }
 
         // Ensure lyrics color metadata is up-to-date
         try
         {
-            _package.Metadata.LyricsColor = LyricsDefinitionColor.ToString();
+            Package.Metadata.LyricsColor = LyricsDefinitionColor.ToString();
         }
         catch { }
 
@@ -468,7 +550,7 @@ public partial class TimelineEditorViewModel : Document
         }
 
         // Finally, write package to disk
-        IntermediatePackageSerializer.WriteToFolder(_package, RootPath);
+        IntermediatePackageSerializer.WriteToFolder(Package, RootPath);
     }
 
     private void UpdateTimelineWidth()
@@ -620,7 +702,7 @@ public partial class TimelineEditorViewModel : Document
         if (!Equals(_lyricsDefinitionColor, normalized))
         {
             _lyricsDefinitionColor = normalized;
-            _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+            Package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
             OnPropertyChanged(nameof(LyricsColor));
             OnPropertyChanged(nameof(LyricsDefinitionColor));
         }
@@ -636,7 +718,7 @@ public partial class TimelineEditorViewModel : Document
             if (!Equals(_lyricsDefinitionColor, normalized))
             {
                 _lyricsDefinitionColor = normalized;
-                _package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
+                Package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(_lyricsDefinitionColor);
                 OnPropertyChanged(nameof(LyricsDefinitionColor));
                 OnPropertyChanged(nameof(LyricsColor));
             }
@@ -644,6 +726,320 @@ public partial class TimelineEditorViewModel : Document
     }
 
     public string GetLyricsColor() => LyricsColor;
+
+    // ─── Section / Signature editing ───
+
+    /// <summary>
+    /// Adds a section at the given beat with the given type.
+    /// Records undo so the action can be reversed.
+    /// </summary>
+    public void AddSection(double beat, SongSectionType type)
+    {
+        // Prevent duplicate at same position
+        if (TimelineStructure.Sections.Any(s => Math.Abs(s.StartBeat - beat) < 0.5))
+            return;
+
+        SectionSegment section = new() { SectionType = type, StartBeat = beat };
+        TimelineStructure.Sections.Add(section);
+        SortSections();
+
+        PushUndo(
+            undo: () =>
+            {
+                TimelineStructure.Sections.Remove(section);
+                SortSections();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                TimelineStructure.Sections.Add(section);
+                SortSections();
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Removes a section from the timeline structure.
+    /// </summary>
+    public void RemoveSection(SectionSegment section)
+    {
+        if (!TimelineStructure.Sections.Contains(section))
+            return;
+
+        int index = TimelineStructure.Sections.IndexOf(section);
+        SongSectionType type = section.SectionType;
+        double beat = section.StartBeat;
+
+        TimelineStructure.Sections.Remove(section);
+
+        PushUndo(
+            undo: () =>
+            {
+                TimelineStructure.Sections.Insert(Math.Min(index, TimelineStructure.Sections.Count), section);
+                SortSections();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                TimelineStructure.Sections.Remove(section);
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Moves a section to a new beat position (snapped to whole beat).
+    /// </summary>
+    public void MoveSection(SectionSegment section, double newBeat)
+    {
+        if (!TimelineStructure.Sections.Contains(section))
+            return;
+
+        // Prevent moving onto another section's position
+        if (TimelineStructure.Sections.Any(s => s != section && Math.Abs(s.StartBeat - newBeat) < 0.5))
+            return;
+
+        double oldBeat = section.StartBeat;
+        if (Math.Abs(oldBeat - newBeat) < 0.01)
+            return;
+
+        section.StartBeat = newBeat;
+        SortSections();
+
+        PushUndo(
+            undo: () =>
+            {
+                section.StartBeat = oldBeat;
+                SortSections();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                section.StartBeat = newBeat;
+                SortSections();
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Changes the type of an existing section.
+    /// </summary>
+    public void ChangeSectionType(SectionSegment section, SongSectionType newType)
+    {
+        SongSectionType oldType = section.SectionType;
+        if (oldType == newType)
+            return;
+
+        section.SectionType = newType;
+
+        PushUndo(
+            undo: () =>
+            {
+                section.SectionType = oldType;
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                section.SectionType = newType;
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Adds a signature at the given beat with the given beats value.
+    /// Records undo so the action can be reversed.
+    /// </summary>
+    public void AddSignature(double beat, int beats)
+    {
+        // Prevent duplicate at same position
+        if (TimelineStructure.Signatures.Any(s => Math.Abs(s.Marker - beat) < 0.5))
+            return;
+
+        SignatureSegment sig = new() { Beats = beats, Marker = beat };
+        TimelineStructure.Signatures.Add(sig);
+        SortSignatures();
+
+        PushUndo(
+            undo: () =>
+            {
+                TimelineStructure.Signatures.Remove(sig);
+                SortSignatures();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                TimelineStructure.Signatures.Add(sig);
+                SortSignatures();
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Removes a signature from the timeline structure.
+    /// </summary>
+    public void RemoveSignature(SignatureSegment sig)
+    {
+        if (!TimelineStructure.Signatures.Contains(sig))
+            return;
+
+        int index = TimelineStructure.Signatures.IndexOf(sig);
+        TimelineStructure.Signatures.Remove(sig);
+
+        PushUndo(
+            undo: () =>
+            {
+                TimelineStructure.Signatures.Insert(Math.Min(index, TimelineStructure.Signatures.Count), sig);
+                SortSignatures();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                TimelineStructure.Signatures.Remove(sig);
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Moves a signature to a new beat position (snapped to whole beat).
+    /// </summary>
+    public void MoveSignature(SignatureSegment sig, double newBeat)
+    {
+        if (!TimelineStructure.Signatures.Contains(sig))
+            return;
+
+        // Prevent moving onto another signature's position
+        if (TimelineStructure.Signatures.Any(s => s != sig && Math.Abs(s.Marker - newBeat) < 0.5))
+            return;
+
+        double oldBeat = sig.Marker;
+        if (Math.Abs(oldBeat - newBeat) < 0.01)
+            return;
+
+        sig.Marker = newBeat;
+        SortSignatures();
+
+        PushUndo(
+            undo: () =>
+            {
+                sig.Marker = oldBeat;
+                SortSignatures();
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                sig.Marker = newBeat;
+                SortSignatures();
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    /// <summary>
+    /// Changes the beats value of an existing signature.
+    /// </summary>
+    public void ChangeSignatureBeats(SignatureSegment sig, int newBeats)
+    {
+        int oldBeats = sig.Beats;
+        if (oldBeats == newBeats)
+            return;
+
+        sig.Beats = newBeats;
+
+        PushUndo(
+            undo: () =>
+            {
+                sig.Beats = oldBeats;
+                NotifyStructureChanged();
+            },
+            redo: () =>
+            {
+                sig.Beats = newBeats;
+                NotifyStructureChanged();
+            });
+
+        NotifyStructureChanged();
+    }
+
+    private void SortSections()
+    {
+        TimelineStructure.Sections.Sort((a, b) => a.StartBeat.CompareTo(b.StartBeat));
+    }
+
+    private void SortSignatures()
+    {
+        TimelineStructure.Signatures.Sort((a, b) => a.Marker.CompareTo(b.Marker));
+    }
+
+    /// <summary>
+    /// Notifies the view that the structure (sections/signatures) has changed,
+    /// causing timeline controls to re-render.
+    /// </summary>
+    public void NotifyStructureChanged()
+    {
+        OnPropertyChanged(nameof(TimelineStructure));
+
+        // Keep metronome in sync with section/signature changes
+        if (IsMetronomeEnabled)
+            UpdateMetronomeTiming();
+    }
+
+    // ─── Metronome ───
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MetronomeIcon))]
+    public partial bool IsMetronomeEnabled { get; set; }
+
+    public string MetronomeIcon => IsMetronomeEnabled ? "🔔" : "🔕";
+
+    partial void OnIsMetronomeEnabledChanged(bool value)
+    {
+        Playback.IsMetronomeEnabled = value;
+        if (value)
+            UpdateMetronomeTiming();
+    }
+
+    /// <summary>
+    /// Updates the metronome timing from the current timeline structure.
+    /// Call this when sections/signatures change while metronome is enabled.
+    /// </summary>
+    private void UpdateMetronomeTiming()
+    {
+        TimelineStructureDocument ts = Package.TimelineStructure;
+
+        // Derive zeroBeatTime, bpm, beatsPerMeasure from timeline markers
+        double zeroBeatTime = 0;
+        double bpm = 120;
+        int beatsPerMeasure = 4;
+
+        if (ts.Markers.Count >= 2)
+        {
+            double beatDurationSec = (ts.Markers[1] - ts.Markers[0]) / 48000.0;
+            if (beatDurationSec > 0)
+                bpm = 60.0 / beatDurationSec;
+
+            int zeroBeatIndex = -ts.StartBeat;
+            if (zeroBeatIndex >= 0 && zeroBeatIndex < ts.Markers.Count)
+                zeroBeatTime = ts.Markers[zeroBeatIndex] / 48000.0;
+        }
+
+        if (ts.Signatures.Count > 0)
+            beatsPerMeasure = ts.Signatures[0].Beats;
+
+        // Convert SectionSegments to beat positions for the metronome
+        Playback.UpdateMetronome(zeroBeatTime, bpm, beatsPerMeasure, ts.Sections.Select(s => (double)s.StartBeat));
+    }
 
     public override bool OnClose()
     {

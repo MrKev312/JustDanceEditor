@@ -102,13 +102,8 @@ public static class IntermediatePackageSerializer
     private static void WriteCoachMovesIfNeeded(string root, string relativePath, Dictionary<string, CoachMoveDefinition> moves)
     {
         string resolved = Resolve(root, relativePath);
-        if (moves.Count == 0)
-        {
-            if (File.Exists(resolved))
-                File.Delete(resolved);
-            return;
-        }
 
+        // Always write the file (empty dict if no moves), so it's present in the package
         Dictionary<string, CoachMoveDefinition> ordered = moves
             .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);

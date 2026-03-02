@@ -959,7 +959,7 @@ public class UncookedEngineContentGenerator(UbiArtEngineVersion EngineVersion) :
     {
         if (string.IsNullOrEmpty(hexColor) || hexColor.Length < 7)
             return "0xFFFF8080";
-        
+
         // Strip leading '#' and prepend with '0xFF'
         string hex = hexColor.TrimStart('#');
         return $"0xFF{hex}";
@@ -980,6 +980,7 @@ public class UncookedEngineContentGenerator(UbiArtEngineVersion EngineVersion) :
                     return startTime;
             }
         }
+
         return 0;
     }
 

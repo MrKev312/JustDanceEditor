@@ -60,7 +60,7 @@ internal static class IntermediatePackageBuilder
 
         double mapLengthSeconds = CalculateMapLengthSeconds(structure);
         string lyricsColor = ConvertColor(info.DefaultColors.Lyrics);
-        
+
         // Extract song colors for background generation
         string songColor1A = ConvertColor(info.DefaultColors.SongColor1a);
         string songColor1B = ConvertColor(info.DefaultColors.SongColor1b);
@@ -90,7 +90,7 @@ internal static class IntermediatePackageBuilder
 
         metadata.AdditionalMetadata["platformType"] = context.FileSystem.VersionProfile.Platform.ToString();
         metadata.AdditionalMetadata["videoPreviewPath"] = info.VideoPreviewPath;
-        
+
         // Store song colors for background generation
         metadata.AdditionalMetadata["songcolor_1a"] = songColor1A;
         metadata.AdditionalMetadata["songcolor_1b"] = songColor1B;

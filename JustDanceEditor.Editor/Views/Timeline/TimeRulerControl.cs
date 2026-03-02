@@ -8,6 +8,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
@@ -50,9 +51,60 @@ public class TimeRulerControl : Control
         set => SetValue(SignaturesProperty, value);
     }
 
+    public static readonly StyledProperty<IEnumerable<SectionSegment>> SectionsProperty =
+        AvaloniaProperty.Register<TimeRulerControl, IEnumerable<SectionSegment>>(nameof(Sections));
+
+    public IEnumerable<SectionSegment> Sections
+    {
+        get => GetValue(SectionsProperty);
+        set => SetValue(SectionsProperty, value);
+    }
+
     static TimeRulerControl()
     {
-        AffectsRender<TimeRulerControl>(PixelsPerBeatProperty, BeatOffsetProperty, MaxBeatProperty, SignaturesProperty);
+        AffectsRender<TimeRulerControl>(PixelsPerBeatProperty, BeatOffsetProperty, MaxBeatProperty, SignaturesProperty, SectionsProperty);
+    }
+
+    private TimelineEditorViewModel? _subscribedVm;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        SubscribeToViewModel();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        UnsubscribeFromViewModel();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        UnsubscribeFromViewModel();
+        SubscribeToViewModel();
+    }
+
+    private void SubscribeToViewModel()
+    {
+        if (DataContext is TimelineEditorViewModel vm && vm != _subscribedVm)
+        {
+            _subscribedVm = vm;
+            vm.PropertyChanged += OnViewModelPropertyChanged;
+        }
+    }
+
+    private void UnsubscribeFromViewModel()
+    {
+        _subscribedVm?.PropertyChanged -= OnViewModelPropertyChanged;
+        _subscribedVm = null;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
+            InvalidateVisual();
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -110,24 +162,85 @@ public class TimeRulerControl : Control
         context.FillRectangle(Brushes.Transparent, bounds);
 
         // 1. Draw Alternating Measure Backgrounds
-        if (Signatures != null)
+        List<SignatureSegment> sortedSigs = Signatures?.OrderBy(s => s.Marker).ToList() ?? [];
+        List<double> sectionStarts = Sections != null
+            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
+            : [];
+
         {
-            List<SignatureSegment> sortedSig = [.. Signatures.OrderBy(s => s.Marker)];
-            if (sortedSig.Count == 0)
+            SolidColorBrush brushA = new(Colors.White, 0.05);
+            SolidColorBrush brushB = new(Colors.White, 0.02);
+            SolidColorBrush brushErr = new(Colors.Red, 0.08);
+
+            double rangeStart = offset;
+            double rangeEnd = offset + max;
+
+            List<(double start, double end)> intervals = [];
+            if (sectionStarts.Count == 0)
             {
-                // Fallback to 4/4 if no signatures
-                DrawMeasures(context, 0, max, 4, ppb, offset, bounds.Height);
+                intervals.Add((rangeStart, rangeEnd));
             }
             else
             {
-                for (int i = 0; i < sortedSig.Count; i++)
+                for (int i = 0; i < sectionStarts.Count; i++)
                 {
-                    double startBeat = sortedSig[i].Marker - offset;
-                    double endBeat = (i + 1 < sortedSig.Count) ? sortedSig[i + 1].Marker - offset : max;
-                    int beatsPerMeasure = sortedSig[i].Beats;
-
-                    DrawMeasures(context, startBeat, endBeat, beatsPerMeasure, ppb, offset, bounds.Height);
+                    double sStart = sectionStarts[i];
+                    double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
+                    intervals.Add((sStart, sEnd));
                 }
+            }
+
+            int colorIndex = 0;
+            for (int si = 0; si < intervals.Count; si++)
+            {
+                bool isLastSection = si == intervals.Count - 1;
+                (double sStart, double sEnd) = intervals[si];
+
+                if (sEnd <= rangeStart)
+                {
+                    colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
+                    continue;
+                }
+
+                if (sStart >= rangeEnd)
+                    break;
+
+                int sectionColor = colorIndex;
+                int groupInSection = 0;
+                double pos = sStart;
+
+                while (pos < sEnd - 0.01 && pos < rangeEnd)
+                {
+                    int blockSize = TimelineRenderHelper.GetActiveBlockSize(pos, sortedSigs);
+                    double gEnd = pos + blockSize;
+
+                    bool isPartialSectionEnd = gEnd > sEnd + 0.01;
+                    if (isPartialSectionEnd)
+                        gEnd = sEnd;
+
+                    double nextSig = TimelineRenderHelper.GetNextSigChange(pos, sortedSigs);
+                    bool isPartialSigChange = false;
+                    if (!isPartialSectionEnd && nextSig < gEnd - 0.01)
+                    {
+                        gEnd = nextSig;
+                        isPartialSigChange = true;
+                    }
+
+                    bool isPartial = isPartialSigChange || (isPartialSectionEnd && !isLastSection);
+
+                    double xStart = (pos - offset) * ppb;
+                    double xEnd = (gEnd - offset) * ppb;
+                    if (xEnd >= 0 && xStart <= bounds.Width)
+                    {
+                        SolidColorBrush brush = isPartial ? brushErr : ((sectionColor + groupInSection) % 2 == 0 ? brushA : brushB);
+                        context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, bounds.Height));
+                    }
+
+                    groupInSection++;
+                    pos = gEnd;
+                }
+
+                colorIndex += groupInSection;
             }
         }
 
@@ -146,7 +259,7 @@ public class TimeRulerControl : Control
             if (x > bounds.Width)
                 break;
 
-            bool isMajor = (i + offset) % 4 == 0; // Keeping 4 for labels for now, or could sync with signatures too
+            bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(i + offset, sectionStarts);
             double tickHeight = isMajor ? 12 : 6;
 
             context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
@@ -163,41 +276,6 @@ public class TimeRulerControl : Control
 
                 context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
             }
-        }
-    }
-
-    private void DrawMeasures(DrawingContext context, double startBeat, double endBeat, int bpm, double ppb, int offset, double height)
-    {
-        // Internal measure calculation relative to the marker start
-        // We need to know which measure index we are at to alternate colors
-        double actualStartBeat = startBeat + offset;
-        double actualEndBeat = endBeat + offset;
-
-        SolidColorBrush brushA = new(Colors.White, 0.05);
-        SolidColorBrush brushB = new(Colors.White, 0.02);
-
-        int measureIndex = 0;
-        for (double b = actualStartBeat; b < actualEndBeat; b += bpm)
-        {
-            double mStart = b;
-            double mEnd = Math.Min(actualEndBeat, b + bpm);
-
-            double xStart = (mStart - offset) * ppb;
-            double xEnd = (mEnd - offset) * ppb;
-
-            if (xEnd < 0)
-            {
-                measureIndex++;
-                continue;
-            }
-
-            if (xStart > Bounds.Width)
-                break;
-
-            SolidColorBrush brush = (measureIndex % 2 == 0) ? brushA : brushB;
-            context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, height));
-
-            measureIndex++;
         }
     }
 }

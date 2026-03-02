@@ -1,0 +1,121 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Dialogs;assembly=JustDanceEditor.Editor"
+        xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Dialogs;assembly=JustDanceEditor.Editor"
+        xmlns:conv="clr-namespace:JustDanceEditor.Editor.Converters;assembly=JustDanceEditor.Editor"
+        xmlns:timelines="clr-namespace:JustDanceEditor.Formats.JDI.Timelines;assembly=JustDanceEditor.Formats.JDI"
+        x:Class="JustDanceEditor.Editor.Views.Dialogs.EditSongWindow"
+        x:DataType="vm:EditSongViewModel"
+        Title="Edit Song Properties"
+        Width="750"
+        Height="620"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <!-- Main layout -->
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16">
+
+        <!-- Step indicator -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+            <Border Background="{Binding IsStep0, Converter={StaticResource BoolToStepBrush}}" CornerRadius="12" Padding="10,4">
+                <TextBlock Text="1. Metadata" FontSize="12" Foreground="White"/>
+            </Border>
+            <Border Background="{Binding IsStep1, Converter={StaticResource BoolToStepBrush}}" CornerRadius="12" Padding="10,4">
+                <TextBlock Text="2. Beat Align" FontSize="12" Foreground="White"/>
+            </Border>
+        </StackPanel>
+
+        <!-- Step content area -->
+        <Border Grid.Row="1" BorderBrush="#444" BorderThickness="1" CornerRadius="4" Padding="16">
+            <Panel>
+
+                <!-- STEP 0: Metadata -->
+                <Grid IsVisible="{Binding IsStep0}" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="140,*" VerticalAlignment="Top">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Map Name:" VerticalAlignment="Center" Margin="0,6"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapName, Mode=TwoWay}" Watermark="e.g. MyDanceSong" Margin="0,4"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Song Title:" VerticalAlignment="Center" Margin="0,6"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SongTitle, Mode=TwoWay}" Watermark="e.g. My Dance Song" Margin="0,4"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Artist:" VerticalAlignment="Center" Margin="0,6"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Artist, Mode=TwoWay}" Watermark="e.g. DJ Example" Margin="0,4"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Coach Count:" VerticalAlignment="Center" Margin="0,6"/>
+                    <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding CoachCount, Mode=TwoWay}"
+                                   Minimum="1" Maximum="4" FormatString="0" Width="120" HorizontalAlignment="Left" Margin="0,4"/>
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Difficulty (1-4):" VerticalAlignment="Center" Margin="0,6"/>
+                    <NumericUpDown Grid.Row="4" Grid.Column="1" Value="{Binding Difficulty, Mode=TwoWay}"
+                                   Minimum="1" Maximum="4" FormatString="0" Width="120" HorizontalAlignment="Left" Margin="0,4"/>
+                </Grid>
+
+                <!-- STEP 1: Beat Alignment -->
+                <Grid IsVisible="{Binding IsStep1}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0" Text="Adjust BPM and beat alignment. Click on the waveform to set where beat 0 is. Ctrl+click to set the playhead."
+                               Foreground="#aaa" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="80,130,100,130" Margin="0,0,0,6">
+                        <TextBlock Grid.Column="0" Text="BPM:" VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Column="1" Value="{Binding Bpm, Mode=TwoWay}"
+                                       Minimum="20" Maximum="300" Increment="0.1" FormatString="F1" Width="120" HorizontalAlignment="Left"/>
+                        <TextBlock Grid.Column="2" Text="Beats/Measure:" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        <NumericUpDown Grid.Column="3" Value="{Binding BeatsPerMeasure, Mode=TwoWay}"
+                                       Minimum="1" Maximum="16" FormatString="0" Width="80" HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+                        <TextBlock Text="Beat 0 at:" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ZeroBeatTimeFormatted}" VerticalAlignment="Center" FontWeight="Bold"/>
+                    </StackPanel>
+
+                    <local:WaveformBeatSelector Grid.Row="3"
+                        Samples="{Binding WaveformSamples}"
+                        AudioDuration="{Binding AudioDurationSeconds}"
+                        ZeroBeatTime="{Binding ZeroBeatTimeSeconds, Mode=TwoWay}"
+                        Bpm="{Binding Bpm}"
+                        BeatsPerMeasure="{Binding BeatsPerMeasure}"
+                        PlayheadTime="{Binding PlayheadTimeSeconds}"
+                        StartBeat="{Binding StartBeat}"
+                        EndBeat="{Binding EndBeat}"
+                        Sections="{Binding Sections}"
+                        MinHeight="160"/>
+
+                    <Grid Grid.Row="4" ColumnDefinitions="120,*" Margin="0,6,0,0">
+                        <TextBlock Grid.Column="0" Text="Start Beat:" VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Column="1" Value="{Binding StartBeat, Mode=TwoWay}"
+                                       Minimum="-9999" Maximum="0" FormatString="0" Width="120" HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <Grid Grid.Row="5" ColumnDefinitions="120,*" Margin="0,6,0,0">
+                        <TextBlock Grid.Column="0" Text="End Beat:" VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Column="1" Value="{Binding EndBeat, Mode=TwoWay}"
+                                       Minimum="1" Maximum="9999" FormatString="0" Width="120" HorizontalAlignment="Left"/>
+                    </Grid>
+                </Grid>
+
+            </Panel>
+        </Border>
+
+        <!-- Playback controls (visible on step 1) -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0"
+                    IsVisible="{Binding ShowPlaybackControls}">
+            <Button Content="{Binding PlayPauseIcon}" Command="{Binding TogglePreviewCommand}"
+                    FontSize="16" MinWidth="40" HorizontalContentAlignment="Center"/>
+            <Button Content="⏹" Command="{Binding StopPreviewCommand}"
+                    FontSize="16" MinWidth="40" HorizontalContentAlignment="Center"/>
+            <TextBlock Text="Playback with beat clicks (measure + section beeps)"
+                       FontSize="11" Foreground="#888" VerticalAlignment="Center" Margin="8,0,0,0"/>
+        </StackPanel>
+
+        <!-- Navigation buttons -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,8,0,0">
+            <Button Grid.Column="1" Content="Back" Command="{Binding GoBackCommand}" IsVisible="{Binding CanGoBack}" Margin="0,0,8,0" MinWidth="80"/>
+            <Button Grid.Column="2" Name="NextBtn" Content="{Binding NextButtonText}" MinWidth="80" Margin="0,0,8,0"/>
+            <Button Grid.Column="3" Name="CancelBtn" Content="Cancel" MinWidth="80"/>
+        </Grid>
+    </Grid>
+
+    <Window.Resources>
+        <conv:BoolToStepBrushConverter x:Key="BoolToStepBrush"/>
+    </Window.Resources>
+</Window>

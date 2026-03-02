@@ -39,6 +39,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\JustDanceEditor.Audio\JustDanceEditor.Audio.csproj" />
 	  <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>
 

@@ -131,10 +131,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             // Uncooked platform needs musictrack.tpl, .trk file, and AMB files
             await exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapName}_musictrack.tpl"), generator.GenerateMusicTrack(package));
-            
+
             // Write .trk file with structure data
             await WriteUncookedTrkFileAsync(package, ctx, Path.Combine(audioFolder, $"{mapName}.trk"));
-            
+
             // Write AMB files if there's a negative start beat
             if (package.TimelineStructure.StartBeat < 0)
             {
@@ -475,6 +475,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             trkBuilder.AppendLine($"    {{ VAL = {m} }},");
         }
+
         trkBuilder.AppendLine("},");
 
         // signatures
@@ -485,6 +486,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
             trkBuilder.AppendLine($"    {{ MusicSignature = {{ beats = {s.Beats}, marker = {markerStr}, comment = \"{comment}\" }} }},");
         }
+
         trkBuilder.AppendLine("},");
 
         // sections
@@ -495,6 +497,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
             trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {(int)sec.SectionType}, marker = {markerStr}, comment = \"{comment}\" }} }},");
         }
+
         trkBuilder.AppendLine("},");
 
         // comments
