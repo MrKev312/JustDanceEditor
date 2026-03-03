@@ -39,7 +39,7 @@ public sealed class UltraStarImporter : ILyricImporter
 
         foreach (string rawLine in content.Split('\n'))
         {
-            string line = rawLine.TrimEnd('\r').Trim();
+            string line = rawLine.TrimEnd('\r').TrimStart();
             if (string.IsNullOrEmpty(line))
                 continue;
 
@@ -122,10 +122,10 @@ public sealed class UltraStarImporter : ILyricImporter
 
         // Phase 2: resolve tilde runs.
         // A "tilde note" is one whose trimmed text starts with exactly one ~ (not ~~).
-        // Run of 1: split the last char off the previous note proportionally; this note
-        //           gets that char (plus any text after the ~, e.g. "~?" → "n?").
-        // Run > 1:  previous note is NOT modified; each tilde note becomes
-        //           "-{last char of previous}" + any text after the ~.
+        // First ~ in any run: split the last char off previous note proportionally
+        //   (that char becomes "long"), then append any text after the ~.
+        // Each subsequent ~ in the run: add "-{last char}" with the tilde note's own timing.
+        // "~~..." (literal double-tilde): kept verbatim.
         List<(double StartSec, double EndSec, string Text, bool IsEol)> results = new(raw.Count);
 
         for (int i = 0; i < raw.Count; i++)
@@ -136,7 +136,7 @@ public sealed class UltraStarImporter : ILyricImporter
 
             if (!trimmed.StartsWith('~') || trimmed.StartsWith("~~"))
             {
-                // Normal note – add as-is.
+                // Normal note or literal "~~..." – add as-is.
                 results.Add(note);
                 continue;
             }
@@ -152,46 +152,57 @@ public sealed class UltraStarImporter : ILyricImporter
                     break;
             }
 
-            // Find the last non-tilde note in results for the source char.
             string prevText = results.Count > 0 ? results[^1].Text : string.Empty;
-            string afterTilde = trimmed[1..]; // text after the leading ~
+            char repeatChar = prevText.Length > 0 ? prevText[^1] : '\0';
+            string afterFirstTilde = trimmed[1..]; // text after the leading ~
 
-            if (runLen == 1)
+            // First tilde: split the last char off the previous note proportionally.
+            if (prevText.Length > 1 && results.Count > 0)
             {
-                // Single tilde: split the last char off the previous note proportionally.
-                if (prevText.Length > 1 && results.Count > 0)
-                {
-                    (double StartSec, double EndSec, string Text, bool IsEol) = results[^1];
-                    double splitPoint = StartSec + ((EndSec - StartSec)
-                        * (prevText.Length - 1) / prevText.Length);
-                    char splitChar = prevText[^1];
+                (double StartSec, double EndSec, string Text, bool IsEol) prev = results[^1];
+                double splitPoint = prev.StartSec + ((prev.EndSec - prev.StartSec)
+                    * (prevText.Length - 1) / prevText.Length);
 
-                    results[^1] = (StartSec, splitPoint, prevText[..^1], IsEol);
-                    results.Add((splitPoint, note.endSec, leading + splitChar + afterTilde, note.isEol));
-                }
-                else
-                {
-                    // Single-char previous or no previous – just copy the char (no split).
-                    results.Add((note.startSec, note.endSec, leading + prevText + afterTilde, note.isEol));
-                }
+                results[^1] = (prev.StartSec, splitPoint, prevText[..^1], prev.IsEol);
+                results.Add((splitPoint, note.endSec, leading + repeatChar + afterFirstTilde, note.isEol));
             }
             else
             {
-                // Multiple consecutive tildes: previous note unchanged, each tilde → "-{last char}".
-                char repeatChar = prevText.Length > 0 ? prevText[^1] : '\0';
-                for (int j = 0; j < runLen; j++)
-                {
-                    (double StartSec, double EndSec, string Text, bool IsEol) = raw[i + j];
-                    string curTrimmed = Text.TrimStart();
-                    string curLeading = Text.Length > curTrimmed.Length ? " " : string.Empty;
-                    string curAfter = curTrimmed[1..];
-                    string syllable = repeatChar != '\0'
-                        ? curLeading + "-" + repeatChar + curAfter
-                        : curLeading + curAfter;
-                    results.Add((StartSec, EndSec, syllable, IsEol));
-                }
+                // Single-char previous or no previous – just reuse the char without splitting.
+                results.Add((note.startSec, note.endSec, leading + prevText + afterFirstTilde, note.isEol));
+            }
 
-                i += runLen - 1; // outer loop will i++ once more
+            // Remaining tildes in the run: each becomes "-{char}" with the note's own timing.
+            for (int j = 1; j < runLen; j++)
+            {
+                (double StartSec, double EndSec, string Text, bool IsEol) cur = raw[i + j];
+                string curTrimmed = cur.Text.TrimStart();
+                string curLeading = cur.Text.Length > curTrimmed.Length ? " " : string.Empty;
+                string curAfter = curTrimmed[1..];
+                string syllable = repeatChar != '\0'
+                    ? curLeading + "-" + repeatChar + curAfter
+                    : curLeading + curAfter;
+                results.Add((cur.StartSec, cur.EndSec, syllable, cur.IsEol));
+            }
+
+            i += runLen - 1; // outer loop will i++ once more
+        }
+
+        // Phase 3: normalize space placement – spaces always belong at the END of a syllable.
+        // If a syllable has a leading space, move it to the trailing position of the previous
+        // syllable. If the previous already ends with a space, discard the duplicate.
+        for (int i = 0; i < results.Count; i++)
+        {
+            string text = results[i].Text;
+            if (text.Length > 0 && text[0] == ' ')
+            {
+                if (i > 0)
+                {
+                    (double StartSec, double EndSec, string Text, bool IsEol) prev = results[i - 1];
+                    if (!prev.Text.EndsWith(' '))
+                        results[i - 1] = (prev.StartSec, prev.EndSec, prev.Text + ' ', prev.IsEol);
+                }
+                results[i] = (results[i].StartSec, results[i].EndSec, text.TrimStart(), results[i].IsEol);
             }
         }
 
