@@ -155,7 +155,7 @@ public static class NewSongPackageCreator
 
                 using AudioFileReader reader = new(tempWav);
                 double sourceDuration = reader.TotalTime.TotalSeconds;
-                ISampleProvider source = (ISampleProvider)reader;
+                ISampleProvider source = reader;
 
                 // Step 1: Handle the start — trim or pad
                 if (audioStartTime > 0)

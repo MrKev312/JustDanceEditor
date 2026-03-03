@@ -147,8 +147,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         _io.CreateDirectory(outputFolder);
 
         // Convert request enums to UbiArt Services enums
-        UbiArtPlatform exportPlatform = (UbiArtPlatform)ubiRequest.ExportPlatform;
-        UbiArtEngineVersion exportEngineVersion = (UbiArtEngineVersion)ubiRequest.ExportEngineVersion;
+        UbiArtPlatform exportPlatform = ubiRequest.ExportPlatform;
+        UbiArtEngineVersion exportEngineVersion = ubiRequest.ExportEngineVersion;
 
         // Create appropriate profile for export
         IUbiArtSerializer serializer = exportPlatform == UbiArtPlatform.Uncooked

@@ -640,6 +640,72 @@ public partial class TimelineEditorViewModel : Document
                 Package.HandCoachMoves[id] = coachDef;
         }
 
+        // Sync track clip lists back to their package collections (handles add/delete operations)
+        foreach (TrackViewModel track in Tracks)
+        {
+            switch (track.TrackType)
+            {
+                case TrackType.Lyrics:
+                    Package.Lyrics.Clips.Clear();
+                    foreach (ClipViewModel c in track.Clips)
+                        if (c.RawClip is KaraokeClip kc)
+                            Package.Lyrics.Clips.Add(kc);
+                    break;
+                case TrackType.Pictogram:
+                    Package.Pictograms.Clips.Clear();
+                    foreach (ClipViewModel c in track.Clips)
+                        if (c.RawClip is PictogramClip pc)
+                            Package.Pictograms.Clips.Add(pc);
+                    break;
+                case TrackType.HideHud:
+                    Package.HideUserInterface.Clips.Clear();
+                    foreach (ClipViewModel c in track.Clips)
+                        if (c.RawClip is HideUserInterfaceClip hic)
+                            Package.HideUserInterface.Clips.Add(hic);
+                    break;
+                case TrackType.GoldEffect:
+                    Package.GoldEffects.Clips.Clear();
+                    foreach (ClipViewModel c in track.Clips)
+                        if (c.RawClip is GoldEffectClip gc)
+                            Package.GoldEffects.Clips.Add(gc);
+                    break;
+                case TrackType.CoachHand:
+                    {
+                        string idStr = track.Title.StartsWith("Coach ") ? track.Title["Coach ".Length..] : string.Empty;
+                        if (int.TryParse(idStr, out int coachId))
+                        {
+                            MoveTimeline? mt = Package.CoachTimelines.FirstOrDefault(t => t.CoachId == coachId);
+                            if (mt != null)
+                            {
+                                mt.Clips.Clear();
+                                foreach (ClipViewModel c in track.Clips)
+                                    if (c.RawClip is MoveClip mc)
+                                        mt.Clips.Add(mc);
+                            }
+                        }
+
+                        break;
+                    }
+                case TrackType.CoachFullBody:
+                    {
+                        string idStr = track.Title.StartsWith("FullBody Coach ") ? track.Title["FullBody Coach ".Length..] : string.Empty;
+                        if (int.TryParse(idStr, out int coachId))
+                        {
+                            MoveTimeline? mt = Package.FullBodyCoachTimelines.FirstOrDefault(t => t.CoachId == coachId);
+                            if (mt != null)
+                            {
+                                mt.Clips.Clear();
+                                foreach (ClipViewModel c in track.Clips)
+                                    if (c.RawClip is MoveClip mc)
+                                        mt.Clips.Add(mc);
+                            }
+                        }
+
+                        break;
+                    }
+            }
+        }
+
         // Ensure lyrics color metadata is up-to-date
         try
         {
