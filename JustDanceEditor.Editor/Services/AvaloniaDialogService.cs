@@ -21,6 +21,7 @@ public class AvaloniaDialogService : IDialogService
             MoveCreationViewModel _ => new MoveCreationWindow(),
             GoldEffectCreationViewModel _ => new GoldEffectCreationWindow(),
             HideHudCreationViewModel _ => new HideHudCreationWindow(),
+            NewMoveDefinitionViewModel _ => new NewMoveDefinitionWindow(),
             _ => throw new System.ArgumentException("Unsupported dialog viewmodel type")
         };
 

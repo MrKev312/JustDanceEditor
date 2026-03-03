@@ -52,10 +52,7 @@ public partial class LibraryItemViewModel : ObservableObject
         get;
         set
         {
-            if (field != null)
-            {
-                field.PropertyChanged -= OnDefinitionChanged;
-            }
+            field?.PropertyChanged -= OnDefinitionChanged;
 
             field = value;
 

@@ -544,6 +544,77 @@ public partial class TimelineEditorViewModel : Document
     }
 
     /// <summary>
+    /// Registers a brand-new move definition in the package (and the in-memory cache)
+    /// so it becomes available for placement on the timeline.
+    /// Records the action on the undo/redo stack.
+    /// </summary>
+    /// <returns>
+    /// The newly created <see cref="MoveDefinitionViewModel"/>, or <c>null</c> if the
+    /// id is empty or already registered.
+    /// </returns>
+    public MoveDefinitionViewModel? RegisterNewMoveDefinition(string id, bool isFullBody, int durationFrames, Color color)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        Dictionary<string, CoachMoveDefinition> catalog = isFullBody
+            ? Package.FullBodyCoachMoves
+            : Package.HandCoachMoves;
+
+        // Don't allow duplicates
+        if (catalog.ContainsKey(id))
+            return GetOrRegisterMove(id, isFullBody);
+
+        string colorHex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        CoachMoveDefinition pkgDef = new()
+        {
+            Color = colorHex,
+            Duration = durationFrames,
+            MoveType = isFullBody ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking
+        };
+
+        MoveDefinitionViewModel vm = new()
+        {
+            Id = id,
+            IsFullBody = isFullBody,
+            Color = color,
+            DefaultDuration = durationFrames,
+            HasAsset = CheckMoveFileExists(id, isFullBody)
+        };
+
+        // Record undo/redo to the stack
+        PushUndo(
+            undo: () =>
+            {
+                catalog.Remove(id);
+                _moveDefinitions.Remove((id, isFullBody));
+                OnPropertyChanged(isFullBody
+                    ? nameof(AvailableFullBodyCoachMoves)
+                    : nameof(AvailableHandCoachMoves));
+            },
+            redo: () =>
+            {
+                catalog[id] = pkgDef;
+                _moveDefinitions[(id, isFullBody)] = vm;
+                OnPropertyChanged(isFullBody
+                    ? nameof(AvailableFullBodyCoachMoves)
+                    : nameof(AvailableHandCoachMoves));
+            }
+        );
+
+        // Perform the action
+        catalog[id] = pkgDef;
+        _moveDefinitions[(id, isFullBody)] = vm;
+
+        // Notify consumers that the available-moves list has changed
+        OnPropertyChanged(isFullBody
+            ? nameof(AvailableFullBodyCoachMoves)
+            : nameof(AvailableHandCoachMoves));
+
+        return vm;
+    }
+
+    /// <summary>
     /// Persist current timeline state back into the intermediate package and write it to disk.
     /// Ensures shared definitions (moves, lyrics color) are synchronized into the package before saving.
     /// </summary>

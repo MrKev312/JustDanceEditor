@@ -44,58 +44,74 @@
                 </dg:DataGrid>
             </TabItem>
             <TabItem Header="Hand Moves">
-                <dg:DataGrid x:Name="ItemsListHandMoves" ItemsSource="{Binding HandMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
-                    <dg:DataGrid.Columns>
-                        <dg:DataGridTemplateColumn Header="" Width="48">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                        <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                        <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                    </dg:DataGrid.Columns>
-                </dg:DataGrid>
+                <DockPanel>
+                    <Button DockPanel.Dock="Bottom"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,4,0,0"
+                            Click="AddHandMoveDefinition_Click">
+                        + Add Definition
+                    </Button>
+                    <dg:DataGrid x:Name="ItemsListHandMoves" ItemsSource="{Binding HandMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTemplateColumn Header="" Width="48">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                            <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                            <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+                </DockPanel>
             </TabItem>
             <TabItem Header="Full Moves">
-                <dg:DataGrid x:Name="ItemsListFullBody" ItemsSource="{Binding FullBodyMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
-                    <dg:DataGrid.Columns>
-                        <dg:DataGridTemplateColumn Header="" Width="48">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                        <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                        <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
-                            <dg:DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate x:DataType="vm:LibraryItemViewModel">
-                                    <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                </DataTemplate>
-                            </dg:DataGridTemplateColumn.CellTemplate>
-                        </dg:DataGridTemplateColumn>
-                    </dg:DataGrid.Columns>
-                </dg:DataGrid>
+                <DockPanel>
+                    <Button DockPanel.Dock="Bottom"
+                            HorizontalAlignment="Stretch"
+                            Margin="0,4,0,0"
+                            Click="AddFullBodyMoveDefinition_Click">
+                        + Add Definition
+                    </Button>
+                    <dg:DataGrid x:Name="ItemsListFullBody" ItemsSource="{Binding FullBodyMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTemplateColumn Header="" Width="48">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <Rectangle Width="28" Height="28" Fill="{Binding Icon}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                            <dg:DataGridTemplateColumn Header="Name" Width="*" SortMemberPath="Name">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                            <dg:DataGridTemplateColumn Header="#" Width="40" SortMemberPath="UsageCount">
+                                <dg:DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="vm:LibraryItemViewModel">
+                                        <TextBlock Text="{Binding UsageCount}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </dg:DataGridTemplateColumn.CellTemplate>
+                            </dg:DataGridTemplateColumn>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+                </DockPanel>
             </TabItem>
         </TabControl>
 

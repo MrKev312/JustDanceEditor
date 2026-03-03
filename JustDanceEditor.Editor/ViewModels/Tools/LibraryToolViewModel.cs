@@ -169,9 +169,15 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
     }
     protected override void OnTimelinePropertyChanged(string? propertyName)
     {
-        // When tracks/clips change, refresh items to keep usage counts and pictogram availability up to date
-        if (propertyName is (nameof(TimelineEditorViewModel.Tracks)) or null)
+        // Refresh when tracks/clips change, or when the available-move lists change
+        // (the latter fires when a new definition is registered via RegisterNewMoveDefinition).
+        if (propertyName is null
+            or nameof(TimelineEditorViewModel.Tracks)
+            or nameof(TimelineEditorViewModel.AvailableHandCoachMoves)
+            or nameof(TimelineEditorViewModel.AvailableFullBodyCoachMoves))
+        {
             PopulateItems(ActiveTimeline);
+        }
     }
 
     private void PopulateItems(TimelineEditorViewModel? timeline)

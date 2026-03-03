@@ -125,7 +125,7 @@ public class MoveAssetMissingTests
         // Result may be null if Avalonia isn't initialized, or a Bitmap if it is
         // Either way, the converter should handle missing files gracefully (not throw)
         // In a real app with Avalonia initialized, this would be a red 64x64 Bitmap
-        Assert.True(result == null || result is Bitmap);
+        Assert.True(result is null or Bitmap);
     }
 
     [Fact]
@@ -145,7 +145,9 @@ public class MoveAssetMissingTests
         {
             try
             {
-                Directory.Delete(tmp, true); } catch { }
+                Directory.Delete(tmp, true);
+            }
+            catch { }
         }
     }
 
@@ -183,7 +185,9 @@ public class MoveAssetMissingTests
         {
             try
             {
-                Directory.Delete(tmp, true); } catch { }
+                Directory.Delete(tmp, true);
+            }
+            catch { }
         }
     }
 
@@ -228,7 +232,9 @@ public class MoveAssetMissingTests
         {
             try
             {
-                Directory.Delete(tmp, true); } catch { }
+                Directory.Delete(tmp, true);
+            }
+            catch { }
         }
     }
 }

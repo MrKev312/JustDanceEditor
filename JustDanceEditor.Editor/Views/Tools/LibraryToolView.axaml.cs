@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
+using JustDanceEditor.Editor.ViewModels.Dialogs;
+using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
 
 using System;
@@ -134,5 +136,28 @@ public partial class LibraryToolView : UserControl
         {
             return _draggedItem;
         }
+    }
+
+    private async void AddHandMoveDefinition_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => await OpenNewMoveDefinitionDialog(isFullBody: false);
+
+    private async void AddFullBodyMoveDefinition_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => await OpenNewMoveDefinitionDialog(isFullBody: true);
+
+    private async System.Threading.Tasks.Task OpenNewMoveDefinitionDialog(bool isFullBody)
+    {
+        if (DataContext is not LibraryToolViewModel libVm || libVm.ActiveTimeline is not TimelineEditorViewModel timeline)
+            return;
+
+        if (Avalonia.Application.Current is not App app)
+            return;
+
+        NewMoveDefinitionViewModel dialogVm = new(isFullBody);
+        NewMoveDefinitionResult? result = await app.DialogService.ShowDialogAsync<NewMoveDefinitionResult>(dialogVm);
+
+        if (result == null || string.IsNullOrWhiteSpace(result.Name))
+            return;
+
+        timeline.RegisterNewMoveDefinition(result.Name, result.IsFullBody, result.DurationFrames, result.Color);
     }
 }
