@@ -34,7 +34,7 @@ public class AudioConversionService
     {
         string tempWav = Path.Combine(Path.GetTempPath(), $"jdi_preview_{Guid.NewGuid()}.wav");
         IConversion conversion = FFmpeg.Conversions.New();
-        conversion.AddParameter($"-y -i \"{audioPath}\" -ar 44100 -ac 2 -sample_fmt s16");
+        conversion.AddParameter($"-y -i \"{audioPath}\" -ar 48000 -ac 2 -sample_fmt s16");
         conversion.SetOutput(tempWav);
         conversion.SetOverwriteOutput(true);
         await conversion.Start();
