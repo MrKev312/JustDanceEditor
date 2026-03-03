@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
@@ -9,10 +10,36 @@ namespace JustDanceEditor.Editor.Services;
 
 public static class BitmapCache
 {
-    private static readonly ConcurrentDictionary<string, Bitmap> _cache = new();
+    private static readonly ConcurrentDictionary<string, Bitmap?> _cache = new();
     private static readonly ConcurrentDictionary<string, bool> _pending = new();
 
+    // Lazily-created red placeholder for missing files
+    private static Bitmap? _redPlaceholder;
+
     public static bool TryGet(string path, out Bitmap? bmp) => _cache.TryGetValue(path, out bmp);
+
+    private static Bitmap? GetRedPlaceholder()
+    {
+        if (_redPlaceholder != null)
+            return _redPlaceholder;
+        try
+        {
+            RenderTargetBitmap rtb = new(new Avalonia.PixelSize(200, 200));
+            using (DrawingContext ctx = rtb.CreateDrawingContext())
+            {
+                ctx.FillRectangle(Brushes.Red, new Avalonia.Rect(0, 0, 200, 200));
+            }
+
+            _redPlaceholder = rtb;
+        }
+        catch
+        {
+            // Avalonia not initialized; return null
+            _redPlaceholder = null;
+        }
+
+        return _redPlaceholder;
+    }
 
     public static void ScheduleLoad(string path, System.Action onLoaded)
     {
@@ -29,6 +56,12 @@ public static class BitmapCache
                     using FileStream fs = File.OpenRead(path);
                     Bitmap b = Bitmap.DecodeToWidth(fs, 200);
                     _cache.TryAdd(path, b);
+                }
+                else
+                {
+                    // File doesn't exist; use red placeholder
+                    Bitmap? red = GetRedPlaceholder();
+                    _cache.TryAdd(path, red);
                 }
             }
             finally

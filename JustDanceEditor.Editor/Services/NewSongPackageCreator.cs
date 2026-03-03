@@ -113,7 +113,7 @@ public static class NewSongPackageCreator
         IntermediatePackageSerializer.WriteToFolder(package, rootPath);
 
         // Process and write audio
-        await ProcessAudioAsync(result, rootPath, startBeat, beatDurationSeconds, ct, endBeat);
+        await ProcessAudioAsync(result, rootPath, startBeat, beatDurationSeconds, endBeat, ct);
 
         // Create placeholder asset directories and images
         CreatePlaceholderAssets(rootPath, result.CoachCount);
@@ -131,8 +131,8 @@ public static class NewSongPackageCreator
         string rootPath,
         int startBeat,
         double beatDurationSeconds,
-        CancellationToken ct,
-        int endBeat)
+        int endBeat,
+        CancellationToken ct)
     {
         string audioDir = Path.Combine(rootPath, "assets", "audio");
         Directory.CreateDirectory(audioDir);

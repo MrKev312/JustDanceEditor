@@ -55,16 +55,37 @@ public partial class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 
         List<PictogramOptionViewModel> list = [];
         string dir = Path.Combine(timeline.RootPath, "assets", "pictograms");
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+
         if (Directory.Exists(dir))
         {
             foreach (string file in Directory.GetFiles(dir))
             {
                 string name = Path.GetFileNameWithoutExtension(file);
-                if (!list.Any(x => x.Name == name))
+                if (!seen.Contains(name))
+                {
+                    seen.Add(name);
                     list.Add(new PictogramOptionViewModel(name, file));
+                }
             }
 
             list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // also include any pictogram IDs currently referenced by clips that are
+        // missing from disk so users can still select/see them
+        foreach (TrackViewModel track in timeline.Tracks)
+        {
+            foreach (PictogramClipViewModel clip in track.Clips.OfType<PictogramClipViewModel>())
+            {
+                string id = clip.PictogramId;
+                if (!string.IsNullOrEmpty(id) && !seen.Contains(id))
+                {
+                    seen.Add(id);
+                    string fakePath = Path.Combine(dir, id + ".webp");
+                    list.Add(new PictogramOptionViewModel(id, fakePath));
+                }
+            }
         }
 
         return list;

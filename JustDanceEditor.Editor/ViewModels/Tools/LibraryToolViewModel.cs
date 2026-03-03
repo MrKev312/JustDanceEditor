@@ -251,6 +251,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
 
         // 3) Pictograms
         string pictogramDir = Path.Combine(timeline.RootPath, "assets", "pictograms");
+        HashSet<string> seenIds = [];
         if (Directory.Exists(pictogramDir))
         {
             IOrderedEnumerable<string?> files = Directory.GetFiles(pictogramDir)
@@ -264,20 +265,24 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 if (string.IsNullOrEmpty(id))
                     continue;
 
-                // At this point id is guaranteed non-null
                 string safeId = id!;
+                seenIds.Add(safeId);
                 string path = Path.Combine(pictogramDir, safeId + ".webp");
-                IBrush brush = Brushes.LightGray;
-                if (BitmapCache.TryGet(path, out Bitmap? bmp) && bmp != null)
+                IBrush brush;
+                if (File.Exists(path) && BitmapCache.TryGet(path, out Bitmap? bmp) && bmp != null)
                 {
                     brush = new ImageBrush(bmp);
                 }
+                else if (!File.Exists(path))
+                {
+                    brush = Brushes.Red; // missing file
+                }
                 else
                 {
+                    brush = Brushes.LightGray;
                     // schedule load and refresh the view when loaded
                     BitmapCache.ScheduleLoad(path, () =>
                     {
-                        // find the item and update its thumbnail
                         LibraryItemViewModel? item = Items.FirstOrDefault(i => i.Type == ItemType.Pictogram && string.Equals(i.Id, safeId, StringComparison.OrdinalIgnoreCase));
                         if (item != null)
                         {
@@ -295,14 +300,55 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                     Id = safeId,
                     Type = ItemType.Pictogram,
                     Icon = brush,
-                    Thumbnail = BitmapCache.TryGet(path, out Bitmap? pre) ? pre : null,
+                    Thumbnail = File.Exists(path) && BitmapCache.TryGet(path, out Bitmap? pre) ? pre : null,
                     DefaultDuration = 24.0,
-                    UsageCount = pictogramCount
+                    UsageCount = pictogramCount,
+                    HasAsset = File.Exists(path)
                 };
 
                 Items.Add(item);
                 Pictograms.Add(item);
             }
+        }
+
+        // also include any pictogram IDs referenced by clips but missing on disk
+        HashSet<string> usedIds = new(StringComparer.OrdinalIgnoreCase);
+        foreach (TrackViewModel track in timeline.Tracks)
+        {
+            foreach (PictogramClipViewModel clip in track.Clips.OfType<PictogramClipViewModel>())
+            {
+                if (!string.IsNullOrEmpty(clip.PictogramId))
+                    usedIds.Add(clip.PictogramId);
+            }
+        }
+
+        foreach (string missingId in usedIds.Except(seenIds))
+        {
+            string path = Path.Combine(pictogramDir, missingId + ".webp");
+            (ItemType Pictogram, string safeId) pictogramKey = (ItemType.Pictogram, missingId);
+            int pictogramCount = counts.TryGetValue(pictogramKey, out int c3) ? c3 : 0;
+            LibraryItemViewModel item = new()
+            {
+                Name = missingId,
+                Id = missingId,
+                Type = ItemType.Pictogram,
+                Icon = Brushes.Red,
+                Thumbnail = null,
+                DefaultDuration = 24.0,
+                UsageCount = pictogramCount,
+                HasAsset = false
+            };
+            Items.Add(item);
+            Pictograms.Add(item);
+
+            // Schedule load so the cache will add the red placeholder
+            BitmapCache.ScheduleLoad(path, () =>
+            {
+                if (BitmapCache.TryGet(path, out Bitmap? redBmp) && redBmp != null)
+                {
+                    item.Thumbnail = redBmp;
+                }
+            });
         }
     }
 }

@@ -87,8 +87,13 @@ public partial class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, I
                     PopSuppressDefinitionColorUpdates();
                 }
 
-                // Listen for definition color changes
+                // Listen for definition property changes
                 Definition.PropertyChanged += OnDefinitionPropertyChanged;
+                Definition.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(MoveDefinitionViewModel.HasAsset))
+                        OnPropertyChanged(nameof(IsAssetMissing));
+                };
             }
             catch { }
         }
@@ -159,6 +164,12 @@ public partial class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, I
     }
 
     public override Color RenderColor => Definition != null ? new Color(255, Definition.Color.R, Definition.Color.G, Definition.Color.B) : base.RenderColor;
+
+    /// <summary>
+    /// True if the move definition exists but its source animation file could not be
+    /// located in the intermediate package root. Renderers use this to paint stripes.
+    /// </summary>
+    public bool IsAssetMissing => Definition != null && !Definition.HasAsset;
 
     // Shadow the base BackgroundColor property so the Properties panel reads/writes the Definition color
     [Inspectable("Color", "Appearance")]

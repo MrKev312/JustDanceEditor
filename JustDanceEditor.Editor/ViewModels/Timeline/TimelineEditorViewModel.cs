@@ -479,7 +479,11 @@ public partial class TimelineEditorViewModel : Document
 
         (string moveId, bool isFullBody) key = (moveId, isFullBody);
         if (_moveDefinitions.TryGetValue(key, out MoveDefinitionViewModel? def))
+        {
+            // update asset presence in case files were added/removed since first registration
+            def.HasAsset = CheckMoveFileExists(moveId, isFullBody);
             return def;
+        }
 
         // Attempt to seed from package if possible
         Color color = Colors.LightGray;
@@ -504,11 +508,39 @@ public partial class TimelineEditorViewModel : Document
             Id = moveId,
             IsFullBody = isFullBody,
             Color = color,
-            DefaultDuration = duration
+            DefaultDuration = duration,
+            HasAsset = CheckMoveFileExists(moveId, isFullBody)
         };
 
         _moveDefinitions[key] = def;
         return def;
+    }
+
+    /// <summary>
+    /// Determines whether the MSM/gesture file for <paramref name="moveId"/> exists in
+    /// the current root path. Uses <see cref="IntermediatePackageLayout"/> to resolve
+    /// the expected folder, and treats missing <see cref="RootPath"/> gracefully.
+    /// </summary>
+    private bool CheckMoveFileExists(string moveId, bool isFullBody)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(RootPath) || string.IsNullOrEmpty(moveId))
+                return false;
+
+            string folderRel = isFullBody
+                ? IntermediatePackageLayout.Assets.GesturesFolder
+                : IntermediatePackageLayout.Assets.MovesFolder;
+
+            string folderAbs = IntermediatePackageLayout.Resolve(RootPath, folderRel);
+            string ext = isFullBody ? ".gesture" : ".msm";
+            string candidate = Path.Combine(folderAbs, moveId + ext);
+            return File.Exists(candidate);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

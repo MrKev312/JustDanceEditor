@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views; // for RenderingHelpers
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -933,31 +934,12 @@ public class AudioBarControl : Control
     /// <summary>Draws red/white diagonal danger stripes to indicate a region with no audio.</summary>
     private static void DrawNoAudioStripes(DrawingContext context, Rect region)
     {
-        if (region.Width <= 0 || region.Height <= 0)
-            return;
-
-        // Dark red fill
-        context.FillRectangle(new SolidColorBrush(Color.FromArgb(80, 180, 0, 0)), region);
-
-        // White diagonal lines clipped to the region
-        using (context.PushClip(region))
-        {
-            Pen stripePen = new(new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)), 4);
-            double step = 16.0;
-            double x0 = region.X;
-            double x1 = region.Right;
-            double y0 = region.Y;
-            double y1 = region.Bottom;
-            double h = y1 - y0;
-
-            for (double d = x0 - h; d < x1 + h; d += step)
-            {
-                // Lines run bottom-left → top-right (45°)
-                context.DrawLine(stripePen,
-                    new Point(d, y1),
-                    new Point(d + h, y0));
-            }
-        }
+        // Delegate to generic helper so other features can reuse the pattern.
+        RenderingHelpers.DrawDiagonalStripes(
+            context,
+            region,
+            Color.FromArgb(80, 180, 0, 0),
+            Color.FromArgb(100, 255, 255, 255));
     }
 
     private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double maxBeat)

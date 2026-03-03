@@ -86,10 +86,11 @@ public class PropertyItemViewModelTests
         List<object> targets = [d1, d2];
         PropertyItemViewModel propVm = new(targets, "Color",
             new Attributes.InspectableAttribute("Color", "Appearance"),
-            undoService, new TimelineStructureDocument(), [], null);
-
-        // Act: direct Value set (outside color picker)
-        propVm.Value = Colors.Orange;
+            undoService, new TimelineStructureDocument(), [], null)
+        {
+            // Act: direct Value set (outside color picker)
+            Value = Colors.Orange
+        };
 
         // Assert: both targets should be Orange, not corrupted by intermediate notifications
         Assert.Equal(Colors.Orange, d1.Color);

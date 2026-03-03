@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -101,6 +102,14 @@ public partial class TimelineTrackPanel
             // Use cached brush for clip background (use RenderColor source-of-truth)
             SolidColorBrush clipBrush = GetOrCreateBrush(clip.RenderColor);
             context.FillRectangle(clipBrush, rect);
+
+            // If this clip represents a move whose asset file was missing, overlay
+            // diagonal stripes to warn the user.  We use the generic helper so the
+            // appearance matches the waveform "no audio" stripes elsewhere.
+            if (clip is MoveClipViewModel mv && mv.IsAssetMissing)
+            {
+                RenderingHelpers.OverlayStripes(context, rect, clip.RenderColor);
+            }
 
             // Create darker outline from clip color
             Color outlineColor = DarkenColor(clip.RenderColor, 0.6);

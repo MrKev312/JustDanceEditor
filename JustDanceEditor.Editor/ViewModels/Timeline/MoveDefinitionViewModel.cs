@@ -21,5 +21,18 @@ public partial class MoveDefinitionViewModel : ObservableObject
     [ObservableProperty]
     public partial double DefaultDuration { get; set; } = 24.0;
 
+    /// <summary>
+    /// Whether the corresponding asset file exists on disk (MSM or .gesture).
+    /// This is calculated by the timeline when the definition is registered.
+    /// Library view and clip rendering use this flag to decorate missing moves.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasAsset { get; set; } = true;
+
+    /// <summary>
+    /// Convenience helper: true when we *do not* have a source asset.
+    /// </summary>
+    public bool IsAssetMissing => !HasAsset;
+
     public override string ToString() => Id;
 }
