@@ -2,6 +2,7 @@
 
 using JustDanceEditor.Audio.Providers;
 
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
 using System;
@@ -98,7 +99,7 @@ public class PlaybackService : IPlaybackService, IDisposable
                 _audioFile = new AudioFileReader(audioPath);
                 _endless = new EndlessSampleProvider(_audioFile, _audioFile.TotalTime);
                 _metronome = new MetronomeSampleProvider(_endless);
-                _outputDevice = new WaveOutEvent();
+                _outputDevice = new WasapiOut(AudioClientShareMode.Shared, 10);
                 _outputDevice.Init(_metronome);
             });
         }
