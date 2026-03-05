@@ -5,8 +5,10 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System;
 
 namespace JustDanceEditor.Editor.Tests;
 
@@ -74,5 +76,41 @@ public class TimelineEditorViewModelTests
         // track color should be purple
         Assert.Equal(Colors.MediumPurple, hideTrack.TrackColor);
         Assert.Equal(Colors.MediumPurple, ((HideUserInterfaceClipViewModel)hideTrack.Clips[0]).BackgroundColor);
+    }
+
+    [Fact]
+    public void Save_StoresLyricsColorAsRgbaHex()
+    {
+        IntermediateSongPackage package = new();
+        TimelineEditorViewModel vm = CreateWithoutMedia(package);
+
+        // pick a non-default color and set it
+        vm.LyricsDefinitionColor = Colors.Purple;
+
+        // give the viewmodel a temporary folder so Save() doesn't throw
+        string temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(temp);
+        FieldInfo rootField = typeof(TimelineEditorViewModel)
+            .GetField("<RootPath>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        rootField.SetValue(vm, temp);
+
+        // ensure internal collections are initialized so Save() doesn't NRE
+        FieldInfo movesField = typeof(TimelineEditorViewModel)
+            .GetField("_moveDefinitions", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        movesField.SetValue(vm, new Dictionary<(string, bool), MoveDefinitionViewModel>());
+
+        try
+        {
+            vm.Save();
+        }
+        catch
+        {
+            // some internal fields (e.g. UndoService) are not initialized when using
+            // the uninitialized-object trick; it's fine as long as metadata was updated.
+        }
+
+        Assert.Equal(ClipViewModel.ColorToRgbaHex(Colors.Purple), package.Metadata.LyricsColor);
+
+        Directory.Delete(temp, true);
     }
 }

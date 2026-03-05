@@ -706,12 +706,9 @@ public partial class TimelineEditorViewModel : Document
             }
         }
 
-        // Ensure lyrics color metadata is up-to-date
-        try
-        {
-            Package.Metadata.LyricsColor = LyricsDefinitionColor.ToString();
-        }
-        catch { }
+        // Ensure lyrics color metadata is up-to-date (must use our RGBA hex helper;
+        // Color.ToString() returns ARGB which confuses the loader).
+        Package.Metadata.LyricsColor = ClipViewModel.ColorToRgbaHex(LyricsDefinitionColor);
 
         // Finally, write package to disk
         IntermediatePackageSerializer.WriteToFolder(Package, RootPath);
