@@ -9,10 +9,10 @@ using System.Reflection;
 
 namespace JustDanceEditor.UI;
 
-internal sealed class ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnumerable<IJdiFormat> formatsEnumerable, IConversionWorkflow conversionWorkflow, ILogger<ConsoleApp> logger)
+internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, ILogger<ConsoleApp> logger)
 {
-    private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
     private readonly IEnumerable<IJdiFormat> _formatsEnumerable = formatsEnumerable;
+    private readonly IEnumerable<IFormatConversionStrategy> _formatStrategies = formatStrategies;
     private readonly IConversionWorkflow _conversionWorkflow = conversionWorkflow;
     private readonly ILogger<ConsoleApp> _logger = logger;
 
@@ -63,7 +63,7 @@ internal sealed class ConsoleApp(IKeyedServiceProvider<IJdiFormat> formats, IEnu
                     return;
                 case 1:
                     Console.WriteLine("--- Format Conversion ---");
-                    FormatConversionDialogue.Start(_formats, _formatsEnumerable, _logger);
+                    FormatConversionDialogue.Start(_formatsEnumerable, _formatStrategies, _logger);
                     break;
                 case 2:
                     Console.WriteLine("--- Batch Convert Songs ---");

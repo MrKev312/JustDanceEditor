@@ -1,6 +1,4 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.Formats.Unity;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
@@ -13,9 +11,11 @@ namespace JustDanceEditor.UI.Converting;
 /// </summary>
 public sealed class ConversionWorkflow(
     IKeyedServiceProvider<IJdiFormat> formats,
+    IEnumerable<IFormatConversionStrategy> strategies,
     ILogger<ConversionWorkflow> logger) : IConversionWorkflow
 {
     private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
+    private readonly IFormatConversionStrategy[] _strategies = [.. strategies];
     private readonly ILogger<ConversionWorkflow> _logger = logger;
 
     public void ConvertAllSongsInFolder()
@@ -24,12 +24,7 @@ public sealed class ConversionWorkflow(
         {
             Console.WriteLine("Starting batch conversion process for all songs in a folder.");
 
-            // Ask for target format first
-            TargetSelection target = PlatformVersionSelector.AskTarget("Select the export target for all songs");
-
-            // Check template only for Unity exports
-            if (target.IsUnityEngine && !CheckTemplate())
-                return;
+            ConversionTarget target = ConversionTargetSelector.AskTarget(_strategies, "Select the export target for all songs");
 
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
@@ -123,7 +118,7 @@ public sealed class ConversionWorkflow(
                         continue;
                     }
 
-                    Console.WriteLine($"   Converting '{songName}' to {target.FormatName}...");
+                    Console.WriteLine($"   Converting '{songName}' to {target.DisplayName}...");
 
                     try
                     {
@@ -155,42 +150,22 @@ public sealed class ConversionWorkflow(
         }
     }
 
-    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, TargetSelection target)
+    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, ConversionTarget target)
     {
-        // Import from UbiArt (auto-detected)
-        UbiArtConversionRequest importRequest = new(inputFolder, outputFolder, songName);
+        IFormatConversionStrategy sourceStrategy = GetStrategy("UbiArt");
+        IFormatConversionStrategy targetStrategy = GetStrategy(target.FormatName);
 
-        // Export based on target selection
-        if (target.IsUnityEngine)
-        {
-            UnityConversionRequest exportRequest = new(outputFolder, outputFolder, "./Template")
-            {
-                ExportType = ExportType.CustomServer
-            };
-            RunUbiArtToUnityConversion(importRequest, exportRequest);
-        }
-        else
-        {
-            // UbiArt export
-            UbiArtConversionRequest exportRequest = new(outputFolder, outputFolder, songName)
-            {
-                Type = target.Platform == TargetPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked,
-                ExportPlatform = target.ToUbiArtPlatform(),
-                ExportEngineVersion = target.ToUbiArtEngineVersion()
-            };
-            RunUbiArtToUbiArtConversion(importRequest, exportRequest);
-        }
-    }
+        IJdiFormat sourceFormat = _formats.Get(sourceStrategy.FormatName);
+        IJdiFormat targetFormat = _formats.Get(targetStrategy.FormatName);
 
-    private void RunUbiArtToUbiArtConversion(UbiArtConversionRequest importRequest, UbiArtConversionRequest exportRequest)
-    {
-        IJdiFormat format = _formats.Get("UbiArt");
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(inputFolder, outputFolder, songName);
+        ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(outputFolder, outputFolder, target, songName);
 
-        JdiImportResult importResult = format.ImportAsync(importRequest).GetAwaiter().GetResult();
+        JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
 
         try
         {
-            format.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+            targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
         }
         finally
         {
@@ -199,21 +174,8 @@ public sealed class ConversionWorkflow(
         }
     }
 
-    private (UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest) CreateUbiArtToUnityRequests()
-    {
-        (string inputPath, string songName) = AskInputFolder();
-        string outputPath = AskOutputFolder();
-
-        Directory.CreateDirectory(outputPath);
-
-        UbiArtConversionRequest importRequest = new(inputPath, outputPath, songName);
-        UnityConversionRequest exportRequest = new(outputPath, outputPath, "./Template")
-        {
-            ExportType = ExportType.CustomServer
-        };
-
-        return (importRequest, exportRequest);
-    }
+    private IFormatConversionStrategy GetStrategy(string formatName) =>
+        _strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
 
     private static string AskMultiInputFolder()
     {
@@ -256,24 +218,6 @@ public sealed class ConversionWorkflow(
         return inputPath;
     }
 
-    private void RunUbiArtToUnityConversion(UbiArtConversionRequest importRequest, UnityConversionRequest exportRequest)
-    {
-        IJdiFormat sourceFormat = _formats.Get("UbiArt");
-        IJdiFormat targetFormat = _formats.Get("Unity");
-
-        JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
-
-        try
-        {
-            targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
-                Directory.Delete(importResult.MaterializedRoot, true);
-        }
-    }
-
     private static (string inputPath, string songName) AskInputFolder()
     {
         string inputPath = "";
@@ -314,63 +258,4 @@ public sealed class ConversionWorkflow(
 
     private static string AskOutputFolder() =>
         Question.AskFolder("Please enter the full path for the output folder where converted files will be saved");
-
-    private static bool CheckTemplate()
-    {
-        Console.WriteLine("Checking for template files...");
-        string templateRoot = "./template";
-        bool baseFolderMissing = !Directory.Exists(templateRoot);
-
-        string[] requiredSubFolders = [
-            "Cover",
-            "MapPackage",
-            "CoachesLarge",
-            "CoachesSmall",
-            "songTitleLogo",
-        ];
-
-        List<string> missingMessages = [];
-
-        if (baseFolderMissing)
-        {
-            Directory.CreateDirectory(templateRoot); // Create base if missing
-            missingMessages.Add($"Base template folder '{templateRoot}' was missing and has been created.");
-            missingMessages.Add("Please populate it with the required template subfolders and files as per documentation.");
-        }
-
-        foreach (string subFolder in requiredSubFolders)
-        {
-            string fullPath = Path.Combine(templateRoot, subFolder);
-            if (!Directory.Exists(fullPath))
-            {
-                Directory.CreateDirectory(fullPath); // Create subfolder if missing
-                missingMessages.Add($"Template subfolder '{fullPath}' was missing and has been created.");
-                missingMessages.Add($"Ensure it contains a valid template bundle file from an official Just Dance Next song.");
-
-            }
-            else if (Directory.GetFiles(fullPath).Length == 0)
-            {
-                missingMessages.Add($"Template subfolder '{fullPath}' is empty. It must contain a template bundle file.");
-            }
-        }
-
-        if (missingMessages.Count > 0)
-        {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("\n--- Template Setup Incomplete ---");
-            foreach (string msg in missingMessages)
-            {
-                Console.WriteLine(msg);
-            }
-
-            Console.WriteLine("\nPlease refer to the README for detailed instructions on template setup.");
-            Console.ResetColor();
-            return false;
-        }
-
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Template files seem to be in place.");
-        Console.ResetColor();
-        return true;
-    }
 }

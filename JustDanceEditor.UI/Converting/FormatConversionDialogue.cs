@@ -1,9 +1,6 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDNextPC;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.Formats.Unity;
-using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;
@@ -12,12 +9,13 @@ namespace JustDanceEditor.UI.Converting;
 
 internal static class FormatConversionDialogue
 {
-    public static void Start(IKeyedServiceProvider<IJdiFormat> formatsProvider, IEnumerable<IJdiFormat> formatsEnumerable, ILogger logger)
+    public static void Start(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> strategies, ILogger logger)
     {
         // Ask for input folder or IPK up front so we can auto-detect its format
         string inputPath = Question.AskFolderOrIpk("Enter the input folder or IPK for the conversion");
 
         IJdiFormat[] formats = [.. formatsEnumerable];
+        IFormatConversionStrategy[] conversionStrategies = [.. strategies];
 
         IJdiFormat[] sourceCandidates = [.. formats.Where(f => f.CanImport)];
 
@@ -50,16 +48,22 @@ internal static class FormatConversionDialogue
             sourceName = AskFormat("Select the source format", sourceCandidates);
         }
 
-        // Ask for target platform/version (unified flow)
-        TargetSelection target = PlatformVersionSelector.AskTarget();
-
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
+        IFormatConversionStrategy sourceStrategy = ResolveStrategy(conversionStrategies, sourceName);
 
-        // Determine target format based on selection
+        ConversionTarget target = ConversionTargetSelector.AskTarget(conversionStrategies);
+        IFormatConversionStrategy targetStrategy = ResolveStrategy(conversionStrategies, target.FormatName);
+
         string targetName = target.FormatName;
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) = BuildRequests(sourceName, target, inputPath);
+        string outputPath = AskOutputPath(target);
+        string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
+            ? outputPath
+            : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
+
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(inputPath, intermediatePath);
+        ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(inputPath, outputPath, target);
 
         // Ask about downloading online assets BEFORE conversion
         bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for this song?") == 0;
@@ -146,136 +150,15 @@ internal static class FormatConversionDialogue
         return options[selection].DisplayName;
     }
 
-    private static (ConversionRequestBase importRequest, ConversionRequestBase exportRequest) BuildRequests(string source, TargetSelection target, string inputPath)
+    private static IFormatConversionStrategy ResolveStrategy(IEnumerable<IFormatConversionStrategy> strategies, string formatName)
     {
-        string targetName = target.FormatName;
-        string outputPath = AskOutputPath(target);
-
-        string intermediatePath = target.IsJdi ? outputPath : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
-
-        ConversionRequestBase importRequest = source switch
-        {
-            "JDNext PC" => new JDNextPCConversionRequest(inputPath, intermediatePath),
-            "UbiArt" => BuildUbiArtImportRequest(inputPath, intermediatePath),
-            "Unity" => BuildUnityImportRequest(inputPath, intermediatePath, targetName),
-            "JDI" => new JdiConversionRequest(inputPath, intermediatePath),
-            _ => throw new NotSupportedException($"Unknown source format '{source}'.")
-        };
-
-        ConversionRequestBase exportRequest = target.IsJdi
-            ? new JdiConversionRequest(inputPath, outputPath)
-            : target.IsJDNextPC
-                ? new JDNextPCConversionRequest(inputPath, outputPath)
-            : target.IsUnityEngine
-                ? BuildUnityExportRequest(outputPath)
-                : BuildUbiArtExportRequest(inputPath, outputPath, target);
-
-        return (importRequest, exportRequest);
+        return strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string AskOutputPath(TargetSelection target)
+    private static string AskOutputPath(ConversionTarget target)
     {
-        // Todo: this really shouldn't be here, each format should be able to specify its own prompt and validation logic for output paths
-        string prompt = target.IsUnityEngine
-            ? "Enter the Unity output root (custom server layout)"
-            : target.IsJdi
-                ? "Enter the folder where the JDI package should be written"
-                : target.IsJDNextPC
-                    ? "Enter the folder where the JDNext PC song folder should be written"
-                    : "Enter the destination folder for the converted files";
-
-        string path = Question.AskFolder(prompt, false);
+        string path = Question.AskFolder(target.OutputPrompt, false);
         Directory.CreateDirectory(path);
         return path;
-    }
-
-    private static ConversionRequestBase BuildUbiArtImportRequest(string inputPath, string outputPath)
-    {
-        string? songName = ResolveUbiArtSongName(inputPath);
-        return new UbiArtConversionRequest(inputPath, outputPath, songName);
-    }
-
-    private static ConversionRequestBase BuildUnityImportRequest(string inputPath, string outputPath, string target)
-    {
-        // Template path is unused during import; supply outputPath to satisfy constructor.
-        UnityConversionRequest request = new(inputPath, outputPath, outputPath)
-        {
-            ExportType = ExportType.CustomServer
-        };
-
-        return request;
-    }
-
-    private static ConversionRequestBase BuildUnityExportRequest(string outputPath)
-    {
-        string templatePath = ResolveTemplatePath();
-
-        UnityConversionRequest request = new(outputPath, outputPath, templatePath)
-        {
-            ExportType = ExportType.CustomServer
-        };
-
-        return request;
-    }
-
-    private static ConversionRequestBase BuildUbiArtExportRequest(string inputPath, string outputPath, TargetSelection target)
-    {
-        if (target.IsUnityEngine)
-        {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("Note: JD2023+ uses the Unity engine. Use Unity export instead.");
-            Console.ResetColor();
-            throw new NotSupportedException("Cannot export to UbiArt format for JD2023+. Use Unity format.");
-        }
-
-        string? songName = ResolveUbiArtSongName(inputPath);
-        UbiArtConversionRequest request = new(inputPath, outputPath, songName)
-        {
-            Type = target.Platform == TargetPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked,
-            ExportPlatform = target.ToUbiArtPlatform(),
-            ExportEngineVersion = target.ToUbiArtEngineVersion()
-        };
-
-        return request;
-    }
-
-    private static string? ResolveUbiArtSongName(string inputPath)
-    {
-        // Only try to detect from direct filesystem structure
-        // Bundled/IPK files will be detected during import and handled via MultipleSongsFoundException
-        string mapsPath = Path.Combine(inputPath, "world", "maps");
-        if (!Directory.Exists(mapsPath))
-            return null;
-
-        string[] maps = Directory.GetDirectories(mapsPath);
-        if (maps.Length == 0)
-            return null;
-
-        // Single map folder - auto-select it
-        if (maps.Length == 1)
-            return Path.GetFileName(maps[0]);
-
-        // Multiple direct folders - ask the user (but this is the old behavior)
-        // Note: If input is a bundle (IPK), this won't run, and the exception handler will catch it
-        string[] mapNames = [.. maps.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)];
-        if (mapNames.Length > 0)
-        {
-            int selection = Question.Ask(mapNames, 0, "Multiple maps found in direct filesystem. Which one should be converted?");
-            return mapNames[selection];
-        }
-
-        return null;
-    }
-
-    private static string ResolveTemplatePath()
-    {
-        const string defaultTemplate = "./Template";
-        if (Directory.Exists(defaultTemplate))
-            return defaultTemplate;
-
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("Default template folder './Template' not found. Please specify the template path manually.");
-        Console.ResetColor();
-        return Question.AskFolder("Enter the template folder path", true);
     }
 }

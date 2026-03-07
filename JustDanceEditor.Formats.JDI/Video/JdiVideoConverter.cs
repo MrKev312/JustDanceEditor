@@ -41,7 +41,7 @@ public static class JdiVideoConverter
 
         await ProcessBatchAsync(
             packageRoot,
-            UnityVideoProfiles.Previews,
+            JdiVideoProfiles.Previews,
             "preview",
             IntermediatePackageLayout.Assets.PreviewVideoFolder,
             logger,
@@ -55,7 +55,7 @@ public static class JdiVideoConverter
     {
         await ProcessBatchAsync(
             packageRoot,
-            UnityVideoProfiles.Masters,
+            JdiVideoProfiles.Masters,
             "master",
             IntermediatePackageLayout.Assets.VideoFolder, // Check assets for source-of-truth
             logger,

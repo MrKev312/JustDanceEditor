@@ -291,7 +291,7 @@ internal sealed class IntermediateToUnityConverter
 
     private void CopyPreviewVideos(string destinationFolder)
     {
-        int expectedCount = UnityVideoProfiles.Previews.Length;
+        int expectedCount = JdiVideoProfiles.Previews.Length;
 
         string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.PreviewVideoFolder);
         string[] assetSources = GetVideoFiles(assetsDir);

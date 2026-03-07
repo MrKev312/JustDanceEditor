@@ -49,6 +49,10 @@ internal class Program
 
         // Conversion workflow service
         builder.Services.AddSingleton<IConversionWorkflow, ConversionWorkflow>();
+        builder.Services.AddSingleton<IFormatConversionStrategy, JdiConversionStrategy>();
+        builder.Services.AddSingleton<IFormatConversionStrategy, JDNextPCConversionStrategy>();
+        builder.Services.AddSingleton<IFormatConversionStrategy, UnityConversionStrategy>();
+        builder.Services.AddSingleton<IFormatConversionStrategy, UbiArtConversionStrategy>();
 
         // Factories
         builder.Services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem>>(sp => (req, profile) => new LayeredFileSystem(req, profile, sp.GetRequiredService<ILogger<LayeredFileSystem>>(), sp.GetRequiredService<SystemFileSystem>(), sp.GetRequiredService<ITempFolderManager>()));
