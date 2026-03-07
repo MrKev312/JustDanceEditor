@@ -1,0 +1,442 @@
+using System.Text.Json;
+
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.JDI.Serialization;
+using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDNextPC;
+
+using Microsoft.Extensions.Logging.Abstractions;
+
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
+using Xunit;
+
+namespace JustDanceEditor.Formats.JDNextPC.Tests;
+
+public class JDNextPCJdiFormatTests
+{
+    [Fact]
+    public async Task ExportAsync_WritesExpectedCoreJDNextFiles()
+    {
+        string packageRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            IntermediateSongPackage package = CreateJdiPackage("Makeba");
+            CreateJdiExportAssets(packageRoot, coachCount: 3);
+            JDNextPCJdiFormat format = CreateFormat();
+
+            await format.ExportAsync(
+                new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
+                new JDNextPCConversionRequest(packageRoot, outputRoot));
+
+            string songRoot = Path.Combine(outputRoot, "makeba");
+            Assert.True(Directory.Exists(songRoot));
+            Assert.True(File.Exists(Path.Combine(songRoot, "songdesc.json")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "timeline.json")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "musictrack.json")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "media", "makeba.ogg")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "media", "makeba.webm")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "cover.png")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "title.png")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "bkg.png")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "coach01.png")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "coach02.png")));
+            Assert.True(File.Exists(Path.Combine(songRoot, "menuart", "coach03.png")));
+
+            using JsonDocument songDesc = JsonDocument.Parse(File.ReadAllText(Path.Combine(songRoot, "songdesc.json")));
+            Assert.Equal("Makeba", songDesc.RootElement.GetProperty("title").GetString());
+            Assert.Equal(3, songDesc.RootElement.GetProperty("numCoach").GetInt32());
+
+            using JsonDocument timeline = JsonDocument.Parse(File.ReadAllText(Path.Combine(songRoot, "timeline.json")));
+            Assert.True(timeline.RootElement.GetProperty("lyrics").GetArrayLength() > 0);
+            Assert.True(timeline.RootElement.GetProperty("pictos").GetArrayLength() > 0);
+            Assert.True(timeline.RootElement.GetProperty("moves").GetArrayLength() > 0);
+
+            JsonElement firstMove = timeline.RootElement.GetProperty("moves")[0];
+            Assert.Equal("makeba_tui", firstMove.GetProperty("name").GetString());
+            Assert.Equal(0, firstMove.GetProperty("coachID").GetInt32());
+        }
+        finally
+        {
+            Directory.Delete(packageRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ImportAsync_BuildsJdiPackageFromJDNextCoreFiles()
+    {
+        string jdNextRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            CreateJdNextInput(jdNextRoot);
+            JDNextPCJdiFormat format = CreateFormat();
+            JdiImportResult result = await format.ImportAsync(new JDNextPCConversionRequest(jdNextRoot, outputRoot));
+
+            Assert.Equal("JDNext PC", result.SourceFormat);
+            Assert.Equal("Synthetic Song", result.Package.Metadata.Title);
+            Assert.Equal("Synthetic Artist", result.Package.Metadata.Artist);
+            Assert.Equal(2, result.Package.Metadata.CoachCount);
+            Assert.Empty(result.Package.FullBodyCoachTimelines);
+            Assert.True(result.Package.Lyrics.Clips.Count > 0);
+            Assert.True(result.Package.Pictograms.Clips.Count > 0);
+            Assert.True(result.Package.CoachTimelines.Count == 2);
+            Assert.Contains("synthetic_move", result.Package.HandCoachMoves.Keys);
+            Assert.NotNull(result.MaterializedRoot);
+            Assert.True(File.Exists(Path.Combine(result.MaterializedRoot!, "metadata.json")));
+            Assert.True(File.Exists(Path.Combine(result.MaterializedRoot!, "assets", "coverAssets", "cover.webp")));
+        }
+        finally
+        {
+            Directory.Delete(jdNextRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    [Fact]
+    public void Check_ReturnsTrueForJDNextSongFolder()
+    {
+        string jdNextRoot = CreateTempDirectory();
+
+        try
+        {
+            CreateJdNextInput(jdNextRoot);
+
+            JDNextPCJdiFormat format = CreateFormat();
+
+            Assert.True(format.Check(jdNextRoot));
+        }
+        finally
+        {
+            Directory.Delete(jdNextRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ExportAsync_UsesLargestVp8VideoWithoutTranscoding()
+    {
+        string packageRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            RecordingMediaProcessor mediaProcessor = new();
+            JDNextPCJdiFormat format = new(mediaProcessor, new FakeTextureService(), NullLogger<JDNextPCJdiFormat>.Instance);
+            IntermediateSongPackage package = CreateMinimalPackage("VideoPassThrough");
+
+            string videoRoot = Path.Combine(packageRoot, "assets", "video");
+            Directory.CreateDirectory(videoRoot);
+            byte[] smallVideo = CreatePseudoWebmBytes(32, isVp8: true);
+            byte[] largeVideo = CreatePseudoWebmBytes(96, isVp8: true);
+            File.WriteAllBytes(Path.Combine(videoRoot, "small.webm"), smallVideo);
+            string largeVideoPath = Path.Combine(videoRoot, "large.webm");
+            File.WriteAllBytes(largeVideoPath, largeVideo);
+
+            await format.ExportAsync(
+                new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
+                new JDNextPCConversionRequest(packageRoot, outputRoot));
+
+            string exportedVideoPath = Path.Combine(outputRoot, "videopassthrough", "media", "videopassthrough.webm");
+            Assert.True(File.Exists(exportedVideoPath));
+            Assert.Equal(largeVideo, File.ReadAllBytes(exportedVideoPath));
+            Assert.DoesNotContain(mediaProcessor.Calls, call => call.Output.EndsWith(".webm", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(packageRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ExportAsync_TranscodesLargestVideoWhenItIsNotVp8()
+    {
+        string packageRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            RecordingMediaProcessor mediaProcessor = new();
+            JDNextPCJdiFormat format = new(mediaProcessor, new FakeTextureService(), NullLogger<JDNextPCJdiFormat>.Instance);
+            IntermediateSongPackage package = CreateMinimalPackage("VideoTranscode");
+
+            string videoRoot = Path.Combine(packageRoot, "assets", "video");
+            Directory.CreateDirectory(videoRoot);
+            File.WriteAllBytes(Path.Combine(videoRoot, "small.webm"), CreatePseudoWebmBytes(24, isVp8: true));
+            byte[] largeNonVp8Video = CreatePseudoWebmBytes(88, isVp8: false);
+            File.WriteAllBytes(Path.Combine(videoRoot, "large.webm"), largeNonVp8Video);
+
+            await format.ExportAsync(
+                new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
+                new JDNextPCConversionRequest(packageRoot, outputRoot));
+
+            MediaCall videoCall = Assert.Single(mediaProcessor.Calls, call => call.Output.EndsWith(".webm", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(Path.Combine(videoRoot, "large.webm"), videoCall.Input);
+            Assert.Contains("-c:v libvpx", videoCall.ExtraArgs);
+        }
+        finally
+        {
+            Directory.Delete(packageRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    private static JDNextPCJdiFormat CreateFormat() =>
+        new(new FakeMediaProcessor(), new FakeTextureService(), NullLogger<JDNextPCJdiFormat>.Instance);
+
+    private static string CreateTempDirectory()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "JustDanceEditor.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static IntermediateSongPackage CreateJdiPackage(string mapName)
+    {
+        TimelineStructureDocument structure = new()
+        {
+            Markers = [0, 48000, 96000, 144000, 192000],
+            StartBeat = 0,
+            EndBeat = 4,
+            VideoStartOffset = 0,
+            PreviewEntryBeat = 0,
+            PreviewLoopStartBeat = 0,
+            PreviewLoopEndBeat = 4,
+            PreviewDuration = 30
+        };
+
+        return new IntermediateSongPackage
+        {
+            Metadata = new IntermediateMetadata
+            {
+                MapName = mapName,
+                ParentMapName = mapName,
+                Title = mapName,
+                Artist = "Test Artist",
+                Credits = "Synthetic Credits",
+                CoachCount = 3,
+                Difficulty = 2,
+                OriginalJDVersion = 2024,
+                LyricsColor = "#FFFFFFFF"
+            },
+            TimelineStructure = structure,
+            Lyrics = new Timeline<KaraokeClip>
+            {
+                Clips =
+                [
+                    new KaraokeClip { Id = 1, StartTime = 24, Duration = 12, Lyrics = "Hel", ContentType = 1 },
+                    new KaraokeClip { Id = 2, StartTime = 36, Duration = 12, Lyrics = "lo", ContentType = 1, IsEndOfLine = true }
+                ]
+            },
+            Pictograms = new Timeline<PictogramClip>
+            {
+                Clips =
+                [
+                    new PictogramClip { Id = 10, StartTime = 24, Duration = 24, PictogramId = "picto_a", CoachCount = -1 },
+                    new PictogramClip { Id = 11, StartTime = 48, Duration = 24, PictogramId = "picto_b", CoachCount = -1 }
+                ]
+            },
+            CoachTimelines =
+            [
+                new MoveTimeline
+                {
+                    CoachId = 0,
+                    TrackId = 100,
+                    Clips = [ new MoveClip { Id = 20, StartTime = 24, MoveId = "makeba_tui" } ]
+                },
+                new MoveTimeline
+                {
+                    CoachId = 1,
+                    TrackId = 101,
+                    Clips = [ new MoveClip { Id = 21, StartTime = 24, MoveId = "makeba_tui" } ]
+                },
+                new MoveTimeline
+                {
+                    CoachId = 2,
+                    TrackId = 102,
+                    Clips = [ new MoveClip { Id = 22, StartTime = 24, MoveId = "makeba_tui" } ]
+                }
+            ],
+            HandCoachMoves = new Dictionary<string, CoachMoveDefinition>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["makeba_tui"] = new CoachMoveDefinition { Color = "#CCCCCC", Duration = 24, MoveType = CoachMoveType.HandTracking }
+            }
+        };
+    }
+
+    private static IntermediateSongPackage CreateMinimalPackage(string mapName)
+    {
+        return new IntermediateSongPackage
+        {
+            Metadata = new IntermediateMetadata
+            {
+                MapName = mapName,
+                ParentMapName = mapName,
+                Title = mapName,
+                Artist = "Test Artist",
+                CoachCount = 1,
+                LyricsColor = "#FFFFFFFF"
+            },
+            TimelineStructure = new TimelineStructureDocument
+            {
+                Markers = [0, 48000],
+                StartBeat = 0,
+                EndBeat = 1,
+                VideoStartOffset = 0,
+                PreviewEntryBeat = 0,
+                PreviewLoopStartBeat = 0,
+                PreviewLoopEndBeat = 1,
+                PreviewDuration = 30
+            }
+        };
+    }
+
+    private static void CreateJdiExportAssets(string packageRoot, int coachCount)
+    {
+        WriteBytes(Path.Combine(packageRoot, "assets", "audio", "master.opus"), "AUDIO"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "video", "small.webm"), CreatePseudoWebmBytes(24, isVp8: true));
+        WriteBytes(Path.Combine(packageRoot, "assets", "video", "large.webm"), CreatePseudoWebmBytes(64, isVp8: true));
+        WriteBytes(Path.Combine(packageRoot, "assets", "coverAssets", "cover.webp"), "COVER"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "coverAssets", "songTitleLogo.webp"), "TITLE"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "backgrounds", "mapBackground.webp"), "BKG"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "pictograms", "picto_a.webp"), "P1"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "pictograms", "picto_b.webp"), "P2"u8.ToArray());
+        WriteBytes(Path.Combine(packageRoot, "assets", "moves", "makeba_tui.msm"), "MOVE"u8.ToArray());
+
+        for (int coachIndex = 1; coachIndex <= coachCount; coachIndex++)
+            WriteBytes(Path.Combine(packageRoot, "assets", "coaches", $"coach_{coachIndex:D2}.webp"), [(byte)coachIndex]);
+    }
+
+    private static void CreateJdNextInput(string jdNextRoot)
+    {
+        WriteJson(Path.Combine(jdNextRoot, "songdesc.json"), """
+        {
+          "title": "Synthetic Song",
+          "artist": "Synthetic Artist",
+          "credits": "Synthetic Credits",
+          "jdVersion": 2024,
+          "numCoach": 2,
+          "difficulty": 3,
+          "lyricColor": [1.0, 1.0, 1.0, 1.0]
+        }
+        """);
+
+        WriteJson(Path.Combine(jdNextRoot, "musictrack.json"), """
+        {
+          "videoStartTime": 0.0,
+          "videoEndTime": 4.0,
+          "startBeat": 0,
+          "endBeat": 4,
+          "beats": [0.0, 1.0, 2.0, 3.0, 4.0]
+        }
+        """);
+
+        WriteJson(Path.Combine(jdNextRoot, "timeline.json"), """
+        {
+          "lyricColor": [1.0, 1.0, 1.0, 1.0],
+          "lyrics": [
+            { "time": 1.0, "duration": 0.5, "text": "Hi", "isLineEnding": 1 }
+          ],
+          "pictos": [
+            { "time": 1.0, "name": "picto_a" },
+            { "time": 2.0, "name": "picto_b" }
+          ],
+          "moves": [
+            { "time": 1.0, "duration": 1.0, "name": "synthetic_move", "goldMove": 0, "coachID": 0 },
+            { "time": 1.0, "duration": 1.0, "name": "synthetic_move", "goldMove": 1, "coachID": 1 }
+          ]
+        }
+        """);
+
+        WriteBytes(Path.Combine(jdNextRoot, "media", "small.webm"), CreatePseudoWebmBytes(16, isVp8: true));
+        WriteBytes(Path.Combine(jdNextRoot, "media", "large.webm"), CreatePseudoWebmBytes(48, isVp8: true));
+        WriteBytes(Path.Combine(jdNextRoot, "media", "song.ogg"), "OGGDATA"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "moves", "synthetic_move.msm"), "MOVE"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "pictos", "picto_a.png"), "PA"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "pictos", "picto_b.png"), "PB"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "menuart", "cover.png"), "COVER"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "menuart", "title.png"), "TITLE"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "menuart", "bkg.png"), "BKG"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "menuart", "coach01.png"), "C1"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "menuart", "coach02.png"), "C2"u8.ToArray());
+    }
+
+    private static void WriteBytes(string path, byte[] bytes)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, bytes);
+    }
+
+    private static void WriteJson(string path, string json)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
+    }
+
+    private static byte[] CreatePseudoWebmBytes(int totalLength, bool isVp8)
+    {
+        byte[] bytes = Enumerable.Repeat((byte)'A', totalLength).ToArray();
+        byte[] marker = isVp8 ? "V_VP8"u8.ToArray() : "V_VP9"u8.ToArray();
+        int offset = Math.Min(8, Math.Max(0, totalLength - marker.Length));
+        Array.Copy(marker, 0, bytes, offset, Math.Min(marker.Length, totalLength - offset));
+        return bytes;
+    }
+
+    private sealed class FakeMediaProcessor : IMediaProcessor
+    {
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.Copy(input, output, true);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeTextureService : ITextureService
+    {
+        public Image<Bgra32>? ConvertToImage(Stream stream)
+        {
+            try
+            {
+                return Image.Load<Bgra32>(stream);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task ConvertTextureAsync(Stream inputStream, string outputPath, CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            await using FileStream output = File.Create(outputPath);
+            await inputStream.CopyToAsync(output, cancellationToken);
+        }
+    }
+
+    private sealed class RecordingMediaProcessor : IMediaProcessor
+    {
+        public List<MediaCall> Calls { get; } = [];
+
+        public Task EnsureInitializedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new MediaCall(input, output, extraArgs ?? []));
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.Copy(input, output, true);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed record MediaCall(string Input, string Output, string[] ExtraArgs);
+}

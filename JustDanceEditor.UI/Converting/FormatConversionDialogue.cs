@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDNextPC;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.Unity;
@@ -154,6 +155,7 @@ internal static class FormatConversionDialogue
 
         ConversionRequestBase importRequest = source switch
         {
+            "JDNext PC" => new JDNextPCConversionRequest(inputPath, intermediatePath),
             "UbiArt" => BuildUbiArtImportRequest(inputPath, intermediatePath),
             "Unity" => BuildUnityImportRequest(inputPath, intermediatePath, targetName),
             "JDI" => new JdiConversionRequest(inputPath, intermediatePath),
@@ -162,6 +164,8 @@ internal static class FormatConversionDialogue
 
         ConversionRequestBase exportRequest = target.IsJdi
             ? new JdiConversionRequest(inputPath, outputPath)
+            : target.IsJDNextPC
+                ? new JDNextPCConversionRequest(inputPath, outputPath)
             : target.IsUnityEngine
                 ? BuildUnityExportRequest(outputPath)
                 : BuildUbiArtExportRequest(inputPath, outputPath, target);
@@ -171,11 +175,14 @@ internal static class FormatConversionDialogue
 
     private static string AskOutputPath(TargetSelection target)
     {
+        // Todo: this really shouldn't be here, each format should be able to specify its own prompt and validation logic for output paths
         string prompt = target.IsUnityEngine
             ? "Enter the Unity output root (custom server layout)"
             : target.IsJdi
                 ? "Enter the folder where the JDI package should be written"
-                : "Enter the destination folder for the converted files";
+                : target.IsJDNextPC
+                    ? "Enter the folder where the JDNext PC song folder should be written"
+                    : "Enter the destination folder for the converted files";
 
         string path = Question.AskFolder(prompt, false);
         Directory.CreateDirectory(path);

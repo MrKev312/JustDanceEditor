@@ -17,10 +17,17 @@ public sealed class TargetSelection
     /// </summary>
     public int? Version { get; init; }
 
+    /// TODO: These bools really shouldn't exist.
+    
     /// <summary>
     /// Gets whether this target is just the JDI intermediate format.
     /// </summary>
     public bool IsJdi => Platform == TargetPlatform.JDI;
+
+    /// <summary>
+    /// Gets whether this target is JDNext PC.
+    /// </summary>
+    public bool IsJDNextPC => Platform == TargetPlatform.JDNextPC;
 
     /// <summary>
     /// Gets whether this target uses the Unity engine (JD 2023+).
@@ -30,7 +37,7 @@ public sealed class TargetSelection
     /// <summary>
     /// Gets whether this target uses the UbiArt engine (JD 2014-2022).
     /// </summary>
-    public bool IsUbiArtEngine => !IsJdi && Version is null or (>= 2014 and <= 2022);
+    public bool IsUbiArtEngine => !IsJdi && !IsJDNextPC && Version is null or (>= 2014 and <= 2022);
 
     /// <summary>
     /// Converts to UbiArt platform enum.
@@ -66,7 +73,7 @@ public sealed class TargetSelection
     /// <summary>
     /// Gets the format name (JDI, Unity or UbiArt).
     /// </summary>
-    public string FormatName => IsJdi ? "JDI" : IsUnityEngine ? "Unity" : "UbiArt";
+    public string FormatName => IsJdi ? "JDI" : IsJDNextPC ? "JDNext PC" : IsUnityEngine ? "Unity" : "UbiArt";
 }
 
 /// <summary>
@@ -75,6 +82,7 @@ public sealed class TargetSelection
 public enum TargetPlatform
 {
     JDI,
+    JDNextPC,
     Uncooked,
     PC,
     NX,
@@ -93,6 +101,7 @@ public static class PlatformVersionSelector
     public static int[] GetVersionsForPlatform(TargetPlatform platform) => platform switch
     {
         TargetPlatform.JDI => [], // JDI is versionless
+        TargetPlatform.JDNextPC => [],
         TargetPlatform.Uncooked => [], // Uncooked is versionless
         TargetPlatform.PC => [2017], // Only one version available
         TargetPlatform.Wii => [2014, 2015, 2016, 2017, 2018, 2019, 2020],
@@ -106,16 +115,17 @@ public static class PlatformVersionSelector
     /// </summary>
     public static TargetPlatform AskPlatform(string prompt = "Select the target format/platform")
     {
-        string[] platforms = ["JDI", "Uncooked", "PC", "NX", "WiiU", "Wii"];
+        string[] platforms = ["JDI", "JDNext PC", "Uncooked", "PC", "NX", "WiiU", "Wii"];
         int selection = Helpers.Question.Ask(platforms, 0, prompt);
         return selection switch
         {
             0 => TargetPlatform.JDI,
-            1 => TargetPlatform.Uncooked,
-            2 => TargetPlatform.PC,
-            3 => TargetPlatform.NX,
-            4 => TargetPlatform.WiiU,
-            5 => TargetPlatform.Wii,
+            1 => TargetPlatform.JDNextPC,
+            2 => TargetPlatform.Uncooked,
+            3 => TargetPlatform.PC,
+            4 => TargetPlatform.NX,
+            5 => TargetPlatform.WiiU,
+            6 => TargetPlatform.Wii,
             _ => throw new InvalidOperationException("Invalid selection")
         };
     }
@@ -162,6 +172,10 @@ public static class PlatformVersionSelector
         if (selection.IsJdi)
         {
             Console.WriteLine($"Selected: JDI (intermediate format)");
+        }
+        else if (selection.IsJDNextPC)
+        {
+            Console.WriteLine("Selected: JDNext PC");
         }
         else
         {

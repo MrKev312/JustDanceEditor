@@ -10,6 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.Formats.JDNextPC\JustDanceEditor.Formats.JDNextPC.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.Unity\JustDanceEditor.Formats.Unity.csproj" />

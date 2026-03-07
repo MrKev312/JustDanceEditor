@@ -1,5 +1,6 @@
 using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDNextPC;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.UbiArt.Export;
@@ -54,6 +55,7 @@ internal class Program
         builder.Services.AddSingleton(sp => new Func<string, IntermediateSongPackage>(path => Formats.Unity.Builders.UnityServerIntermediateBuilder.FromServerExport(path, sp.GetRequiredService<ILoggerFactory>().CreateLogger("JustDanceEditor.Formats.Unity.Builders.UnityServerIntermediateBuilder"))));
 
         // Register IJdiFormat implementations as keyed services
+        builder.Services.AddKeyedSingleton<IJdiFormat, JDNextPCJdiFormat>("JDNext PC");
         builder.Services.AddKeyedSingleton<IJdiFormat, UbiArtJdiFormat>("UbiArt");
         builder.Services.AddKeyedSingleton<IJdiFormat, Formats.Unity.UnityJdiFormat>("Unity");
         builder.Services.AddSingleton<IJdiFormat, JdiFormat>();
