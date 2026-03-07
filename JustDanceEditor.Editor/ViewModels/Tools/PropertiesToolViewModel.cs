@@ -469,38 +469,12 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
                 }
             }
 
-            // Special-case: when changing MoveId on multiple MoveClipViewModels in one operation,
-            // suppress Definition color propagation on each clip while we assign the new MoveId to avoid
-            // intermediate clip color writes from stomping definition colors.
             _isBatchSetting = true;
             try
             {
-                if (_propertyName == "MoveId" && _targets.Count > 1 && _targets.All(t => t is MoveClipViewModel))
+                foreach (object target in _targets)
                 {
-                    List<MoveClipViewModel> moveClips = [.. _targets.Cast<MoveClipViewModel>()];
-                    try
-                    {
-                        // Begin suppression on all involved clips
-                        foreach (MoveClipViewModel mc in moveClips)
-                            mc.BeginSuppressDefinitionColorUpdates();
-
-                        // Now perform the assignments (this will invoke each clip's MoveId setter)
-                        foreach (object target in _targets)
-                            SetValue(target, value);
-                    }
-                    finally
-                    {
-                        // End suppression
-                        foreach (MoveClipViewModel mc in moveClips)
-                            mc.EndSuppressDefinitionColorUpdates();
-                    }
-                }
-                else
-                {
-                    foreach (object target in _targets)
-                    {
-                        SetValue(target, value);
-                    }
+                    SetValue(target, value);
                 }
             }
             finally

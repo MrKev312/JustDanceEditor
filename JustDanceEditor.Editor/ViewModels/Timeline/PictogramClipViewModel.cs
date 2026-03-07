@@ -13,38 +13,52 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
+public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 {
+    private PictogramClip PictogramClip => (PictogramClip)RawClip;
+
     [Inspectable("Pictogram Id", "Pictogram")]
-    [ObservableProperty]
-    public partial string PictogramId { get; set; } = string.Empty;
-
-    public override bool IsResizable => true;
-
-    public PictogramClipViewModel(PictogramClip clip, double duration, Color color, string pictogramId, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
-        : base(clip, duration, color, pictogramId, rootPath, parentTimeline)
+    public string PictogramId
     {
-        PictogramId = clip.PictogramId ?? string.Empty;
-        if (!string.IsNullOrEmpty(PictogramId) && rootPath != null)
-            ImagePath = Path.Combine(rootPath, "assets", "pictograms", $"{PictogramId}.webp");
-    }
-
-    partial void OnPictogramIdChanged(string value)
-    {
-        if (RawClip is PictogramClip p)
+        get => PictogramClip.PictogramId ?? string.Empty;
+        set
         {
-            p.PictogramId = value;
-            if (!string.IsNullOrEmpty(value) && _rootPath != null)
-                ImagePath = Path.Combine(_rootPath, "assets", "pictograms", $"{value}.webp");
+            value ??= string.Empty;
+            if (string.Equals(PictogramClip.PictogramId, value, StringComparison.Ordinal))
+                return;
 
+            PictogramClip.PictogramId = value;
+            UpdateImagePath(value);
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(PictogramId)));
+            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(Name)));
             NotifyClipDataChanged(nameof(PictogramId));
+            NotifyClipDataChanged(nameof(Name));
         }
     }
 
-    protected override void SyncRawDuration(int frames)
+    public override bool IsResizable => true;
+
+    public override string Name
     {
-        if (RawClip is PictogramClip p)
-            p.Duration = frames;
+        get => PictogramId;
+        set => PictogramId = value;
+    }
+
+    public PictogramClipViewModel(PictogramClip clip, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
+        : base(clip, Colors.LightBlue, clip.PictogramId ?? string.Empty, rootPath, parentTimeline)
+    {
+        UpdateImagePath(PictogramId);
+    }
+
+    protected override int GetDurationFrames() => PictogramClip.Duration;
+
+    protected override void SetDurationFrames(int frames) => PictogramClip.Duration = frames;
+
+    private void UpdateImagePath(string pictogramId)
+    {
+        ImagePath = !string.IsNullOrEmpty(pictogramId) && _rootPath != null
+            ? Path.Combine(_rootPath, "assets", "pictograms", $"{pictogramId}.webp")
+            : null;
     }
 
     // IHasDynamicOptions

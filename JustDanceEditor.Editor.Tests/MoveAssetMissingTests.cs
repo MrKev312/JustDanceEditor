@@ -67,7 +67,7 @@ public class MoveAssetMissingTests
         Assert.False(def.HasAsset);
 
         MoveClip raw = new() { MoveId = "nope" };
-        MoveClipViewModel clip = new(raw, duration: 24, color: Colors.White, moveId: "nope", rootPath: tmp, parentTimeline: timeline, isFullBody: false);
+        MoveClipViewModel clip = new(raw, rootPath: tmp, parentTimeline: timeline, isFullBody: false, fallbackDurationFrames: 24);
         Assert.True(clip.IsAssetMissing);
 
         // if we manually flip the definition flag the clip property updates
@@ -167,7 +167,7 @@ public class MoveAssetMissingTests
             TimelineEditorViewModel timeline = new(package, tmp, new PlaybackService(), new TimelineSettingsService());
             // add a clip referencing missing pictogram
             TrackViewModel track = new();
-            track.Clips.Add(new PictogramClipViewModel(new PictogramClip { PictogramId = "missing" }, 24, Colors.Black, "missing", tmp, timeline));
+            track.Clips.Add(new PictogramClipViewModel(new PictogramClip { PictogramId = "missing", Duration = 24 }, tmp, timeline));
             timeline.Tracks.Add(track);
 
             LibraryToolViewModel lib = new();
@@ -205,10 +205,10 @@ public class MoveAssetMissingTests
             IntermediateSongPackage package = new();
             TimelineEditorViewModel timeline = new(package, tmp, new PlaybackService(), new TimelineSettingsService());
             TrackViewModel track = new();
-            track.Clips.Add(new PictogramClipViewModel(new PictogramClip { PictogramId = "ghost" }, 24, Colors.Black, "ghost", tmp, timeline));
+            track.Clips.Add(new PictogramClipViewModel(new PictogramClip { PictogramId = "ghost", Duration = 24 }, tmp, timeline));
             timeline.Tracks.Add(track);
 
-            PictogramClipViewModel clipVm = new(new PictogramClip(), 24, Colors.Black, "", tmp, timeline);
+            PictogramClipViewModel clipVm = new(new PictogramClip { Duration = 24 }, tmp, timeline);
             IEnumerable<object>? options = clipVm.GetDynamicOptions(nameof(PictogramClipViewModel.PictogramId), timeline);
             Assert.NotNull(options);
             // Just check that options can be enumerated - rendering may fail without Avalonia

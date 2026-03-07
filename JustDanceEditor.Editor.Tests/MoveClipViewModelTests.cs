@@ -21,7 +21,7 @@ public class MoveClipViewModelTests
         def.DefaultDuration = 48.0; // frames
 
         MoveClip raw = new() { MoveId = "old" };
-        MoveClipViewModel clipVm = new(raw, duration: 24.0 / 24.0, color: Colors.LightGray, moveId: "old", rootPath: null, parentTimeline: timeline, isFullBody: false);
+        MoveClipViewModel clipVm = new(raw, rootPath: null, parentTimeline: timeline, isFullBody: false, fallbackDurationFrames: 24);
 
         // preconditions
         Assert.NotEqual(def, clipVm.Definition);
@@ -46,7 +46,7 @@ public class MoveClipViewModelTests
         def.Color = Colors.Green;
 
         MoveClip raw = new() { MoveId = "m1" };
-        _ = new MoveClipViewModel(raw, duration: 24, color: Colors.LightGray, moveId: "m1", rootPath: null, parentTimeline: timeline, isFullBody: false)
+        _ = new MoveClipViewModel(raw, rootPath: null, parentTimeline: timeline, isFullBody: false, fallbackDurationFrames: 24)
         {
             // change BackgroundColor via property on clip
             BackgroundColor = Colors.Blue

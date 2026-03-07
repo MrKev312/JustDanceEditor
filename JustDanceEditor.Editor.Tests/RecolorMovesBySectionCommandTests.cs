@@ -23,11 +23,11 @@ public class RecolorMovesBySectionCommandTests
 
         // create two move clips for same id in different sections
         TrackViewModel track = new();
-        MoveClipViewModel c1 = new(new MoveClip { MoveId = "run" }, 24, Colors.LightGray, "run", "root", timeline, isFullBody: false)
+        MoveClipViewModel c1 = new(new MoveClip { MoveId = "run" }, "root", timeline, isFullBody: false, fallbackDurationFrames: 24)
         {
             StartBeat = 1 // in Verse
         };
-        MoveClipViewModel c2 = new(new MoveClip { MoveId = "run" }, 24, Colors.LightGray, "run", "root", timeline, isFullBody: false)
+        MoveClipViewModel c2 = new(new MoveClip { MoveId = "run" }, "root", timeline, isFullBody: false, fallbackDurationFrames: 24)
         {
             StartBeat = 12 // in Chorus
         };

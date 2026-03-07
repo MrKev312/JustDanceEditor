@@ -47,7 +47,7 @@ public class SnappingServiceTests
         };
 
         TrackViewModel track = new();
-        PictogramClipViewModel c1 = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel c1 = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 2.0
         };

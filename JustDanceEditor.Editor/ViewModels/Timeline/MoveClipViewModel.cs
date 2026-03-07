@@ -8,16 +8,55 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynamicOptions
+public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynamicOptions
 {
+    private readonly int _fallbackDurationFrames;
+
+    private MoveClip MoveClip => (MoveClip)RawClip;
+
     public override bool IsResizable => true;
+
     [Inspectable("Move Id", "Move")]
-    [ObservableProperty]
-    public partial string MoveId { get; set; } = string.Empty;
+    public string MoveId
+    {
+        get => MoveClip.MoveId;
+        set
+        {
+            value ??= string.Empty;
+            if (string.Equals(MoveClip.MoveId, value, StringComparison.Ordinal))
+                return;
+
+            double oldDurationBeats = DurationBeats;
+            Color oldBackgroundColor = BackgroundColor;
+
+            MoveClip.MoveId = value;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(MoveId)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Name)));
+
+            AttachDefinition(value);
+
+            if (Math.Abs(DurationBeats - oldDurationBeats) > 1e-9)
+            {
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(DurationBeats)));
+                NotifyClipDataChanged(nameof(DurationBeats));
+            }
+
+            if (BackgroundColor != oldBackgroundColor)
+            {
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
+                NotifyClipDataChanged(nameof(BackgroundColor));
+            }
+
+            NotifyClipDataChanged(nameof(MoveId));
+            NotifyClipDataChanged(nameof(Name));
+        }
+    }
 
     public bool IsFullBody { get; }
 
@@ -26,144 +65,109 @@ public partial class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, I
     /// </summary>
     public MoveDefinitionViewModel? Definition { get; private set; }
 
-    private int _suppressDefinitionColorUpdateCount;
-
-    private void PushSuppressDefinitionColorUpdates() => _suppressDefinitionColorUpdateCount++;
-    private void PopSuppressDefinitionColorUpdates()
-    {
-        if (_suppressDefinitionColorUpdateCount > 0)
-            _suppressDefinitionColorUpdateCount--;
-    }
-    public void BeginSuppressDefinitionColorUpdates() => PushSuppressDefinitionColorUpdates();
-    public void EndSuppressDefinitionColorUpdates() => PopSuppressDefinitionColorUpdates();
-    private bool IsSuppressingDefinitionColorUpdates => _suppressDefinitionColorUpdateCount > 0;
-
     [Inspectable("Gold Move", "Move")]
-    [ObservableProperty]
-    public partial bool IsGoldMove { get; set; }
-
-    public MoveClipViewModel(MoveClip clip, double duration, Color color, string moveId, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null, bool isFullBody = false)
-        : base(clip, duration, color, moveId, rootPath, parentTimeline)
+    public bool IsGoldMove
     {
-        MoveId = clip.MoveId;
-        Name = moveId;
-        IsFullBody = isFullBody;
-        IsGoldMove = clip.IsGoldMove;
-
-        // When duration changes, synchronize siblings of the same move across all tracks.
-        PropertyChanged += (sender, e) =>
+        get => MoveClip.IsGoldMove;
+        set
         {
-            if (e.PropertyName == nameof(DurationBeats) && _parentTimeline != null)
-            {
-                // Keep duration-sync logic: synchronize duration across sibling moves of the same body type and MoveId
-                List<MoveClipViewModel> siblings = [.. _parentTimeline.Tracks.SelectMany(t => t.Clips).OfType<MoveClipViewModel>().Where(c => c.MoveId == MoveId && c.IsFullBody == IsFullBody)];
-                foreach (MoveClipViewModel sibling in siblings)
-                {
-                    if (!ReferenceEquals(sibling, this) && Math.Abs(sibling.DurationBeats - DurationBeats) > 1e-9)
-                        sibling.DurationBeats = DurationBeats;
-                }
-            }
-        };
+            if (MoveClip.IsGoldMove == value)
+                return;
 
-        // Establish definition if we have a timeline context
-        if (_parentTimeline != null)
-        {
-            try
-            {
-                MoveDefinitionViewModel def = _parentTimeline.GetOrRegisterMove(MoveId, IsFullBody);
-                Definition?.PropertyChanged -= OnDefinitionPropertyChanged;
-
-                Definition = def;
-
-                // Initialize background with definition color without propagating back to definition
-                try
-                {
-                    PushSuppressDefinitionColorUpdates();
-                    if (!Equals(BackgroundColor, def.Color))
-                        BackgroundColor = def.Color;
-                }
-                finally
-                {
-                    PopSuppressDefinitionColorUpdates();
-                }
-
-                // Listen for definition property changes
-                Definition.PropertyChanged += OnDefinitionPropertyChanged;
-                Definition.PropertyChanged += (s, e) =>
-                {
-                    if (e.PropertyName == nameof(MoveDefinitionViewModel.HasAsset))
-                        OnPropertyChanged(nameof(IsAssetMissing));
-                };
-            }
-            catch { }
-        }
-    }
-
-    partial void OnMoveIdChanged(string value)
-    {
-        if (RawClip is MoveClip m)
-        {
-            m.MoveId = value;
-            Name = value;
-
-            // If we have a parent timeline, update our definition pointer
-            if (_parentTimeline != null)
-            {
-                var def = _parentTimeline.GetOrRegisterMove(value, IsFullBody);
-                if (!ReferenceEquals(def, Definition))
-                {
-                    if (Definition != null)
-                        Definition.PropertyChanged -= OnDefinitionPropertyChanged;
-
-                    Definition = def;
-                    Definition.PropertyChanged += OnDefinitionPropertyChanged;
-
-                    // adopt the definition color (use suppression and normalize alpha to opaque)
-                    var defColorNormalized = new Color(255, def.Color.R, def.Color.G, def.Color.B);
-                    try
-                    {
-                        PushSuppressDefinitionColorUpdates();
-                        if (!Equals(this.BackgroundColor, defColorNormalized))
-                            this.BackgroundColor = defColorNormalized;
-                    }
-                    finally
-                    {
-                        PopSuppressDefinitionColorUpdates();
-                    }
-
-                    // adopt the definition duration (update UI length to match new move)
-                    double newDurationBeats = def.DefaultDuration / 24.0;
-                    if (Math.Abs(DurationBeats - newDurationBeats) > 1e-9)
-                        DurationBeats = newDurationBeats;
-                }
-            }
-
-            NotifyClipDataChanged(nameof(MoveId));
-        }
-    }
-
-    partial void OnIsGoldMoveChanged(bool value)
-    {
-        if (RawClip is MoveClip m)
-        {
-            m.IsGoldMove = value;
+            MoveClip.IsGoldMove = value;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsGoldMove)));
             NotifyClipDataChanged(nameof(IsGoldMove));
         }
     }
 
-    private void OnDefinitionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    public override string Name
     {
-        if (e.PropertyName == nameof(MoveDefinitionViewModel.Color) && Definition != null)
+        get => MoveId;
+        set => MoveId = value;
+    }
+
+    public MoveClipViewModel(MoveClip clip, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null, bool isFullBody = false, int fallbackDurationFrames = 24)
+        : base(clip, Colors.LightGray, clip.MoveId, rootPath, parentTimeline)
+    {
+        _fallbackDurationFrames = fallbackDurationFrames;
+        IsFullBody = isFullBody;
+        AttachDefinition(MoveId);
+    }
+
+    protected override int GetDurationFrames() => Definition != null ? (int)Definition.DefaultDuration : _fallbackDurationFrames;
+
+    protected override void SetDurationFrames(int frames)
+    {
+        if (Definition != null)
         {
-            // When the definition color changes, just notify listeners that our render color changed
-            // Do not set BackgroundColor to avoid storing duplicate color state on clips
-            NotifyClipDataChanged(nameof(BackgroundColor));
-            // Also raise property changed for a new RenderColor property if needed (we'll add RenderColor override)
-            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RenderColor)));
+            if (Math.Abs(Definition.DefaultDuration - frames) > 1e-9)
+                Definition.DefaultDuration = frames;
         }
     }
 
-    public override Color RenderColor => Definition != null ? new Color(255, Definition.Color.R, Definition.Color.G, Definition.Color.B) : base.RenderColor;
+    protected override void OnDurationBeatsChanged()
+    {
+        if (_parentTimeline == null)
+            return;
+
+        List<MoveClipViewModel> siblings = [.. _parentTimeline.Tracks
+            .SelectMany(t => t.Clips)
+            .OfType<MoveClipViewModel>()
+            .Where(c => !ReferenceEquals(c, this) && c.MoveId == MoveId && c.IsFullBody == IsFullBody)];
+
+        foreach (MoveClipViewModel sibling in siblings)
+        {
+            if (Math.Abs(sibling.DurationBeats - DurationBeats) > 1e-9)
+                sibling.OnPropertyChanged(new PropertyChangedEventArgs(nameof(DurationBeats)));
+        }
+    }
+
+    private void AttachDefinition(string moveId)
+    {
+        if (Definition != null)
+            Definition.PropertyChanged -= OnDefinitionPropertyChanged;
+
+        Definition = null;
+
+        if (_parentTimeline == null)
+            return;
+
+        try
+        {
+            Definition = _parentTimeline.GetOrRegisterMove(moveId, IsFullBody);
+            Definition.PropertyChanged += OnDefinitionPropertyChanged;
+        }
+        catch
+        {
+            Definition = null;
+        }
+    }
+
+    private void OnDefinitionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (Definition == null)
+            return;
+
+        if (e.PropertyName == nameof(MoveDefinitionViewModel.Color))
+        {
+            NotifyClipDataChanged(nameof(BackgroundColor));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
+        }
+
+        if (e.PropertyName == nameof(MoveDefinitionViewModel.DefaultDuration))
+        {
+            NotifyClipDataChanged(nameof(DurationBeats));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(DurationBeats)));
+        }
+
+        if (e.PropertyName == nameof(MoveDefinitionViewModel.HasAsset))
+        {
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsAssetMissing)));
+        }
+    }
+
+    public override Color RenderColor => Definition != null ? NormalizeOpaque(Definition.Color) : base.RenderColor;
 
     /// <summary>
     /// True if the move definition exists but its source animation file could not be
@@ -171,55 +175,28 @@ public partial class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, I
     /// </summary>
     public bool IsAssetMissing => Definition != null && !Definition.HasAsset;
 
-    // Shadow the base BackgroundColor property so the Properties panel reads/writes the Definition color
     [Inspectable("Color", "Appearance")]
-    public new Color BackgroundColor
+    public override Color BackgroundColor
     {
-        get => Definition != null ? new Color(255, Definition.Color.R, Definition.Color.G, Definition.Color.B) : base.BackgroundColor;
+        get => Definition != null ? NormalizeOpaque(Definition.Color) : base.BackgroundColor;
         set
         {
-            // When user edits BackgroundColor on a MoveClip, redirect to the definition color
             if (Definition != null)
             {
-                // Normalize and assign
-                Color normalized = new(255, value.R, value.G, value.B);
+                Color normalized = NormalizeOpaque(value);
+                if (Definition.Color == normalized)
+                    return;
+
                 Definition.Color = normalized;
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
+                NotifyClipDataChanged(nameof(BackgroundColor));
             }
             else
             {
                 base.BackgroundColor = value;
             }
         }
-    }
-    protected override void OnBackgroundColorChangedCore(Color value)
-    {
-        // When a move's color changes via the Properties editor or similar, update the shared Definition so other clips and the Library update automatically
-        if (Definition == null)
-        {
-            base.OnBackgroundColorChangedCore(value);
-            return;
-        }
-
-        // If we're suppressing updates (e.g., adopting a definition color on MoveId change), do not propagate back to Definition
-        if (IsSuppressingDefinitionColorUpdates)
-        {
-            base.OnBackgroundColorChangedCore(value);
-            return;
-        }
-
-        // Guard to avoid recursion
-        if (Equals(value, Definition.Color))
-        {
-            base.OnBackgroundColorChangedCore(value);
-            return;
-        }
-
-        // Normalize color alpha to fully opaque to avoid accidental transparency making items render 'white'
-        Color normalized = new(255, value.R, value.G, value.B);
-        Definition.Color = normalized;
-
-        // Also notify listeners
-        base.OnBackgroundColorChangedCore(value);
     }
 
     // IHasSharedColorSource

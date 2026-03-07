@@ -35,11 +35,11 @@ public class ClipInteractionHandlerTests
     public void ClipViewModel_IsResizableFlag_CorrectlySet()
     {
         TimelineEditorViewModel timeline = new(new IntermediateSongPackage(), "root", new PlaybackService(), new TimelineSettingsService());
-        PictogramClipViewModel p = new(new PictogramClip(), 24, Colors.LightBlue, "", "", timeline);
-        KaraokeClipViewModel k = new(new KaraokeClip(), 24, Colors.Goldenrod, "", "", timeline);
-        MoveClipViewModel m = new(new MoveClip(), 24, Colors.LightGray, "", "", timeline);
-        HideUserInterfaceClipViewModel h = new(new HideUserInterfaceClip(), 24, Colors.MediumPurple, string.Empty, "", timeline);
-        GoldEffectClipViewModel g = new(new GoldEffectClip(), 24, Colors.Gold, "", "", timeline);
+        PictogramClipViewModel p = new(new PictogramClip { Duration = 24 }, "", timeline);
+        KaraokeClipViewModel k = new(new KaraokeClip { Duration = 24 }, "", timeline);
+        MoveClipViewModel m = new(new MoveClip(), "", timeline, fallbackDurationFrames: 24);
+        HideUserInterfaceClipViewModel h = new(new HideUserInterfaceClip { Duration = 24 }, "", timeline);
+        GoldEffectClipViewModel g = new(new GoldEffectClip { Duration = 24 }, "", timeline);
 
         Assert.True(p.IsResizable);
         Assert.True(k.IsResizable);
@@ -54,7 +54,7 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 5.0
         };
@@ -75,7 +75,7 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 5.0
         };
@@ -103,8 +103,8 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        PictogramClipViewModel c1 = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline);
-        PictogramClipViewModel c2 = new(new PictogramClip { PictogramId = "b" }, 24, Colors.LightBlue, "b", "", timeline);
+        PictogramClipViewModel c1 = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline);
+        PictogramClipViewModel c2 = new(new PictogramClip { PictogramId = "b", Duration = 24 }, "", timeline);
         c1.StartBeat = 2.0;
         c2.StartBeat = 4.0;
 
@@ -137,7 +137,7 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 1.0,
             DurationBeats = 2.0
@@ -164,7 +164,7 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 1.0,
             DurationBeats = 2.0
@@ -193,7 +193,7 @@ public class ClipInteractionHandlerTests
         IntermediateSongPackage package = new();
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
 
-        HideUserInterfaceClipViewModel clip = new(new HideUserInterfaceClip(), 24, Colors.MediumPurple, string.Empty, "", timeline)
+        HideUserInterfaceClipViewModel clip = new(new HideUserInterfaceClip { Duration = 24 }, "", timeline)
         {
             StartBeat = 1.0,
             DurationBeats = 2.0
@@ -223,7 +223,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip starts at timeline minimum
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 0.0,  // At minimum (timeline starts at 0)
             DurationBeats = 2.0
@@ -252,7 +252,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip with some space before the minimum
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 5.0,
             DurationBeats = 3.0  // Ends at 8.0
@@ -278,7 +278,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip positioned such that trying to resize left goes below minimum
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 0.5,
             DurationBeats = 2.0
@@ -305,7 +305,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip with room to expand right
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 2.0,
             DurationBeats = 2.0  // Ends at 4.0
@@ -331,7 +331,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip to contract
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 2.0,
             DurationBeats = 4.0
@@ -357,7 +357,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Clip at minimum duration threshold
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = 2.0,
             DurationBeats = 1.0  // Already very short
@@ -383,7 +383,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
 
         // Setup: clip that when resized left tries to push its end beyond the timeline max
-        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a" }, 24, Colors.LightBlue, "a", "", timeline)
+        PictogramClipViewModel clip = new(new PictogramClip { PictogramId = "a", Duration = 24 }, "", timeline)
         {
             StartBeat = timeline.TimelineStructure.EndBeat - 2.0,  // Near the end
             DurationBeats = 2.0

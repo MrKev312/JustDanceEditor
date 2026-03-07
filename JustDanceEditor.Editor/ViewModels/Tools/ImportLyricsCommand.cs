@@ -108,7 +108,7 @@ public class ImportLyricsCommand : IRunCommand
                 Tolerances = tolerances,
             };
 
-            KaraokeClipViewModel clipVm = new(raw, raw.Duration, lyricsColor, raw.Lyrics, timeline.RootPath, timeline);
+            KaraokeClipViewModel clipVm = new(raw, timeline.RootPath, timeline);
             newClips.Add(clipVm);
         }
 

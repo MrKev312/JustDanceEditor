@@ -4,15 +4,15 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class HideUserInterfaceClipViewModel(HideUserInterfaceClip clip, double duration, Color color, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null) : ClipViewModel(clip, duration, color, name, rootPath, parentTimeline)
+public partial class HideUserInterfaceClipViewModel(HideUserInterfaceClip clip, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null) : ClipViewModel(clip, Colors.MediumPurple, string.Empty, rootPath, parentTimeline)
 {
     public override bool IsResizable => true;
 
-    protected override void SyncRawDuration(int frames)
-    {
-        if (RawClip is HideUserInterfaceClip h)
-            h.Duration = frames;
-    }
+    private HideUserInterfaceClip HideUserInterfaceClip => (HideUserInterfaceClip)RawClip;
+
+    protected override int GetDurationFrames() => HideUserInterfaceClip.Duration;
+
+    protected override void SetDurationFrames(int frames) => HideUserInterfaceClip.Duration = frames;
 
     /// <summary>
     /// Always render using the nominal background color.

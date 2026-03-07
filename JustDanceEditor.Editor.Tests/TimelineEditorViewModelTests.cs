@@ -39,6 +39,10 @@ public class TimelineEditorViewModelTests
             .GetField("<RootPath>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         rootField.SetValue(vm, string.Empty);
 
+        FieldInfo movesField = typeof(TimelineEditorViewModel)
+            .GetField("_moveDefinitions", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        movesField.SetValue(vm, new Dictionary<(string, bool), MoveDefinitionViewModel>());
+
         // call BuildTimeline
         MethodInfo build = typeof(TimelineEditorViewModel)
             .GetMethod("BuildTimeline", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -110,6 +114,79 @@ public class TimelineEditorViewModelTests
         }
 
         Assert.Equal(ClipViewModel.ColorToRgbaHex(Colors.Purple), package.Metadata.LyricsColor);
+
+        Directory.Delete(temp, true);
+    }
+
+    [Fact]
+    public void BuildTimeline_ParsesLegacyRgbaMoveColorWithoutChannelSwap()
+    {
+        IntermediateSongPackage package = new();
+        package.HandCoachMoves["moveA"] = new CoachMoveDefinition
+        {
+            Color = ClipViewModel.ColorToRgbaHex(Colors.Red),
+            Duration = 24
+        };
+
+        TimelineEditorViewModel vm = CreateWithoutMedia(package);
+
+        MoveDefinitionViewModel def = vm.GetOrRegisterMove("moveA", false);
+        Assert.Equal(Colors.Red, def.Color);
+    }
+
+    [Fact]
+    public void BuildTimeline_ParsesRgbMoveColorWithoutDefaultingToWhite()
+    {
+        IntermediateSongPackage package = new();
+        package.HandCoachMoves["moveA"] = new CoachMoveDefinition
+        {
+            Color = "#CCCCCC",
+            Duration = 24
+        };
+
+        TimelineEditorViewModel vm = CreateWithoutMedia(package);
+
+        MoveDefinitionViewModel def = vm.GetOrRegisterMove("moveA", false);
+        Assert.Equal(new Color(255, 0xCC, 0xCC, 0xCC), def.Color);
+    }
+
+    [Fact]
+    public void Save_StoresMoveColorsAsRgbHex()
+    {
+        IntermediateSongPackage package = new();
+        TimelineEditorViewModel vm = CreateWithoutMedia(package);
+
+        MoveDefinitionViewModel def = new()
+        {
+            Id = "moveA",
+            IsFullBody = false,
+            Color = Colors.Red,
+            DefaultDuration = 24
+        };
+
+        FieldInfo movesField = typeof(TimelineEditorViewModel)
+            .GetField("_moveDefinitions", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        movesField.SetValue(vm, new Dictionary<(string, bool), MoveDefinitionViewModel>
+        {
+            [("moveA", false)] = def
+        });
+
+        string temp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(temp);
+        FieldInfo rootField = typeof(TimelineEditorViewModel)
+            .GetField("<RootPath>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        rootField.SetValue(vm, temp);
+
+        try
+        {
+            vm.Save();
+        }
+        catch
+        {
+            // Save may still touch uninitialized fields when using the uninitialized-object helper.
+        }
+
+        Assert.Equal("#FF0000", package.HandCoachMoves["moveA"].Color);
 
         Directory.Delete(temp, true);
     }

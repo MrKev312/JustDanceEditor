@@ -471,7 +471,7 @@ public partial class TimelineTrackPanel
             StartTime = (int)(dropBeat * 24.0)
         };
 
-        PictogramClipViewModel clipVm = new(raw, raw.Duration, Colors.LightBlue, raw.PictogramId, vm.RootPath, vm);
+        PictogramClipViewModel clipVm = new(raw, vm.RootPath, vm);
 
         vm.PushUndo(
             undo: () =>
@@ -503,11 +503,7 @@ public partial class TimelineTrackPanel
             IsGoldMove = isGold
         };
 
-        Color moveColor = Colors.LightGray;
-        if (vm.TryGetCoachMoveColor(moveId, out Color c))
-            moveColor = c;
-
-        MoveClipViewModel clipVm = new(raw, durationFrames, moveColor, moveId, vm.RootPath, vm, isFullBody);
+        MoveClipViewModel clipVm = new(raw, vm.RootPath, vm, isFullBody, (int)durationFrames);
 
         vm.PushUndo(
             undo: () =>
@@ -615,7 +611,7 @@ public partial class TimelineTrackPanel
                     IsActive = true
                 };
 
-                HideUserInterfaceClipViewModel clipVm = new(raw, raw.Duration, Colors.MediumPurple, string.Empty, vm.RootPath, vm);
+                HideUserInterfaceClipViewModel clipVm = new(raw, vm.RootPath, vm);
 
                 vm.PushUndo(
                     undo: () =>
@@ -659,7 +655,7 @@ public partial class TimelineTrackPanel
                     StartTime = (int)(clampedBeat * 24.0)
                 };
 
-                KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);
+                KaraokeClipViewModel clipVm = new(raw, vm.RootPath, vm);
 
                 vm.PushUndo(
                     undo: () =>
@@ -701,7 +697,7 @@ public partial class TimelineTrackPanel
                     StartTime = (int)(clampedBeat * 24.0)
                 };
 
-                GoldEffectClipViewModel clipVm = new(raw, raw.Duration, Colors.Gold, "Gold Effect", vm.RootPath, vm);
+                GoldEffectClipViewModel clipVm = new(raw, vm.RootPath, vm);
 
                 vm.PushUndo(
                     undo: () =>
@@ -738,7 +734,7 @@ public partial class TimelineTrackPanel
                 StartTime = (int)(clampedBeat * 24.0)
             };
 
-            KaraokeClipViewModel clipVm = new(raw, raw.Duration, Colors.Goldenrod, raw.Lyrics, vm.RootPath, vm);
+            KaraokeClipViewModel clipVm = new(raw, vm.RootPath, vm);
 
             vm.PushUndo(
                 undo: () =>

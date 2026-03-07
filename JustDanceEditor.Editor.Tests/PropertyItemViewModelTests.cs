@@ -16,7 +16,7 @@ public class PropertyItemViewModelTests
     {
         Mock<IUndoService> undoMock = new();
         KaraokeClip clipObj = new() { Lyrics = "Hello", Duration = 24 };
-        KaraokeClipViewModel clip = new(clipObj, 24, Colors.Goldenrod, "Hello", null, null);
+        KaraokeClipViewModel clip = new(clipObj, null, null);
         List<object> targets = [clip];
 
         PropertyItemViewModel propVm = new(targets, "Lyrics", new Attributes.InspectableAttribute("Lyrics", "Karaoke"), undoMock.Object, new TimelineStructureDocument(), [], null)

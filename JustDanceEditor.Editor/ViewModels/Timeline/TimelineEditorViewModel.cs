@@ -141,9 +141,9 @@ public partial class TimelineEditorViewModel : Document
         if (Package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d) || Package.FullBodyCoachMoves.TryGetValue(moveId, out d))
             def = d;
 
-        if (def != null && Color.TryParse(def.Color, out Color c))
+        if (def != null)
         {
-            color = c;
+            color = ClipViewModel.ParseRgbaHex(def.Color);
             return true;
         }
 
@@ -336,8 +336,7 @@ public partial class TimelineEditorViewModel : Document
                     IsFullBody = false,
                     DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
                 };
-                if (Color.TryParse(def.Color, out Color c))
-                    md.Color = c;
+                md.Color = ClipViewModel.ParseRgbaHex(def.Color);
                 _moveDefinitions[(id, false)] = md;
             }
 
@@ -352,8 +351,7 @@ public partial class TimelineEditorViewModel : Document
                     IsFullBody = true,
                     DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
                 };
-                if (Color.TryParse(def.Color, out Color c))
-                    md.Color = c;
+                md.Color = ClipViewModel.ParseRgbaHex(def.Color);
                 _moveDefinitions[(id, true)] = md;
             }
         }
@@ -368,29 +366,26 @@ public partial class TimelineEditorViewModel : Document
                 switch (clip)
                 {
                     case HideUserInterfaceClip hic:
-                        track.Clips.Add(new HideUserInterfaceClipViewModel(hic, hic.Duration, Colors.MediumPurple, string.Empty, RootPath, this));
+                        track.Clips.Add(new HideUserInterfaceClipViewModel(hic, RootPath, this));
                         break;
                     case KaraokeClip kc:
-                        track.Clips.Add(new KaraokeClipViewModel(kc, kc.Duration, lyricsColor, kc.Lyrics, RootPath, this));
+                        track.Clips.Add(new KaraokeClipViewModel(kc, RootPath, this));
                         break;
                     case PictogramClip pc:
-                        track.Clips.Add(new PictogramClipViewModel(pc, pc.Duration, Colors.LightBlue, pc.PictogramId, RootPath, this));
+                        track.Clips.Add(new PictogramClipViewModel(pc, RootPath, this));
                         break;
                     case MoveClip mc:
                         {
-                            string name = mc.MoveId;
                             MoveDefinitionViewModel defVm = GetOrRegisterMove(mc.MoveId, isFullBody);
-                            Color moveColor = defVm.Color;
-                            double duration = defVm.DefaultDuration;
-                            track.Clips.Add(new MoveClipViewModel(mc, duration, moveColor, name, RootPath, this, isFullBody));
+                            track.Clips.Add(new MoveClipViewModel(mc, RootPath, this, isFullBody, (int)defVm.DefaultDuration));
                             break;
                         }
                     case GoldEffectClip gc:
-                        track.Clips.Add(new GoldEffectClipViewModel(gc, gc.Duration, Colors.Gold, "Gold Effect", RootPath, this));
+                        track.Clips.Add(new GoldEffectClipViewModel(gc, RootPath, this));
                         break;
                     default:
                         // Unknown clip type - fallback to GoldEffect wrapper
-                        track.Clips.Add(new GoldEffectClipViewModel(new GoldEffectClip(), 0, Colors.LightGray, clip.GetType().Name, RootPath, this));
+                        track.Clips.Add(new GoldEffectClipViewModel(new GoldEffectClip(), RootPath, this));
                         break;
                 }
             }
@@ -494,8 +489,7 @@ public partial class TimelineEditorViewModel : Document
             {
                 if (d != null)
                 {
-                    if (Color.TryParse(d.Color, out Color c))
-                        color = c;
+                    color = ClipViewModel.ParseRgbaHex(d.Color);
                     if (d.Duration > 0)
                         duration = d.Duration;
                 }
@@ -629,7 +623,7 @@ public partial class TimelineEditorViewModel : Document
 
             CoachMoveDefinition coachDef = new()
             {
-                Color = ClipViewModel.ColorToRgbaHex(def.Color),
+                Color = ClipViewModel.ColorToRgbHex(def.Color),
                 Duration = (int)def.DefaultDuration,
                 MoveType = isFull ? CoachMoveType.FullBodyTracking : CoachMoveType.HandTracking
             };

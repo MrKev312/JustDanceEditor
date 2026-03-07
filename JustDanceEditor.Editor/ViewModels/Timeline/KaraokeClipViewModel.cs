@@ -6,27 +6,58 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System.ComponentModel;
+
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
+public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
 {
+    private KaraokeClip KaraokeClip => (KaraokeClip)RawClip;
+
     public override bool IsResizable => true;
+
     [Inspectable("Lyrics", "Karaoke")]
-    [ObservableProperty]
-    public partial string Lyrics { get; set; } = string.Empty;
+    public string Lyrics
+    {
+        get => KaraokeClip.Lyrics ?? string.Empty;
+        set
+        {
+            value ??= string.Empty;
+            if (string.Equals(KaraokeClip.Lyrics, value, System.StringComparison.Ordinal))
+                return;
+
+            KaraokeClip.Lyrics = value;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Lyrics)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Name)));
+            NotifyClipDataChanged(nameof(Lyrics));
+            NotifyClipDataChanged(nameof(Name));
+        }
+    }
 
     [Inspectable("End of Line", "Karaoke")]
-    [ObservableProperty]
-    public partial bool IsEndOfLine { get; set; }
-
-    public KaraokeClipViewModel(KaraokeClip clip, double duration, Color color, string lyrics, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
-        : base(clip, duration, color, lyrics, rootPath, parentTimeline)
+    public bool IsEndOfLine
     {
-        Lyrics = clip.Lyrics ?? string.Empty;
-        IsEndOfLine = clip.IsEndOfLine;
-        // keep Name in sync for display
-        Name = Lyrics;
+        get => KaraokeClip.IsEndOfLine;
+        set
+        {
+            if (KaraokeClip.IsEndOfLine == value)
+                return;
 
+            KaraokeClip.IsEndOfLine = value;
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsEndOfLine)));
+            NotifyClipDataChanged(nameof(IsEndOfLine));
+        }
+    }
+
+    public override string Name
+    {
+        get => Lyrics;
+        set => Lyrics = value;
+    }
+
+    public KaraokeClipViewModel(KaraokeClip clip, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
+        : base(clip, parentTimeline?.LyricsDefinitionColor ?? Colors.Yellow, clip.Lyrics ?? string.Empty, rootPath, parentTimeline)
+    {
         // If we have a parent timeline, subscribe to timeline PropertyChanged so
         // we can refresh rendering when the lyrics definition color changes.
         if (_parentTimeline != null)
@@ -39,39 +70,29 @@ public partial class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         }
     }
 
-    partial void OnLyricsChanged(string value)
-    {
-        if (RawClip is KaraokeClip k)
-        {
-            k.Lyrics = value;
-            Name = value;
-            // notify listeners
-            NotifyClipDataChanged(nameof(Lyrics));
-        }
-    }
+    protected override int GetDurationFrames() => KaraokeClip.Duration;
 
-    partial void OnIsEndOfLineChanged(bool value)
-    {
-        if (RawClip is KaraokeClip k)
-        {
-            k.IsEndOfLine = value;
-            NotifyClipDataChanged(nameof(IsEndOfLine));
-        }
-    }
+    protected override void SetDurationFrames(int frames) => KaraokeClip.Duration = frames;
 
-    public override Color RenderColor => _parentTimeline != null ? new Color(255, _parentTimeline.LyricsDefinitionColor.R, _parentTimeline.LyricsDefinitionColor.G, _parentTimeline.LyricsDefinitionColor.B) : base.RenderColor;
+    public override Color RenderColor => _parentTimeline != null ? NormalizeOpaque(_parentTimeline.LyricsDefinitionColor) : base.RenderColor;
 
     // Shadow BackgroundColor so Properties panel reads/writes the LyricsDefinition color
     [Inspectable("Color", "Appearance")]
     public new Color BackgroundColor
     {
-        get => _parentTimeline != null ? new Color(255, _parentTimeline.LyricsDefinitionColor.R, _parentTimeline.LyricsDefinitionColor.G, _parentTimeline.LyricsDefinitionColor.B) : base.BackgroundColor;
+        get => _parentTimeline != null ? NormalizeOpaque(_parentTimeline.LyricsDefinitionColor) : base.BackgroundColor;
         set
         {
             if (_parentTimeline != null)
             {
-                Color normalized = new(255, value.R, value.G, value.B);
+                Color normalized = NormalizeOpaque(value);
+                if (_parentTimeline.LyricsDefinitionColor == normalized)
+                    return;
+
                 _parentTimeline.LyricsDefinitionColor = normalized;
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
+                OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
+                NotifyClipDataChanged(nameof(BackgroundColor));
             }
             else
             {
@@ -80,23 +101,14 @@ public partial class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         }
     }
 
-    protected override void OnBackgroundColorChangedCore(Color value)
-    {
-        // Do not update timeline metadata from individual clip changes anymore.
-        // Timeline-level lyrics color is the single source-of-truth and will be
-        // set via the LyricsDefinition color by the Properties editor.
-
-        // Always invoke base to notify listeners
-        base.OnBackgroundColorChangedCore(value);
-    }
-
     private void OnParentTimelinePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is (nameof(TimelineEditorViewModel.LyricsDefinitionColor)) or (nameof(TimelineEditorViewModel.LyricsColor)))
         {
             // When the timeline-level lyrics color changes, update rendering
             NotifyClipDataChanged(nameof(BackgroundColor));
-            OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RenderColor)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
         }
     }
 
@@ -106,11 +118,5 @@ public partial class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         if (inspectedProperty != nameof(BackgroundColor))
             return null;
         return (timeline, nameof(TimelineEditorViewModel.LyricsDefinitionColor));
-    }
-
-    protected override void SyncRawDuration(int frames)
-    {
-        if (RawClip is KaraokeClip k)
-            k.Duration = frames;
     }
 }
