@@ -6,6 +6,7 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 public enum TrackType
 {
     Unknown,
+    Video,
     HideHud,
     Lyrics,
     Pictogram,

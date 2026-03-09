@@ -83,6 +83,26 @@ public class TimelineEditorViewModelTests
     }
 
     [Fact]
+    public void BuildTimeline_IncludesEmptyVideoTrackBeforeHideHud()
+    {
+        IntermediateSongPackage package = new();
+
+        TimelineEditorViewModel vm = CreateWithoutMedia(package);
+
+        List<string> titles = vm.Tracks.Select(t => t.Title).ToList();
+        int videoIndex = titles.IndexOf("Video");
+        int hideHudIndex = titles.IndexOf("Hide HUD");
+
+        Assert.InRange(videoIndex, 0, titles.Count - 1);
+        Assert.InRange(hideHudIndex, 0, titles.Count - 1);
+        Assert.True(videoIndex < hideHudIndex, "Video track should appear before Hide HUD");
+
+        TrackViewModel videoTrack = vm.Tracks[videoIndex];
+        Assert.Equal(TrackType.Video, videoTrack.TrackType);
+        Assert.Empty(videoTrack.Clips);
+    }
+
+    [Fact]
     public void Save_StoresLyricsColorAsRgbaHex()
     {
         IntermediateSongPackage package = new();

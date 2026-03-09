@@ -33,6 +33,17 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
         double minStart = vm.TimelineStructure.StartBeat;
         double maxEnd = vm.TimelineStructure.EndBeat;
 
+        if (clip is VideoClipViewModel)
+        {
+            double latestAllowedStart = minStart;
+            double earliestAllowedStart = maxEnd - clip.DurationBeats;
+
+            if (earliestAllowedStart > latestAllowedStart)
+                return latestAllowedStart;
+
+            return Math.Clamp(newStart, earliestAllowedStart, latestAllowedStart);
+        }
+
         newStart = Math.Max(newStart, minStart);
         double clipEnd = newStart + clip.DurationBeats;
         if (clipEnd > maxEnd)

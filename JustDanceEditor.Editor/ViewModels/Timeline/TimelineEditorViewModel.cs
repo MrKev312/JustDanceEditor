@@ -29,6 +29,8 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class TimelineEditorViewModel : Document
 {
+    private static readonly string[] SupportedVideoExtensions = ["*.webm", "*.mp4", "*.mkv", "*.mov"];
+
     /// <summary>Exposes the underlying song package for commands that need direct access.</summary>
     public IntermediateSongPackage Package { get; }
 
@@ -125,6 +127,7 @@ public partial class TimelineEditorViewModel : Document
     public string PreparedAudioPath { get; private set; } = "";
     public double StartBeatValue { get; private set; }
     public double VideoOffset { get; private set; }
+    public double VideoDurationSeconds { get; private set; }
     public int CoachCount => Package.Metadata.CoachCount;
     public string LyricsColor => Package.Metadata.LyricsColor;
 
@@ -239,23 +242,29 @@ public partial class TimelineEditorViewModel : Document
             AudioPath = Path.Combine(RootPath, IntermediatePackageLayout.Assets.AudioMasterFile);
             string videoDir = Path.Combine(RootPath, IntermediatePackageLayout.Assets.VideoFolder);
             VideoPath = "";
+            VideoDurationSeconds = 0;
 
             if (Directory.Exists(videoDir))
             {
-                string[] files = Directory.GetFiles(videoDir, "*.webm");
-                if (files.Length > 0)
+                FileInfo? selectedVideo = SupportedVideoExtensions
+                    .SelectMany(pattern => Directory.GetFiles(videoDir, pattern))
+                    .Select(path => new FileInfo(path))
+                    .OrderByDescending(fi => fi.Length)
+                    .FirstOrDefault();
+
+                if (selectedVideo != null)
                 {
-                    // Select the largest file (highest quality heuristic)
-                    VideoPath = files
-                        .Select(f => new FileInfo(f))
-                        .OrderByDescending(fi => fi.Length)
-                        .First()
-                        .FullName;
+                    VideoPath = selectedVideo.FullName;
+                    VideoDurationSeconds = await GetMediaDurationAsync(VideoPath);
                 }
             }
 
+            OnPropertyChanged(nameof(VideoPath));
+            OnPropertyChanged(nameof(VideoDurationSeconds));
+
             StartBeatValue = Package.TimelineStructure.StartBeat;
-            VideoOffset = -Package.TimelineStructure.VideoStartOffset;
+            SetVideoOffset(-Package.TimelineStructure.VideoStartOffset, syncTrack: false);
+            SyncVideoTrackClip();
 
             // Prepare audio (Opus -> WAV)
             if (File.Exists(AudioPath))
@@ -394,6 +403,8 @@ public partial class TimelineEditorViewModel : Document
         }
 
         // Build tracks using configuration-style calls (keeps BuildTimeline concise)
+        AddTrack("Video", 40, Colors.IndianRed, TrackType.Video, []);
+
         // first a special track for the HUD hide events (below the audio waveform)
         AddTrack("Hide HUD", 30, Colors.MediumPurple, TrackType.HideHud, Package.HideUserInterface.Clips.Cast<TimelineClipBase>());
 
@@ -408,6 +419,8 @@ public partial class TimelineEditorViewModel : Document
             AddTrack($"FullBody Coach {fullBodyTimeline.CoachId}", 60, Colors.SeaGreen, TrackType.CoachFullBody, fullBodyTimeline.Clips.Cast<TimelineClipBase>(), isFullBody: true);
 
         AddTrack("Gold Effects", 30, Colors.OrangeRed, TrackType.GoldEffect, Package.GoldEffects.Clips.Cast<TimelineClipBase>());
+
+        SyncVideoTrackClip();
     }
 
     /// <summary>
@@ -437,6 +450,7 @@ public partial class TimelineEditorViewModel : Document
         Tracks.Clear();
         _moveDefinitions.Clear();
         BuildTimeline();
+        SyncVideoTrackClip();
 
         // Reload playback with updated beat-to-time mapping
         // (reuse the already-converted WAV — no FFmpeg re-conversion needed)
@@ -465,6 +479,74 @@ public partial class TimelineEditorViewModel : Document
 
             WaveformSamples = await AudioConversionService.GetWaveformDataAsync(AudioPath);
         }
+    }
+
+    public double GetPlaybackSecondsAtBeatLabel(double beatLabel)
+    {
+        return TimelineStructure.GetSecondsAtBeat(TimelineStructure.GetIndexFromBeatLabel(beatLabel));
+    }
+
+    public double GetBeatLabelAtPlaybackSeconds(double seconds)
+    {
+        return TimelineStructure.GetBeatLabelFromIndex(TimelineStructure.GetBeatAtSeconds(seconds));
+    }
+
+    public void SetVideoOffsetFromClipStartBeat(double startBeat)
+    {
+        double playbackStartSeconds = GetPlaybackSecondsAtBeatLabel(startBeat);
+        double songStartOffset = TimelineStructure.GetSongStartOffset();
+        SetVideoOffset(-(playbackStartSeconds + songStartOffset));
+    }
+
+    public void SetVideoOffset(double offsetSeconds)
+    {
+        SetVideoOffset(offsetSeconds, syncTrack: true);
+    }
+
+    private void SetVideoOffset(double offsetSeconds, bool syncTrack)
+    {
+        if (Math.Abs(VideoOffset - offsetSeconds) <= 1e-9 && Math.Abs(Package.TimelineStructure.VideoStartOffset + offsetSeconds) <= 1e-9)
+            return;
+
+        Package.TimelineStructure.VideoStartOffset = -offsetSeconds;
+        VideoOffset = offsetSeconds;
+        OnPropertyChanged(nameof(VideoOffset));
+
+        if (syncTrack)
+            SyncVideoTrackClip();
+    }
+
+    private void SyncVideoTrackClip()
+    {
+        TrackViewModel? videoTrack = Tracks.FirstOrDefault(t => t.TrackType == TrackType.Video);
+        if (videoTrack == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(VideoPath) || VideoDurationSeconds <= 0)
+        {
+            videoTrack.Clips.Clear();
+            return;
+        }
+
+        VideoClipViewModel? videoClip = videoTrack.Clips.OfType<VideoClipViewModel>().FirstOrDefault();
+        if (videoClip == null)
+        {
+            videoTrack.Clips.Clear();
+            videoTrack.Clips.Add(new VideoClipViewModel(VideoDurationSeconds, RootPath, this));
+            return;
+        }
+
+        videoClip.RefreshFromTimeline();
+    }
+
+    private static async Task<double> GetMediaDurationAsync(string mediaPath)
+    {
+        if (!File.Exists(mediaPath))
+            return 0;
+
+        IMediaInfo info = await FFmpeg.GetMediaInfo(mediaPath);
+        IVideoStream? videoStream = info.VideoStreams.FirstOrDefault();
+        return videoStream?.Duration.TotalSeconds ?? info.Duration.TotalSeconds;
     }
 
     public MoveDefinitionViewModel GetOrRegisterMove(string moveId, bool isFullBody)

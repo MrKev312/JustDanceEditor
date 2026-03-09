@@ -28,15 +28,17 @@ public abstract partial class ClipViewModel : ViewModelBase
     [Inspectable("Start Beat", "Timing")]
     public double StartBeat
     {
-        get => RawClip.StartTime / 24d;
+        get => GetStartFrames() / 24d;
         set
         {
             int frames = (int)(value * 24);
-            if (RawClip.StartTime == frames)
+            if (GetStartFrames() == frames)
                 return;
 
-            RawClip.StartTime = frames;
+            double oldStartBeat = GetStartFrames() / 24d;
+            SetStartFrames(frames);
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(StartBeat)));
+            OnStartBeatChanged(oldStartBeat, GetStartFrames() / 24d);
             NotifyClipDataChanged(nameof(StartBeat));
         }
     }
@@ -109,6 +111,12 @@ public abstract partial class ClipViewModel : ViewModelBase
 
     protected readonly string? _rootPath;
     protected readonly TimelineEditorViewModel? _parentTimeline;
+
+    protected virtual int GetStartFrames() => RawClip.StartTime;
+
+    protected virtual void SetStartFrames(int frames) => RawClip.StartTime = frames;
+
+    protected virtual void OnStartBeatChanged(double oldStartBeat, double newStartBeat) { }
 
     protected virtual int GetDurationFrames() => 0;
 

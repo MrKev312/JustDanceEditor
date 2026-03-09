@@ -61,6 +61,9 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     {
         if (propertyName == nameof(TimelineEditorViewModel.VideoPath))
             SyncMedia();
+
+        if (propertyName == nameof(TimelineEditorViewModel.VideoOffset))
+            SyncTime();
     }
 
     protected override void OnTimeChanged()

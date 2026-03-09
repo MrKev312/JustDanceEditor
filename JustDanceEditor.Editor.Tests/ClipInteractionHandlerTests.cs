@@ -40,12 +40,76 @@ public class ClipInteractionHandlerTests
         MoveClipViewModel m = new(new MoveClip(), "", timeline, fallbackDurationFrames: 24);
         HideUserInterfaceClipViewModel h = new(new HideUserInterfaceClip { Duration = 24 }, "", timeline);
         GoldEffectClipViewModel g = new(new GoldEffectClip { Duration = 24 }, "", timeline);
+        VideoClipViewModel v = new(8.0, "", timeline);
 
         Assert.True(p.IsResizable);
         Assert.True(k.IsResizable);
         Assert.True(m.IsResizable);
         Assert.True(h.IsResizable);
         Assert.False(g.IsResizable);
+        Assert.False(v.IsResizable);
+    }
+
+    [Fact]
+    public void VideoClip_StartBeat_UpdatesTimelineVideoOffset()
+    {
+        IntermediateSongPackage package = new()
+        {
+            TimelineStructure = new TimelineStructureDocument
+            {
+                StartBeat = 0,
+                EndBeat = 200,
+                VideoStartOffset = 0,
+                Markers = [0, 48000, 96000, 144000, 192000, 240000, 288000]
+            }
+        };
+
+        TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
+        VideoClipViewModel clip = new(4.0, "", timeline);
+
+        clip.StartBeat = 2.0;
+
+        Assert.Equal(-2.0, timeline.VideoOffset, 6);
+        Assert.Equal(2.0, clip.StartBeat, 6);
+        Assert.Equal(2.0, package.TimelineStructure.VideoStartOffset, 6);
+    }
+
+    [Fact]
+    public void VideoClip_Drag_CanStartBeforeTimelineStart()
+    {
+        TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
+        VideoClipViewModel clip = new(120.0, "", timeline);
+
+        ClipDragHandler handler = new(null!);
+        SetPrivateField(handler, "_isDragging", true);
+        SetPrivateField(handler, "_draggingClip", clip);
+        SetPrivateField(handler, "_dragStartPointerX", 0.0);
+        SetPrivateField(handler, "_dragOriginalStartBeat", clip.StartBeat);
+
+        handler.UpdateDrag(new Avalonia.Point(-10.0 * 24.0, 0), 24.0, timeline);
+
+        Assert.Equal(-10.0, clip.StartBeat, 6);
+        Assert.True(clip.StartBeat <= timeline.TimelineStructure.StartBeat);
+        Assert.True(clip.StartBeat + clip.DurationBeats >= timeline.TimelineStructure.EndBeat);
+    }
+
+    [Fact]
+    public void VideoClip_Drag_StopsAtLatestStartThatStillCoversTimelineEnd()
+    {
+        TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
+        VideoClipViewModel clip = new(120.0, "", timeline);
+
+        ClipDragHandler handler = new(null!);
+        SetPrivateField(handler, "_isDragging", true);
+        SetPrivateField(handler, "_draggingClip", clip);
+        SetPrivateField(handler, "_dragStartPointerX", 0.0);
+        SetPrivateField(handler, "_dragOriginalStartBeat", clip.StartBeat);
+
+        handler.UpdateDrag(new Avalonia.Point(50.0 * 24.0, 0), 24.0, timeline);
+
+        Assert.Equal(0.0, clip.StartBeat, 6);
+        Assert.True(clip.StartBeat <= timeline.TimelineStructure.StartBeat);
+        Assert.True(clip.StartBeat + clip.DurationBeats >= timeline.TimelineStructure.EndBeat);
     }
 
     [Fact]
