@@ -121,7 +121,7 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
             }
 
             _draggingClip.StartBeat = ClampStartBeat(_draggingClip, newStart, vm);
-            _panel.InvalidateVisual();
+            _panel?.InvalidateVisual();
             return;
         }
 
@@ -178,8 +178,8 @@ public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHand
                 kv.Key.StartBeat = ClampStartBeat(kv.Key, newStart, vm);
             }
 
-            _panel.InvalidateMeasure();
-            _panel.InvalidateVisual();
+            _panel?.InvalidateMeasure();
+            _panel?.InvalidateVisual();
         }
     }
 

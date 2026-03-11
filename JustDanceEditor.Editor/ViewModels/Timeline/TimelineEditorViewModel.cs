@@ -483,11 +483,17 @@ public partial class TimelineEditorViewModel : Document
 
     public double GetPlaybackSecondsAtBeatLabel(double beatLabel)
     {
+        if (TimelineStructure.Markers.Count < 2)
+            return TimelineStructure.GetIndexFromBeatLabel(beatLabel);
+
         return TimelineStructure.GetSecondsAtBeat(TimelineStructure.GetIndexFromBeatLabel(beatLabel));
     }
 
     public double GetBeatLabelAtPlaybackSeconds(double seconds)
     {
+        if (TimelineStructure.Markers.Count < 2)
+            return TimelineStructure.GetBeatLabelFromIndex(seconds);
+
         return TimelineStructure.GetBeatLabelFromIndex(TimelineStructure.GetBeatAtSeconds(seconds));
     }
 
