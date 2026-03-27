@@ -316,7 +316,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         foreach (int marker in trackStructure.Markers ?? [])
         {
             AssetTypeValueField newMarker = ValueBuilder.DefaultValueFieldFromArrayTemplate(markersArray);
-            newMarker["VAL"].AsLong = (int)Math.Round(marker * 48d);
+            newMarker["VAL"].AsLong = marker;
             markersArray.Children.Add(newMarker);
         }
 
