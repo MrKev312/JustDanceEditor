@@ -434,7 +434,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         if (rasterSource == null)
             return null;
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationFile) ?? throw new InvalidOperationException($"Could not determine the directory for '{destinationFile}'."));
         using Image<Rgba32> image = Image.Load<Rgba32>(rasterSource);
         SaveAsWebp(image, destinationFile);
         return destinationFile;
@@ -540,7 +540,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
     private static void SaveAsWebp(Image<Rgba32> image, string destination)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException($"Could not determine the directory for '{destination}'."));
         image.Save(destination, LosslessWebpEncoder);
     }
 

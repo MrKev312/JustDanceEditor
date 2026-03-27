@@ -109,10 +109,9 @@ public class ImageLoaderTests
             Image<Rgba32>? result = ImageLoader.TryLoadImage(imagePath);
 
             // Assert
-            Assert.NotNull(result);
-            Assert.Equal(100, result!.Width);
-            Assert.Equal(100, result!.Height);
-            result.Dispose();
+            using Image<Rgba32> loadedImage = result ?? throw new System.InvalidOperationException("Expected the image to load successfully.");
+            Assert.Equal(100, loadedImage.Width);
+            Assert.Equal(100, loadedImage.Height);
         }
         finally
         {

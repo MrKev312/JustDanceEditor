@@ -107,7 +107,7 @@ public partial class TimelineEditorViewModel : Document
 
     // suppress broadcasting when applying remote changes
     private bool _suppressSnapBroadcast = false;
-    private TimelineSettingsService _settings = null!;
+    private readonly TimelineSettingsService _settings;
     private string _baseTitle = string.Empty;
 
     /// <summary>Set to true by <see cref="PromptSaveOnCloseAsync"/> to allow the
@@ -162,8 +162,8 @@ public partial class TimelineEditorViewModel : Document
                 return [];
             return Directory.GetFiles(dir, "*.*")
                  .Select(Path.GetFileNameWithoutExtension)
-                 .Where(x => !string.IsNullOrEmpty(x))
-                 .OrderBy(x => x)!;
+                 .OfType<string>()
+                 .OrderBy(x => x);
         }
     }
 

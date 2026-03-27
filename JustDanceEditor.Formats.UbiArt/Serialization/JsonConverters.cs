@@ -23,7 +23,7 @@ public class IntFlexibleJsonConverter : JsonConverter<int>
 
         if (reader.TokenType == JsonTokenType.String)
         {
-            string str = reader.GetString()!;
+            string str = reader.GetString() ?? throw new JsonException("Expected a string token when converting to int.");
 
             if (int.TryParse(str, out int result))
                 return result;
@@ -81,7 +81,7 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
                 }
                 else if (reader.TokenType == JsonTokenType.String)
                 {
-                    string str = reader.GetString()!;
+                    string str = reader.GetString() ?? throw new JsonException("Expected a string token when converting to float.");
                     if (float.TryParse(str, out float floatValue))
                         floats.Add(floatValue);
                     else
@@ -94,7 +94,7 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
         else if (reader.TokenType == JsonTokenType.String)
         {
             // Handle string representation of float array
-            string str = reader.GetString()!;
+            string str = reader.GetString() ?? throw new JsonException("Expected a string token when converting to float array.");
 
             // Try hex color format (0xAARRGGBB or 0xRRGGBBAA)
             if (str.StartsWith("0x", StringComparison.OrdinalIgnoreCase) && str.Length == 10)
@@ -167,7 +167,7 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
                     break;
                 else if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    string key = reader.GetString()!;
+                    string key = reader.GetString() ?? throw new JsonException("Expected a property name when converting a Lua table to float array.");
                     if (reader.Read())
                     {
                         float value = 0f;

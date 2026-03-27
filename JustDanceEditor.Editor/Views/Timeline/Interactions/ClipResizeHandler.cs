@@ -12,7 +12,7 @@ namespace JustDanceEditor.Editor.Views.Timeline.Interactions;
 /// <summary>
 /// Handles resizing of clip edges (left/right) in the timeline.
 /// </summary>
-public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHandler(panel)
+public class ClipResizeHandler(TimelineTrackPanel? panel) : TimelineInteractionHandler(panel)
 {
     private bool _isResizingLeft;
     private bool _isResizingRight;
@@ -217,6 +217,6 @@ public class ClipResizeHandler(TimelineTrackPanel panel) : TimelineInteractionHa
             }
         }
 
-        _panel.Cursor = new Cursor(cursorType);
+        _panel?.Cursor = new Cursor(cursorType);
     }
 }

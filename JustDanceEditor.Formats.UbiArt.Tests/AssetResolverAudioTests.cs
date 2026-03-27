@@ -31,13 +31,13 @@ public class AssetResolverAudioTests
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
-        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
         bool found = resolver.TryFindMainAudio(new JDUbiArtSong { Name = "song" }, out CookedFile? file, out bool isPreMerged);
 
         Assert.True(found);
-        Assert.NotNull(file);
+        CookedFile resolvedFile = file ?? throw new System.InvalidOperationException("Expected main audio file to be resolved.");
         Assert.True(isPreMerged);
-        Assert.EndsWith("song.ogg", file!.RelativePath);
+        Assert.EndsWith("song.ogg", resolvedFile.RelativePath);
 
         Directory.Delete(root, true);
     }
@@ -59,14 +59,14 @@ public class AssetResolverAudioTests
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
-        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout!, fs);
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
 
         string relativeMusicTpl = Path.Combine(fs.InputFolders.AudioFolder, baseName + ".tpl");
         bool found = resolver.TryFindAudio(relativeMusicTpl, out CookedFile? file);
 
         Assert.True(found);
-        Assert.NotNull(file);
-        Assert.EndsWith(baseName + ".wav", file!.RelativePath);
+        CookedFile resolvedFile = file ?? throw new System.InvalidOperationException("Expected audio file to be resolved.");
+        Assert.EndsWith(baseName + ".wav", resolvedFile.RelativePath);
 
         Directory.Delete(root, true);
     }

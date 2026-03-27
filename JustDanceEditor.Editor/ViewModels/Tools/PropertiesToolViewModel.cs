@@ -70,16 +70,18 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
 
         if (selection != null && selection.Count > 0 && ActiveTimeline != null)
         {
+            TimelineEditorViewModel timeline = ActiveTimeline;
             SelectedObject = selection.Count == 1 ? selection[0] : null;
 
             // 1. Identify common properties
             object first = selection[0];
             var templateProps = first.GetType().GetProperties()
                 .Select(p => new { Property = p, Attribute = p.GetCustomAttribute<InspectableAttribute>() })
-                .Where(x => x.Attribute != null)
-                .OrderBy(x => x.Attribute!.Category);
+                .Where(x => x.Attribute is not null)
+                .Select(x => new { x.Property, Attribute = x.Attribute ?? throw new InvalidOperationException("Inspectable attribute lookup unexpectedly returned null.") })
+                .OrderBy(x => x.Attribute.Category);
 
-            var groups = templateProps.GroupBy(x => x.Attribute!.Category);
+            var groups = templateProps.GroupBy(x => x.Attribute.Category);
 
             foreach (var group in groups)
             {
@@ -101,15 +103,18 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                             // Gather redirect targets from all selected clips that implement the interface.
                             List<object> redirectTargets = [.. selection
                                 .OfType<IHasSharedColorSource>()
-                                .Select(c => c.GetColorEditTarget("BackgroundColor", ActiveTimeline!))
+                                .Select(c => c.GetColorEditTarget("BackgroundColor", timeline))
                                 .Where(t => t.HasValue)
-                                .Select(t => t!.Value.Target)
+                                .Select(t => t.GetValueOrDefault().Target)
                                 .Distinct()];
                             if (redirectTargets.Count == 0)
                                 continue;
 
-                            string redirectProp = colorSource.GetColorEditTarget("BackgroundColor", ActiveTimeline!)!.Value.PropertyName;
-                            propVm = new([.. redirectTargets], redirectProp, item.Attribute!, ActiveTimeline!.UndoService, ActiveTimeline.TimelineStructure, ActiveTimeline.Tracks, ActiveTimeline);
+                            string? redirectProp = colorSource.GetColorEditTarget("BackgroundColor", timeline)?.PropertyName;
+                            if (string.IsNullOrEmpty(redirectProp))
+                                continue;
+
+                            propVm = new([.. redirectTargets], redirectProp, item.Attribute, timeline.UndoService, timeline.TimelineStructure, timeline.Tracks, timeline);
                         }
                         else
                         {
@@ -121,16 +126,16 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel
                             propVm = new(
                                 selection,
                                 item.Property.Name,
-                                item.Attribute!,
-                                ActiveTimeline!.UndoService,
-                                ActiveTimeline.TimelineStructure,
-                                ActiveTimeline.Tracks,
-                                ActiveTimeline);
+                                item.Attribute,
+                                timeline.UndoService,
+                                timeline.TimelineStructure,
+                                timeline.Tracks,
+                                timeline);
 
                             // Populate dynamic options via IHasDynamicOptions
                             if (first is IHasDynamicOptions dynOpts)
                             {
-                                IEnumerable<object>? options = dynOpts.GetDynamicOptions(item.Property.Name, ActiveTimeline!);
+                                IEnumerable<object>? options = dynOpts.GetDynamicOptions(item.Property.Name, timeline);
                                 if (options != null)
                                 {
                                     propVm.Options = options.ToList();
@@ -216,7 +221,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     {
         _targets = targets;
         _propertyName = propertyName;
-        _propertyInfoTemplate = targets[0].GetType().GetProperty(propertyName);
+        _propertyInfoTemplate = targets[0].GetType().GetProperty(propertyName)
+            ?? throw new ArgumentException($"Property '{propertyName}' was not found on type '{targets[0].GetType().FullName}'.", nameof(propertyName));
         _undoService = undoService;
         _timelineStructure = timelineStructure;
         _tracks = tracks;
@@ -283,8 +289,8 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             else if (cv is MoveClipViewModel)
             {
                 // For moves, capture the unique move definitions (not per-clip colors)
-                List<MoveDefinitionViewModel?> defs = _targets.OfType<MoveClipViewModel>().Select(m => m.Definition).Where(d => d != null).Distinct().ToList()!;
-                List<(MoveDefinitionViewModel Def, Color Color)> list = [.. defs.Select(d => (d!, d!.Color))];
+                List<MoveDefinitionViewModel> defs = [.. _targets.OfType<MoveClipViewModel>().Select(m => m.Definition).OfType<MoveDefinitionViewModel>().Distinct()];
+                List<(MoveDefinitionViewModel Def, Color Color)> list = [.. defs.Select(d => (d, d.Color))];
                 MoveDefinitionsSnapshot snapshot = new(list);
                 _colorPickerInitialValue = snapshot;
             }
@@ -489,7 +495,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     private object? GetValue(object target) => target.GetType().GetProperty(_propertyName)?.GetValue(target);
     private void SetValue(object target, object? val) => target.GetType().GetProperty(_propertyName)?.SetValue(target, val);
 
-    public Type PropertyType => _propertyInfoTemplate!.PropertyType;
+    public Type PropertyType => _propertyInfoTemplate?.PropertyType ?? throw new InvalidOperationException($"Property '{_propertyName}' is unavailable.");
 
     // Binding Helpers
     public bool IsColor => PropertyType == typeof(Color);

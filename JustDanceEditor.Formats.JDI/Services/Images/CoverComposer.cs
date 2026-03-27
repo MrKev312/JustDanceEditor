@@ -178,7 +178,7 @@ public static class CoverComposer
     /// </summary>
     /// <param name="coachesBackground">The coaches background image.</param>
     /// <returns>Map background resized to 2048x1024.</returns>
-    public static Image<Bgra32> GenerateMapBackground(Image<Bgra32> coachesBackground)
+    public static Image<Bgra32> GenerateMapBackground(Image<Bgra32>? coachesBackground)
     {
         ArgumentNullException.ThrowIfNull(coachesBackground);
 
@@ -192,7 +192,7 @@ public static class CoverComposer
     /// </summary>
     /// <param name="coachesBackground">The coaches background image.</param>
     /// <returns>Banner resized to 1024x512.</returns>
-    public static Image<Bgra32> GenerateBanner(Image<Bgra32> coachesBackground)
+    public static Image<Bgra32> GenerateBanner(Image<Bgra32>? coachesBackground)
     {
         ArgumentNullException.ThrowIfNull(coachesBackground);
 
@@ -265,11 +265,11 @@ public static class CoverComposer
     /// <param name="colorMode">The color mode to use for blending.</param>
     /// <returns>A map background image sized to 2048x1024.</returns>
     public static Image<Bgra32> GenerateMapBackgroundFromBanner(
-        Image<Bgra32> banner,
-        string songColor1A,
-        string songColor1B,
-        string songColor2A,
-        string songColor2B,
+        Image<Bgra32>? banner,
+        string? songColor1A,
+        string? songColor1B,
+        string? songColor2A,
+        string? songColor2B,
         BannerColorMode colorMode = BannerColorMode.Main)
     {
         ArgumentNullException.ThrowIfNull(banner);
@@ -425,7 +425,7 @@ public static class CoverComposer
     /// <param name="coachImages">Individual coach images in order (1-based index order).</param>
     /// <param name="size">Target size for the composite (default 1024x1024).</param>
     /// <returns>The composed album coach image.</returns>
-    public static Image<Bgra32> ComposeAlbumCoach(IReadOnlyList<Image<Bgra32>> coachImages, int size = AlbumCoachSize)
+    public static Image<Bgra32> ComposeAlbumCoach(IReadOnlyList<Image<Bgra32>>? coachImages, int size = AlbumCoachSize)
     {
         ArgumentNullException.ThrowIfNull(coachImages);
 

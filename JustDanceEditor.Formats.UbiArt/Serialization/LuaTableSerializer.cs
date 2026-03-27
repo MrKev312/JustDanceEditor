@@ -85,7 +85,8 @@ public static partial class LuaTableSerializer
             return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
-        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
     }
 
     public static T Deserialize<T>(string luaContent, LayeredFileSystem fileSystem) where T : new()
@@ -132,7 +133,8 @@ public static partial class LuaTableSerializer
                                 options.Converters.Add(new StructureJsonConverter());
                                 options.Converters.Add(new Model.Clips.ClipConverter());
 
-                                TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, options)!;
+                                TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, options)
+                                    ?? throw new JsonException("Failed to deserialize TrackData from Lua content.");
                                 TrackDataHolder holder = new() { Class = "MusicTrackComponent_Template", TrackData = trackData };
                                 MusicTrack musicTrack = new() { Class = "MusicTrack", Components = [holder] };
                                 return (T)(object)musicTrack;
@@ -164,7 +166,8 @@ public static partial class LuaTableSerializer
             return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
-        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
     }
 
     private static SongDesc MapToSongDesc(JsonElement root)
@@ -200,7 +203,8 @@ public static partial class LuaTableSerializer
                             }
 
                             string sanitizedJson = JsonSerializer.Serialize(dict);
-                            InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+                            InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                                ?? throw new JsonException("Failed to deserialize InfoComponent from Lua content.");
 
                             // Manually map DefaultColors if it was an array
                             if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
@@ -324,7 +328,8 @@ public static partial class LuaTableSerializer
             options.Converters.Add(new Model.Clips.ClipConverter());
             options.Converters.Add(new FloatArrayFlexibleJsonConverter());
 
-            return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), options)!;
+            return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), options)
+                ?? throw new JsonException("Failed to deserialize ClipTape from Lua content.");
         }
 
         throw new InvalidDataException("Could not find Tape in ClipTape LUA.");
@@ -372,7 +377,7 @@ public static partial class LuaTableSerializer
                                     TrackData = JsonSerializer.Deserialize<TrackData>(
                                         musicTrackData.GetRawText(),
                                         options
-                                    )!
+                                    ) ?? throw new JsonException("Failed to deserialize TrackData from music track Lua content.")
                                 };
 
                                 MusicTrack musicTrack = new()
@@ -481,7 +486,7 @@ public static partial class LuaTableSerializer
         foreach (object? key in table.Keys)
         {
             object? value = table[key];
-            string keyStr = key.ToString()!;
+            string keyStr = key?.ToString() ?? throw new InvalidDataException("Lua table contained a null key.");
 
             if (value is LuaTable nestedTable)
             {
@@ -492,7 +497,7 @@ public static partial class LuaTableSerializer
             }
             else
             {
-                dict[keyStr] = value!;
+                dict[keyStr] = value ?? throw new InvalidDataException($"Lua table value for key '{keyStr}' was null.");
             }
         }
 

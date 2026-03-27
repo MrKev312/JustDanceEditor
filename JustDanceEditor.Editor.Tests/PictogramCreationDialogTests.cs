@@ -26,9 +26,9 @@ public class PictogramCreationDialogTests
 
             vm.Accept();
 
-            Assert.NotNull(vm.Result);
-            Assert.Equal(picName, vm.Result!.PictogramId);
-            Assert.Equal((int)(1.5 * 24.0), vm.Result.Frames);
+            PictogramCreationResult result = vm.Result ?? throw new InvalidOperationException("Expected a result after accepting the dialog.");
+            Assert.Equal(picName, result.PictogramId);
+            Assert.Equal((int)(1.5 * 24.0), result.Frames);
         }
         finally
         {

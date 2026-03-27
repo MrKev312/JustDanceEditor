@@ -11,6 +11,6 @@ public class JsonUbiArtSerializer : IUbiArtSerializer
 
         using StreamReader sr = new(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 8192, leaveOpen: true);
         string text = sr.ReadToEnd().TrimEnd('\0');
-        return JsonSerializer.Deserialize<T>(text, options)!;
+        return JsonSerializer.Deserialize<T>(text, options) ?? throw new JsonException($"Failed to deserialize JSON payload to {typeof(T).Name}.");
     }
 }

@@ -27,7 +27,7 @@ internal sealed class DefaultTextureService : ITextureService
         {
             using Image<Bgra32>? image = ConvertToImage(inputStream) ?? throw new InvalidOperationException($"Failed to convert texture");
             string ext = Path.GetExtension(outputPath).ToLowerInvariant();
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
 
             if (ext == ".png")
             {

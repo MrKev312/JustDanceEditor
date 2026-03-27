@@ -76,11 +76,11 @@ public static class UbiArtPictoConverter
 
                 if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
                 {
-                    SplitAndSaveMontageParts(pictoImage!, songData, pictoTempFolder, logger, textureService, fs, fileSystem.VersionProfile.PictoNameComparer);
+                    SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger, textureService, fs, fileSystem.VersionProfile.PictoNameComparer);
                 }
                 else
                 {
-                    ResizeAndSaveIndividualPicto(pictoImage!, baseName, songData, pictoTempFolder, fs);
+                    ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder, fs);
                 }
             }
             catch (FileNotFoundException)

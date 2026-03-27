@@ -35,7 +35,7 @@ public static class JdiFormatRegistry
         return AppDomain.CurrentDomain.GetAssemblies()
             .SelectMany(assembly => assembly.GetTypes())
             .Where(type => typeof(IJdiFormat).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
-            .Select(type => (IJdiFormat)Activator.CreateInstance(type)!)
+            .Select(type => Activator.CreateInstance(type) as IJdiFormat ?? throw new InvalidOperationException($"Could not create format instance for '{type.FullName}'."))
             .ToList()
             .AsReadOnly();
     }

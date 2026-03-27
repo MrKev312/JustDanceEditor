@@ -24,6 +24,9 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     public void StartSelection(Point startPoint, PointerEventArgs e)
     {
+        if (_panel == null)
+            return;
+
         IsActive = true;
         StartPoint = startPoint;
         CurrentPoint = startPoint;
@@ -41,12 +44,18 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     public void UpdateSelection(Point currentPoint)
     {
+        if (_panel == null)
+            return;
+
         CurrentPoint = currentPoint;
         _panel.InvalidateVisual();
     }
 
     public void Complete(TimelineEditorViewModel? vm, PointerEventArgs? e, bool addToSelection = false)
     {
+        if (_panel == null)
+            return;
+
         IsActive = false;
 
         Release(e);
@@ -105,6 +114,9 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     public void Cancel(PointerEventArgs? e = null)
     {
+        if (_panel == null)
+            return;
+
         IsActive = false;
 
         Release(e);
@@ -114,6 +126,9 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private void SelectInCurrentTrack(double selStartBeat, double selEndBeat)
     {
+        if (_panel == null)
+            return;
+
         if (_panel.Clips == null)
             return;
 
@@ -140,6 +155,9 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private void SelectAcrossTracks(TimelineEditorViewModel vm, Rect selRect, double selStartBeat, double selEndBeat)
     {
+        if (_panel == null)
+            return;
+
         List<TrackViewModel> tracks = [.. vm.Tracks];
 
         int thisIndex = -1;

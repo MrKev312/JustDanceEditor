@@ -137,7 +137,7 @@ public static class IntermediatePackageSerializer
         if (!File.Exists(path))
             throw new FileNotFoundException($"Missing intermediate document: {path}");
         using FileStream stream = File.OpenRead(path);
-        return JsonSerializer.Deserialize<T>(stream, JsonOptions)!;
+        return JsonSerializer.Deserialize<T>(stream, JsonOptions) ?? throw new JsonException($"Failed to deserialize intermediate document '{path}'.");
     }
 
     private static T ReadDocumentOrDefault<T>(string path)

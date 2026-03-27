@@ -29,7 +29,7 @@ public sealed class ConversionWorkflow(
             string inputFolder = AskMultiInputFolder();
             string outputFolder = AskOutputFolder();
             List<string> existingSongs = Directory.Exists(outputFolder)
-                ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)]
+                ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).OfType<string>()]
                 : [];
 
             string[] inputSongParentFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
@@ -240,7 +240,7 @@ public sealed class ConversionWorkflow(
             }
         }
 
-        maps = maps.Select(Path.GetFileName).ToArray()!;
+        maps = [.. maps.Select(Path.GetFileName).OfType<string>()];
 
         int index = 0;
         if (maps.Length > 1)

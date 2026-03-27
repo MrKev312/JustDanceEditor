@@ -49,8 +49,9 @@ class Program
                 }
 
                 // Create output path (same directory, .opus extension)
+                string directory = Path.GetDirectoryName(file) ?? throw new InvalidOperationException($"Could not determine the directory for '{file}'.");
                 string outputPath = Path.Combine(
-                    Path.GetDirectoryName(file)!,
+                    directory,
                     Path.GetFileNameWithoutExtension(file) + ".opus");
 
                 // Skip if output already exists

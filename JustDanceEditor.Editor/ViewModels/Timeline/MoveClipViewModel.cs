@@ -124,8 +124,7 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
 
     private void AttachDefinition(string moveId)
     {
-        if (Definition != null)
-            Definition.PropertyChanged -= OnDefinitionPropertyChanged;
+        Definition?.PropertyChanged -= OnDefinitionPropertyChanged;
 
         Definition = null;
 

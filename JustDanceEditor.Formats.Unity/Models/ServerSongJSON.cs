@@ -106,7 +106,7 @@ public sealed class FlexibleStringListConverter : JsonConverter<string[]>
                 if (reader.TokenType == JsonTokenType.EndArray)
                     break;
                 else if (reader.TokenType == JsonTokenType.String)
-                    list.Add(reader.GetString()!);
+                    list.Add(reader.GetString() ?? throw new JsonException("Expected a string value in the array."));
                 else if (reader.TokenType == JsonTokenType.Number)
                     list.Add(reader.GetInt32().ToString());
                 else
@@ -120,7 +120,7 @@ public sealed class FlexibleStringListConverter : JsonConverter<string[]>
         else
         {
             return reader.TokenType == JsonTokenType.String
-                ? [reader.GetString()!]
+                ? [reader.GetString() ?? throw new JsonException("Expected a string value.")]
                 : [reader.GetInt32().ToString()];
         }
     }

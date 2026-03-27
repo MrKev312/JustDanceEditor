@@ -13,7 +13,7 @@ namespace JustDanceEditor.Editor.Views.Timeline.Interactions;
 /// <summary>
 /// Handles single and multi-clip dragging in the timeline.
 /// </summary>
-public class ClipDragHandler(TimelineTrackPanel panel) : TimelineInteractionHandler(panel)
+public class ClipDragHandler(TimelineTrackPanel? panel) : TimelineInteractionHandler(panel)
 {
     private bool _isDragging;
     private bool _isMultiDragging;

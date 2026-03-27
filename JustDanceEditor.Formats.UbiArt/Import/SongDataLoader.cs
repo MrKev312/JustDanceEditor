@@ -61,7 +61,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             using MemoryStream ms = new(Encoding.UTF8.GetBytes(musicTrackContent));
             songData.MusicTrack = fileSystem.VersionProfile.Serializer != null
                 ? fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(ms, options)
-                : JsonSerializer.Deserialize<MusicTrack>(musicTrackContent, options)!;
+                : JsonSerializer.Deserialize<MusicTrack>(musicTrackContent, options) ?? throw new JsonException("Failed to deserialize MusicTrack JSON.");
         }
 
         _logger.LogInformation("Loading MainSequence");
@@ -144,7 +144,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 using Stream karaokeStream = fileSystem.GetFileStream(karaokeKtapeFile);
                 ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
                     ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
-                    : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
+                    : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
             else if (fileSystem.GetFilePath(karaokeTplRelativePath, out CookedFile? karaokeTplFile))
@@ -153,7 +153,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 using Stream karaokeStream = fileSystem.GetFileStream(karaokeTplFile);
                 ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
                     ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
-                    : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
+                    : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
             else
@@ -175,7 +175,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                     using Stream karaokeActorStream = fileSystem.GetFileStream(karaokeActorFile);
                     ActorTemplate karaokeActor = fileSystem.VersionProfile.Serializer != null
                         ? fileSystem.VersionProfile.Serializer.Deserialize<ActorTemplate>(karaokeActorStream, options)
-                        : JsonSerializer.Deserialize<ActorTemplate>(new StreamReader(karaokeActorStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
+                        : JsonSerializer.Deserialize<ActorTemplate>(new StreamReader(karaokeActorStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke actor JSON.");
 
                     if (karaokeActor.Components.Length > 0 &&
                         karaokeActor.Components[0].TapesRack.Length > 0 &&
@@ -186,7 +186,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                         using Stream karaokeStream = fileSystem.GetFileStream(karaokeTapePathCooked);
                         ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
                             ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
-                            : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
+                            : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                         songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
                     }
                     else
@@ -208,7 +208,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                     using Stream karaokeStream = fileSystem.GetFileStream(karaokeTplFile);
                     ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
                         ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
-                        : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options)!;
+                        : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                     songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
                 }
                 else

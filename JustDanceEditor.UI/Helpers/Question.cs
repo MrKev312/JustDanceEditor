@@ -96,7 +96,7 @@ internal class Question
             filepath = null;
         }
 
-        return filepath!;
+        return filepath ?? throw new InvalidOperationException("No valid folder or IPK path was provided.");
     }
 
     public static string AskFile(string question, bool mustExist = false)

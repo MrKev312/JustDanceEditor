@@ -16,10 +16,10 @@ public class MoveCreationViewModelTests
 
         vm.Accept(48);
 
-        Assert.NotNull(vm.Result);
-        Assert.Equal("m2", vm.Result!.MoveId);
-        Assert.Equal(48, vm.Result.Frames);
-        Assert.True(vm.Result.IsGold);
+        MoveCreationResult result = vm.Result ?? throw new InvalidOperationException("Expected a result after accepting the dialog.");
+        Assert.Equal("m2", result.MoveId);
+        Assert.Equal(48, result.Frames);
+        Assert.True(result.IsGold);
     }
 
     [Fact]

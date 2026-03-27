@@ -88,7 +88,7 @@ internal sealed class IntermediateToUnityConverter
         {
             string hashName = BuildHashedFileName(sourcePreviewPath, ".opus");
             string destinationPath = Path.Combine(_outputRoot, "AudioPreview_opus", hashName);
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destinationPath}'."));
             File.Copy(sourcePreviewPath, destinationPath, true);
         }
         else

@@ -14,17 +14,19 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, IAudioConverter audioConverter, JDI.Services.IMediaProcessor mediaProcessor, JDI.Services.ITextureService textureService, IUbiArtAssetWriter assetWriter, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
+public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory, IUbiArtEngineDetector engineDetector, IAudioConverter? audioConverter, JDI.Services.IMediaProcessor? mediaProcessor, JDI.Services.ITextureService? textureService, IUbiArtAssetWriter? assetWriter, ILogger<UbiArtJdiFormat> logger, JDI.Services.IFileSystem? io = null) : IJdiFormat
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
     private readonly Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
     private readonly IUbiArtEngineDetector _engineDetector = engineDetector ?? throw new ArgumentNullException(nameof(engineDetector));
-    private readonly IAudioConverter _audioConverter = audioConverter;
-    private readonly JDI.Services.IMediaProcessor _mediaProcessor = mediaProcessor;
-    private readonly JDI.Services.ITextureService _textureService = textureService;
+    private readonly IAudioConverter? _audioConverter = audioConverter;
+    private readonly JDI.Services.IMediaProcessor? _mediaProcessor = mediaProcessor;
     private readonly ILogger<UbiArtJdiFormat> _logger = logger;
-    private readonly IUbiArtAssetWriter _assetWriter = assetWriter;
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
+
+    private JDI.Services.ITextureService TextureService { get => field ?? throw new InvalidOperationException("A texture service is required for UbiArt import operations."); } = textureService;
+
+    private IUbiArtAssetWriter AssetWriter { get => field ?? throw new InvalidOperationException("An asset writer is required for UbiArt export operations."); } = assetWriter;
 
     public string DisplayName => "UbiArt";
     public bool CanImport => true;
@@ -91,7 +93,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         string outputFolder = _io.Combine(ubiRequest.OutputPath, context.SongData.Name);
         PrepareOutputDirectory(outputFolder);
 
-        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, _textureService);
+        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, TextureService);
         IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
 
         return new JdiImportResult(
@@ -162,7 +164,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             serializer);
 
         // Single export method handles both cooked and uncooked
-        await _assetWriter.ExportAsync(
+        await AssetWriter.ExportAsync(
             importResult.Package,
             importResult.MaterializedRoot,
             outputFolder,

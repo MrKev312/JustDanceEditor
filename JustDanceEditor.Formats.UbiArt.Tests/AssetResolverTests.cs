@@ -41,11 +41,10 @@ public class AssetResolverTests
         LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
         fs.Initialize();
 
-        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout!, fs);
-        CookedFile? file = resolver.GetAlbumCoach();
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
+        CookedFile file = resolver.GetAlbumCoach() ?? throw new System.InvalidOperationException("Expected album coach asset to be resolved.");
 
-        Assert.NotNull(file);
-        Assert.EndsWith(fileName, file!.RelativePath);
+        Assert.EndsWith(fileName, file.RelativePath);
 
         Directory.Delete(root, true);
     }

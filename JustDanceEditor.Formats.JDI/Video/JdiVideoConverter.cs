@@ -200,7 +200,8 @@ public static class JdiVideoConverter
         ILogger logger,
         CancellationToken ct)
     {
-        string passLogPrefix = Path.Combine(Path.GetDirectoryName(output)!, $"ffmpeg2pass_{Guid.NewGuid()}");
+        string outputDirectory = Path.GetDirectoryName(output) ?? throw new InvalidOperationException($"Could not determine the directory for '{output}'.");
+        string passLogPrefix = Path.Combine(outputDirectory, $"ffmpeg2pass_{Guid.NewGuid()}");
         string nullOutput = Path.DirectorySeparatorChar == '\\' ? "NUL" : "/dev/null";
 
         // Construct timing args
@@ -247,7 +248,7 @@ public static class JdiVideoConverter
         // Cleanup Logs
         try
         {
-            foreach (string f in Directory.GetFiles(Path.GetDirectoryName(output)!, Path.GetFileName(passLogPrefix) + "*"))
+            foreach (string f in Directory.GetFiles(outputDirectory, Path.GetFileName(passLogPrefix) + "*"))
                 File.Delete(f);
         }
         catch { /* ignore */ }

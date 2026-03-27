@@ -4,13 +4,23 @@ namespace TextureConverter.Formats;
 
 public class GameTextureDetector : IImageFormatDetector
 {
+    private sealed class UnknownImageFormat : IImageFormat
+    {
+        public string Name => "Unknown";
+        public string DefaultMimeType => "application/octet-stream";
+        public IEnumerable<string> MimeTypes => [DefaultMimeType];
+        public IEnumerable<string> FileExtensions => [];
+    }
+
+    private static readonly IImageFormat UnknownFormat = new UnknownImageFormat();
+
     public int HeaderSize => 0x30;
 
     private static readonly byte[] TexHeader = [0x00, 0x00, 0x00, 0x09, 0x54, 0x45, 0x58];
 
     public bool TryDetectFormat(ReadOnlySpan<byte> header, out IImageFormat format)
     {
-        format = null!;
+        format = UnknownFormat;
 
         if (header.Length < 4)
             return false;

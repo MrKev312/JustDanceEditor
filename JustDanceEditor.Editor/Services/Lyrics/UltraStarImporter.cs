@@ -202,6 +202,7 @@ public sealed class UltraStarImporter : ILyricImporter
                     if (!prev.Text.EndsWith(' '))
                         results[i - 1] = (prev.StartSec, prev.EndSec, prev.Text + ' ', prev.IsEol);
                 }
+
                 results[i] = (results[i].StartSec, results[i].EndSec, text.TrimStart(), results[i].IsEol);
             }
         }

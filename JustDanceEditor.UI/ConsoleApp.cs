@@ -27,7 +27,9 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
         Console.ResetColor();
         Console.WriteLine("Developed by: MrKev312");
 
-        string versionMessage = $"Version: {Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion}";
+        AssemblyInformationalVersionAttribute versionAttribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?? throw new InvalidOperationException("Assembly informational version attribute is missing.");
+        string versionMessage = $"Version: {versionAttribute.InformationalVersion}";
         _logger.LogDebug(versionMessage);
         Console.WriteLine(versionMessage);
 

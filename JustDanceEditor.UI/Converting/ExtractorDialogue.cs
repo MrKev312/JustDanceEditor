@@ -12,7 +12,8 @@ internal class ExtractorDialogue
         Console.WriteLine("This option will extract the contents of an IPK archive file.");
         // Ask for the input and output path
         string inputPath = Question.AskFile("Please enter the full path to the .ipk file you want to extract", true);
-        string defaultOutputPath = Path.Combine(Path.GetDirectoryName(inputPath)!, Path.GetFileNameWithoutExtension(inputPath));
+        string defaultOutputDirectory = Path.GetDirectoryName(inputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{inputPath}'.");
+        string defaultOutputPath = Path.Combine(defaultOutputDirectory, Path.GetFileNameWithoutExtension(inputPath));
         string outputPath = Question.AskFolder($"Please enter the full path for the output folder (default: {defaultOutputPath})", false);
 
         if (string.IsNullOrWhiteSpace(outputPath))

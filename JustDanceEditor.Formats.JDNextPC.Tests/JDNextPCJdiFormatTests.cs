@@ -87,11 +87,11 @@ public class JDNextPCJdiFormatTests
             Assert.Empty(result.Package.FullBodyCoachTimelines);
             Assert.True(result.Package.Lyrics.Clips.Count > 0);
             Assert.True(result.Package.Pictograms.Clips.Count > 0);
-            Assert.True(result.Package.CoachTimelines.Count == 2);
+            Assert.Equal(2, result.Package.CoachTimelines.Count);
             Assert.Contains("synthetic_move", result.Package.HandCoachMoves.Keys);
-            Assert.NotNull(result.MaterializedRoot);
-            Assert.True(File.Exists(Path.Combine(result.MaterializedRoot!, "metadata.json")));
-            Assert.True(File.Exists(Path.Combine(result.MaterializedRoot!, "assets", "coverAssets", "cover.webp")));
+            string materializedRoot = result.MaterializedRoot ?? throw new InvalidOperationException("Expected a materialized root for the import result.");
+            Assert.True(File.Exists(Path.Combine(materializedRoot, "metadata.json")));
+            Assert.True(File.Exists(Path.Combine(materializedRoot, "assets", "coverAssets", "cover.webp")));
         }
         finally
         {
@@ -370,19 +370,19 @@ public class JDNextPCJdiFormatTests
 
     private static void WriteBytes(string path, byte[] bytes)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException($"Could not determine the directory for '{path}'."));
         File.WriteAllBytes(path, bytes);
     }
 
     private static void WriteJson(string path, string json)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException($"Could not determine the directory for '{path}'."));
         File.WriteAllText(path, json);
     }
 
     private static byte[] CreatePseudoWebmBytes(int totalLength, bool isVp8)
     {
-        byte[] bytes = Enumerable.Repeat((byte)'A', totalLength).ToArray();
+        byte[] bytes = [.. Enumerable.Repeat((byte)'A', totalLength)];
         byte[] marker = isVp8 ? "V_VP8"u8.ToArray() : "V_VP9"u8.ToArray();
         int offset = Math.Min(8, Math.Max(0, totalLength - marker.Length));
         Array.Copy(marker, 0, bytes, offset, Math.Min(marker.Length, totalLength - offset));
@@ -395,7 +395,7 @@ public class JDNextPCJdiFormatTests
 
         public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? throw new InvalidOperationException($"Could not determine the directory for '{output}'."));
             File.Copy(input, output, true);
             return Task.CompletedTask;
         }
@@ -417,7 +417,7 @@ public class JDNextPCJdiFormatTests
 
         public async Task ConvertTextureAsync(Stream inputStream, string outputPath, CancellationToken cancellationToken = default)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
             await using FileStream output = File.Create(outputPath);
             await inputStream.CopyToAsync(output, cancellationToken);
         }
@@ -432,7 +432,7 @@ public class JDNextPCJdiFormatTests
         public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
         {
             Calls.Add(new MediaCall(input, output, extraArgs ?? []));
-            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? throw new InvalidOperationException($"Could not determine the directory for '{output}'."));
             File.Copy(input, output, true);
             return Task.CompletedTask;
         }

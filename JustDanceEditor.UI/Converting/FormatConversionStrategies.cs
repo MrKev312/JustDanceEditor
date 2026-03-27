@@ -178,7 +178,7 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
         if (maps.Length == 1)
             return Path.GetFileName(maps[0]);
 
-        string[] mapNames = [.. maps.Select(Path.GetFileName).Where(name => name is not null).Select(name => name!)];
+        string[] mapNames = [.. maps.Select(Path.GetFileName).OfType<string>()];
         if (mapNames.Length == 0)
             return null;
 

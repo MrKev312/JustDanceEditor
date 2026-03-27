@@ -39,7 +39,7 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
             dataToWrite[^1] = 0; // Null terminator
         }
 
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await using FileStream fs = File.Create(fullPath);
         await fs.WriteAsync(dataToWrite);
     }
@@ -48,14 +48,14 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
     {
         // Binary export is standard byte writing
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, data);
     }
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
         // Convert Image to GTX (Wii U Texture)
         using MemoryStream gtxStream = new();
@@ -74,7 +74,7 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
     public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(destPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
         try
         {

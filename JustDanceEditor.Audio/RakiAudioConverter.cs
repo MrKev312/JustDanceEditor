@@ -1,5 +1,5 @@
+using Concentus;
 using Concentus.Enums;
-using Concentus.Structs;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -863,11 +863,9 @@ public class RakiAudioConverter : IAudioConverter
                 sampleProvider = sampleProvider.ToMono().ToStereo();
         }
 
-        OpusEncoder encoder = new(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO)
-        {
-            Bitrate = 192000,
-            ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_20_MS
-        };
+        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO, TextWriter.Null);
+        encoder.Bitrate = 192000;
+        encoder.ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_20_MS;
 
         const int frameSize = 960;
         float[] bufferFloat = new float[frameSize * 2];
@@ -900,7 +898,7 @@ public class RakiAudioConverter : IAudioConverter
                 int packetLen;
                 try
                 {
-                    packetLen = encoder.Encode(bufferShort, 0, frameSize, opusPacketBuffer, 0, opusPacketBuffer.Length);
+                    packetLen = encoder.Encode(bufferShort, frameSize, opusPacketBuffer, opusPacketBuffer.Length);
                 }
                 catch (Concentus.OpusException)
                 {
@@ -958,7 +956,8 @@ public class RakiAudioConverter : IAudioConverter
         byte[]? markData = null;
         if (hasMarkers)
         {
-            markData = GenerateMarkChunk(markers!);
+            IList<int> requiredMarkers = markers ?? throw new InvalidOperationException("Markers were expected to be available when generating the MARK chunk.");
+            markData = GenerateMarkChunk(requiredMarkers);
             uint markSize = (uint)markData.Length;
             chunks.Add(("MARK", currentDataOffset, markSize));
             currentDataOffset += markSize;
@@ -967,7 +966,8 @@ public class RakiAudioConverter : IAudioConverter
         byte[]? strgData = null;
         if (hasMarkers)
         {
-            strgData = GenerateStrgChunk(markers!);
+            IList<int> requiredMarkers = markers ?? throw new InvalidOperationException("Markers were expected to be available when generating the STRG chunk.");
+            strgData = GenerateStrgChunk(requiredMarkers);
             uint strgSize = (uint)strgData.Length;
             chunks.Add(("STRG", currentDataOffset, strgSize));
             currentDataOffset += strgSize;

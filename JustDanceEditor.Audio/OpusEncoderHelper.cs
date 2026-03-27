@@ -1,10 +1,9 @@
+using Concentus;
 using Concentus.Enums;
 using Concentus.Oggfile;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-
-using ConcentusOpusEncoder = Concentus.Structs.OpusEncoder;
 
 namespace JustDanceEditor.Audio;
 
@@ -40,13 +39,9 @@ public static class OpusEncoderHelper
             channels = 2;
         }
 
-        // Create the Opus encoder
-#pragma warning disable CS0618 // Type or member is obsolete - OpusCodecFactory is preferred but this works
-        ConcentusOpusEncoder encoder = new(48000, channels, OpusApplication.OPUS_APPLICATION_AUDIO)
-        {
-#pragma warning restore CS0618
-            Bitrate = bitrate
-        };
+        // Use the factory so native Concentus can be selected when available.
+        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(48000, channels, OpusApplication.OPUS_APPLICATION_AUDIO, TextWriter.Null);
+        encoder.Bitrate = bitrate;
 
         // Wrap the stream to prevent OpusOggWriteStream from closing it
         NonClosingStreamWrapper wrappedStream = new(outputStream);

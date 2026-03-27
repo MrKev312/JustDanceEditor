@@ -23,8 +23,10 @@ internal class Program
                 {
                     // --- PACKING MODE ---
                     // Input is a folder, create IPK next to it
-                    string parentDir = Path.GetDirectoryName(path.TrimEnd(Path.DirectorySeparatorChar))
-                                       ?? Path.GetPathRoot(path)!;
+                    string trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar);
+                    string parentDir = Path.GetDirectoryName(trimmedPath)
+                                       ?? Path.GetPathRoot(path)
+                                       ?? throw new InvalidOperationException($"Could not determine an output directory for '{path}'.");
                     string folderName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar));
                     string outputPath = Path.Combine(parentDir, folderName + ".ipk");
 
@@ -44,7 +46,8 @@ internal class Program
                     }
                     else
                     {
-                        string outputPath = Path.Combine(Path.GetDirectoryName(path)!, Path.GetFileNameWithoutExtension(path));
+                        string directory = Path.GetDirectoryName(path) ?? throw new InvalidOperationException($"Could not determine the directory for '{path}'.");
+                        string outputPath = Path.Combine(directory, Path.GetFileNameWithoutExtension(path));
                         JustDanceIPKParser parser = new(path, outputPath);
                         parser.Parse(ShowInfo: true); // Enabled ShowInfo for better feedback
                         Console.WriteLine($"Extracted to: {outputPath}");

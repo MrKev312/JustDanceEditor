@@ -108,7 +108,7 @@ internal class CacheDialogue
         {
             Console.WriteLine("\nAnalyzing cache structure...");
             using FileStream json = File.OpenRead(cachingStatusJsonPath);
-            JDCacheJSON jDCacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json)!;
+            JDCacheJSON jDCacheJSON = JsonSerializer.Deserialize<JDCacheJSON>(json) ?? throw new JsonException("Failed to deserialize CachingStatus.json.");
 
             // Get every folder in the cache folder
             string[] folders = Directory.GetDirectories(cachePath);

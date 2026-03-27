@@ -128,7 +128,7 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithNullList_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => CoverComposer.ComposeAlbumCoach(null!));
+        Assert.Throws<ArgumentNullException>(() => CoverComposer.ComposeAlbumCoach(null));
     }
 
     #endregion
@@ -181,7 +181,7 @@ public class CoverComposerTests
     public void GenerateMapBackground_WithNull_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackground(null!));
+        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackground(null));
     }
 
     #endregion
@@ -206,7 +206,7 @@ public class CoverComposerTests
     public void GenerateBanner_WithNull_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateBanner(null!));
+        Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateBanner(null));
     }
 
     #endregion
@@ -452,7 +452,7 @@ public class CoverComposerTests
     public void GenerateMapBackgroundFromBanner_WithNullBanner_ThrowsArgumentNullException()
     {
         // Arrange
-        Image<Bgra32> banner = null!;
+        Image<Bgra32>? banner = null;
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackgroundFromBanner(
@@ -472,7 +472,7 @@ public class CoverComposerTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => CoverComposer.GenerateMapBackgroundFromBanner(
-            banner, color1a!, color1b!, color2a!, color2b!));
+            banner, color1a, color1b, color2a, color2b));
     }
 
     [Theory]

@@ -16,10 +16,10 @@ public class LyricsCreationViewModelTests
 
         vm.Accept();
 
-        Assert.NotNull(vm.Result);
-        Assert.Equal("Hello", vm.Result!.Lyrics);
-        Assert.Equal(48, vm.Result.Frames); // 2 beats * 24 fps
-        Assert.True(vm.Result.IsEndOfLine);
+        LyricsCreationResult result = vm.Result ?? throw new InvalidOperationException("Expected a result after accepting the dialog.");
+        Assert.Equal("Hello", result.Lyrics);
+        Assert.Equal(48, result.Frames); // 2 beats * 24 fps
+        Assert.True(result.IsEndOfLine);
     }
 
     [Fact]

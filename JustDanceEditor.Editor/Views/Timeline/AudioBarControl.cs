@@ -785,10 +785,13 @@ public class AudioBarControl : Control
             // Draw waveform columns
             int waveStart = Math.Max(renderStartX, (int)drawStartX);
             int waveEnd = Math.Min(renderEndX, (int)drawEndX);
+            if (_envelopeMax == null || _envelopeMin == null)
+                return;
+
             for (int x = waveStart; x < waveEnd; x++)
             {
-                float maxV = _envelopeMax![x];
-                float minV = _envelopeMin![x];
+                float maxV = _envelopeMax[x];
+                float minV = _envelopeMin[x];
 
                 double topH = maxV * centerY * 0.8;
                 double botH = minV * centerY * 0.8;

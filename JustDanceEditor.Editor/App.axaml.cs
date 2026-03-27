@@ -18,16 +18,16 @@ namespace JustDanceEditor.Editor;
 
 public partial class App : Application
 {
-    public IServiceProvider Services { get; private set; } = null!;
+    public IServiceProvider? Services { get; private set; }
 
     /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
-    public LibVLC LibVLC => Services.GetRequiredService<LibVLC>();
+    public LibVLC LibVLC => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<LibVLC>();
 
     /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
-    public ITimelineContextService TimelineContext => Services.GetRequiredService<ITimelineContextService>();
+    public ITimelineContextService TimelineContext => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<ITimelineContextService>();
 
     /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
-    public IDialogService DialogService => Services.GetRequiredService<IDialogService>();
+    public IDialogService DialogService => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<IDialogService>();
 
     public override void Initialize()
     {

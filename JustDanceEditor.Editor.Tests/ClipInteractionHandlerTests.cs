@@ -12,9 +12,14 @@ namespace JustDanceEditor.Editor.Tests;
 
 public class ClipInteractionHandlerTests
 {
+    private static ClipDragHandler CreateClipDragHandler() => new(null);
+
+    private static ClipResizeHandler CreateClipResizeHandler() => new(null);
+
     private static void SetPrivateField(object obj, string name, object? value)
     {
-        FieldInfo f = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        FieldInfo f = obj.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(obj.GetType().FullName, name);
         f.SetValue(obj, value);
     }
 
@@ -80,7 +85,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
         VideoClipViewModel clip = new(120.0, "", timeline);
 
-        ClipDragHandler handler = new(null!);
+        ClipDragHandler handler = CreateClipDragHandler();
         SetPrivateField(handler, "_isDragging", true);
         SetPrivateField(handler, "_draggingClip", clip);
         SetPrivateField(handler, "_dragStartPointerX", 0.0);
@@ -99,7 +104,7 @@ public class ClipInteractionHandlerTests
         TimelineEditorViewModel timeline = CreateTimelineWithBounds(0.0, 100.0);
         VideoClipViewModel clip = new(120.0, "", timeline);
 
-        ClipDragHandler handler = new(null!);
+        ClipDragHandler handler = CreateClipDragHandler();
         SetPrivateField(handler, "_isDragging", true);
         SetPrivateField(handler, "_draggingClip", clip);
         SetPrivateField(handler, "_dragStartPointerX", 0.0);
@@ -123,7 +128,7 @@ public class ClipInteractionHandlerTests
             StartBeat = 5.0
         };
 
-        ClipDragHandler handler = new(null!);
+        ClipDragHandler handler = CreateClipDragHandler();
         SetPrivateField(handler, "_isDragging", true);
         SetPrivateField(handler, "_dragOriginalStartBeat", 5.0);
         SetPrivateField(handler, "_draggingClip", clip);
@@ -144,7 +149,7 @@ public class ClipInteractionHandlerTests
             StartBeat = 5.0
         };
 
-        ClipDragHandler handler = new(null!);
+        ClipDragHandler handler = CreateClipDragHandler();
         SetPrivateField(handler, "_isDragging", true);
         SetPrivateField(handler, "_dragOriginalStartBeat", 5.0);
         SetPrivateField(handler, "_draggingClip", clip);
@@ -172,7 +177,7 @@ public class ClipInteractionHandlerTests
         c1.StartBeat = 2.0;
         c2.StartBeat = 4.0;
 
-        ClipDragHandler handler = new(null!);
+        ClipDragHandler handler = CreateClipDragHandler();
 
         Dictionary<ClipViewModel, double> dict = new()
         {
@@ -207,7 +212,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeOriginalStart", 1.0);
         SetPrivateField(handler, "_resizeOriginalDuration", 2.0);
@@ -234,7 +239,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeOriginalStart", 1.0);
         SetPrivateField(handler, "_resizeOriginalDuration", 2.0);
@@ -263,7 +268,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeOriginalStart", 1.0);
         SetPrivateField(handler, "_resizeOriginalDuration", 2.0);
@@ -293,7 +298,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 0.0);
@@ -322,7 +327,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 3.0  // Ends at 8.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 5.0);
@@ -348,7 +353,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 0.5);
@@ -375,7 +380,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 2.0  // Ends at 4.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 2.0);
@@ -401,7 +406,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 4.0
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 2.0);
@@ -427,7 +432,7 @@ public class ClipInteractionHandlerTests
             DurationBeats = 1.0  // Already very short
         };
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", 2.0);
@@ -455,7 +460,7 @@ public class ClipInteractionHandlerTests
 
         double originalEnd = clip.StartBeat + clip.DurationBeats;
 
-        ClipResizeHandler handler = new(null!);
+        ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);
         SetPrivateField(handler, "_resizeOriginalStart", clip.StartBeat);

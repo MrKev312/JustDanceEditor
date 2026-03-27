@@ -40,7 +40,8 @@ class Program
             Console.WriteLine(x);
 
             // Create the output path
-            string outputPath = Path.Combine(Path.GetDirectoryName(x)!, Path.ChangeExtension(x, "png"));
+            string directory = Path.GetDirectoryName(x) ?? throw new InvalidOperationException($"Could not determine the directory for '{x}'.");
+            string outputPath = Path.Combine(directory, Path.ChangeExtension(x, "png"));
 
             try
             {

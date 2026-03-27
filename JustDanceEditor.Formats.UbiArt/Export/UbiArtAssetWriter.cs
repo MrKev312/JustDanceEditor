@@ -437,7 +437,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 string destPath = Path.Combine(relFolder, destFileName);
                 string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
 
-                ctx.IO.CreateDirectory(Path.GetDirectoryName(fullDest)!);
+                ctx.IO.CreateDirectory(Path.GetDirectoryName(fullDest) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullDest}'."));
                 ctx.IO.Copy(sourceFile, fullDest, true);
 
                 logger.LogInformation("Video exported to {Path} (Source: {Source})", destFileName, Path.GetFileName(sourceFile));
@@ -515,7 +515,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         trkBuilder.AppendLine("} } ");
 
         string fullPath = ctx.IO.Combine(ctx.OutputFolder, trkPath);
-        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllTextAsync(fullPath, trkBuilder.ToString());
     }
 
@@ -560,7 +560,7 @@ appendTable(component.SoundComponent_Template.soundList,DESCRIPTOR)";
 
         string iluPath = Path.Combine(ambFolder, $"AMB_{mapName}_Intro.ilu");
         string fullIluPath = ctx.IO.Combine(ctx.OutputFolder, iluPath);
-        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullIluPath)!);
+        ctx.IO.CreateDirectory(Path.GetDirectoryName(fullIluPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullIluPath}'."));
         await File.WriteAllTextAsync(fullIluPath, iluContent);
 
         // Write .tpl file

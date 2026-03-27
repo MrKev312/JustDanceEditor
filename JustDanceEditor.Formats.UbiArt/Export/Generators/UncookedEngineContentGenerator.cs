@@ -16,10 +16,15 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 /// The <paramref name="EngineVersion"/> parameter is kept for interface consistency but is not used
 /// since Uncooked Lua format is the same across all engine versions.
 /// </remarks>
-public class UncookedEngineContentGenerator(UbiArtEngineVersion EngineVersion) : IEngineContentGenerator
+public class UncookedEngineContentGenerator : IEngineContentGenerator
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
+
+    public UncookedEngineContentGenerator(UbiArtEngineVersion engineVersion)
+    {
+        _ = engineVersion;
+    }
 
     private static byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
 

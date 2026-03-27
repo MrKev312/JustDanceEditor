@@ -43,10 +43,10 @@ public class MultipleSongsSelectionTests
                 songDataLoader: new DummySongDataLoader(),
                 fileSystemFactory: (r, p) => new LayeredFileSystem(r, p, NullLogger<LayeredFileSystem>.Instance),
                 engineDetector: new DummyEngineDetector(),
-                audioConverter: null!,
-                mediaProcessor: null!,
-                textureService: null!,
-                assetWriter: null!,
+                audioConverter: null,
+                mediaProcessor: null,
+                textureService: null,
+                assetWriter: null,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
             UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
@@ -92,10 +92,10 @@ public class MultipleSongsSelectionTests
                 songDataLoader: new DummySongDataLoader(),
                 fileSystemFactory: (r, p) => new LayeredFileSystem(r, p, NullLogger<LayeredFileSystem>.Instance),
                 engineDetector: new DummyEngineDetector(),
-                audioConverter: null!,
-                mediaProcessor: null!,
-                textureService: null!,
-                assetWriter: null!,
+                audioConverter: null,
+                mediaProcessor: null,
+                textureService: null,
+                assetWriter: null,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
             UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());

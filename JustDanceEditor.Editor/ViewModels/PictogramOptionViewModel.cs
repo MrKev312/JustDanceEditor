@@ -36,7 +36,7 @@ public class PictogramOptionViewModel
         }
     }
 
-    private static Bitmap GetRedPlaceholder()
+    private static Bitmap? GetRedPlaceholder()
     {
         if (_redPlaceholder != null)
             return _redPlaceholder;
@@ -48,7 +48,7 @@ public class PictogramOptionViewModel
         {
             // Avalonia not initialized (e.g., in unit tests)
             // Return null; PreviewImage will be null, which is fine for tests
-            return null!;
+            return null;
         }
 
         return _redPlaceholder;

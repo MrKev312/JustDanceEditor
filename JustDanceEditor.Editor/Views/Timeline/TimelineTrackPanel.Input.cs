@@ -527,7 +527,7 @@ public partial class TimelineTrackPanel
     /// Opens a minimal context menu offering the Add Clip command.  Previous
     /// global menus are closed first.  This helper exists to simplify testing.
     /// </summary>
-    public void OpenAddClipMenu(PointerPressedEventArgs e)
+    public void OpenAddClipMenu(PointerPressedEventArgs? e)
     {
         CurrentContextMenu?.Close();
 
@@ -550,10 +550,10 @@ public partial class TimelineTrackPanel
         }
     }
 
-    private async Task ShowCreateClipMenuAsync(PointerPressedEventArgs e)
+    private async Task ShowCreateClipMenuAsync(PointerPressedEventArgs? e)
     {
         // Compute beat at pointer
-        Point p = e.GetPosition(this);
+        Point p = e?.GetPosition(this) ?? default;
         double beat = (p.X / PixelsPerBeat) + BeatOffset;
         TimelineEditorViewModel? vm = GetTimelineVM();
         if (DataContext is not TrackViewModel track || vm == null)
@@ -767,7 +767,8 @@ public partial class TimelineTrackPanel
             Content = new StackPanel { Margin = new Thickness(6) }
         };
 
-        StackPanel stack = (StackPanel)win.Content!;
+        if (win.Content is not StackPanel stack)
+            throw new InvalidOperationException("Input dialog content was not initialized correctly.");
         TextBox box = new() { Width = 440 };
         stack.Children.Add(box);
         StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };

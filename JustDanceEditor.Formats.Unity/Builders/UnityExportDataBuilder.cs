@@ -23,7 +23,7 @@ public static class UnityExportDataBuilder
             Credits = metadata.Credits ?? string.Empty,
             DanceVersionLocId = 0,
             Difficulty = metadata.Difficulty,
-            LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor!,
+            LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor,
             MapLength = metadata.MapLengthSeconds,
             MapName = metadata.MapName,
             OriginalJDVersion = MapOriginalJDVersion(metadata.OriginalJDVersion),

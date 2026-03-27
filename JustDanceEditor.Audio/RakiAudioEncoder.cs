@@ -1,5 +1,5 @@
+using Concentus;
 using Concentus.Enums;
-using Concentus.Structs;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -306,11 +306,9 @@ public static class RakiAudioEncoder
         if (sampleProvider.WaveFormat.Channels != 2)
             sampleProvider = sampleProvider.ToMono().ToStereo();
 
-        OpusEncoder encoder = new(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO)
-        {
-            Bitrate = 192000,
-            ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_20_MS
-        };
+        IOpusEncoder encoder = OpusCodecFactory.CreateEncoder(48000, 2, OpusApplication.OPUS_APPLICATION_AUDIO, TextWriter.Null);
+        encoder.Bitrate = 192000;
+        encoder.ExpertFrameDuration = OpusFramesize.OPUS_FRAMESIZE_20_MS;
 
         const int frameSize = 960;
         float[] bufferFloat = new float[frameSize * 2];
@@ -333,7 +331,7 @@ public static class RakiAudioEncoder
                     bufferShort[i] = (short)(Math.Clamp(f, -1.0f, 1.0f) * 32767);
                 }
 
-                int packetLen = encoder.Encode(bufferShort, 0, frameSize, opusPacketBuffer, 0, opusPacketBuffer.Length);
+                int packetLen = encoder.Encode(bufferShort, frameSize, opusPacketBuffer, opusPacketBuffer.Length);
                 if (packetLen > 0)
                 {
                     WriteU32BE(payloadWriter, (uint)packetLen);

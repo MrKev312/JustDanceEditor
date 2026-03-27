@@ -74,10 +74,8 @@ public class UnityExportDataBuilderSimpleTests
     public void Create_WithNullLyricsColor_UsesDefaultColor()
     {
         // Arrange
-        IntermediateMetadata metadata = new()
-        {
-            LyricsColor = null!
-        };
+        IntermediateMetadata metadata = new();
+        typeof(IntermediateMetadata).GetProperty(nameof(IntermediateMetadata.LyricsColor))?.SetValue(metadata, null);
         IntermediateSongPackage package = new() { Metadata = metadata };
 
         // Act

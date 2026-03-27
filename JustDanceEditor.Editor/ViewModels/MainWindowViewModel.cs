@@ -66,15 +66,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var toolTypes = Assembly.GetExecutingAssembly().GetTypes()
             .Select(t => new { Type = t, Attr = t.GetCustomAttribute<RunCommandAttribute>() })
-            .Where(x => x.Attr != null)
+            .Where(x => x.Attr is not null)
+            .Select(x => new { x.Type, Attr = x.Attr ?? throw new InvalidOperationException("RunCommandAttribute lookup unexpectedly returned null.") })
             // Sort first by priority (descending - higher priority first), then by Title
-            .OrderByDescending(x => x.Attr!.Priority)
-            .ThenBy(x => x.Attr!.Title)
+            .OrderByDescending(x => x.Attr.Priority)
+            .ThenBy(x => x.Attr.Title)
             .ToList();
 
         foreach (var item in toolTypes)
         {
-            AddMenuPath(item.Attr!.Category, item.Attr!.Title, item.Type);
+            AddMenuPath(item.Attr.Category, item.Attr.Title, item.Type);
         }
     }
 
@@ -205,17 +206,18 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task OpenPackage(IntermediateSongPackage package, string rootPath)
     {
         IPlaybackService playback = new PlaybackService();
-        TimelineSettingsService settings = ((App)Avalonia.Application.Current!).Services
+        App app = Avalonia.Application.Current as App ?? throw new InvalidOperationException("Application is not initialized.");
+        TimelineSettingsService settings = (app.Services ?? throw new InvalidOperationException("Application services have not been initialized."))
             .GetRequiredService<TimelineSettingsService>();
 
         TimelineEditorViewModel editorVm = new(package, rootPath, playback, settings);
         await editorVm.InitializeAsync();
 
-        if (_factory?.FindDockable(Layout!, (d) => d.Id == "MainDocumentDock") is IDock mainDock)
+        if (Layout != null && _factory.FindDockable(Layout, d => d.Id == "MainDocumentDock") is IDock mainDock)
         {
-            _factory?.AddDockable(mainDock, editorVm);
-            _factory?.SetActiveDockable(editorVm);
-            _factory?.SetFocusedDockable(mainDock, editorVm);
+            _factory.AddDockable(mainDock, editorVm);
+            _factory.SetActiveDockable(editorVm);
+            _factory.SetFocusedDockable(mainDock, editorVm);
 
             _timelineContext.UpdateActiveTimeline(editorVm);
         }

@@ -271,7 +271,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 if (string.IsNullOrEmpty(id))
                     continue;
 
-                string safeId = id!;
+                string safeId = id;
                 seenIds.Add(safeId);
                 string path = Path.Combine(pictogramDir, safeId + ".webp");
                 IBrush brush;

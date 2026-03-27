@@ -11,20 +11,8 @@ using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public abstract partial class ClipViewModel : ViewModelBase
+public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null): ViewModelBase
 {
-    private string _name;
-    private Color _backgroundColor;
-
-    protected ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null)
-    {
-        RawClip = clip;
-        _backgroundColor = backgroundColor;
-        _name = name;
-        _rootPath = rootPath;
-        _parentTimeline = parentTimeline;
-    }
-
     [Inspectable("Start Beat", "Timing")]
     public double StartBeat
     {
@@ -62,13 +50,13 @@ public abstract partial class ClipViewModel : ViewModelBase
 
     public virtual string Name
     {
-        get => _name;
+        get => name;
         set
         {
-            if (string.Equals(_name, value, System.StringComparison.Ordinal))
+            if (string.Equals(name, value, System.StringComparison.Ordinal))
                 return;
 
-            _name = value;
+            name = value;
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(Name)));
             NotifyClipDataChanged(nameof(Name));
         }
@@ -77,13 +65,13 @@ public abstract partial class ClipViewModel : ViewModelBase
     [Inspectable("Color", "Appearance")]
     public virtual Color BackgroundColor
     {
-        get => _backgroundColor;
+        get => backgroundColor;
         set
         {
-            if (_backgroundColor == value)
+            if (backgroundColor == value)
                 return;
 
-            _backgroundColor = value;
+            backgroundColor = value;
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(BackgroundColor)));
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(RenderColor)));
             OnBackgroundColorChangedCore(value);
@@ -101,7 +89,7 @@ public abstract partial class ClipViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    public TimelineClipBase RawClip { get; }
+    public TimelineClipBase RawClip { get; } = clip;
 
     /// <summary>
     /// Whether the clip may be resized via edge dragging (affects cursor and input logic).
@@ -109,8 +97,8 @@ public abstract partial class ClipViewModel : ViewModelBase
     /// </summary>
     public virtual bool IsResizable => false;
 
-    protected readonly string? _rootPath;
-    protected readonly TimelineEditorViewModel? _parentTimeline;
+    protected readonly string? _rootPath = rootPath;
+    protected readonly TimelineEditorViewModel? _parentTimeline = parentTimeline;
 
     protected virtual int GetStartFrames() => RawClip.StartTime;
 

@@ -54,7 +54,7 @@ public class IntegrationTests : IDisposable
     private void CreateFile(string relativePath, byte[] content)
     {
         string fullPath = Path.Combine(_inputDir, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         File.WriteAllBytes(fullPath, content);
     }
 

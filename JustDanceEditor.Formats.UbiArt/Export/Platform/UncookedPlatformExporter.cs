@@ -19,14 +19,14 @@ public class UncookedPlatformExporter : IPlatformExporter
     {
         // No .ckd, no trailing null
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, content);
     }
 
     public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, data);
     }
 
@@ -34,7 +34,7 @@ public class UncookedPlatformExporter : IPlatformExporter
     {
         // If extension is .tga, save TGA. If .png, save PNG.
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
         string ext = Path.GetExtension(fullPath).ToLowerInvariant();
         if (ext == ".png")
@@ -52,7 +52,7 @@ public class UncookedPlatformExporter : IPlatformExporter
     {
         // Standard WAV copy or conversion (no RAKI)
         string destPath = context.IO.Combine(context.OutputFolder, relativePath);
-        context.IO.CreateDirectory(Path.GetDirectoryName(destPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
         if (Path.GetExtension(sourcePath).Equals(".wav", StringComparison.OrdinalIgnoreCase))
         {

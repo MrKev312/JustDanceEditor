@@ -14,8 +14,8 @@ public class HideHudCreationViewModelTests
 
         vm.Accept();
 
-        Assert.NotNull(vm.Result);
-        Assert.Equal(48, vm.Result!.Frames); // 2 beats * 24 fps
+        HideHudCreationResult result = vm.Result ?? throw new InvalidOperationException("Expected a result after accepting the dialog.");
+        Assert.Equal(48, result.Frames); // 2 beats * 24 fps
     }
 
     [Fact]

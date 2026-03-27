@@ -16,10 +16,11 @@ public class ViewLocator : IDataTemplate
         if (param is null)
             return null;
 
-        string name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
+        string fullName = param.GetType().FullName ?? throw new InvalidOperationException("View model type does not have a full name.");
+        string name = fullName.Replace("ViewModel", "View", StringComparison.Ordinal);
         Type? type = Type.GetType(name) ?? throw new InvalidOperationException("Missing view for " + name);
-
-        return (Control)Activator.CreateInstance(type)!;
+        object? instance = Activator.CreateInstance(type);
+        return instance as Control ?? throw new InvalidOperationException($"View type '{name}' is not a control or could not be created.");
     }
 
     public bool Match(object? data)

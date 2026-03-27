@@ -130,7 +130,7 @@ internal static class IntermediateAssetWriter
                             // Resize to standard cover dimensions
                             image.Mutate(x => x.Resize(640, 360));
 
-                            io.CreateDirectory(Path.GetDirectoryName(destination)!);
+                            io.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException($"Could not determine the directory for '{destination}'."));
                             image.Save(destination, Encoder);
                             logger.LogInformation("Saved existing cover image: {FileName}", Path.GetFileName(cover.RelativePath));
                             return destination;
@@ -449,7 +449,7 @@ internal static class IntermediateAssetWriter
     private static void SaveAsWebp(Image<Bgra32> image, string destination, IFileSystem? io = null)
     {
         IFileSystem fs = io ?? new SystemFileSystem();
-        fs.CreateDirectory(Path.GetDirectoryName(destination)!);
+        fs.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException($"Could not determine the directory for '{destination}'."));
         image.Save(destination, Encoder);
     }
 }

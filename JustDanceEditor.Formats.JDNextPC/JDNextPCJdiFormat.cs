@@ -593,7 +593,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
 
     private async Task EnsureVp8WebmAsync(string sourceVideoPath, string destinationPath, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? throw new System.InvalidOperationException($"Could not determine the directory for '{destinationPath}'."));
 
         if (LooksLikeVp8Webm(sourceVideoPath))
         {
@@ -750,7 +750,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
 
     private static void WriteJson<T>(string path, T value)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new System.InvalidOperationException($"Could not determine the directory for '{path}'."));
         using FileStream stream = File.Create(path);
         JsonSerializer.Serialize(stream, value, JsonOptions);
     }

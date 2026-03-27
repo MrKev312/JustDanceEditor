@@ -13,12 +13,12 @@ public class ClipConverter : JsonConverter<Clip>
         if (!root.TryGetProperty("__class", out JsonElement classNameElement))
             throw new JsonException("Missing __class property.");
 
-        string className = classNameElement.GetString()!;
+        string className = classNameElement.GetString() ?? throw new JsonException("Clip __class property was null.");
         Type? type = Type.GetType($"JustDanceEditor.Formats.UbiArt.Model.Clips.{className}");
 
         return type == null
             ? throw new JsonException($"Unknown clip type: {className}")
-            : (Clip)JsonSerializer.Deserialize(root.GetRawText(), type, options)!;
+            : JsonSerializer.Deserialize(root.GetRawText(), type, options) as Clip ?? throw new JsonException($"Failed to deserialize clip type: {className}");
     }
 
     public override void Write(Utf8JsonWriter writer, Clip value, JsonSerializerOptions? options = null)

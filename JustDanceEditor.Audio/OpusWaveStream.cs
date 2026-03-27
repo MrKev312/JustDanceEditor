@@ -1,3 +1,4 @@
+using Concentus;
 using NAudio.Wave;
 
 namespace JustDanceEditor.Audio;
@@ -16,7 +17,7 @@ public sealed class OpusWaveStream : WaveStream
     private readonly Stream _sourceStream;
     private readonly bool _ownsStream;
     private readonly Concentus.Oggfile.OpusOggReadStream _oggReader;
-    private readonly Concentus.Structs.OpusDecoder _decoder;
+    private readonly IOpusDecoder _decoder;
     private readonly WaveFormat _waveFormat;
     private readonly MemoryStream _buffer;
     private long _position;
@@ -44,9 +45,7 @@ public sealed class OpusWaveStream : WaveStream
         _ownsStream = ownsStream;
 
         // Opus standard: 48kHz, stereo
-#pragma warning disable CS0618 // Type or member is obsolete
-        _decoder = new Concentus.Structs.OpusDecoder(48000, 2);
-#pragma warning restore CS0618
+        _decoder = OpusCodecFactory.CreateDecoder(48000, 2, TextWriter.Null);
         _oggReader = new Concentus.Oggfile.OpusOggReadStream(_decoder, _sourceStream);
 
         // NAudio format: 48kHz, 16-bit, stereo

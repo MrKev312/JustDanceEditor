@@ -33,7 +33,7 @@ public class JustDanceIPKWriter(string inputDirectory, string outputPath)
         {
             string fileName = Path.GetFileName(fullPath);
             // Get relative path
-            string relativePath = Path.GetRelativePath(inputDirectory, Path.GetDirectoryName(fullPath)!);
+            string relativePath = Path.GetRelativePath(inputDirectory, Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
             // Normalize path separators to forward slashes
             relativePath = relativePath.Replace("\\", "/");

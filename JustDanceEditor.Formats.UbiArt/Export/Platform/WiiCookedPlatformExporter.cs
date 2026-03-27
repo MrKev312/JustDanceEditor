@@ -23,7 +23,7 @@ public class WiiCookedPlatformExporter : IPlatformExporter
     {
         // Text file logic is shared with NX (Standard UbiArt behavior)
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, content);
     }
 
@@ -31,14 +31,14 @@ public class WiiCookedPlatformExporter : IPlatformExporter
     {
         // Binary export is standard byte writing
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, data);
     }
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
         // If the file ends in _cover_albumbkg.tga, it should be 64x64
         if (relativePath.EndsWith("_cover_albumbkg.tga", StringComparison.OrdinalIgnoreCase))
@@ -68,7 +68,7 @@ public class WiiCookedPlatformExporter : IPlatformExporter
     public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
-        context.IO.CreateDirectory(Path.GetDirectoryName(destPath)!);
+        context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
         try
         {
