@@ -35,6 +35,9 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     private TrackViewModel? _lyricsTrack;
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = [];
 
+    // Coalesces rapid bursts of ClipDataChangedMessages into a single rebuild
+    private bool _rebuildPending;
+
     public LyricPreviewViewModel()
     {
     }
@@ -62,8 +65,12 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         {
             if (m.Source is KaraokeClipViewModel && (m.PropertyName == nameof(KaraokeClipViewModel.Lyrics) || m.PropertyName == nameof(KaraokeClipViewModel.IsEndOfLine) || m.PropertyName == nameof(ClipViewModel.StartBeat)))
             {
+                if (r._rebuildPending)
+                    return;
+                r._rebuildPending = true;
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
+                    r._rebuildPending = false;
                     r.BuildLines(r.ActiveTimeline);
                     r.RefreshLyrics();
                 });

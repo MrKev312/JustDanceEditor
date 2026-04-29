@@ -430,7 +430,7 @@ internal sealed class IntermediateToUnityConverter
         if (coachesDir == null)
             return Array.Empty<string>();
 
-        string[] candidates = [.. Directory.EnumerateFiles(coachesDir, "*", SearchOption.TopDirectoryOnly)
+        string[] candidates = [.. Directory.EnumerateFiles(coachesDir, "coach_*", SearchOption.TopDirectoryOnly)
             .Where(file => !IsCoachBackgroundAsset(file))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)];
 

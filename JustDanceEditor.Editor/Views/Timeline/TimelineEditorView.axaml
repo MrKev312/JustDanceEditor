@@ -21,6 +21,8 @@
 	<UserControl.KeyBindings>
 		<KeyBinding Gesture="Space" Command="{Binding TogglePlayPauseCommand}"/>
         <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedClipsCommand}"/>
+		<KeyBinding Gesture="Ctrl+C" Command="{Binding CopySelectedClipsCommand}"/>
+		<KeyBinding Gesture="Ctrl+V" Command="{Binding PasteCopiedClipsCommand}"/>
 	</UserControl.KeyBindings>
 
 	<UserControl.Styles>

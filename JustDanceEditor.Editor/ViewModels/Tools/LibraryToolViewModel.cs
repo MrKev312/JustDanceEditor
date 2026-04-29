@@ -173,6 +173,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         // (the latter fires when a new definition is registered via RegisterNewMoveDefinition).
         if (propertyName is null
             or nameof(TimelineEditorViewModel.Tracks)
+            or nameof(TimelineEditorViewModel.AvailablePictograms)
             or nameof(TimelineEditorViewModel.AvailableHandCoachMoves)
             or nameof(TimelineEditorViewModel.AvailableFullBodyCoachMoves))
         {

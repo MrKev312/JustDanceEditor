@@ -18,6 +18,26 @@ public static class BitmapCache
 
     public static bool TryGet(string path, out Bitmap? bmp) => _cache.TryGetValue(path, out bmp);
 
+    public static void Invalidate(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        if (_cache.TryRemove(path, out Bitmap? bitmap))
+        {
+            try
+            {
+                bitmap?.Dispose();
+            }
+            catch
+            {
+                // best effort cleanup
+            }
+        }
+
+        _pending.TryRemove(path, out _);
+    }
+
     private static Bitmap? GetRedPlaceholder()
     {
         if (_redPlaceholder != null)

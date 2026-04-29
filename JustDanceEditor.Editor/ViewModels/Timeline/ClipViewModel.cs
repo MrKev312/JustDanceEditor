@@ -120,7 +120,21 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgro
         NotifyClipDataChanged(nameof(BackgroundColor));
     }
 
-    protected void NotifyClipDataChanged(string? propertyName) => WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, propertyName));
+    /// <summary>
+    /// When true, NotifyClipDataChanged is a no-op. Set this during batch moves to suppress
+    /// per-clip messenger broadcasts; call FlushDataChangedNotification afterward.
+    /// </summary>
+    internal bool SuppressDataChangeMessages { get; set; }
+
+    protected void NotifyClipDataChanged(string? propertyName)
+    {
+        if (SuppressDataChangeMessages)
+            return;
+        WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, propertyName));
+    }
+
+    internal void FlushDataChangedNotification(string? propertyName)
+        => WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, propertyName));
 
     protected static Color NormalizeOpaque(Color color) => new(255, color.R, color.G, color.B);
 

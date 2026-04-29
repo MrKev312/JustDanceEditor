@@ -15,6 +15,8 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 {
+    private static readonly string[] PreferredImageExtensions = [".webp", ".png", ".jpg", ".jpeg"];
+
     private PictogramClip PictogramClip => (PictogramClip)RawClip;
 
     [Inspectable("Pictogram Id", "Pictogram")]
@@ -56,9 +58,25 @@ public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 
     private void UpdateImagePath(string pictogramId)
     {
-        ImagePath = !string.IsNullOrEmpty(pictogramId) && _rootPath != null
-            ? Path.Combine(_rootPath, "assets", "pictograms", $"{pictogramId}.webp")
-            : null;
+        if (string.IsNullOrEmpty(pictogramId) || string.IsNullOrWhiteSpace(_rootPath))
+        {
+            ImagePath = null;
+            return;
+        }
+
+        string dir = Path.Combine(_rootPath, "assets", "pictograms");
+        foreach (string extension in PreferredImageExtensions)
+        {
+            string candidate = Path.Combine(dir, pictogramId + extension);
+            if (File.Exists(candidate))
+            {
+                ImagePath = candidate;
+                return;
+            }
+        }
+
+        // Keep a stable fallback path for unresolved IDs.
+        ImagePath = Path.Combine(dir, $"{pictogramId}.webp");
     }
 
     // IHasDynamicOptions

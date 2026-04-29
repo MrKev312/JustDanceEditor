@@ -12,6 +12,7 @@ using Dock.Model.Core;
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -21,15 +22,21 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Xabe.FFmpeg;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.PixelFormats;
+using JustDanceEditor.Formats.JDI.Utilities;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class TimelineEditorViewModel : Document
 {
     private static readonly string[] SupportedVideoExtensions = ["*.webm", "*.mp4", "*.mkv", "*.mov"];
+
+    private readonly List<ClipClipboardEntry> _clipClipboard = [];
 
     /// <summary>Exposes the underlying song package for commands that need direct access.</summary>
     public IntermediateSongPackage Package { get; }
@@ -108,6 +115,7 @@ public partial class TimelineEditorViewModel : Document
     // suppress broadcasting when applying remote changes
     private bool _suppressSnapBroadcast = false;
     private readonly TimelineSettingsService _settings;
+    private ITimelinePictogramGenerator? _pictogramGenerator;
     private string _baseTitle = string.Empty;
 
     /// <summary>Set to true by <see cref="PromptSaveOnCloseAsync"/> to allow the
@@ -175,13 +183,15 @@ public partial class TimelineEditorViewModel : Document
         IntermediateSongPackage package,
         string rootPath,
         IPlaybackService playback,
-        TimelineSettingsService settings)
+        TimelineSettingsService settings,
+        ITimelinePictogramGenerator? pictogramGenerator = null)
     {
         Package = package;
         RootPath = rootPath;
         Id = package.Metadata.SongID.ToString();
         _baseTitle = package.Metadata.MapName;
         Title = _baseTitle;
+        _pictogramGenerator = pictogramGenerator;
 
         // Create undo service for this timeline
         UndoService = new UndoService();
@@ -864,6 +874,571 @@ public partial class TimelineEditorViewModel : Document
         UndoService.Redo();
     }
 
+    public async Task GeneratePictogramsAsync(PictogramGenerationMode mode, PictogramFrameLayoutMode frameLayoutMode = PictogramFrameLayoutMode.TransparentBars, PictogramHorizontalFocus horizontalFocus = PictogramHorizontalFocus.Center, CancellationToken cancellationToken = default)
+    {
+        ITimelinePictogramGenerator generator = _pictogramGenerator ??= new TimelinePictogramGenerator();
+
+        GeneratedPictogramBatch batch;
+        try
+        {
+            batch = await generator.GenerateAsync(this, mode, frameLayoutMode, horizontalFocus, cancellationToken);
+        }
+        catch
+        {
+            return;
+        }
+
+        if (batch.PictogramTrack == null || batch.Clips.Count == 0)
+            return;
+
+        TrackViewModel targetTrack = batch.PictogramTrack;
+        IReadOnlyList<PictogramClipViewModel> generatedClips = batch.Clips;
+
+        PushUndo(
+            undo: () =>
+            {
+                foreach (PictogramClipViewModel clip in generatedClips)
+                {
+                    if (targetTrack.Clips.Contains(clip))
+                        targetTrack.Clips.Remove(clip);
+                }
+            },
+            redo: () =>
+            {
+                foreach (PictogramClipViewModel clip in generatedClips)
+                {
+                    if (!targetTrack.Clips.Contains(clip))
+                        targetTrack.Clips.Add(clip);
+                }
+            }
+        );
+
+        foreach (PictogramClipViewModel clip in generatedClips)
+        {
+            if (!targetTrack.Clips.Contains(clip))
+                targetTrack.Clips.Add(clip);
+        }
+
+        // Keep timeline tools (including Library) in sync with both generated files and new clip references.
+        OnPropertyChanged(nameof(AvailablePictograms));
+        OnPropertyChanged(nameof(Tracks));
+    }
+
+    public async Task GenerateNewPictogramAsync(double playheadBeat, PictogramScreenshotOptionsResult options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        TrackViewModel? pictogramTrack = Tracks.FirstOrDefault(t => t.TrackType == TrackType.Pictogram);
+        if (pictogramTrack == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(VideoPath) || !File.Exists(VideoPath))
+            return;
+
+        string pictogramDirectory = Path.Combine(RootPath, "assets", "pictograms");
+        Directory.CreateDirectory(pictogramDirectory);
+
+        string baseId = BuildNewPictogramBaseId(options);
+        string pictogramId = EnsureUniquePictogramId(baseId, new HashSet<string>(AvailablePictograms, StringComparer.OrdinalIgnoreCase));
+
+        string outputPath = Path.Combine(pictogramDirectory, pictogramId + ".webp");
+        PixelSize targetSize = TimelinePictogramGenerator.GetTargetSize(CoachCount);
+        double videoTimestamp = GetVideoTimestampSecondsFromBeat(playheadBeat);
+
+        PictogramImageGenerator imageGenerator = new();
+        await imageGenerator.GenerateVideoFramePictogramAsync(
+            VideoPath,
+            videoTimestamp,
+            outputPath,
+            targetSize,
+            options.FrameLayoutMode,
+            options.HorizontalFocus,
+            cancellationToken);
+
+        BitmapCache.Invalidate(outputPath);
+
+        IEnumerable<MoveClipViewModel> moveClips = Tracks
+            .Where(t => t.TrackType is TrackType.CoachHand or TrackType.CoachFullBody)
+            .SelectMany(t => t.Clips)
+            .OfType<MoveClipViewModel>();
+
+        List<double> insertionBeats = BuildPictogramInsertionBeats(moveClips, playheadBeat, options);
+
+        List<PictogramClipViewModel> created = [];
+        foreach (double beat in insertionBeats)
+        {
+            double clampedBeat = ClampBeatForDuration(beat, 24);
+            PictogramClip raw = new()
+            {
+                PictogramId = pictogramId,
+                StartTime = (int)Math.Round(clampedBeat * 24d),
+                Duration = 24
+            };
+
+            created.Add(new PictogramClipViewModel(raw, RootPath, this));
+        }
+
+        if (created.Count == 0)
+            return;
+
+        PushUndo(
+            undo: () =>
+            {
+                foreach (PictogramClipViewModel clip in created)
+                {
+                    if (pictogramTrack.Clips.Contains(clip))
+                        pictogramTrack.Clips.Remove(clip);
+                }
+            },
+            redo: () =>
+            {
+                foreach (PictogramClipViewModel clip in created)
+                {
+                    if (!pictogramTrack.Clips.Contains(clip))
+                        pictogramTrack.Clips.Add(clip);
+                }
+            }
+        );
+
+        foreach (PictogramClipViewModel clip in created)
+        {
+            if (!pictogramTrack.Clips.Contains(clip))
+                pictogramTrack.Clips.Add(clip);
+        }
+
+        OnPropertyChanged(nameof(AvailablePictograms));
+        OnPropertyChanged(nameof(Tracks));
+    }
+
+    public static List<double> BuildPictogramInsertionBeats(IEnumerable<MoveClipViewModel> moveClips, double playheadBeat, PictogramScreenshotOptionsResult options)
+    {
+        ArgumentNullException.ThrowIfNull(moveClips);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (options.InsertionMode != PictogramInsertionMode.AllInstancesOfSelectedMove
+            || string.IsNullOrWhiteSpace(options.ReferenceMoveId)
+            || !options.ReferenceMoveStartFrame.HasValue)
+        {
+            return [playheadBeat];
+        }
+
+        double offset = playheadBeat - (options.ReferenceMoveStartFrame.Value / 24d);
+
+        List<double> beats = [.. moveClips
+            .Where(c => string.Equals(c.MoveId, options.ReferenceMoveId, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.RawClip.StartTime)
+            .Distinct()
+            .OrderBy(startFrame => startFrame)
+            .Select(startFrame => (startFrame / 24d) + offset)];
+
+        return beats.Count > 0 ? beats : [playheadBeat];
+    }
+
+    public static string BuildNewPictogramBaseId(PictogramScreenshotOptionsResult options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        string seed = string.IsNullOrWhiteSpace(options.ReferenceMoveId)
+            ? "screenshot"
+            : options.ReferenceMoveId;
+
+        return $"auto_{TimelinePictogramGenerator.SanitizeId(seed)}";
+    }
+
+    public bool RenamePictogramId(string oldId, string newId)
+    {
+        oldId = oldId?.Trim() ?? string.Empty;
+        newId = newId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(oldId) || string.IsNullOrWhiteSpace(newId))
+            return false;
+
+        if (string.Equals(oldId, newId, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        HashSet<string> usedIds = new(AvailablePictograms, StringComparer.OrdinalIgnoreCase);
+        if (usedIds.Contains(newId))
+            return false;
+
+        string oldPath = ResolvePictogramPath(oldId);
+        if (!File.Exists(oldPath))
+            return false;
+
+        string extension = Path.GetExtension(oldPath);
+        string directory = Path.GetDirectoryName(oldPath) ?? Path.Combine(RootPath, "assets", "pictograms");
+        string newPath = Path.Combine(directory, newId + extension);
+        if (File.Exists(newPath))
+            return false;
+
+        List<PictogramClipViewModel> affected = [.. Tracks
+            .SelectMany(t => t.Clips)
+            .OfType<PictogramClipViewModel>()
+            .Where(c => string.Equals(c.PictogramId, oldId, StringComparison.OrdinalIgnoreCase))];
+
+        void ApplyRename(string fromId, string toId, string fromPath, string toPath)
+        {
+            if (File.Exists(fromPath) && !File.Exists(toPath))
+                File.Move(fromPath, toPath);
+
+            foreach (PictogramClipViewModel clip in affected)
+                clip.PictogramId = toId;
+
+            BitmapCache.Invalidate(fromPath);
+            BitmapCache.Invalidate(toPath);
+
+            OnPropertyChanged(nameof(AvailablePictograms));
+            OnPropertyChanged(nameof(Tracks));
+        }
+
+        ApplyRename(oldId, newId, oldPath, newPath);
+
+        PushUndo(
+            undo: () => ApplyRename(newId, oldId, newPath, oldPath),
+            redo: () => ApplyRename(oldId, newId, oldPath, newPath)
+        );
+
+        return true;
+    }
+
+    /// <summary>
+    /// Flip a pictogram asset: toggles between <id> and <id>_flipped.
+    /// If the counterpart exists, simply relinks clips (either a specific clip or all instances).
+    /// Otherwise creates a flipped copy (lossless for webp) and relinks.
+    /// Returns true when operation completed successfully.
+    /// </summary>
+    public async Task<bool> FlipPictogramAsync(string pictogramId, PictogramClipViewModel? specificClip = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pictogramId))
+            return false;
+
+        string pictogramDirectory = Path.Combine(RootPath, "assets", "pictograms");
+        Directory.CreateDirectory(pictogramDirectory);
+
+        string currentPath = GetExistingPictogramFilePath(pictogramId);
+        if (currentPath == null || !File.Exists(currentPath))
+            return false;
+
+        bool isFlipped = pictogramId.EndsWith("_flipped", StringComparison.OrdinalIgnoreCase);
+        string counterpartId = isFlipped ? pictogramId[..^"_flipped".Length] : pictogramId + "_flipped";
+
+        string counterpartPath = GetExistingPictogramFilePath(counterpartId);
+
+        List<PictogramClipViewModel> affectedClips;
+        if (specificClip != null)
+            affectedClips = new List<PictogramClipViewModel> { specificClip };
+        else
+            affectedClips = Tracks.SelectMany(t => t.Clips).OfType<PictogramClipViewModel>().Where(c => string.Equals(c.PictogramId, pictogramId, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // If counterpart already exists, just relink
+        if (!string.IsNullOrWhiteSpace(counterpartPath) && File.Exists(counterpartPath))
+        {
+            void ApplyRelink(string fromId, string toId)
+            {
+                foreach (var c in affectedClips)
+                    c.PictogramId = toId;
+
+                BitmapCache.Invalidate(currentPath);
+                BitmapCache.Invalidate(counterpartPath);
+                OnPropertyChanged(nameof(AvailablePictograms));
+                OnPropertyChanged(nameof(Tracks));
+            }
+
+            ApplyRelink(pictogramId, Path.GetFileNameWithoutExtension(counterpartPath));
+
+            PushUndo(
+                undo: () => ApplyRelink(Path.GetFileNameWithoutExtension(counterpartPath), pictogramId),
+                redo: () => ApplyRelink(pictogramId, Path.GetFileNameWithoutExtension(counterpartPath))
+            );
+
+            return true;
+        }
+
+        // Need to create counterpart by flipping currentPath -> counterpartPath (preserve extension)
+        string ext = Path.GetExtension(currentPath);
+        string destPath = Path.Combine(pictogramDirectory, counterpartId + ext);
+        if (File.Exists(destPath))
+            counterpartPath = destPath; // race fallback
+
+        bool created = false;
+        try
+        {
+            if (!File.Exists(destPath))
+            {
+                // Use ImageSharp to perform a lossless horizontal flip when possible.
+                try
+                {
+                    using SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Bgra32> image = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Bgra32>(currentPath);
+                    image.Mutate(x => x.Flip(FlipMode.Horizontal));
+
+                    // Preserve webp lossless encoding when target is webp and encoder is available
+                    if (string.Equals(ext, ".webp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using FileStream outFs = File.Create(destPath);
+                        image.Save(outFs, WebpSettings.LosslessWebpEncoder);
+                    }
+                    else
+                    {
+                        // For other formats, choose an encoder matching the extension
+                        using FileStream outFs = File.Create(destPath);
+                        if (string.Equals(ext, ".png", StringComparison.OrdinalIgnoreCase))
+                        {
+                            image.Save(outFs, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                        }
+                        else if (string.Equals(ext, ".jpg", StringComparison.OrdinalIgnoreCase) || string.Equals(ext, ".jpeg", StringComparison.OrdinalIgnoreCase))
+                        {
+                            image.Save(outFs, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder() { Quality = 90 });
+                        }
+                        else
+                        {
+                            // Fallback to PNG encoder
+                            image.Save(outFs, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                        }
+                    }
+
+                    created = File.Exists(destPath);
+                }
+                catch
+                {
+                    created = false;
+                }
+            }
+
+            if (!File.Exists(destPath))
+                return false;
+
+            counterpartPath = destPath;
+
+            // Apply relink to affected clips
+            string toId = Path.GetFileNameWithoutExtension(counterpartPath);
+
+            void ApplyRelinkCreated(string fromId, string toIdLocal)
+            {
+                foreach (var c in affectedClips)
+                    c.PictogramId = toIdLocal;
+
+                BitmapCache.Invalidate(currentPath);
+                BitmapCache.Invalidate(counterpartPath);
+                OnPropertyChanged(nameof(AvailablePictograms));
+                OnPropertyChanged(nameof(Tracks));
+            }
+
+            ApplyRelinkCreated(pictogramId, toId);
+
+            PushUndo(
+                undo: () =>
+                {
+                    // revert clip ids
+                    foreach (var c in affectedClips)
+                        c.PictogramId = pictogramId;
+
+                    // attempt to delete created file
+                    try { if (File.Exists(destPath)) File.Delete(destPath); } catch { }
+                    BitmapCache.Invalidate(destPath);
+                    BitmapCache.Invalidate(currentPath);
+                    OnPropertyChanged(nameof(AvailablePictograms));
+                    OnPropertyChanged(nameof(Tracks));
+                },
+                redo: () => ApplyRelinkCreated(pictogramId, toId)
+            );
+
+            return true;
+        }
+        catch
+        {
+            if (created && File.Exists(destPath))
+            {
+                try { File.Delete(destPath); } catch { }
+            }
+
+            return false;
+        }
+    }
+
+    private string? GetExistingPictogramFilePath(string pictogramId)
+    {
+        if (string.IsNullOrWhiteSpace(pictogramId))
+            return null;
+
+        string directory = Path.Combine(RootPath, "assets", "pictograms");
+        string[] preferred = new[] { ".webp", ".png", ".jpg", ".jpeg" };
+
+        foreach (string ext in preferred)
+        {
+            string candidate = Path.Combine(directory, pictogramId + ext);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    public bool RenameMoveId(string oldId, string newId, bool isFullBody)
+    {
+        oldId = oldId?.Trim() ?? string.Empty;
+        newId = newId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(oldId) || string.IsNullOrWhiteSpace(newId))
+            return false;
+
+        if (string.Equals(oldId, newId, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        Dictionary<string, CoachMoveDefinition> catalog = isFullBody ? Package.FullBodyCoachMoves : Package.HandCoachMoves;
+        if (!catalog.TryGetValue(oldId, out CoachMoveDefinition? definition) || definition == null)
+            return false;
+
+        if (catalog.ContainsKey(newId))
+            return false;
+
+        TrackType targetTrackType = isFullBody ? TrackType.CoachFullBody : TrackType.CoachHand;
+        List<MoveClipViewModel> affected = [.. Tracks
+            .Where(t => t.TrackType == targetTrackType)
+            .SelectMany(t => t.Clips)
+            .OfType<MoveClipViewModel>()
+            .Where(c => string.Equals(c.MoveId, oldId, StringComparison.OrdinalIgnoreCase))];
+
+        void ApplyRename(string fromId, string toId)
+        {
+            catalog.Remove(fromId);
+            catalog[toId] = definition;
+
+            if (_moveDefinitions.TryGetValue((fromId, isFullBody), out MoveDefinitionViewModel? vm))
+            {
+                _moveDefinitions.Remove((fromId, isFullBody));
+                vm.Id = toId;
+                _moveDefinitions[(toId, isFullBody)] = vm;
+            }
+
+            foreach (MoveClipViewModel clip in affected)
+                clip.MoveId = toId;
+
+            OnPropertyChanged(isFullBody ? nameof(AvailableFullBodyCoachMoves) : nameof(AvailableHandCoachMoves));
+            OnPropertyChanged(nameof(Tracks));
+        }
+
+        ApplyRename(oldId, newId);
+
+        PushUndo(
+            undo: () => ApplyRename(newId, oldId),
+            redo: () => ApplyRename(oldId, newId)
+        );
+
+        return true;
+    }
+
+    public IReadOnlyList<PictogramClipViewModel> SelectAllPictogramInstances(string pictogramId)
+    {
+        pictogramId = pictogramId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(pictogramId))
+            return [];
+
+        List<PictogramClipViewModel> matches = [.. Tracks
+            .SelectMany(t => t.Clips)
+            .OfType<PictogramClipViewModel>()
+            .Where(c => string.Equals(c.PictogramId, pictogramId, StringComparison.OrdinalIgnoreCase))];
+
+        HashSet<PictogramClipViewModel> selected = [.. matches];
+        foreach (ClipViewModel clip in Tracks.SelectMany(t => t.Clips))
+            clip.IsSelected = clip is PictogramClipViewModel pc && selected.Contains(pc);
+
+        return matches;
+    }
+
+    public IReadOnlyList<MoveClipViewModel> SelectAllMoveInstances(string moveId)
+    {
+        moveId = moveId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(moveId))
+            return [];
+
+        List<MoveClipViewModel> matches = [.. Tracks
+            .SelectMany(t => t.Clips)
+            .OfType<MoveClipViewModel>()
+            .Where(c => string.Equals(c.MoveId, moveId, StringComparison.OrdinalIgnoreCase))];
+
+        HashSet<MoveClipViewModel> selected = [.. matches];
+        foreach (ClipViewModel clip in Tracks.SelectMany(t => t.Clips))
+            clip.IsSelected = clip is MoveClipViewModel mc && selected.Contains(mc);
+
+        return matches;
+    }
+
+    public async Task RegeneratePictogramAsync(PictogramClipViewModel clip, PictogramScreenshotOptionsResult options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (string.IsNullOrWhiteSpace(VideoPath) || !File.Exists(VideoPath))
+            return;
+
+        string pictogramId = clip.PictogramId;
+        if (string.IsNullOrWhiteSpace(pictogramId))
+            return;
+
+        string outputPath = ResolvePictogramPath(pictogramId);
+        PixelSize targetSize = TimelinePictogramGenerator.GetTargetSize(CoachCount);
+        double videoTimestamp = GetVideoTimestampSecondsFromBeat(clip.StartBeat);
+
+        PictogramImageGenerator imageGenerator = new();
+        await imageGenerator.GenerateVideoFramePictogramAsync(
+            VideoPath,
+            videoTimestamp,
+            outputPath,
+            targetSize,
+            options.FrameLayoutMode,
+            options.HorizontalFocus,
+            cancellationToken);
+
+        BitmapCache.Invalidate(outputPath);
+        if (!string.IsNullOrWhiteSpace(clip.ImagePath))
+            BitmapCache.Invalidate(clip.ImagePath);
+
+        OnPropertyChanged(nameof(AvailablePictograms));
+        OnPropertyChanged(nameof(Tracks));
+    }
+
+    private double GetVideoTimestampSecondsFromBeat(double beatLabel)
+    {
+        double playbackSeconds = GetPlaybackSecondsAtBeatLabel(beatLabel);
+        double songStartOffset = TimelineStructure.GetSongStartOffset();
+        return Math.Max(0, playbackSeconds + songStartOffset + VideoOffset);
+    }
+
+    private double ClampBeatForDuration(double beat, int durationFrames)
+    {
+        double minBeat = TimelineStructure?.StartBeat ?? 0;
+        double maxBeat = TimelineStructure?.EndBeat ?? double.MaxValue;
+        return Math.Max(minBeat, Math.Min(beat, maxBeat - (durationFrames / 24d)));
+    }
+
+    private string ResolvePictogramPath(string pictogramId)
+    {
+        string directory = Path.Combine(RootPath, "assets", "pictograms");
+        string[] preferred = [".webp", ".png", ".jpg", ".jpeg"];
+
+        foreach (string ext in preferred)
+        {
+            string candidate = Path.Combine(directory, pictogramId + ext);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return Path.Combine(directory, pictogramId + ".webp");
+    }
+
+    private static string EnsureUniquePictogramId(string baseId, ISet<string> usedIds)
+    {
+        if (!usedIds.Contains(baseId))
+            return baseId;
+
+        int suffix = 2;
+        while (true)
+        {
+            string candidate = $"{baseId}_{suffix}";
+            if (!usedIds.Contains(candidate))
+                return candidate;
+
+            suffix++;
+        }
+    }
+
     private void HookUndoServiceStateChanged()
     {
         UndoService?.StateChanged += (s, e) =>
@@ -930,6 +1505,287 @@ public partial class TimelineEditorViewModel : Document
         foreach ((TrackViewModel Track, ClipViewModel Clip) in toDelete)
         {
             Track.Clips.Remove(Clip);
+        }
+    }
+
+    public bool CanPasteCopiedClips => _clipClipboard.Count > 0;
+
+    [RelayCommand]
+    public void CopySelectedClips()
+    {
+        List<(int TrackIndex, ClipViewModel Clip)> selected = GetSelectedClipEntries();
+        if (selected.Count == 0)
+            return;
+
+        double earliestStartBeat = selected.Min(s => s.Clip.StartBeat);
+        List<ClipClipboardEntry> clipboard = [];
+
+        foreach ((int trackIndex, ClipViewModel clip) in selected)
+        {
+            ClipClipboardPayload? payload = CreateClipboardPayload(clip);
+            if (payload == null)
+                continue;
+
+            TrackViewModel sourceTrack = Tracks[trackIndex];
+            clipboard.Add(new ClipClipboardEntry(
+                trackIndex,
+                sourceTrack.TrackType,
+                sourceTrack.Title,
+                clip.StartBeat - earliestStartBeat,
+                payload));
+        }
+
+        if (clipboard.Count == 0)
+            return;
+
+        _clipClipboard.Clear();
+        _clipClipboard.AddRange(clipboard);
+
+        try
+        {
+            PasteCopiedClipsCommand.NotifyCanExecuteChanged();
+        }
+        catch { }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPasteCopiedClips))]
+    public void PasteCopiedClips()
+    {
+        if (_clipClipboard.Count == 0)
+            return;
+
+        List<ClipViewModel> previousSelection = [.. Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected)];
+
+        // Align the first copied clip start to the current playhead beat.
+        double pasteAnchor = double.IsFinite(CurrentBeat) ? CurrentBeat : TimelineStructure.StartBeat;
+
+        List<(TrackViewModel Track, ClipViewModel Clip)> inserted = [];
+        foreach (ClipClipboardEntry entry in _clipClipboard)
+        {
+            TrackViewModel? targetTrack = ResolvePasteTrack(entry);
+            if (targetTrack == null)
+                continue;
+
+            ClipViewModel created = entry.Payload.CreateViewModel(this, pasteAnchor + entry.RelativeStartBeat);
+            created.IsSelected = false;
+
+            targetTrack.Clips.Add(created);
+            inserted.Add((targetTrack, created));
+        }
+
+        if (inserted.Count == 0)
+            return;
+
+        List<ClipViewModel> insertedClips = [.. inserted.Select(i => i.Clip)];
+
+        PushUndo(
+            undo: () =>
+            {
+                foreach ((TrackViewModel track, ClipViewModel clip) in inserted)
+                {
+                    track.Clips.Remove(clip);
+                }
+
+                SetSelectedClips(previousSelection);
+            },
+            redo: () =>
+            {
+                foreach ((TrackViewModel track, ClipViewModel clip) in inserted)
+                {
+                    if (!track.Clips.Contains(clip))
+                        track.Clips.Add(clip);
+                }
+
+                SetSelectedClips(insertedClips);
+            }
+        );
+
+        SetSelectedClips(insertedClips);
+    }
+
+    private List<(int TrackIndex, ClipViewModel Clip)> GetSelectedClipEntries()
+    {
+        List<(int TrackIndex, ClipViewModel Clip)> selected = [];
+        for (int i = 0; i < Tracks.Count; i++)
+        {
+            foreach (ClipViewModel clip in Tracks[i].Clips.Where(c => c.IsSelected))
+                selected.Add((i, clip));
+        }
+
+        selected.Sort(static (a, b) =>
+        {
+            int trackCompare = a.TrackIndex.CompareTo(b.TrackIndex);
+            return trackCompare != 0 ? trackCompare : a.Clip.StartBeat.CompareTo(b.Clip.StartBeat);
+        });
+
+        return selected;
+    }
+
+    private static KaraokeTolerance? CloneTolerance(KaraokeTolerance? tolerance)
+    {
+        if (tolerance == null)
+            return null;
+
+        return new KaraokeTolerance
+        {
+            StartTimeTolerance = tolerance.StartTimeTolerance,
+            EndTimeTolerance = tolerance.EndTimeTolerance,
+            SemitoneTolerance = tolerance.SemitoneTolerance
+        };
+    }
+
+    private static ClipClipboardPayload? CreateClipboardPayload(ClipViewModel clip)
+    {
+        return clip switch
+        {
+            PictogramClipViewModel pictogram => new PictogramClipboardPayload(
+                pictogram.PictogramId,
+                ((PictogramClip)pictogram.RawClip).Duration,
+                ((PictogramClip)pictogram.RawClip).CoachCount),
+            KaraokeClipViewModel karaoke => new KaraokeClipboardPayload(
+                karaoke.Lyrics,
+                ((KaraokeClip)karaoke.RawClip).Duration,
+                ((KaraokeClip)karaoke.RawClip).Pitch,
+                karaoke.IsEndOfLine,
+                ((KaraokeClip)karaoke.RawClip).ContentType,
+                CloneTolerance(((KaraokeClip)karaoke.RawClip).Tolerances)),
+            HideUserInterfaceClipViewModel hideHud => new HideHudClipboardPayload(
+                ((HideUserInterfaceClip)hideHud.RawClip).Duration,
+                ((HideUserInterfaceClip)hideHud.RawClip).IsActive),
+            GoldEffectClipViewModel gold => new GoldEffectClipboardPayload(
+                ((GoldEffectClip)gold.RawClip).TrackId,
+                ((GoldEffectClip)gold.RawClip).Duration,
+                ((GoldEffectClip)gold.RawClip).IsActive,
+                ((GoldEffectClip)gold.RawClip).EffectType),
+            MoveClipViewModel move => new MoveClipboardPayload(move.MoveId, move.IsGoldMove, move.IsFullBody),
+            _ => null
+        };
+    }
+
+    private TrackViewModel? ResolvePasteTrack(ClipClipboardEntry entry)
+    {
+        if (entry.TrackIndex >= 0 && entry.TrackIndex < Tracks.Count)
+        {
+            TrackViewModel sameIndexTrack = Tracks[entry.TrackIndex];
+            if (sameIndexTrack.TrackType == entry.TrackType)
+                return sameIndexTrack;
+        }
+
+        return Tracks.FirstOrDefault(t => t.TrackType == entry.TrackType && t.Title == entry.TrackTitle)
+            ?? Tracks.FirstOrDefault(t => t.TrackType == entry.TrackType);
+    }
+
+    private void SetSelectedClips(IEnumerable<ClipViewModel> selected)
+    {
+        HashSet<ClipViewModel> selectedSet = [.. selected];
+        foreach (ClipViewModel clip in Tracks.SelectMany(t => t.Clips))
+            clip.IsSelected = selectedSet.Contains(clip);
+
+        if (Application.Current is App app)
+        {
+            app.TimelineContext.SelectedObjects = [.. Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>()];
+        }
+    }
+
+    private ClipViewModel ClampAndCreate(ClipViewModel clip, double desiredStartBeat)
+    {
+        double minBeat = TimelineStructure.StartBeat;
+        double maxStartBeat = TimelineStructure.EndBeat - clip.DurationBeats;
+        if (maxStartBeat < minBeat)
+            maxStartBeat = minBeat;
+
+        double clampedStartBeat = Math.Max(minBeat, Math.Min(desiredStartBeat, maxStartBeat));
+        clip.StartBeat = clampedStartBeat;
+        return clip;
+    }
+
+    private sealed record ClipClipboardEntry(int TrackIndex, TrackType TrackType, string TrackTitle, double RelativeStartBeat, ClipClipboardPayload Payload);
+
+    private abstract record ClipClipboardPayload
+    {
+        public abstract ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat);
+    }
+
+    private sealed record PictogramClipboardPayload(string PictogramId, int DurationFrames, int CoachCount) : ClipClipboardPayload
+    {
+        public override ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat)
+        {
+            PictogramClip raw = new()
+            {
+                PictogramId = PictogramId,
+                Duration = DurationFrames,
+                CoachCount = CoachCount,
+                StartTime = 0
+            };
+
+            return timeline.ClampAndCreate(new PictogramClipViewModel(raw, timeline.RootPath, timeline), startBeat);
+        }
+    }
+
+    private sealed record KaraokeClipboardPayload(string Lyrics, int DurationFrames, float Pitch, bool IsEndOfLine, int ContentType, KaraokeTolerance? Tolerance) : ClipClipboardPayload
+    {
+        public override ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat)
+        {
+            KaraokeClip raw = new()
+            {
+                Lyrics = Lyrics,
+                Duration = DurationFrames,
+                Pitch = Pitch,
+                IsEndOfLine = IsEndOfLine,
+                ContentType = ContentType,
+                Tolerances = CloneTolerance(Tolerance),
+                StartTime = 0
+            };
+
+            return timeline.ClampAndCreate(new KaraokeClipViewModel(raw, timeline.RootPath, timeline), startBeat);
+        }
+    }
+
+    private sealed record HideHudClipboardPayload(int DurationFrames, bool IsActive) : ClipClipboardPayload
+    {
+        public override ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat)
+        {
+            HideUserInterfaceClip raw = new()
+            {
+                Duration = DurationFrames,
+                IsActive = IsActive,
+                StartTime = 0
+            };
+
+            return timeline.ClampAndCreate(new HideUserInterfaceClipViewModel(raw, timeline.RootPath, timeline), startBeat);
+        }
+    }
+
+    private sealed record GoldEffectClipboardPayload(long TrackId, int DurationFrames, bool IsActive, int EffectType) : ClipClipboardPayload
+    {
+        public override ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat)
+        {
+            GoldEffectClip raw = new()
+            {
+                TrackId = TrackId,
+                Duration = DurationFrames,
+                IsActive = IsActive,
+                EffectType = EffectType,
+                StartTime = 0
+            };
+
+            return timeline.ClampAndCreate(new GoldEffectClipViewModel(raw, timeline.RootPath, timeline), startBeat);
+        }
+    }
+
+    private sealed record MoveClipboardPayload(string MoveId, bool IsGoldMove, bool IsFullBody) : ClipClipboardPayload
+    {
+        public override ClipViewModel CreateViewModel(TimelineEditorViewModel timeline, double startBeat)
+        {
+            MoveClip raw = new()
+            {
+                MoveId = MoveId,
+                IsGoldMove = IsGoldMove,
+                StartTime = 0
+            };
+
+            MoveClipViewModel vm = new(raw, timeline.RootPath, timeline, IsFullBody);
+            return timeline.ClampAndCreate(vm, startBeat);
         }
     }
 

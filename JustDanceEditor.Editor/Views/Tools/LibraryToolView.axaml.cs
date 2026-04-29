@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
@@ -21,6 +22,7 @@ public partial class LibraryToolView : UserControl
     // Static context for passing library items during drag-drop (avoids obsolete DataObject)
     private static LibraryItemViewModel? _draggedItem;
     private static readonly Lock _dragContextLock = new();
+    private static ContextMenu? _currentContextMenu;
 
     public LibraryToolView()
     {
@@ -45,26 +47,23 @@ public partial class LibraryToolView : UserControl
         if (DataContext is not LibraryToolViewModel)
             return;
 
-        _pressPoint = e.GetCurrentPoint(this).Position;
+        if (sender is not DataGrid grid)
+            return;
 
-        // Try to determine the exact item under pointer (DataGridRow) to be more robust than SelectedItem
-        LibraryItemViewModel? hit = default;
-        if (e.Source is Visual v)
+        LibraryItemViewModel? hit = TryGetItemAtPointer(e, grid);
+
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
         {
-            Visual? cur = v;
-            while (cur is not null and not DataGridRow)
-                cur = cur.GetVisualParent();
-            if (cur is DataGridRow row)
+            if (hit != null)
             {
-                hit = row.DataContext as LibraryItemViewModel;
+                OpenLibraryContextMenu(grid, hit);
+                e.Handled = true;
             }
+
+            return;
         }
 
-        // Fallback to selected item only if we haven't found a row-level item
-        if (hit == null && sender is DataGrid dg && dg.SelectedItem is LibraryItemViewModel selectedItem)
-        {
-            hit = selectedItem;
-        }
+        _pressPoint = e.GetCurrentPoint(this).Position;
 
         _pressItem = hit;
         // store candidate for drag initiation
@@ -72,6 +71,142 @@ public partial class LibraryToolView : UserControl
         {
             // nothing else required here
         }
+    }
+
+    private static LibraryItemViewModel? TryGetItemAtPointer(PointerEventArgs e, DataGrid grid)
+    {
+        if (e.Source is Visual v)
+        {
+            Visual? cur = v;
+            while (cur is not null and not DataGridRow)
+                cur = cur.GetVisualParent();
+            if (cur is DataGridRow row)
+                return row.DataContext as LibraryItemViewModel;
+        }
+
+        if (grid.SelectedItem is LibraryItemViewModel selected)
+            return selected;
+
+        return null;
+    }
+
+    private void OpenLibraryContextMenu(Control placementTarget, LibraryItemViewModel item)
+    {
+        _currentContextMenu?.Close();
+
+        ContextMenu menu = new();
+        MenuItem rename = new() { Header = "Rename" };
+        rename.Click += async (_, _) => await RenameLibraryItemAsync(item);
+        if (menu.Items is System.Collections.IList list)
+            list.Add(rename);
+
+        if (item.Type == ItemType.Pictogram)
+        {
+            MenuItem flip = new() { Header = "Flip" };
+            flip.Click += async (_, _) =>
+            {
+                if (DataContext is LibraryToolViewModel libVm && libVm.ActiveTimeline is TimelineEditorViewModel timeline)
+                {
+                    bool ok = await timeline.FlipPictogramAsync(item.Id);
+                    if (ok)
+                    {
+                        // Toggle displayed id
+                        if (item.Id.EndsWith("_flipped", StringComparison.OrdinalIgnoreCase))
+                            item.Id = item.Id[..^"_flipped".Length];
+                        else
+                            item.Id = item.Id + "_flipped";
+
+                        item.Name = item.Id;
+                    }
+                }
+            };
+
+            if (menu.Items is System.Collections.IList list2)
+                list2.Add(flip);
+        }
+
+        _currentContextMenu = menu;
+        menu.Closed += (_, _) =>
+        {
+            if (_currentContextMenu == menu)
+                _currentContextMenu = null;
+        };
+
+        menu.Open(placementTarget);
+    }
+
+    private async System.Threading.Tasks.Task RenameLibraryItemAsync(LibraryItemViewModel item)
+    {
+        if (DataContext is not LibraryToolViewModel libVm || libVm.ActiveTimeline is not TimelineEditorViewModel timeline)
+            return;
+
+        string title = item.Type == ItemType.Pictogram ? "Rename Pictogram" : "Rename Move";
+        string? newName = await ShowRenameDialogAsync(title, item.Id);
+        if (string.IsNullOrWhiteSpace(newName))
+            return;
+
+        newName = newName.Trim();
+        if (string.Equals(item.Id, newName, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        bool ok = item.Type switch
+        {
+            ItemType.Pictogram => timeline.RenamePictogramId(item.Id, newName),
+            ItemType.HandMove => timeline.RenameMoveId(item.Id, newName, isFullBody: false),
+            ItemType.FullBodyMove => timeline.RenameMoveId(item.Id, newName, isFullBody: true),
+            _ => false
+        };
+
+        if (!ok)
+            return;
+
+        item.Id = newName;
+        item.Name = newName;
+    }
+
+    private async System.Threading.Tasks.Task<string?> ShowRenameDialogAsync(string title, string currentName)
+    {
+        Window? owner = this.GetVisualRoot() as Window;
+        Window win = new()
+        {
+            Title = title,
+            Width = 480,
+            SizeToContent = SizeToContent.Height,
+            MaxHeight = 320,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new StackPanel { Margin = new Thickness(6) }
+        };
+
+        if (win.Content is not StackPanel stack)
+            throw new InvalidOperationException("Rename dialog content was not initialized correctly.");
+
+        TextBox box = new() { Width = 440, Text = currentName };
+        stack.Children.Add(box);
+
+        StackPanel footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        Button ok = new() { Content = "OK", Margin = new Thickness(6) };
+        Button cancel = new() { Content = "Cancel", Margin = new Thickness(6) };
+        footer.Children.Add(ok);
+        footer.Children.Add(cancel);
+        stack.Children.Add(footer);
+
+        string? result = null;
+        ok.Click += (_, _) =>
+        {
+            result = box.Text;
+            win.Close();
+        };
+        cancel.Click += (_, _) => win.Close();
+
+        Window ownerWindow = owner ??
+            (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw
+                ? mw
+                : null)
+            ?? throw new InvalidOperationException("No owner window available");
+
+        await win.ShowDialog(ownerWindow);
+        return result;
     }
 
     private async void Items_PointerMoved(object? sender, PointerEventArgs e)

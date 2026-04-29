@@ -22,6 +22,7 @@ public class AvaloniaDialogService : IDialogService
             GoldEffectCreationViewModel _ => new GoldEffectCreationWindow(),
             HideHudCreationViewModel _ => new HideHudCreationWindow(),
             NewMoveDefinitionViewModel _ => new NewMoveDefinitionWindow(),
+            PictogramScreenshotOptionsViewModel _ => new PictogramScreenshotOptionsWindow(),
             _ => throw new System.ArgumentException("Unsupported dialog viewmodel type")
         };
 

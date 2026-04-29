@@ -172,10 +172,19 @@ public class ClipDragHandler(TimelineTrackPanel? panel) : TimelineInteractionHan
                 }
             }
 
-            foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts.ToList())
+            foreach (ClipViewModel clip in _multiDragOriginalStarts.Keys)
+                clip.SuppressDataChangeMessages = true;
+
+            foreach (KeyValuePair<ClipViewModel, double> kv in _multiDragOriginalStarts)
             {
                 double newStart = kv.Value + applyDelta;
                 kv.Key.StartBeat = ClampStartBeat(kv.Key, newStart, vm);
+            }
+
+            foreach (ClipViewModel clip in _multiDragOriginalStarts.Keys)
+            {
+                clip.SuppressDataChangeMessages = false;
+                clip.FlushDataChangedNotification(nameof(ClipViewModel.StartBeat));
             }
 
             _panel?.InvalidateMeasure();

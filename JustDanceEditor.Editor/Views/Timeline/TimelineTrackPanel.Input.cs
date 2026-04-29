@@ -56,6 +56,46 @@ partial class TimelineTrackPanel
 
 public partial class TimelineTrackPanel
 {
+    private IEnumerable<ClipViewModel> EnumerateClipsTopmostFirst()
+    {
+        if (Clips == null)
+            yield break;
+
+        if (Clips is IList<ClipViewModel> list)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+                yield return list[i];
+            yield break;
+        }
+
+        List<ClipViewModel> buffered = [.. Clips];
+        for (int i = buffered.Count - 1; i >= 0; i--)
+            yield return buffered[i];
+    }
+
+    private ClipViewModel? FindClipAtPoint(Point point, double ppb, double offset, out double clipStartX, out double clipWidth)
+    {
+        clipStartX = 0;
+        clipWidth = 0;
+
+        if (Clips == null)
+            return null;
+
+        foreach (ClipViewModel c in EnumerateClipsTopmostFirst())
+        {
+            double x = (c.StartBeat - offset) * ppb;
+            double w = c.DurationBeats * ppb;
+            if (point.X >= x && point.X <= x + w)
+            {
+                clipStartX = x;
+                clipWidth = w;
+                return c;
+            }
+        }
+
+        return null;
+    }
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
@@ -68,33 +108,26 @@ public partial class TimelineTrackPanel
         double offset = BeatOffset;
         TimelineEditorViewModel? contextVm = GetTimelineVM();
 
-        // Handle double-click for seeking
-        if (e.ClickCount == 2 && Clips != null)
+        ClipViewModel? clickedClip = FindClipAtPoint(point, ppb, offset, out double clickedStartX, out double clickedWidth);
+
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            ClipViewModel? targetClip = null;
-            double targetStartX = 0, targetWidth = 0;
+            OpenContextMenu(e, clickedClip);
+            e.Handled = true;
+            return;
+        }
 
-            foreach (ClipViewModel c in Clips)
+        // Handle double-click for seeking
+        if (e.ClickCount == 2 && clickedClip != null)
+        {
+            if (contextVm != null)
             {
-                double x = (c.StartBeat - offset) * ppb;
-                double w = c.DurationBeats * ppb;
-                if (point.X >= x && point.X <= x + w)
-                {
-                    targetClip = c;
-                    targetStartX = x;
-                    targetWidth = w;
-                    break;
-                }
-            }
-
-            if (targetClip != null && contextVm != null)
-            {
-                double localDoubleClickX = point.X - targetStartX;
-                bool doubleClickNearRight = localDoubleClickX >= (targetWidth - ResizeHitThreshold);
+                double localDoubleClickX = point.X - clickedStartX;
+                bool doubleClickNearRight = localDoubleClickX >= (clickedWidth - ResizeHitThreshold);
                 if (doubleClickNearRight)
-                    contextVm.Playback.SeekToBeat(targetClip.StartBeat + targetClip.DurationBeats);
+                    contextVm.Playback.SeekToBeat(clickedClip.StartBeat + clickedClip.DurationBeats);
                 else
-                    contextVm.Playback.SeekToBeat(targetClip.StartBeat);
+                    contextVm.Playback.SeekToBeat(clickedClip.StartBeat);
 
                 e.Handled = true;
                 return;
@@ -102,36 +135,7 @@ public partial class TimelineTrackPanel
         }
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            // Right-click context: offer quick 'Create Clip' actions via a context menu
-            if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
-            {
-                OpenAddClipMenu(e);
-                e.Handled = true;
-            }
-
             return;
-        }
-
-        // Find clicked clip
-        ClipViewModel? clickedClip = null;
-        double clickedStartX = 0, clickedWidth = 0;
-
-        if (Clips != null)
-        {
-            foreach (ClipViewModel c in Clips)
-            {
-                double x = (c.StartBeat - offset) * ppb;
-                double w = c.DurationBeats * ppb;
-                if (point.X >= x && point.X <= x + w)
-                {
-                    clickedClip = c;
-                    clickedStartX = x;
-                    clickedWidth = w;
-                    break;
-                }
-            }
-        }
 
         bool ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
         bool shift = (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
@@ -523,31 +527,185 @@ public partial class TimelineTrackPanel
 
     public static ContextMenu? CurrentContextMenu { get; private set; }
 
-    /// <summary>
-    /// Opens a minimal context menu offering the Add Clip command.  Previous
-    /// global menus are closed first.  This helper exists to simplify testing.
-    /// </summary>
-    public void OpenAddClipMenu(PointerPressedEventArgs? e)
+    private static void AddMenuItem(ContextMenu menu, MenuItem item)
+    {
+        if (menu.Items is System.Collections.IList list)
+            list.Add(item);
+    }
+
+    private static void AddSeparator(ContextMenu menu)
+    {
+        if (menu.Items is System.Collections.IList list)
+            list.Add(new Separator());
+    }
+
+    private void OpenContextMenu(PointerPressedEventArgs? e, ClipViewModel? clickedClip)
     {
         CurrentContextMenu?.Close();
 
         ContextMenu menu = new();
-        MenuItem add = new() { Header = "Add Clip" };
-        add.Click += async (s, args) => await ShowCreateClipMenuAsync(e);
-        if (menu.Items is System.Collections.IList list)
-            list.Add(add);
+        TimelineEditorViewModel? timeline = GetTimelineVM();
+        TrackViewModel? track = DataContext as TrackViewModel;
+        if (track == null || timeline == null)
+        {
+            MenuItem addFallback = new() { Header = "Add Clip" };
+            addFallback.Click += async (_, _) => await ShowCreateClipMenuAsync(e);
+            AddMenuItem(menu, addFallback);
+
+            CurrentContextMenu = menu;
+            menu.Closed += (_, _) =>
+            {
+                if (CurrentContextMenu == menu)
+                    CurrentContextMenu = null;
+            };
+
+            if (Application.Current != null)
+                menu.Open(this);
+
+            return;
+        }
+
+        bool isPictogramTrack = track.TrackType == TrackType.Pictogram || string.Equals(track.Title, "Pictograms", StringComparison.OrdinalIgnoreCase);
+
+        if (isPictogramTrack && clickedClip is PictogramClipViewModel pictogramClip)
+        {
+            MenuItem selectAll = new() { Header = "Select All Instances" };
+            selectAll.Click += (_, _) => SelectAllPictogramInstances(timeline, pictogramClip);
+            AddMenuItem(menu, selectAll);
+
+            AddSeparator(menu);
+            MenuItem regenerate = new() { Header = "Regenerate Pictogram" };
+            regenerate.Click += async (_, _) => await RegeneratePictogramFromMenuAsync(timeline, pictogramClip);
+            AddMenuItem(menu, regenerate);
+
+            MenuItem flip = new() { Header = "Flip" };
+            flip.Click += async (_, _) => await FlipSelectedPictogramsAsync(timeline);
+            AddMenuItem(menu, flip);
+        }
+        else if (clickedClip is MoveClipViewModel moveClip)
+        {
+            MenuItem selectAll = new() { Header = "Select All Instances" };
+            selectAll.Click += (_, _) => SelectAllMoveInstances(timeline, moveClip);
+            AddMenuItem(menu, selectAll);
+        }
+        else
+        {
+            MenuItem add = new() { Header = "Add Clip" };
+            add.Click += async (_, _) => await ShowCreateClipMenuAsync(e);
+            AddMenuItem(menu, add);
+
+            if (isPictogramTrack)
+            {
+                AddSeparator(menu);
+                MenuItem generate = new() { Header = "Generate New Pictogram" };
+                generate.Click += async (_, _) => await GenerateNewPictogramFromMenuAsync(timeline);
+                AddMenuItem(menu, generate);
+            }
+        }
 
         CurrentContextMenu = menu;
-        menu.Closed += (s, args) =>
+        menu.Closed += (_, _) =>
         {
             if (CurrentContextMenu == menu)
                 CurrentContextMenu = null;
         };
 
         if (Application.Current != null)
-        {
             menu.Open(this);
+    }
+
+    private void SelectAllPictogramInstances(TimelineEditorViewModel timeline, PictogramClipViewModel clip)
+    {
+        _ = timeline.SelectAllPictogramInstances(clip.PictogramId);
+        UpdateGlobalSelection(timeline);
+        InvalidateVisual();
+    }
+
+    private void SelectAllMoveInstances(TimelineEditorViewModel timeline, MoveClipViewModel clip)
+    {
+        _ = timeline.SelectAllMoveInstances(clip.MoveId);
+        UpdateGlobalSelection(timeline);
+        InvalidateVisual();
+    }
+
+    private static async Task FlipSelectedPictogramsAsync(TimelineEditorViewModel timeline)
+    {
+        // Collect all selected pictogram clips
+        List<PictogramClipViewModel> selectedPictograms = [.. timeline.Tracks
+            .SelectMany(t => t.Clips)
+            .OfType<PictogramClipViewModel>()
+            .Where(c => c.IsSelected)];
+
+        // Flip each selected pictogram individually
+        foreach (var clip in selectedPictograms)
+        {
+            await timeline.FlipPictogramAsync(clip.PictogramId, clip);
         }
+    }
+
+    /// <summary>
+    /// Opens a minimal context menu offering the Add Clip command.  Previous
+    /// global menus are closed first.  This helper exists to simplify testing.
+    /// </summary>
+    public void OpenAddClipMenu(PointerPressedEventArgs? e)
+    {
+        OpenContextMenu(e, clickedClip: null);
+    }
+
+    private static IReadOnlyList<PictogramReferenceMoveOption> BuildReferenceMoveOptions(TimelineEditorViewModel timeline)
+    {
+        const double selectionWindowSeconds = 5.0;
+        double playheadSeconds = timeline.GetPlaybackSecondsAtBeatLabel(timeline.CurrentBeat);
+
+        var options = timeline.Tracks
+            .Where(t => t.TrackType is TrackType.CoachHand or TrackType.CoachFullBody)
+            .SelectMany(t => t.Clips)
+            .OfType<MoveClipViewModel>()
+            .Where(c => !string.IsNullOrWhiteSpace(c.MoveId))
+            .GroupBy(c => (c.MoveId, c.RawClip.StartTime))
+            .Select(g => new PictogramReferenceMoveOption
+            {
+                MoveId = g.Key.MoveId,
+                StartFrame = g.Key.StartTime
+            })
+            .Select(o => new
+            {
+                Option = o,
+                DistanceSeconds = Math.Abs(timeline.GetPlaybackSecondsAtBeatLabel(o.StartBeat) - playheadSeconds)
+            })
+            .Where(x => x.DistanceSeconds <= selectionWindowSeconds)
+            .OrderBy(x => x.DistanceSeconds)
+            .ThenBy(x => x.Option.StartFrame);
+
+        return [.. options.Select(x => x.Option)];
+    }
+
+    private static async Task GenerateNewPictogramFromMenuAsync(TimelineEditorViewModel timeline)
+    {
+        if (Application.Current is not App app)
+            return;
+
+        PictogramScreenshotOptionsViewModel optionsVm = new();
+        optionsVm.EnableInsertionOptions(BuildReferenceMoveOptions(timeline));
+
+        PictogramScreenshotOptionsResult? result = await app.DialogService.ShowDialogAsync<PictogramScreenshotOptionsResult>(optionsVm);
+        if (result == null)
+            return;
+
+        await timeline.GenerateNewPictogramAsync(timeline.CurrentBeat, result);
+    }
+
+    private static async Task RegeneratePictogramFromMenuAsync(TimelineEditorViewModel timeline, PictogramClipViewModel clip)
+    {
+        if (Application.Current is not App app)
+            return;
+
+        PictogramScreenshotOptionsViewModel optionsVm = new();
+        PictogramScreenshotOptionsResult? result = await app.DialogService.ShowDialogAsync<PictogramScreenshotOptionsResult>(optionsVm);
+        if (result == null)
+            return;
+
+        await timeline.RegeneratePictogramAsync(clip, result);
     }
 
     private async Task ShowCreateClipMenuAsync(PointerPressedEventArgs? e)
