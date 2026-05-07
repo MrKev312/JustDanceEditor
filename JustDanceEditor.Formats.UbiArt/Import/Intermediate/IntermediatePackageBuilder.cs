@@ -79,7 +79,6 @@ internal static class IntermediatePackageBuilder
             MapLengthSeconds = mapLengthSeconds,
             OriginalJDVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
-            CoachNames = null, // UbiArt does not store coach names
             Difficulty = info.Difficulty,
             SweatDifficulty = info.SweatDifficulty,
             Tags = info.Tags?.ToList() ?? [],

@@ -12,7 +12,8 @@ public class IntermediateMetadata
     public double MapLengthSeconds { get; set; }
     public uint OriginalJDVersion { get; set; }
     public int CoachCount { get; set; }
-    public string[]? CoachNames { get; set; }
+    public JdiLocId[]? CoachNamesLocIds { get; set; }
+    public JdiLocId DanceVersionLocId { get; set; } = JdiLocId.Zero;
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }
     public List<string> Tags { get; set; } = [];
@@ -26,13 +27,13 @@ public class IntermediateMetadata
         if (CoachCount < 0)
             throw new InvalidOperationException("CoachCount cannot be negative.");
 
-        if (CoachNames == null)
+        if (CoachNamesLocIds == null)
             return;
 
-        if (CoachNames.Length != CoachCount)
-            throw new InvalidOperationException("CoachNames must contain an entry for every coach or be null.");
+        if (CoachNamesLocIds.Length != CoachCount)
+            throw new InvalidOperationException("CoachNamesLocIds must contain an entry for every coach or be null.");
 
-        if (CoachNames.Any(string.IsNullOrWhiteSpace))
-            throw new InvalidOperationException("CoachNames cannot contain blank values.");
+        if (CoachNamesLocIds.Any(locId => string.IsNullOrWhiteSpace(locId.Value)))
+            throw new InvalidOperationException("CoachNamesLocIds cannot contain blank values.");
     }
 }

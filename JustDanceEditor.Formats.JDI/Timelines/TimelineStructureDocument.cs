@@ -116,9 +116,11 @@ public class TimelineStructureDocument
     /// </summary>
     public (TimeSpan start, TimeSpan duration) GetVideoPreviewTiming()
     {
-        // Old logic: startTime - songOffsetVideo
-        // songOffsetVideo was simply videoStartTime
-        return GetPreviewTimingInternal(VideoStartOffset);
+        double audioStartSeconds = GetPreviewAudioStartSeconds();
+        double videoOffset = -VideoStartOffset;
+        double videoStartSeconds = audioStartSeconds + GetSongStartOffset() + videoOffset;
+
+        return (TimeSpan.FromSeconds(Math.Max(0, videoStartSeconds)), GetPreviewDuration());
     }
 
     /// <summary>
@@ -126,34 +128,22 @@ public class TimelineStructureDocument
     /// </summary>
     public (TimeSpan start, TimeSpan duration) GetAudioPreviewTiming()
     {
-        // Old logic: startTime - songOffsetAudio
-        // songOffsetAudio was -GetSongStartTime()
-        // Therefore: startTime - (-GetSongStartTime()) => startTime + GetSongStartTime()
-        // To keep the subtractive pattern in the helper, we pass negative SongStart.
-        return GetPreviewTimingInternal(-GetSongStartOffset());
+        return (TimeSpan.FromSeconds(GetPreviewAudioStartSeconds()), GetPreviewDuration());
     }
 
     /// <summary>
-    /// Shared private logic to calculate start and duration based on markers.
-    /// Replaces the loop logic from the old GetPreviewStartTime.
+    /// Converts the preview loop's displayed beat label into processed-audio seconds.
     /// </summary>
-    private (TimeSpan start, TimeSpan duration) GetPreviewTimingInternal(double offsetSeconds)
+    private double GetPreviewAudioStartSeconds()
     {
-        // Safety check to ensure markers exist
-        if (Markers.Count == 0 || PreviewLoopStartBeat >= Markers.Count || PreviewLoopEndBeat >= Markers.Count)
-        {
-            return (TimeSpan.Zero, TimeSpan.Zero);
-        }
+        if (Markers.Count < 2)
+            return 0;
 
-        // 1. Get Raw Start Time (UbiArt Unit Conversion: Ticks / 48 / 1000)
-        double rawStartTime = Markers[PreviewLoopStartBeat] / 48.0 / 1000.0;
-
-        // 2. Apply Offset to start time
-        double calculatedStartTime = rawStartTime - offsetSeconds;
-
-        // 3. Hardcoded 30 second duration for now
-        return (TimeSpan.FromSeconds(calculatedStartTime), TimeSpan.FromSeconds(30));
+        double previewLoopStartIndex = GetIndexFromBeatLabel(PreviewLoopStartBeat);
+        return Math.Max(0, GetSecondsAtBeat(previewLoopStartIndex));
     }
+
+    private TimeSpan GetPreviewDuration() => TimeSpan.FromSeconds(30);
 
     public double GetBeatLabelFromIndex(double index) => index + StartBeat;
     public double GetIndexFromBeatLabel(double beatLabel) => beatLabel - StartBeat;

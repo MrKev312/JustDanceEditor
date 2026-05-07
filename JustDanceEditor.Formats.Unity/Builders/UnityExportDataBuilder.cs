@@ -14,23 +14,12 @@ public static class UnityExportDataBuilder
         IntermediateMetadata metadata = package.Metadata;
         metadata.Validate();
 
-        ServerSongJSON exportMetadata = new()
+        ServerSongJSON exportMetadata = new(metadata)
         {
-            SongID = metadata.SongID,
             Artist = metadata.Artist ?? string.Empty,
-            CoachCount = metadata.CoachCount,
-            CoachNamesLocIds = metadata.CoachNames?.ToArray() ?? [],
             Credits = metadata.Credits ?? string.Empty,
-            DanceVersionLocId = 0,
-            Difficulty = metadata.Difficulty,
             LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor,
-            MapLength = metadata.MapLengthSeconds,
-            MapName = metadata.MapName,
             OriginalJDVersion = MapOriginalJDVersion(metadata.OriginalJDVersion),
-            ParentMapName = metadata.ParentMapName,
-            SweatDifficulty = metadata.SweatDifficulty,
-            TagIds = [],
-            Tags = metadata.Tags?.ToArray() ?? [],
             Title = metadata.Title ?? string.Empty,
         };
 
