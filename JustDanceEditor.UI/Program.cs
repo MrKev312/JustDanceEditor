@@ -1,7 +1,7 @@
 using JustDanceEditor.Audio;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDNextPC;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDNextPC;
 using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.FileSystem;

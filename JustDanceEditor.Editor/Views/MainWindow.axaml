@@ -4,22 +4,28 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:JustDanceEditor.Editor.ViewModels"
         xmlns:dock="using:Dock.Avalonia.Controls"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="JustDanceEditor.Editor.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="JustDanceEditor.Editor"
+        Title="Just Dance Editor"
         
         TransparencyLevelHint="Mica, AcrylicBlur"
         Background="Transparent"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="PreferSystemChrome"
+        WindowDecorations="Full"
         ExtendClientAreaTitleBarHeightHint="32">
 
 	<Window.Styles>
 		<Style Selector="Window[WindowState=Maximized]">
 			<!-- Windows adds about 8px border on each side -->
 			<Setter Property="Padding" Value="8"/>
+		</Style>
+		<Style Selector="chrome|WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel TextBlock">
+			<Setter Property="HorizontalAlignment" Value="Center" />
+			<Setter Property="Margin" Value="0" />
+			<Setter Property="TextAlignment" Value="Center" />
 		</Style>
 	</Window.Styles>
 
@@ -28,7 +34,9 @@
 		<Grid Grid.Row="0" ColumnDefinitions="Auto, *">
 
 			<!-- Menu: Placed in the TitleBar area -->
-			<Menu Grid.Column="0" ItemsSource="{Binding ViewMenu}" Background="Transparent">
+			<Menu Grid.Column="0"
+				  ItemsSource="{Binding ViewMenu}"
+				  Background="Transparent">
 				<Menu.Styles>
 					<Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
 						<Setter Property="Header" Value="{Binding Header}"/>
@@ -38,10 +46,10 @@
 				</Menu.Styles>
 			</Menu>
 
-			<!-- Drag Zone: Fills the rest of the top bar. 
-                 Background="Transparent" + IsHitTestVisible="False" allows click-through to Window 
-                 which handles the drag automatically in the extended client area. -->
-			<Panel Grid.Column="1" Background="Transparent" IsHitTestVisible="False" />
+			<!-- Drag zone between the menu and the native Windows caption buttons. -->
+			<Panel Grid.Column="1"
+				   Background="Transparent"
+				   chrome:WindowDecorationProperties.ElementRole="TitleBar" />
 		</Grid>
 
 		<!-- Docking Area -->

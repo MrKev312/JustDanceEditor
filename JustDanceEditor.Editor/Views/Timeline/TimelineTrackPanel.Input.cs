@@ -913,7 +913,7 @@ public partial class TimelineTrackPanel
 
     private async Task<string?> ShowInputDialogAsync(string prompt)
     {
-        Window? owner = this.GetVisualRoot() as Window;
+        Window? owner = TopLevel.GetTopLevel(this) as Window;
         Window win = new()
         {
             Title = prompt,

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 
-public static class BitmapCache
+public static class ImageBitmapCache
 {
     private static readonly ConcurrentDictionary<string, Bitmap?> _cache = new();
     private static readonly ConcurrentDictionary<string, bool> _pending = new();

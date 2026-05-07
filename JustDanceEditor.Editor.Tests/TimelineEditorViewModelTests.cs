@@ -5,10 +5,8 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System;
 
 namespace JustDanceEditor.Editor.Tests;
 

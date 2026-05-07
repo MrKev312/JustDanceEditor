@@ -6,7 +6,6 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Editor.Views; // for RenderingHelpers
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;

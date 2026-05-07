@@ -1,24 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="NLua" Version="1.7.6" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
-    <PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.2" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
-    <ProjectReference Include="..\JustDanceEditor.Audio\JustDanceEditor.Audio.csproj" />
-    <ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
-    <ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Update="Nerdbank.GitVersioning" Version="3.9.50" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="NLua" Version="1.7.9" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
+		<PackageReference Include="System.IO.Hashing" Version="10.0.7" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Audio\JustDanceEditor.Audio.csproj" />
+		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
+	</ItemGroup>
 </Project>

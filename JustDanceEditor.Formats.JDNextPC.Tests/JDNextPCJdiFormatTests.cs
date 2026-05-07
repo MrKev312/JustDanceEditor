@@ -1,16 +1,14 @@
-using System.Text.Json;
-
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
-using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.JDNextPC;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using System.Text.Json;
 
 using Xunit;
 

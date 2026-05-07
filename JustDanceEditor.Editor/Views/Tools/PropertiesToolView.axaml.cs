@@ -31,7 +31,7 @@ public partial class PropertiesToolView : UserControl
                 // Try focusing the parent or the UserControl itself.
                 // Note: The UserControl must have Focusable="True" in XAML for this to work effectively.
                 TopLevel? topLevel = TopLevel.GetTopLevel(this);
-                topLevel?.FocusManager?.ClearFocus();
+                _ = topLevel?.FocusManager?.Focus(this, NavigationMethod.Unspecified, KeyModifiers.None);
                 e.Handled = true;
             }
             else if (e.Key == Key.Escape)

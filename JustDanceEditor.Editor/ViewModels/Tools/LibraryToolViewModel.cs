@@ -276,7 +276,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 seenIds.Add(safeId);
                 string path = Path.Combine(pictogramDir, safeId + ".webp");
                 IBrush brush;
-                if (File.Exists(path) && BitmapCache.TryGet(path, out Bitmap? bmp) && bmp != null)
+                if (File.Exists(path) && ImageBitmapCache.TryGet(path, out Bitmap? bmp) && bmp != null)
                 {
                     brush = new ImageBrush(bmp);
                 }
@@ -288,12 +288,12 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                 {
                     brush = Brushes.LightGray;
                     // schedule load and refresh the view when loaded
-                    BitmapCache.ScheduleLoad(path, () =>
+                    ImageBitmapCache.ScheduleLoad(path, () =>
                     {
                         LibraryItemViewModel? item = Items.FirstOrDefault(i => i.Type == ItemType.Pictogram && string.Equals(i.Id, safeId, StringComparison.OrdinalIgnoreCase));
                         if (item != null)
                         {
-                            if (BitmapCache.TryGet(path, out Bitmap? loaded) && loaded != null)
+                            if (ImageBitmapCache.TryGet(path, out Bitmap? loaded) && loaded != null)
                                 item.Thumbnail = loaded;
                         }
                     });
@@ -307,7 +307,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
                     Id = safeId,
                     Type = ItemType.Pictogram,
                     Icon = brush,
-                    Thumbnail = File.Exists(path) && BitmapCache.TryGet(path, out Bitmap? pre) ? pre : null,
+                    Thumbnail = File.Exists(path) && ImageBitmapCache.TryGet(path, out Bitmap? pre) ? pre : null,
                     DefaultDuration = 24.0,
                     UsageCount = pictogramCount,
                     HasAsset = File.Exists(path)
@@ -349,9 +349,9 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
             Pictograms.Add(item);
 
             // Schedule load so the cache will add the red placeholder
-            BitmapCache.ScheduleLoad(path, () =>
+            ImageBitmapCache.ScheduleLoad(path, () =>
             {
-                if (BitmapCache.TryGet(path, out Bitmap? redBmp) && redBmp != null)
+                if (ImageBitmapCache.TryGet(path, out Bitmap? redBmp) && redBmp != null)
                 {
                     item.Thumbnail = redBmp;
                 }

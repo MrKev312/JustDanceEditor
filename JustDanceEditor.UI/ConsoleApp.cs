@@ -1,6 +1,5 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.UI.Converting;
-using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;

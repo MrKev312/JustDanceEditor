@@ -38,13 +38,13 @@
                 <!-- STEP 0: Metadata -->
                 <Grid IsVisible="{Binding IsStep0}" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="140,*" VerticalAlignment="Top">
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Map Name:" VerticalAlignment="Center" Margin="0,6"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapName, Mode=TwoWay}" Watermark="e.g. MyDanceSong" Margin="0,4"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapName, Mode=TwoWay}" PlaceholderText="e.g. MyDanceSong" Margin="0,4"/>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Song Title:" VerticalAlignment="Center" Margin="0,6"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SongTitle, Mode=TwoWay}" Watermark="e.g. My Dance Song" Margin="0,4"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SongTitle, Mode=TwoWay}" PlaceholderText="e.g. My Dance Song" Margin="0,4"/>
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Artist:" VerticalAlignment="Center" Margin="0,6"/>
-                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Artist, Mode=TwoWay}" Watermark="e.g. DJ Example" Margin="0,4"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Artist, Mode=TwoWay}" PlaceholderText="e.g. DJ Example" Margin="0,4"/>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Coach Count:" VerticalAlignment="Center" Margin="0,6"/>
                     <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding CoachCount, Mode=TwoWay}"

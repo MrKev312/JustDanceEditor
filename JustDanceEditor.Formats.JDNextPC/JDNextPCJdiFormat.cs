@@ -1,6 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Serialization;
@@ -8,6 +5,9 @@ using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using Microsoft.Extensions.Logging;
+
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.JDNextPC;
 

@@ -16,6 +16,9 @@ using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Utilities;
+
+using SixLabors.ImageSharp.Processing;
 
 using System;
 using System.Collections.Generic;
@@ -26,9 +29,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Xabe.FFmpeg;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using JustDanceEditor.Formats.JDI.Utilities;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -955,7 +955,7 @@ public partial class TimelineEditorViewModel : Document
             options.HorizontalFocus,
             cancellationToken);
 
-        BitmapCache.Invalidate(outputPath);
+        ImageBitmapCache.Invalidate(outputPath);
 
         IEnumerable<MoveClipViewModel> moveClips = Tracks
             .Where(t => t.TrackType is TrackType.CoachHand or TrackType.CoachFullBody)
@@ -1082,8 +1082,8 @@ public partial class TimelineEditorViewModel : Document
             foreach (PictogramClipViewModel clip in affected)
                 clip.PictogramId = toId;
 
-            BitmapCache.Invalidate(fromPath);
-            BitmapCache.Invalidate(toPath);
+            ImageBitmapCache.Invalidate(fromPath);
+            ImageBitmapCache.Invalidate(toPath);
 
             OnPropertyChanged(nameof(AvailablePictograms));
             OnPropertyChanged(nameof(Tracks));
@@ -1136,8 +1136,8 @@ public partial class TimelineEditorViewModel : Document
                 foreach (var c in affectedClips)
                     c.PictogramId = toId;
 
-                BitmapCache.Invalidate(currentPath);
-                BitmapCache.Invalidate(counterpartPath);
+                ImageBitmapCache.Invalidate(currentPath);
+                ImageBitmapCache.Invalidate(counterpartPath);
                 OnPropertyChanged(nameof(AvailablePictograms));
                 OnPropertyChanged(nameof(Tracks));
             }
@@ -1215,8 +1215,8 @@ public partial class TimelineEditorViewModel : Document
                 foreach (var c in affectedClips)
                     c.PictogramId = toIdLocal;
 
-                BitmapCache.Invalidate(currentPath);
-                BitmapCache.Invalidate(counterpartPath);
+                ImageBitmapCache.Invalidate(currentPath);
+                ImageBitmapCache.Invalidate(counterpartPath);
                 OnPropertyChanged(nameof(AvailablePictograms));
                 OnPropertyChanged(nameof(Tracks));
             }
@@ -1232,8 +1232,8 @@ public partial class TimelineEditorViewModel : Document
 
                     // attempt to delete created file
                     try { if (File.Exists(destPath)) File.Delete(destPath); } catch { }
-                    BitmapCache.Invalidate(destPath);
-                    BitmapCache.Invalidate(currentPath);
+                    ImageBitmapCache.Invalidate(destPath);
+                    ImageBitmapCache.Invalidate(currentPath);
                     OnPropertyChanged(nameof(AvailablePictograms));
                     OnPropertyChanged(nameof(Tracks));
                 },
@@ -1386,9 +1386,9 @@ public partial class TimelineEditorViewModel : Document
             options.HorizontalFocus,
             cancellationToken);
 
-        BitmapCache.Invalidate(outputPath);
+        ImageBitmapCache.Invalidate(outputPath);
         if (!string.IsNullOrWhiteSpace(clip.ImagePath))
-            BitmapCache.Invalidate(clip.ImagePath);
+            ImageBitmapCache.Invalidate(clip.ImagePath);
 
         OnPropertyChanged(nameof(AvailablePictograms));
         OnPropertyChanged(nameof(Tracks));

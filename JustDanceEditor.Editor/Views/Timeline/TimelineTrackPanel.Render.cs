@@ -4,7 +4,6 @@ using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Editor.Views;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -128,7 +127,7 @@ public partial class TimelineTrackPanel
 
             if (clip.ImagePath != null)
             {
-                if (BitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
+                if (ImageBitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
                 {
                     double aspect = bmp.Size.Width / (double)bmp.Size.Height;
                     double drawHeight = rect.Height;
@@ -147,7 +146,7 @@ public partial class TimelineTrackPanel
                 }
                 else
                 {
-                    BitmapCache.ScheduleLoad(clip.ImagePath, InvalidateVisual);
+                    ImageBitmapCache.ScheduleLoad(clip.ImagePath, InvalidateVisual);
                 }
             }
             else if (drawText && width > 30 && !string.IsNullOrEmpty(clip.Name))

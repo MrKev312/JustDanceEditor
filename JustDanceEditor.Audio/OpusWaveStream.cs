@@ -1,4 +1,5 @@
 using Concentus;
+
 using NAudio.Wave;
 
 namespace JustDanceEditor.Audio;

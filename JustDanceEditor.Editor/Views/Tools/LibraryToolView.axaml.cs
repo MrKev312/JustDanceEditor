@@ -17,6 +17,7 @@ public partial class LibraryToolView : UserControl
 {
     private Point _pressPoint;
     private LibraryItemViewModel? _pressItem;
+    private PointerPressedEventArgs? _pressEventArgs;
     private const double DragThreshold = 4.0;
 
     // Static context for passing library items during drag-drop (avoids obsolete DataObject)
@@ -66,6 +67,7 @@ public partial class LibraryToolView : UserControl
         _pressPoint = e.GetCurrentPoint(this).Position;
 
         _pressItem = hit;
+        _pressEventArgs = hit != null ? e : null;
         // store candidate for drag initiation
         if (_pressItem != null)
         {
@@ -166,7 +168,7 @@ public partial class LibraryToolView : UserControl
 
     private async System.Threading.Tasks.Task<string?> ShowRenameDialogAsync(string title, string currentName)
     {
-        Window? owner = this.GetVisualRoot() as Window;
+        Window? owner = TopLevel.GetTopLevel(this) as Window;
         Window win = new()
         {
             Title = title,
@@ -230,14 +232,12 @@ public partial class LibraryToolView : UserControl
             Cursor? prevCursor = Cursor;
             Cursor = new Cursor(StandardCursorType.Hand);
 
-            // Use minimal data object to initiate drag (the item reference is in static context)
-#pragma warning disable CS0618
-            DataObject data = new();
-            data.Set(DataFormats.Text, "LibraryItem");
+            DataTransfer data = new();
+            data.Add(DataTransferItem.CreateText("LibraryItem"));
             try
             {
-                await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy);
-#pragma warning restore CS0618
+                if (_pressEventArgs != null)
+                    await DragDrop.DoDragDropAsync(_pressEventArgs, data, DragDropEffects.Copy);
             }
             catch (Exception)
             {
@@ -256,12 +256,14 @@ public partial class LibraryToolView : UserControl
 
             // Reset candidate after drag
             _pressItem = null;
+            _pressEventArgs = null;
         }
     }
 
     private void Items_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _pressItem = null;
+        _pressEventArgs = null;
     }
 
     // Static helper to retrieve the dragged item (called by drop handlers)
