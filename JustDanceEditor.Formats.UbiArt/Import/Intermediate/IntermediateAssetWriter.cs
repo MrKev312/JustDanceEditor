@@ -90,20 +90,15 @@ internal static class IntermediateAssetWriter
     private static void AttachBrandingAssets(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder, io);
-        ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile), logger, textureService, io);
-
-        // Import square cover if it exists in MenuArt
-        ExportSquareCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SquareCoverFile), logger, textureService, io);
-
-        // Import album coach if it exists in MenuArt
-        ExportAlbumCoachImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AlbumCoachFile), logger, textureService, io);
-
-        // Import banner if it exists in MenuArt
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BackgroundsFolder, io);
-        ExportBannerImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BannerFile), logger, textureService, io);
 
-        // Import map background if it exists in MenuArt
-        ExportMapBackgroundImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile), logger, textureService, io);
+        Parallel.Invoke(
+            () => ExportCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile), logger, textureService, io),
+            () => ExportSquareCoverImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SquareCoverFile), logger, textureService, io),
+            () => ExportAlbumCoachImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.AlbumCoachFile), logger, textureService, io),
+            () => ExportBannerImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.BannerFile), logger, textureService, io),
+            () => ExportMapBackgroundImage(context, ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile), logger, textureService, io)
+        );
     }
 
     private static string? ExportCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
@@ -289,7 +284,7 @@ internal static class IntermediateAssetWriter
         }
 
         logger.LogInformation("Found {Count} coach file(s) to process", coachFilesCooked.Length);
-        for (int i = 0; i < coachFilesCooked.Length; i++)
+        Parallel.For(0, coachFilesCooked.Length, i =>
         {
             string destination = io.Combine(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder), $"coach_{i + 1:D2}.webp");
             try
@@ -299,7 +294,7 @@ internal static class IntermediateAssetWriter
                 if (coach is null)
                 {
                     logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i].RelativePath);
-                    continue;
+                    return;
                 }
 
                 SaveAsWebp(coach, destination, io);
@@ -308,9 +303,8 @@ internal static class IntermediateAssetWriter
             catch (FileNotFoundException)
             {
                 logger.LogWarning("Failed to convert coach image: {Path} (not found)", coachFilesCooked[i].RelativePath);
-                continue;
             }
-        }
+        });
     }
 
     private static void AttachMotionAssets(ConversionContext context, string packageRoot, ILogger logger, IFileSystem io)
@@ -339,26 +333,27 @@ internal static class IntermediateAssetWriter
         if (files.Length == 0)
             return null;
 
-        io.CreateDirectory(destinationFolder);
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-        foreach (CookedFile file in files)
+        (CookedFile File, string Name)[] uniqueFiles = [.. files.Select(file => (File: file, Name: $"{file.Name}{file.Extension}")).Where(item =>
         {
-            string name = $"{file.Name}{file.Extension}";
-            if (!seen.Add(name))
-                continue;
-            string destination = io.Combine(destinationFolder, name);
+            return seen.Add(item.Name);
+        })];
+
+        io.CreateDirectory(destinationFolder);
+        Parallel.ForEach(uniqueFiles, item =>
+        {
+            string destination = io.Combine(destinationFolder, item.Name);
             try
             {
-                using Stream sourceStream = context.FileSystem.GetFileStream(file);
+                using Stream sourceStream = context.FileSystem.GetFileStream(item.File);
                 using FileStream destStream = File.Open(destination, FileMode.Create, FileAccess.Write);
                 sourceStream.CopyTo(destStream);
             }
             catch (FileNotFoundException)
             {
                 // Skip missing files
-                continue;
             }
-        }
+        });
 
         return destinationFolder;
     }

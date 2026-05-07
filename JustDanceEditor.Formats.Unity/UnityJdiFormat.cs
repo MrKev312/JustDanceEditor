@@ -16,7 +16,7 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
     public bool CanImport => true;
     public bool CanExport => true;
 
-    public Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default)
+    public async Task<JdiImportResult> ImportAsync(ConversionRequestBase request, CancellationToken cancellationToken = default)
     {
         if (request is not UnityConversionRequest unityRequest)
             throw new ArgumentException("Unity import expects a UnityConversionRequest.", nameof(request));
@@ -33,9 +33,14 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
         PrepareMaterializedDirectory(suggestedOutput);
         _logger.LogDebug("Prepared JDI materialized directory '{MaterializedRoot}'", suggestedOutput);
 
-        _assetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput);
-        _logger.LogDebug("Writing JDI package metadata to '{MaterializedRoot}'", suggestedOutput);
-        IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
+        Task materializeTask = Task.Run(() => _assetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput), cancellationToken);
+        Task serializeTask = Task.Run(() =>
+        {
+            _logger.LogDebug("Writing JDI package metadata to '{MaterializedRoot}'", suggestedOutput);
+            IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
+        }, cancellationToken);
+
+        await Task.WhenAll(materializeTask, serializeTask);
 
         JdiImportResult result = new(
             package,
@@ -45,7 +50,7 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
             SuggestedOutputFolder: suggestedOutput);
 
         _logger.LogInformation("Unity -> JDI conversion completed for '{SongName}' at '{MaterializedRoot}'", songName, suggestedOutput);
-        return Task.FromResult(result);
+        return result;
     }
 
     public bool Check(string path)

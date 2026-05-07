@@ -125,7 +125,9 @@ public static class UbiArtAudioConverter
 
         // Add main song with offset
         float mainSongOffset = request.SongData.GetSongStartTime();
-        sampleProviders.Add(ApplyOffset(mainSongStream.ToSampleProvider(), mainSongOffset));
+        ISampleProvider mainSongProvider = mainSongStream.ToSampleProvider();
+        WaveFormat mixFormat = mainSongProvider.WaveFormat;
+        sampleProviders.Add(ApplyOffset(mainSongProvider, mainSongOffset));
 
         // Add each audio clip with its calculated offset
         foreach (UbiArtAudioClipSource clipSource in request.AudioClips)
@@ -134,8 +136,9 @@ public static class UbiArtAudioConverter
             if (!clipStreams.TryGetValue(clipKey, out WaveStream? clipStream))
                 continue;
 
+            ISampleProvider clipProvider = NormalizeForMixing(clipStream.ToSampleProvider(), mixFormat, logger, clipKey);
             float offset = CalculateClipOffset(request, clipSource.Clip);
-            sampleProviders.Add(ApplyOffset(clipStream.ToSampleProvider(), offset));
+            sampleProviders.Add(ApplyOffset(clipProvider, offset));
         }
 
         if (sampleProviders.Count == 0)
@@ -154,6 +157,48 @@ public static class UbiArtAudioConverter
         logger.LogInformation("Finished merging audio streams in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
         return mixer;
+    }
+
+    private static ISampleProvider NormalizeForMixing(ISampleProvider provider, WaveFormat targetFormat, ILogger logger, string clipName)
+    {
+        ISampleProvider normalized = provider;
+
+        if (normalized.WaveFormat.SampleRate != targetFormat.SampleRate)
+        {
+            logger.LogDebug(
+                "Resampling audio clip '{ClipName}' from {SourceRate} Hz to {TargetRate} Hz for mixing",
+                clipName,
+                normalized.WaveFormat.SampleRate,
+                targetFormat.SampleRate);
+            normalized = new WdlResamplingSampleProvider(normalized, targetFormat.SampleRate);
+        }
+
+        if (normalized.WaveFormat.Channels == targetFormat.Channels)
+            return normalized;
+
+        logger.LogDebug(
+            "Converting audio clip '{ClipName}' from {SourceChannels} channel(s) to {TargetChannels} channel(s) for mixing",
+            clipName,
+            normalized.WaveFormat.Channels,
+            targetFormat.Channels);
+
+        if (targetFormat.Channels == 1)
+            return normalized.ToMono();
+
+        if (targetFormat.Channels == 2)
+        {
+            if (normalized.WaveFormat.Channels == 1)
+                return normalized.ToStereo();
+
+            return normalized.ToMono().ToStereo();
+        }
+
+        logger.LogWarning(
+            "Audio clip '{ClipName}' has {SourceChannels} channel(s), but target mix requires unsupported {TargetChannels} channel(s); leaving clip unchanged",
+            clipName,
+            normalized.WaveFormat.Channels,
+            targetFormat.Channels);
+        return normalized;
     }
 
     private static ISampleProvider ApplyOffset(ISampleProvider provider, float offsetSeconds)

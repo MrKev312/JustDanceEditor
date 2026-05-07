@@ -372,11 +372,11 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
         if (sources.Length == 4)
         {
-            foreach (string source in sources)
+            Parallel.ForEach(sources, source =>
             {
                 string destination = Path.Combine(destinationFolder, Path.GetFileName(source));
                 File.Copy(source, destination, true);
-            }
+            });
 
             return 4;
         }
@@ -397,11 +397,11 @@ public sealed class UnityAssetMaterializer(ILogger logger)
             return 0;
 
         Directory.CreateDirectory(destinationFolder);
-        foreach (string source in sources)
+        Parallel.ForEach(sources, source =>
         {
             string destination = Path.Combine(destinationFolder, Path.GetFileName(source));
             File.Copy(source, destination, true);
-        }
+        });
 
         return 4;
     }

@@ -86,17 +86,8 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
 
                 using FileStream output = File.Create(destPath);
 
-                // Ambient sounds usually use PCM, Songs use DSP ADPCM
-                if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
-                {
-                    // "Cafe" is the internal codename for Wii U
-                    RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Cafe", type: "pcm ");
-                }
-                else
-                {
-                    // Use the DSP ADPCM encoder for Wii U songs
-                    RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output);
-                }
+                // Official Wii U song and AMB audio both use Cafe DSP ADPCM.
+                RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output);
             });
         }
         catch (Exception)
