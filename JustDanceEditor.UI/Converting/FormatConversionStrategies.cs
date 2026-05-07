@@ -106,7 +106,7 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
 
     public ConversionRequestBase CreateImportRequest(string inputPath, string outputPath, string? songName = null)
     {
-        return new UbiArtConversionRequest(inputPath, outputPath, songName ?? ResolveSongName(inputPath));
+        return new UbiArtConversionRequest(inputPath, outputPath, songName);
     }
 
     public ConversionRequestBase CreateExportRequest(string inputPath, string outputPath, ConversionTarget target, string? songName = null)
@@ -114,7 +114,7 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
         if (!_targets.TryGetValue(target.TargetId, out UbiArtTargetDefinition? definition))
             throw new NotSupportedException($"Unknown UbiArt target '{target.TargetId}'.");
 
-        return new UbiArtConversionRequest(inputPath, outputPath, songName ?? ResolveSongName(inputPath))
+        return new UbiArtConversionRequest(inputPath, outputPath, songName)
         {
             Type = definition.CookedType,
             ExportPlatform = definition.Platform,
@@ -164,27 +164,6 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
         2022 => UbiArtEngineVersion.JD2022,
         _ => throw new NotSupportedException($"JD{year} is not a supported UbiArt export target.")
     };
-
-    private static string? ResolveSongName(string inputPath)
-    {
-        string mapsPath = Path.Combine(inputPath, "world", "maps");
-        if (!Directory.Exists(mapsPath))
-            return null;
-
-        string[] maps = Directory.GetDirectories(mapsPath);
-        if (maps.Length == 0)
-            return null;
-
-        if (maps.Length == 1)
-            return Path.GetFileName(maps[0]);
-
-        string[] mapNames = [.. maps.Select(Path.GetFileName).OfType<string>()];
-        if (mapNames.Length == 0)
-            return null;
-
-        int selection = Question.Ask(mapNames, 0, "Multiple maps found in direct filesystem. Which one should be converted?");
-        return mapNames[selection];
-    }
 
     private sealed record UbiArtTargetDefinition(
         ConversionTarget Target,

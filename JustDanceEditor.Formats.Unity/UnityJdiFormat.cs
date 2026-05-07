@@ -2,6 +2,8 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.Unity.Converters;
 
+using Microsoft.Extensions.Logging;
+
 namespace JustDanceEditor.Formats.Unity;
 
 public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverBuilder, Services.IUnityAssetMaterializer assetMaterializer, Microsoft.Extensions.Logging.ILogger<UnityJdiFormat> logger) : IJdiFormat
@@ -19,15 +21,20 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
         if (request is not UnityConversionRequest unityRequest)
             throw new ArgumentException("Unity import expects a UnityConversionRequest.", nameof(request));
 
+        _logger.LogInformation("Starting Unity -> JDI conversion from '{InputPath}'", unityRequest.InputPath);
         ValidateUnityImport(unityRequest);
+        _logger.LogDebug("Validated Unity input folder '{InputPath}'", unityRequest.InputPath);
 
         IntermediateSongPackage package = _serverBuilder(unityRequest.InputPath);
+        _logger.LogInformation("Built intermediate metadata for Unity song '{MapName}'", package.Metadata.MapName ?? package.Metadata.Title ?? "song");
 
         string songName = DetermineSongName(package);
         string suggestedOutput = BuildSuggestedOutputFolder(unityRequest.OutputPath, songName);
         PrepareMaterializedDirectory(suggestedOutput);
+        _logger.LogDebug("Prepared JDI materialized directory '{MaterializedRoot}'", suggestedOutput);
 
         _assetMaterializer.Materialize(package, unityRequest.InputPath, suggestedOutput);
+        _logger.LogDebug("Writing JDI package metadata to '{MaterializedRoot}'", suggestedOutput);
         IntermediatePackageSerializer.WriteToFolder(package, suggestedOutput);
 
         JdiImportResult result = new(
@@ -37,6 +44,7 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
             MaterializedRootIsTemporary: false,
             SuggestedOutputFolder: suggestedOutput);
 
+        _logger.LogInformation("Unity -> JDI conversion completed for '{SongName}' at '{MaterializedRoot}'", songName, suggestedOutput);
         return Task.FromResult(result);
     }
 
@@ -61,8 +69,11 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
         if (string.IsNullOrWhiteSpace(importResult.MaterializedRoot))
             throw new NotSupportedException("Unity exports require a materialized intermediate package.");
 
+        _logger.LogInformation("Starting JDI -> Unity conversion for '{MapName}' into '{OutputPath}'", importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song", unityRequest.OutputPath);
+        _logger.LogDebug("Using Unity template folder '{TemplatePath}'", unityRequest.TemplatePath);
         IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, unityRequest, _logger);
         await converter.ConvertAsync();
+        _logger.LogInformation("JDI -> Unity conversion completed for '{MapName}'", importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song");
     }
 
     private static string DetermineSongName(IntermediateSongPackage package)

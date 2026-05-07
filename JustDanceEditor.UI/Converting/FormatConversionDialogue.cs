@@ -74,7 +74,9 @@ internal static class FormatConversionDialogue
             {
                 try
                 {
+                    LogImportStep(logger, sourceName, inputPath, intermediatePath);
                     JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+                    LogImportStepCompleted(logger, sourceName, importResult);
 
                     // Download online assets after successful conversion if requested
                     if (downloadOnlineAssets && importResult.Package is not null && importResult.MaterializedRoot is not null)
@@ -96,7 +98,9 @@ internal static class FormatConversionDialogue
 
                     try
                     {
+                        LogExportStep(logger, targetName, outputPath);
                         targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+                        LogExportStepCompleted(logger, targetName, outputPath);
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"Conversion {sourceName} -> {targetName} completed successfully.");
                         Console.ResetColor();
@@ -160,5 +164,50 @@ internal static class FormatConversionDialogue
         string path = Question.AskFolder(target.OutputPrompt, false);
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static void LogImportStep(ILogger logger, string sourceName, string inputPath, string intermediatePath)
+    {
+        if (sourceName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Loading JDI source package from '{InputPath}'", inputPath);
+            return;
+        }
+
+        logger.LogInformation("Starting {SourceFormat} -> JDI conversion from '{InputPath}' into '{IntermediatePath}'", sourceName, inputPath, intermediatePath);
+    }
+
+    private static void LogImportStepCompleted(ILogger logger, string sourceName, JdiImportResult importResult)
+    {
+        string mapName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
+        if (sourceName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Loaded JDI source package for '{MapName}'", mapName);
+            return;
+        }
+
+        logger.LogInformation("Completed {SourceFormat} -> JDI conversion for '{MapName}' at '{MaterializedRoot}'", sourceName, mapName, importResult.MaterializedRoot);
+    }
+
+    private static void LogExportStep(ILogger logger, string targetName, string outputPath)
+    {
+        if (targetName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Writing JDI package to '{OutputPath}'", outputPath);
+            return;
+        }
+
+        logger.LogInformation("Starting JDI -> {TargetFormat} conversion into '{OutputPath}'", targetName, outputPath);
+    }
+
+    private static void LogExportStepCompleted(ILogger logger, string targetName, string outputPath)
+    {
+        if (targetName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("JDI package write completed at '{OutputPath}'", outputPath);
+            return;
+        }
+
+        logger.LogInformation("Completed JDI -> {TargetFormat} conversion into '{OutputPath}'", targetName, outputPath);
     }
 }

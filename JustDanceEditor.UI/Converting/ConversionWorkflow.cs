@@ -1,4 +1,6 @@
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
@@ -11,10 +13,12 @@ namespace JustDanceEditor.UI.Converting;
 /// </summary>
 public sealed class ConversionWorkflow(
     IKeyedServiceProvider<IJdiFormat> formats,
+    IEnumerable<IJdiFormat> formatsEnumerable,
     IEnumerable<IFormatConversionStrategy> strategies,
     ILogger<ConversionWorkflow> logger) : IConversionWorkflow
 {
     private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
+    private readonly IJdiFormat[] _formatsEnumerable = [.. formatsEnumerable];
     private readonly IFormatConversionStrategy[] _strategies = [.. strategies];
     private readonly ILogger<ConversionWorkflow> _logger = logger;
 
@@ -26,114 +30,42 @@ public sealed class ConversionWorkflow(
 
             ConversionTarget target = ConversionTargetSelector.AskTarget(_strategies, "Select the export target for all songs");
 
-            string inputFolder = AskMultiInputFolder();
+            string inputFolder = AskBatchInputPath();
             string outputFolder = AskOutputFolder();
-            List<string> existingSongs = Directory.Exists(outputFolder)
-                ? [.. Directory.GetDirectories(outputFolder).Select(Path.GetFileName).OfType<string>()]
-                : [];
+            bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for all imported songs when available?") == 0;
+            HashSet<string> existingSongs = Directory.Exists(outputFolder)
+                ? new HashSet<string>(Directory.GetDirectories(outputFolder).Select(Path.GetFileName).OfType<string>(), StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            string[] inputSongParentFolders = Directory.Exists(Path.Combine(inputFolder, "cache")) && Directory.Exists(Path.Combine(inputFolder, "world"))
-                ? [inputFolder] // The provided path is a single song's root
-                : Directory.GetDirectories(inputFolder); // The provided path is a parent of multiple song roots
+            BatchInput[] inputs = DetectBatchInputs(inputFolder);
 
-            // Filter out common non-song folders
-            string[] ignoreFolders = ["bundle_nx", "patch_nx", "sku_nx"];
-            inputSongParentFolders = [.. inputSongParentFolders.Where(x => !ignoreFolders.Any(Path.GetFileName(x).Contains))];
-
-            if (inputSongParentFolders.Length == 0)
+            if (inputs.Length == 0)
             {
-                Console.WriteLine("No valid song folders found in the specified input path.");
+                Console.WriteLine("No compatible song inputs found in the specified path.");
                 return;
             }
 
-            Console.WriteLine($"\nFound {inputSongParentFolders.Length} potential song source(s). Starting processing...");
+            Console.WriteLine($"\nFound {inputs.Length} compatible source(s). Starting processing...");
             int convertedCount = 0;
             int skippedCount = 0;
 
-            foreach (string songParentFolder in inputSongParentFolders)
+            foreach (BatchInput input in inputs)
             {
-                Console.WriteLine($"\nProcessing source: {songParentFolder}");
-                string inputMapsFolder = Path.Combine(songParentFolder, "world", "maps");
+                Console.WriteLine($"\nProcessing {input.SourceFormat.DisplayName} source: {input.Path}");
 
-                if (!Directory.Exists(inputMapsFolder))
+                try
                 {
-                    _logger.LogWarning("Skipping '{SongParentFolder}' as it does not contain 'world/maps' subfolder.", songParentFolder);
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Skipping '{Path.GetFileName(songParentFolder)}': Missing 'world/maps' subfolder.");
+                    BatchConversionResult result = RunBatchConversion(input, outputFolder, target, existingSongs, downloadOnlineAssets);
+                    convertedCount += result.ConvertedCount;
+                    skippedCount += result.SkippedCount;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to convert source '{Source}': {Message}", input.Path, ex.Message);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"   Failed to convert source '{input.Path}': {ex.Message}");
                     Console.ResetColor();
                     skippedCount++;
-                    continue;
-                }
-
-                string[] songsInSource = Directory.GetDirectories(inputMapsFolder);
-
-                foreach (string songPath in songsInSource)
-                {
-                    string songName = Path.GetFileName(songPath);
-                    Console.WriteLine($"-- Checking song: {songName}");
-
-                    // Basic validation (can be expanded)
-                    string platformCacheFolder = Path.Combine(songParentFolder, "cache", "itf_cooked");
-                    if (!Directory.Exists(platformCacheFolder))
-                    {
-                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': Missing 'cache/itf_cooked' folder.", songName, songParentFolder);
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"   Skipped '{songName}': Missing platform cache folder.");
-                        Console.ResetColor();
-                        skippedCount++;
-                        continue;
-                    }
-
-                    string[] platformDirs = Directory.GetDirectories(platformCacheFolder);
-                    if (platformDirs.Length == 0)
-                    {
-                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No platform found in 'cache/itf_cooked'.", songName, songParentFolder);
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"   Skipped '{songName}': No platform found in cache.");
-                        Console.ResetColor();
-                        skippedCount++;
-                        continue;
-                    }
-                    // Assuming first platform dir is the one to use, could be more robust
-                    string platform = Path.GetFileName(platformDirs[0]);
-                    string songDescPath = Path.Combine(platformCacheFolder, platform, "world", "maps", songName, "songdesc.tpl.ckd"); // Common path, can vary
-
-                    if (!File.Exists(songDescPath) && !File.Exists(Path.Combine(songParentFolder, "jddb.json")))
-                    {
-                        _logger.LogWarning("Skipping song '{SongName}' in '{Parent}': No 'songdesc.tpl.ckd', '{Song}_mainscene.isc.ckd', or 'jddb.json' found.", songName, songParentFolder, songName);
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine($"   Skipped '{songName}': Missing essential song description file.");
-                        Console.ResetColor();
-                        skippedCount++;
-                        continue;
-                    }
-
-                    if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
-                    {
-                        _logger.LogInformation("Skipping song '{SongName}' as it is already present in the output location.", songName);
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine($"   Skipped '{songName}': Already exists in output.");
-                        Console.ResetColor();
-                        skippedCount++;
-                        continue;
-                    }
-
-                    Console.WriteLine($"   Converting '{songName}' to {target.DisplayName}...");
-
-                    try
-                    {
-                        RunBatchConversion(songParentFolder, outputFolder, songName, target);
-                        convertedCount++;
-                        Console.WriteLine($"   Conversion of '{songName}' finished.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to convert song '{SongName}': {Message}", songName, ex.Message);
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"   Failed to convert '{songName}': {ex.Message}");
-                        Console.ResetColor();
-                        skippedCount++;
-                    }
                 }
             }
 
@@ -150,72 +82,235 @@ public sealed class ConversionWorkflow(
         }
     }
 
-    private void RunBatchConversion(string inputFolder, string outputFolder, string songName, ConversionTarget target)
+    private BatchConversionResult RunBatchConversion(BatchInput input, string outputFolder, ConversionTarget target, ISet<string> existingSongs, bool downloadOnlineAssets)
     {
-        IFormatConversionStrategy sourceStrategy = GetStrategy("UbiArt");
+        IFormatConversionStrategy sourceStrategy = GetStrategy(input.SourceFormat.DisplayName);
         IFormatConversionStrategy targetStrategy = GetStrategy(target.FormatName);
 
-        IJdiFormat sourceFormat = _formats.Get(sourceStrategy.FormatName);
-        IJdiFormat targetFormat = _formats.Get(targetStrategy.FormatName);
+        IJdiFormat targetFormat = GetFormat(targetStrategy.FormatName);
 
-        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(inputFolder, outputFolder, songName);
-        ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(outputFolder, outputFolder, target, songName);
+        string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
+            ? outputFolder
+            : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileNameWithoutExtension(input.Path) ?? "Export");
 
-        JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(input.Path, intermediatePath);
 
         try
         {
+            bool converted = ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, importRequest, input.Path, outputFolder, target, existingSongs, downloadOnlineAssets);
+            return converted ? new(1, 0) : new(0, 1);
+        }
+        catch (MultipleSongsFoundException msEx)
+        {
+            int converted = 0;
+            int skipped = 0;
+
+            foreach (string songName in msEx.AvailableSongs)
+            {
+                if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine($"   Skipped '{songName}': Already exists in output.");
+                    Console.ResetColor();
+                    skipped++;
+                    continue;
+                }
+
+                ConversionRequestBase songRequest = sourceStrategy.CreateImportRequest(input.Path, intermediatePath, songName);
+                try
+                {
+                    if (ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, songRequest, input.Path, outputFolder, target, existingSongs, downloadOnlineAssets))
+                        converted++;
+                    else
+                        skipped++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to convert song '{SongName}' from '{Source}': {Message}", songName, input.Path, ex.Message);
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"   Failed to convert '{songName}': {ex.Message}");
+                    Console.ResetColor();
+                    skipped++;
+                }
+            }
+
+            return new(converted, skipped);
+        }
+    }
+
+    private bool ConvertSingleBatchSong(
+        IJdiFormat sourceFormat,
+        IJdiFormat targetFormat,
+        IFormatConversionStrategy targetStrategy,
+        ConversionRequestBase importRequest,
+        string inputPath,
+        string outputFolder,
+        ConversionTarget target,
+        ISet<string> existingSongs,
+        bool downloadOnlineAssets)
+    {
+        string importDestination = importRequest.OutputPath;
+        LogBatchImportStep(sourceFormat.DisplayName, importRequest.InputPath, importDestination);
+        JdiImportResult importResult = sourceFormat.ImportAsync(importRequest).GetAwaiter().GetResult();
+        string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? Path.GetFileNameWithoutExtension(inputPath) ?? "song";
+        LogBatchImportStepCompleted(sourceFormat.DisplayName, songName, importResult.MaterializedRoot);
+
+        if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine($"   Skipped '{songName}': Already exists in output.");
+            Console.ResetColor();
+            CleanupTemporaryImport(importResult);
+            return false;
+        }
+
+        Console.WriteLine($"   Converting '{songName}' to {target.DisplayName}...");
+
+        try
+        {
+            if (downloadOnlineAssets && importResult.MaterializedRoot is not null)
+                DownloadOnlineAssets(importResult);
+
+            ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(inputPath, outputFolder, target, songName);
+            LogBatchExportStep(target.FormatName, songName, outputFolder);
             targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
+            LogBatchExportStepCompleted(target.FormatName, songName, outputFolder);
+            Console.WriteLine($"   Conversion of '{songName}' finished.");
+            existingSongs.Add(songName);
+            return true;
         }
         finally
         {
-            if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
-                Directory.Delete(importResult.MaterializedRoot, true);
+            CleanupTemporaryImport(importResult);
         }
     }
 
     private IFormatConversionStrategy GetStrategy(string formatName) =>
         _strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
 
-    private static string AskMultiInputFolder()
+    private IJdiFormat GetFormat(string formatName)
     {
-        Console.WriteLine("Please provide the path to either:");
-        Console.WriteLine("1. A single extracted song folder (containing 'cache' and 'world' subdirectories).");
-        Console.WriteLine("2. A parent folder containing multiple such extracted song folders.");
-        string inputPath;
-        while (true)
+        if (_formats.TryGet(formatName, out IJdiFormat? keyedFormat) && keyedFormat is not null)
+            return keyedFormat;
+
+        return _formatsEnumerable.First(format => format.DisplayName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private BatchInput[] DetectBatchInputs(string inputPath)
+    {
+        if (Path.GetExtension(inputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+            return DetectInput(inputPath) is { } ipkInput ? [ipkInput] : [];
+
+        BatchInput? directInput = DetectInput(inputPath);
+        if (directInput is not null)
+            return [directInput];
+
+        string[] ignoreFolders = ["bundle_nx", "patch_nx", "sku_nx", "bin", "obj"];
+        return [.. Directory.GetDirectories(inputPath)
+            .Where(path => !ignoreFolders.Any(folder => Path.GetFileName(path).Contains(folder, StringComparison.OrdinalIgnoreCase)))
+            .Select(DetectInput)
+            .OfType<BatchInput>()];
+    }
+
+    private BatchInput? DetectInput(string path)
+    {
+        IJdiFormat[] detected = [.. _formatsEnumerable
+            .Where(format => format.CanImport)
+            .Where(format => format.Check(path))];
+
+        if (detected.Length == 0)
+            return null;
+
+        IJdiFormat sourceFormat = detected.Length == 1
+            ? detected[0]
+            : detected.FirstOrDefault(format => !format.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase)) ?? detected[0];
+
+        return new(path, sourceFormat);
+    }
+
+    private void DownloadOnlineAssets(JdiImportResult importResult)
+    {
+        try
         {
-            inputPath = Question.AskFolder("Enter the path to the source folder(s)", true);
-
-            if (Directory.Exists(Path.Combine(inputPath, "cache")) && Directory.Exists(Path.Combine(inputPath, "world")))
-            {
-                break; // Path is a single song's root
-            }
-
-            // Check if any subfolders contain cache and world
-            if (Directory.Exists(inputPath))
-            {
-                string[] subFolders = Directory.GetDirectories(inputPath);
-                bool found = false;
-                foreach (string subFolder in subFolders)
-                {
-                    if (Directory.Exists(Path.Combine(subFolder, "cache")) && Directory.Exists(Path.Combine(subFolder, "world")))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (found)
-                    break; // Path is a parent of multiple song roots
-            }
-
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Invalid folder structure. Ensure the folder (or its subfolders) contains 'cache' and 'world' directories.");
+            OnlineAssetDownloader downloader = new(_logger);
+            downloader.DownloadAssetsAsync(importResult.MaterializedRoot!, importResult.Package).GetAwaiter().GetResult();
+            Console.WriteLine("   Online assets downloaded successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"   Failed to download online assets: {ex.Message}");
             Console.ResetColor();
+            _logger.LogWarning(ex, "Online asset download failed: {Message}", ex.Message);
+        }
+    }
+
+    private static void CleanupTemporaryImport(JdiImportResult importResult)
+    {
+        if (importResult.MaterializedRootIsTemporary && importResult.MaterializedRoot is not null && Directory.Exists(importResult.MaterializedRoot))
+            Directory.Delete(importResult.MaterializedRoot, true);
+    }
+
+    private void LogBatchImportStep(string sourceName, string inputPath, string intermediatePath)
+    {
+        if (sourceName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Batch: loading JDI source package from '{InputPath}'", inputPath);
+            return;
         }
 
-        return inputPath;
+        _logger.LogInformation("Batch: starting {SourceFormat} -> JDI conversion from '{InputPath}' into '{IntermediatePath}'", sourceName, inputPath, intermediatePath);
+    }
+
+    private void LogBatchImportStepCompleted(string sourceName, string songName, string? materializedRoot)
+    {
+        if (sourceName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Batch: loaded JDI source package for '{SongName}'", songName);
+            return;
+        }
+
+        _logger.LogInformation("Batch: completed {SourceFormat} -> JDI conversion for '{SongName}' at '{MaterializedRoot}'", sourceName, songName, materializedRoot);
+    }
+
+    private void LogBatchExportStep(string targetName, string songName, string outputPath)
+    {
+        if (targetName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Batch: writing JDI package for '{SongName}' to '{OutputPath}'", songName, outputPath);
+            return;
+        }
+
+        _logger.LogInformation("Batch: starting JDI -> {TargetFormat} conversion for '{SongName}' into '{OutputPath}'", targetName, songName, outputPath);
+    }
+
+    private void LogBatchExportStepCompleted(string targetName, string songName, string outputPath)
+    {
+        if (targetName.Equals("JDI", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation("Batch: JDI package write completed for '{SongName}' at '{OutputPath}'", songName, outputPath);
+            return;
+        }
+
+        _logger.LogInformation("Batch: completed JDI -> {TargetFormat} conversion for '{SongName}' into '{OutputPath}'", targetName, songName, outputPath);
+    }
+
+    private static string AskBatchInputPath()
+    {
+        Console.WriteLine("Please provide the path to either:");
+        Console.WriteLine("1. A single song folder or IPK.");
+        Console.WriteLine("2. A parent folder containing multiple song folders.");
+        while (true)
+        {
+            string inputPath = Question.AskFolderOrIpk("Enter the path to the source folder(s) or IPK");
+
+            if (File.Exists(inputPath) || Directory.Exists(inputPath))
+                return inputPath;
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Input path not found.");
+            Console.ResetColor();
+        }
     }
 
     private static (string inputPath, string songName) AskInputFolder()
@@ -258,4 +353,8 @@ public sealed class ConversionWorkflow(
 
     private static string AskOutputFolder() =>
         Question.AskFolder("Please enter the full path for the output folder where converted files will be saved");
+
+    private sealed record BatchInput(string Path, IJdiFormat SourceFormat);
+
+    private readonly record struct BatchConversionResult(int ConvertedCount, int SkippedCount);
 }

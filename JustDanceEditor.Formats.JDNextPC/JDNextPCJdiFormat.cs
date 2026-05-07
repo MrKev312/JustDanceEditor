@@ -49,11 +49,19 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         ValidateInputFolder(jdNextRequest.InputPath);
 
         string inputRoot = jdNextRequest.InputPath;
-        _logger.LogInformation("Importing JDNext PC song from '{InputRoot}'", inputRoot);
+        _logger.LogInformation("Starting JDNext PC -> JDI conversion from '{InputRoot}'", inputRoot);
+        _logger.LogDebug("Reading JDNext PC source documents from '{InputRoot}'", inputRoot);
 
         JDNextSongDescription songDescription = ReadJson<JDNextSongDescription>(Path.Combine(inputRoot, "songdesc.json"));
         JDNextTimelineDocument timelineDocument = ReadJson<JDNextTimelineDocument>(Path.Combine(inputRoot, "timeline.json"));
         JDNextMusicTrackDocument musicTrack = ReadJson<JDNextMusicTrackDocument>(Path.Combine(inputRoot, "musictrack.json"));
+        _logger.LogInformation(
+            "Loaded JDNext PC metadata for '{Title}' by '{Artist}' with {MoveCount} move clip(s), {LyricCount} lyric clip(s), and {PictoCount} pictogram clip(s)",
+            songDescription.Title,
+            songDescription.Artist,
+            timelineDocument.Moves.Count,
+            timelineDocument.Lyrics.Count,
+            timelineDocument.Pictos.Count);
 
         TimelineStructureDocument structure = BuildTimelineStructure(musicTrack, timelineDocument);
         long nextId = 1;
@@ -91,11 +99,13 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
 
         string materializedRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, package.Metadata.MapName);
         PrepareMaterializedDirectory(materializedRoot);
+        _logger.LogDebug("Prepared JDI materialized directory '{MaterializedRoot}'", materializedRoot);
         _logger.LogInformation("Materializing JDNext PC assets into JDI package at '{OutputRoot}'", materializedRoot);
         await MaterializeAssetsAsync(inputRoot, materializedRoot, timelineDocument, cancellationToken);
+        _logger.LogDebug("Writing JDI package metadata to '{MaterializedRoot}'", materializedRoot);
         IntermediatePackageSerializer.WriteToFolder(package, materializedRoot);
 
-        _logger.LogInformation("JDNext PC import completed for '{MapName}'", package.Metadata.MapName);
+        _logger.LogInformation("JDNext PC -> JDI conversion completed for '{MapName}' at '{MaterializedRoot}'", package.Metadata.MapName, materializedRoot);
 
         return new JdiImportResult(
             package,
@@ -118,7 +128,8 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
 
         string outputRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, importResult.Package.Metadata.MapName);
         PrepareMaterializedDirectory(outputRoot);
-        _logger.LogInformation("Exporting '{MapName}' to JDNext PC at '{OutputRoot}'", importResult.Package.Metadata.MapName, outputRoot);
+        _logger.LogInformation("Starting JDI -> JDNext PC conversion for '{MapName}' into '{OutputRoot}'", importResult.Package.Metadata.MapName, outputRoot);
+        _logger.LogDebug("Building JDNext PC songdesc, musictrack, and timeline documents");
 
         JDNextSongDescription songDescription = BuildSongDescription(importResult.Package.Metadata);
         JDNextMusicTrackDocument musicTrack = BuildMusicTrack(importResult.Package.TimelineStructure);
@@ -129,7 +140,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         WriteJson(Path.Combine(outputRoot, "timeline.json"), timeline);
 
         await ExportAssetsAsync(importResult.Package, importResult.MaterializedRoot, outputRoot, cancellationToken);
-        _logger.LogInformation("JDNext PC export completed for '{MapName}'", importResult.Package.Metadata.MapName);
+        _logger.LogInformation("JDI -> JDNext PC conversion completed for '{MapName}' at '{OutputRoot}'", importResult.Package.Metadata.MapName, outputRoot);
     }
 
     private static void ValidateInputFolder(string inputPath)

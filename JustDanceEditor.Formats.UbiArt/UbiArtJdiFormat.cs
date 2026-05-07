@@ -37,19 +37,24 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (request is not UbiArtConversionRequest ubiRequest)
             throw new ArgumentException("UbiArt import expects a UbiArtConversionRequest.", nameof(request));
 
+        _logger.LogInformation("Starting UbiArt -> JDI conversion from '{InputPath}'", ubiRequest.InputPath);
+
         // Detect engine/profile and configure filesystem accordingly BEFORE validation so that file lookups work correctly
         UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
         _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.Platform, profile.EngineVersion);
 
         LayeredFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);
         fileSystem.Initialize();
+        _logger.LogDebug("Initialized layered filesystem for UbiArt import from '{InputPath}'", ubiRequest.InputPath);
 
         // Resolve selected song (may call into UI via request.SelectSongAsync)
         string chosenSong = await ResolveSongAsync(ubiRequest, fileSystem);
         if (!string.IsNullOrWhiteSpace(chosenSong))
             fileSystem.UpdateSongName(chosenSong);
+        _logger.LogDebug("Selected UbiArt song '{SongName}' for import", fileSystem.SongName);
 
         ValidateUbiArtImport(ubiRequest, fileSystem);
+        _logger.LogDebug("Validated UbiArt input for '{SongName}'", fileSystem.SongName);
 
         // Log song name and platform here (moved from FileSystem internals)
         if (!string.IsNullOrWhiteSpace(fileSystem.SongName))
@@ -92,9 +97,13 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
         string outputFolder = _io.Combine(ubiRequest.OutputPath, context.SongData.Name);
         PrepareOutputDirectory(outputFolder);
+        _logger.LogInformation("Materializing UbiArt assets into JDI package at '{OutputFolder}'", outputFolder);
 
         await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, TextureService);
+        _logger.LogDebug("Writing JDI package metadata to '{OutputFolder}'", outputFolder);
         IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
+
+        _logger.LogInformation("UbiArt -> JDI conversion completed for '{SongName}' at '{OutputFolder}'", context.SongData.Name, outputFolder);
 
         return new JdiImportResult(
             context.IntermediatePackage,
@@ -139,14 +148,25 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (request is not UbiArtConversionRequest ubiRequest)
             throw new ArgumentException("UbiArt export expects a UbiArtConversionRequest.", nameof(request));
 
+        ArgumentNullException.ThrowIfNull(importResult);
+        ArgumentNullException.ThrowIfNull(importResult.Package);
+
         // Create subfolder with {songname}_{platform} pattern in lowercase
         string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
         string platformName = ubiRequest.ExportPlatform.ToString().ToLowerInvariant();
         string folderName = $"{songName.ToLowerInvariant()}_{platformName}";
         string outputFolder = Path.Combine(ubiRequest.OutputPath, folderName);
 
+        _logger.LogInformation(
+            "Starting JDI -> UbiArt conversion for '{SongName}' ({Platform}, {EngineVersion}) into '{OutputFolder}'",
+            songName,
+            ubiRequest.ExportPlatform,
+            ubiRequest.ExportEngineVersion,
+            outputFolder);
+
         // Ensure output directory exists
         _io.CreateDirectory(outputFolder);
+        _logger.LogDebug("Prepared UbiArt output directory '{OutputFolder}'", outputFolder);
 
         // Convert request enums to UbiArt Services enums
         UbiArtPlatform exportPlatform = ubiRequest.ExportPlatform;
@@ -171,6 +191,8 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             exportPlatform,
             exportEngineVersion,
             exportProfile.Layout);
+
+        _logger.LogInformation("JDI -> UbiArt conversion completed for '{SongName}' at '{OutputFolder}'", songName, outputFolder);
     }
 
     private void PrepareOutputDirectory(string targetFolder)
