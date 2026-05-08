@@ -30,7 +30,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 
     #region Lua Content Generators
 
-    public byte[] GenerateSongDesc(IntermediateSongPackage package)
+    public object GenerateSongDesc(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string artist = EscapeLuaString(package.Metadata.Artist);
@@ -133,10 +133,10 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("}");
         sb.AppendLine();
 
-        return ToBytes(sb.ToString());
+        return sb.ToString();
     }
 
-    public byte[] GenerateMusicTrack(IntermediateSongPackage package)
+    public object GenerateMusicTrack(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -166,7 +166,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateDanceTape(IntermediateSongPackage package)
+    public object GenerateDanceTape(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> allClips = [];
@@ -280,7 +280,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(LuaTableSerializer.Serialize(danceTape));
     }
 
-    public byte[] GenerateKaraokeTape(IntermediateSongPackage package)
+    public object GenerateKaraokeTape(IntermediateSongPackage package)
     {
         var clips = package.Lyrics.Clips.Select(c => new
         {
@@ -313,7 +313,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(LuaTableSerializer.Serialize(karaokeTape));
     }
 
-    public byte[] GenerateTapeCaseTpl(string mapName, string tapeType)
+    public object GenerateTapeCaseTpl(string mapName, string tapeType)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         string extension = tapeType == "dance" ? "dtape" : "ktape";
@@ -357,7 +357,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateSequenceTpl()
+    public object GenerateSequenceTpl()
     {
         StringBuilder sb = new();
         sb.AppendLine("params =");
@@ -380,7 +380,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateSoundTape(string mapName)
+    public object GenerateSoundTape(string mapName)
     {
         var stape = new
         {
@@ -396,7 +396,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(LuaTableSerializer.Serialize(stape));
     }
 
-    public byte[] GenerateAmbTpl(string mapName)
+    public object GenerateAmbTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
@@ -445,7 +445,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateMainSequenceTpl(string mapName)
+    public object GenerateMainSequenceTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
@@ -488,7 +488,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateSgs()
+    public object GenerateSgs()
     {
         StringBuilder sb = new();
         sb.AppendLine("settings =");
@@ -507,7 +507,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateGenericActor(string className, string luaPath)
+    public object GenerateGenericActor(string className, string luaPath)
     {
         StringBuilder sb = new();
         sb.AppendLine("params =");
@@ -528,7 +528,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateAutodanceTape(IntermediateSongPackage package)
+    public object GenerateAutodanceTape(IntermediateSongPackage package)
     {
         StringBuilder sb = new();
         sb.AppendLine("params =");
@@ -566,7 +566,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateMainSequenceTape(IntermediateSongPackage package)
+    public object GenerateMainSequenceTape(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> clips = [];
@@ -623,7 +623,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 
     #region XML Scene Generators (XML is the same for Uncooked, not JSON)
 
-    public byte[] GenerateMainScene(IntermediateSongPackage package)
+    public object GenerateMainScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -670,7 +670,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateAudioScene(IntermediateSongPackage package)
+    public object GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
@@ -693,7 +693,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateTimelineScene(IntermediateSongPackage package)
+    public object GenerateTimelineScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -724,7 +724,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateCinematicsScene(IntermediateSongPackage package)
+    public object GenerateCinematicsScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -748,7 +748,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateMenuArtScene(IntermediateSongPackage package)
+    public object GenerateMenuArtScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -810,7 +810,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateAutodanceScene(IntermediateSongPackage package)
+    public object GenerateAutodanceScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -834,7 +834,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateGraphScene(string mapName)
+    public object GenerateGraphScene(string mapName)
     {
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
@@ -848,7 +848,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateVideoScene(string mapName)
+    public object GenerateVideoScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
@@ -868,7 +868,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(content);
     }
 
-    public byte[] GenerateVideoMapPreviewScene(string mapName)
+    public object GenerateVideoMapPreviewScene(string mapName)
     {
         // Uncooked typically doesn't need map preview scenes, but provide a basic one
         return GenerateVideoScene(mapName);
@@ -878,7 +878,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 
     #region Binary/Special Generators (return empty for uncooked as these are typically cooked-only)
 
-    public byte[] GenerateVideoPlayerActor(string mapName, bool isPreview)
+    public object GenerateVideoPlayerActor(string mapName, bool isPreview)
     {
         // Not typically needed for Uncooked - return empty actor
         string mapNameLower = mapName.ToLowerInvariant();
@@ -897,13 +897,13 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateMpd()
+    public object GenerateMpd()
     {
         // MPD files are for cooked platforms - return empty for uncooked
-        return [];
+        return Array.Empty<byte>();
     }
 
-    public byte[] GenerateAutodanceActor(string mapName)
+    public object GenerateAutodanceActor(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         StringBuilder sb = new();
@@ -924,7 +924,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         return ToBytes(sb.ToString());
     }
 
-    public byte[] GenerateMenuArtActor(string textureName, string mapName)
+    public object GenerateMenuArtActor(string textureName, string mapName)
     {
         // Menu art actors are not typically needed for uncooked
         string mapNameLower = mapName.ToLowerInvariant();
@@ -943,7 +943,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("    },");
         sb.AppendLine("  },");
         sb.AppendLine("}");
-        return ToBytes(sb.ToString());
+        return sb.ToString();
     }
 
     #endregion

@@ -545,8 +545,7 @@ public partial class TimelineTrackPanel
 
         ContextMenu menu = new();
         TimelineEditorViewModel? timeline = GetTimelineVM();
-        TrackViewModel? track = DataContext as TrackViewModel;
-        if (track == null || timeline == null)
+        if (DataContext is not TrackViewModel track || timeline == null)
         {
             MenuItem addFallback = new() { Header = "Add Clip" };
             addFallback.Click += async (_, _) => await ShowCreateClipMenuAsync(e);
@@ -637,7 +636,7 @@ public partial class TimelineTrackPanel
             .Where(c => c.IsSelected)];
 
         // Flip each selected pictogram individually
-        foreach (var clip in selectedPictograms)
+        foreach (PictogramClipViewModel clip in selectedPictograms)
         {
             await timeline.FlipPictogramAsync(clip.PictogramId, clip);
         }

@@ -116,7 +116,7 @@ public partial class LibraryToolView : UserControl
                         if (item.Id.EndsWith("_flipped", StringComparison.OrdinalIgnoreCase))
                             item.Id = item.Id[..^"_flipped".Length];
                         else
-                            item.Id = item.Id + "_flipped";
+                            item.Id += "_flipped";
 
                         item.Name = item.Id;
                     }

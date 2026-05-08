@@ -67,7 +67,7 @@ public class TimelineEditorViewModelTests
         TimelineEditorViewModel vm = CreateWithoutMedia(package);
 
         // assert: track exists and is before lyrics
-        List<string> titles = new();
+        List<string> titles = [];
         foreach (TrackViewModel t in vm.Tracks)
             titles.Add(t.Title);
 

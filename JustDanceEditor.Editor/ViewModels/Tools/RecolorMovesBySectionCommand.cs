@@ -51,8 +51,8 @@ public class RecolorMovesBySectionCommand : IRunCommand
             return;
 
         // For each MoveId, compute total overlap per section type across ALL instances
-        Dictionary<string, SongSectionType> baseSectionForMove = new(StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, Color> baseColorForMove = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, SongSectionType> baseSectionForMove = [with(StringComparer.OrdinalIgnoreCase)];
+        Dictionary<string, Color> baseColorForMove = [with(StringComparer.OrdinalIgnoreCase)];
 
         foreach (IGrouping<string, MoveClipViewModel> grp in allMoveClips.GroupBy(c => c.MoveId, StringComparer.OrdinalIgnoreCase))
         {
@@ -79,7 +79,7 @@ public class RecolorMovesBySectionCommand : IRunCommand
         }
 
         // We'll compute colors and apply them across both body types, but determine brightness alternation per body type sequence
-        Dictionary<string, Color> assigned = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, Color> assigned = [with(StringComparer.OrdinalIgnoreCase)];
 
         // Helper to get bright/dark variant
         static Color Variant(Color baseColor, bool brighten) => brighten ? Brighten(baseColor, 0.20) : Darken(baseColor, 0.20);

@@ -319,7 +319,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         }
 
         // also include any pictogram IDs referenced by clips but missing on disk
-        HashSet<string> usedIds = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> usedIds = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (TrackViewModel track in timeline.Tracks)
         {
             foreach (PictogramClipViewModel clip in track.Clips.OfType<PictogramClipViewModel>())

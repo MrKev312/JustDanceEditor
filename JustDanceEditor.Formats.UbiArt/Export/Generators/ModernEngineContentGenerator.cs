@@ -18,10 +18,11 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     };
 
     private byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
+    private static string ToText(object content) => Encoding.UTF8.GetString(UbiArtEngineContentSerializer.Serialize(content));
 
     #region JSON/Lua Generators
 
-    public byte[] GenerateSongDesc(IntermediateSongPackage package)
+    public object GenerateSongDesc(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         var songDesc = new
@@ -76,7 +77,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(songDesc, _jsonOptions));
     }
 
-    public byte[] GenerateMusicTrack(IntermediateSongPackage package)
+    public object GenerateMusicTrack(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -120,7 +121,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(musicTrack, _jsonOptions));
     }
 
-    public byte[] GenerateDanceTape(IntermediateSongPackage package)
+    public object GenerateDanceTape(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> clips = [];
@@ -197,7 +198,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(dtape, _jsonOptions));
     }
 
-    public byte[] GenerateKaraokeTape(IntermediateSongPackage package)
+    public object GenerateKaraokeTape(IntermediateSongPackage package)
     {
         var clips = package.Lyrics.Clips.Select(lyric => new
         {
@@ -230,7 +231,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(ktape, _jsonOptions));
     }
 
-    public byte[] GenerateTapeCaseTpl(string mapName, string tapeType)
+    public object GenerateTapeCaseTpl(string mapName, string tapeType)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         string label = tapeType == "dance" ? "tml_motion" : "tml_karaoke";
@@ -272,7 +273,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public byte[] GenerateSequenceTpl()
+    public object GenerateSequenceTpl()
     {
         var tpl = new
         {
@@ -288,7 +289,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public byte[] GenerateSoundTape(string mapName)
+    public object GenerateSoundTape(string mapName)
     {
         var stape = new
         {
@@ -302,7 +303,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(stape, _jsonOptions));
     }
 
-    public byte[] GenerateAmbTpl(string mapName)
+    public object GenerateAmbTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         var tpl = new
@@ -363,7 +364,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public byte[] GenerateMainSequenceTpl(string mapName)
+    public object GenerateMainSequenceTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         var tpl = new
@@ -402,7 +403,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public byte[] GenerateSgs()
+    public object GenerateSgs()
     {
         var sgs = new
         {
@@ -420,7 +421,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(sgs, _jsonOptions));
     }
 
-    public byte[] GenerateGenericActor(string className, string luaPath)
+    public object GenerateGenericActor(string className, string luaPath)
     {
         var actor = new
         {
@@ -438,7 +439,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(actor, _jsonOptions));
     }
 
-    public byte[] GenerateAutodanceTape(IntermediateSongPackage package)
+    public object GenerateAutodanceTape(IntermediateSongPackage package)
     {
         var tpl = new
         {
@@ -471,7 +472,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(JsonSerializer.Serialize(tpl, _jsonOptions));
     }
 
-    public byte[] GenerateMainSequenceTape(IntermediateSongPackage package)
+    public object GenerateMainSequenceTape(IntermediateSongPackage package)
     {
         List<object> clips = [];
         long clipIdCounter = 12345;
@@ -533,7 +534,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 
     #region XML Scene Generators
 
-    public byte[] GenerateMainScene(IntermediateSongPackage package)
+    public object GenerateMainScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -549,7 +550,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateAudioScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateAudioScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -557,7 +558,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateCinematicsScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateCinematicsScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -565,7 +566,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_GRAPH"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/graph/{mapNameLower}_graph.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateGraphScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateGraphScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -573,7 +574,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateTimelineScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateTimelineScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -581,7 +582,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_VIDEO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateVideoScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateVideoScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -596,7 +597,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_menuart"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/menuart/{mapNameLower}_menuart.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""3"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateMenuArtScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>", "")}
+					{ToText(GenerateMenuArtScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -604,7 +605,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUTODANCE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -0.033823"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 				<SCENE>
-					{Encoding.UTF8.GetString(GenerateAutodanceScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
+					{ToText(GenerateAutodanceScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
 				</SCENE>
 			</SubSceneActor>
 		</ACTORS>
@@ -624,7 +625,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateAudioScene(IntermediateSongPackage package)
+    public object GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -638,7 +639,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateTimelineScene(IntermediateSongPackage package)
+    public object GenerateTimelineScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -652,7 +653,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateCinematicsScene(IntermediateSongPackage package)
+    public object GenerateCinematicsScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -665,7 +666,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateMenuArtScene(IntermediateSongPackage package)
+    public object GenerateMenuArtScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -687,7 +688,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateAutodanceScene(IntermediateSongPackage package)
+    public object GenerateAutodanceScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -701,7 +702,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateGraphScene(string mapName)
+    public object GenerateGraphScene(string mapName)
     {
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
 <root>
@@ -713,7 +714,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateVideoScene(string mapName)
+    public object GenerateVideoScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -727,7 +728,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         return ToBytes(content);
     }
 
-    public byte[] GenerateVideoMapPreviewScene(string mapName)
+    public object GenerateVideoMapPreviewScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
         string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
@@ -744,211 +745,24 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 
     #region Binary Generators
 
-    public byte[] GenerateVideoPlayerActor(string mapName, bool isPreview)
+    public object GenerateVideoPlayerActor(string mapName, bool isPreview)
     {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-        string mapNameLower = mapName.ToLowerInvariant();
-        string videoPath = $"world/maps/{mapNameLower}/videoscoach/";
-        string webmFile = $"{mapNameLower}.webm";
-        string mpdFile = $"{mapNameLower}.mpd";
-        string tplPath = "world/_common/videoscreen/";
-        string tplName = isPreview ? "video_player_map_preview.tpl" : "video_player_main.tpl";
-
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-        // Transform (identity)
-        writer.Write((uint)0);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        // More transform
-        writer.Write((uint)0);
-        writer.Write((uint)0);
-        writer.Write((uint)0);
-        WriteBigEndian32(writer, 1);
-        // Padding
-        writer.Write(new byte[16]);
-        // Flags
-        writer.Write((uint)0);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-
-        // TPL Name/Path
-        WriteString(writer, tplName);
-        WriteString(writer, tplPath);
-
-        // Hash
-        if (isPreview)
-        {
-            writer.Write([0xD3, 0x94, 0x54, 0x28]);
-        }
-        else
-        {
-            writer.Write([0xF5, 0xD5, 0xE8, 0xF2]);
-        }
-
-        // Padding & Component Marker
-        writer.Write(new byte[12]);
-        writer.Write([0x00, 0x01]);
-        // Hash
-        writer.Write([0x12, 0x63, 0xDA, 0xD9]);
-        writer.Write((uint)0);
-
-        // WebM - Corrected null handling: No extra null byte after string structure
-        WriteString(writer, webmFile);
-        writer.Write((byte)0x00); // 1 padding byte
-        WriteString(writer, videoPath);
-
-        // Hash
-        writer.Write([0x56, 0x0F, 0xF1, 0x7A]);
-        writer.Write(new byte[8]); // 8 bytes padding
-
-        // MPD
-        WriteString(writer, mpdFile);
-        writer.Write((byte)0x00); // 1 padding byte
-        // Previously wrote extra 0x00 here, removing it to match size
-        WriteString(writer, videoPath);
-
-        // Final Hash/Padding
-        writer.Write([0x26, 0x8C, 0x76, 0x14]);
-        writer.Write(new byte[8]);
-
-        if (isPreview)
-        {
-            WriteString(writer, mapName);
-        }
-
-        return ms.ToArray();
+        return new UbiArtVideoPlayerActorFile(mapName, isPreview);
     }
 
-    public byte[] GenerateMpd()
+    public object GenerateMpd()
     {
-        return [0x00, 0x00, 0x00, 0x01, 0x00, 0x42, 0x4B, 0xAE, 0x14, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        return new UbiArtMpdFile();
     }
 
-    public byte[] GenerateAutodanceActor(string mapName)
+    public object GenerateAutodanceActor(string mapName)
     {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        writer.Write(new byte[24]);
-        WriteBigEndian32(writer, 1);
-        writer.Write(new byte[20]);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-
-        WriteString(writer, $"{mapNameLower}_autodance.tpl");
-        WriteString(writer, $"world/maps/{mapNameLower}/autodance/");
-
-        writer.Write([0xD7, 0x50, 0x31, 0x3C]);
-        writer.Write(new byte[11]);
-        writer.Write((byte)0x01);
-        writer.Write([0x67, 0xB8, 0xBB, 0x77]);
-
-        return ms.ToArray();
+        return new UbiArtAutodanceActorFile(mapName);
     }
 
-    public virtual byte[] GenerateMenuArtActor(string textureName, string mapName)
+    public virtual object GenerateMenuArtActor(string textureName, string mapName)
     {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        writer.Write([0, 0, 0, 1, 0, 0, 0, 0]);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        writer.Write(new byte[12]);
-        WriteBigEndian32(writer, 1);
-        writer.Write(new byte[16]);
-        writer.Write((uint)0);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-
-        WriteString(writer, "tpl_materialgraphiccomponent2d.tpl");
-        WriteString(writer, "enginedata/actortemplates/");
-
-        writer.Write([0xB4, 0xA8, 0x17, 0xA8]);
-        writer.Write(new byte[8]);
-        WriteBigEndian32(writer, 1);
-        writer.Write([0x72, 0xB6, 0x1F, 0xC5]);
-
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-
-        writer.Write(new byte[16]);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-        writer.Write([0, 0, 0]);
-        writer.Write(textureName.EndsWith("_map_bkg") ? (byte)0x01 : (byte)0x06);
-        writer.Write(new byte[8]);
-
-        WriteString(writer, $"{textureName}.tga");
-        WriteString(writer, $"world/maps/{mapNameLower}/menuart/textures/");
-
-        // Texture Hash
-        if (textureName.EndsWith("_map_bkg"))
-            writer.Write([0x75, 0xB8, 0xD3, 0x38]);
-        else
-            writer.Write([0xCA, 0x88, 0x8F, 0xC5]);
-
-        writer.Write(new byte[8]);
-        for (int i = 0; i < 8; i++)
-        {
-            writer.Write((uint)0);
-            writer.Write(0xFFFFFFFF);
-            writer.Write((long)0);
-        }
-
-        writer.Write(new byte[8]);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-
-        WriteString(writer, "multitexture_1layer.msh");
-        WriteString(writer, "world/_common/matshader/");
-
-        writer.Write([0xD7, 0xE7, 0xD9, 0xC7]);
-        writer.Write(new byte[40]);
-        WriteBigEndianFloat(writer, 1.0f);
-        writer.Write(0xFFFFFFFF);
-        writer.Write(0xFFFFFFFF);
-        writer.Write(new byte[12]);
-        WriteBigEndianFloat(writer, 1.0f);
-        writer.Write(new byte[11]);
-        writer.Write((byte)0x01);
-
-        return ms.ToArray();
-    }
-
-    protected static void WriteString(BinaryWriter w, string s)
-    {
-        byte[] b = Encoding.UTF8.GetBytes(s);
-        w.Write((byte)0);
-        w.Write((byte)0);
-        w.Write((byte)0);
-        w.Write((byte)b.Length);
-        w.Write(b);
-    }
-
-    protected static void WriteBigEndian32(BinaryWriter w, uint val)
-    {
-        w.Write((byte)((val >> 24) & 0xFF));
-        w.Write((byte)((val >> 16) & 0xFF));
-        w.Write((byte)((val >> 8) & 0xFF));
-        w.Write((byte)(val & 0xFF));
-    }
-
-    protected static void WriteBigEndianFloat(BinaryWriter w, float val)
-    {
-        byte[] b = BitConverter.GetBytes(val);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(b);
-        w.Write(b);
+        return new UbiArtMenuArtActorFile(textureName, mapName, UbiArtMenuArtActorVersion.Modern);
     }
 
     private static float[] ConvertColorToArray(string hexColor)

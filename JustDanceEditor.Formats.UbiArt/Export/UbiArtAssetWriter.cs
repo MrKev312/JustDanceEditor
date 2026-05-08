@@ -300,9 +300,9 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         }
 
         // 2. Coach Textures (1024x1024)
-        await Parallel.ForEachAsync(Enumerable.Range(1, package.Metadata.CoachCount), async (coachIndex, _) =>
+        await Parallel.ForEachAsync(Enumerable.Range(1, package.Metadata.CoachCount), async (coachIndex, cancellationToken) =>
         {
-            using Image<Bgra32> coach = await imageService.GetCoachAsync(coachIndex, width: 1024, height: 1024, useFadeEffect: true);
+            using Image<Bgra32> coach = await imageService.GetCoachAsync(coachIndex, width: 1024, height: 1024, useFadeEffect: true, cancellationToken: cancellationToken);
             await WriteMenuArtTextureAsync($"{mapNameLower}_coach_{coachIndex}", coach, menuRel, actorsRel, ctx, exporter, generator, package, platform);
         });
 

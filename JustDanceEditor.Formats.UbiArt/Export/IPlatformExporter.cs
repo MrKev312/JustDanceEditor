@@ -16,13 +16,13 @@ public interface IPlatformExporter
     /// Writes a generated engine resource file (SongDesc, Tapes, ISCs).
     /// Handles platform-specific post-processing (e.g. null-termination for text-based platforms, .ckd extensions).
     /// </summary>
-    Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content);
+    Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content);
 
     /// <summary>
     /// Writes a raw binary file (e.g. specific pre-compiled actors, binary buffers).
     /// Handles platform-specific extensions (e.g. .ckd).
     /// </summary>
-    Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data);
+    Task WriteBinaryFileAsync(ExportContext context, string relativePath, object data);
 
     /// <summary>
     /// Writes a texture. Handles resizing verification, format conversion (TGA vs XTX vs GTX), and headers.

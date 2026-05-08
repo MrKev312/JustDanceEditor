@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
 
 using JustDanceEditor.Editor.Views.Timeline;
 
@@ -26,7 +27,7 @@ public class TimelineTrackPanelTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OpenAddClipMenu_ClosesPreviousMenu()
     {
         // arrange: stub out an existing menu and verify close is invoked
@@ -45,7 +46,7 @@ public class TimelineTrackPanelTests
         Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OpenAddClipMenu_ReplacesCurrentMenu()
     {
         TimelineTrackPanel panel = new();

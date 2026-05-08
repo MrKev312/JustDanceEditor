@@ -8,34 +8,34 @@ namespace JustDanceEditor.Formats.UbiArt.Export;
 public interface IEngineContentGenerator
 {
     // Content Generators (Text or Binary)
-    byte[] GenerateSongDesc(IntermediateSongPackage package);
-    byte[] GenerateMusicTrack(IntermediateSongPackage package);
-    byte[] GenerateDanceTape(IntermediateSongPackage package);
-    byte[] GenerateKaraokeTape(IntermediateSongPackage package);
-    byte[] GenerateAutodanceTape(IntermediateSongPackage package);
-    byte[] GenerateMainSequenceTape(IntermediateSongPackage package);
-    byte[] GenerateTapeCaseTpl(string mapName, string tapeType); // e.g. tapeType="dance"
-    byte[] GenerateSequenceTpl();
-    byte[] GenerateSoundTape(string mapName);
-    byte[] GenerateAmbTpl(string mapName);
-    byte[] GenerateMainSequenceTpl(string mapName);
-    byte[] GenerateSgs();
+    object GenerateSongDesc(IntermediateSongPackage package);
+    object GenerateMusicTrack(IntermediateSongPackage package);
+    object GenerateDanceTape(IntermediateSongPackage package);
+    object GenerateKaraokeTape(IntermediateSongPackage package);
+    object GenerateAutodanceTape(IntermediateSongPackage package);
+    object GenerateMainSequenceTape(IntermediateSongPackage package);
+    object GenerateTapeCaseTpl(string mapName, string tapeType); // e.g. tapeType="dance"
+    object GenerateSequenceTpl();
+    object GenerateSoundTape(string mapName);
+    object GenerateAmbTpl(string mapName);
+    object GenerateMainSequenceTpl(string mapName);
+    object GenerateSgs();
 
     // Actor Generators (JSON wrapper for .act files or Binary .act)
-    byte[] GenerateGenericActor(string className, string luaPath);
+    object GenerateGenericActor(string className, string luaPath);
 
     // Scene Generators (ISC XML or Binary)
-    byte[] GenerateMainScene(IntermediateSongPackage package);
-    byte[] GenerateAudioScene(IntermediateSongPackage package);
-    byte[] GenerateTimelineScene(IntermediateSongPackage package);
-    byte[] GenerateCinematicsScene(IntermediateSongPackage package);
-    byte[] GenerateMenuArtScene(IntermediateSongPackage package);
-    byte[] GenerateAutodanceScene(IntermediateSongPackage package);
-    byte[] GenerateGraphScene(string mapName);
-    byte[] GenerateVideoScene(string mapName);
-    byte[] GenerateVideoMapPreviewScene(string mapName);
-    byte[] GenerateVideoPlayerActor(string mapName, bool isPreview);
-    byte[] GenerateMpd();
-    byte[] GenerateAutodanceActor(string mapName);
-    byte[] GenerateMenuArtActor(string textureName, string mapName);
+    object GenerateMainScene(IntermediateSongPackage package);
+    object GenerateAudioScene(IntermediateSongPackage package);
+    object GenerateTimelineScene(IntermediateSongPackage package);
+    object GenerateCinematicsScene(IntermediateSongPackage package);
+    object GenerateMenuArtScene(IntermediateSongPackage package);
+    object GenerateAutodanceScene(IntermediateSongPackage package);
+    object GenerateGraphScene(string mapName);
+    object GenerateVideoScene(string mapName);
+    object GenerateVideoMapPreviewScene(string mapName);
+    object GenerateVideoPlayerActor(string mapName, bool isPreview);
+    object GenerateMpd();
+    object GenerateAutodanceActor(string mapName);
+    object GenerateMenuArtActor(string textureName, string mapName);
 }

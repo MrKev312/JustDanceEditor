@@ -22,7 +22,7 @@ public static class SongStructureBuilder
     {
         double beatDurationSeconds = 60.0 / bpm;
         int count = endBeat - startBeat + 1;
-        List<int> markers = new(count);
+        List<int> markers = [with(count)];
         for (int i = 0; i < count; i++)
             markers.Add((int)(i * beatDurationSeconds * SampleRate));
         return markers;

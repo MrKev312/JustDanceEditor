@@ -30,7 +30,8 @@ public class JDNextPCJdiFormatTests
 
             await format.ExportAsync(
                 new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
-                new JDNextPCConversionRequest(packageRoot, outputRoot));
+                new JDNextPCConversionRequest(packageRoot, outputRoot),
+                cancellationToken: TestContext.Current.CancellationToken);
 
             string songRoot = Path.Combine(outputRoot, "makeba");
             Assert.True(Directory.Exists(songRoot));
@@ -76,7 +77,7 @@ public class JDNextPCJdiFormatTests
         {
             CreateJdNextInput(jdNextRoot);
             JDNextPCJdiFormat format = CreateFormat();
-            JdiImportResult result = await format.ImportAsync(new JDNextPCConversionRequest(jdNextRoot, outputRoot));
+            JdiImportResult result = await format.ImportAsync(new JDNextPCConversionRequest(jdNextRoot, outputRoot), cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.Equal("JDNext PC", result.SourceFormat);
             Assert.Equal("Synthetic Song", result.Package.Metadata.Title);
@@ -139,7 +140,8 @@ public class JDNextPCJdiFormatTests
 
             await format.ExportAsync(
                 new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
-                new JDNextPCConversionRequest(packageRoot, outputRoot));
+                new JDNextPCConversionRequest(packageRoot, outputRoot),
+                cancellationToken: TestContext.Current.CancellationToken);
 
             string exportedVideoPath = Path.Combine(outputRoot, "videopassthrough", "media", "videopassthrough.webm");
             Assert.True(File.Exists(exportedVideoPath));
@@ -173,7 +175,8 @@ public class JDNextPCJdiFormatTests
 
             await format.ExportAsync(
                 new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
-                new JDNextPCConversionRequest(packageRoot, outputRoot));
+                new JDNextPCConversionRequest(packageRoot, outputRoot),
+                cancellationToken: TestContext.Current.CancellationToken);
 
             MediaCall videoCall = Assert.Single(mediaProcessor.Calls, call => call.Output.EndsWith(".webm", StringComparison.OrdinalIgnoreCase));
             Assert.Equal(Path.Combine(videoRoot, "large.webm"), videoCall.Input);

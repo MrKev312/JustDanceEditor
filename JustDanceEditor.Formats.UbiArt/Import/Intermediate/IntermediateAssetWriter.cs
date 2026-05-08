@@ -334,10 +334,7 @@ internal static class IntermediateAssetWriter
             return null;
 
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-        (CookedFile File, string Name)[] uniqueFiles = [.. files.Select(file => (File: file, Name: $"{file.Name}{file.Extension}")).Where(item =>
-        {
-            return seen.Add(item.Name);
-        })];
+        (CookedFile File, string Name)[] uniqueFiles = [.. files.Select(file => (File: file, Name: $"{file.Name}{file.Extension}")).Where(item => seen.Add(item.Name))];
 
         io.CreateDirectory(destinationFolder);
         Parallel.ForEach(uniqueFiles, item =>

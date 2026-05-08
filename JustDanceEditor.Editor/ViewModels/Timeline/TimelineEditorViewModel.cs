@@ -354,8 +354,8 @@ public partial class TimelineEditorViewModel : Document
                     Id = id,
                     IsFullBody = false,
                     DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
+                    Color = ClipViewModel.ParseRgbaHex(def.Color)
                 };
-                md.Color = ClipViewModel.ParseRgbaHex(def.Color);
                 _moveDefinitions[(id, false)] = md;
             }
 
@@ -369,8 +369,8 @@ public partial class TimelineEditorViewModel : Document
                     Id = id,
                     IsFullBody = true,
                     DefaultDuration = def.Duration <= 0 ? 24.0 : def.Duration,
+                    Color = ClipViewModel.ParseRgbaHex(def.Color)
                 };
-                md.Color = ClipViewModel.ParseRgbaHex(def.Color);
                 _moveDefinitions[(id, true)] = md;
             }
         }
@@ -1113,27 +1113,27 @@ public partial class TimelineEditorViewModel : Document
         string pictogramDirectory = Path.Combine(RootPath, "assets", "pictograms");
         Directory.CreateDirectory(pictogramDirectory);
 
-        string currentPath = GetExistingPictogramFilePath(pictogramId);
+        string? currentPath = GetExistingPictogramFilePath(pictogramId);
         if (currentPath == null || !File.Exists(currentPath))
             return false;
 
         bool isFlipped = pictogramId.EndsWith("_flipped", StringComparison.OrdinalIgnoreCase);
         string counterpartId = isFlipped ? pictogramId[..^"_flipped".Length] : pictogramId + "_flipped";
 
-        string counterpartPath = GetExistingPictogramFilePath(counterpartId);
+        string? counterpartPath = GetExistingPictogramFilePath(counterpartId);
 
         List<PictogramClipViewModel> affectedClips;
         if (specificClip != null)
-            affectedClips = new List<PictogramClipViewModel> { specificClip };
+            affectedClips = [specificClip];
         else
-            affectedClips = Tracks.SelectMany(t => t.Clips).OfType<PictogramClipViewModel>().Where(c => string.Equals(c.PictogramId, pictogramId, StringComparison.OrdinalIgnoreCase)).ToList();
+            affectedClips = [.. Tracks.SelectMany(t => t.Clips).OfType<PictogramClipViewModel>().Where(c => string.Equals(c.PictogramId, pictogramId, StringComparison.OrdinalIgnoreCase))];
 
         // If counterpart already exists, just relink
         if (!string.IsNullOrWhiteSpace(counterpartPath) && File.Exists(counterpartPath))
         {
             void ApplyRelink(string fromId, string toId)
             {
-                foreach (var c in affectedClips)
+                foreach (PictogramClipViewModel c in affectedClips)
                     c.PictogramId = toId;
 
                 ImageBitmapCache.Invalidate(currentPath);
@@ -1212,7 +1212,7 @@ public partial class TimelineEditorViewModel : Document
 
             void ApplyRelinkCreated(string fromId, string toIdLocal)
             {
-                foreach (var c in affectedClips)
+                foreach (PictogramClipViewModel c in affectedClips)
                     c.PictogramId = toIdLocal;
 
                 ImageBitmapCache.Invalidate(currentPath);
@@ -1227,11 +1227,17 @@ public partial class TimelineEditorViewModel : Document
                 undo: () =>
                 {
                     // revert clip ids
-                    foreach (var c in affectedClips)
+                    foreach (PictogramClipViewModel c in affectedClips)
                         c.PictogramId = pictogramId;
 
                     // attempt to delete created file
-                    try { if (File.Exists(destPath)) File.Delete(destPath); } catch { }
+                    try
+                    {
+                        if (File.Exists(destPath))
+                            File.Delete(destPath);
+                    }
+                    catch { }
+
                     ImageBitmapCache.Invalidate(destPath);
                     ImageBitmapCache.Invalidate(currentPath);
                     OnPropertyChanged(nameof(AvailablePictograms));
@@ -1246,7 +1252,11 @@ public partial class TimelineEditorViewModel : Document
         {
             if (created && File.Exists(destPath))
             {
-                try { File.Delete(destPath); } catch { }
+                try
+                {
+                    File.Delete(destPath);
+                }
+                catch { }
             }
 
             return false;
@@ -1259,7 +1269,7 @@ public partial class TimelineEditorViewModel : Document
             return null;
 
         string directory = Path.Combine(RootPath, "assets", "pictograms");
-        string[] preferred = new[] { ".webp", ".png", ".jpg", ".jpeg" };
+        string[] preferred = [".webp", ".png", ".jpg", ".jpeg"];
 
         foreach (string ext in preferred)
         {

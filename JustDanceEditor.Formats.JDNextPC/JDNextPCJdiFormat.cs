@@ -560,14 +560,14 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         await ExportMenuArtTextureAsync(
             IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.CoverFile),
             Path.Combine(menuArtRoot, "cover.png"),
-            cancellationToken,
-            required: false);
+            required: false,
+            cancellationToken);
 
         await ExportMenuArtTextureAsync(
             IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.SongTitleFile),
             Path.Combine(menuArtRoot, "title.png"),
-            cancellationToken,
-            required: false);
+            required: false,
+            cancellationToken);
 
         string backgroundSource = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile);
         if (!File.Exists(backgroundSource))
@@ -576,20 +576,20 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         await ExportMenuArtTextureAsync(
             backgroundSource,
             Path.Combine(menuArtRoot, "bkg.png"),
-            cancellationToken,
-            required: false);
+            required: false,
+            cancellationToken);
 
         for (int coachIndex = 1; coachIndex <= package.Metadata.CoachCount; coachIndex++)
         {
             await ExportMenuArtTextureAsync(
                 IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.CoachFile(coachIndex)),
                 Path.Combine(menuArtRoot, $"coach{coachIndex:D2}.png"),
-                cancellationToken,
-                required: false);
+                required: false,
+                cancellationToken);
         }
     }
 
-    private async Task ExportMenuArtTextureAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken, bool required)
+    private async Task ExportMenuArtTextureAsync(string sourcePath, string destinationPath, bool required, CancellationToken cancellationToken)
     {
         if (!File.Exists(sourcePath))
         {

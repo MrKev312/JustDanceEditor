@@ -84,16 +84,15 @@ public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 
         List<PictogramOptionViewModel> list = [];
         string dir = Path.Combine(timeline.RootPath, "assets", "pictograms");
-        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
 
         if (Directory.Exists(dir))
         {
             foreach (string file in Directory.GetFiles(dir))
             {
                 string name = Path.GetFileNameWithoutExtension(file);
-                if (!seen.Contains(name))
+                if (seen.Add(name))
                 {
-                    seen.Add(name);
                     list.Add(new PictogramOptionViewModel(name, file));
                 }
             }

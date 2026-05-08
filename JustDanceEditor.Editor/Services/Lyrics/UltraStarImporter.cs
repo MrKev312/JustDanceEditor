@@ -126,7 +126,7 @@ public sealed class UltraStarImporter : ILyricImporter
         //   (that char becomes "long"), then append any text after the ~.
         // Each subsequent ~ in the run: add "-{last char}" with the tilde note's own timing.
         // "~~..." (literal double-tilde): kept verbatim.
-        List<(double StartSec, double EndSec, string Text, bool IsEol)> results = new(raw.Count);
+        List<(double StartSec, double EndSec, string Text, bool IsEol)> results = [with(raw.Count)];
 
         for (int i = 0; i < raw.Count; i++)
         {
@@ -159,11 +159,11 @@ public sealed class UltraStarImporter : ILyricImporter
             // First tilde: split the last char off the previous note proportionally.
             if (prevText.Length > 1 && results.Count > 0)
             {
-                (double StartSec, double EndSec, string Text, bool IsEol) prev = results[^1];
-                double splitPoint = prev.StartSec + ((prev.EndSec - prev.StartSec)
+                (double StartSec, double EndSec, string Text, bool IsEol) = results[^1];
+                double splitPoint = StartSec + ((EndSec - StartSec)
                     * (prevText.Length - 1) / prevText.Length);
 
-                results[^1] = (prev.StartSec, splitPoint, prevText[..^1], prev.IsEol);
+                results[^1] = (StartSec, splitPoint, prevText[..^1], IsEol);
                 results.Add((splitPoint, note.endSec, leading + repeatChar + afterFirstTilde, note.isEol));
             }
             else
@@ -175,14 +175,14 @@ public sealed class UltraStarImporter : ILyricImporter
             // Remaining tildes in the run: each becomes "-{char}" with the note's own timing.
             for (int j = 1; j < runLen; j++)
             {
-                (double StartSec, double EndSec, string Text, bool IsEol) cur = raw[i + j];
-                string curTrimmed = cur.Text.TrimStart();
-                string curLeading = cur.Text.Length > curTrimmed.Length ? " " : string.Empty;
+                (double StartSec, double EndSec, string Text, bool IsEol) = raw[i + j];
+                string curTrimmed = Text.TrimStart();
+                string curLeading = Text.Length > curTrimmed.Length ? " " : string.Empty;
                 string curAfter = curTrimmed[1..];
                 string syllable = repeatChar != '\0'
                     ? curLeading + "-" + repeatChar + curAfter
                     : curLeading + curAfter;
-                results.Add((cur.StartSec, cur.EndSec, syllable, cur.IsEol));
+                results.Add((StartSec, EndSec, syllable, IsEol));
             }
 
             i += runLen - 1; // outer loop will i++ once more
@@ -198,16 +198,16 @@ public sealed class UltraStarImporter : ILyricImporter
             {
                 if (i > 0)
                 {
-                    (double StartSec, double EndSec, string Text, bool IsEol) prev = results[i - 1];
-                    if (!prev.Text.EndsWith(' '))
-                        results[i - 1] = (prev.StartSec, prev.EndSec, prev.Text + ' ', prev.IsEol);
+                    (double StartSec, double EndSec, string Text, bool IsEol) = results[i - 1];
+                    if (!Text.EndsWith(' '))
+                        results[i - 1] = (StartSec, EndSec, Text + ' ', IsEol);
                 }
 
                 results[i] = (results[i].StartSec, results[i].EndSec, text.TrimStart(), results[i].IsEol);
             }
         }
 
-        List<LyricLine> output = new(results.Count);
+        List<LyricLine> output = [with(results.Count)];
         foreach ((double startSec, double endSec, string? text, bool isEol) in results)
             output.Add(new LyricLine(startSec, endSec, text, isEol));
 

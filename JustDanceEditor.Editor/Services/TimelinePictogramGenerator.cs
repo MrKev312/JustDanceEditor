@@ -57,18 +57,13 @@ public interface ITimelinePictogramGenerator
     Task<GeneratedPictogramBatch> GenerateAsync(TimelineEditorViewModel timeline, PictogramGenerationMode mode, PictogramFrameLayoutMode frameLayoutMode = PictogramFrameLayoutMode.TransparentBars, PictogramHorizontalFocus horizontalFocus = PictogramHorizontalFocus.Center, CancellationToken cancellationToken = default);
 }
 
-public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
+public sealed class TimelinePictogramGenerator(IPictogramImageGenerator? imageGenerator = null) : ITimelinePictogramGenerator
 {
     private const int PictogramWidth = 512;
     private const int SingleCoachHeight = 512;
     private const int MultiCoachHeight = 354;
 
-    private readonly IPictogramImageGenerator _imageGenerator;
-
-    public TimelinePictogramGenerator(IPictogramImageGenerator? imageGenerator = null)
-    {
-        _imageGenerator = imageGenerator ?? new PictogramImageGenerator();
-    }
+    private readonly IPictogramImageGenerator _imageGenerator = imageGenerator ?? new PictogramImageGenerator();
 
     public static PixelSize GetTargetSize(int coachCount)
     {
@@ -81,7 +76,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
         if (moveClips == null)
             return [];
 
-        List<MoveMoment> moments = moveClips
+        List<MoveMoment> moments = [.. moveClips
             .Where(c => c != null)
             .Where(c => !string.IsNullOrWhiteSpace(c.MoveId))
             .GroupBy(c => c.RawClip.StartTime)
@@ -96,8 +91,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
                 Color color = chosen.RenderColor;
                 int durationFrames = Math.Max(1, (int)Math.Round(chosen.DurationBeats * 24d));
                 return new MoveMoment(g.Key, durationFrames, chosen.MoveId, new Color(255, color.R, color.G, color.B));
-            })
-            .ToList();
+            })];
 
         return moments;
     }
@@ -134,7 +128,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
                 g => g.OrderBy(m => m.StartFrame).First(),
                 StringComparer.OrdinalIgnoreCase);
 
-        Dictionary<string, string> pictoIdByMove = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> pictoIdByMove = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (MoveMoment seed in firstMomentByMove.Values.OrderBy(m => m.StartFrame))
         {
             string baseId = $"auto_{SanitizeId(seed.MoveId)}";
@@ -151,7 +145,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
             return Path.Combine(pictogramDirectory, pictoId + ".webp");
         }
 
-        HashSet<string> successfulMoves = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> successfulMoves = [with(StringComparer.OrdinalIgnoreCase)];
         object successfulMovesLock = new();
 
         void MarkSuccessful(MoveMoment seed)
@@ -186,7 +180,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
         // Generating source images is the expensive part. Run move-level generation in parallel.
         int maxConcurrency = Math.Max(2, Math.Min(8, Environment.ProcessorCount));
         using SemaphoreSlim semaphore = new(maxConcurrency, maxConcurrency);
-        Task[] imageTasks = firstMomentByMove.Values.Select(async seed =>
+        Task[] imageTasks = [.. firstMomentByMove.Values.Select(async seed =>
         {
             await semaphore.WaitAsync(cancellationToken);
             try
@@ -207,7 +201,7 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
             {
                 semaphore.Release();
             }
-        }).ToArray();
+        })];
 
         await Task.WhenAll(imageTasks);
 
@@ -238,10 +232,9 @@ public sealed class TimelinePictogramGenerator : ITimelinePictogramGenerator
         if (string.IsNullOrWhiteSpace(value))
             return "move";
 
-        char[] sanitized = value
+        char[] sanitized = [.. value
             .Trim()
-            .Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '_')
-            .ToArray();
+            .Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '_')];
 
         string result = new string(sanitized).Trim('_');
         while (result.Contains("__", StringComparison.Ordinal))

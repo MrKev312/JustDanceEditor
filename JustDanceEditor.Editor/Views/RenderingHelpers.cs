@@ -13,7 +13,7 @@ namespace JustDanceEditor.Editor.Views;
 public static class RenderingHelpers
 {
     // cache striped brushes so we don't recreate them constantly
-    private static readonly Dictionary<Color, DrawingBrush> _stripedBrushCache = new();
+    private static readonly Dictionary<Color, DrawingBrush> _stripedBrushCache = [];
 
     /// <summary>
     /// Draws diagonal stripes over <paramref name="region"/>.  If

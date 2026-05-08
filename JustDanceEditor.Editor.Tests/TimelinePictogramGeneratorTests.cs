@@ -52,7 +52,7 @@ public class TimelinePictogramGeneratorTests
             RecordingImageGenerator recorder = new();
             TimelinePictogramGenerator sut = new(recorder);
 
-            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.MoveName);
+            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.MoveName, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.NotNull(batch.PictogramTrack);
             Assert.Equal(TrackType.Pictogram, batch.PictogramTrack?.TrackType);
@@ -96,7 +96,7 @@ public class TimelinePictogramGeneratorTests
             RecordingImageGenerator recorder = new();
             TimelinePictogramGenerator sut = new(recorder);
 
-            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.VideoFrame, PictogramFrameLayoutMode.CropToFill);
+            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.VideoFrame, PictogramFrameLayoutMode.CropToFill, cancellationToken: TestContext.Current.CancellationToken);
 
             PictogramClipViewModel clip = Assert.Single(batch.Clips);
             Assert.Equal(3.0, clip.StartBeat, 3);
@@ -134,7 +134,7 @@ public class TimelinePictogramGeneratorTests
             ThrowingAfterWriteImageGenerator recorder = new();
             TimelinePictogramGenerator sut = new(recorder);
 
-            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.VideoFrame);
+            GeneratedPictogramBatch batch = await sut.GenerateAsync(timeline, PictogramGenerationMode.VideoFrame, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.Equal(2, batch.Clips.Count);
             Assert.Equal(2, recorder.VideoFrameRequests.Count);

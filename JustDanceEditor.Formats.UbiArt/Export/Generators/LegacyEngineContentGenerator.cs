@@ -1,1452 +1,477 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.UbiArt.Export.Generators.Legacy;
 using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 using System.Globalization;
-using System.IO.Hashing;
-using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 
 public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : IEngineContentGenerator
 {
-    private static void WriteString(BinaryWriter w, string s)
-    {
-        byte[] b = Encoding.UTF8.GetBytes(s);
-        WriteBigEndian32(w, (uint)b.Length);
-        w.Write(b);
-    }
+    private static LegacyBinarySequence Seq(params object?[] fields) => LegacyBinary.Sequence(fields);
+    private static LegacyBinarySequence S(params object?[] fields) => LegacyBinary.Sequence(fields);
+    private static LegacyPadding Z(int length) => LegacyBinary.Padding(length);
+    private static LegacyUbiArtPath P(string fileName, string folder) => LegacyBinary.Path(fileName, folder);
+    private static float F(uint bits) => BitConverter.Int32BitsToSingle(unchecked((int)bits));
 
-    private static void WritePathAndString(BinaryWriter w, string filename, string path)
+    public object GenerateDanceTape(IntermediateSongPackage package)
     {
-        WriteString(w, filename);
-        WriteString(w, path);
-        WriteBigEndian32(w, ComputeCrc32(filename));
-    }
-
-    private static void WriteBigEndian32(BinaryWriter w, uint val)
-    {
-        w.Write((byte)((val >> 24) & 0xFF));
-        w.Write((byte)((val >> 16) & 0xFF));
-        w.Write((byte)((val >> 8) & 0xFF));
-        w.Write((byte)(val & 0xFF));
-    }
-
-    private static void WriteBigEndianInt32(BinaryWriter w, int val)
-    {
-        w.Write((byte)((val >> 24) & 0xFF));
-        w.Write((byte)((val >> 16) & 0xFF));
-        w.Write((byte)((val >> 8) & 0xFF));
-        w.Write((byte)(val & 0xFF));
-    }
-
-    private static void WriteBigEndianFloat(BinaryWriter w, float val)
-    {
-        byte[] b = BitConverter.GetBytes(val);
-        if (BitConverter.IsLittleEndian)
-            Array.Reverse(b);
-        w.Write(b);
-    }
-
-    private static uint ComputeCrc32(string s)
-    {
-        byte[] bytes = Encoding.UTF8.GetBytes(s);
-        return Crc32.HashToUInt32(bytes);
-    }
-
-    public byte[] GenerateDanceTape(IntermediateSongPackage package)
-    {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-
-        // Collect all clips
-        List<dynamic> allClips = [];
+        string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
+        List<LegacyTapeClip> clips = [];
 
         foreach (MoveTimeline timeline in package.CoachTimelines)
         {
             foreach (MoveClip clip in timeline.Clips)
             {
-                if (package.HandCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? moveDef))
+                if (!package.HandCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move))
+                    continue;
+
+                clips.Add(new LegacyMotionClip
                 {
-                    allClips.Add(new { Type = "MotionClip", Clip = clip, Move = moveDef, timeline.CoachId });
-                }
+                    Id = (uint)clip.Id,
+                    TrackId = 0,
+                    StartTime = clip.StartTime,
+                    Duration = move.Duration,
+                    ClassifierPath = P($"{clip.MoveId}.msm", $"world/maps/{mapNameLower}/timeline/moves/"),
+                    GoldMove = clip.IsGoldMove ? 1 : 0,
+                    CoachId = timeline.CoachId,
+                    MoveType = (int)move.MoveType,
+                    Color = ConvertColorToAbgr(move.Color)
+                });
             }
         }
 
-        foreach (PictogramClip picto in package.Pictograms.Clips)
+        foreach (PictogramClip clip in package.Pictograms.Clips)
         {
-            allClips.Add(new { Type = "PictogramClip", Clip = picto });
-        }
-
-        foreach (GoldEffectClip gold in package.GoldEffects.Clips)
-        {
-            allClips.Add(new { Type = "GoldEffectClip", Clip = gold });
-        }
-
-        // Sort by start time
-        allClips.Sort((a, b) =>
-        {
-            int startA = GetStartTime(a);
-            int startB = GetStartTime(b);
-            return startA.CompareTo(startB);
-        });
-
-        int tapeLen = allClips.Count;
-        int tapeVersion = (224 * tapeLen) + 166;
-
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-        WriteBigEndian32(writer, (uint)tapeVersion);
-
-        // JD2015 vs Others (this correct?)
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x8C]);
-        else
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x9C]);
-
-        WriteBigEndian32(writer, (uint)tapeLen);
-
-        foreach (dynamic item in allClips)
-        {
-            string type = item.Type;
-            if (type == "MotionClip")
+            clips.Add(new LegacyPictogramClip
             {
-                MoveClip clip = item.Clip;
-                CoachMoveDefinition move = item.Move;
-                int coachId = item.CoachId;
+                Id = (uint)clip.Id,
+                TrackId = 1111,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration,
+                PictoPath = P($"{clip.PictogramId}.png", $"world/maps/{mapNameLower}/timeline/pictos/")
+            });
+        }
 
-                string filename = $"{clip.MoveId}.msm";
-                string path = $"world/maps/{mapNameLower}/timeline/moves/";
-
-                // Magic
-                writer.Write([0x95, 0x53, 0x84, 0xA1]);
-
-                // FIXED SIZE: 0x70
-                writer.Write([0x00, 0x00, 0x00, 0x70]);
-
-                // Base Clip Data (20 bytes)
-                WriteBigEndian32(writer, (uint)clip.Id);
-                WriteBigEndian32(writer, 0); // TrackId
-                WriteBigEndian32(writer, 1); // IsActive
-                WriteBigEndian32(writer, (uint)clip.StartTime);
-                WriteBigEndian32(writer, (uint)move.Duration);
-
-                WritePathAndString(writer, filename, path);
-
-                // Fixed Fields
-                WriteBigEndian32(writer, 0); // Unknown
-                WriteBigEndian32(writer, (uint)(clip.IsGoldMove ? 1 : 0));
-                WriteBigEndian32(writer, (uint)coachId);
-                WriteBigEndian32(writer, 0); // MoveType
-
-                // Colors
-                float[] color = ConvertColorToArray(move.Color);
-                WriteBigEndianFloat(writer, color[0]); // A
-                WriteBigEndianFloat(writer, color[3]); // B
-                WriteBigEndianFloat(writer, color[2]); // G
-                WriteBigEndianFloat(writer, color[1]); // R
-
-                // MotionPlatformSpecifics
-                writer.Write([
-                    0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                ]);
-            }
-            else if (type == "PictogramClip")
+        foreach (GoldEffectClip clip in package.GoldEffects.Clips)
+        {
+            clips.Add(new LegacyGoldEffectClip
             {
-                PictogramClip clip = item.Clip;
-                string filename = $"{clip.PictogramId}.png";
-                string path = $"world/maps/{mapNameLower}/timeline/pictos/";
+                Id = (uint)clip.Id,
+                TrackId = 1111,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration,
+                EffectType = clip.EffectType
+            });
+        }
 
-                // Magic
-                writer.Write([0x52, 0xEC, 0x89, 0x62]);
+        return new LegacyTapeFile(package.Metadata.MapName, EngineVersion, clips.OrderBy(x => x.StartTime));
+    }
 
-                // FIXED SIZE: 0x38 (56)
-                writer.Write([0x00, 0x00, 0x00, 0x38]);
-
-                WriteBigEndian32(writer, (uint)clip.Id);
-                WriteBigEndian32(writer, 1111); // TrackId usually 1111 for pictos
-                WriteBigEndian32(writer, 1); // IsActive
-                WriteBigEndianInt32(writer, clip.StartTime);
-                WriteBigEndianInt32(writer, clip.Duration);
-
-                WritePathAndString(writer, filename, path);
-
-                writer.Write([0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF]);
-            }
-            else if (type == "GoldEffectClip")
+    public object GenerateKaraokeTape(IntermediateSongPackage package)
+    {
+        IReadOnlyList<LegacyTapeClip> clips = [.. package.Lyrics.Clips
+            .OrderBy(c => c.StartTime)
+            .Select(clip => new LegacyKaraokeClip
             {
-                GoldEffectClip clip = item.Clip;
-                // Magic + Fixed Size 0x1C (28)
-                writer.Write([0xFD, 0x69, 0xB1, 0x10, 0x00, 0x00, 0x00, 0x1C]);
+                Id = (uint)clip.Id,
+                TrackId = 0,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration,
+                Pitch = clip.Pitch > 0 ? clip.Pitch : 8.175798f,
+                Lyrics = clip.Lyrics ?? string.Empty,
+                IsEndOfLine = clip.IsEndOfLine ? 1 : 0,
+                ContentType = clip.ContentType,
+                StartTimeTolerance = clip.Tolerances?.StartTimeTolerance ?? 4,
+                EndTimeTolerance = clip.Tolerances?.EndTimeTolerance ?? 4,
+                SemitoneTolerance = (float)(clip.Tolerances?.SemitoneTolerance ?? 5)
+            })];
 
-                WriteBigEndian32(writer, (uint)clip.Id);
-                WriteBigEndian32(writer, 1111);
-                WriteBigEndian32(writer, 1);
-                WriteBigEndianInt32(writer, clip.StartTime);
-                WriteBigEndianInt32(writer, clip.Duration);
-                WriteBigEndian32(writer, (uint)clip.EffectType);
-            }
-        }
-
-        // Footer (Wii uses longer footer, standard Legacy 2016+ uses 12 bytes zeros)
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        else
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        WriteBigEndian32(writer, 0); // TapeClock
-        WriteBigEndian32(writer, 1); // TapeBarCount
-        WriteBigEndian32(writer, 0); // FreeResources
-        WriteString(writer, mapName);
-
-        return ms.ToArray();
+        return new LegacyTapeFile(package.Metadata.MapName, EngineVersion, clips);
     }
 
-    public byte[] GenerateKaraokeTape(IntermediateSongPackage package)
+    public object GenerateMainSequenceTape(IntermediateSongPackage package)
     {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-        string mapName = package.Metadata.MapName;
+        string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
+        List<LegacyTapeClip> clips = [];
 
-        List<KaraokeClip> clips = [.. package.Lyrics.Clips.OrderBy(c => c.StartTime)];
-        int tapeLen = clips.Count;
-        int tapeVersion = (224 * tapeLen) + 166;
-
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-        WriteBigEndian32(writer, (uint)tapeVersion);
-
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x8C]);
-        else
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x9C]);
-
-        WriteBigEndian32(writer, (uint)tapeLen);
-
-        foreach (KaraokeClip? clip in clips)
-        {
-            // Magic for KaraokeClip
-            writer.Write([0x68, 0x55, 0x2A, 0x41]);
-
-            // FIXED SIZE: 0x50
-            writer.Write([0x00, 0x00, 0x00, 0x50]);
-
-            // Base Clip
-            WriteBigEndian32(writer, (uint)clip.Id);
-            WriteBigEndian32(writer, 0); // TrackId is 0
-            WriteBigEndian32(writer, 1); // IsActive
-            WriteBigEndian32(writer, (uint)clip.StartTime);
-            WriteBigEndian32(writer, (uint)clip.Duration);
-
-            // Pitch
-            WriteBigEndianFloat(writer, (float)(clip.Pitch > 0 ? clip.Pitch : 8.175798));
-
-            // Lyrics
-            WriteString(writer, clip.Lyrics ?? "");
-
-            // Remaining Integers/Floats
-            WriteBigEndian32(writer, (uint)(clip.IsEndOfLine ? 1 : 0));
-            WriteBigEndian32(writer, (uint)clip.ContentType);
-            WriteBigEndian32(writer, (uint)(clip.Tolerances?.StartTimeTolerance ?? 4));
-            WriteBigEndian32(writer, (uint)(clip.Tolerances?.EndTimeTolerance ?? 4));
-            WriteBigEndianFloat(writer, (float)(clip.Tolerances?.SemitoneTolerance ?? 5));
-        }
-
-        // Footer
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        else
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, 1);
-        WriteBigEndian32(writer, 0);
-        WriteString(writer, mapName);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateSongDesc(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x15, 0xA5, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-            0x8A, 0xC2, 0xB5, 0xC6, 0x00, 0x00, 0x00, 0xF4
-        ]);
-
-        WriteString(writer, mapName);
-        WriteBigEndian32(writer, (uint)EngineVersion);
-        WriteBigEndian32(writer, package.Metadata.OriginalJDVersion);
-
-        // RelatedAlbums
-        writer.Write([0x00, 0x00, 0x00, 0x00]);
-
-        // Tags - Simplified to Main for now, don't think these are used in Legacy
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x58, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07]);
-        WriteBigEndian32(writer, 0xFFFFFFFF); // LocaleID
-        writer.Write([
-            0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
-        ]);
-
-        WriteString(writer, package.Metadata.Artist);
-        WriteString(writer, "Unknown Dancer");
-        WriteString(writer, package.Metadata.Title);
-        WriteBigEndian32(writer, (uint)package.Metadata.CoachCount);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF]);
-        WriteBigEndian32(writer, package.Metadata.Difficulty);
-        WriteBigEndian32(writer, 0); // BackgroundType
-        WriteBigEndian32(writer, 0); // Padding
-
-        // Specific blob
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x10, 0x6F, 0x40, 0x37, 0xD0]);
-
-        // Preview beats
-        WriteBigEndian32(writer, (uint)package.TimelineStructure.PreviewEntryBeat);
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0xB1, 0x1F, 0xC1, 0xB6]);
-        WriteBigEndian32(writer, (uint)package.TimelineStructure.PreviewLoopStartBeat);
-        WriteBigEndian32(writer, (uint)package.TimelineStructure.PreviewLoopEndBeat);
-
-        // Version check block
-        if ((int)EngineVersion >= 2015)
-        {
-            writer.Write([0x00, 0x00, 0x00, 0x06, 0x24, 0xA8, 0x08, 0xD7, 0x3E, 0x50, 0xD0, 0xD2, 0x3F, 0x57, 0xD7, 0xD9, 0x3F, 0x80, 0x00, 0x00]);
-        }
-
-        writer.Write([0x3F, 0x80, 0x00, 0x00, 0x31, 0xD3, 0xB3, 0x47]);
-
-        // Colors
-        float[] lyricColors = ConvertColorToArray(package.Metadata.LyricsColor);
-        WriteBigEndianFloat(writer, lyricColors[0]); // A
-        WriteBigEndianFloat(writer, lyricColors[3]); // B
-        WriteBigEndianFloat(writer, lyricColors[2]); // G
-        WriteBigEndianFloat(writer, lyricColors[1]); // R
-
-        // Final blobs
-        writer.Write([0x9C, 0xD9, 0x0B, 0xCB, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00]);
-        writer.Write([
-            0xA2, 0x92, 0xC8, 0xC4, 0x3F, 0x55, 0xD5, 0xD7, 0x3F, 0x11, 0x91, 0x92, 0x3D, 0xF0, 0xF0, 0xF2,
-            0x3F, 0x80, 0x00, 0x00, 0xBE, 0x0B, 0x99, 0x23, 0x3F, 0x09, 0x89, 0x8A, 0x00, 0x00, 0x00, 0x00,
-            0x3F, 0x02, 0x82, 0x83, 0x3F, 0x80, 0x00, 0x00, 0xF5, 0x82, 0x5C, 0x67, 0x3F, 0x0F, 0x8F, 0x90,
-            0x3E, 0x28, 0xA8, 0xA9, 0x3D, 0xA0, 0xA0, 0xA1, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00
-        ]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateMusicTrack(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-
-        // Size calculation: int((166 * len(beats)) + 166)
-        int beatsCount = package.TimelineStructure.Markers.Count;
-        int calculatedSize = (166 * beatsCount) + 166;
-        WriteBigEndian32(writer, (uint)calculatedSize);
-
-        // Blob
-        writer.Write([
-            0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x88, 0x3A, 0x7E, 0x00, 0x00, 0x00, 0xA0,
-            0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00, 0x6C
-        ]);
-
-        // Markers
-        WriteBigEndian32(writer, (uint)beatsCount);
-        foreach (int marker in package.TimelineStructure.Markers)
-        {
-            WriteBigEndian32(writer, (uint)marker);
-        }
-
-        // Signatures
-        WriteBigEndian32(writer, (uint)package.TimelineStructure.Signatures.Count);
-        foreach (SignatureSegment sig in package.TimelineStructure.Signatures)
-        {
-            writer.Write([0x00, 0x00, 0x00, 0x08]);
-            WriteBigEndianInt32(writer, (int)sig.Marker);
-            WriteBigEndianInt32(writer, sig.Beats);
-        }
-
-        // Sections
-        WriteBigEndian32(writer, (uint)package.TimelineStructure.Sections.Count);
-        foreach (SectionSegment section in package.TimelineStructure.Sections)
-        {
-            writer.Write([0x00, 0x00, 0x00, 0x14]);
-            WriteBigEndianInt32(writer, (int)section.StartBeat); // Uses marker as beat?
-            WriteBigEndianInt32(writer, (int)section.SectionType);
-            WriteString(writer, section.Comment ?? "");
-        }
-
-        // Beats and path
-        int version = (int)EngineVersion;
-        int startBeat = package.TimelineStructure.StartBeat;
-        uint endBeat = (uint)package.TimelineStructure.EndBeat;
-        float videoStartTime = (float)package.TimelineStructure.VideoStartOffset;
-
-        if (version >= 2018)
-        {
-            WriteBigEndianInt32(writer, startBeat);
-            WriteBigEndian32(writer, endBeat);
-            writer.Write(new byte[10]); // 10 bytes padding?
-            WriteBigEndianFloat(writer, videoStartTime);
-        }
-        else
-        {
-            WriteBigEndianInt32(writer, startBeat);
-            WriteBigEndian32(writer, endBeat);
-            WriteBigEndianFloat(writer, videoStartTime);
-        }
-
-        if (version <= 2017)
-        {
-            writer.Write([0x00, 0x00, 0x00, 0x00]);
-        }
-        else if (version >= 2018)
-        {
-            writer.Write(new byte[20]);
-        }
-
-        // Paths
-        string audioFile = $"{mapNameLower}.wav";
-        string audioPath = $"world/maps/{mapNameLower}/audio/";
-        WritePathAndString(writer, audioFile, audioPath);
-
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        return ms.ToArray();
-    }
-
-    private int GetStartTime(dynamic item)
-    {
-        string type = item.Type;
-        if (type == "MotionClip")
-            return ((MoveClip)item.Clip).StartTime;
-        if (type == "PictogramClip")
-            return ((PictogramClip)item.Clip).StartTime;
-        if (type == "GoldEffectClip")
-            return ((GoldEffectClip)item.Clip).StartTime;
-        return 0;
-    }
-
-    public byte[] GenerateAutodanceTape(IntermediateSongPackage package)
-    {
-        // Placeholder or dummy
-        return [];
-    }
-
-    public byte[] GenerateMainSequenceTape(IntermediateSongPackage package)
-    {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-
-        // 1. Pre-calculate clip counts
-        int uiClipCount = package.HideUserInterface?.Clips?.Count ?? 0;
         bool hasIntroAmbience = package.TimelineStructure.StartBeat < 0 && package.TimelineStructure.Markers.Count > 1;
-        int totalClips = uiClipCount + (hasIntroAmbience ? 1 : 0);
-
-        // 2. Header
-        int tapeVersion = (224 * totalClips) + 166;
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-        WriteBigEndian32(writer, (uint)tapeVersion);
-
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x8C]);
-        else
-            writer.Write([0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x9C]);
-
-        WriteBigEndian32(writer, (uint)totalClips);
-
-        uint clipIdCounter = 12345;
-
-        // 3. Serialize Ambience Intro (SoundSetClip)
         if (hasIntroAmbience)
         {
-            // Magic + Fixed Size 0x40
-            writer.Write([0x2D, 0x8C, 0x88, 0x5B, 0x00, 0x00, 0x00, 0x40]);
-
-            WriteBigEndian32(writer, 67890u); // Id
-            WriteBigEndian32(writer, 2222u); // TrackId
-            WriteBigEndian32(writer, 1);     // IsActive
-            WriteBigEndianInt32(writer, package.TimelineStructure.StartBeat * 24); // StartTime
-            WriteBigEndianInt32(writer, 1200); // Duration (Standard intro duration)
-
-            string filename = $"amb_{mapNameLower}_intro.tpl";
-            string path = $"world/maps/{mapNameLower}/audio/amb/";
-            WritePathAndString(writer, filename, path);
-
-            WriteBigEndianInt32(writer, 0); // SoundChannel
-            WriteBigEndianInt32(writer, 0); // StopsOnEnd
-            WriteBigEndianInt32(writer, 0); // AccountedForDuration
-            writer.Write([0x00, 0x00, 0x00, 0x00]); // Padding
-        }
-
-        // 4. Serialize UI Hide Clips (HideUserInterfaceClip)
-        if (package.HideUserInterface?.Clips != null)
-        {
-            uint trackId = 1111;
-            foreach (HideUserInterfaceClip clip in package.HideUserInterface.Clips)
+            clips.Add(new LegacySoundSetClip
             {
-                // Magic + Fixed Size 0x48
-                writer.Write([0x52, 0xE0, 0x6A, 0x9A, 0x00, 0x00, 0x00, 0x48]);
-
-                WriteBigEndian32(writer, clip.Id != 0 ? (uint)clip.Id : clipIdCounter++);
-                WriteBigEndian32(writer, trackId++);
-                WriteBigEndian32(writer, (uint)(clip.IsActive ? 1 : 0));
-                WriteBigEndianInt32(writer, clip.StartTime);
-                WriteBigEndianInt32(writer, clip.Duration);
-
-                // Version-specific padding for HideUserInterface
-                if ((int)EngineVersion == 2015)
-                    writer.Write([0x00, 0x00, 0x00, 0x00]);
-                else
-                    writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-                WriteBigEndian32(writer, 1); // EventType
-                writer.Write([0x00, 0x00, 0x00, 0x00]); // Final padding
-            }
+                Id = 67890,
+                TrackId = 2222,
+                StartTime = package.TimelineStructure.StartBeat * 24,
+                Duration = 1200,
+                SoundSetPath = P($"amb_{mapNameLower}_intro.tpl", $"world/maps/{mapNameLower}/audio/amb/")
+            });
         }
 
-        // 5. Footer
-        if ((int)EngineVersion == 2015)
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        else
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        WriteBigEndian32(writer, 0); // TapeClock
-        WriteBigEndian32(writer, 1); // TapeBarCount
-        WriteBigEndian32(writer, 0); // FreeResources
-        WriteString(writer, mapName);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateTapeCaseTpl(string mapName, string tapeType)
-    {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-        string mapNameLower = mapName.ToLowerInvariant();
-        string extension = tapeType == "dance" ? "dtape" : "ktape";
-        string tapeName = $"{mapNameLower}_tml_{tapeType}.{extension}";
-        string path = $"world/maps/{mapNameLower}/timeline/";
-
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-
-        if (tapeType == "dance")
+        uint trackId = 1111;
+        uint clipIdCounter = 12345;
+        foreach (HideUserInterfaceClip clip in package.HideUserInterface.Clips)
         {
-            writer.Write([0x00, 0x00, 0x00, 0xFE, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C]);
-        }
-        else
-        {
-            writer.Write([0x00, 0x00, 0x01, 0x00, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C]);
-        }
-
-        writer.Write(new byte[28]);
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x82, 0x29, 0xAB, 0xC3, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00]);
-
-        if (tapeType == "dance")
-        {
-            writer.Write([0x28, 0x24, 0xA3, 0x7B, 0xF0]);
-        }
-        else
-        {
-            writer.Write([0x28, 0xFD, 0x45, 0x47, 0xAC]);
+            clips.Add(new LegacyHideUserInterfaceClip(EngineVersion)
+            {
+                Id = clip.Id != 0 ? (uint)clip.Id : clipIdCounter++,
+                TrackId = trackId++,
+                IsActive = clip.IsActive ? 1 : 0,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration
+            });
         }
 
-        WritePathAndString(writer, tapeName, path);
-
-        writer.Write([0x00, 0x00, 0x00, 0x00]);
-
-        return ms.ToArray();
+        return new LegacyTapeFile(package.Metadata.MapName, EngineVersion, clips);
     }
 
-    public byte[] GenerateSequenceTpl()
+    public object GenerateAutodanceTape(IntermediateSongPackage package) => Seq();
+
+    public object GenerateSongDesc(IntermediateSongPackage package)
     {
-        return [
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xB0, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-            0x82, 0x29, 0xAB, 0xC3, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00
-        ];
+        LegacyAbgrColor lyricColor = ConvertColorToAbgr(package.Metadata.LyricsColor);
+
+        return new LegacySongDescFile(
+            package.Metadata.MapName,
+            EngineVersion,
+            package.Metadata.OriginalJDVersion,
+            package.Metadata.Artist,
+            package.Metadata.Title,
+            package.Metadata.CoachCount,
+            package.Metadata.Difficulty,
+            package.TimelineStructure.PreviewEntryBeat,
+            package.TimelineStructure.PreviewLoopStartBeat,
+            package.TimelineStructure.PreviewLoopEndBeat,
+            lyricColor);
     }
 
-    public byte[] GenerateSoundTape(string mapName)
+    public object GenerateMusicTrack(IntermediateSongPackage package)
     {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
+        IReadOnlyList<LegacySignatureMarker> signatures = [.. package.TimelineStructure.Signatures
+            .Select(sig => new LegacySignatureMarker((int)sig.Marker, sig.Beats))];
 
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xA2, 0x9E, 0x84, 0x54, 0x60, 0x00, 0x00, 0x00, 0x9C]);
-        writer.Write(new byte[20]); // Zeros
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, mapName); // Using original casing from metadata
+        IReadOnlyList<LegacySectionMarker> sections = [.. package.TimelineStructure.Sections
+            .Select(section => new LegacySectionMarker(
+                (int)section.StartBeat,
+                (int)section.SectionType,
+                section.Comment ?? string.Empty))];
 
-        return ms.ToArray();
+        return new LegacyMusicTrackFile(
+            package.Metadata.MapName,
+            EngineVersion,
+            package.TimelineStructure.Markers,
+            signatures,
+            sections,
+            package.TimelineStructure.StartBeat,
+            (uint)package.TimelineStructure.EndBeat,
+            (float)package.TimelineStructure.VideoStartOffset);
     }
 
-    public byte[] GenerateAmbTpl(string mapName)
-    {
-        // Structure: Header + Blob + Filename + Path + CRC32 + Footer
+    public object GenerateTapeCaseTpl(string mapName, string tapeType) => new LegacyTapeCaseFile(mapName, tapeType);
 
-        string mapNameLower = mapName.ToLowerInvariant();
-        string ambSfx = "intro";
-        string ambName = $"amb_{mapNameLower}_{ambSfx}";
-        string ambWav = $"{ambName}.wav";
-        string path = $"world/maps/{mapNameLower}/audio/amb/";
+    public object GenerateSequenceTpl() => new LegacySequenceTplFile();
 
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
+    public object GenerateSoundTape(string mapName) => new LegacySoundTapeFile(mapName);
 
-        // Header
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x02, 0xB0, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-            0xD9, 0x4D, 0x6C, 0x53, 0x00, 0x00, 0x01, 0x18, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xF8
-        ]);
+    public object GenerateAmbTpl(string mapName) => new LegacyAmbTplFile(mapName);
 
-        // For intro: FE C0 F1 84
-        writer.Write([0xFE, 0xC0, 0xF1, 0x84]);
+    public object GenerateMainSequenceTpl(string mapName) => new LegacyMainSequenceTplFile(mapName);
 
-        // Continue blob
-        writer.Write([
-            0xC0, 0x40, 0x00, 0x00, 0xEB, 0x53, 0x7A, 0x60, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
-        ]);
+    public object GenerateSgs() => new LegacySgsFile();
 
-        WritePathAndString(writer, ambWav, path);
+    public object GenerateGenericActor(string className, string luaPath) => new LegacyGenericActorFile(luaPath);
 
-        // Footer
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x02,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00
-        ]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateMainSequenceTpl(string mapName)
-    {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x01, 0x1B, 0x85, 0x7B, 0xCE, 0x00, 0x00, 0x00, 0x6C,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-            0x0C, 0x73, 0x64, 0x97, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x10,
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x28, 0xAB, 0xF3, 0x77, 0x3E
-        ]);
-
-        WritePathAndString(writer, $"{mapNameLower}_mainsequence.tape", $"world/maps/{mapNameLower}/cinematics/");
-        writer.Write([0x00, 0x00, 0x00, 0x00]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateSgs()
-    {
-        return [
-            0x00, 0x00, 0x00, 0x01, 0xCE, 0x01, 0x8E, 0xDB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06,
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00
-        ];
-    }
-
-    public byte[] GenerateGenericActor(string className, string luaPath)
-    {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        string tplName = Path.GetFileName(luaPath);
-        string tplPath = (Path.GetDirectoryName(luaPath)?.Replace("\\", "/") + "/") ?? "";
-        if (tplPath.StartsWith('/'))
-            tplPath = tplPath[1..];
-
-        WritePathAndString(writer, tplName, tplPath);
-
-        writer.Write([
-            0x00, 0x00, 0x00, 0x02,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xE0, 0x7F, 0xCC, 0x3F
-        ]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateMainScene(IntermediateSongPackage package)
+    public object GenerateMainScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
 
-        // --- Helpers / Constants ---
-        byte[] fileHeader = [0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x90, 0x5D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-
-        // Standard Pre-Name Data (16 bytes: 0, 1.0, 1.0, 0)
-        byte[] standardPreData = [0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-
-        (string Suffix, string Folder, byte EndByte, bool IsSongDesc)[] scenes =
+        (string Suffix, string Folder, int EndValue, bool IsSongDesc)[] scenes =
         [
-            ("_AUDIO", "audio", 0x02, false),
-            ("_CINE", "cinematics", 0x02, false),
-            ("_GRAPH", "graph", 0x02, false),
-            ("_TML", "timeline", 0x02, false),
-            ("_VIDEO", "videoscoach", 0x02, false),
-            ("SongDesc", "", 0x02, true),
-            ("_menuart", "menuart", 0x03, false)
+            ("_AUDIO", "audio", 2, false),
+            ("_CINE", "cinematics", 2, false),
+            ("_GRAPH", "graph", 2, false),
+            ("_TML", "timeline", 2, false),
+            ("_VIDEO", "videoscoach", 2, false),
+            ("SongDesc", string.Empty, 2, true),
+            ("_menuart", "menuart", 3, false)
         ];
 
-        // 1. Write Main Header
-        writer.Write(fileHeader);
-        writer.Write((byte)scenes.Length);
-
-        // 2. Loop through Actors
-        foreach ((string Suffix, string Folder, byte EndByte, bool IsSongDesc) in scenes)
+        List<object?> actors = [];
+        foreach ((string suffix, string folder, int endValue, bool isSongDesc) in scenes)
         {
-            if (Suffix == "SongDesc")
+            if (isSongDesc)
             {
-                WriteSongDescActor(writer, mapName, mapNameLower);
+                actors.Add(SongDescSceneActor(mapName, mapNameLower));
                 continue;
             }
 
-            WriteSubSceneDefinition(writer, mapName, mapNameLower, Suffix, Folder, EndByte);
-            WriteEmbeddedContent(writer, Suffix, mapName, mapNameLower, standardPreData);
+            actors.Add(SubSceneDefinition(mapName, mapNameLower, suffix, folder, endValue));
+            actors.Add(EmbeddedSubSceneContent(mapName, mapNameLower, suffix));
         }
 
-        // 3. Footer
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xCE, 0x01, 0x8E, 0xDB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        return ms.ToArray();
+        return new LegacySceneFile(0x0004905D, actors, new LegacyMainSceneFooter(), scenes.Length);
     }
 
-    // --- Writers for Main Structure ---
-
-    private void WriteSubSceneDefinition(BinaryWriter writer, string mapName, string mapNameLower, string suffix, string folder, byte endByte)
-    {
-        writer.Write([0x4F, 0xA4, 0x0F, 0x09]);
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        WriteString(writer, $"{mapName}{suffix}");
-
-        // Padding
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-
-        WritePathAndString(writer, "subscene.tpl", "enginedata/actortemplates/");
-        writer.Write(new byte[12]); // Zeroes
-
-        WritePathAndString(writer, $"{mapNameLower}{suffix.ToLowerInvariant()}.isc", $"world/maps/{mapNameLower}/{folder}/");
-
-        // End Block
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        writer.Write(endByte);
-    }
-
-    private void WriteSongDescActor(BinaryWriter writer, string mapName, string mapNameLower)
-    {
-        writer.Write([0x97, 0xCA, 0x62, 0x8B]);
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, $"{mapName} : Template Artist - Template Title.JDVer = 5, ID = 842776738, Type = 1 (Flags 0x00000000), NbCoach = 2, Difficulty = 2");
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0xC0, 0x62, 0x0B, 0xE5, 0xBF, 0xBE, 0x1F, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, "songdesc.main_legacy.tpl", $"cache/legacyconverteddata/{mapNameLower}/");
-        writer.Write([0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xE0, 0x7F, 0xCC, 0x3F]);
-    }
-
-    // --- Content Generation for Embedded Files ---
-
-    private void WriteEmbeddedContent(BinaryWriter writer, string suffix, string mapName, string mapNameLower, byte[] standardPreData)
-    {
-        // Embedded File Header
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x90, 0x5D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        switch (suffix)
-        {
-            case "_AUDIO":
-                writer.Write((byte)2);
-                WriteComponentActor(writer, "MusicTrack", standardPreData,
-                    [0x3F, 0x90, 0x1F, 0x86, 0xBE, 0xD6, 0x58, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-                    $"{mapNameLower}_musictrack.main_legacy.tpl", $"cache/legacyconverteddata/{mapNameLower}/audio/",
-                    0x017A7C23);
-                WriteEmbeddedSubScene(writer, $"{mapName}_sequence", $"{mapNameLower}_sequence.tpl", $"world/maps/{mapNameLower}/audio/");
-                break;
-
-            case "_CINE":
-                writer.Write((byte)1);
-                WriteComponentActor(writer, $"{mapName}_MainSequence", standardPreData, new byte[20],
-                    $"{mapNameLower}_mainsequence.tpl", $"world/maps/{mapNameLower}/cinematics/",
-                    0x01677B26);
-                break;
-
-            case "_GRAPH":
-                writer.Write((byte)1);
-                WriteComponentActor(writer, "Camera_JD_Dummy", standardPreData,
-                    [0x41, 0x20, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-                    "tpl_emptyactor.tpl", "enginedata/actortemplates/",
-                    0x00);
-                break;
-
-            case "_TML":
-                writer.Write((byte)2);
-                // Extracted CORRECT TML Data from dump
-                // Pre-Data (20 bytes starting 35 86...)
-                byte[] tmlPreData = [0x35, 0x86, 0x37, 0xBD, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-                // Post-Data (8 bytes data + 12 bytes zero padding)
-                byte[] tmlPostData = [0xBF, 0x94, 0x30, 0xD3, 0x3B, 0xC9, 0xC9, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-
-                WriteComponentActor(writer, $"{mapName}_tml_dance", tmlPreData, tmlPostData,
-                    $"{mapNameLower}_tml_dance.tpl", $"world/maps/{mapNameLower}/timeline/", 0x01231F27);
-                WriteComponentActor(writer, $"{mapName}_tml_karaoke", tmlPreData, tmlPostData,
-                    $"{mapNameLower}_tml_karaoke.tpl", $"world/maps/{mapNameLower}/timeline/", 0x01231F27);
-                break;
-
-            case "_VIDEO":
-                writer.Write((byte)2);
-                byte[] videoScreenPre = [0xBF, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-                WriteVideoScreenActor(writer, "VideoScreen", videoScreenPre, mapNameLower);
-                WriteComponentActor(writer, "VideoOutput", standardPreData, new byte[20],
-                    "video_output_main.tpl", "world/_common/videoscreen/", 0x010579E8);
-                WritePathAndString(writer, "pleofullscreen.msh", "world/_common/matshader/");
-                writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-                break;
-
-            case "_menuart":
-                writer.Write((byte)7);
-                // Covers (16 bytes pre-data)
-                byte[] coverPre = [0x00, 0x00, 0x00, 0x00, 0x3E, 0x99, 0x99, 0x9A, 0x3E, 0x99, 0x99, 0x9A, 0x00, 0x00, 0x00, 0x00];
-
-                WriteCoverActor(writer, $"{mapName}_cover_generic", coverPre, $"{mapNameLower}_cover_generic.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-                WriteCoverActor(writer, $"{mapName}_cover_online_Kids", coverPre, $"{mapNameLower}_cover_online_kids.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-                WriteCoverActor(writer, $"{mapName}_cover_online", coverPre, $"{mapNameLower}_cover_online.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-                WriteCoverActor(writer, $"{mapName}_cover_albumcoach", coverPre, $"{mapNameLower}_cover_albumcoach.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-                WriteCoverActor(writer, $"{mapName}_cover_albumbkg", coverPre, $"{mapNameLower}_cover_albumbkg.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-
-                // Map Bkg - Specific Data extracted from Target Dump
-                byte[] mapBkgPre = [0x00, 0x00, 0x00, 0x00, 0x43, 0x80, 0x00, 0x00, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-                byte[] mapBkgPost = [0x44, 0xB9, 0xED, 0x1F, 0x43, 0xAF, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF,
-                    0xFF, 0x00, 0x00, 0x00, 0x00];
-                WriteCoverActor(writer, $"{mapName}_map_bkg", mapBkgPre, $"{mapNameLower}_map_bkg.tga", $"world/maps/{mapNameLower}/menuart/textures/", mapBkgPost);
-
-                // Coach 1 - Specific Data extracted from Target Dump
-                byte[] coachPre = [0x00, 0x00, 0x00, 0x00, 0x3E, 0x94, 0x96, 0x89, 0x3E, 0x94, 0x96, 0x89, 0x00, 0x00, 0x00, 0x00];
-                byte[] coachPost = [0x43, 0x54, 0xC8, 0xD5,
-                    0x44, 0x25, 0xEB, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00];
-                WriteCoverActor(writer, $"{mapName}_coach_1", coachPre, $"{mapNameLower}_coach_1.tga", $"world/maps/{mapNameLower}/menuart/textures/", coachPost);
-                break;
-        }
-    }
-
-    // --- Specific Component Writers ---
-
-    private void WriteComponentActor(BinaryWriter writer, string name, byte[] preData, byte[] postData, string tpl, string path, uint endCrc)
-    {
-        writer.Write([0x97, 0xCA, 0x62, 0x8B]);
-        writer.Write(preData);
-        WriteString(writer, name);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF]);
-
-        writer.Write(postData);
-
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, tpl, path);
-
-        writer.Write([0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        if (endCrc == 0)
-        {
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        }
-        else
-        {
-            WriteBigEndian32(writer, endCrc);
-            if (endCrc == 0x01231F27) // TML Case
-                writer.Write([0xDE]);
-            else if (endCrc == 0x010579E8) // Video Output
-                writer.Write([0x1B, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-            else if (endCrc == 0x01677B26) // MainSequence
-                writer.Write([0x9B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-            else if (endCrc == 0x017A7C23) // MusicTrack
-                writer.Write([0x5B, 0x97, 0xCA, 0x62, 0x8B, 0x35, 0x86, 0x37, 0xBD]);
-            else
-                writer.Write(new byte[16]);
-
-            if (name.EndsWith("_tml_karaoke"))
-                writer.Write(new byte[16]); // ????????
-        }
-    }
-
-    private void WriteEmbeddedSubScene(BinaryWriter writer, string name, string tpl, string path)
-    {
-        writer.Write([0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, name);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0xBB, 0xC9, 0xC9, 0x0C, 0xBB, 0xC9, 0xC9, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, tpl, path);
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x1F, 0x27, 0xDE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-    }
-
-    private void WriteVideoScreenActor(BinaryWriter writer, string name, byte[] preData, string mapNameLower)
-    {
-        writer.Write([0x97, 0xCA, 0x62, 0x8B]);
-        writer.Write(preData);
-        WriteString(writer, name);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15]);
-
-        writer.Write(Encoding.UTF8.GetBytes("video_player_main.tpl"));
-        writer.Write([0x00, 0x00, 0x00, 0x1A]);
-        writer.Write(Encoding.UTF8.GetBytes("world/_common/videoscreen/"));
-        writer.Write([0xF5, 0xD5, 0xE8, 0xF2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x12, 0x63, 0xDA, 0xD9]);
-
-        WritePathAndString(writer, $"{mapNameLower}.webm", $"world/maps/{mapNameLower}/videoscoach/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-    }
-
-    private void WriteCoverActor(BinaryWriter writer, string name, byte[] preData, string tgaName, string tgaPath, byte[]? specificPostData = null)
-    {
-        writer.Write([0x97, 0xCA, 0x62, 0x8B]);
-        writer.Write(preData);
-        WriteString(writer, name);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF]);
-
-        if (specificPostData != null)
-        {
-            writer.Write(specificPostData);
-        }
-        else
-        {
-            writer.Write([0x43, 0x85, 0x0B, 0x35, 0x43, 0x45, 0xA1, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        }
-
-        WriteString(writer, "tpl_materialgraphiccomponent2d.tpl");
-        WriteString(writer, "enginedata/actortemplates/");
-        writer.Write([0xB4, 0xA8, 0x17, 0xA8]); // CRC
-
-        // Large padding block logic for Covers
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x72, 0xB6, 0x1F, 0xC5, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        // Texture
-        writer.Write((byte)1);
-        writer.Write(new byte[8]);
-        WritePathAndString(writer, tgaName, tgaPath);
-
-        // Material
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, "multitexture_1layer.msh", "world/_common/matshader/");
-
-        // End block logic
-        if (name.Contains("coach_1"))
-        {
-            // Coach 1 has a specific, shorter end sequence followed by large padding
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-            // Coach 1 special footer
-            writer.Write([0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        }
-        else
-        {
-            // Standard Cover End (Used for Generic, Online, Album, and MapBkg)
-            // Corrected padding (12 zeros after float) based on target dump
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
-        }
-    }
-
-    // Helper for single-actor scenes
-    private byte[] GenerateSingleActorScene(string mapName, string suffix, string folder, string extension = "act")
-    {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x2D, 0xC8, 0x2C, 0x5F, 0x00, 0x00, 0x00, 0x5C]);
-
-        WriteString(writer, $"{mapNameLower}_{suffix}.{extension}");
-        string path = string.IsNullOrEmpty(folder) ? $"world/maps/{mapNameLower}/" : $"world/maps/{mapNameLower}/{folder}/";
-        WriteString(writer, path);
-        writer.Write([0x00, 0x00, 0x00, 0x01]);
-
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-             0xF4, 0x66, 0xD4, 0x1A, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateAudioScene(IntermediateSongPackage package)
-    {
-        // This scene has 2 actors: MusicTrack and Sequence
-        string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        string musicTrackFilename = $"{mapNameLower}_musictrack.main_legacy.tpl";
-        string cacheAudioPath = $"cache/legacyconverteddata/{mapNameLower}/audio/";
-        string worldAudioPath = $"world/maps/{mapNameLower}/audio/";
-        string sequenceName = $"{package.Metadata.MapName}_sequence"; // Using original map name casing
-        string sequenceFilename = $"{mapNameLower}_sequence.tpl";
-
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header + Actor count (2)
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x90, 0x5D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02
-        ]);
-
-        // Actor 1: MusicTrack
-        writer.Write([
-            0x97, 0xCA, 0x62, 0x8B, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00
-        ]);
-        WriteString(writer, "MusicTrack");
-        writer.Write([
-            0xFF, 0xFF, 0xFF, 0xFF,
-            0x3F, 0x90, 0x1F, 0x86, 0xBE, 0xD6, 0x58, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        WritePathAndString(writer, musicTrackFilename, cacheAudioPath);
-
-        // Actor 2: Sequence
-        writer.Write([
-            0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x7A, 0x7C, 0x23, 0x5B,
-            0x97, 0xCA, 0x62, 0x8B, 0x35, 0x86, 0x37, 0xBD, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00
-        ]);
-        WriteString(writer, sequenceName);
-        writer.Write([
-            0xFF, 0xFF, 0xFF, 0xFF,
-            0xBB, 0xC9, 0xC9, 0x0C, 0xBB, 0xC9, 0xC9, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        WritePathAndString(writer, sequenceFilename, worldAudioPath);
-
-        // Footer
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x1F, 0x27, 0xDE,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateTimelineScene(IntermediateSongPackage package)
+    public object GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
 
-        // Header + Count (2 Actors: Dance + Karaoke)
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0xC5, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02]);
-
-        // Actor 1: Dance
-        writer.Write([0x97, 0xCA, 0x62, 0x8B, 0x35, 0x86, 0x37, 0xBD, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, $"{mapName}_tml_dance");
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0xBF, 0x94, 0x30, 0xD3, 0x3B, 0xC9, 0xC9, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, $"{mapNameLower}_tml_dance.tpl", $"world/maps/{mapNameLower}/timeline/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x1F, 0x27, 0xDE]);
-
-        // Actor 2: Karaoke
-        writer.Write([0x97, 0xCA, 0x62, 0x8B, 0x35, 0x86, 0x37, 0xBD, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, $"{mapName}_tml_karaoke");
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0xBF, 0x94, 0x30, 0xD3, 0x3B, 0xC9, 0xC9, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, $"{mapNameLower}_tml_karaoke.tpl", $"world/maps/{mapNameLower}/timeline/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x23, 0x1F, 0x27, 0xDE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateCinematicsScene(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header + Count (1 Actor)
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0xC5, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]);
-
-        // Actor: MainSequence
-        writer.Write([0x97, 0xCA, 0x62, 0x8B, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-        WriteString(writer, $"{mapName}_MainSequence");
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, $"{mapNameLower}_mainsequence.tpl", $"world/maps/{mapNameLower}/cinematics/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x67, 0x7B, 0x26, 0x9B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateMenuArtScene(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header + Count (8 Actors)
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0xC5, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08]);
-
-        string[] suffixes = [
-            "cover_generic", "cover_online", "cover_albumcoach", "cover_albumbkg",
-            "coach_4", "coach_1", "coach_2", "coach_3"
-        ];
-
-        // Hashes for actors
-        byte[][] hashes = [
-            [0x43, 0x85, 0x0B, 0x35], // Generic
-            [0xC3, 0x16, 0x00, 0x00], // Online
-            [0x44, 0x38, 0x86, 0xCE], // AlbumCoach
-            [0x44, 0x85, 0x7F, 0x1C], // AlbumBkg
-            [0x44, 0x03, 0x18, 0x64], // Coach 4
-            [0x43, 0x54, 0xC8, 0xD5], // Coach 1
-            [0x44, 0x03, 0x18, 0x64], // Coach 2
-            [0x44, 0x03, 0x18, 0x64]  // Coach 3
-        ];
-
-        for (int i = 0; i < 8; i++)
-        {
-            string suffix = suffixes[i];
-            writer.Write([0x97, 0xCA, 0x62, 0x8B, 0x00, 0x00, 0x00, 0x00]);
-
-            // Floats 3E 99 99 9A (0.3) ?
-            writer.Write([0x3E, 0x99, 0x99, 0x9A, 0x3E, 0x99, 0x99, 0x9A, 0x00, 0x00, 0x00, 0x00]);
-
-            WriteString(writer, $"{mapName}_{suffix}");
-
-            writer.Write([0xFF, 0xFF, 0xFF, 0xFF]);
-            writer.Write(hashes[i]); // Unique hash 1
-
-            // Unique hash 2 / values
-            if (i == 0)
-                writer.Write([0x43, 0x45, 0xA1, 0x45]);
-            else if (i == 2)
-                writer.Write([0x43, 0xB3, 0xCE, 0x57]);
-            else if (i == 3)
-                writer.Write([0x43, 0x49, 0xFC, 0x80]);
-            else if (i == 5)
-                writer.Write([0x44, 0x25, 0xEB, 0x88]);
-            else if (i >= 4)
-                writer.Write([0x44, 0x27, 0xB5, 0x1C]); // Coach 4, 2, 3
-            else
-                writer.Write([0x00, 0x00, 0x00, 0x00]); // Online
-
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-            WritePathAndString(writer, "tpl_materialgraphiccomponent2d.tpl", "enginedata/actortemplates/");
-            writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x72, 0xB6, 0x1F, 0xC5]);
-
-            // 4 Floats 1.0
-            WriteBigEndianFloat(writer, 1.0f);
-            WriteBigEndianFloat(writer, 1.0f);
-            WriteBigEndianFloat(writer, 1.0f);
-            WriteBigEndianFloat(writer, 1.0f);
-
-            writer.Write(new byte[16]);
-            writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-            WritePathAndString(writer, $"{mapNameLower}_{suffix}.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-
-            // Large padding block
-            writer.Write([00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-            WriteString(writer, "multitexture_1layer.msh");
-            WriteString(writer, "world/_common/matshader/");
-            writer.Write([0xD7, 0xE7, 0xD9, 0xC7]);
-            writer.Write([
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        return new LegacySceneFile(
+            0x0004905D,
+            [
+                MusicTrackActor(mapNameLower),
+                EmbeddedSubScene($"{mapName}_sequence", $"{mapNameLower}_sequence.tpl", $"world/maps/{mapNameLower}/audio/")
             ]);
-        }
-
-        return ms.ToArray();
     }
 
-    public byte[] GenerateAutodanceScene(IntermediateSongPackage package)
+    public object GenerateTimelineScene(IntermediateSongPackage package)
     {
-        return GenerateSingleActorScene(package.Metadata.MapName, "autodance", "autodance");
-    }
-
-    public byte[] GenerateGraphScene(string mapName)
-    {
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x6C, 0xD2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x97, 0xCA, 0x62, 0x8B, 0x41, 0x20, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        // Actor Name: Camera_JD_Dummy
-        WriteString(writer, "Camera_JD_Dummy");
-
-        // Blob 1
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-
-        WritePathAndString(writer, "tpl_emptyactor.tpl", "enginedata/actortemplates/");
-
-        // Footer (Zeros)
-        writer.Write(new byte[28]);
-
-        return ms.ToArray();
-    }
-
-    public byte[] GenerateVideoScene(string mapName)
-    {
+        string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
 
-        // Header + 2 Actors
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0xC5, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02]);
-
-        // Actor 1: VideoScreen
-        writer.Write([0x97, 0xCA, 0x62, 0x8B, 0xBF, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x56, 0x69, 0x64, 0x65, 0x6F, 0x53, 0x63, 0x72, 0x65, 0x65, 0x6E, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-        WritePathAndString(writer, "video_player_main.tpl", "world/_common/videoscreen/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x12, 0x63, 0xDA, 0xD9]);
-
-        // Actor 2: VideoOutput
-        WritePathAndString(writer, $"{mapNameLower}.webm", $"world/maps/{mapNameLower}/videoscoach/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x97, 0xCA, 0x62, 0x8B, 0x00, 0x00, 0x00, 0x00, 0x40, 0x7C, 0x3D, 0x3E, 0x40, 0x0E, 0x14, 0x7B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x56, 0x69, 0x64, 0x65, 0x6F, 0x4F, 0x75, 0x74, 0x70, 0x75, 0x74, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
-
-        WritePathAndString(writer, "video_output_main.tpl", "world/_common/videoscreen/");
-        writer.Write([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x05, 0x79, 0xE8, 0x1B]);
-
-        // Large config blob
-        writer.Write([0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
-            0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
-            0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x70, 0x6C, 0x65, 0x6F, 0x66,
-            0x75, 0x6C, 0x6C, 0x73, 0x63, 0x72, 0x65, 0x65, 0x6E, 0x2E, 0x6D, 0x73, 0x68, 0x00, 0x00, 0x00,
-            0x18, 0x77, 0x6F, 0x72, 0x6C, 0x64, 0x2F, 0x5F, 0x63, 0x6F, 0x6D, 0x6D, 0x6F, 0x6E, 0x2F, 0x6D,
-            0x61, 0x74, 0x73, 0x68, 0x61, 0x64, 0x65, 0x72, 0x2F, 0x6A, 0x06, 0xE8, 0x05, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-            0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00]);
-
-        return ms.ToArray();
+        return new LegacySceneFile(
+            0x0003C5B6,
+            [
+                TimelineActor($"{mapName}_tml_dance", $"{mapNameLower}_tml_dance.tpl", mapNameLower, false),
+                TimelineActor($"{mapName}_tml_karaoke", $"{mapNameLower}_tml_karaoke.tpl", mapNameLower, true)
+            ]);
     }
 
-    public byte[] GenerateVideoMapPreviewScene(string mapName)
+    public object GenerateCinematicsScene(IntermediateSongPackage package)
     {
-        return GenerateSingleActorScene(mapName, "videomappreview", "video");
+        string mapName = package.Metadata.MapName;
+        string mapNameLower = mapName.ToLowerInvariant();
+
+        return new LegacySceneFile(
+            0x0003C5B6,
+            [
+                ComponentActor(
+                $"{mapName}_MainSequence",
+                S(0, 1.0f, 1.0f, 0),
+                S(0, 0, 0, 0, 0),
+                $"{mapNameLower}_mainsequence.tpl",
+                $"world/maps/{mapNameLower}/cinematics/",
+                    S(0, 0, 1, 0x677B269Bu, Z(16)))
+            ]);
     }
 
-    public byte[] GenerateVideoPlayerActor(string mapName, bool isPreview)
+    public object GenerateMenuArtScene(IntermediateSongPackage package)
+    {
+        string mapName = package.Metadata.MapName;
+        string mapNameLower = mapName.ToLowerInvariant();
+
+        (string Suffix, uint Bounds0, uint Bounds1)[] actors =
+        [
+            ("cover_generic", 0x43850B35u, 0x4345A145u),
+            ("cover_online", 0xC3160000u, 0),
+            ("cover_albumcoach", 0x443886CEu, 0x43B3CE57u),
+            ("cover_albumbkg", 0x44857F1Cu, 0x4349FC80u),
+            ("coach_4", 0x44031864u, 0x4427B51Cu),
+            ("coach_1", 0x4354C8D5u, 0x4425EB88u),
+            ("coach_2", 0x44031864u, 0x4427B51Cu),
+            ("coach_3", 0x44031864u, 0x4427B51Cu)
+        ];
+
+        return new LegacySceneFile(
+            0x0003C5B6,
+            actors.Select(actor => MenuArtSceneActor(mapName, mapNameLower, actor.Suffix, actor.Bounds0, actor.Bounds1)));
+    }
+
+    public object GenerateAutodanceScene(IntermediateSongPackage package) =>
+        GenerateSingleActorScene(package.Metadata.MapName, "autodance", "autodance");
+
+    public object GenerateGraphScene(string mapName) => new LegacySceneFile(
+        0x00026CD2,
+        [
+            ComponentActor(
+                "Camera_JD_Dummy",
+                S(10.0f, 1.0f, 1.0f, 0),
+                S(0, 0, 0, 0, 0),
+                "tpl_emptyactor.tpl",
+                "enginedata/actortemplates/",
+                Z(28))
+        ]);
+
+    public object GenerateVideoScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
-
-        // Header
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
-
-        WritePathAndString(writer, "video_player_main.tpl", "world/_common/videoscreen/");
-
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x12, 0x63, 0xDA, 0xD9
-        ]);
-
-        WritePathAndString(writer, $"{mapNameLower}.webm", $"world/maps/{mapNameLower}/videoscoach/");
-        writer.Write(new byte[8]);
-
-        return ms.ToArray();
+        return new LegacySceneFile(
+            0x0003C5B6,
+            [
+                VideoScreenActor(mapNameLower),
+                VideoOutputActor()
+            ]);
     }
 
-    public byte[] GenerateMpd()
+    public object GenerateVideoMapPreviewScene(string mapName) => GenerateSingleActorScene(mapName, "videomappreview", "video");
+
+    public object GenerateVideoPlayerActor(string mapName, bool isPreview) => new LegacyVideoPlayerActorFile(mapName);
+
+    public object GenerateMpd() => new LegacyMpdFile();
+
+    public object GenerateAutodanceActor(string mapName) => new LegacyAutodanceActorFile(mapName);
+
+    public object GenerateMenuArtActor(string textureName, string mapName) => new LegacyMenuArtActorFile(textureName, mapName);
+
+    private static object GenerateSingleActorScene(string mapName, string suffix, string folder, string extension = "act") =>
+        new LegacySingleActorSceneFile(mapName, suffix, folder, extension);
+
+    private static object SubSceneDefinition(string mapName, string mapNameLower, string suffix, string folder, int endValue) =>
+        new LegacySubSceneDefinitionActor(mapName, mapNameLower, suffix, folder, endValue);
+
+    private static object SongDescSceneActor(string mapName, string mapNameLower) =>
+        new LegacySongDescSceneActor(mapName, mapNameLower);
+
+    private static object EmbeddedSubSceneContent(string mapName, string mapNameLower, string suffix) => suffix switch
     {
-        // Legacy/Modern shared static blob?
-        return [0x00, 0x00, 0x00, 0x01, 0x00, 0x42, 0x4B, 0xAE, 0x14, 0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-    }
+        "_AUDIO" => new LegacySceneFile(
+            0x0004905D,
+            [
+            MusicTrackActor(mapNameLower),
+            EmbeddedSubScene($"{mapName}_sequence", $"{mapNameLower}_sequence.tpl", $"world/maps/{mapNameLower}/audio/")
+            ]),
+        "_CINE" => new LegacySceneFile(
+            0x0004905D,
+            [
+            ComponentActor(
+                $"{mapName}_MainSequence",
+                S(0, 1.0f, 1.0f, 0),
+                S(0, 0, 0, 0, 0),
+                $"{mapNameLower}_mainsequence.tpl",
+                $"world/maps/{mapNameLower}/cinematics/",
+                S(2, 0, 1, 0x677B269Bu, Z(16)))
+            ]),
+        "_GRAPH" => new LegacySceneFile(
+            0x0004905D,
+            [
+            ComponentActor(
+                "Camera_JD_Dummy",
+                S(0, 1.0f, 1.0f, 0),
+                S(10.0f, 1.0f, 1.0f, 0, Z(3)),
+                "tpl_emptyactor.tpl",
+                "enginedata/actortemplates/",
+                S(2, 0, Z(21)))
+            ]),
+        "_TML" => new LegacySceneFile(
+            0x0004905D,
+            [
+            TimelineActor($"{mapName}_tml_dance", $"{mapNameLower}_tml_dance.tpl", mapNameLower, false, 2),
+            TimelineActor($"{mapName}_tml_karaoke", $"{mapNameLower}_tml_karaoke.tpl", mapNameLower, true, 2)
+            ]),
+        "_VIDEO" => new LegacySceneFile(
+            0x0004905D,
+            [
+            VideoScreenActor(mapNameLower, true),
+            VideoOutputActor(true)
+            ]),
+        "_menuart" => new LegacySceneFile(
+            0x0004905D,
+            [
+            CoverActor($"{mapName}_cover_generic", mapNameLower, $"{mapNameLower}_cover_generic.tga", CoverPreData(), null, false),
+            CoverActor($"{mapName}_cover_online_Kids", mapNameLower, $"{mapNameLower}_cover_online_kids.tga", CoverPreData(), null, false),
+            CoverActor($"{mapName}_cover_online", mapNameLower, $"{mapNameLower}_cover_online.tga", CoverPreData(), null, false),
+            CoverActor($"{mapName}_cover_albumcoach", mapNameLower, $"{mapNameLower}_cover_albumcoach.tga", CoverPreData(), null, false),
+            CoverActor($"{mapName}_cover_albumbkg", mapNameLower, $"{mapNameLower}_cover_albumbkg.tga", CoverPreData(), null, false),
+            CoverActor($"{mapName}_map_bkg", mapNameLower, $"{mapNameLower}_map_bkg.tga", MapBackgroundPreData(), MapBackgroundPostData(), false),
+            CoverActor($"{mapName}_coach_1", mapNameLower, $"{mapNameLower}_coach_1.tga", CoachPreData(), CoachPostData(), true)
+            ]),
+        _ => S()
+    };
 
-    public byte[] GenerateAutodanceActor(string mapName)
-    {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
+    private static object MusicTrackActor(string mapNameLower) => ComponentActor(
+        "MusicTrack",
+        S(0, 1.0f, 1.0f, 0),
+        S(F(0x3F901F86u), F(0xBED6581Du), 0, 0, 0),
+        $"{mapNameLower}_musictrack.main_legacy.tpl",
+        $"cache/legacyconverteddata/{mapNameLower}/audio/",
+        S(2, 0, 1, 0x7A7C235Bu, 0x97CA628Bu, 0x358637BDu));
 
-        // Header
-        writer.Write([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00]);
-        // Zeros block
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
+    private static object TimelineActor(string name, string tpl, string mapNameLower, bool karaoke, int tailPrefix = 0) => ComponentActor(
+        name,
+        S(0x358637BDu, 1.0f, 1.0f, 0),
+        S(0xBF9430D3u, F(0x3BC9C90Cu), 0, 0, 0),
+        tpl,
+        $"world/maps/{mapNameLower}/timeline/",
+        karaoke
+            ? S(tailPrefix, 0, 1, 0x231F27DEu, Z(16))
+            : S(tailPrefix, 0, 1, 0x231F27DEu));
 
-        WritePathAndString(writer, $"{mapNameLower}_autodance.tpl", $"world/maps/{mapNameLower}/autodance/");
+    private static object ComponentActor(
+        string name,
+        object preData,
+        object postData,
+        string tpl,
+        string path,
+        object tail) => new LegacyComponentActor(name, preData, postData, tpl, path, tail);
 
-        writer.Write([
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x67, 0x7B, 0x26, 0x9B
-        ]);
+    private static object EmbeddedSubScene(string name, string tpl, string path) =>
+        new LegacyEmbeddedSubSceneActor(name, tpl, path);
 
-        return ms.ToArray();
-    }
+    private static object VideoScreenActor(string mapNameLower, bool embedded = false) => new LegacyVideoScreenActor(mapNameLower, embedded);
 
-    public byte[] GenerateMenuArtActor(string textureName, string mapName)
-    {
-        string mapNameLower = mapName.ToLowerInvariant();
-        using MemoryStream ms = new();
-        using BinaryWriter writer = new(ms);
+    private static object VideoOutputActor(bool embedded = false) => new LegacyVideoOutputActor(embedded);
 
-        // Header
-        writer.Write([
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00, 0x3F, 0x80, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-        ]);
+    private static object MenuArtSceneActor(string mapName, string mapNameLower, string suffix, uint bounds0, uint bounds1) =>
+        new LegacyMenuArtSceneActor(mapName, mapNameLower, suffix, bounds0, bounds1);
 
-        writer.Write(new byte[16]);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00]);
+    private static object CoverActor(
+        string name,
+        string mapNameLower,
+        string textureFile,
+        object preData,
+        object? specificPostData,
+        bool coachFooter) => new LegacyCoverActor(
+            name,
+            mapNameLower,
+            textureFile,
+            preData,
+            specificPostData ?? S(0x43850B35u, 0x4345A145u, 0, 0, 0, uint.MaxValue, 0),
+            coachFooter ? S(0, 0, 0x00060000, 0x00010000, 0x00020000, 0, 0, 0, Z(2)) : S(0, 0, 1));
 
-        WritePathAndString(writer, "tpl_materialgraphiccomponent2d.tpl", "enginedata/actortemplates/");
+    private static LegacyBinarySequence CoverPreData() => S(0, 0.3f, 0.3f, 0);
+    private static LegacyBinarySequence MapBackgroundPreData() => S(0, 256.0f, 128.0f, 0);
+    private static LegacyBinarySequence CoachPreData() => S(0, F(0x3E949689u), F(0x3E949689u), 0);
 
-        writer.Write(new byte[8]);
-        WriteBigEndian32(writer, 1);
-        writer.Write([0x72, 0xB6, 0x1F, 0xC5]); // Component config magic
+    private static LegacyBinarySequence MapBackgroundPostData() => S(
+        0x44B9ED1Fu,
+        350.0f,
+        0,
+        0,
+        0,
+        uint.MaxValue,
+        0);
 
-        // Floats: 1.0, 1.0, 1.0, 1.0
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
-        WriteBigEndianFloat(writer, 1.0f);
+    private static LegacyBinarySequence CoachPostData() => S(
+        0x4354C8D5u,
+        0x4425EB88u,
+        0,
+        0,
+        0,
+        uint.MaxValue,
+        0);
 
-        writer.Write(new byte[16]);
-        writer.Write([0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-
-        // Texture type logic
-        // Modern: textureName.EndsWith("_map_bkg") ? 0x01 : 0x06
-        byte type = textureName.EndsWith("_map_bkg") ? (byte)0x01 : (byte)0x06;
-        writer.Write(type);
-        writer.Write(new byte[8]);
-
-        WritePathAndString(writer, $"{textureName}.tga", $"world/maps/{mapNameLower}/menuart/textures/");
-
-        writer.Write(new byte[8]);
-        for (int i = 0; i < 8; i++)
-        {
-            writer.Write((uint)0);
-            writer.Write(0xFFFFFFFF);
-            writer.Write((long)0);
-        }
-
-        writer.Write(new byte[8]);
-        writer.Write(0xFFFFFFFF);
-        writer.Write((uint)0);
-
-        WritePathAndString(writer, "multitexture_1layer.msh", "world/_common/matshader/");
-        writer.Write(new byte[12]);
-
-        writer.Write([
-            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00
-        ]);
-
-        WriteBigEndianFloat(writer, 1.0f);
-        writer.Write(new byte[11]);
-        writer.Write((byte)0x01);
-
-        return ms.ToArray();
-    }
-
-    private static float[] ConvertColorToArray(string hexColor)
+    private static LegacyAbgrColor ConvertColorToAbgr(string hexColor)
     {
         if (string.IsNullOrWhiteSpace(hexColor))
-            return [1.0f, 1.0f, 1.0f, 1.0f];
+            return LegacyAbgrColor.White;
+
         try
         {
             string hex = hexColor.TrimStart('#');
-            return [
+            return new LegacyAbgrColor(
                 int.Parse(hex.Substring(6, 2), NumberStyles.HexNumber) / 255.0f,
-                int.Parse(hex[..2], NumberStyles.HexNumber) / 255.0f,
+                int.Parse(hex.Substring(4, 2), NumberStyles.HexNumber) / 255.0f,
                 int.Parse(hex.Substring(2, 2), NumberStyles.HexNumber) / 255.0f,
-                int.Parse(hex.Substring(4, 2), NumberStyles.HexNumber) / 255.0f
-            ];
+                int.Parse(hex[..2], NumberStyles.HexNumber) / 255.0f);
         }
         catch
         {
-            return [1.0f, 1.0f, 1.0f, 1.0f];
+            return LegacyAbgrColor.White;
         }
-    }
-
-    private static double[] ParseColorToRgba(string hexColor)
-    {
-        if (string.IsNullOrEmpty(hexColor) || hexColor.Length < 7)
-            return [1.0, 0.5, 0.5, 0.5];
-        string hex = hexColor.TrimStart('#');
-        return [
-            1.0,
-            Convert.ToInt32(hex[..2], 16) / 255.0,
-            Convert.ToInt32(hex.Substring(2, 2), 16) / 255.0,
-            Convert.ToInt32(hex.Substring(4, 2), 16) / 255.0
-        ];
     }
 }

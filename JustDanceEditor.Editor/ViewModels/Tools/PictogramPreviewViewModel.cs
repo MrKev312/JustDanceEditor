@@ -154,7 +154,7 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
         // Simple update logic: compare and sync
         if (!VisiblePictograms.SequenceEqual(upcoming))
         {
-            VisiblePictograms = new ObservableCollection<ClipViewModel>(upcoming);
+            VisiblePictograms = [with(upcoming)];
         }
     }
 }

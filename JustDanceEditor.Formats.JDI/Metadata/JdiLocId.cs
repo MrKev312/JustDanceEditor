@@ -8,14 +8,13 @@ namespace JustDanceEditor.Formats.JDI.Metadata;
 public readonly record struct JdiLocId
 {
     public static readonly JdiLocId Zero = new("0");
-    private readonly string? _value;
 
     public JdiLocId(string value)
     {
-        _value = string.IsNullOrWhiteSpace(value) ? "0" : value.Trim();
+        Value = string.IsNullOrWhiteSpace(value) ? "0" : value.Trim();
     }
 
-    public string Value => _value ?? "0";
+    public string Value => field ?? "0";
 
     public bool IsNumeric => long.TryParse(Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
 

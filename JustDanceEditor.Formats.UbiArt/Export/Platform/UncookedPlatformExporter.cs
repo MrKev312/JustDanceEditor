@@ -15,19 +15,19 @@ public class UncookedPlatformExporter : IPlatformExporter
 
     public string GetPlatformRootFolder(string mapName) => ""; // Root is purely relative in Uncooked
 
-    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
+    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content)
     {
         // No .ckd, no trailing null
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
-        await File.WriteAllBytesAsync(fullPath, content);
+        await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(content));
     }
 
-    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)
+    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, object data)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
-        await File.WriteAllBytesAsync(fullPath, data);
+        await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(data));
     }
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)

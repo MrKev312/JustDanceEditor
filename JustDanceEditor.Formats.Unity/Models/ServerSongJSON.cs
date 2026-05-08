@@ -71,7 +71,7 @@ public class ServerSongJSON
             Difficulty = json.Difficulty,
             SweatDifficulty = json.SweatDifficulty,
             CoachCount = json.CoachCount,
-            CoachNamesLocIds = json.CoachNamesLocIds.Length == 0 ? null : json.CoachNamesLocIds.ToArray(),
+            CoachNamesLocIds = json.CoachNamesLocIds.Length == 0 ? null : [.. json.CoachNamesLocIds],
             DanceVersionLocId = json.DanceVersionLocId,
             LyricsColor = json.LyricsColor,
             Tags = [.. json.Tags],

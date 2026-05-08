@@ -4,6 +4,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="CrnLib/CrnLib.csproj" />
   <Project Path="JustDanceEditor.Audio.Tests/JustDanceEditor.Audio.Tests.csproj" />
   <Project Path="JustDanceEditor.Audio/JustDanceEditor.Audio.csproj" />
   <Project Path="JustDanceEditor.Editor.Tests/JustDanceEditor.Editor.Tests.csproj" />

@@ -79,9 +79,7 @@ public partial class PictogramScreenshotOptionsViewModel : ObservableObject, IDi
 
     public void EnableInsertionOptions(IEnumerable<PictogramReferenceMoveOption> referenceMoveOptions)
     {
-        List<PictogramReferenceMoveOption> ordered = referenceMoveOptions
-            .Where(o => !string.IsNullOrWhiteSpace(o.MoveId))
-            .ToList();
+        List<PictogramReferenceMoveOption> ordered = [.. referenceMoveOptions.Where(o => !string.IsNullOrWhiteSpace(o.MoveId))];
 
         ReferenceMoveOptions = ordered;
         ShowInsertionOptions = true;
@@ -90,8 +88,8 @@ public partial class PictogramScreenshotOptionsViewModel : ObservableObject, IDi
 
         if (ordered.Count == 0)
             SelectedInsertionMode = PictogramInsertionMode.None;
-        else if (SelectedReferenceMove == null)
-            SelectedReferenceMove = ordered[0];
+        else
+            SelectedReferenceMove ??= ordered[0];
     }
 
     partial void OnSelectedFrameLayoutModeChanged(PictogramFrameLayoutMode value)

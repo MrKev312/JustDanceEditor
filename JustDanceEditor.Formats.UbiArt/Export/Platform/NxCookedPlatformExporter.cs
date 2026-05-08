@@ -18,23 +18,24 @@ public class NxCookedPlatformExporter : IPlatformExporter
 
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "nx");
 
-    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
+    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
+        byte[] serialized = UbiArtEngineContentSerializer.Serialize(content);
         byte[] dataToWrite;
 
         // Check if this is an SGS file (Scene Graph Settings) which requires 'S' prefix
         if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
         {
-            dataToWrite = new byte[1 + content.Length + 1];
+            dataToWrite = new byte[1 + serialized.Length + 1];
             dataToWrite[0] = (byte)'S';
-            Array.Copy(content, 0, dataToWrite, 1, content.Length);
+            Array.Copy(serialized, 0, dataToWrite, 1, serialized.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
         else
         {
-            dataToWrite = new byte[content.Length + 1];
-            Array.Copy(content, dataToWrite, content.Length);
+            dataToWrite = new byte[serialized.Length + 1];
+            Array.Copy(serialized, dataToWrite, serialized.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
 
@@ -43,11 +44,11 @@ public class NxCookedPlatformExporter : IPlatformExporter
         await fs.WriteAsync(dataToWrite);
     }
 
-    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)
+    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, object data)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
-        await File.WriteAllBytesAsync(fullPath, data);
+        await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(data));
     }
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)

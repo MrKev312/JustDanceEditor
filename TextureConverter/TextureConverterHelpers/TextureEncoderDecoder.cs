@@ -1,58 +1,29 @@
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Runtime.InteropServices;
+using CrnLib;
 
 namespace TextureConverter.TextureConverterHelpers;
 
 public class TextureEncoderDecoder
 {
-    public static byte[] Encode(SixLabors.ImageSharp.Image<Rgba32> image, int width, int height, TextureFormat format, int quality = 5, int mips = 1)
+    public static byte[] Encode(Image<Rgba32> image, int width, int height, TextureFormat format, int quality = 5, int mips = 1)
     {
+        ArgumentNullException.ThrowIfNull(image);
+
         if (format is not TextureFormat.DXT1Crunched and not TextureFormat.DXT5Crunched)
             // Wrong format, throw exception
             throw new Exception($"Unsupported format: {format}");
 
-        using MemoryStream rawDataStream = new();
+        if (image.Width != width || image.Height != height)
+            throw new ArgumentException("The supplied dimensions do not match the ImageSharp image.", nameof(image));
 
-        byte[] rawRgbaData = new byte[width * height * 4];
-        image.CopyPixelDataTo(rawRgbaData);
-        byte[] rawEncodedData = EncodeCrunch(rawRgbaData, width, height, format, quality, mips);
-        rawDataStream.Write(rawEncodedData);
-
-        return rawDataStream.ToArray();
-    }
-
-    private static byte[] EncodeCrunch(byte[] data, int width, int height, TextureFormat format, int quality, int mips)
-    {
-        if (format is not TextureFormat.DXT1Crunched and not TextureFormat.DXT5Crunched)
-            throw new Exception($"Unsupported format: {format}");
-
-        byte[] dest;
-
-        // Pin the byte array to avoid GC moving it
-        GCHandle dataHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
-
-        try
+        return CrunchTexture.EncodeUnityCrunch(image, ToCrnFormat(format), new CrnEncodeOptions
         {
-            IntPtr dataInPtr = dataHandle.AddrOfPinnedObject(); // Get the pointer to the pinned array
-
-            // Call the PInvoke method
-            IntPtr dataOutPtr = PInvoke.EncodeByCrunchUnitySafe(out uint size, dataInPtr, (int)format, quality, (uint)width, (uint)height, 1, mips);
-
-            dest = new byte[size];
-            Marshal.Copy(dataOutPtr, dest, 0, (int)size); // Copy the unmanaged memory to the managed array
-
-            // Free the unmanaged memory
-            Marshal.FreeCoTaskMem(dataOutPtr);
-        }
-        finally
-        {
-            // Always free the handle to avoid memory leaks
-            if (dataHandle.IsAllocated)
-                dataHandle.Free();
-        }
-
-        return dest;
+            MipCount = mips,
+            Quality = MapQuality(quality),
+            UserData0 = 1,
+        });
     }
 
     public static byte[] DecodeCrunch(byte[] data)
@@ -60,26 +31,29 @@ public class TextureEncoderDecoder
         if (data == null || data.Length == 0)
             throw new ArgumentException("Crunch payload cannot be null or empty.", nameof(data));
 
-        byte[] dest;
-        GCHandle dataHandle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        return CrunchTexture.DecodeUnityCrunch(data);
+    }
 
-        try
+    public static Image<Rgba32> DecodeCrunchImage(byte[] data)
+    {
+        if (data == null || data.Length == 0)
+            throw new ArgumentException("Crunch payload cannot be null or empty.", nameof(data));
+
+        return CrunchTexture.DecodeUnityCrunchImage(data);
+    }
+
+    private static CrnFormat ToCrnFormat(TextureFormat format)
+    {
+        return format switch
         {
-            IntPtr dataPtr = dataHandle.AddrOfPinnedObject();
-            IntPtr decodedPtr = PInvoke.DecodeByCrunchUnitySafe(out uint size, dataPtr, (uint)data.Length);
-            if (decodedPtr == IntPtr.Zero || size == 0)
-                throw new InvalidOperationException("Failed to decode Crunch payload.");
+            TextureFormat.DXT1Crunched => CrnFormat.Dxt1,
+            TextureFormat.DXT5Crunched => CrnFormat.Dxt5,
+            _ => throw new Exception($"Unsupported format: {format}"),
+        };
+    }
 
-            dest = new byte[size];
-            Marshal.Copy(decodedPtr, dest, 0, (int)size);
-            Marshal.FreeCoTaskMem(decodedPtr);
-        }
-        finally
-        {
-            if (dataHandle.IsAllocated)
-                dataHandle.Free();
-        }
-
-        return dest;
+    private static CrnCompressionQuality MapQuality(int quality)
+    {
+        return quality < 0 ? CrnCompressionQuality.Fast : CrnCompressionQuality.BestQuality;
     }
 }

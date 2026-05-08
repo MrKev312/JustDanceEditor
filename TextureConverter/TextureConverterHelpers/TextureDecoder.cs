@@ -17,10 +17,20 @@ public static class TextureDecoder
             TextureFormat.RGB24 => LoadRgb24(encodedData, width, height),
             TextureFormat.DXT1 => LoadDxtTexture(encodedData, width, height, useAlpha: false),
             TextureFormat.DXT5 => LoadDxtTexture(encodedData, width, height, useAlpha: true),
-            TextureFormat.DXT1Crunched => LoadDxtTexture(TextureEncoderDecoder.DecodeCrunch(encodedData), width, height, useAlpha: false),
-            TextureFormat.DXT5Crunched => LoadDxtTexture(TextureEncoderDecoder.DecodeCrunch(encodedData), width, height, useAlpha: true),
+            TextureFormat.DXT1Crunched => LoadCrunchImage(encodedData, width, height),
+            TextureFormat.DXT5Crunched => LoadCrunchImage(encodedData, width, height),
             _ => throw new NotSupportedException($"Unsupported texture format '{format}'.")
         };
+    }
+
+    private static Image<Rgba32> LoadCrunchImage(byte[] data, int width, int height)
+    {
+        Image<Rgba32> image = TextureEncoderDecoder.DecodeCrunchImage(data);
+        if (image.Width == width && image.Height == height)
+            return image;
+
+        image.Dispose();
+        throw new InvalidOperationException("Crunch payload dimensions do not match the expected texture dimensions.");
     }
 
     private static Image<Rgba32> LoadRawRgba(byte[] data, int width, int height, ColorChannelOrder order)

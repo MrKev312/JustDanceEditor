@@ -20,23 +20,24 @@ public class PcCookedPlatformExporter : IPlatformExporter
     // PC cooked assets usually reside in cache/itf_cooked/pc
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "pc");
 
-    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, byte[] content)
+    public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
+        byte[] serialized = UbiArtEngineContentSerializer.Serialize(content);
         byte[] dataToWrite;
 
         // Add 'S' prefix for SGS files
         if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
         {
-            dataToWrite = new byte[1 + content.Length + 1];
+            dataToWrite = new byte[1 + serialized.Length + 1];
             dataToWrite[0] = (byte)'S';
-            Array.Copy(content, 0, dataToWrite, 1, content.Length);
+            Array.Copy(serialized, 0, dataToWrite, 1, serialized.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
         else
         {
-            dataToWrite = new byte[content.Length + 1];
-            Array.Copy(content, dataToWrite, content.Length);
+            dataToWrite = new byte[serialized.Length + 1];
+            Array.Copy(serialized, dataToWrite, serialized.Length);
             dataToWrite[^1] = 0; // Null terminator
         }
 
@@ -45,12 +46,12 @@ public class PcCookedPlatformExporter : IPlatformExporter
         await fs.WriteAsync(dataToWrite);
     }
 
-    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, byte[] data)
+    public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, object data)
     {
         // Binary files (Actors) are generated as BigEndian by the ContentGenerator, so we write them directly
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
-        await File.WriteAllBytesAsync(fullPath, data);
+        await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(data));
     }
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
