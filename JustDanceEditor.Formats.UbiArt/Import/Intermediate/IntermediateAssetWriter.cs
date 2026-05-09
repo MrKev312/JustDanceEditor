@@ -312,11 +312,34 @@ internal static class IntermediateAssetWriter
         string movesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
         string gesturesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
 
-        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder, io);
-        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.gesture", gesturesFolder, io);
+        foreach (string motionFolder in EnumerateMotionSearchFolders(context))
+        {
+            CopyCookedFiles(context, motionFolder, "*.msm", movesFolder, io);
+            CopyCookedFiles(context, motionFolder, "*.gesture", gesturesFolder, io);
+        }
 
         string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
         CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder, io);
+    }
+
+    private static IEnumerable<string> EnumerateMotionSearchFolders(ConversionContext context)
+    {
+        string timelineMovesFolder = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "moves");
+
+        yield return context.FileSystem.InputFolders.MovesFolder;
+        yield return timelineMovesFolder;
+
+        foreach (UbiArtPlatform platform in Enum.GetValues<UbiArtPlatform>())
+        {
+            if (platform == UbiArtPlatform.Uncooked)
+                continue;
+
+            string platformFolder = platform.GetCookedFolderName();
+            if (!string.IsNullOrWhiteSpace(platformFolder))
+                yield return Path.Combine(timelineMovesFolder, platformFolder);
+        }
+
+        yield return Path.Combine(timelineMovesFolder, "wiiu");
     }
 
     private static string? CopyCookedFiles(ConversionContext context, string relativeFolder, string pattern, string destinationFolder, IFileSystem io)
@@ -368,7 +391,7 @@ internal static class IntermediateAssetWriter
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
-        CookedFile? sourceFile = GetVideoFile(fileSystem);
+        CookedFile? sourceFile = GetVideoFile(fileSystem, io);
         if (sourceFile == null)
         {
             logger.LogWarning("No video file found in UbiArt input; skipping video copy.");
@@ -390,7 +413,7 @@ internal static class IntermediateAssetWriter
         }
     }
 
-    private static CookedFile? GetVideoFile(LayeredFileSystem fileSystem)
+    private static CookedFile? GetVideoFile(LayeredFileSystem fileSystem, IFileSystem io)
     {
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {

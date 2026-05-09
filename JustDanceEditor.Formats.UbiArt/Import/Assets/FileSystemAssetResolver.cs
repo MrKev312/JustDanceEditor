@@ -69,15 +69,42 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
 
     public CookedFile[] GetMoveFiles()
     {
-        string movesFolder = _fileSystem.InputFolders.MovesFolder;
-        try
+        List<CookedFile> files = [];
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string movesFolder in EnumerateMoveFolders())
         {
-            CookedFile[] files = _fileSystem.GetAllFiles(movesFolder, "*.msm");
-            return files;
+            try
+            {
+                foreach (CookedFile file in _fileSystem.GetAllFiles(movesFolder, "*.msm"))
+                {
+                    if (seen.Add(file.RelativePath))
+                        files.Add(file);
+                }
+            }
+            catch
+            {
+            }
         }
-        catch
+
+        return [.. files];
+    }
+
+    private IEnumerable<string> EnumerateMoveFolders()
+    {
+        string timelineMovesFolder = Path.Combine(_fileSystem.InputFolders.TimelineFolder, "moves");
+
+        yield return _fileSystem.InputFolders.MovesFolder;
+        yield return timelineMovesFolder;
+
+        foreach (UbiArtPlatform platform in Enum.GetValues<UbiArtPlatform>())
         {
-            return [];
+            if (platform == UbiArtPlatform.Uncooked)
+                continue;
+
+            string platformFolder = platform.GetCookedFolderName();
+            if (!string.IsNullOrWhiteSpace(platformFolder))
+                yield return Path.Combine(timelineMovesFolder, platformFolder);
         }
     }
 
@@ -130,7 +157,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fil
         return TryFindAudio(relativePath, out file);
     }
 
-    public bool TryFindFileWithExtensions(string folderRelative, string baseName, IEnumerable<string> extensions, out CookedFile? file)
+    public bool TryFindFileWithExtensions(string folderRelative, string baseName, IEnumerable<string> extensions, [NotNullWhen(true)] out CookedFile? file)
     {
         file = null;
 

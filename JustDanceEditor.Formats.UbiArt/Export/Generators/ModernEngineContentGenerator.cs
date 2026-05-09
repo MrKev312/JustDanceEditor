@@ -155,6 +155,36 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             }
         }
 
+        foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
+        {
+            foreach (MoveClip clip in timeline.Clips)
+            {
+                if (!package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move))
+                    continue;
+
+                clips.Add(new
+                {
+                    __class = "MotionClip",
+                    clip.Id,
+                    timeline.TrackId,
+                    IsActive = 1,
+                    clip.StartTime,
+                    move.Duration,
+                    ClassifierPath = $"world/maps/{mapNameLower}/timeline/moves/{clip.MoveId}.gesture",
+                    GoldMove = clip.IsGoldMove ? 1 : 0,
+                    timeline.CoachId,
+                    MoveType = 1,
+                    Color = ParseColorToRgba(move.Color),
+                    MotionPlatformSpecifics = new
+                    {
+                        X360 = new { __class = "MotionPlatformSpecific", ScoreScale = 1, ScoreSmoothing = 0, LowThreshold = 0.2, HighThreshold = 1.0 },
+                        ORBIS = new { __class = "MotionPlatformSpecific", ScoreScale = 1, ScoreSmoothing = 0, LowThreshold = -0.2, HighThreshold = 0.6 },
+                        DURANGO = new { __class = "MotionPlatformSpecific", ScoreScale = 1, ScoreSmoothing = 0, LowThreshold = 0.2, HighThreshold = 1.0 }
+                    }
+                });
+            }
+        }
+
         foreach (PictogramClip pictoClip in package.Pictograms.Clips)
         {
             clips.Add(new

@@ -11,7 +11,8 @@ public enum UbiArtPlatform
     WiiU,
     NX,
     PC,
-    X360
+    X360,
+    Durango
 }
 
 public static class UbiArtPlatformExtensions
@@ -24,6 +25,7 @@ public static class UbiArtPlatformExtensions
         UbiArtPlatform.NX => "nx",
         UbiArtPlatform.PC => "pc",
         UbiArtPlatform.X360 => "x360",
+        UbiArtPlatform.Durango => "durango",
         _ => platform.ToString().ToLowerInvariant()
     };
 }

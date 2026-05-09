@@ -7,6 +7,7 @@ using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using System;
 using System.IO;
 
 using Xunit;
@@ -67,6 +68,49 @@ public class AssetResolverAudioTests
         Assert.True(found);
         CookedFile resolvedFile = file ?? throw new System.InvalidOperationException("Expected audio file to be resolved.");
         Assert.EndsWith(baseName + ".wav", resolvedFile.RelativePath);
+
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
+    public void TryFindMainAudio_Durango_Returns_PreMergedOgg_From_MediaFolder()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string mediaFolder = Path.Combine(root, "world", "maps", "dancemonkey", "media");
+        Directory.CreateDirectory(mediaFolder);
+
+        File.WriteAllText(Path.Combine(mediaFolder, "audio.ogg"), "FULLSONG");
+
+        UbiArtVersionProfile profile = new(UbiArtPlatform.Durango, UbiArtEngineVersion.JD2021, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        UbiArtConversionRequest req = new(root, Path.GetTempPath(), "dancemonkey") { Type = CookedType.Cooked };
+        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
+        fs.Initialize();
+
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
+        JDUbiArtSong song = new()
+        {
+            Name = "DanceMonkey",
+            MusicTrack = new MusicTrack
+            {
+                Components =
+                [
+                    new TrackDataHolder
+                    {
+                        TrackData = new TrackData
+                        {
+                            Path = Path.Combine("world", "maps", "dancemonkey", "audio", "dancemonkey.wav")
+                        }
+                    }
+                ]
+            }
+        };
+
+        bool found = resolver.TryFindMainAudio(song, out CookedFile? file, out bool isPreMerged);
+
+        Assert.True(found);
+        Assert.True(isPreMerged);
+        CookedFile resolvedFile = file ?? throw new System.InvalidOperationException("Expected main audio file to be resolved.");
+        Assert.EndsWith("audio.ogg", resolvedFile.RelativePath, StringComparison.OrdinalIgnoreCase);
 
         Directory.Delete(root, true);
     }

@@ -12,6 +12,8 @@ using NAudio.Wave.SampleProviders;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
+using Xabe.FFmpeg;
+
 namespace JustDanceEditor.Formats.UbiArt.Import.Audio;
 
 public sealed record UbiArtAudioClipSource(SoundSetClip Clip, CookedFile File);
@@ -82,12 +84,7 @@ public static class UbiArtAudioConverter
         {
             try
             {
-                using Stream src = request.FileSystem.GetFileStream(clipSource.File);
-                string sourceFileName = clipSource.File.Name + clipSource.File.Extension;
-                if (clipSource.File.IsCooked)
-                    sourceFileName += ".ckd";
-
-                WaveStream waveStream = request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+                WaveStream waveStream = ConvertSourceFile(request, clipSource.File);
                 string clipKey = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
                 clipStreams[clipKey] = waveStream;
             }
@@ -102,14 +99,110 @@ public static class UbiArtAudioConverter
 
     private static WaveStream ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger)
     {
-        using Stream src = request.FileSystem.GetFileStream(request.MainSongFile);
-        string sourceFileName = request.MainSongFile.Name + request.MainSongFile.Extension;
-        if (request.MainSongFile.IsCooked)
-            sourceFileName += ".ckd";
-
-        WaveStream waveStream = request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+        WaveStream waveStream = ConvertSourceFile(request, request.MainSongFile);
         logger.LogDebug("Converted main song to WaveStream");
         return waveStream;
+    }
+
+    private static WaveStream ConvertSourceFile(UbiArtAudioConversionRequest request, CookedFile sourceFile)
+    {
+        using Stream src = request.FileSystem.GetFileStream(sourceFile);
+        string sourceFileName = sourceFile.Name + sourceFile.Extension;
+        if (sourceFile.IsCooked)
+            sourceFileName += ".ckd";
+
+        if (IsPlainAudioFile(sourceFile, src))
+            return ConvertPlainAudioFile(src, sourceFile.Extension, request.TempAudioFolder);
+
+        return request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+    }
+
+    private static bool IsPlainAudioFile(CookedFile sourceFile, Stream source)
+    {
+        if (sourceFile.IsCooked)
+            return false;
+
+        string extension = sourceFile.Extension;
+        if (!extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(".opus", StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(".wav", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!source.CanSeek)
+            return true;
+
+        long originalPosition = source.Position;
+        try
+        {
+            Span<byte> header = stackalloc byte[4];
+            int read = source.Read(header);
+            if (read < 4)
+                return false;
+
+            return header.SequenceEqual("OggS"u8) || header.SequenceEqual("RIFF"u8);
+        }
+        finally
+        {
+            source.Position = originalPosition;
+        }
+    }
+
+    private static WaveStream ConvertPlainAudioFile(Stream source, string extension, string tempAudioFolder)
+    {
+        Directory.CreateDirectory(tempAudioFolder);
+
+        if (extension.Equals(".wav", StringComparison.OrdinalIgnoreCase))
+        {
+            MemoryStream wavCopy = new();
+            source.CopyTo(wavCopy);
+            wavCopy.Position = 0;
+            return new WaveFileReader(wavCopy);
+        }
+
+        string inputPath = Path.Combine(tempAudioFolder, $"{Guid.NewGuid():N}{extension}");
+        string outputPath = Path.Combine(tempAudioFolder, $"{Guid.NewGuid():N}.wav");
+
+        try
+        {
+            using (FileStream input = File.Create(inputPath))
+            {
+                source.CopyTo(input);
+            }
+
+            IConversion conversion = FFmpeg.Conversions.New();
+            conversion.SetOverwriteOutput(true);
+            conversion.AddParameter($"-i \"{inputPath}\" -ar 48000 -ac 2");
+            conversion.SetOutput(outputPath);
+            conversion.Start().GetAwaiter().GetResult();
+
+            MemoryStream wavCopy = new();
+            using (FileStream output = File.OpenRead(outputPath))
+            {
+                output.CopyTo(wavCopy);
+            }
+
+            wavCopy.Position = 0;
+            return new WaveFileReader(wavCopy);
+        }
+        finally
+        {
+            TryDeleteFile(inputPath);
+            TryDeleteFile(outputPath);
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+        }
     }
 
     private static ISampleProvider MergeAudioStreams(

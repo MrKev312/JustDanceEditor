@@ -51,7 +51,8 @@ public static class ConversionTargetSelector
         "NX" => 1,
         "WiiU" => 2,
         "X360" => 3,
-        "Wii" => 4,
+        "Xbox One" => 4,
+        "Wii" => 5,
         _ => 100
     };
 

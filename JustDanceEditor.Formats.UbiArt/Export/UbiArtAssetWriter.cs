@@ -468,26 +468,52 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             }
         }
 
+        CopyRawMoveAssets(materializedRoot, rawMapWorldBase, ctx, platform);
+    }
+
+    private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform)
+    {
         string movesSource = ctx.IO.Combine(materializedRoot, "assets", "moves");
         if (ctx.IO.DirectoryExists(movesSource))
         {
-            // Moves are platform specific (Wii/WiiU uses .msm, NX uses .msc usually but .msm often compatible)
-            // For Wii, we need to ensure they are put in the right folder.
-            string movesPlatform = platform == UbiArtPlatform.X360 ? "x360" : "wiiu";
-            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", movesPlatform);
+            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", GetHandMovePlatformFolder(platform));
+            CopyRawFiles(ctx, movesSource, "*.msm", movesFolder);
+        }
 
-            ctx.IO.CreateDirectory(ctx.IO.Combine(ctx.OutputFolder, movesFolder));
-
-            Parallel.ForEach(ctx.IO.GetFiles(movesSource, "*.msm"), moveFile =>
-            {
-                string fileName = Path.GetFileName(moveFile).ToLowerInvariant();
-                string destPath = Path.Combine(movesFolder, fileName);
-                string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
-
-                ctx.IO.Copy(moveFile, fullDest, true);
-            });
+        string gesturesSource = ctx.IO.Combine(materializedRoot, "assets", "gestures");
+        if (ctx.IO.DirectoryExists(gesturesSource))
+        {
+            string gesturesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", GetFullBodyMovePlatformFolder(platform));
+            CopyRawFiles(ctx, gesturesSource, "*.gesture", gesturesFolder);
         }
     }
+
+    private static void CopyRawFiles(ExportContext ctx, string sourceFolder, string pattern, string relativeDestinationFolder)
+    {
+        ctx.IO.CreateDirectory(ctx.IO.Combine(ctx.OutputFolder, relativeDestinationFolder));
+
+        Parallel.ForEach(ctx.IO.GetFiles(sourceFolder, pattern), sourceFile =>
+        {
+            string fileName = Path.GetFileName(sourceFile).ToLowerInvariant();
+            string destPath = Path.Combine(relativeDestinationFolder, fileName);
+            string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
+
+            ctx.IO.Copy(sourceFile, fullDest, true);
+        });
+    }
+
+    private static string GetHandMovePlatformFolder(UbiArtPlatform platform) => platform switch
+    {
+        UbiArtPlatform.X360 => "x360",
+        _ => "wiiu"
+    };
+
+    private static string GetFullBodyMovePlatformFolder(UbiArtPlatform platform) => platform switch
+    {
+        UbiArtPlatform.Durango => "durango",
+        UbiArtPlatform.X360 => "x360",
+        _ => GetHandMovePlatformFolder(platform)
+    };
 
     private static async Task WriteUncookedTrkFileAsync(IntermediateSongPackage package, ExportContext ctx, string trkPath)
     {

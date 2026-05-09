@@ -141,6 +141,9 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
             yield return CreateVersionedTarget($"x360-{year}", "X360", $"X360 / JD{year} (UbiArt)", UbiArtPlatform.X360, ToEngineVersion(year), 10 + (year - 2014));
 
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022 })
+            yield return CreateVersionedTarget($"durango-{year}", "Xbox One", $"Xbox One / JD{year} (UbiArt)", UbiArtPlatform.Durango, ToEngineVersion(year), 10 + (year - 2017));
+
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020 })
             yield return CreateVersionedTarget($"wii-{year}", "Wii", $"Wii / JD{year} (UbiArt)", UbiArtPlatform.Wii, ToEngineVersion(year), 10 + (year - 2014));
     }

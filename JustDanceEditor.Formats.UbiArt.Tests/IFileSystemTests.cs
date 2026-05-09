@@ -17,6 +17,7 @@ public class IFileSystemTests
     [InlineData("nx", UbiArtPlatform.NX)]
     [InlineData("pc", UbiArtPlatform.PC)]
     [InlineData("x360", UbiArtPlatform.X360)]
+    [InlineData("durango", UbiArtPlatform.Durango)]
     public void EngineDetector_Detects_Cooked_JD2015_Platforms(string platformFolder, UbiArtPlatform expectedPlatform)
     {
         Mock<IFileSystem> mockFs = new();

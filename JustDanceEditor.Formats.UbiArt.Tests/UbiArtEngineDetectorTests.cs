@@ -123,6 +123,30 @@ public class UbiArtEngineDetectorTests
     }
 
     [Fact]
+    public void Detect_DurangoCooked_Should_Read_JD2021_From_SongDesc()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string cookedMap = Path.Combine(root, "cache", "itf_cooked", "durango", "world", "maps", "dancemonkey");
+        Directory.CreateDirectory(cookedMap);
+
+        File.WriteAllText(Path.Combine(cookedMap, "songdesc.tpl.ckd"), "{ \"COMPONENTS\": [ { \"JDVersion\": 2021, \"OriginalJDVersion\": 2021, \"MapName\": \"DanceMonkey\" } ] }\0");
+
+        try
+        {
+            UbiArtEngineDetector detector = new();
+            UbiArtVersionProfile profile = detector.Detect(root);
+
+            Assert.Equal(UbiArtPlatform.Durango, profile.Platform);
+            Assert.Equal(UbiArtEngineVersion.JD2021, profile.EngineVersion);
+            Assert.IsType<JsonUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Layout_Should_Resolve_JD2014_Uncooked_MapFolder()
     {
         UbiArtLayoutResolver layout = new();
@@ -144,6 +168,14 @@ public class UbiArtEngineDetectorTests
         UbiArtLayoutResolver layout = new();
         string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.X360, UbiArtEngineVersion.JD2019);
         Assert.Equal(Path.Combine("world", "maps", "song", "timeline", "moves", "x360"), movesFolder);
+    }
+
+    [Fact]
+    public void Layout_Should_Resolve_Durango_MovesFolder()
+    {
+        UbiArtLayoutResolver layout = new();
+        string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.Durango, UbiArtEngineVersion.JD2021);
+        Assert.Equal(Path.Combine("world", "maps", "song", "timeline", "moves", "durango"), movesFolder);
     }
 
     private static byte[] CreateLegacySongDesc(string mapName, UbiArtEngineVersion engineVersion)
