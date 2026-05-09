@@ -4,18 +4,164 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Model;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using System.Buffers.Binary;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 using Xunit;
+
+using UbiArtClipTape = JustDanceEditor.Formats.UbiArt.Model.ClipTape;
+using UbiArtGameplayEventClip = JustDanceEditor.Formats.UbiArt.Model.Clips.GameplayEventClip;
+using UbiArtGoldEffectClip = JustDanceEditor.Formats.UbiArt.Model.Clips.GoldEffectClip;
+using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Model.Clips.HideUserInterfaceClip;
+using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Model.Clips.KaraokeClip;
+using UbiArtMotionClip = JustDanceEditor.Formats.UbiArt.Model.Clips.MotionClip;
+using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Model.Clips.PictogramClip;
+using UbiArtSoundSetClip = JustDanceEditor.Formats.UbiArt.Model.Clips.SoundSetClip;
 
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class LegacyEngineContentGeneratorTests
 {
+    [Theory]
+    [InlineData(UbiArtPlatform.Wii)]
+    [InlineData(UbiArtPlatform.X360)]
+    public void Factory_UsesLegacyGenerator_For_JD2019_WiiStylePlatforms(UbiArtPlatform platform)
+    {
+        UbiArtExporterFactory factory = new();
+
+        IEngineContentGenerator generator = factory.GetEngineContentGenerator(UbiArtEngineVersion.JD2019, platform);
+
+        Assert.IsType<LegacyEngineContentGenerator>(generator);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacySongDesc()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateSongDesc(package));
+
+        SongDesc songDesc = new BinaryUbiArtSerializer().Deserialize<SongDesc>(new MemoryStream(bytes));
+
+        InfoComponent info = songDesc.Components.Single();
+        Assert.Equal("TestMap", info.MapName);
+        Assert.Equal(UbiArtEngineVersion.JD2019, (UbiArtEngineVersion)info.JDVersion);
+        Assert.Equal(2016u, info.OriginalJDVersion);
+        Assert.Equal("Artist", info.Artist);
+        Assert.Equal("Title", info.Title);
+        Assert.Equal(1, info.NumCoach);
+        Assert.Equal(2u, info.Difficulty);
+        Assert.Equal(0x44 / 255f, info.DefaultColors.Lyrics[0], 5);
+        Assert.Equal(0x11 / 255f, info.DefaultColors.Lyrics[1], 5);
+        Assert.Equal(0x22 / 255f, info.DefaultColors.Lyrics[2], 5);
+        Assert.Equal(0x33 / 255f, info.DefaultColors.Lyrics[3], 5);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyMusicTrack()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateMusicTrack(package));
+
+        MusicTrack musicTrack = new BinaryUbiArtSerializer().Deserialize<MusicTrack>(new MemoryStream(bytes));
+
+        Structure structure = musicTrack.Components.Single().TrackData.Structure;
+        Assert.Equal(package.TimelineStructure.Markers, structure.Markers);
+        Assert.Equal(-1, structure.StartBeat);
+        Assert.Equal(2, structure.EndBeat);
+        Assert.Single(structure.Signatures);
+        Assert.Equal(4, structure.Signatures[0].Beats);
+        Assert.Single(structure.Sections);
+        Assert.Equal("verse", structure.Sections[0].Comment);
+        Assert.Equal("world/maps/testmap/audio/testmap.wav", musicTrack.Components[0].TrackData.Path);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyDanceTape()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package));
+
+        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+
+        UbiArtMotionClip motion = tape.Clips.OfType<UbiArtMotionClip>().Single();
+        UbiArtPictogramClip pictogram = tape.Clips.OfType<UbiArtPictogramClip>().Single();
+        UbiArtGoldEffectClip gold = tape.Clips.OfType<UbiArtGoldEffectClip>().Single();
+
+        Assert.Equal("world/maps/testmap/timeline/moves/move_a.msm", motion.ClassifierPath);
+        Assert.Equal(1, motion.GoldMove);
+        Assert.Equal("world/maps/testmap/timeline/pictos/picto_a.png", pictogram.PictoPath);
+        Assert.Equal(1, gold.EffectType);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyKaraokeTape()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateKaraokeTape(package));
+
+        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+
+        UbiArtKaraokeClip karaoke = tape.Clips.OfType<UbiArtKaraokeClip>().Single();
+        Assert.Equal("Test", karaoke.Lyrics);
+        Assert.Equal(50, karaoke.StartTime);
+        Assert.Equal(20, karaoke.Duration);
+        Assert.Equal(1, karaoke.ContentType);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyMainSequenceTape()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateMainSequenceTape(package));
+
+        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+
+        UbiArtSoundSetClip soundSet = tape.Clips.OfType<UbiArtSoundSetClip>().Single();
+        UbiArtHideUserInterfaceClip hideHud = tape.Clips.OfType<UbiArtHideUserInterfaceClip>().Single();
+        Assert.Equal("world/maps/testmap/audio/amb/amb_testmap_intro.tpl", soundSet.SoundSetPath);
+        Assert.Equal(40, hideHud.StartTime);
+        Assert.Equal(16, hideHud.Duration);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyGameplayEventClips()
+    {
+        byte[] bytes =
+        [
+            0x00, 0x00, 0x00, 0x01, // Version
+            0x00, 0x00, 0x00, 0x00, // Tape version
+            0x9E, 0x84, 0x54, 0x60, // Tape type id
+            0x00, 0x00, 0x00, 0x9C, // Tape type size
+            0x00, 0x00, 0x00, 0x01, // Clip count
+            0x10, 0x1F, 0x9D, 0x2B, // Gameplay event clip type id
+            0x00, 0x00, 0x00, 0x18, // Serialized clip size
+            0x00, 0x00, 0x00, 0x7B, // Id
+            0x00, 0x00, 0x01, 0xC8, // Track id
+            0x00, 0x00, 0x00, 0x01, // Active
+            0x00, 0x00, 0x00, 0x20, // Start time
+            0x00, 0x00, 0x00, 0x04  // Duration
+        ];
+
+        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+
+        UbiArtGameplayEventClip clip = Assert.IsType<UbiArtGameplayEventClip>(Assert.Single(tape.Clips));
+        Assert.Equal(123, clip.Id);
+        Assert.Equal(456, clip.TrackId);
+        Assert.Equal(32, clip.StartTime);
+        Assert.Equal(4, clip.Duration);
+    }
+
     [Fact]
     public void GenerateDanceTape_WritesTypedLegacyTapeAndClipLayout()
     {

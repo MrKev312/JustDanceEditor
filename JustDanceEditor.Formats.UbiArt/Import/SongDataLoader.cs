@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using Microsoft.Extensions.Logging;
 
@@ -44,24 +45,30 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songData.SongDesc.Components[0].JDVersion, songData.JDVersion);
 
         _logger.LogInformation("Loading MusicTrack");
-        string musicTrackRelativePath = Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songData.Name}_musictrack.tpl");
-        CookedFile musicTrackPath = fileSystem.GetFilePath(musicTrackRelativePath);
+        CookedFile musicTrackPath = GetMusicTrackPath(songData.Name, fileSystem);
         using Stream musicStream = fileSystem.GetFileStream(musicTrackPath);
 
-        // For Uncooked format, check for includeReference FIRST before using regular serializer
-        string musicTrackContent = new StreamReader(musicStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
-        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked && musicTrackContent.Contains("includeReference"))
+        if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
         {
-            _logger.LogInformation("MusicTrack contains Lua includeReference, deserializing with file system support");
-            songData.MusicTrack = LuaTableSerializer.Deserialize<MusicTrack>(musicTrackContent, fileSystem);
+            songData.MusicTrack = fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(musicStream, options);
         }
         else
         {
-            // Use regular serializer for cooked format or when no includeReference
-            using MemoryStream ms = new(Encoding.UTF8.GetBytes(musicTrackContent));
-            songData.MusicTrack = fileSystem.VersionProfile.Serializer != null
-                ? fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(ms, options)
-                : JsonSerializer.Deserialize<MusicTrack>(musicTrackContent, options) ?? throw new JsonException("Failed to deserialize MusicTrack JSON.");
+            // For Uncooked format, check for includeReference FIRST before using regular serializer
+            string musicTrackContent = new StreamReader(musicStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0');
+            if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked && musicTrackContent.Contains("includeReference"))
+            {
+                _logger.LogInformation("MusicTrack contains Lua includeReference, deserializing with file system support");
+                songData.MusicTrack = LuaTableSerializer.Deserialize<MusicTrack>(musicTrackContent, fileSystem);
+            }
+            else
+            {
+                // Use regular serializer for cooked format or when no includeReference
+                using MemoryStream ms = new(Encoding.UTF8.GetBytes(musicTrackContent));
+                songData.MusicTrack = fileSystem.VersionProfile.Serializer != null
+                    ? fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(ms, options)
+                    : JsonSerializer.Deserialize<MusicTrack>(musicTrackContent, options) ?? throw new JsonException("Failed to deserialize MusicTrack JSON.");
+            }
         }
 
         _logger.LogInformation("Loading MainSequence");
@@ -163,6 +170,16 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         }
         else
         {
+            if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer &&
+                fileSystem.GetFilePath(karaokeKtapeRelativePath, out CookedFile? directKaraokeKtapeFile))
+            {
+                _logger.LogInformation("Loading KaraokeTape from .ktape (legacy binary cooked format)");
+                using Stream karaokeStream = fileSystem.GetFileStream(directKaraokeKtapeFile);
+                ClipTape karaokeTape = fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options);
+                songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
+                return ApplyDataMapper(songData, fileSystem);
+            }
+
             // Cooked layout: expect an .isc descriptor referencing the karaoke actor/tape
             if (fileSystem.GetFilePath(timelineIscPath, out CookedFile? timelineFileResult))
             {
@@ -219,6 +236,11 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         }
 
         // Apply any data mapper transformations (for future engine-specific fixups)
+        return ApplyDataMapper(songData, fileSystem);
+    }
+
+    private static JDUbiArtSong ApplyDataMapper(JDUbiArtSong songData, LayeredFileSystem fileSystem)
+    {
         if (fileSystem.VersionProfile.Mapper != null)
             songData = fileSystem.VersionProfile.Mapper.Map(songData);
 
@@ -236,8 +258,8 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         options.Converters.Add(new IntFlexibleJsonConverter());
         options.Converters.Add(new BoolFlexibleJsonConverter());
 
-        string songDescRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "songdesc.tpl");
-        if (fileSystem.GetFilePath(songDescRelativePath, out CookedFile? songDescPathCooked))
+        if (fileSystem.TryGetSongDescriptorPath(fileSystem.SongName, out CookedFile? songDescPathCooked) &&
+            !songDescPathCooked.Extension.Equals(".act", StringComparison.OrdinalIgnoreCase))
         {
             using Stream songDescStream = fileSystem.GetFileStream(songDescPathCooked);
             return fileSystem.VersionProfile.Serializer != null
@@ -285,6 +307,25 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         }
 
         throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
+    }
+
+    private static CookedFile GetMusicTrackPath(string songName, LayeredFileSystem fileSystem)
+    {
+        string songNameLower = songName.ToLowerInvariant();
+        string[] candidates =
+        [
+            Path.Combine(fileSystem.InputFolders.AudioFolder, $"{songName}_musictrack.tpl"),
+            Path.Combine("cache", "legacyconverteddata", songName, "audio", $"{songName}_musictrack.main_legacy.tpl"),
+            Path.Combine("cache", "legacyconverteddata", songNameLower, "audio", $"{songNameLower}_musictrack.main_legacy.tpl")
+        ];
+
+        foreach (string candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (fileSystem.GetFilePath(candidate, out CookedFile? found))
+                return found;
+        }
+
+        throw new FileNotFoundException($"MusicTrack not found for '{songName}'.");
     }
 
     private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, LayeredFileSystem fileSystem, JsonSerializerOptions options)

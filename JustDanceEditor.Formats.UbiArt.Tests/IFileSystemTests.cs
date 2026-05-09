@@ -16,6 +16,7 @@ public class IFileSystemTests
     [InlineData("wiiu", UbiArtPlatform.WiiU)]
     [InlineData("nx", UbiArtPlatform.NX)]
     [InlineData("pc", UbiArtPlatform.PC)]
+    [InlineData("x360", UbiArtPlatform.X360)]
     public void EngineDetector_Detects_Cooked_JD2015_Platforms(string platformFolder, UbiArtPlatform expectedPlatform)
     {
         Mock<IFileSystem> mockFs = new();

@@ -76,9 +76,12 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
         catch (NotImplementedException ex)
         {
-            // If the configured serializer is binary (JD2014/JD2015), provide a friendly message
-            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015 || fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
+            // If the configured serializer is binary, provide a friendly message until legacy import is implemented.
+            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015)
                 throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
+
+            if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
+                throw new NotSupportedException("Legacy binary UbiArt import support is coming soon.", ex);
 
             throw;
         }
@@ -153,7 +156,9 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         // Create subfolder with {songname}_{platform} pattern in lowercase
         string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
-        string platformName = ubiRequest.ExportPlatform.ToString().ToLowerInvariant();
+        string platformName = ubiRequest.ExportPlatform == UbiArtPlatform.Uncooked
+            ? "uncooked"
+            : ubiRequest.ExportPlatform.GetCookedFolderName();
         string folderName = $"{songName.ToLowerInvariant()}_{platformName}";
         string outputFolder = Path.Combine(ubiRequest.OutputPath, folderName);
 
@@ -304,13 +309,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         // FileSystem must already be configured and initialized by caller
         ArgumentNullException.ThrowIfNull(fs);
 
-        // Use layout-aware path resolution if available
-        string songDescRelative;
-        if (fs.VersionProfile.Layout != null)
-            songDescRelative = fs.VersionProfile.Layout.GetSongDescRelativePath(fs.ConversionRequest.InputPath, fs.SongName, fs.VersionProfile.Platform, fs.VersionProfile.EngineVersion);
-        else
-            songDescRelative = _io.Combine(fs.InputFolders.MapWorldFolder, "songdesc.tpl");
-        bool hasSongDesc = fs.GetFilePath(songDescRelative, out _);
+        bool hasSongDesc = fs.TryGetSongDescriptorPath(fs.SongName, out _);
 
         bool hasJddb = _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "jddb.json"))
             || _io.FileExists(_io.Combine(fs.InputFolders.InputFolder, "..", "jddb.json"))

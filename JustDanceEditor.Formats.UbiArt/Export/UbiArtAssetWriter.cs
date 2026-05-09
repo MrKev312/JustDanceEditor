@@ -453,6 +453,11 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                     destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.wii.webm";
                 }
 
+                if (platform == UbiArtPlatform.X360)
+                {
+                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.x360.webm";
+                }
+
                 string destPath = Path.Combine(relFolder, destFileName);
                 string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
 
@@ -468,7 +473,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             // Moves are platform specific (Wii/WiiU uses .msm, NX uses .msc usually but .msm often compatible)
             // For Wii, we need to ensure they are put in the right folder.
-            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", "wiiu");
+            string movesPlatform = platform == UbiArtPlatform.X360 ? "x360" : "wiiu";
+            string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", movesPlatform);
 
             ctx.IO.CreateDirectory(ctx.IO.Combine(ctx.OutputFolder, movesFolder));
 

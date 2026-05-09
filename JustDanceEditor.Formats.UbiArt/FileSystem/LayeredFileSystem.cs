@@ -102,7 +102,9 @@ public class LayeredFileSystem
         {
             string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, ConversionRequest.SongName, VersionProfile.Platform, VersionProfile.EngineVersion)
                 ?? Path.Combine("world", "maps", ConversionRequest.SongName);
-            string songDescPath = Path.Combine(mapFolder, "songdesc.tpl");
+            string songDescPath = TryGetSongDescriptorPath(ConversionRequest.SongName, out CookedFile? descriptor)
+                ? descriptor.RelativePath
+                : Path.Combine(mapFolder, "songdesc.tpl");
             songs.Add((ConversionRequest.SongName, songDescPath));
             return [.. songs];
         }
@@ -114,11 +116,20 @@ public class LayeredFileSystem
         {
             if (_ipkFileSystems.TryGetValue(Path.GetFileNameWithoutExtension(ConversionRequest.InputPath), out IpkFileSystem? ipk))
             {
-                string mapsRel = Path.Combine("world", "maps");
-                if (ipk.DirectoryExists(mapsRel))
+                string[] mapsLocations =
+                [
+                    Path.Combine("world", "maps"),
+                    Path.Combine("cache", "itf_cooked", VersionProfile.PlatformFolder, "world", "maps")
+                ];
+
+                foreach (string mapsRel in mapsLocations.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase))
                 {
-                    string[] songFolders = ipk.GetDirectories(mapsRel);
-                    songFolderNames = [.. songFolders.Select(f => Path.GetFileName(f))];
+                    if (ipk.DirectoryExists(mapsRel))
+                    {
+                        string[] songFolders = ipk.GetDirectories(mapsRel);
+                        songFolderNames = [.. songFolders.Select(f => Path.GetFileName(f))];
+                        break;
+                    }
                 }
             }
         }
@@ -147,14 +158,53 @@ public class LayeredFileSystem
         // For each song folder name, search all bundles for its songdesc using GetFilePath
         foreach (string songName in songFolderNames)
         {
-            string songDescRel = Path.Combine("world", "maps", songName, "songdesc.tpl");
-            if (GetFilePath(songDescRel, out CookedFile? songDescPath))
+            if (TryGetSongDescriptorPath(songName, out CookedFile? songDescPath))
             {
                 songs.Add((songName, songDescPath.RelativePath));
             }
         }
 
         return [.. songs];
+    }
+
+    public bool TryGetSongDescriptorPath(string songName, [MaybeNullWhen(false)] out CookedFile descriptorPath)
+    {
+        descriptorPath = null;
+
+        if (string.IsNullOrWhiteSpace(songName))
+            return false;
+
+        string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, songName, VersionProfile.Platform, VersionProfile.EngineVersion)
+            ?? Path.Combine("world", "maps", songName);
+
+        string songNameLower = songName.ToLowerInvariant();
+        string[] candidates =
+        [
+            Path.Combine(mapFolder, "songdesc.tpl"),
+            Path.Combine("cache", "legacyconverteddata", songName, "songdesc.main_legacy.tpl"),
+            Path.Combine("cache", "legacyconverteddata", songNameLower, "songdesc.main_legacy.tpl"),
+            Path.Combine(mapFolder, "songdesc.act")
+        ];
+
+        foreach (string candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (GetFilePath(candidate, out CookedFile? found))
+            {
+                descriptorPath = found;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private string GetInputParentFolder()
+    {
+        if (Path.GetExtension(ConversionRequest.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+            return Path.GetDirectoryName(ConversionRequest.InputPath)
+                ?? throw new InvalidOperationException($"Could not determine the parent folder for '{ConversionRequest.InputPath}'.");
+
+        return _io.Combine(InputFolders.InputFolder, "..");
     }
 
     public UbiArtConversionRequest ConversionRequest { get; private set; }
@@ -210,8 +260,9 @@ public class LayeredFileSystem
             }
         }
 
-        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
-        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{VersionProfile.Platform}")];
+        string parentFolder = GetInputParentFolder();
+        string platformFolder = VersionProfile.PlatformFolder;
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{platformFolder}")];
 
         string[] allFolders = _io.GetDirectories(parentFolder);
         PriorityQueue<string, uint> numberPatternFolders = new();
@@ -253,7 +304,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
+                _io.Combine(searchPath, "cache", "itf_cooked", platformFolder)
                 ];
 
             foreach (string location in searchLocations)
@@ -287,13 +338,13 @@ public class LayeredFileSystem
             if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<VersionProfile.Platform.ToString()>)
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<platform>)
             List<string> candidates = [relativeFilePath];
             if (pathCooked != null)
                 candidates.Add(pathCooked);
-            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
+            if (!string.IsNullOrEmpty(platformFolder))
             {
-                string cookedPrefix = Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString());
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", platformFolder);
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
                 if (pathCooked != null)
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
@@ -329,9 +380,9 @@ public class LayeredFileSystem
     public CookedFile[] GetAllFiles(string relativeFolderPath, string pattern = "*")
     {
         List<CookedFile> files = [];
-        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        string parentFolder = GetInputParentFolder();
         List<string> searchPaths = [
-            _io.Combine(parentFolder, $"patch_{VersionProfile.Platform}"),
+            _io.Combine(parentFolder, $"patch_{VersionProfile.PlatformFolder}"),
             .._io.GetDirectories(parentFolder)
             ];
 
@@ -339,7 +390,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.PlatformFolder)
                 ];
 
             foreach (string location in searchLocations)
@@ -380,9 +431,9 @@ public class LayeredFileSystem
 
             // Try both the requested relative folder and the cooked location inside IPK
             List<string> ipkLocations = [relativeFolderPath];
-            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
+            if (!string.IsNullOrEmpty(VersionProfile.PlatformFolder))
             {
-                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString(), relativeFolderPath));
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.PlatformFolder, relativeFolderPath));
             }
 
             foreach (string loc in ipkLocations)
@@ -436,8 +487,9 @@ public class LayeredFileSystem
                 return File.OpenRead(rootFile);
         }
 
-        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
-        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{VersionProfile.Platform}")];
+        string parentFolder = GetInputParentFolder();
+        string platformFolder = VersionProfile.PlatformFolder;
+        List<string> searchPaths = [_io.Combine(parentFolder, $"patch_{platformFolder}")];
 
         string[] allFolders = _io.GetDirectories(parentFolder);
         PriorityQueue<string, uint> numberPatternFolders = new();
@@ -479,7 +531,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
+                _io.Combine(searchPath, "cache", "itf_cooked", platformFolder)
                 ];
 
             foreach (string location in searchLocations)
@@ -507,13 +559,13 @@ public class LayeredFileSystem
             if (allFolders.Any(f => Path.GetFileNameWithoutExtension(f).Equals(ipkName, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<VersionProfile.Platform.ToString()>)
+            // Build candidate paths to check inside the IPK (root and cache/itf_cooked/<platform>)
             List<string> candidates = [relativeFilePath];
             if (pathCooked != null)
                 candidates.Add(pathCooked);
-            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
+            if (!string.IsNullOrEmpty(platformFolder))
             {
-                string cookedPrefix = Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString());
+                string cookedPrefix = Path.Combine("cache", "itf_cooked", platformFolder);
                 candidates.Add(Path.Combine(cookedPrefix, relativeFilePath));
                 if (pathCooked != null)
                     candidates.Add(Path.Combine(cookedPrefix, pathCooked));
@@ -542,12 +594,12 @@ public class LayeredFileSystem
     public bool GetFolderPath(string relativeFolderPath, [MaybeNullWhen(false)] out string folderPath)
     {
         folderPath = null;
-        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        string parentFolder = GetInputParentFolder();
 
         List<string> searchPaths = [
-            _io.Combine(parentFolder, $"patch_{VersionProfile.Platform}"),
+            _io.Combine(parentFolder, $"patch_{VersionProfile.PlatformFolder}"),
             InputFolders.InputFolder,
-            _io.Combine(parentFolder, $"bundle_{VersionProfile.Platform}")
+            _io.Combine(parentFolder, $"bundle_{VersionProfile.PlatformFolder}")
             ];
 
         foreach (string searchPath in _io.GetDirectories(parentFolder))
@@ -558,7 +610,7 @@ public class LayeredFileSystem
         {
             string[] searchLocations = [
                 searchPath,
-                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.Platform.ToString())
+                _io.Combine(searchPath, "cache", "itf_cooked", VersionProfile.PlatformFolder)
                 ];
             foreach (string location in searchLocations)
             {
@@ -584,8 +636,8 @@ public class LayeredFileSystem
 
             // Check both the requested relative folder and the cooked location inside IPK
             List<string> ipkLocations = [relativeFolderPath];
-            if (!string.IsNullOrEmpty(VersionProfile.Platform.ToString()))
-                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.Platform.ToString(), relativeFolderPath));
+            if (!string.IsNullOrEmpty(VersionProfile.PlatformFolder))
+                ipkLocations.Add(Path.Combine("cache", "itf_cooked", VersionProfile.PlatformFolder, relativeFolderPath));
 
             foreach (string loc in ipkLocations)
             {
@@ -635,7 +687,7 @@ public class LayeredFileSystem
     /// </summary>
     public void DiscoverAndRegisterIPKs()
     {
-        string parentFolder = _io.Combine(InputFolders.InputFolder, "..");
+        string parentFolder = GetInputParentFolder();
 
         try
         {

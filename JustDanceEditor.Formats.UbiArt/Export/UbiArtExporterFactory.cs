@@ -14,6 +14,7 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
             UbiArtPlatform.PC => new PcCookedPlatformExporter(),
             UbiArtPlatform.Wii => new WiiCookedPlatformExporter(),
             UbiArtPlatform.WiiU => new WiiUCookedPlatformExporter(),
+            UbiArtPlatform.X360 => new X360CookedPlatformExporter(),
             UbiArtPlatform.Uncooked => new UncookedPlatformExporter(),
             _ => throw new NotImplementedException($"Platform {platform} is not yet supported.")
         };
@@ -27,8 +28,8 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
             return new UncookedEngineContentGenerator(version);
         }
 
-        // Special case: Wii 2016-2020 uses legacy binary format
-        if (platform == UbiArtPlatform.Wii && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
+        // Wii and Xbox 360 cooked builds use legacy binary engine resources for these engine versions.
+        if (platform is (UbiArtPlatform.Wii or UbiArtPlatform.X360) && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
         {
             return new LegacyEngineContentGenerator(version);
         }

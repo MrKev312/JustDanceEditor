@@ -263,10 +263,14 @@ internal static class IntermediatePackageBuilder
 
         foreach (MotionClip clip in context.SongData.Clips.OfType<MotionClip>())
         {
-            if (!clip.ClassifierPath.EndsWith(".msm", StringComparison.OrdinalIgnoreCase))
+            string classifierExtension = Path.GetExtension(clip.ClassifierPath);
+            if (!classifierExtension.Equals(".msm", StringComparison.OrdinalIgnoreCase) &&
+                !classifierExtension.Equals(".gesture", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
-            bool isFullBody = clip.MoveType == 1;
+            bool isFullBody = clip.MoveType == 1 || classifierExtension.Equals(".gesture", StringComparison.OrdinalIgnoreCase);
             Dictionary<int, MoveTimeline> target = isFullBody ? fullBodyTimelines : handTimelines;
             Dictionary<string, CoachMoveDefinition> moveCatalog = isFullBody ? fullBodyMoves : handMoves;
 

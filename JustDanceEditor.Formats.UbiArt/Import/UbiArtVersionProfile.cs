@@ -10,7 +10,22 @@ public enum UbiArtPlatform
     Wii,
     WiiU,
     NX,
-    PC
+    PC,
+    X360
+}
+
+public static class UbiArtPlatformExtensions
+{
+    public static string GetCookedFolderName(this UbiArtPlatform platform) => platform switch
+    {
+        UbiArtPlatform.Uncooked => string.Empty,
+        UbiArtPlatform.Wii => "wii",
+        UbiArtPlatform.WiiU => "wiiu",
+        UbiArtPlatform.NX => "nx",
+        UbiArtPlatform.PC => "pc",
+        UbiArtPlatform.X360 => "x360",
+        _ => platform.ToString().ToLowerInvariant()
+    };
 }
 
 public enum UbiArtEngineVersion
@@ -34,6 +49,7 @@ public class UbiArtVersionProfile(UbiArtPlatform platform, UbiArtEngineVersion e
     public IUbiArtLayout Layout { get; set; } = layout;
     public IUbiArtSerializer Serializer { get; set; } = serializer;
     public IUbiArtDataMapper Mapper { get; set; } = mapper ?? new DefaultUbiArtDataMapper();
+    public string PlatformFolder => Platform.GetCookedFolderName();
 
     /// <summary>
     /// Returns an <see cref="IComparer{string}"/> suitable for pictogram name sorting

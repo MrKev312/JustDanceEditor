@@ -313,6 +313,7 @@ internal static class IntermediateAssetWriter
         string gesturesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
 
         CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.msm", movesFolder, io);
+        CopyCookedFiles(context, context.FileSystem.InputFolders.MovesFolder, "*.gesture", gesturesFolder, io);
 
         string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
         CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder, io);
