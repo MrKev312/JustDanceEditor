@@ -1,6 +1,8 @@
 using Concentus;
 using Concentus.Enums;
 
+using JustDanceEditor.Audio.Codecs;
+
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -10,7 +12,7 @@ namespace JustDanceEditor.Audio;
 
 /// <summary>
 /// Converts RAKI audio format to a WaveStream for in-memory processing.
-/// Supports PCM, ADPCM (Windows), Nintendo Switch Opus, and WiiU (Cafe) DSP ADPCM.
+/// Supports PCM, ADPCM (Windows), Nintendo Switch Opus, WiiU (Cafe) DSP ADPCM, and Xbox XMA2.
 /// </summary>
 public class RakiAudioConverter : IAudioConverter
 {
@@ -67,6 +69,7 @@ public class RakiAudioConverter : IAudioConverter
         stream.Position = rakiOffset + 0x10;
         uint headerSize = ReadU32(reader, isBigEndian);
         uint startOffset = ReadU32(reader, isBigEndian);
+        uint chunkCount = ReadU32(reader, isBigEndian);
 
         stream.Position = rakiOffset + 0x20;
         uint firstChunkId = reader.ReadUInt32(); // Usually 'fmt '
@@ -79,6 +82,8 @@ public class RakiAudioConverter : IAudioConverter
         uint fmtChunkOffset = ReadU32(reader, isBigEndian);
 
         long dataSize = stream.Length - startOffset;
+        if (TryGetChunkSize(reader, rakiOffset, headerSize, chunkCount, "data", isBigEndian, out uint chunkDataSize))
+            dataSize = chunkDataSize;
 
         // --- STRATEGY SELECTION ---
 
@@ -94,8 +99,40 @@ public class RakiAudioConverter : IAudioConverter
             return ConvertCafeAdpcmToWaveStream(reader, rakiOffset, startOffset, fmtChunkOffset, headerSize, isBigEndian);
         }
 
+        // Xbox 360 XMA2
+        if ((platform == "X360" || platform == "Dura") && type == "xma2")
+        {
+            return Xma2Decoder.DecodeToWaveStream(reader, fmtChunkOffset, startOffset, dataSize, isBigEndian);
+        }
+
         // Standard PCM / Windows ADPCM
         return ProcessStandardWav(stream, reader, platform, type, startOffset, dataSize, fmtChunkOffset, isBigEndian);
+    }
+
+    private static bool TryGetChunkSize(BinaryReader reader, long rakiOffset, uint headerSize, uint chunkCount, string magic, bool isBigEndian, out uint size)
+    {
+        long tableOffset = rakiOffset + 0x20;
+        long tableEnd = chunkCount > 0
+            ? tableOffset + (chunkCount * 12L)
+            : rakiOffset + headerSize;
+
+        tableEnd = Math.Min(tableEnd, reader.BaseStream.Length);
+        for (long current = tableOffset; current + 12 <= tableEnd; current += 12)
+        {
+            reader.BaseStream.Position = current;
+            string chunkMagic = Encoding.ASCII.GetString(reader.ReadBytes(4));
+            _ = ReadU32(reader, isBigEndian);
+            uint chunkSize = ReadU32(reader, isBigEndian);
+
+            if (chunkMagic == magic)
+            {
+                size = chunkSize;
+                return true;
+            }
+        }
+
+        size = 0;
+        return false;
     }
 
     /// <summary>
