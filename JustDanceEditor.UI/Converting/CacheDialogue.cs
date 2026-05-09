@@ -1,5 +1,3 @@
-using JustDanceEditor.Formats.Unity.Builders;
-using JustDanceEditor.Formats.Unity.Models;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;

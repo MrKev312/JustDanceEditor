@@ -1,6 +1,9 @@
+using JustDanceEditor.Conversion.Abstractions;
+
 namespace JustDanceEditor.Formats.UbiArt;
 
-public sealed class MultipleSongsFoundException(IEnumerable<string> availableSongs) : Exception(CreateMessage(availableSongs))
+public sealed class MultipleSongsFoundException(IEnumerable<string> availableSongs)
+    : MultipleConversionItemsFoundException(availableSongs ?? [], CreateMessage(availableSongs ?? []))
 {
     public string[] AvailableSongs { get; } = availableSongs?.ToArray() ?? [];
 

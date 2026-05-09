@@ -1,4 +1,6 @@
+using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.UI.Converting;
 using JustDanceEditor.UI.Helpers;
 
@@ -8,11 +10,12 @@ using System.Reflection;
 
 namespace JustDanceEditor.UI;
 
-internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, ILogger<ConsoleApp> logger)
+internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, IConversionInteraction interaction, ILogger<ConsoleApp> logger)
 {
     private readonly IEnumerable<IJdiFormat> _formatsEnumerable = formatsEnumerable;
     private readonly IEnumerable<IFormatConversionStrategy> _formatStrategies = formatStrategies;
     private readonly IConversionWorkflow _conversionWorkflow = conversionWorkflow;
+    private readonly IConversionInteraction _interaction = interaction;
     private readonly ILogger<ConsoleApp> _logger = logger;
 
     public void Run()
@@ -64,7 +67,7 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
                     return;
                 case 1:
                     Console.WriteLine("--- Format Conversion ---");
-                    FormatConversionDialogue.Start(_formatsEnumerable, _formatStrategies, _logger);
+                    FormatConversionDialogue.Start(_formatsEnumerable, _formatStrategies, _interaction, _logger);
                     break;
                 case 2:
                     Console.WriteLine("--- Batch Convert Songs ---");

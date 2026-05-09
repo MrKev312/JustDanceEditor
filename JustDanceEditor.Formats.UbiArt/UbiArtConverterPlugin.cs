@@ -1,0 +1,46 @@
+using JustDanceEditor.Audio;
+using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Conversion;
+using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.UbiArt.Export;
+using JustDanceEditor.Formats.UbiArt.FileSystem;
+using JustDanceEditor.Formats.UbiArt.Import;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace JustDanceEditor.Formats.UbiArt;
+
+public sealed class UbiArtConverterPlugin : IConverterPlugin
+{
+    public string Code => "ubiart";
+    public string DisplayName => "UbiArt";
+    public int Priority => 10;
+
+    public void ConfigureServices(IServiceCollection services)
+    {
+        TextureConverter.Formats.ImageSharpConfiguration.RegisterCustomFormats();
+
+        services.TryAddSingleton<IFileSystem, SystemFileSystem>();
+        services.TryAddSingleton<SystemFileSystem>();
+        services.TryAddSingleton<ITempFolderManager, SystemTempFolderManager>();
+        services.TryAddSingleton<ITextureService, DefaultTextureService>();
+        services.TryAddSingleton<IMediaProcessor, DefaultMediaProcessor>();
+        services.TryAddSingleton<IAudioConverter, RakiAudioConverter>();
+
+        services.AddSingleton<ISongDataLoader, SongDataLoader>();
+        services.AddSingleton<IUbiArtEngineDetector, UbiArtEngineDetector>();
+        services.AddSingleton<UbiArtAssetWriter>();
+        services.AddSingleton<IUbiArtAssetWriter>(sp => sp.GetRequiredService<UbiArtAssetWriter>());
+        services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem>>(sp => (req, profile) => new LayeredFileSystem(
+            req,
+            profile,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LayeredFileSystem>>(),
+            sp.GetRequiredService<SystemFileSystem>(),
+            sp.GetRequiredService<ITempFolderManager>()));
+
+        services.AddSingleton<IJdiFormat, UbiArtJdiFormat>();
+        services.AddSingleton<IFormatConversionStrategy, UbiArtConversionStrategy>();
+    }
+}

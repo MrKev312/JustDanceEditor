@@ -1,7 +1,7 @@
+using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt;
-using JustDanceEditor.UI.DependencyInjection;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;
@@ -12,14 +12,14 @@ namespace JustDanceEditor.UI.Converting;
 /// Orchestrates song conversion workflows with dependency injection.
 /// </summary>
 public sealed class ConversionWorkflow(
-    IKeyedServiceProvider<IJdiFormat> formats,
     IEnumerable<IJdiFormat> formatsEnumerable,
     IEnumerable<IFormatConversionStrategy> strategies,
+    IConversionInteraction interaction,
     ILogger<ConversionWorkflow> logger) : IConversionWorkflow
 {
-    private readonly IKeyedServiceProvider<IJdiFormat> _formats = formats;
     private readonly IJdiFormat[] _formatsEnumerable = [.. formatsEnumerable];
     private readonly IFormatConversionStrategy[] _strategies = [.. strategies];
+    private readonly IConversionInteraction _interaction = interaction;
     private readonly ILogger<ConversionWorkflow> _logger = logger;
 
     public void ConvertAllSongsInFolder()
@@ -28,10 +28,11 @@ public sealed class ConversionWorkflow(
         {
             Console.WriteLine("Starting batch conversion process for all songs in a folder.");
 
-            ConversionTarget target = ConversionTargetSelector.AskTarget(_strategies, "Select the export target for all songs");
+            ConversionTargetDefinition target = ConversionTargetSelector.AskTarget(_strategies, "Select the export target for all songs");
+            PromptAnswerSet targetAnswers = AskTargetPrompts(target);
 
             string inputFolder = AskBatchInputPath();
-            string outputFolder = AskOutputFolder();
+            string outputFolder = GetOutputPath(targetAnswers);
             bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for all imported songs when available?") == 0;
             HashSet<string> existingSongs = Directory.Exists(outputFolder)
                 ? new HashSet<string>(Directory.GetDirectories(outputFolder).Select(Path.GetFileName).OfType<string>(), StringComparer.OrdinalIgnoreCase)
@@ -55,7 +56,7 @@ public sealed class ConversionWorkflow(
 
                 try
                 {
-                    BatchConversionResult result = RunBatchConversion(input, outputFolder, target, existingSongs, downloadOnlineAssets);
+                    BatchConversionResult result = RunBatchConversion(input, outputFolder, target, targetAnswers, existingSongs, downloadOnlineAssets);
                     convertedCount += result.ConvertedCount;
                     skippedCount += result.SkippedCount;
                 }
@@ -82,7 +83,7 @@ public sealed class ConversionWorkflow(
         }
     }
 
-    private BatchConversionResult RunBatchConversion(BatchInput input, string outputFolder, ConversionTarget target, ISet<string> existingSongs, bool downloadOnlineAssets)
+    private BatchConversionResult RunBatchConversion(BatchInput input, string outputFolder, ConversionTargetDefinition target, PromptAnswerSet targetAnswers, ISet<string> existingSongs, bool downloadOnlineAssets)
     {
         IFormatConversionStrategy sourceStrategy = GetStrategy(input.SourceFormat.DisplayName);
         IFormatConversionStrategy targetStrategy = GetStrategy(target.FormatName);
@@ -93,19 +94,19 @@ public sealed class ConversionWorkflow(
             ? outputFolder
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileNameWithoutExtension(input.Path) ?? "Export");
 
-        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(input.Path, intermediatePath);
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath));
 
         try
         {
-            bool converted = ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, importRequest, input.Path, outputFolder, target, existingSongs, downloadOnlineAssets);
+            bool converted = ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, importRequest, input.Path, outputFolder, target, targetAnswers, existingSongs, downloadOnlineAssets);
             return converted ? new(1, 0) : new(0, 1);
         }
-        catch (MultipleSongsFoundException msEx)
+        catch (MultipleConversionItemsFoundException msEx)
         {
             int converted = 0;
             int skipped = 0;
 
-            foreach (string songName in msEx.AvailableSongs)
+            foreach (string songName in msEx.AvailableItems)
             {
                 if (existingSongs.Contains(songName, StringComparer.OrdinalIgnoreCase))
                 {
@@ -116,10 +117,10 @@ public sealed class ConversionWorkflow(
                     continue;
                 }
 
-                ConversionRequestBase songRequest = sourceStrategy.CreateImportRequest(input.Path, intermediatePath, songName);
+                ConversionRequestBase songRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath, songName));
                 try
                 {
-                    if (ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, songRequest, input.Path, outputFolder, target, existingSongs, downloadOnlineAssets))
+                    if (ConvertSingleBatchSong(input.SourceFormat, targetFormat, targetStrategy, songRequest, input.Path, outputFolder, target, targetAnswers, existingSongs, downloadOnlineAssets))
                         converted++;
                     else
                         skipped++;
@@ -145,7 +146,8 @@ public sealed class ConversionWorkflow(
         ConversionRequestBase importRequest,
         string inputPath,
         string outputFolder,
-        ConversionTarget target,
+        ConversionTargetDefinition target,
+        PromptAnswerSet targetAnswers,
         ISet<string> existingSongs,
         bool downloadOnlineAssets)
     {
@@ -171,7 +173,7 @@ public sealed class ConversionWorkflow(
             if (downloadOnlineAssets && importResult.MaterializedRoot is not null)
                 DownloadOnlineAssets(importResult);
 
-            ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(inputPath, outputFolder, target, songName);
+            ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(new ConversionRequestContext(inputPath, outputFolder, songName, target, targetAnswers));
             LogBatchExportStep(target.FormatName, songName, outputFolder);
             targetFormat.ExportAsync(importResult, exportRequest).GetAwaiter().GetResult();
             LogBatchExportStepCompleted(target.FormatName, songName, outputFolder);
@@ -188,13 +190,8 @@ public sealed class ConversionWorkflow(
     private IFormatConversionStrategy GetStrategy(string formatName) =>
         _strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
 
-    private IJdiFormat GetFormat(string formatName)
-    {
-        if (_formats.TryGet(formatName, out IJdiFormat? keyedFormat) && keyedFormat is not null)
-            return keyedFormat;
-
-        return _formatsEnumerable.First(format => format.DisplayName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
-    }
+    private IJdiFormat GetFormat(string formatName) =>
+        _formatsEnumerable.First(format => format.DisplayName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
 
     private BatchInput[] DetectBatchInputs(string inputPath)
     {
@@ -351,8 +348,21 @@ public sealed class ConversionWorkflow(
         return (inputPath, maps[index]);
     }
 
-    private static string AskOutputFolder() =>
-        Question.AskFolder("Please enter the full path for the output folder where converted files will be saved");
+    private PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target)
+    {
+        IReadOnlyList<ConversionPrompt> prompts = target.ExportPrompts.Count == 0
+            ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Please enter the full path for the output folder where converted files will be saved", Required: false)]
+            : target.ExportPrompts;
+
+        return _interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).GetAwaiter().GetResult();
+    }
+
+    private static string GetOutputPath(PromptAnswerSet answers)
+    {
+        string outputPath = answers.GetString(ConversionPromptIds.OutputPath);
+        Directory.CreateDirectory(outputPath);
+        return outputPath;
+    }
 
     private sealed record BatchInput(string Path, IJdiFormat SourceFormat);
 

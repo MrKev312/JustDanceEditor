@@ -1,13 +1,11 @@
-using JustDanceEditor.Formats.JDI.Services;
-
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace JustDanceEditor.UI.Services;
+namespace JustDanceEditor.Formats.JDI.Services;
 
-internal sealed class DefaultTextureService : ITextureService
+public sealed class DefaultTextureService : ITextureService
 {
     public Image<Bgra32>? ConvertToImage(Stream stream)
     {
@@ -25,23 +23,14 @@ internal sealed class DefaultTextureService : ITextureService
     {
         return Task.Run(() =>
         {
-            using Image<Bgra32>? image = ConvertToImage(inputStream) ?? throw new InvalidOperationException($"Failed to convert texture");
+            using Image<Bgra32>? image = ConvertToImage(inputStream) ?? throw new InvalidOperationException("Failed to convert texture");
             string ext = Path.GetExtension(outputPath).ToLowerInvariant();
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
 
-            if (ext == ".png")
-            {
-                image.Save(outputPath, new PngEncoder());
-            }
-            else if (ext == ".webp")
-            {
-                image.Save(outputPath, new WebpEncoder() { FileFormat = WebpFileFormatType.Lossless });
-            }
+            if (ext == ".webp")
+                image.Save(outputPath, new WebpEncoder { FileFormat = WebpFileFormatType.Lossless });
             else
-            {
-                // Default to PNG
                 image.Save(outputPath, new PngEncoder());
-            }
         }, cancellationToken);
     }
 }

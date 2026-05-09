@@ -12,6 +12,7 @@
 		<PackageReference Include="System.IO.Hashing" Version="10.0.7" />
 	</ItemGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Audio\JustDanceEditor.Audio.csproj" />
 		<ProjectReference Include="..\TextureConverter\TextureConverter.csproj" />

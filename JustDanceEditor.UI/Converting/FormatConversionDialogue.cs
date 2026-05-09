@@ -1,6 +1,7 @@
+using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Formats.UbiArt;
 using JustDanceEditor.UI.Helpers;
 
 using Microsoft.Extensions.Logging;
@@ -9,7 +10,7 @@ namespace JustDanceEditor.UI.Converting;
 
 internal static class FormatConversionDialogue
 {
-    public static void Start(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> strategies, ILogger logger)
+    public static void Start(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> strategies, IConversionInteraction interaction, ILogger logger)
     {
         // Ask for input folder or IPK up front so we can auto-detect its format
         string inputPath = Question.AskFolderOrIpk("Enter the input folder or IPK for the conversion");
@@ -51,19 +52,29 @@ internal static class FormatConversionDialogue
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
         IFormatConversionStrategy sourceStrategy = ResolveStrategy(conversionStrategies, sourceName);
 
-        ConversionTarget target = ConversionTargetSelector.AskTarget(conversionStrategies);
+        ConversionTargetDefinition target = ConversionTargetSelector.AskTarget(conversionStrategies);
         IFormatConversionStrategy targetStrategy = ResolveStrategy(conversionStrategies, target.FormatName);
 
         string targetName = target.FormatName;
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        string outputPath = AskOutputPath(target);
+        PromptAnswerSet targetAnswers = AskTargetPrompts(target, interaction);
+        string outputPath = GetOutputPath(targetAnswers);
         string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
             ? outputPath
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
 
-        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(inputPath, intermediatePath);
-        ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(inputPath, outputPath, target);
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(
+            InputPath: inputPath,
+            OutputPath: intermediatePath,
+            Interaction: interaction));
+
+        ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(new ConversionRequestContext(
+            InputPath: inputPath,
+            OutputPath: outputPath,
+            Target: target,
+            Answers: targetAnswers,
+            Interaction: interaction));
 
         // Ask about downloading online assets BEFORE conversion
         bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for this song?") == 0;
@@ -113,18 +124,18 @@ internal static class FormatConversionDialogue
 
                     break; // Success - exit the retry loop
                 }
-                catch (MultipleSongsFoundException msEx)
+                catch (MultipleConversionItemsFoundException msEx)
                 {
                     // Multi-song bundle detected - ask user to select
-                    string[] songChoices = [.. msEx.AvailableSongs];
+                    string[] songChoices = [.. msEx.AvailableItems];
                     int songSelection = Question.Ask(songChoices, 0, "Multiple songs found in the bundle. Which one should be converted?");
                     string selectedSong = songChoices[songSelection];
 
-                    // Update the request with the selected song and retry
-                    if (importRequest is UbiArtConversionRequest ubiRequest)
-                    {
-                        ubiRequest.SongName = selectedSong;
-                    }
+                    importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(
+                        InputPath: inputPath,
+                        OutputPath: intermediatePath,
+                        SongName: selectedSong,
+                        Interaction: interaction));
 
                     // Retry the import with the selected song
                     continue;
@@ -159,9 +170,18 @@ internal static class FormatConversionDialogue
         return strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string AskOutputPath(ConversionTarget target)
+    private static PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target, IConversionInteraction interaction)
     {
-        string path = Question.AskFolder(target.OutputPrompt, false);
+        IReadOnlyList<ConversionPrompt> prompts = target.ExportPrompts.Count == 0
+            ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Enter the destination folder for the converted files", Required: false)]
+            : target.ExportPrompts;
+
+        return interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).GetAwaiter().GetResult();
+    }
+
+    private static string GetOutputPath(PromptAnswerSet answers)
+    {
+        string path = answers.GetString(ConversionPromptIds.OutputPath);
         Directory.CreateDirectory(path);
         return path;
     }
