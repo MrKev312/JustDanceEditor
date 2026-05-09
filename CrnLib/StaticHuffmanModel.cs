@@ -68,7 +68,7 @@ internal sealed class StaticHuffmanModel
         int[] frequencies = new int[MaxSupportedSymbols];
         foreach (int symbol in symbols)
         {
-            if (symbol is < 0 or >= MaxSupportedSymbols)
+            if (symbol < 0 || symbol >= MaxSupportedSymbols)
                 throw new InvalidDataException($"CRN symbol {symbol} is outside the supported range.");
 
             maxSymbol = Math.Max(maxSymbol, symbol);
@@ -85,7 +85,7 @@ internal sealed class StaticHuffmanModel
 
     public static StaticHuffmanModel CreateFixed(int maxSymbol)
     {
-        if (maxSymbol is < 0 or >= MaxSupportedSymbols)
+        if (maxSymbol < 0 || maxSymbol >= MaxSupportedSymbols)
             throw new ArgumentOutOfRangeException(nameof(maxSymbol));
 
         int totalSymbols = NextPowerOfTwo(maxSymbol + 1);

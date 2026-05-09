@@ -8,7 +8,7 @@ internal sealed class BitWriter
 
     public void WriteBits(uint bits, int bitCount)
     {
-        if (bitCount is < 0 or > 32)
+        if (bitCount < 0 || bitCount > 32)
             throw new ArgumentOutOfRangeException(nameof(bitCount));
 
         for (int bit = bitCount - 1; bit >= 0; bit--)
@@ -28,7 +28,7 @@ internal sealed class BitWriter
     public byte[] Finish()
     {
         WriteBits(0, 7);
-        return [.. _bytes];
+        return _bytes.ToArray();
     }
 }
 
@@ -47,7 +47,7 @@ internal sealed class BitReader
 
     public uint ReadBits(int bitCount)
     {
-        if (bitCount is < 0 or > 32)
+        if (bitCount < 0 || bitCount > 32)
             throw new ArgumentOutOfRangeException(nameof(bitCount));
 
         uint value = 0;

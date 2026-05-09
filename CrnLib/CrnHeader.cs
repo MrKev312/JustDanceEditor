@@ -6,7 +6,10 @@ internal sealed class CrnHeader
 {
     public const int FixedHeaderSize = 74;
     public const int MaxLevels = 16;
+    public const int MaxFaces = 6;
+    public const int MaxLevelResolution = 4096;
     public const int MaxPaletteEntries = 8192;
+    public const ushort SegmentedFlag = 1;
 
     private const ushort Signature = 0x4878;
 
@@ -17,6 +20,7 @@ internal sealed class CrnHeader
     public int Levels { get; init; }
     public int Faces { get; init; }
     public CrnFormat Format { get; init; }
+    public ushort Flags { get; init; }
     public uint UserData0 { get; init; }
     public uint UserData1 { get; init; }
     public CrnPalette ColorEndpoints { get; init; }
@@ -27,7 +31,8 @@ internal sealed class CrnHeader
     public int TablesSize { get; init; }
     public int[] LevelOffsets { get; init; } = [];
 
-    public int BytesPerBlock => Format == CrnFormat.Dxt1 ? 8 : 16;
+    public int BytesPerBlock => CrnFormatHelpers.BytesPerBlock(Format);
+    public bool IsSegmented => (Flags & SegmentedFlag) != 0;
 
     public static CrnHeader Read(ReadOnlySpan<byte> data)
     {
@@ -39,15 +44,24 @@ internal sealed class CrnHeader
 
         int headerSize = ReadUInt16(data, 2);
         int dataSize = (int)ReadUInt32(data, 6);
-        if (headerSize < FixedHeaderSize || headerSize > data.Length || dataSize > data.Length)
+        if (headerSize < FixedHeaderSize || headerSize > data.Length || dataSize < headerSize || dataSize > data.Length)
             throw new InvalidDataException("CRN header contains invalid size fields.");
 
+        int width = ReadUInt16(data, 12);
+        int height = ReadUInt16(data, 14);
+        if (width < 1 || width > MaxLevelResolution || height < 1 || height > MaxLevelResolution)
+            throw new InvalidDataException("CRN texture dimensions are invalid.");
+
         int levels = data[16];
-        if (levels is < 1 or > MaxLevels)
+        if (levels < 1 || levels > MaxLevels)
             throw new InvalidDataException("CRN mip level count is invalid.");
 
+        int faces = data[17];
+        if (faces is not 1 and not MaxFaces)
+            throw new InvalidDataException("CRN face count is invalid.");
+
         CrnFormat format = (CrnFormat)data[18];
-        if (format is not CrnFormat.Dxt1 and not CrnFormat.Dxt5)
+        if (!CrnFormatHelpers.IsSupportedCrnFormat(format))
             throw new NotSupportedException($"CRN format '{format}' is not supported by the managed DXT path.");
 
         int[] levelOffsets = new int[levels];
@@ -64,11 +78,12 @@ internal sealed class CrnHeader
         {
             HeaderSize = headerSize,
             DataSize = dataSize,
-            Width = ReadUInt16(data, 12),
-            Height = ReadUInt16(data, 14),
+            Width = width,
+            Height = height,
             Levels = levels,
-            Faces = data[17],
+            Faces = faces,
             Format = format,
+            Flags = ReadUInt16(data, 19),
             UserData0 = ReadUInt32(data, 25),
             UserData1 = ReadUInt32(data, 29),
             ColorEndpoints = ReadPalette(data, 33),
@@ -97,7 +112,9 @@ internal sealed class CrnHeader
         CrnPalette alphaSelectors,
         int tablesOffset,
         int tablesSize,
-        ReadOnlySpan<int> levelOffsets)
+        ReadOnlySpan<int> levelOffsets,
+        int faces = 1,
+        ushort flags = 0)
     {
         if (destination.Length < headerSize)
             throw new ArgumentException("Destination is smaller than the CRN header.", nameof(destination));
@@ -109,8 +126,9 @@ internal sealed class CrnHeader
         WriteUInt16(destination, 12, (ushort)width);
         WriteUInt16(destination, 14, (ushort)height);
         destination[16] = (byte)levels;
-        destination[17] = 1;
+        destination[17] = (byte)faces;
         destination[18] = (byte)format;
+        WriteUInt16(destination, 19, flags);
         WriteUInt32(destination, 25, userData0);
         WriteUInt32(destination, 29, userData1);
         WritePalette(destination, 33, colorEndpoints);
@@ -131,6 +149,28 @@ internal sealed class CrnHeader
 
         ushort headerCrc = Crc16.Compute(file[6..headerSize]);
         WriteUInt16(file, 4, headerCrc);
+    }
+
+    public static bool HasValidChecksums(ReadOnlySpan<byte> file, CrnHeader header)
+    {
+        if (file.Length < header.DataSize || file.Length < header.HeaderSize)
+            return false;
+
+        ushort expectedHeaderCrc = ReadUInt16(file, 4);
+        ushort expectedDataCrc = ReadUInt16(file, 10);
+        ushort actualHeaderCrc = Crc16.Compute(file.Slice(6, header.HeaderSize - 6));
+        ushort actualDataCrc = Crc16.Compute(file.Slice(header.HeaderSize, header.DataSize - header.HeaderSize));
+        return expectedHeaderCrc == actualHeaderCrc && expectedDataCrc == actualDataCrc;
+    }
+
+    public static void WriteDataSize(Span<byte> data, int dataSize)
+    {
+        WriteUInt32(data, 6, (uint)dataSize);
+    }
+
+    public static void WriteFlags(Span<byte> data, ushort flags)
+    {
+        WriteUInt16(data, 19, flags);
     }
 
     private static CrnPalette ReadPalette(ReadOnlySpan<byte> data, int offset)

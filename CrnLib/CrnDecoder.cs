@@ -8,15 +8,36 @@ internal static class CrnDecoder
 
     public static byte[] DecodeLevel(ReadOnlySpan<byte> crnData, int level)
     {
-        CrnHeader header = CrnHeader.Read(crnData);
-        if (header.Faces != 1)
-            throw new NotSupportedException("Managed Crunch decoding currently supports 2D textures only.");
+        return DecodeLevelFaces(crnData, level)[0];
+    }
 
+    public static byte[][] DecodeLevelFaces(ReadOnlySpan<byte> crnData, int level)
+    {
+        CrnHeader header = CrnHeader.Read(crnData);
         if ((uint)level >= (uint)header.Levels)
             throw new ArgumentOutOfRangeException(nameof(level));
 
         DecoderState state = CreateDecoderState(crnData, header);
-        return UnpackLevel(crnData, header, state, level);
+        CrnLevelDataRange range = CrnFile.GetLevelDataRange(crnData, level);
+        return UnpackLevel(crnData.Slice(range.Offset, range.Size), header, state, level);
+    }
+
+    public static byte[] DecodeLevelSegmented(ReadOnlySpan<byte> baseCrnData, ReadOnlySpan<byte> levelData, int level)
+    {
+        return DecodeLevelFacesSegmented(baseCrnData, levelData, level)[0];
+    }
+
+    public static byte[][] DecodeLevelFacesSegmented(ReadOnlySpan<byte> baseCrnData, ReadOnlySpan<byte> levelData, int level)
+    {
+        CrnHeader header = CrnHeader.Read(baseCrnData);
+        if (!header.IsSegmented)
+            throw new InvalidDataException("The CRN base file is not marked as segmented.");
+
+        if ((uint)level >= (uint)header.Levels)
+            throw new ArgumentOutOfRangeException(nameof(level));
+
+        DecoderState state = CreateDecoderState(baseCrnData, header);
+        return UnpackLevel(levelData, header, state, level);
     }
 
     private static DecoderState CreateDecoderState(ReadOnlySpan<byte> crnData, CrnHeader header)
@@ -183,76 +204,218 @@ internal static class CrnDecoder
         return selectors;
     }
 
-    private static byte[] UnpackLevel(ReadOnlySpan<byte> crnData, CrnHeader header, DecoderState state, int level)
+    private static byte[][] UnpackLevel(ReadOnlySpan<byte> levelData, CrnHeader header, DecoderState state, int level)
     {
         int levelWidth = Math.Max(1, header.Width >> level);
         int levelHeight = Math.Max(1, header.Height >> level);
         int blocksX = (levelWidth + 3) >> 2;
         int blocksY = (levelHeight + 3) >> 2;
         int rowPitch = blocksX * header.BytesPerBlock;
-        byte[] destination = new byte[rowPitch * blocksY];
+        byte[][] destinations = new byte[header.Faces][];
+        for (int i = 0; i < destinations.Length; i++)
+            destinations[i] = new byte[rowPitch * blocksY];
 
-        int levelOffset = header.LevelOffsets[level];
-        int nextLevelOffset = level + 1 < header.Levels ? header.LevelOffsets[level + 1] : header.DataSize;
-        BitReader reader = CreateReader(crnData, levelOffset, nextLevelOffset - levelOffset);
-
-        return header.Format switch
+        BitReader reader = CreateReader(levelData);
+        switch (header.Format)
         {
-            CrnFormat.Dxt1 => UnpackDxt1(reader, state, destination, blocksX, blocksY, rowPitch),
-            CrnFormat.Dxt5 => UnpackDxt5(reader, state, destination, blocksX, blocksY, rowPitch),
-            _ => throw new NotSupportedException($"CRN format '{header.Format}' is not supported."),
-        };
+            case CrnFormat.Dxt1:
+                UnpackDxt1(reader, state, destinations, blocksX, blocksY, rowPitch);
+                break;
+            case CrnFormat.Dxt5:
+            case CrnFormat.Dxt5CcxY:
+            case CrnFormat.Dxt5XGxR:
+            case CrnFormat.Dxt5XGbr:
+            case CrnFormat.Dxt5Agbr:
+                UnpackDxt5(reader, state, destinations, blocksX, blocksY, rowPitch);
+                break;
+            case CrnFormat.Dxt5A:
+                UnpackDxt5A(reader, state, destinations, blocksX, blocksY, rowPitch);
+                break;
+            case CrnFormat.DxnXy:
+            case CrnFormat.DxnYx:
+                UnpackDxn(reader, state, destinations, blocksX, blocksY, rowPitch);
+                break;
+            default:
+                throw new NotSupportedException($"CRN format '{header.Format}' is not supported.");
+        }
+
+        return destinations;
     }
 
-    private static byte[] UnpackDxt1(BitReader reader, DecoderState state, byte[] destination, int outputWidth, int outputHeight, int rowPitch)
+    private static void UnpackDxt1(BitReader reader, DecoderState state, byte[][] destinations, int outputWidth, int outputHeight, int rowPitch)
     {
         if (state.Tables.ColorEndpoint is null || state.Tables.ColorSelector is null)
             throw new InvalidDataException("CRN DXT1 level is missing color Huffman tables.");
 
         int width = (outputWidth + 1) & ~1;
         int height = (outputHeight + 1) & ~1;
-        BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
         int colorEndpointIndex = 0;
-        int referenceGroup = 0;
 
-        for (int y = 0; y < height; y++)
+        foreach (byte[] destination in destinations)
         {
-            for (int x = 0; x < width; x++)
+            BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
+            int referenceGroup = 0;
+
+            for (int y = 0; y < height; y++)
             {
-                if ((y & 1) == 0 && (x & 1) == 0)
-                    referenceGroup = state.Tables.Reference.Decode(reader);
-
-                int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
-                if (endpointReference == 0)
+                for (int x = 0; x < width; x++)
                 {
-                    colorEndpointIndex += state.Tables.ColorEndpoint.Decode(reader);
-                    if (colorEndpointIndex >= state.ColorEndpoints.Length)
-                        colorEndpointIndex -= state.ColorEndpoints.Length;
-                    blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
-                }
-                else if (endpointReference == 1)
-                {
-                    blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
-                }
-                else
-                {
-                    colorEndpointIndex = blockBuffer[x].ColorEndpointIndex;
-                }
+                    if ((y & 1) == 0 && (x & 1) == 0)
+                        referenceGroup = state.Tables.Reference.Decode(reader);
 
-                int colorSelectorIndex = state.Tables.ColorSelector.Decode(reader);
-                if (x >= outputWidth || y >= outputHeight)
-                    continue;
+                    int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
+                    if (endpointReference == 0)
+                    {
+                        colorEndpointIndex += state.Tables.ColorEndpoint.Decode(reader);
+                        if (colorEndpointIndex >= state.ColorEndpoints.Length)
+                            colorEndpointIndex -= state.ColorEndpoints.Length;
+                        blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
+                    }
+                    else if (endpointReference == 1)
+                    {
+                        blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
+                    }
+                    else
+                    {
+                        colorEndpointIndex = blockBuffer[x].ColorEndpointIndex;
+                    }
 
-                int destinationOffset = (y * rowPitch) + (x * 8);
-                WriteUInt32(destination, destinationOffset, CheckedRead(state.ColorEndpoints, colorEndpointIndex, "color endpoint"));
-                WriteUInt32(destination, destinationOffset + 4, CheckedRead(state.ColorSelectors, colorSelectorIndex, "color selector"));
+                    int colorSelectorIndex = state.Tables.ColorSelector.Decode(reader);
+                    if (x >= outputWidth || y >= outputHeight)
+                        continue;
+
+                    int destinationOffset = (y * rowPitch) + (x * 8);
+                    WriteUInt32(destination, destinationOffset, CheckedRead(state.ColorEndpoints, colorEndpointIndex, "color endpoint"));
+                    WriteUInt32(destination, destinationOffset + 4, CheckedRead(state.ColorSelectors, colorSelectorIndex, "color selector"));
+                }
             }
         }
-
-        return destination;
     }
 
-    private static byte[] UnpackDxt5(BitReader reader, DecoderState state, byte[] destination, int outputWidth, int outputHeight, int rowPitch)
+    private static void UnpackDxt5A(BitReader reader, DecoderState state, byte[][] destinations, int outputWidth, int outputHeight, int rowPitch)
+    {
+        if (state.Tables.AlphaEndpoint is null || state.Tables.AlphaSelector is null)
+            throw new InvalidDataException("CRN DXT5A level is missing alpha Huffman tables.");
+
+        int width = (outputWidth + 1) & ~1;
+        int height = (outputHeight + 1) & ~1;
+        int alphaEndpointIndex = 0;
+
+        foreach (byte[] destination in destinations)
+        {
+            BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
+            int referenceGroup = 0;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    if ((y & 1) == 0 && (x & 1) == 0)
+                        referenceGroup = state.Tables.Reference.Decode(reader);
+
+                    int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
+                    if (endpointReference == 0)
+                    {
+                        alphaEndpointIndex += state.Tables.AlphaEndpoint.Decode(reader);
+                        if (alphaEndpointIndex >= state.AlphaEndpoints.Length)
+                            alphaEndpointIndex -= state.AlphaEndpoints.Length;
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
+                    }
+                    else if (endpointReference == 1)
+                    {
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
+                    }
+                    else
+                    {
+                        alphaEndpointIndex = blockBuffer[x].AlphaEndpointIndex;
+                    }
+
+                    int alphaSelectorIndex = state.Tables.AlphaSelector.Decode(reader);
+                    if (x >= outputWidth || y >= outputHeight)
+                        continue;
+
+                    int destinationOffset = (y * rowPitch) + (x * 8);
+                    WriteAlphaBlock(destination, destinationOffset, state, alphaEndpointIndex, alphaSelectorIndex);
+                }
+            }
+        }
+    }
+
+    private static void UnpackDxn(BitReader reader, DecoderState state, byte[][] destinations, int outputWidth, int outputHeight, int rowPitch)
+    {
+        if (state.Tables.AlphaEndpoint is null || state.Tables.AlphaSelector is null)
+            throw new InvalidDataException("CRN DXN level is missing alpha Huffman tables.");
+
+        int width = (outputWidth + 1) & ~1;
+        int height = (outputHeight + 1) & ~1;
+        int alphaEndpointIndex0 = 0;
+        int alphaEndpointIndex1 = 0;
+
+        foreach (byte[] destination in destinations)
+        {
+            BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
+            int referenceGroup = 0;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    if ((y & 1) == 0 && (x & 1) == 0)
+                        referenceGroup = state.Tables.Reference.Decode(reader);
+
+                    int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
+                    if (endpointReference == 0)
+                    {
+                        alphaEndpointIndex0 += state.Tables.AlphaEndpoint.Decode(reader);
+                        if (alphaEndpointIndex0 >= state.AlphaEndpoints.Length)
+                            alphaEndpointIndex0 -= state.AlphaEndpoints.Length;
+
+                        alphaEndpointIndex1 += state.Tables.AlphaEndpoint.Decode(reader);
+                        if (alphaEndpointIndex1 >= state.AlphaEndpoints.Length)
+                            alphaEndpointIndex1 -= state.AlphaEndpoints.Length;
+
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex0;
+                        blockBuffer[x].AlphaEndpointIndex1 = (ushort)alphaEndpointIndex1;
+                    }
+                    else if (endpointReference == 1)
+                    {
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex0;
+                        blockBuffer[x].AlphaEndpointIndex1 = (ushort)alphaEndpointIndex1;
+                    }
+                    else
+                    {
+                        alphaEndpointIndex0 = blockBuffer[x].AlphaEndpointIndex;
+                        alphaEndpointIndex1 = blockBuffer[x].AlphaEndpointIndex1;
+                    }
+
+                    int alphaSelectorIndex0 = state.Tables.AlphaSelector.Decode(reader);
+                    int alphaSelectorIndex1 = state.Tables.AlphaSelector.Decode(reader);
+                    if (x >= outputWidth || y >= outputHeight)
+                        continue;
+
+                    int destinationOffset = (y * rowPitch) + (x * 16);
+                    WriteAlphaBlock(destination, destinationOffset, state, alphaEndpointIndex0, alphaSelectorIndex0);
+                    WriteAlphaBlock(destination, destinationOffset + 8, state, alphaEndpointIndex1, alphaSelectorIndex1);
+                }
+            }
+        }
+    }
+
+    private static void WriteAlphaBlock(byte[] destination, int destinationOffset, DecoderState state, int alphaEndpointIndex, int alphaSelectorIndex)
+    {
+        ushort alphaEndpoint = CheckedRead(state.AlphaEndpoints, alphaEndpointIndex, "alpha endpoint");
+        WriteUInt16(destination, destinationOffset, alphaEndpoint);
+
+        int alphaSelectorOffset = alphaSelectorIndex * 3;
+        ushort alpha0 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset, "alpha selector");
+        ushort alpha1 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 1, "alpha selector");
+        ushort alpha2 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 2, "alpha selector");
+        WriteUInt16(destination, destinationOffset + 2, alpha0);
+        WriteUInt16(destination, destinationOffset + 4, alpha1);
+        WriteUInt16(destination, destinationOffset + 6, alpha2);
+    }
+
+    private static void UnpackDxt5(BitReader reader, DecoderState state, byte[][] destinations, int outputWidth, int outputHeight, int rowPitch)
     {
         if (state.Tables.ColorEndpoint is null || state.Tables.ColorSelector is null ||
             state.Tables.AlphaEndpoint is null || state.Tables.AlphaSelector is null)
@@ -262,65 +425,67 @@ internal static class CrnDecoder
 
         int width = (outputWidth + 1) & ~1;
         int height = (outputHeight + 1) & ~1;
-        BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
         int colorEndpointIndex = 0;
         int alphaEndpointIndex = 0;
-        int referenceGroup = 0;
 
-        for (int y = 0; y < height; y++)
+        foreach (byte[] destination in destinations)
         {
-            for (int x = 0; x < width; x++)
+            BlockBufferElement[] blockBuffer = new BlockBufferElement[width];
+            int referenceGroup = 0;
+
+            for (int y = 0; y < height; y++)
             {
-                if ((y & 1) == 0 && (x & 1) == 0)
-                    referenceGroup = state.Tables.Reference.Decode(reader);
-
-                int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
-                if (endpointReference == 0)
+                for (int x = 0; x < width; x++)
                 {
-                    colorEndpointIndex += state.Tables.ColorEndpoint.Decode(reader);
-                    if (colorEndpointIndex >= state.ColorEndpoints.Length)
-                        colorEndpointIndex -= state.ColorEndpoints.Length;
-                    blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
+                    if ((y & 1) == 0 && (x & 1) == 0)
+                        referenceGroup = state.Tables.Reference.Decode(reader);
 
-                    alphaEndpointIndex += state.Tables.AlphaEndpoint.Decode(reader);
-                    if (alphaEndpointIndex >= state.AlphaEndpoints.Length)
-                        alphaEndpointIndex -= state.AlphaEndpoints.Length;
-                    blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
+                    int endpointReference = ConsumeEndpointReference(y, x, blockBuffer, ref referenceGroup);
+                    if (endpointReference == 0)
+                    {
+                        colorEndpointIndex += state.Tables.ColorEndpoint.Decode(reader);
+                        if (colorEndpointIndex >= state.ColorEndpoints.Length)
+                            colorEndpointIndex -= state.ColorEndpoints.Length;
+                        blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
+
+                        alphaEndpointIndex += state.Tables.AlphaEndpoint.Decode(reader);
+                        if (alphaEndpointIndex >= state.AlphaEndpoints.Length)
+                            alphaEndpointIndex -= state.AlphaEndpoints.Length;
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
+                    }
+                    else if (endpointReference == 1)
+                    {
+                        blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
+                        blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
+                    }
+                    else
+                    {
+                        colorEndpointIndex = blockBuffer[x].ColorEndpointIndex;
+                        alphaEndpointIndex = blockBuffer[x].AlphaEndpointIndex;
+                    }
+
+                    int colorSelectorIndex = state.Tables.ColorSelector.Decode(reader);
+                    int alphaSelectorIndex = state.Tables.AlphaSelector.Decode(reader);
+                    if (x >= outputWidth || y >= outputHeight)
+                        continue;
+
+                    int destinationOffset = (y * rowPitch) + (x * 16);
+                    ushort alphaEndpoint = CheckedRead(state.AlphaEndpoints, alphaEndpointIndex, "alpha endpoint");
+                    WriteUInt16(destination, destinationOffset, alphaEndpoint);
+
+                    int alphaSelectorOffset = alphaSelectorIndex * 3;
+                    ushort alpha0 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset, "alpha selector");
+                    ushort alpha1 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 1, "alpha selector");
+                    ushort alpha2 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 2, "alpha selector");
+                    WriteUInt16(destination, destinationOffset + 2, alpha0);
+                    WriteUInt16(destination, destinationOffset + 4, alpha1);
+                    WriteUInt16(destination, destinationOffset + 6, alpha2);
+
+                    WriteUInt32(destination, destinationOffset + 8, CheckedRead(state.ColorEndpoints, colorEndpointIndex, "color endpoint"));
+                    WriteUInt32(destination, destinationOffset + 12, CheckedRead(state.ColorSelectors, colorSelectorIndex, "color selector"));
                 }
-                else if (endpointReference == 1)
-                {
-                    blockBuffer[x].ColorEndpointIndex = (ushort)colorEndpointIndex;
-                    blockBuffer[x].AlphaEndpointIndex = (ushort)alphaEndpointIndex;
-                }
-                else
-                {
-                    colorEndpointIndex = blockBuffer[x].ColorEndpointIndex;
-                    alphaEndpointIndex = blockBuffer[x].AlphaEndpointIndex;
-                }
-
-                int colorSelectorIndex = state.Tables.ColorSelector.Decode(reader);
-                int alphaSelectorIndex = state.Tables.AlphaSelector.Decode(reader);
-                if (x >= outputWidth || y >= outputHeight)
-                    continue;
-
-                int destinationOffset = (y * rowPitch) + (x * 16);
-                ushort alphaEndpoint = CheckedRead(state.AlphaEndpoints, alphaEndpointIndex, "alpha endpoint");
-                WriteUInt16(destination, destinationOffset, alphaEndpoint);
-
-                int alphaSelectorOffset = alphaSelectorIndex * 3;
-                ushort alpha0 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset, "alpha selector");
-                ushort alpha1 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 1, "alpha selector");
-                ushort alpha2 = CheckedRead(state.AlphaSelectors, alphaSelectorOffset + 2, "alpha selector");
-                WriteUInt16(destination, destinationOffset + 2, alpha0);
-                WriteUInt16(destination, destinationOffset + 4, alpha1);
-                WriteUInt16(destination, destinationOffset + 6, alpha2);
-
-                WriteUInt32(destination, destinationOffset + 8, CheckedRead(state.ColorEndpoints, colorEndpointIndex, "color endpoint"));
-                WriteUInt32(destination, destinationOffset + 12, CheckedRead(state.ColorSelectors, colorSelectorIndex, "color selector"));
             }
         }
-
-        return destination;
     }
 
     private static int ConsumeEndpointReference(int y, int x, BlockBufferElement[] blockBuffer, ref int referenceGroup)
@@ -341,6 +506,14 @@ internal static class CrnDecoder
             throw new InvalidDataException("CRN chunk points outside the file.");
 
         return new BitReader(data.Slice(offset, size).ToArray());
+    }
+
+    private static BitReader CreateReader(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+            throw new InvalidDataException("CRN chunk is empty.");
+
+        return new BitReader(data.ToArray());
     }
 
     private static T CheckedRead<T>(T[] data, int index, string paletteName)
@@ -380,5 +553,6 @@ internal static class CrnDecoder
         public ushort EndpointReference;
         public ushort ColorEndpointIndex;
         public ushort AlphaEndpointIndex;
+        public ushort AlphaEndpointIndex1;
     }
 }
