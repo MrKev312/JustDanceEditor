@@ -174,6 +174,33 @@ public static class CoverComposer
     }
 
     /// <summary>
+    /// Creates the saved fallback map background used when an imported song has no background asset.
+    /// </summary>
+    public static Image<Bgra32> CreateMissingBackground(int width = BackgroundWidth, int height = BackgroundHeight)
+    {
+        Image<Bgra32> background = new(width, height);
+        background.Mutate(x => x.BackgroundColor(Color.Purple));
+
+        try
+        {
+            const string message = "Missing Background";
+            float fontSize = Math.Max(Math.Min(width, height) / 8f, 12f);
+            Font font = SystemFonts.CreateFont("Segoe UI", fontSize, FontStyle.Regular);
+            FontRectangle textBounds = TextMeasurer.MeasureSize(message, new TextOptions(font));
+            float x = (width - textBounds.Width) / 2;
+            float y = (height - textBounds.Height) / 2;
+
+            background.Mutate(ctx => ctx.DrawText(message, font, Color.Black, new PointF(x, y)));
+        }
+        catch
+        {
+            // Font availability varies; the purple fallback still makes the missing source obvious.
+        }
+
+        return background;
+    }
+
+    /// <summary>
     /// Generates a map background from the coaches background.
     /// </summary>
     /// <param name="coachesBackground">The coaches background image.</param>

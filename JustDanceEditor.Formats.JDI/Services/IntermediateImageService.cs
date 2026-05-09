@@ -180,11 +180,14 @@ public sealed class IntermediateImageService(
                 return ScaleImage(generated, width, height);
             }
 
-            return CoverComposer.CreatePlaceholder("Map Background", targetWidth, targetHeight);
+            logger?.LogInformation("Map background could not be generated from existing assets; creating missing-background fallback");
+            Image<Bgra32> fallback = CoverComposer.CreateMissingBackground();
+            await SaveImageAsync(fallback, bgPath, cancellationToken);
+            return ScaleImage(fallback, width, height);
         }
 
         return await LoadAndScaleImageAsync(bgPath, width, height, cancellationToken)
-            ?? CoverComposer.CreatePlaceholder("Map Background", targetWidth, targetHeight);
+            ?? CoverComposer.CreateMissingBackground(targetWidth, targetHeight);
     }
 
     /// <inheritdoc />

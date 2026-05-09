@@ -159,6 +159,19 @@ public class CoverComposerTests
         Assert.Equal(255, corner.B);
     }
 
+    [Fact]
+    public void CreateMissingBackground_HasPurpleBackground()
+    {
+        // Act
+        using Image<Bgra32> result = CoverComposer.CreateMissingBackground(100, 100);
+
+        // Assert - corner pixel should be purple
+        Bgra32 corner = result[0, 0];
+        Assert.Equal(128, corner.R);
+        Assert.Equal(0, corner.G);
+        Assert.Equal(128, corner.B);
+    }
+
     #endregion
 
     #region GenerateMapBackground Tests
