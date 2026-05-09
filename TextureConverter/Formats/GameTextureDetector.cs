@@ -1,5 +1,7 @@
 using SixLabors.ImageSharp.Formats;
 
+using TextureConverter.TextureType;
+
 namespace TextureConverter.Formats;
 
 public class GameTextureDetector : IImageFormatDetector
@@ -14,7 +16,7 @@ public class GameTextureDetector : IImageFormatDetector
 
     private static readonly IImageFormat UnknownFormat = new UnknownImageFormat();
 
-    public int HeaderSize => 0x30;
+    public int HeaderSize => 0x60;
 
     private static readonly byte[] TexHeader = [0x00, 0x00, 0x00, 0x09, 0x54, 0x45, 0x58];
 
@@ -59,6 +61,12 @@ public class GameTextureDetector : IImageFormatDetector
         if (sig.SequenceEqual([(byte)'G', (byte)'f', (byte)'x', (byte)'2']))
         {
             format = GtxFormat.Instance;
+            return true;
+        }
+
+        if (header.Length >= offset + Xbox360.HeaderSize && Xbox360.IsHeader(header.Slice(offset, Xbox360.HeaderSize)))
+        {
+            format = Xbox360Format.Instance;
             return true;
         }
 
