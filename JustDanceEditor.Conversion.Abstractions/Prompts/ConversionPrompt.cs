@@ -32,5 +32,7 @@ public sealed record ConversionPromptSet(
 
 public static class ConversionPromptIds
 {
+    public const string InputPath = "inputPath";
     public const string OutputPath = "outputPath";
+    public const string Force = "force";
 }

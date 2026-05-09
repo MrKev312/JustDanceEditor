@@ -8,9 +8,17 @@ public sealed record ConversionTargetDefinition(
     TargetVersionDescriptor Version,
     string DisplayName,
     IReadOnlyList<ConversionPrompt>? ExportPrompts = null,
-    int Priority = 100)
+    int Priority = 100,
+    ConversionSupportStatus SupportStatus = ConversionSupportStatus.Stable)
 {
     public IReadOnlyList<ConversionPrompt> ExportPrompts { get; init; } = ExportPrompts ?? [];
+}
+
+public enum ConversionSupportStatus
+{
+    Stable,
+    KnownPartial,
+    Experimental
 }
 
 public sealed record PlatformDescriptor(string PlatformCode, string DisplayName);

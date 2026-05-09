@@ -10,12 +10,13 @@ using System.Reflection;
 
 namespace JustDanceEditor.UI;
 
-internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, IConversionInteraction interaction, ILogger<ConsoleApp> logger)
+internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, IConversionInteraction interaction, ToolDialogue toolDialogue, ILogger<ConsoleApp> logger)
 {
     private readonly IEnumerable<IJdiFormat> _formatsEnumerable = formatsEnumerable;
     private readonly IEnumerable<IFormatConversionStrategy> _formatStrategies = formatStrategies;
     private readonly IConversionWorkflow _conversionWorkflow = conversionWorkflow;
     private readonly IConversionInteraction _interaction = interaction;
+    private readonly ToolDialogue _toolDialogue = toolDialogue;
     private readonly ILogger<ConsoleApp> _logger = logger;
 
     public void Run()
@@ -54,9 +55,7 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
                 "Exit Program",
                 "Convert Between Formats (Experimental)",
                 "Batch Convert All Songs in a Folder",
-                "Extract IPK Archive File",
-                "Generate a New Cache Structure",
-                "Optimize Cache Folders for exFAT (Spread Caches equally)"
+                "Tools"
             ], 0, "Please select an action:");
 
             Console.WriteLine("=========================================\n");
@@ -74,16 +73,8 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
                     _conversionWorkflow.ConvertAllSongsInFolder();
                     break;
                 case 3:
-                    Console.WriteLine("--- Extract IPK Archive ---");
-                    ExtractorDialogue.ExtractDialogue(_logger);
-                    break;
-                case 4:
-                    Console.WriteLine("--- Generate New Cache ---");
-                    CacheDialogue.GenerateCacheDialogue(_logger);
-                    break;
-                case 5:
-                    Console.WriteLine("--- Spread Cache for exFAT ---");
-                    CacheDialogue.SpreadCacheDialogue(_logger);
+                    Console.WriteLine("--- Tools ---");
+                    _toolDialogue.Start();
                     break;
                 default:
                     Console.ForegroundColor = ConsoleColor.Red;

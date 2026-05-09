@@ -110,11 +110,20 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
                 Version: new TargetVersionDescriptor.SpecificYear(year),
                 DisplayName: $"JD{year} (UbiArt)",
                 ExportPrompts: [OutputFolderPrompt()],
-                Priority: 10),
+                Priority: 10,
+                SupportStatus: GetSupportStatus(platform)),
             platform,
             engineVersion,
             CookedType.Cooked);
     }
+
+    private static ConversionSupportStatus GetSupportStatus(UbiArtPlatform platform) => platform switch
+    {
+        UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
+        _ => ConversionSupportStatus.Stable
+    };
 
     private static ConversionPrompt OutputFolderPrompt() =>
         new(

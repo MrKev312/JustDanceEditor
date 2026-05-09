@@ -10,9 +10,14 @@ internal static class ConverterPluginLoader
     private static readonly object ResolverLock = new();
     private static bool _resolverRegistered;
     private static string[] _assemblySearchDirectories = [];
+    private static readonly List<string> LoadWarningsInternal = [];
+
+    public static IReadOnlyList<string> AssemblySearchDirectories => _assemblySearchDirectories;
+    public static IReadOnlyList<string> LoadWarnings => LoadWarningsInternal;
 
     public static IReadOnlyList<IConverterPlugin> LoadPlugins()
     {
+        LoadWarningsInternal.Clear();
         string[] candidateDirectories = [.. EnumerateCandidateDirectories().Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase)];
         RegisterAssemblyResolver(candidateDirectories);
 
@@ -124,8 +129,9 @@ internal static class ConverterPluginLoader
             {
                 return context.LoadFromAssemblyPath(Path.GetFullPath(candidate));
             }
-            catch
+            catch (Exception ex)
             {
+                LoadWarningsInternal.Add($"Failed to resolve '{assemblyName.Name}' from '{candidate}': {ex.Message}");
                 continue;
             }
         }
@@ -153,8 +159,9 @@ internal static class ConverterPluginLoader
         {
             AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
         }
-        catch
+        catch (Exception ex)
         {
+            LoadWarningsInternal.Add($"Failed to load assembly '{path}': {ex.Message}");
             // A converter with missing optional dependencies should not prevent the UI from starting.
         }
     }

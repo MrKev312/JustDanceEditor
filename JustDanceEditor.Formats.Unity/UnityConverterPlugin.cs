@@ -2,6 +2,7 @@ using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.Unity.Services;
+using JustDanceEditor.Formats.Unity.Tools;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,5 +23,6 @@ public sealed class UnityConverterPlugin : IConverterPlugin
 
         services.AddSingleton<IJdiFormat, UnityJdiFormat>();
         services.AddSingleton<IFormatConversionStrategy, UnityConversionStrategy>();
+        services.AddSingleton<IToolProvider, UnityCacheToolProvider>();
     }
 }

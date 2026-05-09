@@ -31,20 +31,32 @@ internal class Program
         builder.Services.AddSingleton<IConversionWorkflow, ConversionWorkflow>();
         builder.Services.AddSingleton<IJdiFormat, JdiFormat>();
         builder.Services.AddSingleton<IFormatConversionStrategy, JdiConversionStrategy>();
+        builder.Services.AddSingleton<IToolProvider, IpkToolProvider>();
 
-        foreach (IConverterPlugin plugin in ConverterPluginLoader.LoadPlugins())
+        IReadOnlyList<IConverterPlugin> plugins = ConverterPluginLoader.LoadPlugins();
+        foreach (IConverterPlugin plugin in plugins)
         {
+            builder.Services.AddSingleton(plugin);
             plugin.ConfigureServices(builder.Services);
         }
 
         // Register ConsoleApp
+        builder.Services.AddSingleton<ToolDialogue>();
         builder.Services.AddSingleton<ConsoleApp>();
+        builder.Services.AddSingleton<CliApp>();
 
         IHost host = builder.Build();
 
-        // Run the console app
-        ConsoleApp app = host.Services.GetRequiredService<ConsoleApp>();
-        app.Run();
+        if (args.Length > 0)
+        {
+            CliApp cli = host.Services.GetRequiredService<CliApp>();
+            Environment.ExitCode = cli.Run(args);
+        }
+        else
+        {
+            ConsoleApp app = host.Services.GetRequiredService<ConsoleApp>();
+            app.Run();
+        }
 
         // If there are async shutdown tasks in the future, host.DisposeAsync can be awaited here
         await Task.CompletedTask;

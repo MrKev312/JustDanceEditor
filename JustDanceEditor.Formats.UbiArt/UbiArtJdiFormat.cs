@@ -1,4 +1,5 @@
 using JustDanceEditor.Audio;
+using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.UbiArt.Export;
@@ -61,10 +62,18 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             _logger.LogInformation("Song name: {SongName}", fileSystem.SongName);
 
         string platformName = fileSystem.VersionProfile.Platform.ToString();
-        if (!platformName.Equals("nx", StringComparison.InvariantCultureIgnoreCase))
-            _logger.LogWarning("Platform: {Platform}, which is not officially supported. The conversion might not work as expected.", platformName);
-        else
+        ConversionSupportStatus supportStatus = GetPlatformSupportStatus(fileSystem.VersionProfile.Platform);
+        if (supportStatus == ConversionSupportStatus.Stable)
+        {
             _logger.LogInformation("Platform: {Platform}", platformName);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Platform: {Platform} is {SupportStatus}. The conversion might not work as expected.",
+                platformName,
+                FormatSupportStatus(supportStatus));
+        }
 
         ConversionContext context;
         try
@@ -206,6 +215,21 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             _io.DeleteDirectory(targetFolder, true);
         _io.CreateDirectory(targetFolder);
     }
+
+    private static ConversionSupportStatus GetPlatformSupportStatus(UbiArtPlatform platform) => platform switch
+    {
+        UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
+        _ => ConversionSupportStatus.Stable
+    };
+
+    private static string FormatSupportStatus(ConversionSupportStatus supportStatus) => supportStatus switch
+    {
+        ConversionSupportStatus.Experimental => "experimental",
+        ConversionSupportStatus.KnownPartial => "partially supported",
+        _ => "stable"
+    };
 
     public bool Check(string path)
     {

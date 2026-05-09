@@ -70,7 +70,7 @@ public static class UbiArtPictoConverter
                 using Image<Bgra32>? pictoImage = textureService.ConvertToImage(s);
                 if (pictoImage is null)
                 {
-                    logger?.LogWarning("Failed to convert pictogram: {Path}", cooked.RelativePath);
+                    logger?.LogWarning("Failed to convert pictogram: {Path} (texture decoder returned no image)", cooked.RelativePath);
                     return;
                 }
 
@@ -86,6 +86,11 @@ public static class UbiArtPictoConverter
             catch (FileNotFoundException)
             {
                 logger?.LogWarning("Failed to convert pictogram: {Path} (not found)", cooked.RelativePath);
+                return;
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Failed to convert pictogram: {Path}: {Message}", cooked.RelativePath, ex.Message);
                 return;
             }
         });

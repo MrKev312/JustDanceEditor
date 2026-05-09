@@ -293,7 +293,7 @@ internal static class IntermediateAssetWriter
                 using Image<Bgra32>? coach = textureService.ConvertToImage(s);
                 if (coach is null)
                 {
-                    logger.LogWarning("Failed to convert coach image: {Path}", coachFilesCooked[i].RelativePath);
+                    logger.LogWarning("Failed to convert coach image: {Path} (texture decoder returned no image)", coachFilesCooked[i].RelativePath);
                     return;
                 }
 
@@ -303,6 +303,10 @@ internal static class IntermediateAssetWriter
             catch (FileNotFoundException)
             {
                 logger.LogWarning("Failed to convert coach image: {Path} (not found)", coachFilesCooked[i].RelativePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to convert coach image: {Path}: {Message}", coachFilesCooked[i].RelativePath, ex.Message);
             }
         });
     }
