@@ -10,8 +10,8 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using TextureConverter;
-using TextureConverter.TextureConverterHelpers;
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
@@ -233,7 +233,6 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
         AssetFileInfo coachTextureTpl, AssetFileInfo coachSpriteTpl, long[] textureIds, long[] spriteIds)
     {
         TextureFormat fmt = TextureFormat.DXT5Crunched;
-        int mips = 1;
 
         for (int i = 1; i <= request.CoachImages.Count; i++)
         {
@@ -248,8 +247,9 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
 
             using Image<Rgba32> image = request.CoachImages[i - 1].CloneAs<Rgba32>();
             image.Mutate(x => x.Resize(1024, 1024));
+            image.Mutate(x => x.Flip(FlipMode.Vertical));
 
-            byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new InvalidOperationException("Failed to encode coach image.");
+            byte[] encImageBytes = TextureImageSharpCodec.EncodeData(image, fmt, quality: 5, mipCount: 1);
 
             coachTextureBase["image data"].AsByteArray = encImageBytes;
             coachTextureBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;
@@ -295,8 +295,8 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
 
         using Image<Rgba32> image = request.BackgroundImage.CloneAs<Rgba32>();
         TextureFormat fmt = TextureFormat.DXT1Crunched;
-        int mips = 1;
-        byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new InvalidOperationException("Failed to encode background image.");
+        image.Mutate(x => x.Flip(FlipMode.Vertical));
+        byte[] encImageBytes = TextureImageSharpCodec.EncodeData(image, fmt, quality: 5, mipCount: 1);
 
         backgroundTextureBase["image data"].AsByteArray = encImageBytes;
         backgroundTextureBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;

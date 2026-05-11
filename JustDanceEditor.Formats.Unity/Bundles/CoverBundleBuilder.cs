@@ -10,8 +10,8 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using TextureConverter;
-using TextureConverter.TextureConverterHelpers;
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
@@ -144,8 +144,8 @@ public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
         coverBase["m_Name"].AsString = $"{codename}_Cover_2x";
 
         TextureFormat fmt = TextureFormat.DXT1Crunched;
-        int mips = 1;
-        byte[] encImageBytes = TextureImportExport.Import(coverImage, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode cover image!");
+        coverImage.Mutate(x => x.Flip(FlipMode.Vertical));
+        byte[] encImageBytes = TextureImageSharpCodec.EncodeData(coverImage, fmt, quality: 5, mipCount: 1);
 
         coverBase["image data"].AsByteArray = encImageBytes;
         coverBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;

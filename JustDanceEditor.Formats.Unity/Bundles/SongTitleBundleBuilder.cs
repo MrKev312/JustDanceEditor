@@ -10,8 +10,8 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using TextureConverter;
-using TextureConverter.TextureConverterHelpers;
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
@@ -138,8 +138,8 @@ public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
         textureBase["m_Name"].AsString = $"{codename}_Title";
 
         TextureFormat fmt = TextureFormat.DXT5Crunched;
-        int mips = 1;
-        byte[] encImageBytes = TextureImportExport.Import(image, fmt, out _, out _, ref mips) ?? throw new Exception("Failed to encode song title image!");
+        image.Mutate(x => x.Flip(FlipMode.Vertical));
+        byte[] encImageBytes = TextureImageSharpCodec.EncodeData(image, fmt, quality: 5, mipCount: 1);
 
         textureBase["image data"].AsByteArray = encImageBytes;
         textureBase["m_CompleteImageSize"].AsUInt = (uint)encImageBytes.Length;

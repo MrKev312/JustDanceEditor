@@ -1,7 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
+    <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
+
+    <KevIncAvaloniaRoot Condition="'$(KevIncAvaloniaRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Avalonia'))</KevIncAvaloniaRoot>
+    <KevIncAvaloniaProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia\KevInc.Avalonia.csproj</KevIncAvaloniaProject>
+    <KevIncAvaloniaDockProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Dock\KevInc.Avalonia.Dock.csproj</KevIncAvaloniaDockProject>
+    <KevIncAvaloniaTimelineProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Timeline\KevInc.Avalonia.Timeline.csproj</KevIncAvaloniaTimelineProject>
+
+    <KevIncAudioRoot Condition="'$(KevIncAudioRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Audio'))</KevIncAudioRoot>
+    <KevIncAudioCafeNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Cafe.NAudio\KevInc.Audio.Cafe.NAudio.csproj</KevIncAudioCafeNAudioProject>
+    <KevIncAudioNxNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Nx.NAudio\KevInc.Audio.Nx.NAudio.csproj</KevIncAudioNxNAudioProject>
+    <KevIncAudioXma2Project>$(KevIncAudioRoot)src\KevInc.Audio.Xma2\KevInc.Audio.Xma2.csproj</KevIncAudioXma2Project>
+    <KevIncAudioXma2NAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Xma2.NAudio\KevInc.Audio.Xma2.NAudio.csproj</KevIncAudioXma2NAudioProject>
+
+    <KevIncTextureRoot Condition="'$(KevIncTextureRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Texture'))</KevIncTextureRoot>
+    <KevIncTextureProject>$(KevIncTextureRoot)src\KevInc.Texture\KevInc.Texture.csproj</KevIncTextureProject>
+    <KevIncTextureImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.ImageSharp\KevInc.Texture.ImageSharp.csproj</KevIncTextureImageSharpProject>
+    <KevIncTextureNintendoImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Nintendo.ImageSharp\KevInc.Texture.Nintendo.ImageSharp.csproj</KevIncTextureNintendoImageSharpProject>
+    <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" Condition="!Exists('packages.config')">
+    <PackageReference Include="Nerdbank.GitVersioning">
       <PrivateAssets>all</PrivateAssets>
       <Version>3.9.50</Version>
     </PackageReference>

@@ -1,4 +1,5 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.AppHost;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
@@ -52,7 +53,9 @@ internal static class FormatConversionDialogue
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
         IFormatConversionStrategy sourceStrategy = ResolveStrategy(conversionStrategies, sourceName);
 
-        ConversionTargetDefinition target = ConversionTargetSelector.AskTarget(conversionStrategies);
+        ConversionTargetDefinition target = ConsoleConversionTargetSelector.AskTarget(
+            conversionStrategies,
+            (choices, defaultIndex, question) => Question.Ask([.. choices], defaultIndex, question));
         IFormatConversionStrategy targetStrategy = ResolveStrategy(conversionStrategies, target.FormatName);
 
         string targetName = target.FormatName;

@@ -9,9 +9,10 @@ using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
-using TextureConverter;
-using TextureConverter.TextureConverterHelpers;
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
@@ -401,9 +402,8 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         Parallel.For(0, request.AtlasImages.Count, i =>
         {
             using Image<Rgba32> clone = request.AtlasImages[i].CloneAs<Rgba32>();
-            int mips = 1;
-            encodedAtlasBytes[i] = TextureImportExport.Import(clone, TextureFormat.DXT5Crunched, out _, out _, ref mips)
-                ?? throw new InvalidOperationException($"Failed to encode atlas image at index {i}.");
+            clone.Mutate(x => x.Flip(FlipMode.Vertical));
+            encodedAtlasBytes[i] = TextureImageSharpCodec.EncodeData(clone, TextureFormat.DXT5Crunched, quality: 5, mipCount: 1);
         });
 
         long[] atlasIds = new long[request.AtlasImages.Count];

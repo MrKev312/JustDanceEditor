@@ -1,5 +1,3 @@
-using JustDanceEditor.Audio.Codecs;
-
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -29,7 +27,7 @@ public static partial class RakiAudioEncoder
         short[] pcm = new short[pcmBytes.Length / sizeof(short)];
         Buffer.BlockCopy(pcmBytes, 0, pcm, 0, pcmBytes.Length);
 
-        byte[] xmaData = Xma2Encoder.Encode(pcm, 48000, 2, out int samplesEncoded);
+        byte[] xmaData = KevInc.Audio.Xma2.Xma2Encoder.Encode(pcm, 48000, 2, out int samplesEncoded);
 
         const bool isBigEndian = true;
         const uint rakiHeaderSize = 32;

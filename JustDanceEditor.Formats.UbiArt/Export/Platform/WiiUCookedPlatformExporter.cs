@@ -8,7 +8,7 @@ using SixLabors.ImageSharp.PixelFormats;
 
 using System.Text;
 
-using TextureConverter.TextureType;
+using KevInc.Texture.Nintendo.ImageSharp;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 

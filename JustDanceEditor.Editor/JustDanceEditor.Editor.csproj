@@ -27,6 +27,9 @@
 		<PackageReference Include="Dock.Model.Mvvm" Version="12.0.0.2" />
 		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="12.0.0.2" />
 		<PackageReference Include="Dock.Serializer" Version="11.3.0.12" />
+		<PackageReference Include="KevInc.Avalonia" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaProject)')" />
+		<PackageReference Include="KevInc.Avalonia.Dock" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaDockProject)')" />
+		<PackageReference Include="KevInc.Avalonia.Timeline" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
 		<PackageReference Include="LibVLCSharp" Version="3.9.7.1" />
 		<PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.7.1" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
@@ -36,14 +39,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="$(KevIncAvaloniaProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaProject)')" />
+	  <ProjectReference Include="$(KevIncAvaloniaDockProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaDockProject)')" />
+	  <ProjectReference Include="$(KevIncAvaloniaTimelineProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaTimelineProject)')" />
 	  <ProjectReference Include="..\JustDanceEditor.Audio\JustDanceEditor.Audio.csproj" />
 	  <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="Views\Tools\PropertiesToolView.axaml.cs">
-	    <DependentUpon>PropertiesToolView.axaml</DependentUpon>
-	  </Compile>  <Compile Update="Views\Tools\LibraryToolView.axaml.cs">
-    <DependentUpon>LibraryToolView.axaml</DependentUpon>
-  </Compile>	</ItemGroup>
+		<Compile Update="Views\Tools\PropertiesToolView.axaml.cs">
+			<DependentUpon>PropertiesToolView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\Tools\LibraryToolView.axaml.cs">
+			<DependentUpon>LibraryToolView.axaml</DependentUpon>
+		</Compile>
+	</ItemGroup>
 </Project>

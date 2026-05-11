@@ -2,10 +2,14 @@ using JustDanceEditor.Audio;
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
+using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
+using KevInc.Texture.ImageSharp;
+using KevInc.Texture.Nintendo.ImageSharp;
+using KevInc.Texture.Xbox.ImageSharp;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -20,7 +24,9 @@ public sealed class UbiArtConverterPlugin : IConverterPlugin
 
     public void ConfigureServices(IServiceCollection services)
     {
-        TextureConverter.Formats.ImageSharpConfiguration.RegisterCustomFormats();
+        TextureImageSharpConfiguration.RegisterDdsFormat();
+        NintendoImageSharpConfiguration.RegisterTextureFormats();
+        Xbox360ImageSharpConfiguration.RegisterTextureFormat();
 
         services.TryAddSingleton<IFileSystem, SystemFileSystem>();
         services.TryAddSingleton<SystemFileSystem>();
@@ -42,5 +48,6 @@ public sealed class UbiArtConverterPlugin : IConverterPlugin
 
         services.AddSingleton<IJdiFormat, UbiArtJdiFormat>();
         services.AddSingleton<IFormatConversionStrategy, UbiArtConversionStrategy>();
+        services.AddSingleton<ISongPreviewProvider, UbiArtSongPreviewProvider>();
     }
 }

@@ -6,7 +6,7 @@ using SixLabors.ImageSharp.Processing;
 
 using System.Text;
 
-using TextureConverter.TextureType;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 

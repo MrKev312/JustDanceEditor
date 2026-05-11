@@ -1,7 +1,5 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-
 namespace JustDanceEditor.Editor.ViewModels;
 
-public class ViewModelBase : ObservableObject
+public class ViewModelBase : KevInc.Avalonia.ViewModels.ViewModelBase
 {
 }

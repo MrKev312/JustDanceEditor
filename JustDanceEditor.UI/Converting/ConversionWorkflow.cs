@@ -1,4 +1,5 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.AppHost;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
@@ -28,7 +29,10 @@ public sealed class ConversionWorkflow(
         {
             Console.WriteLine("Starting batch conversion process for all songs in a folder.");
 
-            ConversionTargetDefinition target = ConversionTargetSelector.AskTarget(_strategies, "Select the export target for all songs");
+            ConversionTargetDefinition target = ConsoleConversionTargetSelector.AskTarget(
+                _strategies,
+                (choices, defaultIndex, question) => Question.Ask([.. choices], defaultIndex, question),
+                "Select the export target for all songs");
             PromptAnswerSet targetAnswers = AskTargetPrompts(target);
 
             string inputFolder = AskBatchInputPath();

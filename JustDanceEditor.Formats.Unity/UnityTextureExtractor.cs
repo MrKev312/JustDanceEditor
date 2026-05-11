@@ -5,8 +5,8 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using TextureConverter;
-using TextureConverter.TextureConverterHelpers;
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity;
 
@@ -24,7 +24,7 @@ internal static class UnityTextureExtractor
         if (encodedData.Length == 0)
             throw new InvalidOperationException($"Texture '{textureInfo.PathId}' does not contain image data.");
 
-        Image<Rgba32> image = TextureDecoder.Decode(encodedData, texture.Format, texture.Width, texture.Height);
+        Image<Rgba32> image = TextureImageSharpCodec.Decode(encodedData, texture.Format, texture.Width, texture.Height);
         image.Mutate(x => x.Flip(FlipMode.Vertical));
         return image;
     }

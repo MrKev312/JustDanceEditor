@@ -1,0 +1,374 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        xmlns:vm="using:JustDanceEditor.GUI.ViewModels"
+        xmlns:prompts="using:JustDanceEditor.GUI.ViewModels.Prompts"
+        xmlns:behaviors="clr-namespace:KevInc.Avalonia.Behaviors;assembly=KevInc.Avalonia"
+        x:Class="JustDanceEditor.GUI.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Just Dance Converter"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="1160"
+        Height="740"
+        MinWidth="1000"
+        MinHeight="650"
+        TransparencyLevelHint="Mica, AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowDecorations="Full"
+        ExtendClientAreaTitleBarHeightHint="32">
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="{x:Type prompts:TextPromptInputViewModel}" x:DataType="prompts:TextPromptInputViewModel">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+        <TextBox Text="{Binding Text, Mode=TwoWay}"
+                 PlaceholderText="{Binding PlaceholderText}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type prompts:BooleanPromptInputViewModel}" x:DataType="prompts:BooleanPromptInputViewModel">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type prompts:ChoicePromptInputViewModel}" x:DataType="prompts:ChoicePromptInputViewModel">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+        <ComboBox ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type prompts:PathPromptInputViewModel}" x:DataType="prompts:PathPromptInputViewModel">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="6"
+              Background="Transparent"
+              behaviors:PathDrop.Command="{Binding SetPathCommand}">
+          <TextBox Text="{Binding Path, Mode=TwoWay}"
+                   PlaceholderText="{Binding PlaceholderText}"
+                   behaviors:PathDrop.Command="{Binding SetPathCommand}" />
+          <Button Grid.Column="1"
+                  Content="{Binding BrowseLabel}"
+                  Command="{Binding BrowseCommand}" />
+        </Grid>
+      </StackPanel>
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="21" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#F1ECFA" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="#B8B0C6" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.songTitle">
+      <Setter Property="FontSize" Value="26" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.songArtist">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Foreground" Value="#D9D2E5" />
+    </Style>
+
+    <Style Selector="Border.surface">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="#445E5866" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.previewSurface">
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.imageWell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="#445E5866" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.statusBadge">
+      <Setter Property="Background" Value="#18FFFFFF" />
+      <Setter Property="BorderBrush" Value="#44FFFFFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="VerticalAlignment" Value="Bottom" />
+    </Style>
+    <Style Selector="Border.logDrawer">
+      <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <Style Selector="TextBox, ComboBox">
+      <Setter Property="Background" Value="#0EFFFFFF" />
+      <Setter Property="BorderBrush" Value="#36FFFFFF" />
+      <Setter Property="Foreground" Value="#F8F5FF" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+    <Style Selector="TextBox:pointerover, ComboBox:pointerover">
+      <Setter Property="Background" Value="#18FFFFFF" />
+      <Setter Property="BorderBrush" Value="#42FFFFFF" />
+    </Style>
+    <Style Selector="TextBox:focus, ComboBox:focus">
+      <Setter Property="Background" Value="#20FFFFFF" />
+      <Setter Property="BorderBrush" Value="#668B5CF6" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#12FFFFFF" />
+      <Setter Property="BorderBrush" Value="#36FFFFFF" />
+      <Setter Property="Foreground" Value="#F8F5FF" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#20FFFFFF" />
+      <Setter Property="BorderBrush" Value="#4AFFFFFF" />
+    </Style>
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="#18FFFFFF" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#8B5CF6" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.action">
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.step">
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Background" Value="#12FFFFFF" />
+    </Style>
+    <Style Selector="Button.step.active">
+      <Setter Property="Background" Value="#8B5CF6" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="#24FFFFFF" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover">
+      <Setter Property="Background" Value="#14FFFFFF" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="32,*">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Background="Transparent">
+      <Menu Grid.Column="0" ItemsSource="{Binding MainMenu}" Background="Transparent">
+        <Menu.Styles>
+          <Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
+            <Setter Property="Header" Value="{Binding Header}" />
+            <Setter Property="ItemsSource" Value="{Binding Items}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="CommandParameter" Value="{Binding CommandParameter}" />
+            <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+          </Style>
+        </Menu.Styles>
+      </Menu>
+
+      <Panel Grid.Column="1"
+             Background="Transparent"
+             chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+    </Grid>
+
+    <Grid Grid.Row="1" Margin="18" RowDefinitions="*,Auto" Background="Transparent">
+      <Grid ColumnDefinitions="430,*" ColumnSpacing="18" Background="Transparent">
+        <Border Classes="surface" Grid.ColumnSpan="{Binding WorkflowColumnSpan}">
+          <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="14">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="h1" Text="{Binding PageTitle}" />
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" IsVisible="{Binding IsStepPanelVisible}">
+                <Button Classes="step"
+                        Classes.active="{Binding IsSourcePage}"
+                        Content="1 Source"
+                        Command="{Binding ShowSourcePageCommand}" />
+                <Button Grid.Column="1"
+                        Classes="step"
+                        Classes.active="{Binding IsTargetPage}"
+                        Content="2 Target"
+                        Command="{Binding ShowTargetPageCommand}" />
+                <Button Grid.Column="2"
+                        Classes="step"
+                        Classes.active="{Binding IsOutputPage}"
+                        Content="3 Output"
+                        Command="{Binding ShowOutputPageCommand}" />
+              </Grid>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" Background="Transparent">
+              <Grid>
+                <StackPanel Spacing="12" IsVisible="{Binding IsSourcePage}">
+                  <TextBlock Classes="sectionTitle" Text="Source" />
+                  <Grid ColumnDefinitions="*,Auto,Auto"
+                        ColumnSpacing="6"
+                        Background="Transparent"
+                        behaviors:PathDrop.Command="{Binding SetInputPathCommand}">
+                    <TextBox Text="{Binding InputPath, Mode=TwoWay}"
+                             PlaceholderText="Drop or choose a folder, IPK, or JDI package"
+                             behaviors:PathDrop.Command="{Binding SetInputPathCommand}" />
+                    <Button Grid.Column="1" Content="File" Command="{Binding BrowseInputFileCommand}" />
+                    <Button Grid.Column="2" Content="Folder" Command="{Binding BrowseInputFolderCommand}" />
+                  </Grid>
+                  <TextBlock Classes="muted" Text="{Binding DetectedFormatText}" TextWrapping="Wrap" />
+
+                  <StackPanel Spacing="8" IsVisible="{Binding IsSongSelectionVisible}">
+                    <TextBlock Classes="sectionTitle" Text="Song" />
+                    <ComboBox ItemsSource="{Binding Songs}"
+                              SelectedItem="{Binding SelectedSong, Mode=TwoWay}" />
+                    <TextBlock Classes="muted"
+                               Text="This source contains more than one map. Pick one to load its cover and metadata."
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <CheckBox Content="Download online assets when loading the song"
+                            IsChecked="{Binding DownloadAssetsWhenLoading, Mode=TwoWay}" />
+                </StackPanel>
+
+                <StackPanel Spacing="12" IsVisible="{Binding IsTargetPage}">
+                  <TextBlock Classes="sectionTitle" Text="Target" />
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <ComboBox ItemsSource="{Binding Platforms}"
+                              SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}" />
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding Targets}"
+                              SelectedItem="{Binding SelectedTarget, Mode=TwoWay}" />
+                  </Grid>
+                  <TextBlock Classes="muted" Text="{Binding TargetSupportText}" TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding TargetPrompts}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+
+                <StackPanel Spacing="12" IsVisible="{Binding IsOutputPage}">
+                  <TextBlock Classes="sectionTitle" Text="Output" />
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="6"
+                        Background="Transparent"
+                        behaviors:PathDrop.Command="{Binding SetOutputPathCommand}">
+                    <TextBox Text="{Binding OutputPath, Mode=TwoWay}"
+                             PlaceholderText="Drop or choose a destination folder"
+                             behaviors:PathDrop.Command="{Binding SetOutputPathCommand}" />
+                    <Button Grid.Column="1" Content="Folder" Command="{Binding BrowseOutputFolderCommand}" />
+                  </Grid>
+                </StackPanel>
+
+                <StackPanel Spacing="12" IsVisible="{Binding IsToolPage}">
+                  <TextBlock Classes="sectionTitle" Text="{Binding ToolTitleText}" />
+                  <TextBlock Classes="muted" Text="{Binding ToolDescriptionText}" TextWrapping="Wrap" />
+                  <ItemsControl ItemsSource="{Binding ToolPrompts}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+              </Grid>
+            </ScrollViewer>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+              <Button Content="Back"
+                      IsVisible="{Binding IsBackVisible}"
+                      IsEnabled="{Binding CanUseActions}"
+                      Command="{Binding BackCommand}" />
+              <Button Grid.Column="2"
+                      Classes="primary action"
+                      Content="{Binding PrimaryActionText}"
+                      IsEnabled="{Binding CanUseActions}"
+                      Command="{Binding PrimaryActionCommand}" />
+            </Grid>
+
+            <StackPanel Grid.Row="3" Spacing="8">
+              <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+              <TextBlock Classes="muted" Text="{Binding StatusText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="1"
+                Classes="surface previewSurface"
+                IsVisible="{Binding IsPreviewVisible}">
+          <Grid RowDefinitions="*,Auto" RowSpacing="18">
+            <Border Classes="imageWell">
+              <Grid>
+                <Viewbox Stretch="Uniform">
+                  <Image Source="{Binding CoverPreviewImage}"
+                         Width="{Binding CoverPreviewWidth}"
+                         Height="{Binding CoverPreviewHeight}"
+                         Stretch="Uniform" />
+                </Viewbox>
+                <TextBlock Classes="muted"
+                           Text="{Binding PreviewPlaceholderText}"
+                           IsVisible="{Binding IsPreviewPlaceholderVisible}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
+              </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="18">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="songTitle" Text="{Binding PreviewTitleText}" TextWrapping="Wrap" />
+                <TextBlock Classes="songArtist" Text="{Binding PreviewArtistText}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding PreviewMapText}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding PreviewFormatText}" TextWrapping="Wrap" />
+              </StackPanel>
+              <Border Grid.Column="1" Classes="statusBadge">
+                <TextBlock Text="{Binding PreviewStatusText}" />
+              </Border>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="1"
+              Classes="surface logDrawer"
+              Height="210"
+              Margin="0,12,0,0"
+              IsVisible="{Binding IsLogDrawerVisible}">
+        <Grid RowDefinitions="Auto,*" RowSpacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="sectionTitle" Text="Activity Log" />
+            <Button Grid.Column="1" Content="Clear" Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <ListBox Grid.Row="1"
+                   ItemsSource="{Binding LogEntries}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   FontSize="12" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

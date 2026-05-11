@@ -8,6 +8,16 @@
 	<ItemGroup>
 		<PackageReference Include="Concentus" Version="2.2.2" />
 		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
+		<PackageReference Include="KevInc.Audio.Cafe.NAudio" Version="0.1.1" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioCafeNAudioProject)')" />
+		<PackageReference Include="KevInc.Audio.Nx.NAudio" Version="0.1.1" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNxNAudioProject)')" />
+		<PackageReference Include="KevInc.Audio.Xma2" Version="0.1.1" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioXma2Project)')" />
+		<PackageReference Include="KevInc.Audio.Xma2.NAudio" Version="0.1.1" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioXma2NAudioProject)')" />
 		<PackageReference Include="NAudio" Version="2.3.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="$(KevIncAudioCafeNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioCafeNAudioProject)')" />
+		<ProjectReference Include="$(KevIncAudioNxNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNxNAudioProject)')" />
+		<ProjectReference Include="$(KevIncAudioXma2Project)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2Project)')" />
+		<ProjectReference Include="$(KevIncAudioXma2NAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2NAudioProject)')" />
 	</ItemGroup>
 </Project>

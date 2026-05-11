@@ -17,18 +17,6 @@
         WindowDecorations="Full"
         ExtendClientAreaTitleBarHeightHint="32">
 
-	<Window.Styles>
-		<Style Selector="Window[WindowState=Maximized]">
-			<!-- Windows adds about 8px border on each side -->
-			<Setter Property="Padding" Value="8"/>
-		</Style>
-		<Style Selector="chrome|WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel TextBlock">
-			<Setter Property="HorizontalAlignment" Value="Center" />
-			<Setter Property="Margin" Value="0" />
-			<Setter Property="TextAlignment" Value="Center" />
-		</Style>
-	</Window.Styles>
-
 	<Grid RowDefinitions="32, *">
 		<!-- Title Bar / Menu Area -->
 		<Grid Grid.Row="0" ColumnDefinitions="Auto, *">

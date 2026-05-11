@@ -10,9 +10,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.AppHost\JustDanceEditor.AppHost.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
-		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
