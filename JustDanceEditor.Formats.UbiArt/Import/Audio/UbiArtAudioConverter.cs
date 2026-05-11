@@ -1,4 +1,4 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;

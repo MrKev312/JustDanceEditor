@@ -1,10 +1,16 @@
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.AppHost;
+using JustDanceEditor.Cli.Interactive;
+using JustDanceEditor.Cli.Interactive.Converting;
+using JustDanceEditor.Cli.Interactive.Helpers;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
 
 using Microsoft.Extensions.Logging;
+
+using System.CommandLine;
+using System.CommandLine.Help;
 
 namespace JustDanceEditor.Cli;
 
@@ -13,99 +19,239 @@ internal sealed class CliApp(
     IEnumerable<IJdiFormat> formats,
     IEnumerable<IFormatConversionStrategy> strategies,
     IEnumerable<IToolProvider> toolProviders,
+    DroppedPathProcessor droppedPathProcessor,
+    IConversionInteraction interactiveInteraction,
+    IConversionWorkflow conversionWorkflow,
+    ToolDialogue toolDialogue,
+    ConsoleApp consoleApp,
     ILogger<CliApp> logger)
 {
     private readonly IConverterPlugin[] _plugins = [.. plugins];
     private readonly IJdiFormat[] _formats = [.. formats];
     private readonly IFormatConversionStrategy[] _strategies = [.. strategies];
     private readonly IToolProvider[] _toolProviders = [.. toolProviders];
+    private readonly DroppedPathProcessor _droppedPathProcessor = droppedPathProcessor;
+    private readonly IConversionInteraction _interactiveInteraction = interactiveInteraction;
+    private readonly IConversionWorkflow _conversionWorkflow = conversionWorkflow;
+    private readonly ToolDialogue _toolDialogue = toolDialogue;
+    private readonly ConsoleApp _consoleApp = consoleApp;
     private readonly ILogger<CliApp> _logger = logger;
 
     public int Run(string[] args)
     {
         try
         {
-            string command = args[0].ToLowerInvariant();
-            string[] remainingArgs = [.. args.Skip(1)];
-            if (command is "tool" or "run-tool")
-                return RunToolCommand(remainingArgs);
-
-            CliArguments options = CliArguments.Parse(remainingArgs);
-
-            return command switch
-            {
-                "help" or "-h" or "--help" => PrintHelp(),
-                "plugins" or "list-plugins" => ListPlugins(options),
-                "targets" or "list-targets" => ListTargets(options),
-                "tools" or "list-tools" => ListTools(options),
-                "convert" => ConvertSingle(options),
-                "batch" or "batch-convert" => ConvertBatch(options),
-                "extract-ipk" => RunToolByCode("ipk.extract", options),
-                "cache-create" => RunToolByCode("unity.cache-create", options),
-                "cache-spread" => RunToolByCode("unity.cache-spread", options),
-                _ => UnknownCommand(command)
-            };
+            Command rootCommand = BuildRootCommand();
+            return rootCommand.Parse(args).Invoke();
         }
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(ex.Message);
             Console.ResetColor();
-            _logger.LogError(ex, "CLI command failed: {Message}", ex.Message);
             return 1;
         }
     }
 
-    private static int PrintHelp()
+    private Command BuildRootCommand()
     {
-        Console.WriteLine("""
-        JustDanceEditor CLI
+        CliCommandSymbols symbols = new();
+        Command rootCommand = new("JustDanceEditor.Cli", "Just Dance Editor command-line and interactive console.")
+        {
+            TreatUnmatchedTokensAsErrors = true
+        };
+        AddHelp(rootCommand);
+        AddOptions(rootCommand, symbols, CliOptionProfile.DroppedPath);
+        rootCommand.Arguments.Add(symbols.PathsArgument);
 
-        Commands:
-          targets
-              List export targets grouped by platform.
+        rootCommand.SetAction(parseResult => ExecuteCommand(() =>
+        {
+            CliOptions options = CreateOptions(parseResult, symbols);
+            string[] paths = parseResult.GetValue(symbols.PathsArgument) ?? [];
+            if (paths.Length > 0)
+            {
+                return _droppedPathProcessor.ProcessDroppedPaths(paths, new DroppedPathOptions(
+                    Headless: options.Headless,
+                    OutputPath: options.Get("output"),
+                    Force: options.HasFlag("force"),
+                    WaitForKey: !options.HasFlag("no-wait"),
+                    AudioEncoding: options.Get("audio-encoding") ?? options.Get("encoding"),
+                    TextureEncoding: options.Get("texture-encoding") ?? options.Get("encoding")));
+            }
 
-          plugins
-              List loaded converter plugins, formats, targets, and assembly diagnostics.
+            if (options.Headless)
+            {
+                Console.WriteLine("Missing command or dropped path. Run '--help' for usage.");
+                return 1;
+            }
 
-          tools
-              List tool providers and available tools.
+            _consoleApp.Run();
+            return 0;
+        }));
 
-          convert --input <path> --target <target-code> --output <folder> [options]
-              Convert one source to a target through JDI.
+        Command helpCommand = new("help", "Show help and usage information.");
+        helpCommand.SetAction(_ => rootCommand.Parse(["--help"]).Invoke());
+        rootCommand.Subcommands.Add(helpCommand);
 
-          batch --input <folder-or-ipk> --target <target-code> --output <folder> [options]
-              Convert every detected source in a folder. Multi-map UbiArt bundles are expanded.
+        rootCommand.Subcommands.Add(CreateCommand("plugins", "List loaded converter plugins, formats, targets, and assembly diagnostics.", symbols, CliOptionProfile.Headless, ListPlugins, "list-plugins"));
+        rootCommand.Subcommands.Add(CreateCommand("targets", "List export targets grouped by platform.", symbols, CliOptionProfile.Headless | CliOptionProfile.Platform, ListTargets, "list-targets"));
+        rootCommand.Subcommands.Add(CreateCommand("tools", "List tool providers and available tools.", symbols, CliOptionProfile.Headless | CliOptionProfile.Provider, ListTools, "list-tools"));
+        rootCommand.Subcommands.Add(CreateCommand("convert", "Convert one source to a target through JDI.", symbols, CliOptionProfile.JdiConversion, ConvertSingle));
+        rootCommand.Subcommands.Add(CreateCommand("batch", "Convert every detected source in a folder.", symbols, CliOptionProfile.JdiConversion, ConvertBatch, "batch-convert"));
+        rootCommand.Subcommands.Add(CreateCommand("extract-ipk", "Extract an IPK archive.", symbols, CliOptionProfile.IpkTool, options => RunToolByCode("ipk.extract", options)));
+        rootCommand.Subcommands.Add(CreateCommand("pack-ipk", "Pack a folder into an IPK archive.", symbols, CliOptionProfile.IpkTool, PackIpk));
+        rootCommand.Subcommands.Add(CreateCommand("audio", "Convert audio files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertAudio, "convert-audio"));
+        rootCommand.Subcommands.Add(CreateCommand("texture", "Convert image and texture files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertTexture, "convert-texture"));
+        rootCommand.Subcommands.Add(CreateCommand("cache-create", "Create an empty NX Unity cache structure.", symbols, CliOptionProfile.Headless | CliOptionProfile.Output, options => RunToolByCode("unity.cache-create", options)));
+        rootCommand.Subcommands.Add(CreateCommand("cache-spread", "Spread cache folders for exFAT.", symbols, CliOptionProfile.Headless | CliOptionProfile.Input | CliOptionProfile.Force, options => RunToolByCode("unity.cache-spread", options)));
+        rootCommand.Subcommands.Add(CreateToolCommand(symbols));
 
-          extract-ipk --input <ipk> --output <folder>
-              Extract an IPK archive.
-
-          cache-create --output <folder>
-              Create an empty NX Unity cache structure.
-
-          cache-spread --input <cache-folder> [--force]
-              Spread cache folders for exFAT. --force continues when SD_Cache.002A is absent.
-
-          tool <provider.tool> [--input <path>] [--output <path>] [--force] [--answer <id=value>]
-              Run any registered tool. Use 'tools' to list provider/tool codes and prompt ids.
-
-        Common conversion options:
-          --source <format>            Force source format by code or display name.
-          --song <map-name>            Select a specific map/song when a source contains several.
-          --answer <id=value>          Supply a prompt answer. Repeatable.
-          --template <folder>          Shortcut for --answer unity.templatePath=<folder>.
-          --download-online-assets     Download online assets after import.
-
-        Examples:
-          JustDanceEditor.Cli convert --input C:\Songs\HighHopes --target nx-2022 --output C:\Out
-          JustDanceEditor.Cli convert --input C:\UnitySong --target uncooked --output C:\Out --source Unity
-          JustDanceEditor.Cli batch --input C:\Bundles --target durango-2022 --output C:\Out
-          JustDanceEditor.Cli targets
-        """);
-        return 0;
+        return rootCommand;
     }
 
-    private int ListPlugins(CliArguments options)
+    private Command CreateCommand(string name, string description, CliCommandSymbols symbols, CliOptionProfile options, Func<CliOptions, int> action, params string[] aliases)
+    {
+        Command command = new(name, description);
+        foreach (string alias in aliases)
+            command.Aliases.Add(alias);
+
+        AddHelp(command);
+        AddOptions(command, symbols, options);
+        command.SetAction(parseResult => ExecuteCommand(() => action(CreateOptions(parseResult, symbols))));
+        return command;
+    }
+
+    private Command CreateToolCommand(CliCommandSymbols symbols)
+    {
+        Command command = new("tool", "Run a registered provider tool.");
+        command.Aliases.Add("run-tool");
+        AddHelp(command);
+        AddOptions(command, symbols, CliOptionProfile.ToolExecution);
+        command.Arguments.Add(symbols.ToolCodeArgument);
+
+        foreach (string promptId in _toolProviders
+            .SelectMany(provider => provider.GetTools())
+            .SelectMany(tool => tool.Prompts)
+            .Select(prompt => prompt.Id)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(promptId => !IsCommonOptionName(promptId)))
+        {
+            Option<string?> promptOption = new($"--{promptId}")
+            {
+                Description = $"Answer for prompt '{promptId}'."
+            };
+            symbols.DynamicPromptOptions[promptId] = promptOption;
+            command.Options.Add(promptOption);
+        }
+
+        command.SetAction(parseResult => ExecuteCommand(() => RunToolCommand(parseResult, symbols)));
+        return command;
+    }
+
+    private int ExecuteCommand(Func<int> action)
+    {
+        try
+        {
+            return action();
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(ex.Message);
+            Console.ResetColor();
+            return 1;
+        }
+    }
+
+    private static void AddOptions(Command command, CliCommandSymbols symbols, CliOptionProfile options)
+    {
+        if (options.HasFlag(CliOptionProfile.Headless))
+            command.Options.Add(symbols.HeadlessOption);
+        if (options.HasFlag(CliOptionProfile.Input))
+            command.Options.Add(symbols.InputOption);
+        if (options.HasFlag(CliOptionProfile.Output))
+            command.Options.Add(symbols.OutputOption);
+        if (options.HasFlag(CliOptionProfile.Target))
+            command.Options.Add(symbols.TargetOption);
+        if (options.HasFlag(CliOptionProfile.Source))
+            command.Options.Add(symbols.SourceOption);
+        if (options.HasFlag(CliOptionProfile.Song))
+            command.Options.Add(symbols.SongOption);
+        if (options.HasFlag(CliOptionProfile.Answer))
+            command.Options.Add(symbols.AnswerOption);
+        if (options.HasFlag(CliOptionProfile.Template))
+            command.Options.Add(symbols.TemplateOption);
+        if (options.HasFlag(CliOptionProfile.DownloadOnlineAssets))
+            command.Options.Add(symbols.DownloadOnlineAssetsOption);
+        if (options.HasFlag(CliOptionProfile.Provider))
+            command.Options.Add(symbols.ProviderOption);
+        if (options.HasFlag(CliOptionProfile.Platform))
+            command.Options.Add(symbols.PlatformOption);
+        if (options.HasFlag(CliOptionProfile.Id))
+            command.Options.Add(symbols.IdOption);
+        if (options.HasFlag(CliOptionProfile.Tool))
+            command.Options.Add(symbols.ToolOption);
+        if (options.HasFlag(CliOptionProfile.Force))
+            command.Options.Add(symbols.ForceOption);
+        if (options.HasFlag(CliOptionProfile.NoWait))
+            command.Options.Add(symbols.NoWaitOption);
+        if (options.HasFlag(CliOptionProfile.Encoding))
+            command.Options.Add(symbols.EncodingOption);
+        if (options.HasFlag(CliOptionProfile.AudioEncoding))
+            command.Options.Add(symbols.AudioEncodingOption);
+        if (options.HasFlag(CliOptionProfile.TextureEncoding))
+            command.Options.Add(symbols.TextureEncodingOption);
+    }
+
+    private static void AddHelp(Command command)
+    {
+        command.Options.Add(new HelpOption("-h", "--help"));
+    }
+
+    private static CliOptions CreateOptions(ParseResult parseResult, CliCommandSymbols symbols)
+    {
+        CliOptions options = new(GetValue(parseResult, symbols.HeadlessOption));
+        options.Set("input", GetValue(parseResult, symbols.InputOption));
+        options.Set("output", GetValue(parseResult, symbols.OutputOption));
+        options.Set("target", GetValue(parseResult, symbols.TargetOption));
+        options.Set("source", GetValue(parseResult, symbols.SourceOption));
+        options.Set("song", GetValue(parseResult, symbols.SongOption));
+        options.Set("answer", GetValue(parseResult, symbols.AnswerOption) ?? []);
+        options.Set("template", GetValue(parseResult, symbols.TemplateOption));
+        options.Set("provider", GetValue(parseResult, symbols.ProviderOption));
+        options.Set("platform", GetValue(parseResult, symbols.PlatformOption));
+        options.Set("id", GetValue(parseResult, symbols.IdOption));
+        options.Set("tool", GetValue(parseResult, symbols.ToolOption));
+        options.Set("encoding", GetValue(parseResult, symbols.EncodingOption));
+        options.Set("audio-encoding", GetValue(parseResult, symbols.AudioEncodingOption));
+        options.Set("texture-encoding", GetValue(parseResult, symbols.TextureEncodingOption));
+        options.SetFlag("download-online-assets", GetValue(parseResult, symbols.DownloadOnlineAssetsOption));
+        options.SetFlag("force", GetValue(parseResult, symbols.ForceOption));
+        options.SetFlag("no-wait", GetValue(parseResult, symbols.NoWaitOption));
+
+        foreach ((string promptId, Option<string?> promptOption) in symbols.DynamicPromptOptions)
+            options.Set(promptId, GetValue(parseResult, promptOption));
+
+        return options;
+    }
+
+    private static TValue? GetValue<TValue>(ParseResult parseResult, Option<TValue> option)
+    {
+        try
+        {
+            return parseResult.GetValue(option);
+        }
+        catch (InvalidOperationException)
+        {
+            return default;
+        }
+        catch (ArgumentException)
+        {
+            return default;
+        }
+    }
+
+    private int ListPlugins(CliOptions options)
     {
         Console.WriteLine("Converter plugins:");
         foreach (IConverterPlugin plugin in _plugins.OrderBy(plugin => plugin.Priority).ThenBy(plugin => plugin.DisplayName, StringComparer.OrdinalIgnoreCase))
@@ -142,7 +288,7 @@ internal sealed class CliApp(
         return 0;
     }
 
-    private int ListTools(CliArguments options)
+    private int ListTools(CliOptions options)
     {
         string? providerFilter = options.Get("provider");
 
@@ -182,7 +328,7 @@ internal sealed class CliApp(
         return 0;
     }
 
-    private int ListTargets(CliArguments options)
+    private int ListTargets(CliOptions options)
     {
         ConversionTargetDefinition[] targets = ConversionTargetSelector.GetAvailableTargets(_strategies);
         string? platformFilter = options.Get("platform");
@@ -204,8 +350,21 @@ internal sealed class CliApp(
         return 0;
     }
 
-    private int ConvertSingle(CliArguments options)
+    private int ConvertSingle(CliOptions options)
     {
+        if (!HasRequiredOptions(options, "input", "output", "target"))
+        {
+            if (options.Headless)
+            {
+                options.Require("input");
+                options.Require("output");
+                options.Require("target");
+            }
+
+            FormatConversionDialogue.Start(_formats, _strategies, _interactiveInteraction, _logger);
+            return 0;
+        }
+
         string inputPath = options.Require("input");
         string outputPath = options.Require("output");
         ConversionTargetDefinition target = ResolveTarget(options.Require("target"));
@@ -214,12 +373,12 @@ internal sealed class CliApp(
         IFormatConversionStrategy targetStrategy = ResolveStrategy(target.FormatName);
         IJdiFormat targetFormat = ResolveFormat(target.FormatName);
 
-        PromptAnswerSet answers = BuildAnswers(options, outputPath);
+        PromptAnswerSet answers = CompleteTargetAnswers(options, target, BuildAnswers(options, outputPath));
         string? songName = options.Get("song");
         if (!string.IsNullOrWhiteSpace(songName))
             answers.Set("ubiart.songName", songName);
 
-        IConversionInteraction interaction = new StaticConversionInteraction(answers);
+        IConversionInteraction interaction = CreateInteraction(options, answers);
         string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
             ? outputPath
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
@@ -256,14 +415,27 @@ internal sealed class CliApp(
         }
     }
 
-    private int ConvertBatch(CliArguments options)
+    private int ConvertBatch(CliOptions options)
     {
+        if (!HasRequiredOptions(options, "input", "output", "target"))
+        {
+            if (options.Headless)
+            {
+                options.Require("input");
+                options.Require("output");
+                options.Require("target");
+            }
+
+            _conversionWorkflow.ConvertAllSongsInFolder();
+            return 0;
+        }
+
         string inputPath = options.Require("input");
         string outputPath = options.Require("output");
         ConversionTargetDefinition target = ResolveTarget(options.Require("target"));
         IFormatConversionStrategy targetStrategy = ResolveStrategy(target.FormatName);
         IJdiFormat targetFormat = ResolveFormat(target.FormatName);
-        PromptAnswerSet answers = BuildAnswers(options, outputPath);
+        PromptAnswerSet answers = CompleteTargetAnswers(options, target, BuildAnswers(options, outputPath));
         string? forcedSource = options.Get("source");
         bool downloadOnlineAssets = options.HasFlag("download-online-assets");
         HashSet<string> existingSongs = Directory.Exists(outputPath)
@@ -291,7 +463,6 @@ internal sealed class CliApp(
             catch (Exception ex)
             {
                 failed++;
-                _logger.LogError(ex, "Failed to convert '{Input}': {Message}", input.Path, ex.Message);
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"Failed: {input.Path}: {ex.Message}");
                 Console.ResetColor();
@@ -379,7 +550,7 @@ internal sealed class CliApp(
         }
     }
 
-    private PromptAnswerSet BuildAnswers(CliArguments options, string outputPath)
+    private PromptAnswerSet BuildAnswers(CliOptions options, string outputPath)
     {
         PromptAnswerSet answers = new();
         answers.Set(ConversionPromptIds.OutputPath, outputPath);
@@ -400,30 +571,84 @@ internal sealed class CliApp(
         return answers;
     }
 
-    private int RunToolCommand(string[] args)
+    private PromptAnswerSet CompleteTargetAnswers(CliOptions options, ConversionTargetDefinition target, PromptAnswerSet seedAnswers)
     {
-        string? toolCode = null;
-        string[] optionArgs = args;
+        if (target.ExportPrompts.Count == 0)
+            return seedAnswers;
 
-        if (args.Length > 0 && !args[0].StartsWith("--", StringComparison.Ordinal))
+        IConversionInteraction interaction = CreateInteraction(options, seedAnswers);
+        PromptAnswerSet promptAnswers = interaction
+            .AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", target.ExportPrompts))
+            .GetAwaiter()
+            .GetResult();
+
+        return MergeToolAnswers(seedAnswers, promptAnswers);
+    }
+
+    private IConversionInteraction CreateInteraction(CliOptions options, PromptAnswerSet seedAnswers)
+    {
+        return options.Headless
+            ? new StaticConversionInteraction(seedAnswers)
+            : new SeededConversionInteraction(seedAnswers, _interactiveInteraction);
+    }
+
+    private static bool HasRequiredOptions(CliOptions options, params string[] keys)
+    {
+        return keys.All(key => !string.IsNullOrWhiteSpace(options.Get(key)));
+    }
+
+    private static string RequireOrAsk(CliOptions options, string key, Func<string> ask)
+    {
+        string? value = options.Get(key);
+        if (!string.IsNullOrWhiteSpace(value))
+            return value;
+
+        if (options.Headless)
+            return options.Require(key);
+
+        return ask();
+    }
+
+    private static string AskExistingFileOrFolder(string question)
+    {
+        Console.WriteLine($"{question} (must already exist)");
+        Console.WriteLine("You can also drag and drop the file or folder onto the console window and press Enter.");
+
+        while (true)
         {
-            toolCode = args[0];
-            optionArgs = [.. args.Skip(1)];
-        }
+            Console.Write("Path: ");
+            string? path = Console.ReadLine()?.Trim().Trim('"');
+            if (!string.IsNullOrWhiteSpace(path) && (File.Exists(path) || Directory.Exists(path)))
+                return path;
 
-        CliArguments options = CliArguments.Parse(optionArgs);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Please enter an existing file or folder.");
+            Console.ResetColor();
+        }
+    }
+
+    private int RunToolCommand(ParseResult parseResult, CliCommandSymbols symbols)
+    {
+        CliOptions options = CreateOptions(parseResult, symbols);
+        string? toolCode = parseResult.GetValue(symbols.ToolCodeArgument);
         toolCode ??= options.Get("id") ?? options.Get("tool");
         if (string.IsNullOrWhiteSpace(toolCode))
-            throw new ArgumentException("Missing tool code. Use 'tool <provider.tool>' or '--id <provider.tool>'.");
+        {
+            if (options.Headless)
+                throw new ArgumentException("Missing tool code. Use 'tool <provider.tool>' or '--id <provider.tool>'.");
+
+            _toolDialogue.Start();
+            return 0;
+        }
 
         return RunToolByCode(toolCode, options);
     }
 
-    private int RunToolByCode(string toolCode, CliArguments options)
+    private int RunToolByCode(string toolCode, CliOptions options)
     {
         (IToolProvider provider, ToolDefinition tool) = ResolveTool(toolCode);
         PromptAnswerSet seedAnswers = BuildToolAnswers(options, tool);
-        IConversionInteraction interaction = new StaticConversionInteraction(seedAnswers);
+        IConversionInteraction interaction = CreateInteraction(options, seedAnswers);
         PromptAnswerSet promptAnswers = tool.Prompts.Count == 0
             ? seedAnswers
             : interaction.AskAsync(new ConversionPromptSet(tool.FullCode, tool.DisplayName, tool.Prompts)).GetAwaiter().GetResult();
@@ -434,7 +659,31 @@ internal sealed class CliApp(
         return 0;
     }
 
-    private PromptAnswerSet BuildToolAnswers(CliArguments options, ToolDefinition tool)
+    private int PackIpk(CliOptions options)
+    {
+        string inputPath = RequireOrAsk(options, "input", () => Question.AskFolder("Enter the folder to pack", mustExist: true));
+        string? outputPath = options.Get("output");
+        bool force = options.HasFlag("force");
+        return _droppedPathProcessor.PackIpk(inputPath, outputPath, force) ? 0 : 1;
+    }
+
+    private int ConvertAudio(CliOptions options)
+    {
+        string inputPath = RequireOrAsk(options, "input", () => AskExistingFileOrFolder("Enter the audio file or folder"));
+        string? outputPath = options.Get("output");
+        bool force = options.HasFlag("force");
+        return _droppedPathProcessor.ConvertAudio(inputPath, outputPath, force, options.Get("encoding"), options.Headless) ? 0 : 1;
+    }
+
+    private int ConvertTexture(CliOptions options)
+    {
+        string inputPath = RequireOrAsk(options, "input", () => AskExistingFileOrFolder("Enter the image or texture file/folder"));
+        string? outputPath = options.Get("output");
+        bool force = options.HasFlag("force");
+        return _droppedPathProcessor.ConvertTexture(inputPath, outputPath, force, options.Get("encoding"), options.Headless) ? 0 : 1;
+    }
+
+    private PromptAnswerSet BuildToolAnswers(CliOptions options, ToolDefinition tool)
     {
         PromptAnswerSet answers = new();
 
@@ -577,14 +826,172 @@ internal sealed class CliApp(
             Directory.Delete(importResult.MaterializedRoot, true);
     }
 
-    private static int UnknownCommand(string command)
+    private static bool IsCommonOptionName(string promptId)
     {
-        Console.WriteLine($"Unknown command '{command}'.");
-        Console.WriteLine("Run 'help' for usage.");
-        return 1;
+        string[] common =
+        [
+            "input",
+            "output",
+            "target",
+            "source",
+            "song",
+            "answer",
+            "template",
+            "provider",
+            "platform",
+            "id",
+            "tool",
+            "force",
+            "encoding",
+            "audio-encoding",
+            "texture-encoding",
+            ConversionPromptIds.InputPath,
+            ConversionPromptIds.OutputPath,
+            ConversionPromptIds.Force,
+        ];
+
+        return common.Any(option => option.Equals(promptId, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed record BatchInput(string Path, IJdiFormat SourceFormat);
 
     private readonly record struct BatchConversionResult(int Converted, int Skipped);
+
+    [Flags]
+    private enum CliOptionProfile
+    {
+        None = 0,
+        Headless = 1 << 0,
+        Input = 1 << 1,
+        Output = 1 << 2,
+        Target = 1 << 3,
+        Source = 1 << 4,
+        Song = 1 << 5,
+        Answer = 1 << 6,
+        Template = 1 << 7,
+        DownloadOnlineAssets = 1 << 8,
+        Provider = 1 << 9,
+        Platform = 1 << 10,
+        Id = 1 << 11,
+        Tool = 1 << 12,
+        Force = 1 << 13,
+        NoWait = 1 << 14,
+        Encoding = 1 << 15,
+        AudioEncoding = 1 << 16,
+        TextureEncoding = 1 << 17,
+
+        DroppedPath = Headless | Output | Force | NoWait | Encoding | AudioEncoding | TextureEncoding,
+        JdiConversion = Headless | Input | Output | Target | Source | Song | Answer | Template | DownloadOnlineAssets,
+        IpkTool = Headless | Input | Output | Force,
+        MediaConversion = Headless | Input | Output | Force | Encoding,
+        ToolExecution = Headless | Input | Output | Force | Answer | Id | Tool,
+    }
+
+    private sealed class CliCommandSymbols
+    {
+        public Option<bool> HeadlessOption { get; } = new("--headless", "--non-interactive", "-n")
+        {
+            Description = "Run as a strict non-interactive CLI."
+        };
+
+        public Option<string?> InputOption { get; } = new("--input", "-i")
+        {
+            Description = "Input file or folder."
+        };
+
+        public Option<string?> OutputOption { get; } = new("--output", "-o")
+        {
+            Description = "Output file or folder."
+        };
+
+        public Option<string?> TargetOption { get; } = new("--target", "-t")
+        {
+            Description = "Conversion target code."
+        };
+
+        public Option<string?> SourceOption { get; } = new("--source")
+        {
+            Description = "Force source format by code or display name."
+        };
+
+        public Option<string?> SongOption { get; } = new("--song")
+        {
+            Description = "Select a specific map/song when a source contains several."
+        };
+
+        public Option<string[]> AnswerOption { get; } = new("--answer")
+        {
+            Description = "Supply a prompt answer as id=value. Can be repeated.",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+
+        public Option<string?> TemplateOption { get; } = new("--template")
+        {
+            Description = "Shortcut for --answer unity.templatePath=<folder>."
+        };
+
+        public Option<bool> DownloadOnlineAssetsOption { get; } = new("--download-online-assets")
+        {
+            Description = "Download online assets after import."
+        };
+
+        public Option<string?> ProviderOption { get; } = new("--provider")
+        {
+            Description = "Filter by tool provider or platform."
+        };
+
+        public Option<string?> PlatformOption { get; } = new("--platform")
+        {
+            Description = "Filter targets by platform."
+        };
+
+        public Option<string?> IdOption { get; } = new("--id")
+        {
+            Description = "Tool id."
+        };
+
+        public Option<string?> ToolOption { get; } = new("--tool")
+        {
+            Description = "Tool id."
+        };
+
+        public Option<bool> ForceOption { get; } = new("--force", "-f")
+        {
+            Description = "Overwrite existing output where supported."
+        };
+
+        public Option<bool> NoWaitOption { get; } = new("--no-wait")
+        {
+            Description = "Do not wait for a key after dropped-path processing."
+        };
+
+        public Option<string?> EncodingOption { get; } = new("--encoding", "--target-encoding", "--target-format")
+        {
+            Description = "Target audio/image/texture encoding."
+        };
+
+        public Option<string?> AudioEncodingOption { get; } = new("--audio-encoding")
+        {
+            Description = "Target audio encoding for mixed dropped-path batches."
+        };
+
+        public Option<string?> TextureEncodingOption { get; } = new("--texture-encoding", "--image-encoding")
+        {
+            Description = "Target image/texture encoding for mixed dropped-path batches."
+        };
+
+        public Argument<string[]> PathsArgument { get; } = new("path")
+        {
+            Description = "Dropped files or folders.",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+
+        public Argument<string?> ToolCodeArgument { get; } = new("tool-code")
+        {
+            Description = "Provider tool code, for example ipk.extract.",
+            Arity = ArgumentArity.ZeroOrOne
+        };
+
+        public Dictionary<string, Option<string?>> DynamicPromptOptions { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
 }

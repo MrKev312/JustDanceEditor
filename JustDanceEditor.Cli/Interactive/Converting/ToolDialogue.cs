@@ -1,9 +1,9 @@
 using JustDanceEditor.Conversion.Abstractions;
-using JustDanceEditor.UI.Helpers;
+using JustDanceEditor.Cli.Interactive.Helpers;
 
 using Microsoft.Extensions.Logging;
 
-namespace JustDanceEditor.UI.Converting;
+namespace JustDanceEditor.Cli.Interactive.Converting;
 
 internal sealed class ToolDialogue(
     IEnumerable<IToolProvider> toolProviders,

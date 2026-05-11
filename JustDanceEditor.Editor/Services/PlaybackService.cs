@@ -1,6 +1,6 @@
 ﻿using Avalonia.Threading;
 
-using JustDanceEditor.Audio.Providers;
+using KevInc.Audio.NAudio.Providers;
 
 using NAudio.CoreAudioApi;
 using NAudio.Wave;

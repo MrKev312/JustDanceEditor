@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using NAudio.Wave;
@@ -91,7 +92,7 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
                     : new AudioFileReader(sourcePath);
 
                 using FileStream output = File.Create(destPath);
-                RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Dura", type: "pcm ");
+                RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Dura", type: "pcm ");
             });
         }
         catch (Exception)
@@ -161,3 +162,4 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         return hasAlpha;
     }
 }
+

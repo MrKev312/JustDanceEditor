@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using NAudio.Wave;
@@ -88,7 +89,7 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
                 using FileStream output = File.Create(destPath);
 
                 // Official Wii U song and AMB audio both use Cafe DSP ADPCM.
-                RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output);
+                RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output);
             });
         }
         catch (Exception)
@@ -127,3 +128,4 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
         writer.Write((byte)(value & 0xFF));
     }
 }
+

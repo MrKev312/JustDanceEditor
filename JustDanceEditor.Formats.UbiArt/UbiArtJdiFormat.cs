@@ -1,4 +1,4 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;

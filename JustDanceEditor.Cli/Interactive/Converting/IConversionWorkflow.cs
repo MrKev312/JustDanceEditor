@@ -1,4 +1,4 @@
-namespace JustDanceEditor.UI.Converting;
+namespace JustDanceEditor.Cli.Interactive.Converting;
 
 /// <summary>
 /// Defines the interface for song conversion workflows.

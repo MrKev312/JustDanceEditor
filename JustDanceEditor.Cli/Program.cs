@@ -1,4 +1,7 @@
 using JustDanceEditor.AppHost;
+using JustDanceEditor.Cli.Interactive;
+using JustDanceEditor.Cli.Interactive.Converting;
+using JustDanceEditor.Conversion.Abstractions;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -16,10 +19,15 @@ internal static class Program
         builder.Logging.AddSimpleConsole(options => options.TimestampFormat = "HH:mm:ss ");
 
         builder.Services.AddJustDanceEditorAppHost();
+        builder.Services.AddSingleton<IConversionInteraction, ConsoleConversionInteraction>();
+        builder.Services.AddSingleton<IConversionWorkflow, ConversionWorkflow>();
+        builder.Services.AddSingleton<ToolDialogue>();
+        builder.Services.AddSingleton<ConsoleApp>();
+        builder.Services.AddSingleton<DroppedPathProcessor>();
         builder.Services.AddSingleton<CliApp>();
 
         using IHost host = builder.Build();
         CliApp cli = host.Services.GetRequiredService<CliApp>();
-        return cli.Run(args.Length == 0 ? ["help"] : args);
+        return cli.Run(args);
     }
 }

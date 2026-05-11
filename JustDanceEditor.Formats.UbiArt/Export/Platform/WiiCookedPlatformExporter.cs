@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using NAudio.Wave;
@@ -84,15 +85,12 @@ public class WiiCookedPlatformExporter : IPlatformExporter
                 // Standard Wii songs use DSP ADPCM (Raki container).
                 if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
                 {
-                    // "Wii " signature for Wii PCM
-                    //RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Wii ", type: "pcm ");
-                    // Nvm we also use ADPCM for ambient sounds on Wii, meaning this whole if else can be removed.
-                    RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output, true);
+                    RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output, true);
                 }
                 else
                 {
                     // Use the DSP ADPCM encoder for Wii songs (same as GC/Wii/WiiU DSP)
-                    RakiAudioEncoder.EncodeToRakiCafeAdpcm(waveStream, output);
+                    RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output);
                 }
             });
         }
@@ -154,3 +152,4 @@ public class WiiCookedPlatformExporter : IPlatformExporter
         writer.Write((byte)(value & 0xFF));
     }
 }
+

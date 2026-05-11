@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;

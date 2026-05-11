@@ -1,5 +1,5 @@
-using JustDanceEditor.Audio;
-using JustDanceEditor.Audio.Providers;
+using KevInc.Audio.NAudio;
+using KevInc.Audio.NAudio.Providers;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;

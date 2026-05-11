@@ -1,7 +1,7 @@
 using JustDanceEditor.Conversion.Abstractions;
-using JustDanceEditor.UI.Helpers;
+using JustDanceEditor.Cli.Interactive.Helpers;
 
-namespace JustDanceEditor.UI.Converting;
+namespace JustDanceEditor.Cli.Interactive.Converting;
 
 internal sealed class ConsoleConversionInteraction : IConversionInteraction
 {

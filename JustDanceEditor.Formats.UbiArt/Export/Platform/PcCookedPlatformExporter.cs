@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using NAudio.Wave;
@@ -104,8 +105,8 @@ public class PcCookedPlatformExporter : IPlatformExporter
                 using FileStream output = File.Create(destPath);
 
                 // Encode to RAKI container with PCM payload
-                // "Win " platform signature is used for PC, which RakiAudioEncoder handles as Little-Endian
-                RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Win ", type: "pcm ");
+                // "Win " platform signature is used for PC, which RakiPcmAudioEncoder handles as Little-Endian
+                RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Win ", type: "pcm ");
             });
         }
         catch (Exception)
@@ -201,3 +202,4 @@ public class PcCookedPlatformExporter : IPlatformExporter
         return hasAlpha;
     }
 }
+

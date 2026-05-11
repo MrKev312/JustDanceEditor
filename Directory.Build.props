@@ -10,10 +10,13 @@
     <KevIncAvaloniaTimelineProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Timeline\KevInc.Avalonia.Timeline.csproj</KevIncAvaloniaTimelineProject>
 
     <KevIncAudioRoot Condition="'$(KevIncAudioRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Audio'))</KevIncAudioRoot>
+    <KevIncAudioPackageVersion>0.1.2</KevIncAudioPackageVersion>
+    <KevIncAudioNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.NAudio\KevInc.Audio.NAudio.csproj</KevIncAudioNAudioProject>
     <KevIncAudioCafeNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Cafe.NAudio\KevInc.Audio.Cafe.NAudio.csproj</KevIncAudioCafeNAudioProject>
     <KevIncAudioNxNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Nx.NAudio\KevInc.Audio.Nx.NAudio.csproj</KevIncAudioNxNAudioProject>
     <KevIncAudioXma2Project>$(KevIncAudioRoot)src\KevInc.Audio.Xma2\KevInc.Audio.Xma2.csproj</KevIncAudioXma2Project>
     <KevIncAudioXma2NAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Xma2.NAudio\KevInc.Audio.Xma2.NAudio.csproj</KevIncAudioXma2NAudioProject>
+    <KevIncRakiNAudioProject>$(KevIncAudioRoot)src\KevInc.Raki.NAudio\KevInc.Raki.NAudio.csproj</KevIncRakiNAudioProject>
 
     <KevIncTextureRoot Condition="'$(KevIncTextureRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Texture'))</KevIncTextureRoot>
     <KevIncTextureProject>$(KevIncTextureRoot)src\KevInc.Texture\KevInc.Texture.csproj</KevIncTextureProject>

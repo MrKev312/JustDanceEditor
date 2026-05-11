@@ -1,14 +1,14 @@
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
-using JustDanceEditor.UI.Converting;
-using JustDanceEditor.UI.Helpers;
+using JustDanceEditor.Cli.Interactive.Converting;
+using JustDanceEditor.Cli.Interactive.Helpers;
 
 using Microsoft.Extensions.Logging;
 
 using System.Reflection;
 
-namespace JustDanceEditor.UI;
+namespace JustDanceEditor.Cli.Interactive;
 
 internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> formatStrategies, IConversionWorkflow conversionWorkflow, IConversionInteraction interaction, ToolDialogue toolDialogue, ILogger<ConsoleApp> logger)
 {
@@ -53,7 +53,7 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
             Console.WriteLine("\n================ Main Menu ================");
             int choice = Question.Ask([
                 "Exit Program",
-                "Convert Between Formats (Experimental)",
+                "Convert Between Formats",
                 "Batch Convert All Songs in a Folder",
                 "Tools"
             ], 0, "Please select an action:");

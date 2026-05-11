@@ -3,11 +3,11 @@ using JustDanceEditor.AppHost;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.UI.Helpers;
+using JustDanceEditor.Cli.Interactive.Helpers;
 
 using Microsoft.Extensions.Logging;
 
-namespace JustDanceEditor.UI.Converting;
+namespace JustDanceEditor.Cli.Interactive.Converting;
 
 internal static class FormatConversionDialogue
 {

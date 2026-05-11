@@ -5,9 +5,8 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="JustDanceEditor.Cli/JustDanceEditor.Cli.csproj" />
+  <Project Path="JustDanceEditor.Cli.Tests/JustDanceEditor.Cli.Tests.csproj" />
   <Project Path="JustDanceEditor.AppHost/JustDanceEditor.AppHost.csproj" />
-  <Project Path="JustDanceEditor.Audio.Tests/JustDanceEditor.Audio.Tests.csproj" />
-  <Project Path="JustDanceEditor.Audio/JustDanceEditor.Audio.csproj" />
   <Project Path="JustDanceEditor.Conversion.Abstractions/JustDanceEditor.Conversion.Abstractions.csproj" />
   <Project Path="JustDanceEditor.Editor.Tests/JustDanceEditor.Editor.Tests.csproj" />
   <Project Path="JustDanceEditor.Editor/JustDanceEditor.Editor.csproj" />
@@ -22,5 +21,4 @@
   <Project Path="JustDanceEditor.GUI/JustDanceEditor.GUI.csproj" />
   <Project Path="JustDanceEditor.IPK.Tests/JustDanceEditor.IPK.Tests.csproj" Id="83078f96-23be-42bb-a57d-ac14d79d1141" />
   <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
-  <Project Path="JustDanceEditor.UI/JustDanceEditor.UI.csproj" />
 </Solution>

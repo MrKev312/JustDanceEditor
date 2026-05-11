@@ -95,8 +95,7 @@ public static class ConverterPluginLoader
         if (name.EndsWith(".Tests", StringComparison.OrdinalIgnoreCase))
             return false;
 
-        if (name is "JustDanceEditor.UI"
-            or "JustDanceEditor.Cli"
+        if (name is "JustDanceEditor.Cli"
             or "JustDanceEditor.GUI"
             or "JustDanceEditor.Editor"
             or "JustDanceEditor.AppHost")

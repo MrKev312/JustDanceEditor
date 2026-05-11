@@ -1,4 +1,5 @@
-using JustDanceEditor.Audio;
+using KevInc.Audio.NAudio;
+using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using NAudio.Wave;
@@ -84,11 +85,11 @@ public class NxCookedPlatformExporter : IPlatformExporter
 
                 if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
                 {
-                    RakiAudioEncoder.EncodeToRakiPcm(waveStream, output, platform: "Nx  ", type: "pcm ");
+                    RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Nx  ", type: "pcm ");
                 }
                 else
                 {
-                    RakiAudioEncoder.EncodeToRakiNxOpus(waveStream, output, markers);
+                    RakiNintendoSwitchOpusAudioEncoder.Encode(waveStream, output);
                 }
             });
         }
@@ -124,3 +125,4 @@ public class NxCookedPlatformExporter : IPlatformExporter
         writer.Write((byte)(value & 0xFF));
     }
 }
+
