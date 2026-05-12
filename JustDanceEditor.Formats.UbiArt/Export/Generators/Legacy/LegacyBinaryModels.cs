@@ -179,6 +179,12 @@ internal sealed class LegacyHideUserInterfaceClip(UbiArtEngineVersion engineVers
     public int Padding => 0;
 }
 
+internal sealed class LegacyVibrationClip : LegacyTapeClip
+{
+    public override uint TypeId => 0x101F9D2B;
+    public override int SerializedSize => 0x18;
+}
+
 internal sealed class LegacyAbgrColor(float alpha, float blue, float green, float red)
 {
     public static LegacyAbgrColor White { get; } = new(1, 1, 1, 1);

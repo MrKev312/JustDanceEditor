@@ -10,6 +10,7 @@ using JustDanceEditor.Formats.UbiArt.Import;
 using KevInc.Audio.NAudio;
 using KevInc.Texture.ImageSharp;
 using KevInc.Texture.Nintendo.ImageSharp;
+using KevInc.Texture.PlayStation.ImageSharp;
 using KevInc.Texture.Xbox.ImageSharp;
 using KevInc.UbiArt.Raki;
 using KevInc.UbiArt.Texture;
@@ -29,6 +30,7 @@ public sealed class UbiArtConverterPlugin : IConverterPlugin
     {
         TextureImageSharpConfiguration.RegisterDdsFormat();
         NintendoImageSharpConfiguration.RegisterTextureFormats();
+        PlayStation3ImageSharpConfiguration.RegisterTextureFormat();
         Xbox360ImageSharpConfiguration.RegisterTextureFormat();
         UbiArtTextureImageSharpConfiguration.RegisterTextureFormat();
 

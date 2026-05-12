@@ -17,35 +17,7 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class X360AudioExporterTests
 {
     [Fact]
-    public async Task WriteAudioAsync_PassesThroughExistingX360Xma2Raki()
-    {
-        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        string source = Path.Combine(root, "source.wav.ckd");
-
-        try
-        {
-            Directory.CreateDirectory(root);
-            File.WriteAllBytes(source, CreateMinimalX360Xma2RakiHeader());
-
-            ExportContext context = new(root, new UbiArtLayoutResolver(), new SystemFileSystem());
-            X360CookedPlatformExporter exporter = new();
-
-            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav"), source);
-
-            string outputPath = Path.Combine(root, "cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav.ckd");
-            Assert.True(File.Exists(outputPath));
-            Assert.Equal("X360", ReadAscii(outputPath, 8, 4));
-            Assert.Equal("xma2", ReadAscii(outputPath, 12, 4));
-        }
-        finally
-        {
-            if (Directory.Exists(root))
-                Directory.Delete(root, true);
-        }
-    }
-
-    [Fact]
-    public async Task WriteAudioAsync_RejectsWaveInputInsteadOfWritingFakePcmRaki()
+    public async Task WriteAudioAsync_EncodesWaveInputToX360Xma2Raki()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         string sourceWav = Path.Combine(root, "source.wav");
@@ -58,24 +30,20 @@ public class X360AudioExporterTests
             ExportContext context = new(root, new UbiArtLayoutResolver(), new SystemFileSystem());
             X360CookedPlatformExporter exporter = new();
 
-            await Assert.ThrowsAsync<NotSupportedException>(() =>
-                exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav"), sourceWav));
+            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav"), sourceWav);
+
+            string outputPath = Path.Combine(root, "cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav.ckd");
+            Assert.True(File.Exists(outputPath));
+            Assert.Equal("RAKI", ReadAscii(outputPath, 0, 4));
+            Assert.Equal("X360", ReadAscii(outputPath, 8, 4));
+            Assert.Equal("xma2", ReadAscii(outputPath, 12, 4));
+            Assert.True(new FileInfo(outputPath).Length > 0x800);
         }
         finally
         {
             if (Directory.Exists(root))
                 Directory.Delete(root, true);
         }
-    }
-
-    private static byte[] CreateMinimalX360Xma2RakiHeader()
-    {
-        byte[] data = new byte[32];
-        Encoding.ASCII.GetBytes("RAKI").CopyTo(data, 0);
-        data[7] = 9;
-        Encoding.ASCII.GetBytes("X360").CopyTo(data, 8);
-        Encoding.ASCII.GetBytes("xma2").CopyTo(data, 12);
-        return data;
     }
 
     private static void WriteSilentWave(string path)

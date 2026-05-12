@@ -4,11 +4,13 @@ using JustDanceEditor.Formats.UbiArt.Export.Generators.Legacy;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
+using KevInc.UbiArt.FileSystem;
+
 using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 
-public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : IEngineContentGenerator
+public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, UbiArtPlatform Platform = UbiArtPlatform.Wii) : IEngineContentGenerator
 {
     private static LegacyBinarySequence Seq(params object?[] fields) => LegacyBinary.Sequence(fields);
     private static LegacyBinarySequence S(params object?[] fields) => LegacyBinary.Sequence(fields);
@@ -112,6 +114,18 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
 
         uint trackId = 1111;
         uint clipIdCounter = 12345;
+        foreach (VibrationClip clip in package.Vibrations.Clips)
+        {
+            clips.Add(new LegacyVibrationClip
+            {
+                Id = clip.Id != 0 ? (uint)clip.Id : clipIdCounter++,
+                TrackId = clip.TrackId != 0 ? (uint)clip.TrackId : trackId++,
+                IsActive = 1,
+                StartTime = clip.StartTime,
+                Duration = clip.Duration
+            });
+        }
+
         foreach (HideUserInterfaceClip clip in package.HideUserInterface.Clips)
         {
             clips.Add(new LegacyHideUserInterfaceClip(EngineVersion)
@@ -327,7 +341,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     private static object SongDescSceneActor(string mapName, string mapNameLower) =>
         new LegacySongDescSceneActor(mapName, mapNameLower);
 
-    private static object EmbeddedSubSceneContent(string mapName, string mapNameLower, string suffix) => suffix switch
+    private object EmbeddedSubSceneContent(string mapName, string mapNameLower, string suffix) => suffix switch
     {
         "_AUDIO" => new LegacySceneFile(
             0x0004905D,
@@ -369,19 +383,28 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
             VideoScreenActor(mapNameLower, true),
             VideoOutputActor(true)
             ]),
-        "_menuart" => new LegacySceneFile(
-            0x0004905D,
-            [
+        "_menuart" => GenerateEmbeddedMenuArtScene(mapName, mapNameLower),
+        _ => S()
+    };
+
+    private object GenerateEmbeddedMenuArtScene(string mapName, string mapNameLower)
+    {
+        List<object> actors =
+        [
             CoverActor($"{mapName}_cover_generic", mapNameLower, $"{mapNameLower}_cover_generic.tga", CoverPreData(), null, false),
             CoverActor($"{mapName}_cover_online_Kids", mapNameLower, $"{mapNameLower}_cover_online_kids.tga", CoverPreData(), null, false),
             CoverActor($"{mapName}_cover_online", mapNameLower, $"{mapNameLower}_cover_online.tga", CoverPreData(), null, false),
             CoverActor($"{mapName}_cover_albumcoach", mapNameLower, $"{mapNameLower}_cover_albumcoach.tga", CoverPreData(), null, false),
-            CoverActor($"{mapName}_cover_albumbkg", mapNameLower, $"{mapNameLower}_cover_albumbkg.tga", CoverPreData(), null, false),
-            CoverActor($"{mapName}_map_bkg", mapNameLower, $"{mapNameLower}_map_bkg.tga", MapBackgroundPreData(), MapBackgroundPostData(), false),
-            CoverActor($"{mapName}_coach_1", mapNameLower, $"{mapNameLower}_coach_1.tga", CoachPreData(), CoachPostData(), true)
-            ]),
-        _ => S()
-    };
+            CoverActor($"{mapName}_cover_albumbkg", mapNameLower, $"{mapNameLower}_cover_albumbkg.tga", CoverPreData(), null, false)
+        ];
+
+        if (Platform == UbiArtPlatform.Wii)
+            actors.Add(CoverActor($"{mapName}_map_bkg", mapNameLower, $"{mapNameLower}_map_bkg.tga", MapBackgroundPreData(), MapBackgroundPostData(), false));
+
+        actors.Add(CoverActor($"{mapName}_coach_1", mapNameLower, $"{mapNameLower}_coach_1.tga", CoachPreData(), CoachPostData(), true));
+
+        return new LegacySceneFile(0x0004905D, actors);
+    }
 
     private static object MusicTrackActor(string mapNameLower) => ComponentActor(
         "MusicTrack",

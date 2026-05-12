@@ -19,7 +19,9 @@ public class BinaryUbiArtSerializer : IUbiArtSerializer
     private const uint KaraokeClipTypeId = 0x68552A41;
     private const uint SoundSetClipTypeId = 0x2D8C885B;
     private const uint HideUserInterfaceClipTypeId = 0x52E06A9A;
-    private const uint GameplayEventClipTypeId = 0x101F9D2B;
+    private const uint VibrationClipTypeId = 0x101F9D2B;
+    private const uint TapeReferenceClipTypeId = 0x0E1E8158;
+    private const string DefaultLegacyVibrationPath = "world/_common/hd_rumble/bigpulse_01.vib";
 
     public T Deserialize<T>(Stream stream, JsonSerializerOptions? options = null) where T : new()
     {
@@ -203,7 +205,7 @@ public class BinaryUbiArtSerializer : IUbiArtSerializer
     private static Clip ReadClip(BigEndianBinaryReader reader, uint tapeTypeSize)
     {
         uint clipTypeId = reader.ReadUInt32();
-        _ = reader.ReadUInt32(); // Serialized clip size
+        int serializedClipSize = reader.ReadInt32();
         uint id = reader.ReadUInt32();
         uint trackId = reader.ReadUInt32();
         int isActive = reader.ReadInt32();
@@ -218,8 +220,9 @@ public class BinaryUbiArtSerializer : IUbiArtSerializer
             KaraokeClipTypeId => ReadKaraokeClip(reader),
             SoundSetClipTypeId => ReadSoundSetClip(reader),
             HideUserInterfaceClipTypeId => ReadHideUserInterfaceClip(reader, tapeTypeSize),
-            GameplayEventClipTypeId => new GameplayEventClip(),
-            _ => throw new NotSupportedException($"Unknown legacy clip type 0x{clipTypeId:X8}.")
+            VibrationClipTypeId => ReadVibrationClip(),
+            TapeReferenceClipTypeId => ReadTapeReferenceClip(reader),
+            _ => ReadUnknownClip(reader, clipTypeId, serializedClipSize)
         };
 
         clip.Id = id;
@@ -228,6 +231,42 @@ public class BinaryUbiArtSerializer : IUbiArtSerializer
         clip.StartTime = startTime;
         clip.Duration = duration;
         return clip;
+    }
+
+    private static VibrationClip ReadVibrationClip() => new()
+    {
+        VibrationFilePath = DefaultLegacyVibrationPath,
+        PlayerId = -1,
+        Modulation = 0.5f
+    };
+
+    private static TapeReferenceClip ReadTapeReferenceClip(BigEndianBinaryReader reader)
+    {
+        TapeReferenceClip clip = new()
+        {
+            Path = ReadPath(reader),
+            Loop = reader.ReadInt32()
+        };
+
+        SkipBytes(reader, 8); // Legacy tape-reference padding.
+        return clip;
+    }
+
+    private static UnknownClip ReadUnknownClip(BigEndianBinaryReader reader, uint clipTypeId, int serializedClipSize)
+    {
+        // Most legacy zero-payload clips store size as the bytes after the type id,
+        // which leaves size/clip-header bytes before clip-specific data.
+        int payloadSize = Math.Max(0, serializedClipSize - 24);
+        byte[] payload = reader.ReadBytes(payloadSize);
+        if (payload.Length != payloadSize)
+            throw new EndOfStreamException();
+
+        return new UnknownClip
+        {
+            TypeId = clipTypeId,
+            SerializedSize = serializedClipSize,
+            Payload = payload
+        };
     }
 
     private static MotionClip ReadMotionClip(BigEndianBinaryReader reader)
@@ -404,7 +443,7 @@ public class BinaryUbiArtSerializer : IUbiArtSerializer
         if (bytes.Length != length)
             throw new EndOfStreamException();
 
-        return Encoding.UTF8.GetString(bytes);
+        return Encoding.UTF8.GetString(bytes).TrimEnd('\0');
     }
 
     private static void SkipBytes(BinaryReader reader, int count)

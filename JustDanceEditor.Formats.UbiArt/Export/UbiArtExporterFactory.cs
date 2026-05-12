@@ -16,6 +16,7 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
             UbiArtPlatform.PC => new PcCookedPlatformExporter(),
             UbiArtPlatform.Wii => new WiiCookedPlatformExporter(),
             UbiArtPlatform.WiiU => new WiiUCookedPlatformExporter(),
+            UbiArtPlatform.PS3 => new Ps3CookedPlatformExporter(),
             UbiArtPlatform.X360 => new X360CookedPlatformExporter(),
             UbiArtPlatform.Durango => new DurangoCookedPlatformExporter(),
             UbiArtPlatform.Uncooked => new UncookedPlatformExporter(),
@@ -32,9 +33,9 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
         }
 
         // Wii and Xbox 360 cooked builds use legacy binary engine resources for these engine versions.
-        if (platform is (UbiArtPlatform.Wii or UbiArtPlatform.X360) && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
+        if (platform is (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360) && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
         {
-            return new LegacyEngineContentGenerator(version);
+            return new LegacyEngineContentGenerator(version, platform);
         }
 
         // JD2017 uses slightly less padding in menuart actors

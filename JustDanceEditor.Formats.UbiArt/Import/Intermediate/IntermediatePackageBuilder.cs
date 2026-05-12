@@ -44,6 +44,7 @@ internal static class IntermediatePackageBuilder
             Pictograms = BuildPictogramDocument(context),
             GoldEffects = BuildGoldEffectDocument(context),
             HideUserInterface = BuildHideUserInterfaceDocument(context),
+            Vibrations = BuildVibrationDocument(context),
             CoachTimelines = coachTimelines,
             FullBodyCoachTimelines = fullBodyTimelines,
             HandCoachMoves = handMoves,
@@ -241,9 +242,15 @@ internal static class IntermediatePackageBuilder
             {
                 Id = clip.Id,
                 TrackId = clip.TrackId,
-                IsActive = clip.IsActive > 0,
                 StartTime = clip.StartTime,
-                Duration = clip.Duration
+                Duration = clip.Duration,
+                VibrationFilePath = clip.VibrationFilePath,
+                Loop = clip.Loop,
+                DeviceSide = clip.DeviceSide,
+                PlayerId = clip.PlayerId,
+                Context = clip.Context,
+                StartTimeOffset = clip.StartTimeOffset,
+                Modulation = clip.Modulation
             });
         }
 

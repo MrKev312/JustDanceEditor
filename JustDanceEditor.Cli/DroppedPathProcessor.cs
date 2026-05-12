@@ -6,6 +6,8 @@ using KevInc.Audio.Nx.NAudio;
 using KevInc.Audio.Xma2.NAudio;
 using KevInc.Texture.ImageSharp;
 using KevInc.Texture.Nintendo.ImageSharp;
+using KevInc.Texture.PlayStation;
+using KevInc.Texture.PlayStation.ImageSharp;
 using KevInc.Texture.Xbox;
 using KevInc.Texture.Xbox.ImageSharp;
 using KevInc.UbiArt.Ipk;
@@ -64,6 +66,12 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         new("ckd-xbox360-dxt1", "UbiArt TEX-wrapped Xbox 360 texture DXT1 (.x360tex.ckd)", ".x360tex.ckd", ["x360-dxt1-ckd"]),
         new("ckd-xbox360-dxt5", "UbiArt TEX-wrapped Xbox 360 texture DXT5 (.x360tex.ckd)", ".x360tex.ckd", ["x360-dxt5-ckd", "xbox360-ckd", "ubiart-xbox360"]),
         new("ckd-xbox360-rgba8", "UbiArt TEX-wrapped Xbox 360 texture A8R8G8B8 (.x360tex.ckd)", ".x360tex.ckd", ["x360-rgba8-ckd"]),
+        new("ps3-dxt1", "PlayStation 3 texture DXT1 (.ps3tex)", ".ps3tex", ["playstation3-dxt1"]),
+        new("ps3-dxt5", "PlayStation 3 texture DXT5 (.ps3tex)", ".ps3tex", ["playstation3-dxt5", "ps3"]),
+        new("ps3-rgba8", "PlayStation 3 texture A8R8G8B8 (.ps3tex)", ".ps3tex", ["playstation3-rgba8"]),
+        new("ckd-ps3-dxt1", "UbiArt TEX-wrapped PlayStation 3 texture DXT1 (.ps3tex.ckd)", ".ps3tex.ckd", ["ps3-dxt1-ckd"]),
+        new("ckd-ps3-dxt5", "UbiArt TEX-wrapped PlayStation 3 texture DXT5 (.ps3tex.ckd)", ".ps3tex.ckd", ["ps3-dxt5-ckd", "playstation3-ckd", "ubiart-ps3"]),
+        new("ckd-ps3-rgba8", "UbiArt TEX-wrapped PlayStation 3 texture A8R8G8B8 (.ps3tex.ckd)", ".ps3tex.ckd", ["ps3-rgba8-ckd"]),
     ];
 
     private static bool textureFormatsRegistered;
@@ -457,6 +465,18 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                 using (Image<Rgba32> xboxRgba = image.CloneAs<Rgba32>())
                     Xbox360ImageSharpTextureCodec.Encode(xboxRgba, Xbox360TextureFormat.A8R8G8B8, outputStream);
                 break;
+            case "ps3-dxt1":
+                using (Image<Rgba32> ps3Dxt1 = image.CloneAs<Rgba32>())
+                    PlayStation3ImageSharpTextureCodec.Encode(ps3Dxt1, PlayStation3TextureFormat.DXT1, outputStream);
+                break;
+            case "ps3-dxt5":
+                using (Image<Rgba32> ps3Dxt5 = image.CloneAs<Rgba32>())
+                    PlayStation3ImageSharpTextureCodec.Encode(ps3Dxt5, PlayStation3TextureFormat.DXT5, outputStream);
+                break;
+            case "ps3-rgba8":
+                using (Image<Rgba32> ps3Rgba = image.CloneAs<Rgba32>())
+                    PlayStation3ImageSharpTextureCodec.Encode(ps3Rgba, PlayStation3TextureFormat.A8R8G8B8, outputStream);
+                break;
             default:
                 throw new NotSupportedException($"Texture target encoding '{code}' is not supported.");
         }
@@ -497,6 +517,18 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
             case "xbox360-rgba8":
                 using (Image<Rgba32> xboxRgba = image.CloneAs<Rgba32>())
                     UbiArtTextureEncoder.EncodeXbox360(xboxRgba, Xbox360TextureFormat.A8R8G8B8, outputStream);
+                break;
+            case "ps3-dxt1":
+                using (Image<Rgba32> ps3Dxt1 = image.CloneAs<Rgba32>())
+                    UbiArtTextureEncoder.EncodePlayStation3(ps3Dxt1, PlayStation3TextureFormat.DXT1, outputStream);
+                break;
+            case "ps3-dxt5":
+                using (Image<Rgba32> ps3Dxt5 = image.CloneAs<Rgba32>())
+                    UbiArtTextureEncoder.EncodePlayStation3(ps3Dxt5, PlayStation3TextureFormat.DXT5, outputStream);
+                break;
+            case "ps3-rgba8":
+                using (Image<Rgba32> ps3Rgba = image.CloneAs<Rgba32>())
+                    UbiArtTextureEncoder.EncodePlayStation3(ps3Rgba, PlayStation3TextureFormat.A8R8G8B8, outputStream);
                 break;
             default:
                 throw new NotSupportedException($"CKD-wrapped texture target encoding '{nativeCode}' is not supported.");
@@ -568,6 +600,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
 
             TextureImageSharpConfiguration.RegisterDdsFormat();
             NintendoImageSharpConfiguration.RegisterTextureFormats();
+            PlayStation3ImageSharpConfiguration.RegisterTextureFormat();
             Xbox360ImageSharpConfiguration.RegisterTextureFormat();
             UbiArtTextureImageSharpConfiguration.RegisterTextureFormat();
             textureFormatsRegistered = true;
@@ -654,6 +687,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                extension.Equals(".ssd", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".xtx", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".gtx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".ps3tex", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".tex", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".ckd", StringComparison.OrdinalIgnoreCase);
     }

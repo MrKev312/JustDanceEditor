@@ -19,6 +19,8 @@
 		<ProjectReference Include="$(KevIncAudioXma2NAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2NAudioProject)')" />
 		<ProjectReference Include="$(KevIncTextureImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncTextureNintendoImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureNintendoImageSharpProject)')" />
+		<ProjectReference Include="$(KevIncTexturePlayStationProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationProject)')" />
+		<ProjectReference Include="$(KevIncTexturePlayStationImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncTextureXboxImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
 		<ProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
@@ -32,6 +34,8 @@
 		<PackageReference Include="KevInc.Audio.Xma2.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioXma2NAudioProject)')" />
 		<PackageReference Include="KevInc.Texture.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
 		<PackageReference Include="KevInc.Texture.Nintendo.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureNintendoImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.PlayStation" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTexturePlayStationProject)')" />
+		<PackageReference Include="KevInc.Texture.PlayStation.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTexturePlayStationImageSharpProject)')" />
 		<PackageReference Include="KevInc.Texture.Xbox.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureXboxImageSharpProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Ipk" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtIpkProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Raki" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtRakiProject)')" />

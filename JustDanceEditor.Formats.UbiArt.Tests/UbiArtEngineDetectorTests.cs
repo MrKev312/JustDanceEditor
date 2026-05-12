@@ -124,6 +124,33 @@ public class UbiArtEngineDetectorTests
     }
 
     [Fact]
+    public void Detect_Ps3LegacyCooked_Should_Read_JD2018_From_LegacySongDesc()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string cookedMap = Path.Combine(root, "cache", "itf_cooked", "ps3", "world", "maps", "song", "timeline");
+        string legacyData = Path.Combine(root, "cache", "itf_cooked", "ps3", "cache", "legacyconverteddata", "song");
+
+        Directory.CreateDirectory(cookedMap);
+        Directory.CreateDirectory(legacyData);
+        File.WriteAllBytes(Path.Combine(cookedMap, "song_tml_dance.dtape.ckd"), [0, 0, 0, 1, 0, 0, 0, 0x9C]);
+        File.WriteAllBytes(Path.Combine(legacyData, "songdesc.main_legacy.tpl.ckd"), CreateLegacySongDesc("Song", UbiArtEngineVersion.JD2018));
+
+        try
+        {
+            UbiArtEngineDetector detector = new();
+            UbiArtVersionProfile profile = detector.Detect(root);
+
+            Assert.Equal(UbiArtPlatform.PS3, profile.Platform);
+            Assert.Equal(UbiArtEngineVersion.JD2018, profile.EngineVersion);
+            Assert.IsType<BinaryUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Detect_DurangoCooked_Should_Read_JD2021_From_SongDesc()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

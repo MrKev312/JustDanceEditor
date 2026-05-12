@@ -10,6 +10,7 @@ public class UbiArtConversionStrategyTests
 {
     [Theory]
     [InlineData("wii-2020", ConversionSupportStatus.Experimental)]
+    [InlineData("ps3-2018", ConversionSupportStatus.Experimental)]
     [InlineData("x360-2019", ConversionSupportStatus.Experimental)]
     [InlineData("durango-2022", ConversionSupportStatus.KnownPartial)]
     [InlineData("nx-2022", ConversionSupportStatus.Stable)]

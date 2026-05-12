@@ -506,6 +506,32 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     {
         List<object> clips = [];
         long clipIdCounter = 12345;
+
+        if (package.Vibrations?.Clips != null)
+        {
+            foreach (VibrationClip vibrationClip in package.Vibrations.Clips)
+            {
+                clips.Add(new
+                {
+                    __class = "VibrationClip",
+                    Id = vibrationClip.Id != 0 ? vibrationClip.Id : clipIdCounter++,
+                    TrackId = vibrationClip.TrackId != 0 ? vibrationClip.TrackId : 3606330319L,
+                    IsActive = 1,
+                    vibrationClip.StartTime,
+                    vibrationClip.Duration,
+                    VibrationFilePath = string.IsNullOrWhiteSpace(vibrationClip.VibrationFilePath)
+                        ? "world/_common/hd_rumble/bigpulse_01.vib"
+                        : vibrationClip.VibrationFilePath,
+                    vibrationClip.Loop,
+                    vibrationClip.DeviceSide,
+                    PlayerId = vibrationClip.PlayerId ?? -1,
+                    vibrationClip.Context,
+                    vibrationClip.StartTimeOffset,
+                    Modulation = vibrationClip.Modulation ?? 0.5f
+                });
+            }
+        }
+
         if (package.HideUserInterface?.Clips != null)
         {
             long trackId = 1111;
@@ -550,7 +576,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         object tape = new
         {
             __class = "Tape",
-            Clips = clips,
+            Clips = clips.OrderBy(c => ((dynamic)c).StartTime).ToList(),
             TapeClock = 0,
             TapeBarCount = 1,
             FreeResourcesAfterPlay = 0,

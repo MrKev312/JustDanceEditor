@@ -18,13 +18,14 @@ using System.Text;
 using Xunit;
 
 using UbiArtClipTape = JustDanceEditor.Formats.UbiArt.Model.ClipTape;
-using UbiArtGameplayEventClip = JustDanceEditor.Formats.UbiArt.Model.Clips.GameplayEventClip;
 using UbiArtGoldEffectClip = JustDanceEditor.Formats.UbiArt.Model.Clips.GoldEffectClip;
 using UbiArtHideUserInterfaceClip = JustDanceEditor.Formats.UbiArt.Model.Clips.HideUserInterfaceClip;
 using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Model.Clips.KaraokeClip;
 using UbiArtMotionClip = JustDanceEditor.Formats.UbiArt.Model.Clips.MotionClip;
 using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Model.Clips.PictogramClip;
 using UbiArtSoundSetClip = JustDanceEditor.Formats.UbiArt.Model.Clips.SoundSetClip;
+using UbiArtTapeReferenceClip = JustDanceEditor.Formats.UbiArt.Model.Clips.TapeReferenceClip;
+using UbiArtVibrationClip = JustDanceEditor.Formats.UbiArt.Model.Clips.VibrationClip;
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class LegacyEngineContentGeneratorTests
@@ -136,7 +137,7 @@ public class LegacyEngineContentGeneratorTests
     }
 
     [Fact]
-    public void BinarySerializer_DeserializesLegacyGameplayEventClips()
+    public void BinarySerializer_DeserializesLegacyVibrationClips()
     {
         byte[] bytes =
         [
@@ -145,7 +146,7 @@ public class LegacyEngineContentGeneratorTests
             0x9E, 0x84, 0x54, 0x60, // Tape type id
             0x00, 0x00, 0x00, 0x9C, // Tape type size
             0x00, 0x00, 0x00, 0x01, // Clip count
-            0x10, 0x1F, 0x9D, 0x2B, // Gameplay event clip type id
+            0x10, 0x1F, 0x9D, 0x2B, // Vibration clip type id
             0x00, 0x00, 0x00, 0x18, // Serialized clip size
             0x00, 0x00, 0x00, 0x7B, // Id
             0x00, 0x00, 0x01, 0xC8, // Track id
@@ -156,11 +157,48 @@ public class LegacyEngineContentGeneratorTests
 
         UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
 
-        UbiArtGameplayEventClip clip = Assert.IsType<UbiArtGameplayEventClip>(Assert.Single(tape.Clips));
+        UbiArtVibrationClip clip = Assert.IsType<UbiArtVibrationClip>(Assert.Single(tape.Clips));
         Assert.Equal(123, clip.Id);
         Assert.Equal(456, clip.TrackId);
         Assert.Equal(32, clip.StartTime);
         Assert.Equal(4, clip.Duration);
+        Assert.Equal("world/_common/hd_rumble/bigpulse_01.vib", clip.VibrationFilePath);
+        Assert.Equal(-1, clip.PlayerId);
+        Assert.Equal(0.5f, clip.Modulation);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyTapeReferenceClips()
+    {
+        using MemoryStream stream = new();
+        WriteUInt32(stream, 1); // Version
+        WriteUInt32(stream, 0); // Tape version
+        WriteUInt32(stream, 0x9E845460); // Tape type id
+        WriteUInt32(stream, 0x9C); // Tape type size
+        WriteUInt32(stream, 1); // Clip count
+        WriteUInt32(stream, 0x0E1E8158); // Tape reference clip type id
+        WriteUInt32(stream, 0x54); // Serialized clip size
+        WriteUInt32(stream, 0x7B); // Id
+        WriteUInt32(stream, 0x1C8); // Track id
+        WriteUInt32(stream, 1); // Active
+        WriteUInt32(stream, 0x20); // Start time
+        WriteUInt32(stream, 0x04); // Duration
+        WriteString(stream, "test_vib.tape\0");
+        WriteString(stream, "world/maps/test/cinematics/\0");
+        WriteUInt32(stream, 0); // Resource id
+        WriteUInt32(stream, 1); // Loop
+        WriteUInt32(stream, 0); // Padding
+        WriteUInt32(stream, 0); // Padding
+
+        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(stream.ToArray()));
+
+        UbiArtTapeReferenceClip clip = Assert.IsType<UbiArtTapeReferenceClip>(Assert.Single(tape.Clips));
+        Assert.Equal(123, clip.Id);
+        Assert.Equal(456, clip.TrackId);
+        Assert.Equal(32, clip.StartTime);
+        Assert.Equal(4, clip.Duration);
+        Assert.Equal("world/maps/test/cinematics/test_vib.tape", clip.Path);
+        Assert.Equal(1, clip.Loop);
     }
 
     [Fact]
@@ -540,6 +578,20 @@ public class LegacyEngineContentGeneratorTests
 
     private static uint ReadUInt32(byte[] bytes, int offset) =>
         BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset, sizeof(uint)));
+
+    private static void WriteUInt32(Stream stream, uint value)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(uint)];
+        BinaryPrimitives.WriteUInt32BigEndian(bytes, value);
+        stream.Write(bytes);
+    }
+
+    private static void WriteString(Stream stream, string value)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+        WriteUInt32(stream, (uint)bytes.Length);
+        stream.Write(bytes);
+    }
 
     private static bool ContainsUInt32(byte[] bytes, uint value)
     {

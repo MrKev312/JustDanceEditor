@@ -141,13 +141,13 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
 
     private static bool ShouldUseLegacyBinarySerializer(UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
     {
-        return platform is (UbiArtPlatform.Wii or UbiArtPlatform.X360)
+        return platform is (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360)
             && engineVersion is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020;
     }
 
     private bool ShouldUseBinaryModernSerializer(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs)
     {
-        if (platform != UbiArtPlatform.X360)
+        if (platform is not (UbiArtPlatform.PS3 or UbiArtPlatform.X360))
             return false;
 
         try
@@ -179,7 +179,7 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
     {
         engineVersion = UbiArtEngineVersion.Unknown;
 
-        if (platform is not (UbiArtPlatform.Wii or UbiArtPlatform.X360))
+        if (platform is not (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360))
             return false;
 
         foreach (byte[] bytes in ReadLegacySongDescCandidates(platform, basePath, fs, sourcePath))

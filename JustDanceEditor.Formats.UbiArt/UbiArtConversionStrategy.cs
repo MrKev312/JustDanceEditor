@@ -94,6 +94,9 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
             yield return CreateVersionedTarget($"x360-{year}", "xbox-360", "Xbox 360", UbiArtPlatform.X360, ToEngineVersion(year), year);
 
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018 })
+            yield return CreateVersionedTarget($"ps3-{year}", "ps3", "PlayStation 3", UbiArtPlatform.PS3, ToEngineVersion(year), year);
+
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022 })
             yield return CreateVersionedTarget($"durango-{year}", "xbox-one", "Xbox One", UbiArtPlatform.Durango, ToEngineVersion(year), year);
 
@@ -122,6 +125,7 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
     private static ConversionSupportStatus GetSupportStatus(UbiArtPlatform platform) => platform switch
     {
         UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.PS3 => ConversionSupportStatus.Experimental,
         UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
         UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
         _ => ConversionSupportStatus.Stable

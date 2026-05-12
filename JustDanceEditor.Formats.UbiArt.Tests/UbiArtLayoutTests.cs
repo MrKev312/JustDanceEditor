@@ -58,4 +58,99 @@ public class UbiArtLayoutTests
 
         Directory.Delete(root, true);
     }
+
+    [Fact]
+    public async Task LegacyWiiExport_SkipsAutodancePreviewAndMpdFiles()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
+
+            await writer.ExportAsync(CreatePackage(), null, root, UbiArtPlatform.Wii, UbiArtEngineVersion.JD2020);
+
+            string mapRoot = Path.Combine(root, "cache", "itf_cooked", "wii", "world", "maps", "song");
+            Assert.False(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.tpl.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.isc.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.act.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "videoscoach", "song_video_map_preview.isc.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "videoscoach", "video_player_map_preview.act.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "videoscoach", "song.mpd.ckd")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "videoscoach", "song_video.isc.ckd")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "videoscoach", "video_player_main.act.ckd")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task LegacyX360Export_KeepsAutodanceAndPreviewSceneButSkipsPreviewActorAndMpdFiles()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
+
+            await writer.ExportAsync(CreatePackage(), null, root, UbiArtPlatform.X360, UbiArtEngineVersion.JD2019);
+
+            string mapRoot = Path.Combine(root, "cache", "itf_cooked", "x360", "world", "maps", "song");
+            Assert.True(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.tpl.ckd")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.isc.ckd")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "autodance", "song_autodance.act.ckd")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "videoscoach", "song_video_map_preview.isc.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "videoscoach", "video_player_map_preview.act.ckd")));
+            Assert.False(File.Exists(Path.Combine(mapRoot, "videoscoach", "song.mpd.ckd")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [Theory]
+    [InlineData(UbiArtPlatform.Wii, true)]
+    [InlineData(UbiArtPlatform.X360, false)]
+    public async Task LegacyMenuArtBackgroundExport_FollowsTargetPlatform(UbiArtPlatform platform, bool expectMapBackground)
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string materializedRoot = Path.Combine(root, "jdi");
+        string outputRoot = Path.Combine(root, "out");
+
+        try
+        {
+            Directory.CreateDirectory(materializedRoot);
+            UbiArtEngineVersion version = platform == UbiArtPlatform.Wii ? UbiArtEngineVersion.JD2020 : UbiArtEngineVersion.JD2019;
+            UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
+
+            await writer.ExportAsync(CreatePackage(), materializedRoot, outputRoot, platform, version);
+
+            string platformFolder = platform == UbiArtPlatform.Wii ? "wii" : "x360";
+            string menuArtTextures = Path.Combine(outputRoot, "cache", "itf_cooked", platformFolder, "world", "maps", "song", "menuart", "textures");
+            Assert.Equal(expectMapBackground, File.Exists(Path.Combine(menuArtTextures, "song_map_bkg.tga.ckd")));
+            Assert.False(File.Exists(Path.Combine(menuArtTextures, "song_banner_bkg.tga.ckd")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    private static IntermediateSongPackage CreatePackage() => new()
+    {
+        Metadata = new JDI.Metadata.IntermediateMetadata
+        {
+            MapName = "song",
+            ParentMapName = "song",
+            Title = "Song",
+            Artist = "Artist",
+            CoachCount = 1
+        }
+    };
 }

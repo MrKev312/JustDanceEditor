@@ -218,6 +218,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
     private static ConversionSupportStatus GetPlatformSupportStatus(UbiArtPlatform platform) => platform switch
     {
         UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.PS3 => ConversionSupportStatus.Experimental,
         UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
         UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
         _ => ConversionSupportStatus.Stable

@@ -345,6 +345,16 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
     {
         foreach (Clip clip in clips)
         {
+            if (clip is UnknownClip unknown)
+            {
+                _logger.LogWarning(
+                    "Skipping unknown legacy clip type 0x{ClipTypeId:X8} at start {StartTime}, duration {Duration}.",
+                    unknown.TypeId,
+                    unknown.StartTime,
+                    unknown.Duration);
+                continue;
+            }
+
             if (clip is TapeReferenceClip reference)
             {
                 foreach (Clip nested in LoadReferenceClips(reference, fileSystem, options, recursionGuard, timeOffset))

@@ -1,22 +1,21 @@
-using KevInc.Audio.NAudio;
-using KevInc.Texture.ImageSharp;
+using KevInc.Texture.PlayStation;
 using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Raki;
 using KevInc.UbiArt.Texture;
-
-using NAudio.Wave;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using Xabe.FFmpeg;
+
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
-public class X360CookedPlatformExporter : IPlatformExporter
+public sealed class Ps3CookedPlatformExporter : IPlatformExporter
 {
-    public UbiArtPlatform Platform => UbiArtPlatform.X360;
+    public UbiArtPlatform Platform => UbiArtPlatform.PS3;
 
-    public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "x360");
+    public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "ps3");
 
     public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content)
     {
@@ -31,7 +30,6 @@ public class X360CookedPlatformExporter : IPlatformExporter
         }
 
         byte[] dataToWrite;
-
         if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
         {
             dataToWrite = new byte[1 + serialized.Length + 1];
@@ -65,8 +63,7 @@ public class X360CookedPlatformExporter : IPlatformExporter
 
         bool hasAlpha = HasTransparency(image);
         bool isPicto = relativePath.Contains("/pictos/") || relativePath.Contains("\\pictos\\");
-
-        DDS.DDSFormat format = hasAlpha ? DDS.DDSFormat.DXT5 : DDS.DDSFormat.DXT1;
+        PlayStation3TextureFormat format = hasAlpha ? PlayStation3TextureFormat.DXT5 : PlayStation3TextureFormat.DXT1;
 
         int newWidth = (image.Width + 3) & ~3;
         int newHeight = (image.Height + 3) & ~3;
@@ -74,7 +71,7 @@ public class X360CookedPlatformExporter : IPlatformExporter
             image.Mutate(ctx => ctx.Resize(newWidth, newHeight));
 
         using FileStream fs = File.Create(fullPath);
-        UbiArtTextureEncoder.EncodePcDds(image, format, fs, isPicto);
+        UbiArtTextureEncoder.EncodePlayStation3(image, format, fs, isPicto);
         return Task.CompletedTask;
     }
 
@@ -83,15 +80,30 @@ public class X360CookedPlatformExporter : IPlatformExporter
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        await Task.Run(() =>
+        if (IsPs3Mp3Raki(sourcePath))
         {
-            using WaveStream waveStream = Path.GetExtension(sourcePath).Equals(".opus", StringComparison.OrdinalIgnoreCase)
-                ? new OpusWaveStream(sourcePath)
-                : new AudioFileReader(sourcePath);
+            await Task.Run(() => File.Copy(sourcePath, destPath, overwrite: true));
+            return;
+        }
 
-            using FileStream output = File.Create(destPath);
-            RakiXma2AudioEncoder.Encode(waveStream, output);
-        });
+        string tempMp3 = context.IO.Combine(context.IO.GetTempPath(), $"ps3_{Guid.NewGuid()}.mp3");
+        try
+        {
+            IConversion conversion = FFmpeg.Conversions.New();
+            conversion.SetOverwriteOutput(true);
+            conversion.AddParameter($"-i \"{sourcePath}\" -ar 48000 -ac 2 -codec:a libmp3lame -b:a 192k");
+            conversion.SetOutput(tempMp3);
+            await conversion.Start();
+
+            await using FileStream mp3 = File.OpenRead(tempMp3);
+            await using FileStream output = File.Create(destPath);
+            RakiPlayStation3Mp3AudioEncoder.WrapMp3(mp3, output);
+        }
+        finally
+        {
+            if (context.IO.FileExists(tempMp3))
+                context.IO.DeleteFile(tempMp3);
+        }
     }
 
     private static bool ShouldWriteAsTextResource(byte[] data)
@@ -125,4 +137,45 @@ public class X360CookedPlatformExporter : IPlatformExporter
         return hasAlpha;
     }
 
+    private static bool IsPs3Mp3Raki(string path)
+    {
+        try
+        {
+            byte[] header = new byte[20];
+            using FileStream fs = File.OpenRead(path);
+            int bytesRead = fs.Read(header, 0, header.Length);
+
+            return bytesRead >= 16 && IsPs3Mp3RakiAt(header, 0)
+                || bytesRead >= 20 && IsPs3Mp3RakiAt(header, 4);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPs3Mp3RakiAt(byte[] header, int offset)
+    {
+        return HasAscii(header, offset, "RAKI")
+            && HasAscii(header, offset + 8, "PS3 ")
+            && HasAscii(header, offset + 12, "mp3 ");
+    }
+
+    private static bool HasAscii(byte[] data, int offset, string value)
+    {
+        if (offset < 0 || offset + value.Length > data.Length)
+            return false;
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (data[offset + i] != value[i])
+                return false;
+        }
+
+        return true;
+    }
 }
