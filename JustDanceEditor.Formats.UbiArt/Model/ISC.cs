@@ -1,5 +1,7 @@
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 
+using KevInc.UbiArt.FileSystem;
+
 using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
@@ -7,12 +9,12 @@ namespace JustDanceEditor.Formats.UbiArt.Model;
 
 public static class ISC
 {
-    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath, LayeredFileSystem? fileSystem = null)
+    public static bool GetActorPath(CookedFile cookedFile, string actorName, [MaybeNullWhen(false)] out string actorPath, JustDanceUbiArtFileSystem? fileSystem = null)
     {
         actorPath = null;
 
         if (fileSystem == null)
-            throw new ArgumentNullException(nameof(fileSystem), "LayeredFileSystem is required; use the stream-based overload.");
+            throw new ArgumentNullException(nameof(fileSystem), "JustDanceUbiArtFileSystem is required; use the stream-based overload.");
 
         try
         {

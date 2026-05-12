@@ -1,3 +1,4 @@
+
 namespace JustDanceEditor.Formats.UbiArt.Import;
 
 public interface IUbiArtEngineDetector

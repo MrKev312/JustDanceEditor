@@ -4,12 +4,13 @@ using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System.IO;
 
 using Xunit;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class SongDataLoaderTests
@@ -58,7 +59,7 @@ public class SongDataLoaderTests
         {
             Type = CookedType.Uncooked
         };
-        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
+        JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
         fs.Initialize();
 
         SongDataLoader loader = new(NullLogger<SongDataLoader>.Instance);

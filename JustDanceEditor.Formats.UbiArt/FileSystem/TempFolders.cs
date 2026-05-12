@@ -2,10 +2,10 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.FileSystem;
 
-public class TempFolders(LayeredFileSystem fileSystem, ILogger<LayeredFileSystem> logger, ITempFolderManager tempManager)
+public class TempFolders(JustDanceUbiArtFileSystem fileSystem, ILogger<JustDanceUbiArtFileSystem> logger, ITempFolderManager tempManager)
 {
-    private readonly LayeredFileSystem fileSystem = fileSystem;
-    private readonly ILogger<LayeredFileSystem> _logger = logger;
+    private readonly JustDanceUbiArtFileSystem fileSystem = fileSystem;
+    private readonly ILogger<JustDanceUbiArtFileSystem> _logger = logger;
     private readonly ITempFolderManager _tempManager = tempManager;
 
     public string MapFolder => _tempManager.GetMapFolder(fileSystem.SongName);

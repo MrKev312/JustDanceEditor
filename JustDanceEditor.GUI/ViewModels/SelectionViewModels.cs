@@ -1,6 +1,5 @@
 using JustDanceEditor.AppHost;
 using JustDanceEditor.Conversion.Abstractions;
-using JustDanceEditor.Formats.JDI.Conversion;
 
 namespace JustDanceEditor.GUI.ViewModels;
 

@@ -1,8 +1,10 @@
-using KevInc.Audio.NAudio;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
+
+using KevInc.Audio.NAudio;
+using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
@@ -27,7 +29,7 @@ public sealed record UbiArtAudioConversionRequest(
     string PreviewOutputFolder,
     bool IsMainSongPreMerged,
     IAudioConverter AudioConverter,
-    LayeredFileSystem FileSystem);
+    JustDanceUbiArtFileSystem FileSystem);
 
 /// <summary>
 /// Converts UbiArt audio files to Opus format entirely in memory.

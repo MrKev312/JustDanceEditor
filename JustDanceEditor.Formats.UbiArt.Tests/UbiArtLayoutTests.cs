@@ -3,13 +3,14 @@ using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System.IO;
 using System.Threading.Tasks;
 
 using Xunit;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class UbiArtLayoutTests

@@ -1,6 +1,5 @@
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
-using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using System.Text;
 using System.Text.Json;

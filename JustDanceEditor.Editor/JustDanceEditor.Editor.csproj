@@ -27,9 +27,9 @@
 		<PackageReference Include="Dock.Model.Mvvm" Version="12.0.0.2" />
 		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="12.0.0.2" />
 		<PackageReference Include="Dock.Serializer" Version="11.3.0.12" />
-		<PackageReference Include="KevInc.Avalonia" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaProject)')" />
-		<PackageReference Include="KevInc.Avalonia.Dock" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaDockProject)')" />
-		<PackageReference Include="KevInc.Avalonia.Timeline" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
+		<PackageReference Include="KevInc.Avalonia" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaProject)')" />
+		<PackageReference Include="KevInc.Avalonia.Dock" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaDockProject)')" />
+		<PackageReference Include="KevInc.Avalonia.Timeline" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
 		<PackageReference Include="LibVLCSharp" Version="3.9.7.1" />
 		<PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.7.1" />

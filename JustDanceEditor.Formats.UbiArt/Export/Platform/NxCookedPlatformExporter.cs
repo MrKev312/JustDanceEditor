@@ -1,15 +1,13 @@
 using KevInc.Audio.NAudio;
-using KevInc.Raki.NAudio;
-using JustDanceEditor.Formats.UbiArt.Import;
+using KevInc.Texture.Nintendo.ImageSharp;
+using KevInc.UbiArt.FileSystem;
+using KevInc.UbiArt.Raki;
+using KevInc.UbiArt.Texture;
 
 using NAudio.Wave;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-
-using System.Text;
-
-using KevInc.Texture.Nintendo.ImageSharp;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
@@ -52,20 +50,14 @@ public class NxCookedPlatformExporter : IPlatformExporter
         await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(data));
     }
 
-    public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
+    public Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
-        using MemoryStream xtxStream = new();
-        XTX.ConvertToFile(image, XTX.XTXImageFormat.DXT5, xtxStream);
-        byte[] xtxData = xtxStream.ToArray();
-
         using FileStream fs = File.Create(fullPath);
-        using BinaryWriter writer = new(fs);
-
-        WriteTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, (uint)xtxData.Length);
-        writer.Write(xtxData);
+        UbiArtTextureEncoder.EncodeNxXtx(image, XTX.XTXImageFormat.DXT5, fs);
+        return Task.CompletedTask;
     }
 
     public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
@@ -99,30 +91,5 @@ public class NxCookedPlatformExporter : IPlatformExporter
         }
     }
 
-    private static void WriteTexWrapperHeader(BinaryWriter writer, ushort width, ushort height, uint xtxDataSize)
-    {
-        writer.Write([0, 0, 0, 9]); // Magic
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44); // Offset
-        uint widthInfo = ((uint)width << 8) | 0x0080;
-        writer.Write(widthInfo);
-        writer.Write(width);
-        writer.Write(height);
-        writer.Write(0x00012000); // Format
-        writer.Write(widthInfo);
-        writer.Write((uint)0);
-        writer.Write(0x4E4E0004); // NN Marker
-        uint crc = (uint)(((width * height) ^ 0xA3E908) & 0xFFFFFFFF);
-        writer.Write(crc);
-        writer.Write((uint)0);
-    }
-
-    private static void WriteBigEndian32(BinaryWriter writer, uint value)
-    {
-        writer.Write((byte)((value >> 24) & 0xFF));
-        writer.Write((byte)((value >> 16) & 0xFF));
-        writer.Write((byte)((value >> 8) & 0xFF));
-        writer.Write((byte)(value & 0xFF));
-    }
 }
 

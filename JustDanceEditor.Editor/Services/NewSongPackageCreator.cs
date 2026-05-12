@@ -1,10 +1,11 @@
-using KevInc.Audio.NAudio;
-using KevInc.Audio.NAudio.Providers;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
+
+using KevInc.Audio.NAudio;
+using KevInc.Audio.NAudio.Providers;
 
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;

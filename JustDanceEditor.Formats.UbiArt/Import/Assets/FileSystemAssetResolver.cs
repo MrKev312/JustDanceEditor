@@ -2,14 +2,16 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
 
+using KevInc.UbiArt.FileSystem;
+
 using System.Diagnostics.CodeAnalysis;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Assets;
 
-public class FileSystemAssetResolver(IUbiArtLayout layout, LayeredFileSystem fileSystem, JDI.Services.IFileSystem? io = null) : IUbiArtAssetResolver
+public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSystem fileSystem, JDI.Services.IFileSystem? io = null) : IUbiArtAssetResolver
 {
     private readonly IUbiArtLayout _layout = layout ?? throw new ArgumentNullException(nameof(layout));
-    private readonly LayeredFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+    private readonly JustDanceUbiArtFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
     private readonly string[] AudioExtensions = [".ogg", ".wav", ".wem"];

@@ -16,6 +16,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 
+using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
+
 namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel : Control

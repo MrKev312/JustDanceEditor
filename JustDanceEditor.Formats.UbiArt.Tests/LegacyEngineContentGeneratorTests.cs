@@ -7,8 +7,10 @@ using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
-using System.Buffers.Binary;
+using KevInc.UbiArt.FileSystem;
+
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -23,7 +25,6 @@ using UbiArtKaraokeClip = JustDanceEditor.Formats.UbiArt.Model.Clips.KaraokeClip
 using UbiArtMotionClip = JustDanceEditor.Formats.UbiArt.Model.Clips.MotionClip;
 using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Model.Clips.PictogramClip;
 using UbiArtSoundSetClip = JustDanceEditor.Formats.UbiArt.Model.Clips.SoundSetClip;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class LegacyEngineContentGeneratorTests

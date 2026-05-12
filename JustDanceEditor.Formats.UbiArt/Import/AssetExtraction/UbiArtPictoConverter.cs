@@ -3,6 +3,8 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -23,7 +25,7 @@ public static class UbiArtPictoConverter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
-    public static void Convert(UbiArtPictoConversionRequest request, ILogger logger, ITextureService textureService, LayeredFileSystem fileSystem, IFileSystem? io = null)
+    public static void Convert(UbiArtPictoConversionRequest request, ILogger logger, ITextureService textureService, JustDanceUbiArtFileSystem fileSystem, IFileSystem? io = null)
     {
         IFileSystem fs = io ?? new SystemFileSystem();
         ArgumentNullException.ThrowIfNull(request);
@@ -56,7 +58,7 @@ public static class UbiArtPictoConverter
         io.CreateDirectory(folder);
     }
 
-    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, CookedFile[] pictoFiles, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, LayeredFileSystem fileSystem)
+    private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, CookedFile[] pictoFiles, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, JustDanceUbiArtFileSystem fileSystem)
     {
         logger.LogInformation("Processing {Count} pictograms...", pictoFiles.Length);
         Parallel.For(0, pictoFiles.Length, i =>

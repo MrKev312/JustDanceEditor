@@ -2,33 +2,9 @@ using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 namespace JustDanceEditor.Formats.UbiArt.Import;
-
-public enum UbiArtPlatform
-{
-    Uncooked,
-    Wii,
-    WiiU,
-    NX,
-    PC,
-    X360,
-    Durango
-}
-
-public static class UbiArtPlatformExtensions
-{
-    public static string GetCookedFolderName(this UbiArtPlatform platform) => platform switch
-    {
-        UbiArtPlatform.Uncooked => string.Empty,
-        UbiArtPlatform.Wii => "wii",
-        UbiArtPlatform.WiiU => "wiiu",
-        UbiArtPlatform.NX => "nx",
-        UbiArtPlatform.PC => "pc",
-        UbiArtPlatform.X360 => "x360",
-        UbiArtPlatform.Durango => "durango",
-        _ => platform.ToString().ToLowerInvariant()
-    };
-}
 
 public enum UbiArtEngineVersion
 {

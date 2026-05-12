@@ -11,10 +11,11 @@
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDNextPC\JustDanceEditor.Formats.JDNextPC.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.Unity\JustDanceEditor.Formats.Unity.csproj" />
-		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
+		<ProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="KevInc.UbiArt.Ipk" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtIpkProject)')" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
 	</ItemGroup>

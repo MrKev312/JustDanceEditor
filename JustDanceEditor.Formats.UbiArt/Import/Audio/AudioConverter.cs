@@ -1,8 +1,9 @@
-using KevInc.Audio.NAudio;
-using KevInc.Raki.NAudio;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
+
+using KevInc.Audio.NAudio;
+using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
@@ -16,28 +17,29 @@ public sealed class AudioConversionOptions
 
 public static class AudioConverter
 {
-    private static readonly IAudioConverter audioConverter = new RakiAudioConverter();
-
     public static Task ConvertAudioAsync(
         JDUbiArtSong songData,
-        LayeredFileSystem fileSystem,
+        JustDanceUbiArtFileSystem fileSystem,
         AudioConversionOptions options,
+        IAudioConverter audioConverter,
         ILogger logger) =>
-        Task.Run(() => ConvertAudio(songData, fileSystem, options, logger));
+        Task.Run(() => ConvertAudio(songData, fileSystem, options, audioConverter, logger));
 
     public static void ConvertAudio(
         JDUbiArtSong songData,
-        LayeredFileSystem fileSystem,
+        JustDanceUbiArtFileSystem fileSystem,
         AudioConversionOptions options,
+        IAudioConverter audioConverter,
         ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(audioConverter);
 
         try
         {
-            UbiArtAudioConversionRequest conversionRequest = BuildRequest(songData, fileSystem, options);
+            UbiArtAudioConversionRequest conversionRequest = BuildRequest(songData, fileSystem, options, audioConverter);
             UbiArtAudioConverter.ConvertAudio(conversionRequest, logger);
         }
         catch (Exception e)
@@ -48,8 +50,9 @@ public static class AudioConverter
 
     private static UbiArtAudioConversionRequest BuildRequest(
         JDUbiArtSong songData,
-        LayeredFileSystem fileSystem,
-        AudioConversionOptions options)
+        JustDanceUbiArtFileSystem fileSystem,
+        AudioConversionOptions options,
+        IAudioConverter audioConverter)
     {
         string masterOutputFolder = options.MasterOutputFolder;
         string previewOutputFolder = options.PreviewOutputFolder;
@@ -71,7 +74,7 @@ public static class AudioConverter
             fileSystem);
     }
 
-    private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, LayeredFileSystem fileSystem)
+    private static IReadOnlyList<UbiArtAudioClipSource> BuildClipSources(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem)
     {
         SoundSetClip[] audioClips = [.. songData.Clips.OfType<SoundSetClip>()];
         List<UbiArtAudioClipSource> clipSources = new(audioClips.Length);
@@ -88,18 +91,16 @@ public static class AudioConverter
         return clipSources;
     }
 
-    private static CookedFile GetMainSongPath(JDUbiArtSong songData, LayeredFileSystem fileSystem, out bool isPreMerged)
+    private static CookedFile GetMainSongPath(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem, out bool isPreMerged)
     {
         isPreMerged = false;
 
-        // Try resolver for main audio first
         if (fileSystem.AssetResolver != null && fileSystem.AssetResolver.TryFindMainAudio(songData, out CookedFile? found, out bool merged))
         {
             isPreMerged = merged;
             return found;
         }
 
-        // Fallback: old behavior
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out _))
         {
             CookedFile[] oggFiles = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.ogg");

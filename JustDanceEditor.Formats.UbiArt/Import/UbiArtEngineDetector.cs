@@ -1,23 +1,24 @@
-using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
+
+using KevInc.UbiArt.FileSystem;
 
 using System.Buffers.Binary;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Import;
 
-public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArtEngineDetector
+public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineDetector
 {
-    private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
+    private readonly IUbiArtFileSystem _io = io ?? new PhysicalUbiArtFileSystem();
 
     public UbiArtVersionProfile Detect(string inputPath)
     {
-        // If the input is an IPK file, use an IpkFileSystem and treat paths as relative (no inputPath prefix)
+        // If the input is an IPK file, use the generic UbiArt IPK filesystem and treat paths as relative.
         if (Path.GetExtension(inputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
         {
-            using IpkFileSystem ipk = new(inputPath);
+            using UbiArtIpkFileSystem ipk = new(inputPath);
             return DetectWithFileSystem(string.Empty, ipk, inputPath);
         }
 
@@ -25,7 +26,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         return DetectWithFileSystem(inputPath, _io, inputPath);
     }
 
-    private UbiArtVersionProfile DetectWithFileSystem(string basePath, JDI.Services.IFileSystem fs, string? sourcePath = null)
+    private UbiArtVersionProfile DetectWithFileSystem(string basePath, IUbiArtFileSystem fs, string? sourcePath = null)
     {
         bool hasCooked = fs.DirectoryExists(fs.Combine(basePath, "cache", "itf_cooked"));
 
@@ -125,7 +126,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         return fallbackProfile;
     }
 
-    private UbiArtVersionProfile CreateModernCookedProfile(UbiArtPlatform platform, string basePath, JDI.Services.IFileSystem fs, string? sourcePath)
+    private UbiArtVersionProfile CreateModernCookedProfile(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs, string? sourcePath)
     {
         UbiArtEngineVersion engineVersion = TryDetectLegacySongDescEngineVersion(platform, basePath, fs, sourcePath, out UbiArtEngineVersion legacyVersion)
             ? legacyVersion
@@ -144,7 +145,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             && engineVersion is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020;
     }
 
-    private bool ShouldUseBinaryModernSerializer(UbiArtPlatform platform, string basePath, JDI.Services.IFileSystem fs)
+    private bool ShouldUseBinaryModernSerializer(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs)
     {
         if (platform != UbiArtPlatform.X360)
             return false;
@@ -174,7 +175,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         return false;
     }
 
-    private bool TryDetectLegacySongDescEngineVersion(UbiArtPlatform platform, string basePath, JDI.Services.IFileSystem fs, string? sourcePath, out UbiArtEngineVersion engineVersion)
+    private bool TryDetectLegacySongDescEngineVersion(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs, string? sourcePath, out UbiArtEngineVersion engineVersion)
     {
         engineVersion = UbiArtEngineVersion.Unknown;
 
@@ -190,7 +191,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         return false;
     }
 
-    private IEnumerable<byte[]> ReadLegacySongDescCandidates(UbiArtPlatform platform, string basePath, JDI.Services.IFileSystem fs, string? sourcePath)
+    private IEnumerable<byte[]> ReadLegacySongDescCandidates(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs, string? sourcePath)
     {
         const string legacyPattern = "songdesc.main_legacy.tpl*";
 
@@ -234,7 +235,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             if (!LooksLikeSharedCookedBundle(ipkName, platform))
                 continue;
 
-            using IpkFileSystem ipk = new(siblingIpk);
+            using UbiArtIpkFileSystem ipk = new(siblingIpk);
             foreach (string candidate in GetFilesRecursive(string.Empty, legacyPattern, ipk))
             {
                 byte[]? bytes = TryReadAllBytes(ipk, candidate);
@@ -250,7 +251,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             || name.StartsWith("patch", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static byte[]? TryReadAllBytes(JDI.Services.IFileSystem fs, string path)
+    private static byte[]? TryReadAllBytes(IUbiArtFileSystem fs, string path)
     {
         try
         {
@@ -342,7 +343,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         return p;
     }
 
-    private IEnumerable<string> GetDirectoriesRecursive(string root, JDI.Services.IFileSystem fs)
+    private IEnumerable<string> GetDirectoriesRecursive(string root, IUbiArtFileSystem fs)
     {
         HashSet<string> visited = new(StringComparer.OrdinalIgnoreCase);
         Stack<string> stack = new();
@@ -368,7 +369,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         }
     }
 
-    private IEnumerable<string> GetFilesRecursive(string root, string searchPattern, JDI.Services.IFileSystem fs)
+    private IEnumerable<string> GetFilesRecursive(string root, string searchPattern, IUbiArtFileSystem fs)
     {
         HashSet<string> visited = new(StringComparer.OrdinalIgnoreCase);
         Stack<string> stack = new();
@@ -397,7 +398,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
         }
     }
 
-    private void TryPeekSongDescForJDVersion(string inputPath, UbiArtVersionProfile profile, JDI.Services.IFileSystem fs)
+    private void TryPeekSongDescForJDVersion(string inputPath, UbiArtVersionProfile profile, IUbiArtFileSystem fs)
     {
         try
         {
@@ -411,7 +412,7 @@ public class UbiArtEngineDetector(JDI.Services.IFileSystem? io = null) : IUbiArt
             string content;
             try
             {
-                if (fs is JDI.Services.SystemFileSystem)
+                if (fs is PhysicalUbiArtFileSystem)
                 {
                     using Stream s = File.OpenRead(songDescFile);
                     using StreamReader sr = new(s, System.Text.Encoding.UTF8);

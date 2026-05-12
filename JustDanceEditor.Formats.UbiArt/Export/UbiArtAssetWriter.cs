@@ -5,6 +5,8 @@ using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;

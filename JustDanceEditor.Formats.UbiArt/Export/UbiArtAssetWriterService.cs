@@ -3,6 +3,8 @@ using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Export;

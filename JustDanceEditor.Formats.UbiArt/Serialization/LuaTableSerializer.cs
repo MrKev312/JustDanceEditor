@@ -1,6 +1,8 @@
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 
+using KevInc.UbiArt.FileSystem;
+
 using NLua;
 
 using System.Collections;
@@ -25,7 +27,7 @@ public static partial class LuaTableSerializer
         lua.DoString("structure = { }"); // For MusicTrack
     }
 
-    private static string ResolveLuaIncludes(string luaContent, LayeredFileSystem fileSystem)
+    private static string ResolveLuaIncludes(string luaContent, JustDanceUbiArtFileSystem fileSystem)
     {
         // Find all includeReference() calls and load the referenced files
         StringBuilder result = new(luaContent);
@@ -89,7 +91,7 @@ public static partial class LuaTableSerializer
             ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
     }
 
-    public static T Deserialize<T>(string luaContent, LayeredFileSystem fileSystem) where T : new()
+    public static T Deserialize<T>(string luaContent, JustDanceUbiArtFileSystem fileSystem) where T : new()
     {
         using Lua lua = new();
         InitializeLua(lua);

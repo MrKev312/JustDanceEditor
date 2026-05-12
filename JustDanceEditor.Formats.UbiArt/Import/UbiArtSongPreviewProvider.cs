@@ -1,4 +1,3 @@
-using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Preview;
@@ -6,6 +5,8 @@ using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
+
+using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
@@ -17,13 +18,13 @@ namespace JustDanceEditor.Formats.UbiArt.Import;
 
 public sealed class UbiArtSongPreviewProvider(
     ISongDataLoader songDataLoader,
-    Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> fileSystemFactory,
+    Func<UbiArtConversionRequest, UbiArtVersionProfile, JustDanceUbiArtFileSystem> fileSystemFactory,
     IUbiArtEngineDetector engineDetector,
     ITextureService textureService,
     ILogger<UbiArtSongPreviewProvider> logger) : ISongPreviewProvider
 {
     private readonly ISongDataLoader _songDataLoader = songDataLoader;
-    private readonly Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem> _fileSystemFactory = fileSystemFactory;
+    private readonly Func<UbiArtConversionRequest, UbiArtVersionProfile, JustDanceUbiArtFileSystem> _fileSystemFactory = fileSystemFactory;
     private readonly IUbiArtEngineDetector _engineDetector = engineDetector;
     private readonly ITextureService _textureService = textureService;
     private readonly ILogger<UbiArtSongPreviewProvider> _logger = logger;
@@ -44,7 +45,7 @@ public sealed class UbiArtSongPreviewProvider(
                 Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked
             };
 
-            LayeredFileSystem fileSystem = _fileSystemFactory(request, profile);
+            JustDanceUbiArtFileSystem fileSystem = _fileSystemFactory(request, profile);
             fileSystem.Initialize();
             return fileSystem.GetAvailableSongs().Length > 0;
         }
@@ -64,7 +65,7 @@ public sealed class UbiArtSongPreviewProvider(
             Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked
         };
 
-        LayeredFileSystem fileSystem = _fileSystemFactory(conversionRequest, profile);
+        JustDanceUbiArtFileSystem fileSystem = _fileSystemFactory(conversionRequest, profile);
         fileSystem.Initialize();
 
         if (string.IsNullOrWhiteSpace(conversionRequest.SongName))
@@ -134,7 +135,7 @@ public sealed class UbiArtSongPreviewProvider(
         return metadata;
     }
 
-    private void TryWriteCoverAssets(LayeredFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
+    private void TryWriteCoverAssets(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
     {
         string coverFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
         Directory.CreateDirectory(coverFolder);
@@ -151,7 +152,7 @@ public sealed class UbiArtSongPreviewProvider(
         TryWriteImage(fileSystem, fallback, IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.SquareCoverFile), square: true, cancellationToken);
     }
 
-    private void TryWriteSpecificCover(LayeredFileSystem fileSystem, string songName, string packageRoot, CancellationToken cancellationToken)
+    private void TryWriteSpecificCover(JustDanceUbiArtFileSystem fileSystem, string songName, string packageRoot, CancellationToken cancellationToken)
     {
         CookedFile? squareCover = fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_cover_generic.*").FirstOrDefault();
         squareCover ??= fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_cover_online.*").FirstOrDefault();
@@ -164,7 +165,7 @@ public sealed class UbiArtSongPreviewProvider(
             TryWriteImage(fileSystem, cover, IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.CoverFile), square: false, cancellationToken);
     }
 
-    private void TryWriteImage(LayeredFileSystem fileSystem, CookedFile file, string destination, bool square, CancellationToken cancellationToken)
+    private void TryWriteImage(JustDanceUbiArtFileSystem fileSystem, CookedFile file, string destination, bool square, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 

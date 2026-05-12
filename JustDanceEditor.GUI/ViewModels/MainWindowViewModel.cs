@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 using Avalonia.Media.Imaging;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,13 +11,15 @@ using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.GUI.ViewModels.Prompts;
 
-using Microsoft.Extensions.Logging;
-
 using KevInc.Avalonia.Logging;
+
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
+
+using System.Collections.ObjectModel;
 
 namespace JustDanceEditor.GUI.ViewModels;
 

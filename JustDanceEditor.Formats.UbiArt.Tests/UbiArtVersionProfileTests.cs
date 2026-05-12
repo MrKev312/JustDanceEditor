@@ -2,11 +2,12 @@ using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 using System.Collections.Generic;
 using System.Linq;
 
 using Xunit;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class UbiArtVersionProfileTests

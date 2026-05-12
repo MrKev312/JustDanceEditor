@@ -19,6 +19,4 @@
   <Project Path="JustDanceEditor.Formats.Unity.Tests/JustDanceEditor.Formats.Unity.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
   <Project Path="JustDanceEditor.GUI/JustDanceEditor.GUI.csproj" />
-  <Project Path="JustDanceEditor.IPK.Tests/JustDanceEditor.IPK.Tests.csproj" Id="83078f96-23be-42bb-a57d-ac14d79d1141" />
-  <Project Path="JustDanceEditor.IPK/JustDanceEditor.IPK.csproj" />
 </Solution>

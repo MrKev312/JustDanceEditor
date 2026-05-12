@@ -11,6 +11,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 
+using TimelineRenderHelper = KevInc.Avalonia.Timeline.TimelineRenderHelper;
+using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
+
 namespace JustDanceEditor.Editor.Views.Timeline;
 
 public class TimeRulerControl : Control

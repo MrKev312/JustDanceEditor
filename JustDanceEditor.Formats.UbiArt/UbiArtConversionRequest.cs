@@ -1,6 +1,8 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.UbiArt.Import;
 
+using KevInc.UbiArt.FileSystem;
+
 namespace JustDanceEditor.Formats.UbiArt;
 
 /// <summary>

@@ -1,7 +1,7 @@
-using System.Diagnostics;
-
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+
+using System.Diagnostics;
 
 using Xunit;
 

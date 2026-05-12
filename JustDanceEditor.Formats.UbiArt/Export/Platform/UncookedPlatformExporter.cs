@@ -1,4 +1,4 @@
-using JustDanceEditor.Formats.UbiArt.Import;
+using KevInc.UbiArt.FileSystem;
 
 using NAudio.Wave;
 
@@ -17,7 +17,6 @@ public class UncookedPlatformExporter : IPlatformExporter
 
     public async Task WriteEngineResourceAsync(ExportContext context, string relativePath, object content)
     {
-        // No .ckd, no trailing null
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
         await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(content));
@@ -32,7 +31,6 @@ public class UncookedPlatformExporter : IPlatformExporter
 
     public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
     {
-        // If extension is .tga, save TGA. If .png, save PNG.
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
@@ -43,14 +41,12 @@ public class UncookedPlatformExporter : IPlatformExporter
         }
         else
         {
-            // Default to TGA for Uncooked UbiArt textures usually
             await image.SaveAsync(fullPath, new TgaEncoder { BitsPerPixel = TgaBitsPerPixel.Pixel32 });
         }
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
     {
-        // Standard WAV copy or conversion (no RAKI)
         string destPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
@@ -60,9 +56,10 @@ public class UncookedPlatformExporter : IPlatformExporter
         }
         else
         {
-            // Convert to WAV
             using MediaFoundationReader reader = new(sourcePath);
             WaveFileWriter.CreateWaveFile(destPath, reader);
         }
+
+        return Task.CompletedTask;
     }
 }

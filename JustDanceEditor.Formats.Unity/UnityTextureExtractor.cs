@@ -1,12 +1,12 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
+using KevInc.Texture;
+using KevInc.Texture.ImageSharp;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-
-using KevInc.Texture;
-using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.Unity;
 

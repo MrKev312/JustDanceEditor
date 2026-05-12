@@ -1,5 +1,6 @@
-using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
+
+using KevInc.UbiArt.FileSystem;
 
 using System.Diagnostics.CodeAnalysis;
 

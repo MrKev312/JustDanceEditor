@@ -1,5 +1,3 @@
-using KevInc.Audio.NAudio;
-using KevInc.Raki.NAudio;
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
@@ -8,9 +6,13 @@ using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
+
+using KevInc.Audio.NAudio;
 using KevInc.Texture.ImageSharp;
 using KevInc.Texture.Nintendo.ImageSharp;
 using KevInc.Texture.Xbox.ImageSharp;
+using KevInc.UbiArt.Raki;
+using KevInc.UbiArt.Texture;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -28,6 +30,7 @@ public sealed class UbiArtConverterPlugin : IConverterPlugin
         TextureImageSharpConfiguration.RegisterDdsFormat();
         NintendoImageSharpConfiguration.RegisterTextureFormats();
         Xbox360ImageSharpConfiguration.RegisterTextureFormat();
+        UbiArtTextureImageSharpConfiguration.RegisterTextureFormat();
 
         services.TryAddSingleton<IFileSystem, SystemFileSystem>();
         services.TryAddSingleton<SystemFileSystem>();
@@ -40,10 +43,10 @@ public sealed class UbiArtConverterPlugin : IConverterPlugin
         services.AddSingleton<IUbiArtEngineDetector, UbiArtEngineDetector>();
         services.AddSingleton<UbiArtAssetWriter>();
         services.AddSingleton<IUbiArtAssetWriter>(sp => sp.GetRequiredService<UbiArtAssetWriter>());
-        services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, LayeredFileSystem>>(sp => (req, profile) => new LayeredFileSystem(
+        services.AddSingleton<Func<UbiArtConversionRequest, UbiArtVersionProfile, JustDanceUbiArtFileSystem>>(sp => (req, profile) => new JustDanceUbiArtFileSystem(
             req,
             profile,
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LayeredFileSystem>>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<JustDanceUbiArtFileSystem>>(),
             sp.GetRequiredService<SystemFileSystem>(),
             sp.GetRequiredService<ITempFolderManager>()));
 

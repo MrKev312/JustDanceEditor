@@ -2,6 +2,8 @@ using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Export.Platform;
 using JustDanceEditor.Formats.UbiArt.Import;
 
+using KevInc.UbiArt.FileSystem;
+
 namespace JustDanceEditor.Formats.UbiArt.Export;
 
 public class UbiArtExporterFactory : IUbiArtExporterFactory

@@ -1,15 +1,16 @@
+using JustDanceEditor.Cli.Interactive.Helpers;
+
 using KevInc.Audio.Cafe.NAudio;
 using KevInc.Audio.NAudio;
 using KevInc.Audio.Nx.NAudio;
 using KevInc.Audio.Xma2.NAudio;
-using KevInc.Raki.NAudio;
-using JustDanceEditor.Cli.Interactive.Helpers;
-using JustDanceEditor.IPK;
-
 using KevInc.Texture.ImageSharp;
 using KevInc.Texture.Nintendo.ImageSharp;
 using KevInc.Texture.Xbox;
 using KevInc.Texture.Xbox.ImageSharp;
+using KevInc.UbiArt.Ipk;
+using KevInc.UbiArt.Raki;
+using KevInc.UbiArt.Texture;
 
 using Microsoft.Extensions.Logging;
 
@@ -18,11 +19,9 @@ using NAudio.Wave;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-using System.Text;
-
 namespace JustDanceEditor.Cli;
 
-internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
+internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger, IAudioConverter audioConverter)
 {
     private static readonly object ConsoleLock = new();
     private static readonly object TextureRegistrationLock = new();
@@ -69,6 +68,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
 
     private static bool textureFormatsRegistered;
     private readonly ILogger<DroppedPathProcessor> _logger = logger;
+    private readonly IAudioConverter _audioConverter = audioConverter;
 
     public int ProcessDroppedPaths(IReadOnlyList<string> paths, DroppedPathOptions options)
     {
@@ -158,7 +158,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
         }
 
         Console.WriteLine($"Packing IPK: {inputPath}");
-        JustDanceIPKWriter writer = new(inputPath, resolvedOutput);
+        UbiArtIpkWriter writer = new(inputPath, resolvedOutput);
         writer.Pack();
         Console.WriteLine($"Packed to: {resolvedOutput}");
         return true;
@@ -181,7 +181,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
 
         Directory.CreateDirectory(resolvedOutput);
         Console.WriteLine($"Extracting IPK: {inputPath}");
-        JustDanceIPKParser parser = new(inputPath, resolvedOutput);
+        UbiArtIpkParser parser = new(inputPath, resolvedOutput);
         parser.Parse(ShowInfo: true);
         Console.WriteLine($"Extracted to: {resolvedOutput}");
         return true;
@@ -467,115 +467,50 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
         switch (nativeCode)
         {
             case "gtx-bc3":
+                using (Image<Bgra32> gtxBc3 = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodeWiiUGtx(gtxBc3, GTX.GX2SurfaceFormat.T_BC3_UNORM, outputStream);
+                break;
             case "gtx-rgba8":
-            {
-                using MemoryStream payload = new();
-                WriteNativeTextureTarget(image, payload, nativeCode);
-                using BinaryWriter writer = new(outputStream, Encoding.ASCII, leaveOpen: true);
-                WriteWiiUTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, checked((uint)payload.Length));
-                outputStream.Write(payload.ToArray());
+                using (Image<Bgra32> gtxRgba = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodeWiiUGtx(gtxRgba, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, outputStream);
                 break;
-            }
             case "xtx-dxt5":
+                using (Image<Bgra32> xtxDxt5 = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodeNxXtx(xtxDxt5, XTX.XTXImageFormat.DXT5, outputStream);
+                break;
             case "xtx-rgba8":
-            {
-                using MemoryStream payload = new();
-                WriteNativeTextureTarget(image, payload, nativeCode);
-                using BinaryWriter writer = new(outputStream, Encoding.ASCII, leaveOpen: true);
-                WriteNxTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height);
-                outputStream.Write(payload.ToArray());
+                using (Image<Bgra32> xtxRgba = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodeNxXtx(xtxRgba, XTX.XTXImageFormat.NVN_FORMAT_RGBA8, outputStream);
                 break;
-            }
             case "ssd":
-            {
-                using MemoryStream payload = new();
-                WriteNativeTextureTarget(image, payload, nativeCode);
-                using BinaryWriter writer = new(outputStream, Encoding.ASCII, leaveOpen: true);
-                WriteWiiTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, checked((uint)payload.Length));
-                outputStream.Write(payload.ToArray());
+                using (Image<Bgra32> ssd = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodeWiiSsd(ssd, outputStream);
                 break;
-            }
             case "xbox360-dxt1":
                 using (Image<Rgba32> xboxDxt1 = image.CloneAs<Rgba32>())
-                    Xbox360ImageSharpTextureCodec.Encode(xboxDxt1, Xbox360TextureFormat.DXT1, outputStream, ckdWrapped: true);
+                    UbiArtTextureEncoder.EncodeXbox360(xboxDxt1, Xbox360TextureFormat.DXT1, outputStream);
                 break;
             case "xbox360-dxt5":
                 using (Image<Rgba32> xboxDxt5 = image.CloneAs<Rgba32>())
-                    Xbox360ImageSharpTextureCodec.Encode(xboxDxt5, Xbox360TextureFormat.DXT5, outputStream, ckdWrapped: true);
+                    UbiArtTextureEncoder.EncodeXbox360(xboxDxt5, Xbox360TextureFormat.DXT5, outputStream);
                 break;
             case "xbox360-rgba8":
                 using (Image<Rgba32> xboxRgba = image.CloneAs<Rgba32>())
-                    Xbox360ImageSharpTextureCodec.Encode(xboxRgba, Xbox360TextureFormat.A8R8G8B8, outputStream, ckdWrapped: true);
+                    UbiArtTextureEncoder.EncodeXbox360(xboxRgba, Xbox360TextureFormat.A8R8G8B8, outputStream);
                 break;
             default:
                 throw new NotSupportedException($"CKD-wrapped texture target encoding '{nativeCode}' is not supported.");
         }
     }
 
-    private static void WriteNxTexWrapperHeader(BinaryWriter writer, ushort width, ushort height)
-    {
-        writer.Write([0, 0, 0, 9]);
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44);
-        uint widthInfo = ((uint)width << 8) | 0x0080;
-        writer.Write(widthInfo);
-        writer.Write(width);
-        writer.Write(height);
-        writer.Write(0x00012000);
-        writer.Write(widthInfo);
-        writer.Write(0u);
-        writer.Write(0x4E4E0004);
-        uint crc = (uint)(((width * height) ^ 0xA3E908) & 0xFFFFFFFF);
-        writer.Write(crc);
-        writer.Write(0u);
-    }
-
-    private static void WriteWiiUTexWrapperHeader(BinaryWriter writer, ushort width, ushort height, uint textureSize)
-    {
-        WriteBigEndian32(writer, 9);
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44);
-        WriteBigEndian32(writer, width);
-        WriteBigEndian32(writer, height);
-        WriteBigEndian32(writer, 1);
-        WriteBigEndian32(writer, 0x00000009);
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, textureSize);
-    }
-
-    private static void WriteWiiTexWrapperHeader(BinaryWriter writer, ushort width, ushort height, uint textureSize)
-    {
-        WriteBigEndian32(writer, 9);
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44);
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, width);
-        WriteBigEndian32(writer, height);
-        WriteBigEndian32(writer, 1);
-        WriteBigEndian32(writer, 0x00000009);
-        WriteBigEndian32(writer, textureSize);
-        WriteBigEndian32(writer, (uint)(width * height / 2));
-        WriteBigEndian32(writer, 0);
-    }
-
-    private static void WriteBigEndian32(BinaryWriter writer, uint value)
-    {
-        writer.Write((byte)((value >> 24) & 0xFF));
-        writer.Write((byte)((value >> 16) & 0xFF));
-        writer.Write((byte)((value >> 8) & 0xFF));
-        writer.Write((byte)(value & 0xFF));
-    }
-
-    private static IDisposable? OpenWaveStream(string inputPath, out WaveStream waveStream)
+    private IDisposable? OpenWaveStream(string inputPath, out WaveStream waveStream)
     {
         if (HasRakiMagic(inputPath))
         {
             FileStream inputStream = new(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             try
             {
-                waveStream = new RakiAudioConverter().ConvertAsync(inputStream, Path.GetFileName(inputPath)).GetAwaiter().GetResult();
+                waveStream = _audioConverter.ConvertAsync(inputStream, Path.GetFileName(inputPath)).GetAwaiter().GetResult();
                 return inputStream;
             }
             catch
@@ -634,6 +569,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger)
             TextureImageSharpConfiguration.RegisterDdsFormat();
             NintendoImageSharpConfiguration.RegisterTextureFormats();
             Xbox360ImageSharpConfiguration.RegisterTextureFormat();
+            UbiArtTextureImageSharpConfiguration.RegisterTextureFormat();
             textureFormatsRegistered = true;
         }
     }

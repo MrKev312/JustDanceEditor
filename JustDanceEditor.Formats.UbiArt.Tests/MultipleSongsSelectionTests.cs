@@ -4,6 +4,8 @@ using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System;
@@ -11,7 +13,6 @@ using System.IO;
 using System.Threading.Tasks;
 
 using Xunit;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class MultipleSongsSelectionTests
@@ -41,16 +42,15 @@ public class MultipleSongsSelectionTests
 
             UbiArtJdiFormat format = new(
                 songDataLoader: new DummySongDataLoader(),
-                fileSystemFactory: (r, p) => new LayeredFileSystem(r, p, NullLogger<LayeredFileSystem>.Instance),
+                fileSystemFactory: (r, p) => new JustDanceUbiArtFileSystem(r, p, NullLogger<JustDanceUbiArtFileSystem>.Instance),
                 engineDetector: new DummyEngineDetector(),
                 audioConverter: null,
-                mediaProcessor: null,
                 textureService: null,
                 assetWriter: null,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
             UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
+            JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
             fs.Initialize();
 
             string chosen = await format.ResolveSongAsync(req, fs);
@@ -90,16 +90,15 @@ public class MultipleSongsSelectionTests
 
             UbiArtJdiFormat format = new(
                 songDataLoader: new DummySongDataLoader(),
-                fileSystemFactory: (r, p) => new LayeredFileSystem(r, p, NullLogger<LayeredFileSystem>.Instance),
+                fileSystemFactory: (r, p) => new JustDanceUbiArtFileSystem(r, p, NullLogger<JustDanceUbiArtFileSystem>.Instance),
                 engineDetector: new DummyEngineDetector(),
                 audioConverter: null,
-                mediaProcessor: null,
                 textureService: null,
                 assetWriter: null,
                 logger: NullLogger<UbiArtJdiFormat>.Instance);
 
             UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
+            JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
             fs.Initialize();
 
             await Assert.ThrowsAsync<OperationCanceledException>(async () => await format.ResolveSongAsync(req, fs));
@@ -116,8 +115,8 @@ public class MultipleSongsSelectionTests
 
     class DummySongDataLoader : ISongDataLoader
     {
-        public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { Name = request.SongName ?? "", SongDesc = new SongDesc { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] } };
-        public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem) => new() { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] };
+        public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, JustDanceUbiArtFileSystem fileSystem) => new() { Name = request.SongName ?? "", SongDesc = new SongDesc { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] } };
+        public SongDesc LoadSongDesc(UbiArtConversionRequest request, JustDanceUbiArtFileSystem fileSystem) => new() { Components = [new InfoComponent { JDVersion = 2022, OriginalJDVersion = 2022 }] };
     }
 
     class DummyEngineDetector : IUbiArtEngineDetector

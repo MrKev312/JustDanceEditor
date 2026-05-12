@@ -1,5 +1,6 @@
-using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import;
+
+using KevInc.UbiArt.FileSystem;
 
 using Moq;
 
@@ -20,7 +21,7 @@ public class IFileSystemTests
     [InlineData("durango", UbiArtPlatform.Durango)]
     public void EngineDetector_Detects_Cooked_JD2015_Platforms(string platformFolder, UbiArtPlatform expectedPlatform)
     {
-        Mock<IFileSystem> mockFs = new();
+        Mock<IUbiArtFileSystem> mockFs = new();
         string root = "C:\\fake\\root3";
 
         string cookedRoot = Path.Combine(root, "cache", "itf_cooked");

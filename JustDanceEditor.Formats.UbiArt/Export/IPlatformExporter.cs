@@ -1,4 +1,4 @@
-using JustDanceEditor.Formats.UbiArt.Import;
+using KevInc.UbiArt.FileSystem;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;

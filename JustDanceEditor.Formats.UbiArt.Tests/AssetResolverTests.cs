@@ -4,12 +4,13 @@ using JustDanceEditor.Formats.UbiArt.Import.Assets;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System.IO;
 
 using Xunit;
-
 namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class AssetResolverTests
@@ -38,7 +39,7 @@ public class AssetResolverTests
 
         UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
         UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = CookedType.Uncooked };
-        LayeredFileSystem fs = new(req, profile, NullLogger<LayeredFileSystem>.Instance);
+        JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
         fs.Initialize();
 
         FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);

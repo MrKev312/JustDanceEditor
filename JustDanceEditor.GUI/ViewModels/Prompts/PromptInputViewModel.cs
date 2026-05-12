@@ -1,9 +1,9 @@
-using System.Collections.ObjectModel;
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 using JustDanceEditor.Conversion.Abstractions;
+
+using System.Collections.ObjectModel;
 
 namespace JustDanceEditor.GUI.ViewModels.Prompts;
 

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
@@ -11,19 +11,24 @@
 		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
 		<PackageReference Include="System.IO.Hashing" Version="10.0.7" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
-		<PackageReference Include="KevInc.Raki.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncRakiNAudioProject)')" />
-		<PackageReference Include="KevInc.Texture.ImageSharp" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
-		<PackageReference Include="KevInc.Texture.Nintendo.ImageSharp" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureNintendoImageSharpProject)')" />
-		<PackageReference Include="KevInc.Texture.Xbox.ImageSharp" Version="0.1.3" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureXboxImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.Nintendo.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureNintendoImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.Xbox.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureXboxImageSharpProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Ipk" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtIpkProject)')" />
+		<PackageReference Include="KevInc.UbiArt.FileSystem" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtFileSystemProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Raki" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtRakiProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Texture" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtTextureProject)')" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="$(KevIncTextureImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncTextureNintendoImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureNintendoImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncTextureXboxImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxImageSharpProject)')" />
 		<ProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
-		<ProjectReference Include="$(KevIncRakiNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncRakiNAudioProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtTextureProject)')" />
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
-		<ProjectReference Include="..\JustDanceEditor.IPK\JustDanceEditor.IPK.csproj" />
 	</ItemGroup>
 </Project>

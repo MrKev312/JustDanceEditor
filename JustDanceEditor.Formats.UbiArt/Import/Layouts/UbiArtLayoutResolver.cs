@@ -1,3 +1,5 @@
+using KevInc.UbiArt.FileSystem;
+
 namespace JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
 public class UbiArtLayoutResolver : IUbiArtLayout

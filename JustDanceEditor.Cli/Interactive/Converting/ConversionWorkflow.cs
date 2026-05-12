@@ -1,9 +1,9 @@
-using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.AppHost;
+using JustDanceEditor.Cli.Interactive.Helpers;
+using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
-using JustDanceEditor.Cli.Interactive.Helpers;
 
 using Microsoft.Extensions.Logging;
 

@@ -3,7 +3,7 @@ using Avalonia.Media.Imaging;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
-using JustDanceEditor.Editor.Views;
+using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

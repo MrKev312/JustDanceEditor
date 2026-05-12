@@ -1,16 +1,14 @@
 using KevInc.Audio.NAudio;
-using KevInc.Raki.NAudio;
-using JustDanceEditor.Formats.UbiArt.Import;
+using KevInc.Texture.ImageSharp;
+using KevInc.UbiArt.FileSystem;
+using KevInc.UbiArt.Raki;
+using KevInc.UbiArt.Texture;
 
 using NAudio.Wave;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-
-using System.Text;
-
-using KevInc.Texture.ImageSharp;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
@@ -52,7 +50,7 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         await File.WriteAllBytesAsync(fullPath, UbiArtEngineContentSerializer.Serialize(data));
     }
 
-    public async Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
+    public Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
@@ -67,15 +65,9 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         if (newWidth != image.Width || newHeight != image.Height)
             image.Mutate(ctx => ctx.Resize(newWidth, newHeight));
 
-        using MemoryStream ddsStream = new();
-        DDS.ConvertToFile(image, format, ddsStream);
-        byte[] ddsData = ddsStream.ToArray();
-
-        await using FileStream fs = File.Create(fullPath);
-        using BinaryWriter writer = new(fs);
-
-        WriteTexWrapperHeader(writer, (ushort)image.Width, (ushort)image.Height, (uint)ddsData.Length, isPicto);
-        writer.Write(ddsData);
+        using FileStream fs = File.Create(fullPath);
+        UbiArtTextureEncoder.EncodePcDds(image, format, fs, isPicto);
+        return Task.CompletedTask;
     }
 
     public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
@@ -99,42 +91,6 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         {
             File.Copy(sourcePath, destPath, true);
         }
-    }
-
-    private static void WriteTexWrapperHeader(BinaryWriter writer, ushort width, ushort height, uint innerDataSize, bool isPicto)
-    {
-        writer.Write([0, 0, 0, 9]);
-        writer.Write(Encoding.ASCII.GetBytes("TEX\0"));
-        WriteBigEndian32(writer, 44);
-
-        uint widthInfo = ((uint)width << 8) | 0x0080;
-        WriteBigEndian32(writer, widthInfo);
-        WriteBigEndian16(writer, width);
-        WriteBigEndian16(writer, height);
-        WriteBigEndian32(writer, 0x00012000);
-        WriteBigEndian32(writer, widthInfo);
-        WriteBigEndian32(writer, 0);
-        WriteBigEndian32(writer, innerDataSize);
-        WriteBigEndian32(writer, (uint)(width * height * 4));
-
-        if (isPicto)
-            writer.Write([0x02, 0x02, 0xCC, 0xCC]);
-        else
-            writer.Write([0x00, 0x00, 0xCC, 0xCC]);
-    }
-
-    private static void WriteBigEndian32(BinaryWriter writer, uint value)
-    {
-        writer.Write((byte)((value >> 24) & 0xFF));
-        writer.Write((byte)((value >> 16) & 0xFF));
-        writer.Write((byte)((value >> 8) & 0xFF));
-        writer.Write((byte)(value & 0xFF));
-    }
-
-    private static void WriteBigEndian16(BinaryWriter writer, ushort value)
-    {
-        writer.Write((byte)((value >> 8) & 0xFF));
-        writer.Write((byte)(value & 0xFF));
     }
 
     private static bool HasTransparency(Image<Bgra32> image)

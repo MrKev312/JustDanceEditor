@@ -4,6 +4,8 @@ using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging;
 
 using System.Text;
@@ -16,7 +18,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
     private readonly ILogger<SongDataLoader> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
-    public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
+    public JDUbiArtSong LoadSongData(UbiArtConversionRequest request, JustDanceUbiArtFileSystem fileSystem)
     {
         JDUbiArtSong songData = new();
         _logger.LogInformation("Loading song info...");
@@ -239,7 +241,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         return ApplyDataMapper(songData, fileSystem);
     }
 
-    private static JDUbiArtSong ApplyDataMapper(JDUbiArtSong songData, LayeredFileSystem fileSystem)
+    private static JDUbiArtSong ApplyDataMapper(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem)
     {
         if (fileSystem.VersionProfile.Mapper != null)
             songData = fileSystem.VersionProfile.Mapper.Map(songData);
@@ -247,7 +249,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         return songData;
     }
 
-    public SongDesc LoadSongDesc(UbiArtConversionRequest request, LayeredFileSystem fileSystem)
+    public SongDesc LoadSongDesc(UbiArtConversionRequest request, JustDanceUbiArtFileSystem fileSystem)
     {
         JsonSerializerOptions options = new()
         {
@@ -309,7 +311,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
     }
 
-    private static CookedFile GetMusicTrackPath(string songName, LayeredFileSystem fileSystem)
+    private static CookedFile GetMusicTrackPath(string songName, JustDanceUbiArtFileSystem fileSystem)
     {
         string songNameLower = songName.ToLowerInvariant();
         string[] candidates =
@@ -328,7 +330,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         throw new FileNotFoundException($"MusicTrack not found for '{songName}'.");
     }
 
-    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, LayeredFileSystem fileSystem, JsonSerializerOptions options)
+    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, JustDanceUbiArtFileSystem fileSystem, JsonSerializerOptions options)
     {
         HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
         return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
@@ -336,7 +338,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
     private IEnumerable<Clip> ExpandClipsInternal(
         IEnumerable<Clip> clips,
-        LayeredFileSystem fileSystem,
+        JustDanceUbiArtFileSystem fileSystem,
         JsonSerializerOptions options,
         HashSet<string> recursionGuard,
         int timeOffset)
@@ -358,7 +360,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
     private IEnumerable<Clip> LoadReferenceClips(
         TapeReferenceClip reference,
-        LayeredFileSystem fileSystem,
+        JustDanceUbiArtFileSystem fileSystem,
         JsonSerializerOptions options,
         HashSet<string> recursionGuard,
         int parentOffset)

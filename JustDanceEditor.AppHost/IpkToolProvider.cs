@@ -1,5 +1,6 @@
 using JustDanceEditor.Conversion.Abstractions;
-using JustDanceEditor.IPK;
+
+using KevInc.UbiArt.Ipk;
 
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
             ProviderName,
             ExtractToolCode,
             "Extract Archive",
-            "Extract a Just Dance IPK archive into a folder.",
+            "Extract a UbiArt IPK archive into a folder.",
             [
                 new ConversionPrompt(
                     ConversionPromptIds.InputPath,
@@ -42,7 +43,7 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
             ProviderName,
             PackToolCode,
             "Pack Archive",
-            "Pack a folder into a Just Dance IPK archive.",
+            "Pack a folder into a UbiArt IPK archive.",
             [
                 new ConversionPrompt(
                     ConversionPromptIds.InputPath,
@@ -85,7 +86,7 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
         Directory.CreateDirectory(outputPath);
 
         _logger.LogInformation("Extracting IPK archive '{InputPath}' into '{OutputPath}'", inputPath, outputPath);
-        JustDanceIPKParser parser = new(inputPath, outputPath);
+        UbiArtIpkParser parser = new(inputPath, outputPath);
         parser.Parse(ShowInfo: true);
         _logger.LogInformation("Extracted IPK archive '{InputPath}' into '{OutputPath}'", inputPath, outputPath);
     }
@@ -97,7 +98,7 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Environment.CurrentDirectory);
 
         _logger.LogInformation("Packing folder '{InputPath}' into IPK archive '{OutputPath}'", inputPath, outputPath);
-        JustDanceIPKWriter writer = new(inputPath, outputPath);
+        UbiArtIpkWriter writer = new(inputPath, outputPath);
         writer.Pack();
         _logger.LogInformation("Packed folder '{InputPath}' into IPK archive '{OutputPath}'", inputPath, outputPath);
     }

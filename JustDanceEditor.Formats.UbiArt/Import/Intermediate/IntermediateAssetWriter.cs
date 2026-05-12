@@ -6,6 +6,9 @@ using JustDanceEditor.Formats.UbiArt.Import.Audio;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Model;
 
+using KevInc.Audio.NAudio;
+using KevInc.UbiArt.FileSystem;
+
 using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
@@ -21,11 +24,12 @@ internal static class IntermediateAssetWriter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
 
-    public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem? io = null)
+    public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, ITextureService textureService, IAudioConverter audioConverter, IFileSystem? io = null)
     {
         IFileSystem iofs = io ?? new SystemFileSystem();
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(package);
+        ArgumentNullException.ThrowIfNull(audioConverter);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageRoot);
 
         context.IntermediatePackage ??= package;
@@ -45,7 +49,7 @@ internal static class IntermediateAssetWriter
         {
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
-        }, logger);
+        }, audioConverter, logger);
         Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder, logger, iofs));
 
         await Task.WhenAll(pictoTask, audioTask, videoTask);
@@ -391,7 +395,7 @@ internal static class IntermediateAssetWriter
         io.CreateDirectory(assetsRoot);
     }
 
-    private static void CopyMasterVideo(LayeredFileSystem fileSystem, string destinationFolder, ILogger logger, IFileSystem io)
+    private static void CopyMasterVideo(JustDanceUbiArtFileSystem fileSystem, string destinationFolder, ILogger logger, IFileSystem io)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
@@ -417,7 +421,7 @@ internal static class IntermediateAssetWriter
         }
     }
 
-    private static CookedFile? GetVideoFile(LayeredFileSystem fileSystem, IFileSystem io)
+    private static CookedFile? GetVideoFile(JustDanceUbiArtFileSystem fileSystem, IFileSystem io)
     {
         if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
         {

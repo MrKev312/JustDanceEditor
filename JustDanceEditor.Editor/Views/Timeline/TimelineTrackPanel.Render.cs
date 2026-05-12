@@ -10,6 +10,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
+using TimelineRenderHelper = KevInc.Avalonia.Timeline.TimelineRenderHelper;
+using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
+
 namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel

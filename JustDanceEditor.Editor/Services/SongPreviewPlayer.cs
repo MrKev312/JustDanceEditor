@@ -1,5 +1,6 @@
-using KevInc.Audio.NAudio.Providers;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
+
+using KevInc.Audio.NAudio.Providers;
 
 using NAudio.Wave;
 
