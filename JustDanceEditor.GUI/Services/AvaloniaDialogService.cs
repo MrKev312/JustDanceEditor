@@ -6,10 +6,10 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.GUI.ViewModels;
 
-namespace JustDanceEditor.GUI;
+namespace JustDanceEditor.GUI.Services;
 
 public sealed class AvaloniaDialogService : IApplicationDialogService
 {
@@ -26,6 +26,22 @@ public sealed class AvaloniaDialogService : IApplicationDialogService
 
             cancellationToken.ThrowIfCancellationRequested();
             return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        });
+    }
+
+    public async Task<string?> PickSaveFileAsync(string title, string? suggestedFileName = null, CancellationToken cancellationToken = default)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            Window owner = GetMainWindow();
+            IStorageFile? file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = title,
+                SuggestedFileName = suggestedFileName
+            });
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return file?.TryGetLocalPath();
         });
     }
 

@@ -1,6 +1,7 @@
 using Avalonia;
 
 using JustDanceEditor.AppHost;
+using JustDanceEditor.GUI.Services;
 using JustDanceEditor.GUI.ViewModels;
 
 using KevInc.Avalonia.Logging;

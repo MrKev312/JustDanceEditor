@@ -1,23 +1,23 @@
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 using JustDanceEditor.AppHost;
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.GUI.Services;
 using JustDanceEditor.GUI.ViewModels.Prompts;
 
 using KevInc.Avalonia.Logging;
 
 using Microsoft.Extensions.Logging;
-
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
 
 using System.Collections.ObjectModel;
 
@@ -25,10 +25,13 @@ namespace JustDanceEditor.GUI.ViewModels;
 
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
+    private const string DefaultPlatformCode = "pc";
+    private const string DefaultTargetCode = "jdi";
     private readonly IJdiFormat[] _formats;
     private readonly IFormatConversionStrategy[] _strategies;
     private readonly IToolProvider[] _toolProviders;
     private readonly ISongPreviewProvider[] _previewProviders;
+    private readonly CoverPreviewBuilder _coverPreviewBuilder;
     private readonly UiLogBuffer _logBuffer;
     private readonly IApplicationDialogService _dialogs;
     private readonly ILogger<MainWindowViewModel> _logger;
@@ -37,10 +40,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private ConversionTargetDefinition[] _targets = [];
     private CancellationTokenSource? _previewLoadCts;
     private CancellationTokenSource? _formatDetectionCts;
+    private CancellationTokenSource? _previewOnlineAssetCts;
     private JdiImportResult? _previewImportResult;
     private string? _previewLoadedFormatName;
+    private Task? _previewAssetWarmupTask;
     private string? _previewTempRoot;
     private bool _updatingSongSelection;
+    private bool _updatingCoverGenerators;
+    private bool _mapBackgroundSourceUserSelected;
+    private bool _albumCoachSourceUserSelected;
     private MenuItemViewModel? _activityLogMenuItem;
     private ToolMenuItemViewModel? _selectedTool;
     private bool _isDisposed;
@@ -61,6 +69,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _logBuffer = logBuffer;
         _dialogs = dialogs;
         _logger = logger;
+        _coverPreviewBuilder = new CoverPreviewBuilder(_logger);
 
         BuildMenus();
         LoadTargets();
@@ -80,6 +89,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<PromptInputViewModel> TargetPrompts { get; } = [];
 
     public ObservableCollection<PromptInputViewModel> ToolPrompts { get; } = [];
+
+    public ObservableCollection<CoverGeneratorItemViewModel> SquareCoverGenerators { get; } = [];
+
+    public ObservableCollection<CoverGeneratorItemViewModel> WideCoverGenerators { get; } = [];
+
+    public ObservableCollection<CoverAssetSourceItemViewModel> MapBackgroundSources { get; } = [];
+
+    public ObservableCollection<CoverAssetSourceItemViewModel> AlbumCoachSources { get; } = [];
 
     public ObservableCollection<string> LogEntries => _logBuffer.Entries;
 
@@ -102,85 +119,130 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public bool CanUseActions => !IsBusy;
 
     [ObservableProperty]
-    private GuiPage _currentPage;
+    public partial GuiPage CurrentPage { get; set; }
 
     [ObservableProperty]
-    private string _pageTitle = "Select Song";
+    public partial string PageTitle { get; set; } = "Select Song";
 
     [ObservableProperty]
-    private string _primaryActionText = "Next";
+    public partial string PrimaryActionText { get; set; } = "Next";
 
     [ObservableProperty]
-    private bool _isBusy;
+    public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
-    private string _statusText = "Ready.";
+    public partial string StatusText { get; set; } = "Ready.";
 
     [ObservableProperty]
-    private string _inputPath = string.Empty;
+    public partial string InputPath { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _outputPath = string.Empty;
+    public partial string OutputPath { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private bool _downloadAssetsWhenLoading;
+    public partial bool DownloadAssetsWhenLoading { get; set; } = true;
 
     [ObservableProperty]
-    private string _detectedFormatText = "No source selected.";
+    public partial string DetectedFormatText { get; set; } = "No source selected.";
 
     [ObservableProperty]
-    private PlatformItemViewModel? _selectedPlatform;
+    public partial PlatformItemViewModel? SelectedPlatform { get; set; }
 
     [ObservableProperty]
-    private TargetItemViewModel? _selectedTarget;
+    public partial TargetItemViewModel? SelectedTarget { get; set; }
 
     [ObservableProperty]
-    private string _targetSupportText = string.Empty;
+    public partial CoverGeneratorItemViewModel? SelectedSquareCoverGenerator { get; set; }
 
     [ObservableProperty]
-    private SongItemViewModel? _selectedSong;
+    public partial CoverGeneratorItemViewModel? SelectedWideCoverGenerator { get; set; }
 
     [ObservableProperty]
-    private bool _isSongSelectionVisible;
+    public partial CoverAssetSourceItemViewModel? SelectedMapBackgroundSource { get; set; }
 
     [ObservableProperty]
-    private Bitmap? _coverPreviewImage;
+    public partial CoverAssetSourceItemViewModel? SelectedAlbumCoachSource { get; set; }
 
     [ObservableProperty]
-    private int _coverPreviewWidth = 512;
+    public partial bool IsSquareCoverGeneratorVisible { get; set; }
 
     [ObservableProperty]
-    private int _coverPreviewHeight = 512;
+    public partial bool IsWideCoverGeneratorVisible { get; set; }
 
     [ObservableProperty]
-    private bool _isPreviewPlaceholderVisible = true;
+    public partial bool AreCoverGeneratorOptionsVisible { get; set; }
 
     [ObservableProperty]
-    private string _previewPlaceholderText = "Select a source to load the song.";
+    public partial bool IsCompositionSourceOptionsVisible { get; set; }
 
     [ObservableProperty]
-    private string _previewTitleText = "No song loaded";
+    public partial bool IsMapBackgroundSourceOptionsVisible { get; set; }
 
     [ObservableProperty]
-    private string _previewArtistText = "-";
+    public partial bool IsAlbumCoachSourceOptionsVisible { get; set; }
 
     [ObservableProperty]
-    private string _previewMapText = "Map: -";
+    public partial string TargetSupportText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    private string _previewFormatText = "Format: -";
+    public partial SongItemViewModel? SelectedSong { get; set; }
 
     [ObservableProperty]
-    private string _previewStatusText = "Waiting";
+    public partial bool IsSongSelectionVisible { get; set; }
 
     [ObservableProperty]
-    private string _toolTitleText = "Tool";
+    public partial Bitmap? CoverPreviewImage { get; set; }
 
     [ObservableProperty]
-    private string _toolDescriptionText = string.Empty;
+    public partial Bitmap? CoverPreviewSecondaryImage { get; set; }
 
     [ObservableProperty]
-    private bool _isLogDrawerVisible;
+    public partial int CoverPreviewWidth { get; set; } = 512;
+
+    [ObservableProperty]
+    public partial int CoverPreviewHeight { get; set; } = 512;
+
+    [ObservableProperty]
+    public partial int CoverPreviewSecondaryWidth { get; set; } = 640;
+
+    [ObservableProperty]
+    public partial int CoverPreviewSecondaryHeight { get; set; } = 360;
+
+    [ObservableProperty]
+    public partial bool IsSingleCoverPreviewVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsDualCoverPreviewVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsPreviewPlaceholderVisible { get; set; } = true;
+
+    [ObservableProperty]
+    public partial string PreviewPlaceholderText { get; set; } = "Select a source to load the song.";
+
+    [ObservableProperty]
+    public partial string PreviewTitleText { get; set; } = "No song loaded";
+
+    [ObservableProperty]
+    public partial string PreviewArtistText { get; set; } = "-";
+
+    [ObservableProperty]
+    public partial string PreviewMapText { get; set; } = "Map: -";
+
+    [ObservableProperty]
+    public partial string PreviewFormatText { get; set; } = "Format: -";
+
+    [ObservableProperty]
+    public partial string PreviewStatusText { get; set; } = "Waiting";
+
+    [ObservableProperty]
+    public partial string ToolTitleText { get; set; } = "Tool";
+
+    [ObservableProperty]
+    public partial string ToolDescriptionText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsLogDrawerVisible { get; set; }
 
     partial void OnCurrentPageChanged(GuiPage value)
     {
@@ -220,6 +282,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             oldValue?.Dispose();
     }
 
+    partial void OnCoverPreviewSecondaryImageChanged(Bitmap? oldValue, Bitmap? newValue)
+    {
+        if (!ReferenceEquals(oldValue, newValue))
+            oldValue?.Dispose();
+    }
+
     partial void OnInputPathChanged(string value)
     {
         _ = UpdateInputPathAsync(resetSongSelection: true);
@@ -227,8 +295,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     partial void OnDownloadAssetsWhenLoadingChanged(bool value)
     {
-        if (!string.IsNullOrWhiteSpace(InputPath))
-            _ = LoadPreviewAsync(resetSongSelection: false);
+        if (value)
+            StartPreviewOnlineAssetRequest();
+        else
+            CancelAndDispose(ref _previewOnlineAssetCts);
+
+        RebuildCoverGeneratorOptions(SelectedTarget?.Target);
+        _ = RefreshCurrentPreviewAssetAsync();
     }
 
     partial void OnSelectedPlatformChanged(PlatformItemViewModel? value)
@@ -239,6 +312,38 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnSelectedTargetChanged(TargetItemViewModel? value)
     {
         _ = UpdateSelectedTargetAsync(value);
+    }
+
+    partial void OnSelectedSquareCoverGeneratorChanged(CoverGeneratorItemViewModel? value)
+    {
+        UpdateCompositionSourceOptionsVisibility();
+        if (!_updatingCoverGenerators)
+            _ = RefreshCurrentPreviewAssetAsync();
+    }
+
+    partial void OnSelectedWideCoverGeneratorChanged(CoverGeneratorItemViewModel? value)
+    {
+        UpdateCompositionSourceOptionsVisibility();
+        if (!_updatingCoverGenerators)
+            _ = RefreshCurrentPreviewAssetAsync();
+    }
+
+    partial void OnSelectedMapBackgroundSourceChanged(CoverAssetSourceItemViewModel? value)
+    {
+        if (!_updatingCoverGenerators && value is not null)
+            _mapBackgroundSourceUserSelected = true;
+
+        if (!_updatingCoverGenerators)
+            _ = RefreshCurrentPreviewAssetAsync();
+    }
+
+    partial void OnSelectedAlbumCoachSourceChanged(CoverAssetSourceItemViewModel? value)
+    {
+        if (!_updatingCoverGenerators && value is not null)
+            _albumCoachSourceUserSelected = true;
+
+        if (!_updatingCoverGenerators)
+            _ = RefreshCurrentPreviewAssetAsync();
     }
 
     partial void OnSelectedSongChanged(SongItemViewModel? value)
@@ -364,7 +469,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _selectedTool = selection;
         ToolTitleText = $"{selection.Provider.ProviderName} - {selection.Tool.DisplayName}";
         ToolDescriptionText = selection.Tool.Description;
-        RebuildPrompts(ToolPrompts, selection.Tool.Prompts);
+        RebuildPrompts(ToolPrompts, selection.Tool.Prompts, skipOutputPath: false);
         ShowPage(GuiPage.Tool);
     }
 
@@ -376,7 +481,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _isDisposed = true;
         CancelAndDispose(ref _previewLoadCts);
         CancelAndDispose(ref _formatDetectionCts);
+        CancelAndDispose(ref _previewOnlineAssetCts);
         CoverPreviewImage = null;
+        CoverPreviewSecondaryImage = null;
         CleanupPreviewTemp();
     }
 
@@ -490,7 +597,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             Platforms.Add(platform);
         }
 
-        SelectedPlatform = Platforms.FirstOrDefault();
+        SelectedPlatform = Platforms.FirstOrDefault(platform =>
+                platform.Platform.PlatformCode.Equals(DefaultPlatformCode, StringComparison.OrdinalIgnoreCase))
+            ?? Platforms.FirstOrDefault();
     }
 
     private void LoadTargetsForPlatform(PlatformItemViewModel? platform)
@@ -509,26 +618,88 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             Targets.Add(target);
         }
 
-        SelectedTarget = Targets.FirstOrDefault();
+        SelectedTarget = Targets.FirstOrDefault(target =>
+                target.Target.TargetCode.Equals(DefaultTargetCode, StringComparison.OrdinalIgnoreCase)
+                || target.Target.FormatCode.Equals(DefaultTargetCode, StringComparison.OrdinalIgnoreCase))
+            ?? Targets.FirstOrDefault();
     }
 
     private async Task UpdateSelectedTargetAsync(TargetItemViewModel? target)
     {
         TargetSupportText = target is null ? string.Empty : GetSupportText(target.Target);
-        RebuildPrompts(TargetPrompts, target?.Target.ExportPrompts ?? []);
+        RebuildPrompts(TargetPrompts, target?.Target.ExportPrompts ?? [], skipOutputPath: true);
+        RebuildCoverGeneratorOptions(target?.Target);
         await RefreshCurrentPreviewAssetAsync();
     }
 
-    private void RebuildPrompts(ObservableCollection<PromptInputViewModel> target, IReadOnlyList<ConversionPrompt> prompts)
+    private void RebuildCoverGeneratorOptions(ConversionTargetDefinition? target)
+    {
+        _updatingCoverGenerators = true;
+        try
+        {
+            CoverGeneratorOptionResult options = CoverGeneratorOptionService.Build(new CoverGeneratorOptionRequest(
+                Target: target,
+                SourceFormatName: _previewLoadedFormatName ?? _previewImportResult?.SourceFormat,
+                Inventory: new CoverAssetInventory(_previewImportResult?.MaterializedRoot, DownloadAssetsWhenLoading),
+                PreviousSquareGenerator: SelectedSquareCoverGenerator?.Kind,
+                PreviousWideGenerator: SelectedWideCoverGenerator?.Kind,
+                PreviousMapBackgroundSource: SelectedMapBackgroundSource?.Kind,
+                PreviousAlbumCoachSource: SelectedAlbumCoachSource?.Kind,
+                PreserveMapBackgroundSource: _mapBackgroundSourceUserSelected,
+                PreserveAlbumCoachSource: _albumCoachSourceUserSelected));
+
+            ReplaceCollection(SquareCoverGenerators, options.SquareGenerators);
+            ReplaceCollection(WideCoverGenerators, options.WideGenerators);
+            ReplaceCollection(MapBackgroundSources, options.MapBackgroundSources);
+            ReplaceCollection(AlbumCoachSources, options.AlbumCoachSources);
+
+            SelectedSquareCoverGenerator = options.SelectedSquareGenerator;
+            SelectedWideCoverGenerator = options.SelectedWideGenerator;
+            SelectedMapBackgroundSource = options.SelectedMapBackgroundSource;
+            SelectedAlbumCoachSource = options.SelectedAlbumCoachSource;
+            IsSquareCoverGeneratorVisible = options.IsSquareCoverGeneratorVisible;
+            IsWideCoverGeneratorVisible = options.IsWideCoverGeneratorVisible;
+            AreCoverGeneratorOptionsVisible = options.AreCoverGeneratorOptionsVisible;
+            UpdateCompositionSourceOptionsVisibility();
+        }
+        finally
+        {
+            _updatingCoverGenerators = false;
+        }
+    }
+
+    private void UpdateCompositionSourceOptionsVisibility()
+    {
+        bool compositionGeneratorSelected =
+            AreCoverGeneratorOptionsVisible &&
+            ((SelectedSquareCoverGenerator?.Kind == CoverGeneratorKind.FromMapBackground) ||
+             (SelectedWideCoverGenerator?.Kind == CoverGeneratorKind.FromMapBackground));
+
+        IsMapBackgroundSourceOptionsVisible = compositionGeneratorSelected && MapBackgroundSources.Count > 1;
+        IsAlbumCoachSourceOptionsVisible = compositionGeneratorSelected && AlbumCoachSources.Count > 1;
+        IsCompositionSourceOptionsVisible = IsMapBackgroundSourceOptionsVisible || IsAlbumCoachSourceOptionsVisible;
+    }
+
+    private void RebuildPrompts(
+        ObservableCollection<PromptInputViewModel> target,
+        IReadOnlyList<ConversionPrompt> prompts,
+        bool skipOutputPath)
     {
         target.Clear();
         foreach (ConversionPrompt prompt in prompts)
         {
-            if (prompt.Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase))
+            if (skipOutputPath && prompt.Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             target.Add(PromptInputViewModel.Create(prompt, _dialogs));
         }
+    }
+
+    private static void ReplaceCollection<T>(ObservableCollection<T> target, IEnumerable<T> items)
+    {
+        target.Clear();
+        foreach (T item in items)
+            target.Add(item);
     }
 
     private void ShowPage(GuiPage page)
@@ -606,6 +777,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         CancelAndDispose(ref _previewLoadCts);
+        CancelAndDispose(ref _previewOnlineAssetCts);
         CancellationTokenSource cts = new();
         _previewLoadCts = cts;
         CancellationToken cancellationToken = cts.Token;
@@ -614,6 +786,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ClearSongChoices();
 
         SetBusy(true, "Loading song...");
+        ClearPreview("Loading song...");
 
         try
         {
@@ -623,7 +796,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
             _previewImportResult = preview.ImportResult;
             _previewLoadedFormatName = preview.FormatName;
+            _previewAssetWarmupTask = preview.AssetWarmupTask;
 
+            RebuildCoverGeneratorOptions(SelectedTarget?.Target);
+            Task onlineAssetTask = DownloadOnlineAssetsForPreviewAsync(preview.ImportResult, SelectedTarget?.Target, cancellationToken);
+            await WaitForPreviewAssetWarmupIfNeededAsync(preview.AssetWarmupTask, SelectedTarget?.Target, preview.FormatName, cancellationToken);
+            await onlineAssetTask;
+            RebuildCoverGeneratorOptions(SelectedTarget?.Target);
             await DisplayPreviewAsync(preview.ImportResult, SelectedTarget?.Target, preview.FormatName, cancellationToken);
             StatusText = "Song loaded.";
         }
@@ -664,11 +843,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         if (previewProvider is not null)
         {
+            bool usePreviewWorkingCopy = downloadOnlineAssets ||
+                previewProvider.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase);
+
             SongPreviewResult previewResult = await Task.Run(async () => await previewProvider.LoadPreviewAsync(new SongPreviewRequest(
                 inputPath,
                 _previewTempRoot,
                 selectedSong,
-                downloadOnlineAssets), cancellationToken), cancellationToken);
+                usePreviewWorkingCopy), cancellationToken), cancellationToken);
 
             JdiImportResult previewImportResult = new(
                 previewResult.Package,
@@ -676,10 +858,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 previewResult.MaterializedRoot,
                 previewResult.MaterializedRootIsTemporary);
 
-            if (downloadOnlineAssets && previewImportResult.MaterializedRoot is not null)
-                await Task.Run(async () => await new OnlineAssetDownloader(_logger).DownloadAssetsAsync(previewImportResult.MaterializedRoot, previewImportResult.Package), cancellationToken);
-
-            return new PreviewImport(previewImportResult, previewResult.FormatName);
+            return new PreviewImport(previewImportResult, previewResult.FormatName, previewResult.AssetWarmupTask);
         }
 
         IJdiFormat sourceFormat = ResolveSourceFormat(inputPath);
@@ -687,11 +866,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         string previewInputPath = inputPath;
         string intermediatePath = Path.Combine(_previewTempRoot, "jdi");
-        bool copyJdiForAssetDownloads = sourceFormat.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
-            && Directory.Exists(inputPath)
-            && downloadOnlineAssets;
+        bool copyJdiForPreview = sourceFormat.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
+            && Directory.Exists(inputPath);
 
-        if (copyJdiForAssetDownloads)
+        if (copyJdiForPreview)
         {
             previewInputPath = Path.Combine(_previewTempRoot, "source");
             CopyDirectory(inputPath, previewInputPath);
@@ -711,19 +889,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             Interaction: interaction));
 
         JdiImportResult importResult = await Task.Run(async () => await sourceFormat.ImportAsync(importRequest, cancellationToken), cancellationToken);
-        if (downloadOnlineAssets && importResult.MaterializedRoot is not null)
-            await Task.Run(async () => await new OnlineAssetDownloader(_logger).DownloadAssetsAsync(importResult.MaterializedRoot, importResult.Package), cancellationToken);
-
-        return new PreviewImport(importResult, sourceFormat.DisplayName);
+        return new PreviewImport(importResult, sourceFormat.DisplayName, null);
     }
 
-    private async Task RefreshCurrentPreviewAssetAsync()
+    private async Task RefreshCurrentPreviewAssetAsync(bool rebuildGeneratorOptions = false)
     {
         if (_previewImportResult?.MaterializedRoot is null)
             return;
 
         try
         {
+            await WaitForPreviewAssetWarmupIfNeededAsync(_previewAssetWarmupTask, SelectedTarget?.Target, _previewLoadedFormatName ?? _previewImportResult.SourceFormat, CancellationToken.None);
+            if (rebuildGeneratorOptions)
+                RebuildCoverGeneratorOptions(SelectedTarget?.Target);
             await DisplayPreviewAsync(_previewImportResult, SelectedTarget?.Target, _previewLoadedFormatName ?? "JDI", CancellationToken.None);
         }
         catch (Exception ex)
@@ -739,11 +917,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         string sourceFormatName,
         CancellationToken cancellationToken)
     {
-        PreviewData preview = await BuildPreviewDataAsync(importResult, target, cancellationToken);
+        CoverPreviewData preview = await _coverPreviewBuilder.BuildPreviewDataAsync(
+            importResult,
+            target,
+            CreateCoverPreviewOptions(),
+            cancellationToken);
 
         CoverPreviewImage = preview.Bitmap;
+        CoverPreviewSecondaryImage = preview.SecondaryBitmap;
         CoverPreviewWidth = preview.Width;
         CoverPreviewHeight = preview.Height;
+        CoverPreviewSecondaryWidth = preview.SecondaryWidth;
+        CoverPreviewSecondaryHeight = preview.SecondaryHeight;
+        IsDualCoverPreviewVisible = preview.SecondaryBitmap is not null;
+        IsSingleCoverPreviewVisible = !IsDualCoverPreviewVisible;
         IsPreviewPlaceholderVisible = false;
         PreviewTitleText = string.IsNullOrWhiteSpace(preview.Package.Metadata.Title)
             ? preview.Package.Metadata.MapName
@@ -754,31 +941,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         PreviewStatusText = preview.Package.Metadata.OriginalJDVersion > 0
             ? $"JD{preview.Package.Metadata.OriginalJDVersion}"
             : "Loaded";
-    }
-
-    private async Task<PreviewData> BuildPreviewDataAsync(
-        JdiImportResult importResult,
-        ConversionTargetDefinition? target,
-        CancellationToken cancellationToken)
-    {
-        if (importResult.MaterializedRoot is null)
-            throw new InvalidOperationException("The import did not produce a materialized JDI package.");
-
-        bool useWideCover = target is not null && UsesWideCover(target);
-
-        IntermediateImageService imageService = new(
-            importResult.MaterializedRoot,
-            importResult.Package,
-            new SystemFileSystem(),
-            null,
-            _logger);
-
-        using Image<Bgra32> image = useWideCover
-            ? await imageService.GetCoverAsync(640, 360, cancellationToken)
-            : await imageService.GetSquareCoverAsync(512, 512, cancellationToken);
-
-        Bitmap bitmap = await ToBitmapAsync(image, cancellationToken);
-        return new PreviewData(bitmap, importResult.Package, useWideCover ? 640 : 512, useWideCover ? 360 : 512);
     }
 
     private async Task ConvertAsync(CancellationToken cancellationToken)
@@ -806,7 +968,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         try
         {
             if (downloadOnlineAssets && importResult.MaterializedRoot is not null)
-                await Task.Run(async () => await new OnlineAssetDownloader(_logger).DownloadAssetsAsync(importResult.MaterializedRoot, importResult.Package), cancellationToken);
+                await DownloadOnlineAssetsForPreviewAsync(importResult, target, cancellationToken);
+
+            await ApplySelectedCoverGeneratorsAsync(importResult, target, cancellationToken);
 
             if (importResult.MaterializedRoot is not null)
                 await DisplayPreviewAsync(importResult, target, sourceFormat.DisplayName, cancellationToken);
@@ -837,6 +1001,74 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             answers.Set("ubiart.songName", songName);
 
         return answers;
+    }
+
+    private void StartPreviewOnlineAssetRequest()
+    {
+        CancelAndDispose(ref _previewOnlineAssetCts);
+
+        if (!DownloadAssetsWhenLoading || _previewImportResult?.MaterializedRoot is null)
+            return;
+
+        JdiImportResult importResult = _previewImportResult;
+        CancellationTokenSource cts = new();
+        _previewOnlineAssetCts = cts;
+        CancellationToken cancellationToken = cts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await DownloadOnlineAssetsForPreviewAsync(importResult, SelectedTarget?.Target, cancellationToken);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    if (_isDisposed ||
+                        !ReferenceEquals(_previewOnlineAssetCts, cts) ||
+                        !ReferenceEquals(_previewImportResult, importResult))
+                    {
+                        return;
+                    }
+
+                    RebuildCoverGeneratorOptions(SelectedTarget?.Target);
+                    await RefreshCurrentPreviewAssetAsync();
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Online preview asset request failed.");
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task DownloadOnlineAssetsForPreviewAsync(
+        JdiImportResult importResult,
+        ConversionTargetDefinition? target,
+        CancellationToken cancellationToken)
+    {
+        if (!DownloadAssetsWhenLoading || importResult.MaterializedRoot is null)
+            return;
+
+        OnlineAssetDefinition[] requestedAssets =
+        [
+            .. CoverRules.GetRequiredOnlineAssetsForSelection(
+                target,
+                ResolveSquareCoverGeneratorKind(),
+                ResolveWideCoverGeneratorKind())
+        ];
+        if (requestedAssets.Length == 0)
+            return;
+
+        await new OnlineAssetDownloader(_logger).DownloadAssetsAsync(
+            importResult.MaterializedRoot,
+            importResult.Package,
+            requestedAssets,
+            mapRelativeAssetPath: CoverRules.GetWebAssetRelativePath,
+            cancellationToken: cancellationToken);
     }
 
     private PromptAnswerSet BuildConversionAnswers()
@@ -928,8 +1160,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void ClearPreview(string message)
     {
         CoverPreviewImage = null;
+        CoverPreviewSecondaryImage = null;
         CoverPreviewWidth = 512;
         CoverPreviewHeight = 512;
+        CoverPreviewSecondaryWidth = 640;
+        CoverPreviewSecondaryHeight = 360;
+        IsSingleCoverPreviewVisible = false;
+        IsDualCoverPreviewVisible = false;
         PreviewPlaceholderText = message;
         IsPreviewPlaceholderVisible = true;
         PreviewTitleText = "No song loaded";
@@ -939,6 +1176,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         PreviewStatusText = "Waiting";
         _previewImportResult = null;
         _previewLoadedFormatName = null;
+        _previewAssetWarmupTask = null;
+        _mapBackgroundSourceUserSelected = false;
+        _albumCoachSourceUserSelected = false;
+        RebuildCoverGeneratorOptions(SelectedTarget?.Target);
     }
 
     private string RequireInputPath()
@@ -994,9 +1235,85 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ?? throw new ArgumentException($"No conversion strategy registered for '{format}'.");
     }
 
-    private static bool UsesWideCover(ConversionTargetDefinition target) =>
-        target.FormatName.Equals("JDNext PC", StringComparison.OrdinalIgnoreCase) ||
-        target.FormatName.Equals("Unity", StringComparison.OrdinalIgnoreCase);
+    private CoverGeneratorKind ResolveSquareCoverGeneratorKind() =>
+        SelectedSquareCoverGenerator?.Kind ?? CoverGeneratorKind.Automatic;
+
+    private CoverGeneratorKind ResolveWideCoverGeneratorKind() =>
+        SelectedWideCoverGenerator?.Kind ?? CoverGeneratorKind.Automatic;
+
+    private CoverPreviewOptions CreateCoverPreviewOptions() =>
+        new(
+            DownloadAssetsWhenLoading,
+            ResolveSquareCoverGeneratorKind(),
+            ResolveWideCoverGeneratorKind(),
+            SelectedMapBackgroundSource?.Kind,
+            SelectedAlbumCoachSource?.Kind);
+
+    private async Task WaitForPreviewAssetWarmupIfNeededAsync(
+        Task? warmupTask,
+        ConversionTargetDefinition? target,
+        string? sourceFormatName,
+        CancellationToken cancellationToken)
+    {
+        if (warmupTask is null ||
+            warmupTask.IsCompleted ||
+            !CoverRules.SelectedCoverGeneratorsNeedMapBackground(
+                target,
+                sourceFormatName,
+                ResolveSquareCoverGeneratorKind(),
+                ResolveWideCoverGeneratorKind()))
+            return;
+
+        Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(4), cancellationToken);
+        Task completedTask = await Task.WhenAny(warmupTask, timeoutTask);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (completedTask != warmupTask)
+        {
+            SchedulePreviewRefreshAfterWarmup(warmupTask);
+            return;
+        }
+
+        try
+        {
+            await warmupTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Preview asset warmup failed.");
+        }
+    }
+
+    private void SchedulePreviewRefreshAfterWarmup(Task warmupTask)
+    {
+        _ = warmupTask.ContinueWith(task =>
+        {
+            if (task.IsFaulted)
+                _logger.LogDebug(task.Exception, "Preview asset warmup failed.");
+            if (task.IsCanceled || task.IsFaulted)
+                return;
+
+            Dispatcher.UIThread.Post(async () =>
+            {
+                if (_isDisposed || !ReferenceEquals(_previewAssetWarmupTask, warmupTask))
+                    return;
+
+                await RefreshCurrentPreviewAssetAsync(rebuildGeneratorOptions: true);
+            });
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private async Task ApplySelectedCoverGeneratorsAsync(
+        JdiImportResult importResult,
+        ConversionTargetDefinition target,
+        CancellationToken cancellationToken)
+    {
+        await _coverPreviewBuilder.ApplySelectedCoverGeneratorsAsync(
+            importResult,
+            target,
+            CreateCoverPreviewOptions(),
+            cancellationToken);
+    }
 
     private static string GetSupportText(ConversionTargetDefinition target) => target.SupportStatus switch
     {
@@ -1004,14 +1321,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ConversionSupportStatus.KnownPartial => "Known partial support. Basic conversion works, but platform-native dumps are still limited.",
         _ => string.Empty
     };
-
-    private static async Task<Bitmap> ToBitmapAsync(Image<Bgra32> image, CancellationToken cancellationToken)
-    {
-        await using MemoryStream stream = new();
-        await image.SaveAsync(stream, new PngEncoder(), cancellationToken);
-        byte[] bytes = stream.ToArray();
-        return new Bitmap(new MemoryStream(bytes));
-    }
 
     private static void CleanupTemporaryImport(JdiImportResult importResult)
     {
@@ -1047,7 +1356,5 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static string NormalizePath(string path) => path.Trim().Trim('"');
 
-    private sealed record PreviewImport(JdiImportResult ImportResult, string FormatName);
-
-    private sealed record PreviewData(Bitmap Bitmap, IntermediateSongPackage Package, int Width, int Height);
+    private sealed record PreviewImport(JdiImportResult ImportResult, string FormatName, Task? AssetWarmupTask);
 }

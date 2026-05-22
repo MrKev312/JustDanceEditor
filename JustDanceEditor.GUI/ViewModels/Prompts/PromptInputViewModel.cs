@@ -1,7 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.GUI.Services;
 
 using System.Collections.ObjectModel;
 
@@ -38,7 +39,7 @@ public abstract class PromptInputViewModel(ConversionPrompt prompt) : ViewModelB
 public sealed partial class TextPromptInputViewModel(ConversionPrompt prompt) : PromptInputViewModel(prompt)
 {
     [ObservableProperty]
-    private string _text = prompt.DefaultValue ?? string.Empty;
+    public partial string Text { get; set; } = prompt.DefaultValue ?? string.Empty;
 
     public string PlaceholderText => Required ? "Required" : "Optional";
 
@@ -48,7 +49,7 @@ public sealed partial class TextPromptInputViewModel(ConversionPrompt prompt) : 
 public sealed partial class BooleanPromptInputViewModel(ConversionPrompt prompt) : PromptInputViewModel(prompt)
 {
     [ObservableProperty]
-    private bool _isChecked = bool.TryParse(prompt.DefaultValue, out bool defaultValue) && defaultValue;
+    public partial bool IsChecked { get; set; } = bool.TryParse(prompt.DefaultValue, out bool defaultValue) && defaultValue;
 
     public override string Value => IsChecked ? "true" : "false";
 }
@@ -67,39 +68,41 @@ public sealed partial class ChoicePromptInputViewModel : PromptInputViewModel
     public ObservableCollection<PromptOptionItemViewModel> Options { get; }
 
     [ObservableProperty]
-    private PromptOptionItemViewModel? _selectedOption;
+    public partial PromptOptionItemViewModel? SelectedOption { get; set; }
 
     public override string Value => SelectedOption?.Option.Value ?? Prompt.DefaultValue ?? string.Empty;
 }
 
-public sealed partial class PathPromptInputViewModel : PromptInputViewModel
+public sealed partial class PathPromptInputViewModel(ConversionPrompt prompt, IApplicationDialogService dialogs) : PromptInputViewModel(prompt)
 {
-    private readonly IApplicationDialogService _dialogs;
-
-    public PathPromptInputViewModel(ConversionPrompt prompt, IApplicationDialogService dialogs)
-        : base(prompt)
-    {
-        _dialogs = dialogs;
-        Path = prompt.DefaultValue ?? string.Empty;
-    }
-
     [ObservableProperty]
-    private string _path = string.Empty;
+    public partial string Path { get; set; } = prompt.DefaultValue ?? string.Empty;
 
     public bool IsFile => Prompt.Kind == ConversionPromptKind.FilePath;
 
-    public string BrowseLabel => IsFile ? "File" : "Folder";
+    public bool IsOutputFile => IsFile && Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase);
 
-    public string PlaceholderText => IsFile ? "File path" : "Folder path";
+    public string BrowseLabel => IsOutputFile ? "Save" : IsFile ? "File" : "Folder";
+
+    public string PlaceholderText => IsOutputFile ? "Output file path" : IsFile ? "File path" : "Folder path";
 
     public override string Value => Path.Trim();
 
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        string? path = IsFile
-            ? await _dialogs.PickFileAsync(Label, CancellationToken.None)
-            : await _dialogs.PickFolderAsync(Label, CancellationToken.None);
+        string? path;
+        if (IsOutputFile)
+        {
+            string? suggestedFileName = string.IsNullOrWhiteSpace(Path) ? null : System.IO.Path.GetFileName(Path);
+            path = await dialogs.PickSaveFileAsync(Label, suggestedFileName, CancellationToken.None);
+        }
+        else
+        {
+            path = IsFile
+                ? await dialogs.PickFileAsync(Label, CancellationToken.None)
+                : await dialogs.PickFolderAsync(Label, CancellationToken.None);
+        }
 
         if (path is not null)
             Path = path;

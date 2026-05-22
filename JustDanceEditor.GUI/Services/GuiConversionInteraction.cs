@@ -1,6 +1,6 @@
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
-namespace JustDanceEditor.GUI;
+namespace JustDanceEditor.GUI.Services;
 
 internal sealed class GuiConversionInteraction(IApplicationDialogService dialogs, PromptAnswerSet answers) : IConversionInteraction
 {

@@ -1,10 +1,12 @@
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
-namespace JustDanceEditor.GUI;
+namespace JustDanceEditor.GUI.Services;
 
 public interface IApplicationDialogService
 {
     Task<string?> PickFileAsync(string title, CancellationToken cancellationToken = default);
+
+    Task<string?> PickSaveFileAsync(string title, string? suggestedFileName = null, CancellationToken cancellationToken = default);
 
     Task<string?> PickFolderAsync(string title, CancellationToken cancellationToken = default);
 

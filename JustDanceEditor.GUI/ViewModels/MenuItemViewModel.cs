@@ -8,8 +8,7 @@ namespace JustDanceEditor.GUI.ViewModels;
 public sealed partial class MenuItemViewModel : ViewModelBase
 {
     [ObservableProperty]
-    private string _header = string.Empty;
-
+    public partial string Header { get; set; } = string.Empty;
     public ObservableCollection<MenuItemViewModel> Items { get; } = [];
 
     public ICommand? Command { get; init; }
