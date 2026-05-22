@@ -29,7 +29,7 @@ public static class UbiArtPictoConverter
     {
         IFileSystem fs = io ?? new SystemFileSystem();
         ArgumentNullException.ThrowIfNull(request);
-        JDUbiArtSong songData = request.SongData ?? throw new ArgumentNullException(nameof(request.SongData));
+        JDUbiArtSong songData = request.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(request));
         ArgumentNullException.ThrowIfNull(request.SourceFiles);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoTempFolder);
 

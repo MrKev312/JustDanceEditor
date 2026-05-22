@@ -100,11 +100,19 @@ public class JustDanceUbiArtFileSystem : IDisposable
         string[] songFolderNames = [];
         foreach (string mapsLocation in mapsLocations.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            string[] songFolders = _fileSystem.GetDirectories(mapsLocation);
+            string[] songFolders = _fileSystem.GetInputDirectories(mapsLocation);
             if (songFolders.Length == 0)
                 continue;
 
-            songFolderNames = [.. songFolders.Select(Path.GetFileName).Where(name => !string.IsNullOrWhiteSpace(name)).Cast<string>()];
+            songFolderNames =
+            [
+                .. songFolders
+                    .Select(Path.GetFileName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Cast<string>()
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(name => name)
+            ];
             break;
         }
 
@@ -114,7 +122,13 @@ public class JustDanceUbiArtFileSystem : IDisposable
                 songs.Add((songName, songDescPath.RelativePath));
         }
 
-        return [.. songs];
+        return
+        [
+            .. songs
+                .GroupBy(song => song.SongName, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(song => song.SongName, StringComparer.OrdinalIgnoreCase)
+        ];
     }
 
     public bool TryGetSongDescriptorPath(string songName, [MaybeNullWhen(false)] out CookedFile descriptorPath)
@@ -170,5 +184,9 @@ public class JustDanceUbiArtFileSystem : IDisposable
     public void DiscoverAndRegisterIPKs() => _fileSystem.DiscoverAndRegisterIPKs();
     public string ReadWithoutNull(string filePath) => _fileSystem.ReadWithoutNull(filePath);
     public string ReadWithoutNull(CookedFile cookedFile) => _fileSystem.ReadWithoutNull(cookedFile);
-    public void Dispose() => _fileSystem.Dispose();
+    public void Dispose()
+    {
+        _fileSystem.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

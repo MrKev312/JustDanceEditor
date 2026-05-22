@@ -1,7 +1,7 @@
 namespace JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
-internal sealed class LegacyBinaryFieldAttribute(int order) : Attribute
+internal sealed class LegacyBinaryPaddingAttribute(int length) : Attribute
 {
-    public int Order { get; } = order;
+    public int Length { get; } = length;
 }

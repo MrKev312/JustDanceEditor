@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
 using KevInc.UbiArt.FileSystem;
 
@@ -14,11 +15,12 @@ public class IFileSystemTests
 {
 
     [Theory]
-    [InlineData("wiiu", UbiArtPlatform.WiiU)]
+    [InlineData("wiiu", UbiArtPlatform.Cafe)]
     [InlineData("nx", UbiArtPlatform.NX)]
-    [InlineData("pc", UbiArtPlatform.PC)]
-    [InlineData("x360", UbiArtPlatform.X360)]
+    [InlineData("pc", UbiArtPlatform.Win32)]
+    [InlineData("x360", UbiArtPlatform.Xenon)]
     [InlineData("durango", UbiArtPlatform.Durango)]
+    [InlineData("orbis", UbiArtPlatform.Orbis)]
     public void EngineDetector_Detects_Cooked_JD2015_Platforms(string platformFolder, UbiArtPlatform expectedPlatform)
     {
         Mock<IUbiArtFileSystem> mockFs = new();
@@ -28,6 +30,7 @@ public class IFileSystemTests
 
         mockFs.Setup(m => m.Combine(It.IsAny<string[]>())).Returns((string[] parts) => Path.Combine(parts));
         mockFs.Setup(m => m.DirectoryExists(cookedRoot)).Returns(true);
+        mockFs.Setup(m => m.DirectoryExists(Path.Combine(cookedRoot, platformFolder, "world", "jd2015"))).Returns(true);
         mockFs.Setup(m => m.GetDirectories(It.IsAny<string>())).Returns<string>(path =>
         {
             if (path == cookedRoot)
@@ -46,5 +49,6 @@ public class IFileSystemTests
 
         Assert.Equal(expectedPlatform, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2015, profile.EngineVersion);
+        Assert.IsType<JD2015LayoutResolver>(profile.Layout);
     }
 }

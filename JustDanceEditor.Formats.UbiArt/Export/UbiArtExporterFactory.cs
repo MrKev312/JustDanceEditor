@@ -12,15 +12,16 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
     {
         return platform switch
         {
-            UbiArtPlatform.NX => new NxCookedPlatformExporter(),
-            UbiArtPlatform.PC => new PcCookedPlatformExporter(),
-            UbiArtPlatform.Wii => new WiiCookedPlatformExporter(),
-            UbiArtPlatform.WiiU => new WiiUCookedPlatformExporter(),
-            UbiArtPlatform.PS3 => new Ps3CookedPlatformExporter(),
-            UbiArtPlatform.X360 => new X360CookedPlatformExporter(),
-            UbiArtPlatform.Durango => new DurangoCookedPlatformExporter(),
             UbiArtPlatform.Uncooked => new UncookedPlatformExporter(),
-            _ => throw new NotImplementedException($"Platform {platform} is not yet supported.")
+            UbiArtPlatform.Revolution => new WiiCookedPlatformExporter(),
+            UbiArtPlatform.Cafe => new WiiUCookedPlatformExporter(),
+            UbiArtPlatform.NX => new NxCookedPlatformExporter(),
+            UbiArtPlatform.Win32 => new PcCookedPlatformExporter(),
+            UbiArtPlatform.Cell => new Ps3CookedPlatformExporter(),
+            UbiArtPlatform.Xenon => new X360CookedPlatformExporter(),
+            UbiArtPlatform.Durango => new DurangoCookedPlatformExporter(),
+            UbiArtPlatform.Orbis => new OrbisCookedPlatformExporter(),
+            _ => throw new NotSupportedException($"Platform {platform} is not supported.")
         };
     }
 
@@ -32,8 +33,14 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
             return new UncookedEngineContentGenerator(version);
         }
 
-        // Wii and Xbox 360 cooked builds use legacy binary engine resources for these engine versions.
-        if (platform is (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360) && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
+        // JD2014/JD2015 cooked builds use binary engine resources on every cooked platform.
+        if (platform != UbiArtPlatform.Uncooked && version is UbiArtEngineVersion.JD2014 or UbiArtEngineVersion.JD2015)
+        {
+            return new LegacyEngineContentGenerator(version, platform);
+        }
+
+        // Wii, PS3 and Xbox 360 kept using legacy binary engine resources through the later old-engine titles.
+        if (platform is UbiArtPlatform.Revolution or UbiArtPlatform.Cell or UbiArtPlatform.Xenon && version is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020)
         {
             return new LegacyEngineContentGenerator(version, platform);
         }

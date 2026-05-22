@@ -55,8 +55,21 @@ public class NxCookedPlatformExporter : IPlatformExporter
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
+        XTX.XTXImageFormat format = UbiArtPlatformExportRules.ShouldUseAlphaTexture(relativePath, image)
+            ? XTX.XTXImageFormat.DXT5
+            : XTX.XTXImageFormat.DXT1;
+
+        ushort? wrapperWidth = UbiArtPlatformExportRules.UsesLogicalOnlineCoverDimensions(relativePath) ? (ushort)1024 : null;
+        ushort? wrapperHeight = UbiArtPlatformExportRules.UsesLogicalOnlineCoverDimensions(relativePath) ? (ushort)1024 : null;
+
         using FileStream fs = File.Create(fullPath);
-        UbiArtTextureEncoder.EncodeNxXtx(image, XTX.XTXImageFormat.DXT5, fs);
+        UbiArtTextureEncoder.EncodeNxXtx(
+            image,
+            format,
+            fs,
+            wrapperWidth,
+            wrapperHeight,
+            UbiArtPlatformExportRules.GetNxSamplerFlags(relativePath));
         return Task.CompletedTask;
     }
 
@@ -71,7 +84,7 @@ public class NxCookedPlatformExporter : IPlatformExporter
             {
                 using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
                     ? new OpusWaveStream(sourcePath)
-                    : new AudioFileReader(sourcePath);
+                    : new WaveFileReader(sourcePath);
 
                 using FileStream output = File.Create(destPath);
 
@@ -90,6 +103,4 @@ public class NxCookedPlatformExporter : IPlatformExporter
             File.Copy(sourcePath, destPath, true);
         }
     }
-
 }
-

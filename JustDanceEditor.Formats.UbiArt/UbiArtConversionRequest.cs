@@ -32,6 +32,7 @@ public enum CookedType
 /// <param name="songName">Optional song name to select when multiple songs are present.</param>
 public class UbiArtConversionRequest(string inputPath, string outputPath, string? songName = null) : ConversionRequestBase(inputPath, outputPath)
 {
+    internal string TempSessionId { get; } = Guid.NewGuid().ToString("N");
 
     /// <summary>
     /// Song name to disambiguate when the input contains multiple maps.
@@ -69,4 +70,9 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     /// Receives an array of available song names and should return the selected name, or null to cancel.
     /// </summary>
     public Func<string[], Task<string?>>? SelectSongAsync { get; set; }
+
+    /// <summary>
+    /// Optional import-only cap for diagnostic legacy cinematic renders.
+    /// </summary>
+    public int? LegacyCinematicFrameLimit { get; set; }
 }

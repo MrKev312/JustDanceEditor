@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 
 namespace JustDanceEditor.Formats.UbiArt.Export;
@@ -9,5 +10,6 @@ namespace JustDanceEditor.Formats.UbiArt.Export;
 public record ExportContext(
     string OutputFolder,
     IUbiArtLayout Layout,
-    IFileSystem IO
+    IFileSystem IO,
+    UbiArtEngineVersion EngineVersion = UbiArtEngineVersion.Unknown
 );

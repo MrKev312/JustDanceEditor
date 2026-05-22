@@ -55,10 +55,11 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
-        bool hasAlpha = HasTransparency(image);
         bool isPicto = relativePath.Contains("/pictos/") || relativePath.Contains("\\pictos\\");
 
-        DDS.DDSFormat format = hasAlpha ? DDS.DDSFormat.DXT5 : DDS.DDSFormat.DXT1;
+        DDS.DDSFormat format = UbiArtPlatformExportRules.ShouldUseAlphaTexture(relativePath, image)
+            ? DDS.DDSFormat.DXT5
+            : DDS.DDSFormat.DXT1;
 
         int newWidth = (image.Width + 3) & ~3;
         int newHeight = (image.Height + 3) & ~3;
@@ -81,7 +82,7 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
             {
                 using WaveStream waveStream = Path.GetExtension(sourcePath).Equals(".opus", StringComparison.OrdinalIgnoreCase)
                     ? new OpusWaveStream(sourcePath)
-                    : new AudioFileReader(sourcePath);
+                    : new WaveFileReader(sourcePath);
 
                 using FileStream output = File.Create(destPath);
                 RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Dura", type: "pcm ");
@@ -93,29 +94,4 @@ public class DurangoCookedPlatformExporter : IPlatformExporter
         }
     }
 
-    private static bool HasTransparency(Image<Bgra32> image)
-    {
-        bool hasAlpha = false;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                if (hasAlpha)
-                    break;
-
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    if (row[x].A < 255)
-                    {
-                        hasAlpha = true;
-                        break;
-                    }
-                }
-            }
-        });
-
-        return hasAlpha;
-    }
 }
-

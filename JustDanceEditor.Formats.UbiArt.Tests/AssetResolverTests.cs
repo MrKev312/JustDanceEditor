@@ -18,8 +18,8 @@ public class AssetResolverTests
     [Fact]
     public void Should_Resolve_PictosFolder_For_JD2015_Cooked_vs_Uncooked()
     {
-        UbiArtLayoutResolver resolver = new();
-        string cookedMap = resolver.GetMapWorldFolder("/in", "song", UbiArtPlatform.WiiU, UbiArtEngineVersion.JD2015);
+        JD2015LayoutResolver resolver = new();
+        string cookedMap = resolver.GetMapWorldFolder("/in", "song", UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2015);
         string uncookedMap = resolver.GetMapWorldFolder("/in", "song", UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015);
 
         Assert.Equal(Path.Combine("world", "jd2015", "song"), cookedMap);

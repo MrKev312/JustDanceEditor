@@ -6,6 +6,7 @@ using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
+using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 using KevInc.UbiArt.FileSystem;
 
@@ -31,8 +32,8 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class LegacyEngineContentGeneratorTests
 {
     [Theory]
-    [InlineData(UbiArtPlatform.Wii)]
-    [InlineData(UbiArtPlatform.X360)]
+    [InlineData(UbiArtPlatform.Revolution)]
+    [InlineData(UbiArtPlatform.Xenon)]
     public void Factory_UsesLegacyGenerator_For_JD2019_WiiStylePlatforms(UbiArtPlatform platform)
     {
         UbiArtExporterFactory factory = new();
@@ -42,6 +43,163 @@ public class LegacyEngineContentGeneratorTests
         Assert.IsType<LegacyEngineContentGenerator>(generator);
     }
 
+    [Theory]
+    [InlineData(UbiArtEngineVersion.JD2014, UbiArtPlatform.Cafe)]
+    [InlineData(UbiArtEngineVersion.JD2014, UbiArtPlatform.Xenon)]
+    [InlineData(UbiArtEngineVersion.JD2015, UbiArtPlatform.Revolution)]
+    [InlineData(UbiArtEngineVersion.JD2015, UbiArtPlatform.Cell)]
+    [InlineData(UbiArtEngineVersion.JD2015, UbiArtPlatform.Cafe)]
+    [InlineData(UbiArtEngineVersion.JD2015, UbiArtPlatform.Xenon)]
+    [InlineData(UbiArtEngineVersion.JD2015, UbiArtPlatform.Orbis)]
+    public void Factory_UsesLegacyGenerator_For_JD2014AndJD2015_CookedPlatforms(UbiArtEngineVersion version, UbiArtPlatform platform)
+    {
+        UbiArtExporterFactory factory = new();
+
+        IEngineContentGenerator generator = factory.GetEngineContentGenerator(version, platform);
+
+        Assert.IsType<LegacyEngineContentGenerator>(generator);
+    }
+
+    [Fact]
+    public void LegacyJD2015_GeneratesVersionedMapAndCommonPaths()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2015, UbiArtPlatform.Cafe);
+
+        string musicTrack = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMusicTrack(package)));
+        string danceTape = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package)));
+        string mainSequenceTape = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMainSequenceTape(package)));
+        string videoScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateVideoScene("TestMap")));
+        string menuArtActor = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMenuArtActor("testmap_cover_generic", "TestMap")));
+
+        Assert.Contains("testmap.wav", musicTrack);
+        Assert.Contains("world/jd2015/testmap/audio/", musicTrack);
+        Assert.Contains("move_a.msm", danceTape);
+        Assert.Contains("world/jd2015/testmap/timeline/moves/", danceTape);
+        Assert.Contains("picto_a.png", danceTape);
+        Assert.Contains("world/jd2015/testmap/timeline/pictos/", danceTape);
+        Assert.Contains("amb_testmap_intro.tpl", mainSequenceTape);
+        Assert.Contains("world/jd2015/testmap/audio/amb/", mainSequenceTape);
+        Assert.Contains("world/jd2015/_common/videoscreen/", videoScene);
+        Assert.Contains("testmap.webm", videoScene);
+        Assert.Contains("world/jd2015/testmap/videoscoach/", videoScene);
+        Assert.Contains("world/jd2015/_common/matshader/", menuArtActor);
+        Assert.Contains("testmap_cover_generic.tga", menuArtActor);
+        Assert.Contains("world/jd2015/testmap/menuart/textures/", menuArtActor);
+        Assert.DoesNotContain("world/maps/testmap", musicTrack + danceTape + mainSequenceTape + videoScene + menuArtActor);
+        Assert.DoesNotContain("world/_common", videoScene + menuArtActor);
+    }
+
+    [Fact]
+    public void LegacyJD2014_GeneratesJd5MapAndCommonPaths()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2014, UbiArtPlatform.Cafe);
+
+        string musicTrack = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMusicTrack(package)));
+        string danceTape = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package)));
+        string videoScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateVideoScene("TestMap")));
+        string mainScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMainScene(package)));
+        string audioScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateAudioScene(package)));
+
+        Assert.Contains("testmap.wav", musicTrack);
+        Assert.Contains("world/jd5/testmap/audio/", musicTrack);
+        Assert.Contains("move_a.msm", danceTape);
+        Assert.Contains("world/jd5/testmap/timeline/moves/", danceTape);
+        Assert.Contains("picto_a.png", danceTape);
+        Assert.Contains("world/jd5/testmap/timeline/pictos/", danceTape);
+        Assert.Contains("world/jd5/_common/videoscreen/", videoScene);
+        Assert.Contains("testmap.webm", videoScene);
+        Assert.Contains("world/jd5/testmap/videoscoach/", videoScene);
+        Assert.Contains("songdesc.tpl", mainScene);
+        Assert.Contains("world/jd5/testmap/", mainScene);
+        Assert.DoesNotContain("legacyconverteddata", mainScene);
+        Assert.DoesNotContain("sequence", audioScene, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("world/maps/testmap", musicTrack + danceTape + videoScene + mainScene);
+        Assert.DoesNotContain("world/_common", videoScene);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesGeneratedJd2014PackedTimeline()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        package.FullBodyCoachTimelines.Add(new MoveTimeline
+        {
+            CoachId = 1,
+            Clips =
+            [
+                new MoveClip { Id = 6, StartTime = 60, MoveId = "gesture_a" }
+            ]
+        });
+        package.FullBodyCoachMoves["gesture_a"] = new CoachMoveDefinition
+        {
+            Duration = 18,
+            MoveType = CoachMoveType.FullBodyTracking
+        };
+
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2014, UbiArtPlatform.Revolution);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateJd2014Timeline(package));
+
+        Assert.Equal(1u, ReadUInt32(bytes, 0));
+        Assert.Equal(0x1B857BCEu, ReadUInt32(bytes, 8));
+        Assert.Equal(0xACu, ReadUInt32(bytes, 12));
+        Assert.Equal(0x109FBC33u, ReadUInt32(bytes, 48));
+
+        LegacyJd2014Timeline timeline = new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2014)
+            .Deserialize<LegacyJd2014Timeline>(new MemoryStream(bytes));
+
+        Assert.Equal("TestMap", timeline.MapName);
+        UbiArtMotionClip handMove = timeline.DanceTape.Clips.OfType<UbiArtMotionClip>().Single(clip => clip.ClassifierPath.EndsWith("move_a.msm", StringComparison.Ordinal));
+        UbiArtMotionClip fullBodyMove = timeline.DanceTape.Clips.OfType<UbiArtMotionClip>().Single(clip => clip.ClassifierPath.EndsWith("gesture_a.gesture", StringComparison.Ordinal));
+        UbiArtPictogramClip pictogram = timeline.DanceTape.Clips.OfType<UbiArtPictogramClip>().Single();
+        UbiArtGoldEffectClip gold = timeline.DanceTape.Clips.OfType<UbiArtGoldEffectClip>().Single();
+        UbiArtKaraokeClip karaoke = timeline.KaraokeTape.Clips.OfType<UbiArtKaraokeClip>().Single();
+
+        Assert.Equal("world/jd5/testmap/timeline/moves/move_a.msm", handMove.ClassifierPath);
+        Assert.Equal(0, handMove.MoveType);
+        Assert.Equal("world/jd5/testmap/timeline/moves/gesture_a.gesture", fullBodyMove.ClassifierPath);
+        Assert.Equal(1, fullBodyMove.MoveType);
+        Assert.Equal("world/jd5/testmap/timeline/pictos/picto_a.tga", pictogram.PictoPath);
+        Assert.Equal(30, gold.StartTime);
+        Assert.Equal(8, gold.Duration);
+        Assert.Equal("Test", karaoke.Lyrics);
+    }
+
+    [Fact]
+    public void LegacyMenuArtScene_UsesCoachCountAndSkipsOnlineCovers()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        package.Metadata.CoachCount = 2;
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2015, UbiArtPlatform.Xenon);
+
+        string menuArtScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMenuArtScene(package)));
+
+        Assert.Contains("TestMap_cover_generic", menuArtScene);
+        Assert.Contains("TestMap_cover_albumcoach", menuArtScene);
+        Assert.Contains("TestMap_cover_albumbkg", menuArtScene);
+        Assert.Contains("TestMap_coach_1", menuArtScene);
+        Assert.Contains("TestMap_coach_2", menuArtScene);
+        Assert.DoesNotContain("cover_online", menuArtScene, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("TestMap_coach_3", menuArtScene);
+        Assert.DoesNotContain("TestMap_coach_4", menuArtScene);
+    }
+
+    [Fact]
+    public void LegacyJD2014MenuArtScene_SkipsGenericCover()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        package.Metadata.CoachCount = 4;
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2014, UbiArtPlatform.Revolution);
+
+        string menuArtScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMenuArtScene(package)));
+
+        Assert.DoesNotContain("TestMap_cover_generic", menuArtScene);
+        Assert.Contains("TestMap_cover_albumcoach", menuArtScene);
+        Assert.Contains("TestMap_cover_albumbkg", menuArtScene);
+        Assert.Contains("TestMap_coach_1", menuArtScene);
+        Assert.Contains("TestMap_coach_4", menuArtScene);
+    }
+
     [Fact]
     public void BinarySerializer_DeserializesLegacySongDesc()
     {
@@ -49,7 +207,8 @@ public class LegacyEngineContentGeneratorTests
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateSongDesc(package));
 
-        SongDesc songDesc = new BinaryUbiArtSerializer().Deserialize<SongDesc>(new MemoryStream(bytes));
+        SongDesc songDesc = (SongDesc)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacySongDesc>(new MemoryStream(bytes));
 
         InfoComponent info = songDesc.Components.Single();
         Assert.Equal("TestMap", info.MapName);
@@ -66,13 +225,64 @@ public class LegacyEngineContentGeneratorTests
     }
 
     [Fact]
+    public void BinarySerializer_DeserializesJd2014SongDesc()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        package.Metadata.OriginalJDVersion = 2014;
+        package.Metadata.CoachCount = 4;
+        package.Metadata.Difficulty = 1;
+
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2014);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateSongDesc(package));
+
+        Assert.Equal(0xACu, ReadUInt32(bytes, 0x0C));
+        Assert.Equal(0x104u, ReadUInt32(bytes, 0x34));
+        Assert.True(ContainsUInt32(bytes, 0x00000005));
+        Assert.Equal(-1, IndexOfAscii(bytes, "Unknown Dancer"));
+
+        SongDesc songDesc = (SongDesc)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2014)
+            .Deserialize<LegacySongDesc>(new MemoryStream(bytes));
+
+        InfoComponent info = songDesc.Components.Single();
+        Assert.Equal("TestMap", info.MapName);
+        Assert.Equal(2014u, info.JDVersion);
+        Assert.Equal(2014u, info.OriginalJDVersion);
+        Assert.Equal("Artist", info.Artist);
+        Assert.Equal("Title", info.Title);
+        Assert.Equal(4, info.NumCoach);
+        Assert.Equal(1u, info.Difficulty);
+        Assert.Equal(1, info.MainCoach);
+        Assert.Equal(0u, info.SweatDifficulty);
+        Assert.Equal(1, info.LocaleID);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesOfficialJd2014SongDescEntryList()
+    {
+        byte[] bytes = CreateOfficialJd2014SongDescWithRelatedAlbumsAndColoredEntries();
+
+        SongDesc songDesc = (SongDesc)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2014)
+            .Deserialize<LegacySongDesc>(new MemoryStream(bytes));
+
+        InfoComponent info = songDesc.Components.Single();
+        Assert.Equal("VsMap", info.MapName);
+        Assert.Equal(2014u, info.JDVersion);
+        Assert.Equal(2014u, info.OriginalJDVersion);
+        Assert.Equal("Artist With Parents", info.Artist);
+        Assert.Equal("Title With Colored Entry", info.Title);
+        Assert.Equal(4, info.NumCoach);
+        Assert.Equal(3u, info.Difficulty);
+    }
+
+    [Fact]
     public void BinarySerializer_DeserializesLegacyMusicTrack()
     {
         IntermediateSongPackage package = CreatePackage();
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateMusicTrack(package));
 
-        MusicTrack musicTrack = new BinaryUbiArtSerializer().Deserialize<MusicTrack>(new MemoryStream(bytes));
+        MusicTrack musicTrack = (MusicTrack)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyMusicTrack>(new MemoryStream(bytes));
 
         Structure structure = musicTrack.Components.Single().TrackData.Structure;
         Assert.Equal(package.TimelineStructure.Markers, structure.Markers);
@@ -92,7 +302,8 @@ public class LegacyEngineContentGeneratorTests
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package));
 
-        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyClipTape>(new MemoryStream(bytes));
 
         UbiArtMotionClip motion = tape.Clips.OfType<UbiArtMotionClip>().Single();
         UbiArtPictogramClip pictogram = tape.Clips.OfType<UbiArtPictogramClip>().Single();
@@ -111,7 +322,8 @@ public class LegacyEngineContentGeneratorTests
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateKaraokeTape(package));
 
-        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyClipTape>(new MemoryStream(bytes));
 
         UbiArtKaraokeClip karaoke = tape.Clips.OfType<UbiArtKaraokeClip>().Single();
         Assert.Equal("Test", karaoke.Lyrics);
@@ -127,7 +339,8 @@ public class LegacyEngineContentGeneratorTests
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateMainSequenceTape(package));
 
-        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyClipTape>(new MemoryStream(bytes));
 
         UbiArtSoundSetClip soundSet = tape.Clips.OfType<UbiArtSoundSetClip>().Single();
         UbiArtHideUserInterfaceClip hideHud = tape.Clips.OfType<UbiArtHideUserInterfaceClip>().Single();
@@ -155,7 +368,8 @@ public class LegacyEngineContentGeneratorTests
             0x00, 0x00, 0x00, 0x04  // Duration
         ];
 
-        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(bytes));
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyClipTape>(new MemoryStream(bytes));
 
         UbiArtVibrationClip clip = Assert.IsType<UbiArtVibrationClip>(Assert.Single(tape.Clips));
         Assert.Equal(123, clip.Id);
@@ -190,7 +404,8 @@ public class LegacyEngineContentGeneratorTests
         WriteUInt32(stream, 0); // Padding
         WriteUInt32(stream, 0); // Padding
 
-        UbiArtClipTape tape = new BinaryUbiArtSerializer().Deserialize<UbiArtClipTape>(new MemoryStream(stream.ToArray()));
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2019)
+            .Deserialize<LegacyClipTape>(new MemoryStream(stream.ToArray()));
 
         UbiArtTapeReferenceClip clip = Assert.IsType<UbiArtTapeReferenceClip>(Assert.Single(tape.Clips));
         Assert.Equal(123, clip.Id);
@@ -395,6 +610,61 @@ public class LegacyEngineContentGeneratorTests
         Assert.Equal(0u, ReadUInt32(bytes, bytes.Length - 4));
     }
 
+    [Theory]
+    [InlineData(UbiArtEngineVersion.JD2017)]
+    [InlineData(UbiArtEngineVersion.JD2018)]
+    [InlineData(UbiArtEngineVersion.JD2019)]
+    [InlineData(UbiArtEngineVersion.JD2020)]
+    [InlineData(UbiArtEngineVersion.JD2021)]
+    [InlineData(UbiArtEngineVersion.JD2022)]
+    public void ModernSceneGenerators_UseCurrentSceneShape(UbiArtEngineVersion version)
+    {
+        const string expectedSceneEngineVersion = "326704";
+        const bool expectPopupAttribute = true;
+        const string expectedEnabledAttribute = "DEFAULTENABLE=\"1\"";
+
+        IntermediateSongPackage package = CreatePackage();
+        ModernEngineContentGenerator generator = new(version);
+
+        string mainScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMainScene(package)));
+        string menuArtScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMenuArtScene(package)));
+
+        Assert.Contains($"ENGINE_VERSION=\"{expectedSceneEngineVersion}\"", mainScene);
+        Assert.Contains($"ENGINE_VERSION=\"{expectedSceneEngineVersion}\"", menuArtScene);
+        Assert.Equal(expectPopupAttribute, mainScene.Contains("isPopup=\"0\""));
+        Assert.Equal(expectPopupAttribute, menuArtScene.Contains("isPopup=\"0\""));
+
+        if (expectedEnabledAttribute.Length == 0)
+        {
+            Assert.DoesNotContain("isEnabled=\"1\"", mainScene);
+            Assert.DoesNotContain("DEFAULTENABLE=\"1\"", mainScene);
+            Assert.DoesNotContain("isEnabled=\"1\"", menuArtScene);
+            Assert.DoesNotContain("DEFAULTENABLE=\"1\"", menuArtScene);
+        }
+        else
+        {
+            Assert.Contains(expectedEnabledAttribute, mainScene);
+            Assert.Contains(expectedEnabledAttribute, menuArtScene);
+        }
+    }
+
+    [Theory]
+    [InlineData(UbiArtEngineVersion.JD2018, true)]
+    [InlineData(UbiArtEngineVersion.JD2019, true)]
+    [InlineData(UbiArtEngineVersion.JD2020, true)]
+    [InlineData(UbiArtEngineVersion.JD2021, true)]
+    [InlineData(UbiArtEngineVersion.JD2022, true)]
+    public void ModernMenuArtScene_UsesMapBackgroundOnlyWhenSupported(UbiArtEngineVersion version, bool expectedMapBackground)
+    {
+        IntermediateSongPackage package = CreatePackage();
+        ModernEngineContentGenerator generator = new(version);
+
+        string menuArtScene = ReadAscii(UbiArtEngineContentSerializer.Serialize(generator.GenerateMenuArtScene(package)));
+
+        Assert.Equal(expectedMapBackground, menuArtScene.Contains("TestMap_map_bkg", StringComparison.Ordinal));
+        Assert.Contains("TestMap_banner_bkg", menuArtScene);
+    }
+
     [Fact]
     public void ModernGenerateMenuArtActor_ReturnsTypedVersionedBinaryActor()
     {
@@ -586,11 +856,93 @@ public class LegacyEngineContentGeneratorTests
         stream.Write(bytes);
     }
 
+    private static void WriteSingle(Stream stream, float value) =>
+        WriteUInt32(stream, unchecked((uint)BitConverter.SingleToInt32Bits(value)));
+
     private static void WriteString(Stream stream, string value)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(value);
         WriteUInt32(stream, (uint)bytes.Length);
         stream.Write(bytes);
+    }
+
+    private static byte[] CreateOfficialJd2014SongDescWithRelatedAlbumsAndColoredEntries()
+    {
+        using MemoryStream stream = new();
+
+        WriteResourceHeader(stream, 0x8AC2B5C6, componentSize: 0x104, baseTypeSize: 0xAC);
+        WriteString(stream, "VsMap");
+        WriteUInt32(stream, 5);
+        WriteUInt32(stream, 2);
+        WriteString(stream, "ParentA");
+        WriteString(stream, "ParentB");
+
+        WriteUInt32(stream, 3);
+        WriteJd2014SongDescEntry(stream, group: 0, value: 0, category: 3, hasColor: false, enabled: true);
+        WriteJd2014SongDescEntry(stream, group: 1, value: 0, category: 2, hasColor: true, enabled: false);
+        WriteJd2014SongDescEntry(stream, group: 2, value: 0, category: 2, hasColor: false, enabled: true);
+
+        WriteString(stream, "Artist With Parents");
+        WriteString(stream, "Title With Colored Entry");
+        WriteUInt32(stream, 4);
+        WriteUInt32(stream, 1);
+        WriteUInt32(stream, 3);
+        WriteSingle(stream, 0.5f);
+        WriteUInt32(stream, 2);
+        WriteUInt32(stream, 0x10);
+        WriteUInt32(stream, 0x6F4037D0);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, 0x10);
+        WriteUInt32(stream, 0xB11FC1B6);
+        WriteUInt32(stream, 1);
+        WriteUInt32(stream, 2);
+        WriteUInt32(stream, 2);
+        WriteUInt32(stream, 0x31D3B347);
+        WriteSingle(stream, 1.0f);
+        WriteSingle(stream, 0.2f);
+        WriteSingle(stream, 0.4f);
+        WriteSingle(stream, 0.6f);
+
+        return stream.ToArray();
+    }
+
+    private static void WriteResourceHeader(Stream stream, uint componentTypeId, uint componentSize, uint baseTypeSize)
+    {
+        WriteUInt32(stream, 1);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, 0x1B857BCE);
+        WriteUInt32(stream, baseTypeSize);
+        for (int i = 0; i < 7; i++)
+            WriteUInt32(stream, 0);
+
+        WriteUInt32(stream, 1);
+        WriteUInt32(stream, componentTypeId);
+        WriteUInt32(stream, componentSize);
+    }
+
+    private static void WriteJd2014SongDescEntry(Stream stream, uint group, uint value, uint category, bool hasColor, bool enabled)
+    {
+        WriteUInt32(stream, 0x9C);
+        WriteUInt32(stream, group);
+        WriteUInt32(stream, value);
+        WriteUInt32(stream, category);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, hasColor ? 1u : 0u);
+        if (hasColor)
+        {
+            WriteUInt32(stream, 0x31D3B347);
+            WriteSingle(stream, 1.0f);
+            WriteSingle(stream, 0.0f);
+            WriteSingle(stream, 1.0f);
+            WriteSingle(stream, 1.0f);
+        }
+
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, uint.MaxValue);
+        WriteUInt32(stream, 0);
+        WriteUInt32(stream, enabled ? 1u : 0u);
     }
 
     private static bool ContainsUInt32(byte[] bytes, uint value)

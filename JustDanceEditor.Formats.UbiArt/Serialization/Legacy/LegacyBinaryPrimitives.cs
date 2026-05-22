@@ -2,6 +2,8 @@ namespace JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 internal readonly record struct LegacyPadding(int Length);
 
+internal readonly record struct LegacyBinaryTypeId<TMarker>;
+
 internal readonly record struct LegacyUbiArtPath(string FileName, string Folder, uint? ResourceId = null)
 {
     public static LegacyUbiArtPath FromFullPath(string fullPath)
@@ -18,11 +20,52 @@ internal readonly record struct LegacyUbiArtPath(string FileName, string Folder,
 
         return new LegacyUbiArtPath(fileName, folder);
     }
+
+    public string FullPath => $"{Folder}{FileName}";
+}
+
+internal readonly record struct LegacyUbiArtFolderFirstPath(string Folder, string FileName, uint? ResourceId = null)
+{
+    public string FullPath => $"{Folder}{FileName}";
+}
+
+internal readonly record struct LegacyUbiArtFlexiblePath(string First, string Second, uint? ResourceId = null)
+{
+    public string FullPath => LegacyUbiArtPathOrder.Resolve(First, Second);
+}
+
+internal static class LegacyUbiArtPathOrder
+{
+    public static string Resolve(string first, string second)
+    {
+        if (string.IsNullOrEmpty(first))
+            return second;
+
+        if (string.IsNullOrEmpty(second))
+            return first;
+
+        if (LooksLikeFolder(first) && !LooksLikeFolder(second))
+            return first + second;
+
+        if (LooksLikeFolder(second) && !LooksLikeFolder(first))
+            return second + first;
+
+        return first + second;
+    }
+
+    private static bool LooksLikeFolder(string value)
+    {
+        string normalized = value.Replace('\\', '/');
+        if (normalized.EndsWith('/'))
+            return true;
+
+        string fileName = Path.GetFileName(normalized);
+        return !string.IsNullOrEmpty(fileName) && !Path.HasExtension(fileName);
+    }
 }
 
 internal sealed class LegacyBinarySequence(IEnumerable<object?> fields)
 {
-    [LegacyBinaryField(0)]
     public IReadOnlyList<object?> Fields { get; } = [.. fields];
 }
 

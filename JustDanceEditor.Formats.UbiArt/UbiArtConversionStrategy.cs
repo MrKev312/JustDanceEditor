@@ -1,9 +1,12 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using KevInc.UbiArt.FileSystem;
+
+using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt;
 
@@ -26,6 +29,11 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
     public ConversionRequestBase CreateImportRequest(ConversionRequestContext context)
     {
         UbiArtConversionRequest request = new(context.InputPath, context.OutputPath, context.SongName);
+        if (context.Answers?.TryGetString("ubiart.legacyCinematicFrameLimit", out string? frameLimitText) == true &&
+            int.TryParse(frameLimitText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frameLimit))
+        {
+            request.LegacyCinematicFrameLimit = frameLimit;
+        }
 
         if (context.Interaction is not null)
         {
@@ -83,25 +91,28 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
             UbiArtEngineVersion.JD2022,
             CookedType.Uncooked);
 
-        yield return CreateVersionedTarget("pc-2017", "pc", "PC", UbiArtPlatform.PC, UbiArtEngineVersion.JD2017, 2017);
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020 })
+            yield return CreateVersionedTarget($"wii-{year}", "wii", "Revolution (Wii)", UbiArtPlatform.Revolution, ToEngineVersion(year), year);
+
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
+            yield return CreateVersionedTarget($"wiiu-{year}", "wiiu", "Cafe (Wii U)", UbiArtPlatform.Cafe, ToEngineVersion(year), year);
 
         foreach (int year in new[] { 2017, 2018, 2019, 2020, 2021, 2022 })
-            yield return CreateVersionedTarget($"nx-{year}", "switch", "Switch", UbiArtPlatform.NX, ToEngineVersion(year), year);
+            yield return CreateVersionedTarget($"nx-{year}", "switch", "NX (Nintendo Switch)", UbiArtPlatform.NX, ToEngineVersion(year), year);
 
-        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
-            yield return CreateVersionedTarget($"wiiu-{year}", "wiiu", "WiiU", UbiArtPlatform.WiiU, ToEngineVersion(year), year);
-
-        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
-            yield return CreateVersionedTarget($"x360-{year}", "xbox-360", "Xbox 360", UbiArtPlatform.X360, ToEngineVersion(year), year);
+        yield return CreateVersionedTarget("pc-2017", "pc", "Win32 (PC)", UbiArtPlatform.Win32, UbiArtEngineVersion.JD2017, 2017);
 
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018 })
-            yield return CreateVersionedTarget($"ps3-{year}", "ps3", "PlayStation 3", UbiArtPlatform.PS3, ToEngineVersion(year), year);
+            yield return CreateVersionedTarget($"ps3-{year}", "ps3", "Cell (PlayStation 3)", UbiArtPlatform.Cell, ToEngineVersion(year), year);
+
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019 })
+            yield return CreateVersionedTarget($"x360-{year}", "xbox-360", "Xenon (Xbox 360)", UbiArtPlatform.Xenon, ToEngineVersion(year), year);
 
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022 })
-            yield return CreateVersionedTarget($"durango-{year}", "xbox-one", "Xbox One", UbiArtPlatform.Durango, ToEngineVersion(year), year);
+            yield return CreateVersionedTarget($"durango-{year}", "xbox-one", "Durango (Xbox One)", UbiArtPlatform.Durango, ToEngineVersion(year), year);
 
-        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020 })
-            yield return CreateVersionedTarget($"wii-{year}", "wii", "Wii", UbiArtPlatform.Wii, ToEngineVersion(year), year);
+        foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022 })
+            yield return CreateVersionedTarget($"ps4-{year}", "ps4", "Orbis (PlayStation 4)", UbiArtPlatform.Orbis, ToEngineVersion(year), year);
     }
 
     private static UbiArtTargetDefinition CreateVersionedTarget(string targetCode, string platformCode, string platformName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion, int year)
@@ -124,10 +135,11 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
 
     private static ConversionSupportStatus GetSupportStatus(UbiArtPlatform platform) => platform switch
     {
-        UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.PS3 => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Revolution => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Cell => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Xenon => ConversionSupportStatus.Experimental,
         UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
+        UbiArtPlatform.Orbis => ConversionSupportStatus.KnownPartial,
         _ => ConversionSupportStatus.Stable
     };
 

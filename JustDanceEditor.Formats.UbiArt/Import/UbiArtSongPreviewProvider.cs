@@ -96,6 +96,8 @@ public sealed class UbiArtSongPreviewProvider(
         Directory.CreateDirectory(packageRoot);
         IntermediatePackageSerializer.WriteToFolder(package, packageRoot);
         TryWriteCoverAssets(fileSystem, packageRoot, info.MapName, cancellationToken);
+        TryWriteBackgroundAssets(fileSystem, packageRoot, info.MapName, cancellationToken);
+        TryWriteAlbumCoachAsset(fileSystem, packageRoot, info.MapName, cancellationToken);
 
         return Task.FromResult(new SongPreviewResult(
             package,
@@ -167,6 +169,39 @@ public sealed class UbiArtSongPreviewProvider(
 
     private void TryWriteImage(JustDanceUbiArtFileSystem fileSystem, CookedFile file, string destination, bool square, CancellationToken cancellationToken)
     {
+        TryWriteImage(fileSystem, file, destination, square ? PreviewImageKind.SquareCover : PreviewImageKind.WideCover, cancellationToken);
+    }
+
+    private void TryWriteBackgroundAssets(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
+    {
+        string backgroundsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.BackgroundsFolder);
+        Directory.CreateDirectory(backgroundsFolder);
+
+        string mapBackgroundDestination = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile);
+        CookedFile? mapBackground = fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_map_bkg.*").FirstOrDefault();
+        if (mapBackground is not null)
+        {
+            TryWriteImage(fileSystem, mapBackground, mapBackgroundDestination, PreviewImageKind.Raw, cancellationToken);
+            if (File.Exists(mapBackgroundDestination))
+                return;
+        }
+
+        CookedFile? banner = fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_banner_bkg.*").FirstOrDefault();
+        if (banner is not null)
+            TryWriteImage(fileSystem, banner, IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.BannerFile), PreviewImageKind.Raw, cancellationToken);
+    }
+
+    private void TryWriteAlbumCoachAsset(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
+    {
+        CookedFile? albumCoach = fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_cover_albumcoach.*").FirstOrDefault();
+        if (albumCoach is null)
+            return;
+
+        TryWriteImage(fileSystem, albumCoach, IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.AlbumCoachFile), PreviewImageKind.Raw, cancellationToken);
+    }
+
+    private void TryWriteImage(JustDanceUbiArtFileSystem fileSystem, CookedFile file, string destination, PreviewImageKind kind, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -176,7 +211,7 @@ public sealed class UbiArtSongPreviewProvider(
             if (image is null)
                 return;
 
-            if (square)
+            if (kind == PreviewImageKind.SquareCover)
             {
                 image.Mutate(context => context.Resize(new ResizeOptions
                 {
@@ -184,7 +219,7 @@ public sealed class UbiArtSongPreviewProvider(
                     Mode = ResizeMode.Crop
                 }));
             }
-            else
+            else if (kind == PreviewImageKind.WideCover)
             {
                 if (image.Width < image.Height * 1.25)
                     return;
@@ -203,6 +238,13 @@ public sealed class UbiArtSongPreviewProvider(
         {
             _logger.LogDebug(ex, "Failed to load preview image from {ImagePath}", file.RelativePath);
         }
+    }
+
+    private enum PreviewImageKind
+    {
+        SquareCover,
+        WideCover,
+        Raw
     }
 
     private static string ConvertColor(float[] rgba)

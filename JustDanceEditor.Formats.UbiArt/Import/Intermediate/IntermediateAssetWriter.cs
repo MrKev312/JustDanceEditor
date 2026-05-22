@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
+using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Model;
 
@@ -16,6 +17,7 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
@@ -23,7 +25,6 @@ namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 internal static class IntermediateAssetWriter
 {
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
-
     public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, ITextureService textureService, IAudioConverter audioConverter, IFileSystem? io = null)
     {
         IFileSystem iofs = io ?? new SystemFileSystem();
@@ -50,7 +51,7 @@ internal static class IntermediateAssetWriter
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
         }, audioConverter, logger);
-        Task videoTask = Task.Run(() => CopyMasterVideo(context.FileSystem, videoFolder, logger, iofs));
+        Task videoTask = CopyMasterVideoAsync(context.FileSystem, package, videoFolder, logger, textureService, iofs);
 
         await Task.WhenAll(pictoTask, audioTask, videoTask);
 
@@ -109,7 +110,7 @@ internal static class IntermediateAssetWriter
     {
         logger.LogDebug("Attempting to export cover image from menu art folder: {MenuArtFolder}", context.FileSystem.InputFolders.MenuArtFolder);
 
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
 
         // Look for existing cover art in MenuArt folder
         CookedFile? cover = context.FileSystem.AssetResolver?.GetCoverArt();
@@ -151,7 +152,7 @@ internal static class IntermediateAssetWriter
 
     private static void ExportSquareCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
 
         // Try to find square cover in MenuArt (prefer cover_generic as it's the highest resolution)
         CookedFile? squareCover = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_generic.*")
@@ -185,7 +186,7 @@ internal static class IntermediateAssetWriter
 
     private static void ExportAlbumCoachImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
 
         // Try to find album coach in MenuArt
         CookedFile? albumCoach = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
@@ -215,7 +216,7 @@ internal static class IntermediateAssetWriter
 
     private static void ExportBannerImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
 
         // Try to find banner in MenuArt
         CookedFile? banner = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_banner_bkg.*")
@@ -245,7 +246,7 @@ internal static class IntermediateAssetWriter
 
     private static void ExportMapBackgroundImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentNullException(nameof(context.SongData));
+        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
 
         // Try to find map background in MenuArt
         CookedFile? mapBkg = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_map_bkg.*")
@@ -395,9 +396,11 @@ internal static class IntermediateAssetWriter
         io.CreateDirectory(assetsRoot);
     }
 
-    private static void CopyMasterVideo(JustDanceUbiArtFileSystem fileSystem, string destinationFolder, ILogger logger, IFileSystem io)
+    private static async Task CopyMasterVideoAsync(JustDanceUbiArtFileSystem fileSystem, IntermediateSongPackage package, string destinationFolder, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(package);
+        ArgumentNullException.ThrowIfNull(textureService);
 
         CookedFile? sourceFile = GetVideoFile(fileSystem, io);
         if (sourceFile == null)
@@ -408,18 +411,207 @@ internal static class IntermediateAssetWriter
 
         io.CreateDirectory(destinationFolder);
         string destination = io.Combine(destinationFolder, Path.GetFileName(sourceFile.RelativePath));
+        string? tempSource = null;
         try
         {
-            using Stream src = fileSystem.GetFileStream(sourceFile);
-            using FileStream dest = File.Open(destination, FileMode.Create, FileAccess.Write);
-            src.CopyTo(dest);
+            LegacyCutoutVideoLayout? cutoutLayout = null;
+
+            if (ShouldInspectForLegacyCutout(fileSystem))
+            {
+                tempSource = await MaterializeCookedFileAsync(fileSystem, sourceFile, io);
+                cutoutLayout = await TryGetLegacyCutoutLayoutAsync(fileSystem, sourceFile, tempSource, logger);
+            }
+
+            if (cutoutLayout != null && tempSource != null)
+            {
+                string tempFolder = Path.GetDirectoryName(tempSource) ?? fileSystem.TempFolders.MapFolder;
+                double outputDurationSeconds = GetDebugLimitedLegacyVideoDurationSeconds(
+                    GetMasterVideoDurationSeconds(package, cutoutLayout.Value.DurationSeconds),
+                    logger);
+
+                await LegacyCinematicVisualRenderer.RenderCutoutVideoAsync(
+                    fileSystem,
+                    tempFolder,
+                    tempSource,
+                    destination,
+                    outputDurationSeconds,
+                    package.TimelineStructure,
+                    cutoutLayout.Value.Width,
+                    cutoutLayout.Value.VisibleHeight,
+                    cutoutLayout.Value.AlphaHeight,
+                    cutoutLayout.Value.OutputWidth,
+                    cutoutLayout.Value.OutputHeight,
+                    fileSystem.ConversionRequest.LegacyCinematicFrameLimit,
+                    textureService,
+                    logger,
+                    io);
+
+                logger.LogInformation("Imported legacy cutout video into intermediate package with unified cinematic renderer.");
+                return;
+            }
+
+            await CopyCookedFileAsync(fileSystem, sourceFile, destination);
             logger.LogInformation("Copied master video into intermediate package without conversion.");
         }
         catch (FileNotFoundException)
         {
             logger.LogWarning("Video file not found, skipping.");
         }
+        finally
+        {
+            TryDeleteFile(tempSource, io);
+        }
     }
+
+    private static bool ShouldInspectForLegacyCutout(JustDanceUbiArtFileSystem fileSystem) =>
+        fileSystem.VersionProfile.EngineVersion is UbiArtEngineVersion.JD2014 or UbiArtEngineVersion.JD2015;
+
+    private static double GetMasterVideoDurationSeconds(IntermediateSongPackage package, double fallbackDurationSeconds)
+    {
+        try
+        {
+            double endBeatIndex = package.TimelineStructure.GetIndexFromBeatLabel(package.TimelineStructure.EndBeat);
+            double durationSeconds = package.TimelineStructure.GetSecondsAtBeat(endBeatIndex);
+            if (durationSeconds > 0)
+                return durationSeconds;
+        }
+        catch (Exception ex) when (ex is ArgumentOutOfRangeException or NotSupportedException)
+        {
+        }
+
+        return fallbackDurationSeconds;
+    }
+
+    private static double GetDebugLimitedLegacyVideoDurationSeconds(double durationSeconds, ILogger logger) =>
+        durationSeconds;
+
+    private static async Task<string> MaterializeCookedFileAsync(JustDanceUbiArtFileSystem fileSystem, CookedFile sourceFile, IFileSystem io)
+    {
+        string tempFolder = io.Combine(fileSystem.TempFolders.MapFolder, "video");
+        io.CreateDirectory(tempFolder);
+
+        string extension = Path.GetExtension(sourceFile.RelativePath);
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = ".webm";
+
+        string tempPath = io.Combine(tempFolder, $"source_{Guid.NewGuid():N}{extension}");
+
+        await using Stream src = fileSystem.GetFileStream(sourceFile);
+        await using FileStream dest = File.Open(tempPath, FileMode.Create, FileAccess.Write);
+        await src.CopyToAsync(dest);
+
+        return tempPath;
+    }
+
+    private static async Task CopyCookedFileAsync(JustDanceUbiArtFileSystem fileSystem, CookedFile sourceFile, string destination)
+    {
+        await using Stream src = fileSystem.GetFileStream(sourceFile);
+        await using FileStream dest = File.Open(destination, FileMode.Create, FileAccess.Write);
+        await src.CopyToAsync(dest);
+    }
+
+    private static async Task<LegacyCutoutVideoLayout?> TryGetLegacyCutoutLayoutAsync(JustDanceUbiArtFileSystem fileSystem, CookedFile sourceFile, string sourcePath, ILogger logger)
+    {
+        try
+        {
+            IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourcePath);
+            IVideoStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+            if (videoStream == null)
+                return null;
+
+            int width = videoStream.Width;
+            int height = videoStream.Height;
+            if (width <= 0 || height <= 0 || height % 3 != 0)
+                return null;
+
+            int visibleHeight = height * 2 / 3;
+            int alphaHeight = height - visibleHeight;
+            if (visibleHeight <= 0 || alphaHeight <= 0)
+                return null;
+
+            bool stretchTo16By9 = fileSystem.VersionProfile.Platform is UbiArtPlatform.Revolution or UbiArtPlatform.Cafe;
+            if (!HasLegacyStackedAlphaLayout(width, visibleHeight, stretchTo16By9))
+                return null;
+
+            int outputHeight = visibleHeight;
+            int outputWidth = stretchTo16By9 ? RoundToEven((int)Math.Round(outputHeight * 16.0 / 9.0, MidpointRounding.AwayFromZero)) : width;
+            if (outputWidth <= 0)
+                outputWidth = width;
+
+            logger.LogInformation(
+                "Detected JD{EngineVersion} stacked alpha video '{Video}' ({Width}x{Height}); importing visible {VisibleWidth}x{VisibleHeight} frame as {OutputWidth}x{OutputHeight}.",
+                (int)fileSystem.VersionProfile.EngineVersion,
+                Path.GetFileName(sourceFile.RelativePath),
+                width,
+                height,
+                width,
+                visibleHeight,
+                outputWidth,
+                outputHeight);
+
+            return new LegacyCutoutVideoLayout(width, height, visibleHeight, alphaHeight, outputWidth, outputHeight, mediaInfo.Duration.TotalSeconds);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not inspect legacy video '{Video}' for stacked alpha layout.", sourceFile.RelativePath);
+            return null;
+        }
+    }
+
+    private static bool HasLegacyStackedAlphaLayout(int width, int visibleHeight, bool stretchedOnImport)
+    {
+        if (width <= 0 || visibleHeight <= 0)
+            return false;
+
+        return stretchedOnImport
+            ? width * 3 == visibleHeight * 4
+            : width * 9 == visibleHeight * 16;
+    }
+
+    private static int RoundToEven(int value)
+    {
+        if (value <= 0)
+            return value;
+
+        return value % 2 == 0 ? value : value - 1;
+    }
+
+    private static void TryDeleteFile(string? path, IFileSystem io)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !io.FileExists(path))
+            return;
+
+        try
+        {
+            io.DeleteFile(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void TryDeleteFiles(IEnumerable<string>? paths, IFileSystem io)
+    {
+        if (paths == null)
+            return;
+
+        foreach (string path in paths)
+            TryDeleteFile(path, io);
+    }
+
+    private static void TryDeleteDirectories(IEnumerable<string>? paths, ILogger logger, IFileSystem io)
+    {
+        if (paths == null)
+            return;
+
+        foreach (string path in paths)
+            TryDeleteDirectory(path, logger, io);
+    }
+
+    private readonly record struct LegacyCutoutVideoLayout(int Width, int Height, int VisibleHeight, int AlphaHeight, int OutputWidth, int OutputHeight, double DurationSeconds);
 
     private static CookedFile? GetVideoFile(JustDanceUbiArtFileSystem fileSystem, IFileSystem io)
     {

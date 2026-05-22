@@ -195,6 +195,6 @@ public static class ColorThemeGenerator
         byte gb = (byte)((g + m) * 255);
         byte bb = (byte)((b + m) * 255);
 
-        return Color.FromRgb(rb, gb, bb);
+        return Color.FromPixel(new Rgb24(rb, gb, bb));
     }
 }

@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
+using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 using KevInc.UbiArt.FileSystem;
 
@@ -52,7 +53,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
         if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
         {
-            songData.MusicTrack = fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(musicStream, options);
+            songData.MusicTrack = DeserializeMusicTrack(fileSystem, musicStream, options);
         }
         else
         {
@@ -68,80 +69,112 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 // Use regular serializer for cooked format or when no includeReference
                 using MemoryStream ms = new(Encoding.UTF8.GetBytes(musicTrackContent));
                 songData.MusicTrack = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<MusicTrack>(ms, options)
+                    ? DeserializeMusicTrack(fileSystem, ms, options)
                     : JsonSerializer.Deserialize<MusicTrack>(musicTrackContent, options) ?? throw new JsonException("Failed to deserialize MusicTrack JSON.");
             }
         }
 
+        bool isJd2014BinaryCooked =
+            fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 &&
+            fileSystem.VersionProfile.Platform != UbiArtPlatform.Uncooked &&
+            fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer;
+        bool isLegacyBinaryCooked =
+            fileSystem.VersionProfile.Platform != UbiArtPlatform.Uncooked &&
+            fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer;
+
         _logger.LogInformation("Loading MainSequence");
         string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
         CookedFile mainSeqPath = fileSystem.GetFilePath(mainSeqRelativePath);
-        using Stream mainSeqStream = fileSystem.GetFileStream(mainSeqPath);
-        ClipTape mainSequenceTape = fileSystem.VersionProfile.Serializer != null
-            ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(mainSeqStream, options)
-            : throw new InvalidOperationException("Serializer not configured on FileSystem.");
-        songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
+        try
+        {
+            using Stream mainSeqStream = fileSystem.GetFileStream(mainSeqPath);
+            ClipTape mainSequenceTape = fileSystem.VersionProfile.Serializer != null
+                ? DeserializeClipTape(fileSystem, mainSeqStream, options)
+                : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+            songData.Clips.AddRange(ExpandClips(mainSequenceTape.Clips, fileSystem, options));
+        }
+        catch (Exception ex) when (isLegacyBinaryCooked && ex is InvalidDataException or EndOfStreamException or IOException)
+        {
+            _logger.LogWarning("Skipping legacy MainSequence tape '{Path}' while loading gameplay clips because it contains realtime cinematic clips handled during asset import: {Message}", mainSeqRelativePath, ex.Message);
+        }
 
         _logger.LogInformation("Loading DanceTape");
         string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
         string danceTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.tpl");
+        string jd2014TimelineTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, "timeline.tpl");
+        bool karaokeAlreadyLoaded = false;
 
-        ClipTape danceTape;
-
-        // Prefer file type based on platform rather than file existence heuristics
-        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
+        if (isJd2014BinaryCooked && fileSystem.GetFilePath(jd2014TimelineTplRelativePath, out CookedFile? jd2014TimelineTpl))
         {
-            // In Uncooked layout prefer .tpl first, then fallback to .dtape
-            if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
-            {
-                _logger.LogInformation("Loading DanceTape from .tpl (Uncooked format)");
-                using Stream danceTapeStream = fileSystem.GetFileStream(danceTplPathCooked);
-                danceTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(danceTapeStream, options)
-                    : throw new InvalidOperationException("Serializer not configured on FileSystem.");
-            }
-            else if (fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? danceDtapePathCooked))
-            {
-                _logger.LogInformation("DanceTape .tpl not found, falling back to .dtape");
-                using Stream danceTapeStream = fileSystem.GetFileStream(danceDtapePathCooked);
-                danceTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(danceTapeStream, options)
-                    : throw new InvalidOperationException("Serializer not configured on FileSystem.");
-            }
-            else
-            {
-                throw new FileNotFoundException($"Dance tape not found at {danceTplRelativePath} or {danceTapeRelativePath}");
-            }
+            _logger.LogInformation("Loading JD2014 packed timeline from timeline.tpl");
+            using Stream timelineStream = fileSystem.GetFileStream(jd2014TimelineTpl!);
+            LegacyJd2014Timeline timeline = DeserializeJd2014Timeline(fileSystem, timelineStream);
+            songData.Clips.AddRange(ExpandClips(timeline.DanceTape.Clips, fileSystem, options));
+            songData.Clips.AddRange(ExpandClips(timeline.KaraokeTape.Clips, fileSystem, options));
+            karaokeAlreadyLoaded = true;
         }
         else
         {
-            // In cooked layout prefer .dtape first, then fallback to .tpl
-            if (fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? danceDtapePathCooked))
+            ClipTape danceTape;
+
+            // Prefer file type based on platform rather than file existence heuristics
+            if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
             {
-                using Stream danceTapeStream = fileSystem.GetFileStream(danceDtapePathCooked);
-                danceTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(danceTapeStream, options)
-                    : throw new InvalidOperationException("Serializer not configured on FileSystem.");
-            }
-            else if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
-            {
-                _logger.LogInformation("Dance tape not found as .dtape, trying .tpl");
-                using Stream danceTapeStream = fileSystem.GetFileStream(danceTplPathCooked);
-                danceTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(danceTapeStream, options)
-                    : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+                // In Uncooked layout prefer .tpl first, then fallback to .dtape
+                if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
+                {
+                    _logger.LogInformation("Loading DanceTape from .tpl (Uncooked format)");
+                    using Stream danceTapeStream = fileSystem.GetFileStream(danceTplPathCooked);
+                    danceTape = fileSystem.VersionProfile.Serializer != null
+                        ? DeserializeClipTape(fileSystem, danceTapeStream, options)
+                        : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+                }
+                else if (fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? danceDtapePathCooked))
+                {
+                    _logger.LogInformation("DanceTape .tpl not found, falling back to .dtape");
+                    using Stream danceTapeStream = fileSystem.GetFileStream(danceDtapePathCooked);
+                    danceTape = fileSystem.VersionProfile.Serializer != null
+                        ? DeserializeClipTape(fileSystem, danceTapeStream, options)
+                        : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+                }
+                else
+                {
+                    throw new FileNotFoundException($"Dance tape not found at {danceTplRelativePath} or {danceTapeRelativePath}");
+                }
             }
             else
             {
-                throw new FileNotFoundException($"Dance tape not found at {danceTapeRelativePath} or alternate .tpl location");
+                // In cooked layout prefer .dtape first, then fallback to .tpl
+                if (fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? danceDtapePathCooked))
+                {
+                    using Stream danceTapeStream = fileSystem.GetFileStream(danceDtapePathCooked);
+                    danceTape = fileSystem.VersionProfile.Serializer != null
+                        ? DeserializeClipTape(fileSystem, danceTapeStream, options)
+                        : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+                }
+                else if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
+                {
+                    _logger.LogInformation("Dance tape not found as .dtape, trying .tpl");
+                    using Stream danceTapeStream = fileSystem.GetFileStream(danceTplPathCooked);
+                    danceTape = fileSystem.VersionProfile.Serializer != null
+                        ? DeserializeClipTape(fileSystem, danceTapeStream, options)
+                        : throw new InvalidOperationException("Serializer not configured on FileSystem.");
+                }
+                else
+                {
+                    throw new FileNotFoundException($"Dance tape not found at {danceTapeRelativePath} or alternate .tpl location");
+                }
             }
-        }
 
-        songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
+            songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
+        }
 
         string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
         string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.ktape");
         string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.tpl");
+
+        if (karaokeAlreadyLoaded)
+            return songData;
 
         // Select strategy based on platform
         if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
@@ -152,7 +185,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 _logger.LogInformation("Loading KaraokeTape from .ktape (Uncooked format)");
                 using Stream karaokeStream = fileSystem.GetFileStream(karaokeKtapeFile);
                 ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
+                    ? DeserializeClipTape(fileSystem, karaokeStream, options)
                     : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
@@ -161,7 +194,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 _logger.LogInformation("Loading KaraokeTape from .tpl (Uncooked format fallback)");
                 using Stream karaokeStream = fileSystem.GetFileStream(karaokeTplFile);
                 ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
-                    ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
+                    ? DeserializeClipTape(fileSystem, karaokeStream, options)
                     : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
             }
@@ -177,9 +210,9 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             {
                 _logger.LogInformation("Loading KaraokeTape from .ktape (legacy binary cooked format)");
                 using Stream karaokeStream = fileSystem.GetFileStream(directKaraokeKtapeFile);
-                ClipTape karaokeTape = fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options);
+                ClipTape karaokeTape = DeserializeClipTape(fileSystem, karaokeStream, options);
                 songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
-                return ApplyDataMapper(songData, fileSystem);
+                return songData;
             }
 
             // Cooked layout: expect an .isc descriptor referencing the karaoke actor/tape
@@ -204,7 +237,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                         _logger.LogInformation("Loading KaraokeTape from .isc");
                         using Stream karaokeStream = fileSystem.GetFileStream(karaokeTapePathCooked);
                         ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
-                            ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
+                            ? DeserializeClipTape(fileSystem, karaokeStream, options)
                             : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                         songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
                     }
@@ -226,7 +259,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                     _logger.LogInformation("Loading KaraokeTape from .tpl fallback");
                     using Stream karaokeStream = fileSystem.GetFileStream(karaokeTplFile);
                     ClipTape karaokeTape = fileSystem.VersionProfile.Serializer != null
-                        ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(karaokeStream, options)
+                        ? DeserializeClipTape(fileSystem, karaokeStream, options)
                         : JsonSerializer.Deserialize<ClipTape>(new StreamReader(karaokeStream, Encoding.UTF8).ReadToEnd().TrimEnd('\0'), options) ?? throw new JsonException("Failed to deserialize karaoke ClipTape JSON.");
                     songData.Clips.AddRange(ExpandClips(karaokeTape.Clips, fileSystem, options));
                 }
@@ -236,15 +269,6 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 }
             }
         }
-
-        // Apply any data mapper transformations (for future engine-specific fixups)
-        return ApplyDataMapper(songData, fileSystem);
-    }
-
-    private static JDUbiArtSong ApplyDataMapper(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem)
-    {
-        if (fileSystem.VersionProfile.Mapper != null)
-            songData = fileSystem.VersionProfile.Mapper.Map(songData);
 
         return songData;
     }
@@ -265,7 +289,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         {
             using Stream songDescStream = fileSystem.GetFileStream(songDescPathCooked);
             return fileSystem.VersionProfile.Serializer != null
-                ? fileSystem.VersionProfile.Serializer.Deserialize<SongDesc>(songDescStream, options)
+                ? DeserializeSongDesc(fileSystem, songDescStream, options)
                 : throw new InvalidOperationException("Serializer not configured on FileSystem.");
         }
 
@@ -310,6 +334,35 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
         throw new FileNotFoundException("SongDesc not found (songdesc.tpl or jddb.json).");
     }
+
+    private static SongDesc DeserializeSongDesc(
+        JustDanceUbiArtFileSystem fileSystem,
+        Stream stream,
+        JsonSerializerOptions options) =>
+        fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer
+            ? (SongDesc)fileSystem.VersionProfile.Serializer.Deserialize<LegacySongDesc>(stream, options)
+            : fileSystem.VersionProfile.Serializer!.Deserialize<SongDesc>(stream, options);
+
+    private static MusicTrack DeserializeMusicTrack(
+        JustDanceUbiArtFileSystem fileSystem,
+        Stream stream,
+        JsonSerializerOptions options) =>
+        fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer
+            ? (MusicTrack)fileSystem.VersionProfile.Serializer.Deserialize<LegacyMusicTrack>(stream, options)
+            : fileSystem.VersionProfile.Serializer!.Deserialize<MusicTrack>(stream, options);
+
+    private static ClipTape DeserializeClipTape(
+        JustDanceUbiArtFileSystem fileSystem,
+        Stream stream,
+        JsonSerializerOptions options) =>
+        fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer
+            ? (ClipTape)fileSystem.VersionProfile.Serializer.Deserialize<LegacyClipTape>(stream, options)
+            : fileSystem.VersionProfile.Serializer!.Deserialize<ClipTape>(stream, options);
+
+    private static LegacyJd2014Timeline DeserializeJd2014Timeline(
+        JustDanceUbiArtFileSystem fileSystem,
+        Stream stream) =>
+        fileSystem.VersionProfile.Serializer!.Deserialize<LegacyJd2014Timeline>(stream);
 
     private static CookedFile GetMusicTrackPath(string songName, JustDanceUbiArtFileSystem fileSystem)
     {
@@ -396,7 +449,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
             using Stream tapeStream = fileSystem.GetFileStream(tapePath);
             ClipTape tape = fileSystem.VersionProfile.Serializer != null
-                ? fileSystem.VersionProfile.Serializer.Deserialize<ClipTape>(tapeStream, options)
+                ? DeserializeClipTape(fileSystem, tapeStream, options)
                 : throw new InvalidOperationException("Serializer not configured on FileSystem.");
             int offset = parentOffset + reference.StartTime;
             foreach (Clip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))

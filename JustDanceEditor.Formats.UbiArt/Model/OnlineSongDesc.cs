@@ -80,7 +80,7 @@ public class OnlineSongDesc
     }
 }
 
-// TODO: check what stuff is missing as this doesn't seem right. Will have to use real data to verify.
+// Minimal online metadata subset used to seed UbiArt SongDesc fields when a local songdesc is incomplete.
 public class Assets
 {
     [JsonPropertyName("videoPreview_HIGHvp9webm")]

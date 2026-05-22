@@ -165,7 +165,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
         // Build ordered list of extensions to try, including cooked variants if necessary
         List<string> extList = [.. extensions];
-        if (_fileSystem.VersionProfile.Platform == UbiArtPlatform.WiiU)
+        if (_fileSystem.VersionProfile.Platform == UbiArtPlatform.Cafe)
         {
             // For each extension add extension + .ckd as higher priority
             List<string> cookedExts = [];

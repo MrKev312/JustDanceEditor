@@ -1,0 +1,521 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+const int GFX_BLEND_COPY = 1;
+const int GFX_BLEND_ALPHA = 2;
+const int GFX_BLEND_ALPHA_PREMULT = 3;
+const int GFX_BLEND_ADD = 6;
+const int GFX_BLEND_ADD_ALPHA = 7;
+const int GFX_BLEND_SUB_ALPHA = 8;
+const int GFX_BLEND_SUB = 9;
+const int GFX_BLEND_MUL = 10;
+const int GFX_BLEND_ALPHA_MUL = 11;
+const int GFX_BLEND_INV_ALPHA_MUL = 12;
+const int GFX_BLEND_MUL_2X = 17;
+const int GFX_BLEND_SCREEN = 21;
+
+const int TEX_NO_TEXTURE = 0;
+const int TEX_ALPHA_IS_RED = 1;
+const int TEX_ALPHA_IS_GREEN = 2;
+const int TEX_ALPHA_IS_BLUE = 3;
+const int TEX_ALPHA_IS_ALPHA = 4;
+const int TEX_RGB_ONLY = 6;
+const int TEX_PLEO_STACKED_ALPHA = 7;
+
+const int ADDRESS_WRAP = 0;
+const int ADDRESS_MIRROR = 1;
+const int ADDRESS_CLAMP = 2;
+const int ADDRESS_BORDER = 3;
+
+const int DRAW_QUAD = 0;
+const int DRAW_TRIANGLE = 1;
+const int DRAW_MESH = 2;
+const int MAX_FRAME_TEXTURES = 512;
+
+struct LayerParams
+{
+    vec4 uvRow0;
+    vec4 uvRow1;
+    vec4 diffuse;
+    ivec4 params0;
+    ivec4 params1;
+};
+
+struct DrawParams
+{
+    vec4 originAxisU;
+    vec4 axisVDetAlpha;
+    vec4 tintMaxY;
+    vec4 triangle0;
+    vec4 triangle1;
+    vec4 triangle2;
+    vec4 uvOverride;
+    ivec4 outputRect;
+    ivec4 rectBlendMode;
+    ivec4 meshOffsetCount;
+    LayerParams layers[4];
+};
+
+struct TriangleParams
+{
+    vec4 triangle0;
+    vec4 triangle1;
+    vec4 triangle2;
+};
+
+layout(r32ui, binding = 0) uniform uimage2D outputImage;
+
+layout(binding = 1) uniform sampler2D sourceTextures[MAX_FRAME_TEXTURES];
+
+layout(std430, binding = 2) readonly buffer DrawBuffer
+{
+    DrawParams draws[];
+};
+
+layout(std430, binding = 3) readonly buffer TriangleBuffer
+{
+    TriangleParams triangles[];
+};
+
+layout(push_constant) uniform PushConstants
+{
+    vec4 tintMaxY;
+    int drawIndex;
+} pc;
+
+float toByteFloat(float value)
+{
+    return floor(clamp(value * 255.0, 0.0, 255.0) + 0.5) / 255.0;
+}
+
+vec4 toByteColor(vec4 value)
+{
+    return vec4(
+        toByteFloat(value.r),
+        toByteFloat(value.g),
+        toByteFloat(value.b),
+        toByteFloat(value.a));
+}
+
+uint packBgra(vec4 color)
+{
+    uint b = uint(floor(clamp(color.b, 0.0, 1.0) * 255.0 + 0.5));
+    uint g = uint(floor(clamp(color.g, 0.0, 1.0) * 255.0 + 0.5));
+    uint r = uint(floor(clamp(color.r, 0.0, 1.0) * 255.0 + 0.5));
+    uint a = uint(floor(clamp(color.a, 0.0, 1.0) * 255.0 + 0.5));
+    return b | (g << 8) | (r << 16) | (a << 24);
+}
+
+vec4 unpackBgra(uint packed)
+{
+    float b = float(packed & 0xFFu) / 255.0;
+    float g = float((packed >> 8) & 0xFFu) / 255.0;
+    float r = float((packed >> 16) & 0xFFu) / 255.0;
+    float a = float((packed >> 24) & 0xFFu) / 255.0;
+    return vec4(r, g, b, a);
+}
+
+float avoidExactUpperEdge(float value)
+{
+    if (value > 0.0 && abs(value - round(value)) <= 0.00001)
+        return value - 0.00001;
+
+    return value;
+}
+
+bool addressUv(inout float value, int mode)
+{
+    if (mode == ADDRESS_WRAP)
+    {
+        value = avoidExactUpperEdge(value);
+        value -= floor(value);
+        return true;
+    }
+
+    if (mode == ADDRESS_MIRROR)
+    {
+        value = avoidExactUpperEdge(value);
+        float base = floor(value);
+        value -= base;
+        if ((int(base) & 1) != 0)
+            value = 1.0 - value;
+
+        return true;
+    }
+
+    if (mode == ADDRESS_CLAMP)
+    {
+        value = clamp(value, 0.0, 1.0);
+        return true;
+    }
+
+    if (mode == ADDRESS_BORDER)
+        return value >= 0.0 && value <= 1.0;
+
+    return value >= 0.0 && value <= 1.0;
+}
+
+vec4 sampleBilinear(int textureIndex, vec2 uv)
+{
+    textureIndex = clamp(textureIndex, 0, MAX_FRAME_TEXTURES - 1);
+    ivec2 size = textureSize(sourceTextures[textureIndex], 0);
+    vec2 sourcePosition = uv * vec2(max(size.x - 1, 0), max(size.y - 1, 0));
+    ivec2 p0 = ivec2(floor(sourcePosition));
+    ivec2 p1 = min(p0 + ivec2(1), size - ivec2(1));
+    vec2 t = sourcePosition - vec2(p0);
+    vec4 c00 = texelFetch(sourceTextures[textureIndex], p0, 0);
+    vec4 c10 = texelFetch(sourceTextures[textureIndex], ivec2(p1.x, p0.y), 0);
+    vec4 c01 = texelFetch(sourceTextures[textureIndex], ivec2(p0.x, p1.y), 0);
+    vec4 c11 = texelFetch(sourceTextures[textureIndex], p1, 0);
+    return mix(mix(c00, c10, t.x), mix(c01, c11, t.x), t.y);
+}
+
+vec4 sampleBilinearPixelSpace(int textureIndex, vec2 position)
+{
+    textureIndex = clamp(textureIndex, 0, MAX_FRAME_TEXTURES - 1);
+    ivec2 size = textureSize(sourceTextures[textureIndex], 0);
+    vec2 clampedPosition = clamp(position, vec2(0.0), vec2(max(size.x - 1, 0), max(size.y - 1, 0)));
+    ivec2 p0 = ivec2(floor(clampedPosition));
+    ivec2 p1 = min(p0 + ivec2(1), size - ivec2(1));
+    vec2 t = clampedPosition - vec2(p0);
+    vec4 c00 = texelFetch(sourceTextures[textureIndex], p0, 0);
+    vec4 c10 = texelFetch(sourceTextures[textureIndex], ivec2(p1.x, p0.y), 0);
+    vec4 c01 = texelFetch(sourceTextures[textureIndex], ivec2(p0.x, p1.y), 0);
+    vec4 c11 = texelFetch(sourceTextures[textureIndex], p1, 0);
+    return mix(mix(c00, c10, t.x), mix(c01, c11, t.x), t.y);
+}
+
+vec4 samplePleoStackedAlpha(int textureIndex, vec2 uv)
+{
+    ivec2 size = textureSize(sourceTextures[clamp(textureIndex, 0, MAX_FRAME_TEXTURES - 1)], 0);
+    float visibleHeight = floor(float(size.y) * (2.0 / 3.0) + 0.5);
+    float alphaHeight = max(1.0, float(size.y) - visibleHeight);
+    float sourceX = clamp(uv.x, 0.0, 1.0) * float(max(size.x - 1, 0));
+    float colorY = clamp(uv.y, 0.0, 1.0) * max(visibleHeight - 1.0, 0.0);
+    float alphaY = visibleHeight + clamp(uv.y, 0.0, 1.0) * max(alphaHeight - 1.0, 0.0);
+    vec4 color = sampleBilinearPixelSpace(textureIndex, vec2(sourceX, colorY));
+    vec4 mask = sampleBilinearPixelSpace(textureIndex, vec2(sourceX, alphaY));
+    float luma = dot(mask.rgb, vec3(0.2126, 0.7152, 0.0722));
+    float alpha = clamp((luma * 255.0 - 16.0) / 219.0, 0.0, 1.0);
+    return vec4(color.rgb, alpha);
+}
+
+vec4 remapTextureUsage(vec4 source, int usage)
+{
+    if (usage == TEX_NO_TEXTURE)
+        return vec4(1.0);
+    if (usage == TEX_ALPHA_IS_RED)
+        return vec4(1.0, 1.0, 1.0, source.r);
+    if (usage == TEX_ALPHA_IS_GREEN)
+        return vec4(1.0, 1.0, 1.0, source.g);
+    if (usage == TEX_ALPHA_IS_BLUE)
+        return vec4(1.0, 1.0, 1.0, source.b);
+    if (usage == TEX_ALPHA_IS_ALPHA)
+        return vec4(1.0, 1.0, 1.0, source.a);
+    if (usage == TEX_RGB_ONLY)
+        return vec4(source.rgb, 1.0);
+
+    return source;
+}
+
+vec4 blendMaterialLayerAlpha(vec4 destination, vec4 source)
+{
+    float inverseAlpha = 1.0 - source.a;
+    return vec4(
+        source.rgb * source.a + destination.rgb * inverseAlpha,
+        source.a + destination.a * inverseAlpha);
+}
+
+vec4 blendMaterialLayer(vec4 destination, vec4 source, int blendMode)
+{
+    if (blendMode == GFX_BLEND_ADD)
+        return destination + source;
+    if (blendMode == GFX_BLEND_ADD_ALPHA)
+        return vec4(destination.rgb + source.rgb * source.a, destination.a + source.a);
+    if (blendMode == GFX_BLEND_MUL)
+        return destination * source;
+    if (blendMode == GFX_BLEND_ALPHA_MUL)
+        return source.a * destination;
+
+    return blendMaterialLayerAlpha(destination, source);
+}
+
+bool sampleMaterial(DrawParams draw, vec2 baseUv, out vec4 result)
+{
+    bool hasLayer = false;
+    vec4 finalColor = vec4(0.0);
+
+    for (int index = 0; index < 4; index++)
+    {
+        LayerParams layer = draw.layers[index];
+        if (layer.params0.x == 0)
+            continue;
+
+        vec2 uv = vec2(
+            dot(layer.uvRow0.xy, baseUv) + layer.uvRow0.z,
+            dot(layer.uvRow1.xy, baseUv) + layer.uvRow1.z);
+        int usage = layer.params0.z;
+        vec4 source = vec4(1.0);
+        if (usage != TEX_NO_TEXTURE)
+        {
+            if (!addressUv(uv.x, layer.params0.w) ||
+                !addressUv(uv.y, layer.params1.x))
+            {
+                continue;
+            }
+
+            source = usage == TEX_PLEO_STACKED_ALPHA
+                ? samplePleoStackedAlpha(layer.params1.y, uv)
+                : sampleBilinear(layer.params1.y, uv);
+        }
+
+        vec4 layerColor = remapTextureUsage(source, usage) * layer.diffuse;
+        finalColor = (hasLayer || index > 0)
+            ? blendMaterialLayer(finalColor, layerColor, layer.params0.y)
+            : layerColor;
+        hasLayer = true;
+    }
+
+    result = finalColor;
+    return hasLayer && finalColor.a > 0.0;
+}
+
+vec4 alphaBlend(vec4 destination, vec4 source, float opacity)
+{
+    float sourceAlpha = source.a * clamp(opacity, 0.0, 1.0);
+    if (sourceAlpha <= 0.0)
+        return destination;
+
+    float destinationAlpha = destination.a;
+    float outputAlpha = sourceAlpha + destinationAlpha * (1.0 - sourceAlpha);
+    if (outputAlpha <= 0.0)
+        return vec4(0.0);
+
+    vec3 outputRgb = (source.rgb * sourceAlpha + destination.rgb * destinationAlpha * (1.0 - sourceAlpha)) / outputAlpha;
+    return vec4(outputRgb, outputAlpha);
+}
+
+float blendContribution(vec4 source, float opacity, bool useSourceAlpha)
+{
+    float contribution = clamp(opacity, 0.0, 1.0);
+    if (useSourceAlpha)
+        contribution *= source.a;
+
+    return contribution;
+}
+
+vec4 blendOutput(vec4 destination, vec4 source, float opacity, int blendMode)
+{
+    float alpha = source.a * clamp(opacity, 0.0, 1.0);
+    if (alpha <= 0.0)
+        return destination;
+
+    if (blendMode == GFX_BLEND_COPY)
+    {
+        if (alpha >= 1.0)
+            return vec4(source.rgb, alpha);
+
+        return alphaBlend(destination, source, opacity);
+    }
+
+    if (blendMode == GFX_BLEND_ADD)
+    {
+        return vec4(
+            clamp(destination.rgb + source.rgb, 0.0, 1.0),
+            clamp(destination.a + alpha, 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_ADD_ALPHA)
+    {
+        return vec4(
+            clamp(destination.rgb + source.rgb * alpha, 0.0, 1.0),
+            clamp(destination.a + alpha, 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_SUB)
+    {
+        return vec4(
+            clamp(destination.rgb * (vec3(1.0) - source.rgb), 0.0, 1.0),
+            clamp(destination.a * (1.0 - alpha), 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_SUB_ALPHA)
+    {
+        return vec4(
+            clamp(destination.rgb - source.rgb * alpha, 0.0, 1.0),
+            clamp(destination.a - alpha, 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_MUL)
+    {
+        return vec4(
+            clamp(destination.rgb * source.rgb, 0.0, 1.0),
+            clamp(destination.a * alpha, 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_ALPHA_MUL || blendMode == GFX_BLEND_INV_ALPHA_MUL)
+    {
+        float sourceAlpha = source.a * clamp(opacity, 0.0, 1.0);
+        float factor = blendMode == GFX_BLEND_INV_ALPHA_MUL ? 1.0 - sourceAlpha : sourceAlpha;
+        return destination * factor;
+    }
+
+    if (blendMode == GFX_BLEND_MUL_2X)
+    {
+        return vec4(
+            clamp(destination.rgb * source.rgb * 2.0, 0.0, 1.0),
+            clamp(destination.a * alpha * 2.0, 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_SCREEN)
+    {
+        return vec4(
+            clamp(source.rgb + destination.rgb * (vec3(1.0) - source.rgb), 0.0, 1.0),
+            clamp(alpha + destination.a * (1.0 - alpha), 0.0, 1.0));
+    }
+
+    if (blendMode == GFX_BLEND_ALPHA_PREMULT)
+    {
+        float sourceAlpha = source.a * clamp(opacity, 0.0, 1.0);
+        float destinationAlpha = destination.a;
+        float outputAlpha = sourceAlpha + destinationAlpha * (1.0 - sourceAlpha);
+        return vec4(
+            source.rgb * clamp(opacity, 0.0, 1.0) + destination.rgb * destinationAlpha * (1.0 - sourceAlpha),
+            outputAlpha);
+    }
+
+    return alphaBlend(destination, source, opacity);
+}
+
+bool quadUv(DrawParams draw, vec2 pixelCenter, out vec2 uv)
+{
+    vec2 origin = draw.originAxisU.xy;
+    vec2 axisU = draw.originAxisU.zw;
+    vec2 axisV = draw.axisVDetAlpha.xy;
+    float determinant = draw.axisVDetAlpha.z;
+    if (abs(determinant) <= 0.000001)
+    {
+        uv = vec2(0.0);
+        return false;
+    }
+
+    vec2 delta = pixelCenter - origin;
+    uv = vec2(
+        (delta.x * axisV.y - delta.y * axisV.x) / determinant,
+        (axisU.x * delta.y - axisU.y * delta.x) / determinant);
+    return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+}
+
+bool triangleUv(DrawParams draw, vec2 pixelCenter, out vec2 uv)
+{
+    vec2 p0 = draw.triangle0.xy;
+    vec2 p1 = draw.triangle1.xy;
+    vec2 p2 = draw.triangle2.xy;
+    float denominator = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+    if (abs(denominator) <= 0.000001)
+    {
+        uv = vec2(0.0);
+        return false;
+    }
+
+    float w0 = ((p1.y - p2.y) * (pixelCenter.x - p2.x) + (p2.x - p1.x) * (pixelCenter.y - p2.y)) / denominator;
+    float w1 = ((p2.y - p0.y) * (pixelCenter.x - p2.x) + (p0.x - p2.x) * (pixelCenter.y - p2.y)) / denominator;
+    float w2 = 1.0 - w0 - w1;
+    if (w0 < -0.0001 || w1 < -0.0001 || w2 < -0.0001)
+    {
+        uv = vec2(0.0);
+        return false;
+    }
+
+    uv = draw.triangle0.zw * w0 + draw.triangle1.zw * w1 + draw.triangle2.zw * w2;
+    return true;
+}
+
+bool triangleUvFromParams(TriangleParams triangle, vec2 pixelCenter, out vec2 uv)
+{
+    vec2 p0 = triangle.triangle0.xy;
+    vec2 p1 = triangle.triangle1.xy;
+    vec2 p2 = triangle.triangle2.xy;
+    float denominator = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+    if (abs(denominator) <= 0.000001)
+    {
+        uv = vec2(0.0);
+        return false;
+    }
+
+    float w0 = ((p1.y - p2.y) * (pixelCenter.x - p2.x) + (p2.x - p1.x) * (pixelCenter.y - p2.y)) / denominator;
+    float w1 = ((p2.y - p0.y) * (pixelCenter.x - p2.x) + (p0.x - p2.x) * (pixelCenter.y - p2.y)) / denominator;
+    float w2 = 1.0 - w0 - w1;
+    if (w0 < -0.0001 || w1 < -0.0001 || w2 < -0.0001)
+    {
+        uv = vec2(0.0);
+        return false;
+    }
+
+    uv = triangle.triangle0.zw * w0 + triangle.triangle1.zw * w1 + triangle.triangle2.zw * w2;
+    return true;
+}
+
+bool meshUv(DrawParams draw, vec2 pixelCenter, out vec2 uv)
+{
+    int offset = draw.meshOffsetCount.x;
+    int count = draw.meshOffsetCount.y;
+    for (int index = 0; index < count; index++)
+    {
+        if (triangleUvFromParams(triangles[offset + index], pixelCenter, uv))
+            return true;
+    }
+
+    uv = vec2(0.0);
+    return false;
+}
+
+void main()
+{
+    DrawParams draw = draws[pc.drawIndex];
+    int localX = int(gl_GlobalInvocationID.x);
+    int localY = int(gl_GlobalInvocationID.y);
+    int rectWidth = draw.rectBlendMode.x;
+    int rectHeight = draw.rectBlendMode.y;
+    if (localX >= rectWidth || localY >= rectHeight)
+        return;
+
+    int outputWidth = draw.outputRect.x;
+    int outputHeight = draw.outputRect.y;
+    int x = draw.outputRect.z + localX;
+    int y = draw.outputRect.w + localY;
+    if (x < 0 || y < 0 || x >= outputWidth || y >= outputHeight)
+        return;
+
+    float sampleY = float(y) + 0.5;
+    float maxY = pc.tintMaxY.w;
+    if (y == outputHeight - 1 && maxY > float(outputHeight) - 1.5 && maxY < float(outputHeight))
+        sampleY = maxY - 0.0001;
+
+    vec2 pixelCenter = vec2(float(x) + 0.5, sampleY);
+    vec2 baseUv;
+    bool inside = draw.rectBlendMode.w == DRAW_MESH
+        ? meshUv(draw, pixelCenter, baseUv)
+        : draw.rectBlendMode.w == DRAW_TRIANGLE
+            ? triangleUv(draw, pixelCenter, baseUv)
+            : quadUv(draw, pixelCenter, baseUv);
+    if (!inside)
+        return;
+
+    baseUv = mix(draw.uvOverride.xy, draw.uvOverride.zw, baseUv);
+
+    vec4 source;
+    if (!sampleMaterial(draw, baseUv, source))
+        return;
+
+    source = toByteColor(source);
+    source.rgb = vec3(
+        toByteFloat(source.r * pc.tintMaxY.r),
+        toByteFloat(source.g * pc.tintMaxY.g),
+        toByteFloat(source.b * pc.tintMaxY.b));
+    ivec2 pixelPosition = ivec2(x, y);
+    vec4 destination = unpackBgra(imageLoad(outputImage, pixelPosition).r);
+    vec4 result = blendOutput(destination, source, draw.axisVDetAlpha.w, draw.rectBlendMode.z);
+    imageStore(outputImage, pixelPosition, uvec4(packBgra(result), 0u, 0u, 0u));
+}

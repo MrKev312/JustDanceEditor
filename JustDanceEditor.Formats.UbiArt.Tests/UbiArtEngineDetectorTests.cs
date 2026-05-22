@@ -44,7 +44,7 @@ public class UbiArtEngineDetectorTests
 
         Assert.Equal(UbiArtPlatform.Uncooked, profile.Platform);
         Assert.Equal(UbiArtEngineVersion.JD2014, profile.EngineVersion);
-        Assert.IsType<UbiArtLayoutResolver>(profile.Layout);
+        Assert.IsType<JD2014LayoutResolver>(profile.Layout);
         Assert.IsType<LuaUbiArtSerializer>(profile.Serializer);
 
         Directory.Delete(root, true);
@@ -86,7 +86,7 @@ public class UbiArtEngineDetectorTests
             UbiArtEngineDetector detector = new();
             UbiArtVersionProfile profile = detector.Detect(songRoot);
 
-            Assert.Equal(UbiArtPlatform.X360, profile.Platform);
+            Assert.Equal(UbiArtPlatform.Xenon, profile.Platform);
             Assert.Equal(UbiArtEngineVersion.JD2019, profile.EngineVersion);
             Assert.IsType<BinaryUbiArtSerializer>(profile.Serializer);
         }
@@ -113,7 +113,7 @@ public class UbiArtEngineDetectorTests
             UbiArtEngineDetector detector = new();
             UbiArtVersionProfile profile = detector.Detect(root);
 
-            Assert.Equal(UbiArtPlatform.Wii, profile.Platform);
+            Assert.Equal(UbiArtPlatform.Revolution, profile.Platform);
             Assert.Equal(UbiArtEngineVersion.JD2019, profile.EngineVersion);
             Assert.IsType<BinaryUbiArtSerializer>(profile.Serializer);
         }
@@ -140,7 +140,7 @@ public class UbiArtEngineDetectorTests
             UbiArtEngineDetector detector = new();
             UbiArtVersionProfile profile = detector.Detect(root);
 
-            Assert.Equal(UbiArtPlatform.PS3, profile.Platform);
+            Assert.Equal(UbiArtPlatform.Cell, profile.Platform);
             Assert.Equal(UbiArtEngineVersion.JD2018, profile.EngineVersion);
             Assert.IsType<BinaryUbiArtSerializer>(profile.Serializer);
         }
@@ -175,9 +175,92 @@ public class UbiArtEngineDetectorTests
     }
 
     [Fact]
+    public void Detect_ModernCooked_Should_Use_Highest_SongDesc_Version_Across_Maps()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string mapsRoot = Path.Combine(root, "cache", "itf_cooked", "durango", "world", "maps");
+        string olderMap = Path.Combine(mapsRoot, "z_oldmap");
+        string newerMap = Path.Combine(mapsRoot, "a_newmap");
+        Directory.CreateDirectory(olderMap);
+        Directory.CreateDirectory(newerMap);
+
+        File.WriteAllText(Path.Combine(olderMap, "songdesc.tpl.ckd"), "{ \"COMPONENTS\": [ { \"JDVersion\": 2020, \"OriginalJDVersion\": 2020 } ] }\0");
+        File.WriteAllText(Path.Combine(newerMap, "songdesc.tpl.ckd"), "{ \"COMPONENTS\": [ { \"JDVersion\": 2022, \"OriginalJDVersion\": 2022 } ] }\0");
+
+        try
+        {
+            UbiArtEngineDetector detector = new();
+            UbiArtVersionProfile profile = detector.Detect(root);
+
+            Assert.Equal(UbiArtPlatform.Durango, profile.Platform);
+            Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
+            Assert.IsType<JsonUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Detect_OrbisCooked_Should_Read_JD2022_From_SongDesc()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string cookedMap = Path.Combine(root, "cache", "itf_cooked", "orbis", "world", "maps", "adventurerkids");
+        Directory.CreateDirectory(cookedMap);
+
+        File.WriteAllText(Path.Combine(cookedMap, "songdesc.tpl.ckd"), "{ \"COMPONENTS\": [ { \"JDVersion\": 2022, \"OriginalJDVersion\": 2022, \"MapName\": \"AdventurerKids\" } ] }\0");
+
+        try
+        {
+            UbiArtEngineDetector detector = new();
+            UbiArtVersionProfile profile = detector.Detect(root);
+
+            Assert.Equal(UbiArtPlatform.Orbis, profile.Platform);
+            Assert.Equal(UbiArtEngineVersion.JD2022, profile.EngineVersion);
+            Assert.IsType<JsonUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void Detect_X360LegacyCooked_Should_Use_Highest_LegacySongDesc_From_Sibling_Bundle()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string songRoot = Path.Combine(root, "legacy_x360");
+        string cookedMap = Path.Combine(songRoot, "cache", "itf_cooked", "x360", "world", "maps", "legacy", "timeline");
+        string olderData = Path.Combine(root, "Bundle_X360", "cache", "itf_cooked", "x360", "cache", "legacyconverteddata", "z_oldmap");
+        string newerData = Path.Combine(root, "Bundle_X360", "cache", "itf_cooked", "x360", "cache", "legacyconverteddata", "a_newmap");
+
+        Directory.CreateDirectory(cookedMap);
+        Directory.CreateDirectory(olderData);
+        Directory.CreateDirectory(newerData);
+        File.WriteAllBytes(Path.Combine(cookedMap, "legacy_tml_dance.dtape.ckd"), [0, 0, 0, 1, 0, 0, 0, 0x9C]);
+        File.WriteAllBytes(Path.Combine(olderData, "songdesc.main_legacy.tpl.ckd"), CreateLegacySongDesc("OldMap", UbiArtEngineVersion.JD2018));
+        File.WriteAllBytes(Path.Combine(newerData, "songdesc.main_legacy.tpl.ckd"), CreateLegacySongDesc("NewMap", UbiArtEngineVersion.JD2019));
+
+        try
+        {
+            UbiArtEngineDetector detector = new();
+            UbiArtVersionProfile profile = detector.Detect(songRoot);
+
+            Assert.Equal(UbiArtPlatform.Xenon, profile.Platform);
+            Assert.Equal(UbiArtEngineVersion.JD2019, profile.EngineVersion);
+            Assert.IsType<BinaryUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Layout_Should_Resolve_JD2014_Uncooked_MapFolder()
     {
-        UbiArtLayoutResolver layout = new();
+        JD2014LayoutResolver layout = new();
         string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "maps", "jd5", "song"), mapFolder);
     }
@@ -185,16 +268,32 @@ public class UbiArtEngineDetectorTests
     [Fact]
     public void Layout_Should_Resolve_JD2014_Cooked_MapFolder()
     {
-        UbiArtLayoutResolver layout = new();
-        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.WiiU, UbiArtEngineVersion.JD2014);
+        JD2014LayoutResolver layout = new();
+        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2014);
         Assert.Equal(Path.Combine("world", "jd5", "song"), mapFolder);
+    }
+
+    [Fact]
+    public void Layout_Should_Resolve_JD2015_Cooked_MapFolder()
+    {
+        JD2015LayoutResolver layout = new();
+        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2015);
+        Assert.Equal(Path.Combine("world", "jd2015", "song"), mapFolder);
+    }
+
+    [Fact]
+    public void DefaultLayout_Should_Resolve_Modern_MapFolder()
+    {
+        UbiArtLayoutResolver layout = new();
+        string mapFolder = layout.GetMapWorldFolder("/input", "song", UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2014);
+        Assert.Equal(Path.Combine("world", "maps", "song"), mapFolder);
     }
 
     [Fact]
     public void Layout_Should_Resolve_X360_MovesFolder()
     {
         UbiArtLayoutResolver layout = new();
-        string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.X360, UbiArtEngineVersion.JD2019);
+        string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.Xenon, UbiArtEngineVersion.JD2019);
         Assert.Equal(Path.Combine("world", "maps", "song", "timeline", "moves", "x360"), movesFolder);
     }
 
@@ -204,6 +303,14 @@ public class UbiArtEngineDetectorTests
         UbiArtLayoutResolver layout = new();
         string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.Durango, UbiArtEngineVersion.JD2021);
         Assert.Equal(Path.Combine("world", "maps", "song", "timeline", "moves", "durango"), movesFolder);
+    }
+
+    [Fact]
+    public void Layout_Should_Resolve_Orbis_MovesFolder()
+    {
+        UbiArtLayoutResolver layout = new();
+        string movesFolder = layout.GetMovesFolder("/input", "song", UbiArtPlatform.Orbis, UbiArtEngineVersion.JD2022);
+        Assert.Equal(Path.Combine("world", "maps", "song", "timeline", "moves", "orbis"), movesFolder);
     }
 
     private static byte[] CreateLegacySongDesc(string mapName, UbiArtEngineVersion engineVersion)

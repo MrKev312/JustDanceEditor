@@ -39,17 +39,10 @@ public static class UbiArtEngineContentSerializer
             return true;
         }
 
-        for (Type? current = type; current != null && current != typeof(object); current = current.BaseType)
-        {
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-
-            if (current.GetProperties(flags).Any(property => property.GetCustomAttribute<LegacyBinaryFieldAttribute>() != null) ||
-                current.GetFields(flags).Any(field => field.GetCustomAttribute<LegacyBinaryFieldAttribute>() != null))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+        return type.Assembly == typeof(UbiArtEngineContentSerializer).Assembly &&
+            type.GetProperties(flags).Any(property =>
+                property.GetIndexParameters().Length == 0 &&
+                property.GetCustomAttribute<BinarySerializerIgnoreAttribute>() == null);
     }
 }

@@ -13,7 +13,7 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
 public class WiiUCookedPlatformExporter : IPlatformExporter
 {
-    public UbiArtPlatform Platform => UbiArtPlatform.WiiU;
+    public UbiArtPlatform Platform => UbiArtPlatform.Cafe;
 
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "wiiu");
 
@@ -21,6 +21,14 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         byte[] serialized = UbiArtEngineContentSerializer.Serialize(content);
+
+        if (!ShouldWriteAsTextResource(serialized))
+        {
+            context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
+            await File.WriteAllBytesAsync(fullPath, serialized);
+            return;
+        }
+
         byte[] dataToWrite;
 
         if (relativePath.EndsWith(".sgs", StringComparison.OrdinalIgnoreCase))
@@ -42,6 +50,12 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
         await fs.WriteAsync(dataToWrite);
     }
 
+    private static bool ShouldWriteAsTextResource(byte[] data)
+    {
+        byte first = data.FirstOrDefault(b => b != 0 && !char.IsWhiteSpace((char)b));
+        return first is (byte)'{' or (byte)'[' or (byte)'<';
+    }
+
     public async Task WriteBinaryFileAsync(ExportContext context, string relativePath, object data)
     {
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
@@ -54,8 +68,12 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
+        GTX.GX2SurfaceFormat format = UbiArtPlatformExportRules.ShouldUseAlphaTexture(relativePath, image)
+            ? GTX.GX2SurfaceFormat.T_BC3_UNORM
+            : GTX.GX2SurfaceFormat.T_BC1_UNORM;
+
         using FileStream fs = File.Create(fullPath);
-        UbiArtTextureEncoder.EncodeWiiUGtx(image, GTX.GX2SurfaceFormat.T_BC3_UNORM, fs);
+        UbiArtTextureEncoder.EncodeWiiUGtx(image, format, fs);
         return Task.CompletedTask;
     }
 
@@ -70,11 +88,16 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
             {
                 using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
                     ? new OpusWaveStream(sourcePath)
-                    : new AudioFileReader(sourcePath);
+                    : new WaveFileReader(sourcePath);
 
                 using FileStream output = File.Create(destPath);
 
-                RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output);
+                RakiCafeDspAdpcmAudioEncoder.Encode(
+                    waveStream,
+                    output,
+                    splitChannels: UbiArtPlatformExportRules.IsAmbAudio(destPath),
+                    platform: UbiArtPlatformExportRules.GetAdpcmPlatform(Platform),
+                    version: UbiArtPlatformExportRules.GetAdpcmVersion(Platform, context.EngineVersion));
             });
         }
         catch (Exception)
@@ -82,6 +105,4 @@ public class WiiUCookedPlatformExporter : IPlatformExporter
             File.Copy(sourcePath, destPath, true);
         }
     }
-
 }
-

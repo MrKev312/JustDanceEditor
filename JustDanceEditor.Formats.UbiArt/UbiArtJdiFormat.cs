@@ -2,6 +2,7 @@ using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.UbiArt.Export;
+using JustDanceEditor.Formats.UbiArt.Export.Ipk;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
@@ -75,25 +76,10 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
                 FormatSupportStatus(supportStatus));
         }
 
-        ConversionContext context;
-        try
+        ConversionContext context = new(ubiRequest, fileSystem)
         {
-            context = new(ubiRequest, fileSystem)
-            {
-                SongData = _songDataLoader.LoadSongData(ubiRequest, fileSystem)
-            };
-        }
-        catch (NotImplementedException ex)
-        {
-            // If the configured serializer is binary, provide a friendly message until legacy import is implemented.
-            if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 || fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015)
-                throw new NotSupportedException("JD2014/2015 binary support is coming soon.", ex);
-
-            if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
-                throw new NotSupportedException("Legacy binary UbiArt import support is coming soon.", ex);
-
-            throw;
-        }
+            SongData = _songDataLoader.LoadSongData(ubiRequest, fileSystem)
+        };
 
         // Manage temporary folders explicitly in the import workflow (caller-managed cleanup)
         string previousMap = fileSystem.SongName;
@@ -146,7 +132,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
                 throw new OperationCanceledException("Song selection was canceled by the caller.");
 
             if (!names.Contains(selected, StringComparer.OrdinalIgnoreCase))
-                throw new ArgumentException("Selected song is not in the available songs list.", nameof(selected));
+                throw new ArgumentException("Selected song is not in the available songs list.", nameof(request));
 
             return selected;
         }
@@ -163,13 +149,15 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         ArgumentNullException.ThrowIfNull(importResult);
         ArgumentNullException.ThrowIfNull(importResult.Package);
 
-        // Create subfolder with {songname}_{platform} pattern in lowercase
         string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
         string platformName = ubiRequest.ExportPlatform == UbiArtPlatform.Uncooked
             ? "uncooked"
             : ubiRequest.ExportPlatform.GetCookedFolderName();
         string folderName = $"{songName.ToLowerInvariant()}_{platformName}";
-        string outputFolder = Path.Combine(ubiRequest.OutputPath, folderName);
+        bool exportIntoGameFolder = UbiArtGameFolderIpkExporter.LooksLikeGameFolder(ubiRequest.OutputPath, ubiRequest.ExportPlatform);
+        string outputFolder = exportIntoGameFolder
+            ? ubiRequest.OutputPath
+            : Path.Combine(ubiRequest.OutputPath, folderName);
 
         _logger.LogInformation(
             "Starting JDI -> UbiArt conversion for '{SongName}' ({Platform}, {EngineVersion}) into '{OutputFolder}'",
@@ -178,7 +166,6 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             ubiRequest.ExportEngineVersion,
             outputFolder);
 
-        // Ensure output directory exists
         _io.CreateDirectory(outputFolder);
         _logger.LogDebug("Prepared UbiArt output directory '{OutputFolder}'", outputFolder);
 
@@ -194,7 +181,12 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         UbiArtVersionProfile exportProfile = new(
             exportPlatform,
             exportEngineVersion,
-            new UbiArtLayoutResolver(),
+            exportEngineVersion switch
+            {
+                UbiArtEngineVersion.JD2014 => new JD2014LayoutResolver(),
+                UbiArtEngineVersion.JD2015 => new JD2015LayoutResolver(),
+                _ => new UbiArtLayoutResolver()
+            },
             serializer);
 
         await AssetWriter.ExportAsync(
@@ -217,10 +209,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
     private static ConversionSupportStatus GetPlatformSupportStatus(UbiArtPlatform platform) => platform switch
     {
-        UbiArtPlatform.Wii => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.PS3 => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.X360 => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Revolution => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Cell => ConversionSupportStatus.Experimental,
+        UbiArtPlatform.Xenon => ConversionSupportStatus.Experimental,
         UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
+        UbiArtPlatform.Orbis => ConversionSupportStatus.KnownPartial,
         _ => ConversionSupportStatus.Stable
     };
 
@@ -249,23 +242,10 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             if (availableSongs.Length == 0)
                 return false;
 
-            // Attempt to load song data from the first available song to determine engine version and report platform
-            try
-            {
-                // Update filesystem with first song temporarily for verification
-                fs.UpdateSongName(availableSongs[0].SongName);
-                SongDesc sd = _songDataLoader.LoadSongDesc(req, fs);
-                uint engine = sd.Components[0].JDVersion;
-                uint original = sd.Components[0].OriginalJDVersion;
-
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"Detected UbiArt platform: {fs.VersionProfile.Platform}, engine version: {engine}");
-                Console.ResetColor();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("UbiArt detection: failed to read SongDesc for engine/version: {Message}", ex.Message);
-            }
+            _logger.LogInformation(
+                "Detected UbiArt platform {Platform}, engine version {EngineVersion}",
+                profile.Platform,
+                (uint)profile.EngineVersion);
 
             return true;
         }
@@ -313,7 +293,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         ArgumentNullException.ThrowIfNull(request);
 
         if (string.IsNullOrWhiteSpace(request.InputPath))
-            throw new ArgumentException("Input path is required for UbiArt imports.", nameof(request.InputPath));
+            throw new ArgumentException("Input path is required for UbiArt imports.", nameof(request));
 
         // Accept either a folder or an .ipk file. For .ipk, ensure the file exists; otherwise ensure the directory exists.
         if (Path.GetExtension(request.InputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
@@ -328,7 +308,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
 
         if (string.IsNullOrWhiteSpace(request.OutputPath))
-            throw new ArgumentException("Output path is required for UbiArt imports.", nameof(request.OutputPath));
+            throw new ArgumentException("Output path is required for UbiArt imports.", nameof(request));
 
         // FileSystem must already be configured and initialized by caller
         ArgumentNullException.ThrowIfNull(fs);

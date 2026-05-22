@@ -31,7 +31,7 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         bool hasCooked = fs.DirectoryExists(fs.Combine(basePath, "cache", "itf_cooked"));
 
         // Default platform when unknown (legacy behaviour)
-        UbiArtPlatform detectedPlatform = UbiArtPlatform.WiiU;
+        UbiArtPlatform detectedPlatform = UbiArtPlatform.Cafe;
 
         // If cooked, look inside cooked cache for world/jd5 or world/jd2015 markers
         if (hasCooked)
@@ -45,35 +45,32 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
                 throw new DirectoryNotFoundException("Multiple platform folders found in the itf_cooked folder, this is not supported.");
 
             string platformFolderName = Path.GetFileName(platformFolders[0]);
-            // Parse the platform folder name into the enum via reflection and fail fast on unknown values
-            if (!Enum.TryParse(platformFolderName, true, out detectedPlatform))
+            // Parse cooked folder aliases like "wiiu" or "x360" into codename enum values.
+            if (!UbiArtPlatformExtensions.TryParseCookedFolderName(platformFolderName, out detectedPlatform))
                 throw new InvalidOperationException($"Unknown UbiArt platform folder '{platformFolderName}' in cache/itf_cooked.");
 
             // 'uncooked' is not a valid cooked platform; treat it as an error
             if (detectedPlatform == UbiArtPlatform.Uncooked)
                 throw new InvalidOperationException($"Invalid platform 'uncooked' inside cache/itf_cooked.");
 
-            // Search nested directories for world/jd5 or world/jd2015
-            // This uses the cookedRoot as base so checks include the platform folder
-            string[] cookedDirs = [.. GetDirectoriesRecursive(cookedRoot, fs)];
-            // Check latest to oldest, as newer versions may have both jd2015 and jd5 folders
-            if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/maps")))
+            string platformRoot = fs.Combine(cookedRoot, platformFolderName);
+            if (fs.DirectoryExists(fs.Combine(platformRoot, "world", "maps")))
             {
                 UbiArtVersionProfile p = CreateModernCookedProfile(detectedPlatform, basePath, fs, sourcePath);
                 TryPeekSongDescForJDVersion(basePath, p, fs);
                 return p;
             }
 
-            if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd2015")))
+            if (fs.DirectoryExists(fs.Combine(platformRoot, "world", "jd2015")))
             {
-                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2015DataMapper());
+                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2015, new JD2015LayoutResolver(), new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015));
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
 
-            if (cookedDirs.Any(d => d.Replace(Path.DirectorySeparatorChar, '/').Contains("/world/jd5")))
+            if (fs.DirectoryExists(fs.Combine(platformRoot, "world", "jd5")))
             {
-                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new BinaryUbiArtSerializer(), new JD2014DataMapper());
+                UbiArtVersionProfile prof = new(detectedPlatform, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2014));
                 TryPeekSongDescForJDVersion(basePath, prof, fs);
                 return prof;
             }
@@ -82,14 +79,14 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
         {
-            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2015DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015, new JD2015LayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
 
         if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
         {
-            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014, new UbiArtLayoutResolver(), new LuaUbiArtSerializer(), new JD2014DataMapper());
+            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new LuaUbiArtSerializer());
             TryPeekSongDescForJDVersion(basePath, prof, fs);
             return prof;
         }
@@ -133,21 +130,21 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
             : UbiArtEngineVersion.JD2022;
 
         IUbiArtSerializer serializer = ShouldUseLegacyBinarySerializer(platform, engineVersion) || ShouldUseBinaryModernSerializer(platform, basePath, fs)
-            ? new BinaryUbiArtSerializer()
+            ? new BinaryUbiArtSerializer(engineVersion)
             : new JsonUbiArtSerializer();
 
-        return new UbiArtVersionProfile(platform, engineVersion, new UbiArtLayoutResolver(), serializer, new DefaultUbiArtDataMapper());
+        return new UbiArtVersionProfile(platform, engineVersion, new UbiArtLayoutResolver(), serializer);
     }
 
     private static bool ShouldUseLegacyBinarySerializer(UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
     {
-        return platform is (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360)
+        return platform is UbiArtPlatform.Revolution or UbiArtPlatform.Cell or UbiArtPlatform.Xenon
             && engineVersion is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020;
     }
 
     private bool ShouldUseBinaryModernSerializer(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs)
     {
-        if (platform is not (UbiArtPlatform.PS3 or UbiArtPlatform.X360))
+        if (platform is not (UbiArtPlatform.Cell or UbiArtPlatform.Xenon))
             return false;
 
         try
@@ -160,7 +157,7 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
             {
                 byte[] bytes = fs.ReadAllBytes(candidate);
                 byte firstMeaningfulByte = bytes.FirstOrDefault(b => !char.IsWhiteSpace((char)b) && b != 0);
-                if (firstMeaningfulByte == (byte)'{' || firstMeaningfulByte == (byte)'[')
+                if (firstMeaningfulByte is ((byte)'{') or ((byte)'['))
                     return false;
 
                 if (firstMeaningfulByte != 0)
@@ -179,16 +176,22 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
     {
         engineVersion = UbiArtEngineVersion.Unknown;
 
-        if (platform is not (UbiArtPlatform.Wii or UbiArtPlatform.PS3 or UbiArtPlatform.X360))
+        if (platform is not (UbiArtPlatform.Revolution or UbiArtPlatform.Cell or UbiArtPlatform.Xenon))
             return false;
 
         foreach (byte[] bytes in ReadLegacySongDescCandidates(platform, basePath, fs, sourcePath))
         {
-            if (TryReadLegacySongDescEngineVersion(bytes, out engineVersion))
-                return true;
+            if (TryReadLegacySongDescEngineVersion(bytes, out UbiArtEngineVersion detectedVersion) &&
+                IsHigherEngineVersion(detectedVersion, engineVersion))
+            {
+                engineVersion = detectedVersion;
+
+                if (engineVersion == UbiArtEngineVersion.JD2022)
+                    return true;
+            }
         }
 
-        return false;
+        return engineVersion != UbiArtEngineVersion.Unknown;
     }
 
     private IEnumerable<byte[]> ReadLegacySongDescCandidates(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs, string? sourcePath)
@@ -331,8 +334,11 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
             return false;
 
         engineVersion = (UbiArtEngineVersion)rawEngineVersion;
-        return engineVersion != UbiArtEngineVersion.Unknown;
+        return engineVersion is >= UbiArtEngineVersion.JD2014 and <= UbiArtEngineVersion.JD2022;
     }
+
+    private static bool IsHigherEngineVersion(UbiArtEngineVersion candidate, UbiArtEngineVersion current) =>
+        candidate is >= UbiArtEngineVersion.JD2014 and <= UbiArtEngineVersion.JD2022 && candidate > current;
 
     private static string NormalizeForTraversal(string path)
     {
@@ -371,6 +377,17 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
 
     private IEnumerable<string> GetFilesRecursive(string root, string searchPattern, IUbiArtFileSystem fs)
     {
+        if (fs is UbiArtIpkFileSystem ipk)
+            return ipk.GetFilesRecursive(root, searchPattern);
+
+        if (fs is PhysicalUbiArtFileSystem && !string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
+            return Directory.EnumerateFiles(root, searchPattern, SearchOption.AllDirectories);
+
+        return GetFilesRecursiveSlow(root, searchPattern, fs);
+    }
+
+    private IEnumerable<string> GetFilesRecursiveSlow(string root, string searchPattern, IUbiArtFileSystem fs)
+    {
         HashSet<string> visited = new(StringComparer.OrdinalIgnoreCase);
         Stack<string> stack = new();
         stack.Push(root);
@@ -402,66 +419,98 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
     {
         try
         {
-            string[] candidates = [.. GetFilesRecursive(inputPath, "songdesc.tpl*", fs)];
-            if (candidates.Length == 0)
-                return;
+            UbiArtEngineVersion highestVersion = UbiArtEngineVersion.Unknown;
+            TryCollectHighestSongDescVersion(inputPath, fs, ref highestVersion);
 
-            string songDescFile = candidates[0];
+            if (highestVersion != UbiArtEngineVersion.Unknown)
+                profile.EngineVersion = highestVersion;
+        }
+        catch { }
+    }
 
-            // Read via a stream so we don't rely on a single text API; trim trailing NULs afterwards
-            string content;
+    private void TryCollectHighestSongDescVersion(string inputPath, IUbiArtFileSystem fs, ref UbiArtEngineVersion highestVersion)
+    {
+        try
+        {
+            foreach (string songDescFile in GetFilesRecursive(inputPath, "songdesc.tpl*", fs))
+            {
+                if (TryReadSongDescText(songDescFile, fs, out string content))
+                    TryCollectHighestSongDescVersion(content, ref highestVersion);
+
+                if (highestVersion == UbiArtEngineVersion.JD2022)
+                    return;
+            }
+        }
+        catch { }
+    }
+
+    private static bool TryReadSongDescText(string songDescFile, IUbiArtFileSystem fs, out string content)
+    {
+        content = string.Empty;
+
+        try
+        {
+            if (fs is PhysicalUbiArtFileSystem)
+            {
+                using Stream stream = File.OpenRead(songDescFile);
+                using StreamReader reader = new(stream, System.Text.Encoding.UTF8);
+                content = reader.ReadToEnd().TrimEnd('\0');
+                return true;
+            }
+
+            content = fs.ReadAllText(songDescFile).TrimEnd('\0');
+            return true;
+        }
+        catch
+        {
             try
             {
-                if (fs is PhysicalUbiArtFileSystem)
-                {
-                    using Stream s = File.OpenRead(songDescFile);
-                    using StreamReader sr = new(s, System.Text.Encoding.UTF8);
-                    content = sr.ReadToEnd().TrimEnd('\0');
-                }
-                else
-                {
-                    // Use the IFileSystem abstraction for testable (mock) file reads
-                    content = fs.ReadAllText(songDescFile).TrimEnd('\0');
-                }
+                content = fs.ReadAllText(songDescFile).TrimEnd('\0');
+                return true;
             }
             catch
             {
-                // If we can't open the file via stream, fall back to path-based read
-                content = fs.ReadAllText(songDescFile).TrimEnd('\0');
+                return false;
             }
+        }
+    }
 
-            // Try JSON first
-            try
+    private static void TryCollectHighestSongDescVersion(string content, ref UbiArtEngineVersion highestVersion)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(content);
+            if (doc.RootElement.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == JsonValueKind.Array)
             {
-                using JsonDocument doc = JsonDocument.Parse(content);
-                if (doc.RootElement.TryGetProperty("COMPONENTS", out JsonElement components) && components.ValueKind == JsonValueKind.Array)
+                foreach (JsonElement component in components.EnumerateArray())
                 {
-                    JsonElement comp = components[0];
-                    if (TryGetJsonEngineVersion(comp, out UbiArtEngineVersion detectedVersion))
+                    if (TryGetJsonEngineVersion(component, out UbiArtEngineVersion detectedVersion) &&
+                        IsHigherEngineVersion(detectedVersion, highestVersion))
                     {
-                        profile.EngineVersion = detectedVersion;
+                        highestVersion = detectedVersion;
                     }
                 }
+            }
 
+            return;
+        }
+        catch { }
+
+        try
+        {
+            SongDesc songDesc = Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
+            if (songDesc?.Components == null)
                 return;
-            }
-            catch { }
 
-            // Try LUA deserialization
-            try
+            foreach (InfoComponent component in songDesc.Components)
             {
-                SongDesc songDesc = Serialization.LuaTableSerializer.Deserialize<SongDesc>(content);
-                if (songDesc?.Components?.Length > 0)
+                if ((TryMapRawEngineVersion(component.OriginalJDVersion, out UbiArtEngineVersion detectedVersion) ||
+                     TryMapRawEngineVersion(component.JDVersion, out detectedVersion)) &&
+                    IsHigherEngineVersion(detectedVersion, highestVersion))
                 {
-                    InfoComponent component = songDesc.Components[0];
-                    if (TryMapRawEngineVersion(component.OriginalJDVersion, out UbiArtEngineVersion detectedVersion) ||
-                        TryMapRawEngineVersion(component.JDVersion, out detectedVersion))
-                    {
-                        profile.EngineVersion = detectedVersion;
-                    }
+                    highestVersion = detectedVersion;
                 }
             }
-            catch { }
         }
         catch { }
     }

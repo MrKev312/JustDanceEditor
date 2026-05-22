@@ -1,5 +1,5 @@
 using KevInc.Audio.NAudio;
-using KevInc.Texture.ImageSharp;
+using KevInc.Texture.Xbox;
 using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Raki;
 using KevInc.UbiArt.Texture;
@@ -14,7 +14,7 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
 public class X360CookedPlatformExporter : IPlatformExporter
 {
-    public UbiArtPlatform Platform => UbiArtPlatform.X360;
+    public UbiArtPlatform Platform => UbiArtPlatform.Xenon;
 
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "x360");
 
@@ -63,10 +63,9 @@ public class X360CookedPlatformExporter : IPlatformExporter
         string fullPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
 
-        bool hasAlpha = HasTransparency(image);
-        bool isPicto = relativePath.Contains("/pictos/") || relativePath.Contains("\\pictos\\");
-
-        DDS.DDSFormat format = hasAlpha ? DDS.DDSFormat.DXT5 : DDS.DDSFormat.DXT1;
+        Xbox360TextureFormat format = UbiArtPlatformExportRules.ShouldUseAlphaTexture(relativePath, image)
+            ? Xbox360TextureFormat.DXT5
+            : Xbox360TextureFormat.DXT1;
 
         int newWidth = (image.Width + 3) & ~3;
         int newHeight = (image.Height + 3) & ~3;
@@ -74,7 +73,7 @@ public class X360CookedPlatformExporter : IPlatformExporter
             image.Mutate(ctx => ctx.Resize(newWidth, newHeight));
 
         using FileStream fs = File.Create(fullPath);
-        UbiArtTextureEncoder.EncodePcDds(image, format, fs, isPicto);
+        UbiArtTextureEncoder.EncodeXbox360(image, format, fs, UbiArtPlatformExportRules.IsPictogram(relativePath));
         return Task.CompletedTask;
     }
 
@@ -87,7 +86,7 @@ public class X360CookedPlatformExporter : IPlatformExporter
         {
             using WaveStream waveStream = Path.GetExtension(sourcePath).Equals(".opus", StringComparison.OrdinalIgnoreCase)
                 ? new OpusWaveStream(sourcePath)
-                : new AudioFileReader(sourcePath);
+                : new WaveFileReader(sourcePath);
 
             using FileStream output = File.Create(destPath);
             RakiXma2AudioEncoder.Encode(waveStream, output);
@@ -98,31 +97,6 @@ public class X360CookedPlatformExporter : IPlatformExporter
     {
         byte first = data.FirstOrDefault(b => b != 0 && !char.IsWhiteSpace((char)b));
         return first is (byte)'{' or (byte)'[' or (byte)'<';
-    }
-
-    private static bool HasTransparency(Image<Bgra32> image)
-    {
-        bool hasAlpha = false;
-        image.ProcessPixelRows(accessor =>
-        {
-            for (int y = 0; y < accessor.Height; y++)
-            {
-                if (hasAlpha)
-                    break;
-
-                Span<Bgra32> row = accessor.GetRowSpan(y);
-                for (int x = 0; x < row.Length; x++)
-                {
-                    if (row[x].A < 255)
-                    {
-                        hasAlpha = true;
-                        break;
-                    }
-                }
-            }
-        });
-
-        return hasAlpha;
     }
 
 }

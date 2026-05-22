@@ -13,7 +13,7 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
 public class WiiCookedPlatformExporter : IPlatformExporter
 {
-    public UbiArtPlatform Platform => UbiArtPlatform.Wii;
+    public UbiArtPlatform Platform => UbiArtPlatform.Revolution;
 
     public string GetPlatformRootFolder(string mapName) => Path.Combine("cache", "itf_cooked", "wii");
 
@@ -64,18 +64,17 @@ public class WiiCookedPlatformExporter : IPlatformExporter
             {
                 using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
                     ? new OpusWaveStream(sourcePath)
-                    : new AudioFileReader(sourcePath);
+                    : new WaveFileReader(sourcePath);
 
                 using FileStream output = File.Create(destPath);
 
-                if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
-                {
-                    RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output, true);
-                }
-                else
-                {
-                    RakiCafeDspAdpcmAudioEncoder.Encode(waveStream, output);
-                }
+                bool isAmb = UbiArtPlatformExportRules.IsAmbAudio(destPath);
+                RakiCafeDspAdpcmAudioEncoder.Encode(
+                    waveStream,
+                    output,
+                    splitChannels: isAmb,
+                    platform: UbiArtPlatformExportRules.GetAdpcmPlatform(Platform),
+                    version: UbiArtPlatformExportRules.GetAdpcmVersion(Platform, context.EngineVersion));
             });
         }
         catch (Exception)
@@ -83,6 +82,4 @@ public class WiiCookedPlatformExporter : IPlatformExporter
             File.Copy(sourcePath, destPath, true);
         }
     }
-
 }
-

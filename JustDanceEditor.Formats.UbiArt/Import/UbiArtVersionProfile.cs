@@ -20,13 +20,12 @@ public enum UbiArtEngineVersion
     JD2022
 }
 
-public class UbiArtVersionProfile(UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IUbiArtLayout layout, IUbiArtSerializer serializer, IUbiArtDataMapper? mapper = null)
+public class UbiArtVersionProfile(UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IUbiArtLayout layout, IUbiArtSerializer serializer)
 {
     public UbiArtPlatform Platform { get; set; } = platform;
     public UbiArtEngineVersion EngineVersion { get; set; } = engineVersion;
     public IUbiArtLayout Layout { get; set; } = layout;
     public IUbiArtSerializer Serializer { get; set; } = serializer;
-    public IUbiArtDataMapper Mapper { get; set; } = mapper ?? new DefaultUbiArtDataMapper();
     public string PlatformFolder => Platform.GetCookedFolderName();
 
     /// <summary>

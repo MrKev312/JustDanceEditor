@@ -70,7 +70,6 @@ public static partial class LuaTableSerializer
         LuaTable? paramsTable = lua["params"] as LuaTable ?? throw new InvalidDataException("LUA script did not define 'params' table.");
         IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
-        Console.WriteLine($"DEBUG JSON: {json}");
 
         if (typeof(T) == typeof(SongDesc))
         {
@@ -151,7 +150,6 @@ public static partial class LuaTableSerializer
 
         IDictionary<string, object> dict = LuaTableToDictionary(paramsTable);
         string json = JsonSerializer.Serialize(dict);
-        Console.WriteLine($"DEBUG JSON: {json}");
 
         if (typeof(T) == typeof(SongDesc))
         {
