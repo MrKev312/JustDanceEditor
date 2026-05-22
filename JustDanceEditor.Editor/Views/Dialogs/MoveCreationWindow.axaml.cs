@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Shared.Avalonia;
 
 namespace JustDanceEditor.Editor.Views.Dialogs;
 
@@ -11,6 +12,7 @@ public partial class MoveCreationWindow : Window
     public MoveCreationWindow()
     {
         InitializeComponent();
+        PlatformTheme.ApplyFloatingWindowChrome(this);
         OkBtn.Click += OkBtn_Click;
         CancelBtn.Click += CancelBtn_Click;
     }

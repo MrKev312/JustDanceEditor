@@ -13,7 +13,7 @@
 		<TextBlock Text="No selection"
 				   HorizontalAlignment="Center"
 				   VerticalAlignment="Center"
-				   Foreground="#888888"
+				   Foreground="{DynamicResource JdeTextMutedBrush}"
 				   IsVisible="{Binding !Categories.Count}"/>
 
 		<ScrollViewer IsVisible="{Binding Categories.Count}">
@@ -21,14 +21,14 @@
 				<ItemsControl.ItemTemplate>
 					<DataTemplate>
 						<StackPanel>
-							<Border Background="#2D2D2D" Padding="5">
-								<TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="WhiteSmoke"/>
+							<Border Background="{DynamicResource JdeSurfaceBrush}" Padding="5">
+								<TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
 							</Border>
 							<ItemsControl ItemsSource="{Binding Properties}">
 								<ItemsControl.ItemTemplate>
 									<DataTemplate>
 										<Grid ColumnDefinitions="140,*" Margin="5,2">
-											<TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="#CCCCCC" TextTrimming="CharacterEllipsis"/>
+											<TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
 
 											<Panel Grid.Column="1">
 												<!-- Text/Number -->

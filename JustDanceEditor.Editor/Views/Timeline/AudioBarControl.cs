@@ -22,6 +22,17 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public class AudioBarControl : Control
 {
+    private const double ViewportRenderPadding = 64;
+    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
+    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
+    private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
+    private static readonly SolidColorBrush TooltipBackgroundBrush = new(Color.FromArgb(220, 30, 30, 30));
+    private static readonly Pen TooltipBorderPen = new(new SolidColorBrush(Colors.White), 1);
+    private static readonly Comparison<SectionSegment> CompareSectionsByStartBeat =
+        static (left, right) => left.StartBeat.CompareTo(right.StartBeat);
+    private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
+        static (left, right) => left.Marker.CompareTo(right.Marker);
+
     public static readonly StyledProperty<float[]> SamplesProperty =
         AvaloniaProperty.Register<AudioBarControl, float[]>(nameof(Samples));
 
@@ -88,13 +99,19 @@ public class AudioBarControl : Control
     }
 
     private static readonly Dictionary<SongSectionType, Color> _sectionColors = [];
+    private static readonly Dictionary<SongSectionType, SolidColorBrush> _sectionBackgroundBrushes = [];
 
     // Cache FormattedText per section type to avoid allocations in render loop
     private readonly Dictionary<SongSectionType, FormattedText> _sectionTextCache = [];
     // Cache FormattedText per signature beats value to avoid allocations in render loop
     private readonly Dictionary<int, FormattedText> _signatureTextCache = [];
+    private readonly List<SectionSegment> _sortedSectionCache = [];
+    private readonly List<SignatureSegment> _sortedSignatureCache = [];
+    private readonly List<double> _sectionStartCache = [];
     private double _lastPixelsPerBeat = -1;
     private Size _lastBounds = default;
+    private bool _sectionCacheDirty = true;
+    private bool _signatureCacheDirty = true;
 
     // Waveform envelope cache: one min/max pair per pixel column
     private float[]? _envelopeMax;
@@ -148,6 +165,8 @@ public class AudioBarControl : Control
             {
                 _sectionColors[type] = Colors.Gray;
             }
+
+            _sectionBackgroundBrushes[type] = new SolidColorBrush(_sectionColors[type], 0.3);
         }
     }
 
@@ -216,8 +235,20 @@ public class AudioBarControl : Control
     {
         if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
         {
+            _sectionCacheDirty = true;
+            _signatureCacheDirty = true;
             InvalidateVisual();
         }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == SectionsProperty)
+            _sectionCacheDirty = true;
+        else if (change.Property == SignaturesProperty)
+            _signatureCacheDirty = true;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -642,6 +673,9 @@ public class AudioBarControl : Control
         Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
         double offset = BeatOffset;
+        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(bounds.Width);
+        double visibleStartBeat = offset + (visiblePixelStart / Math.Max(1.0, ppb)) - 1;
+        double visibleEndBeat = offset + (visiblePixelEnd / Math.Max(1.0, ppb)) + 1;
 
         // Fill entire bounds with a transparent brush so the whole control
         // participates in Avalonia's hit-testing (required for pointer events
@@ -651,15 +685,16 @@ public class AudioBarControl : Control
         // Clear hit-test rectangles
         _sectionLabelRects.Clear();
         _signatureLabelRects.Clear();
+        IReadOnlyList<SectionSegment> sortedSections = GetSortedSections();
+        IReadOnlyList<SignatureSegment> sortedSignatures = GetSortedSignatures();
+        List<double> sectionStarts = GetSectionStarts();
 
         // 1. Draw Section Backgrounds
-        if (Sections != null)
+        if (sortedSections.Count > 0)
         {
-            List<SectionSegment> sortedSections = [.. Sections.OrderBy(s => s.StartBeat)];
             for (int i = 0; i < sortedSections.Count; i++)
             {
                 SectionSegment section = sortedSections[i];
-                Color color = _sectionColors.TryGetValue(section.SectionType, out Color c) ? c : Colors.Gray;
 
                 double startX = (section.StartBeat - offset) * ppb;
                 double endX = bounds.Width;
@@ -669,23 +704,22 @@ public class AudioBarControl : Control
                     endX = (sortedSections[i + 1].StartBeat - offset) * ppb;
                 }
 
-                if (startX < bounds.Width && endX > 0)
+                if (startX < visiblePixelEnd && endX > visiblePixelStart)
                 {
-                    SolidColorBrush sectionBrush = new(color, 0.3);
-                    Rect rect = new(Math.Max(0, startX), 0, Math.Min(bounds.Width, endX) - Math.Max(0, startX), bounds.Height);
-                    context.FillRectangle(sectionBrush, rect);
+                    double clippedStart = Math.Max(visiblePixelStart, startX);
+                    double clippedEnd = Math.Min(visiblePixelEnd, endX);
+                    Rect rect = new(clippedStart, 0, clippedEnd - clippedStart, bounds.Height);
+                    context.FillRectangle(GetSectionBackgroundBrush(section.SectionType), rect);
                 }
             }
         }
 
         // 1.5. Draw Measure Backgrounds (alternating pattern)
         double maxBeat = bounds.Width / Math.Max(1.0, ppb);
-        DrawMeasureBackgrounds(context, bounds, ppb, (int)offset, maxBeat);
+        DrawMeasureBackgrounds(context, bounds, ppb, (int)offset, maxBeat, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd, sortedSignatures, sectionStarts);
 
         // 1.75. Draw Grid Lines
-        double visibleStartBeat = offset - 1;
-        double visibleEndBeat = offset + (bounds.Width / Math.Max(1.0, ppb)) + 1;
-        DrawGridLines(context, bounds, ppb, (int)offset, visibleStartBeat, visibleEndBeat);
+        DrawGridLines(context, bounds, ppb, (int)offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd, sectionStarts);
 
         // 2. Draw Waveform
         if (Samples != null && Samples.Length > 0)
@@ -765,16 +799,8 @@ public class AudioBarControl : Control
                 }
             }
 
-            // Find the visible pixel range from the parent ScrollViewer
-            int visibleStartX = 0;
-            int visibleEndX = totalWidth;
-
-            ScrollViewer? sv = this.FindAncestorOfType<ScrollViewer>();
-            if (sv != null)
-            {
-                visibleStartX = Math.Max(0, (int)sv.Offset.X);
-                visibleEndX = Math.Min(totalWidth, (int)(sv.Offset.X + sv.Viewport.Width));
-            }
+            int visibleStartX = Math.Max(0, (int)visiblePixelStart);
+            int visibleEndX = Math.Min(totalWidth, (int)Math.Ceiling(visiblePixelEnd));
 
             // Add 10% buffer on both sides for smooth scrolling
             int bufferSize = Math.Max(1, (visibleEndX - visibleStartX) / 10);
@@ -821,10 +847,8 @@ public class AudioBarControl : Control
         }
 
         // 3. Draw Section Labels
-        if (Sections != null)
+        if (sortedSections.Count > 0)
         {
-            List<SectionSegment> sortedSections = [.. Sections.OrderBy(s => s.StartBeat)];
-
             // Rebuild text cache only when size or pixels-per-beat changes
             if (Math.Abs(_lastPixelsPerBeat - ppb) > 1e-9 || !_lastBounds.Equals(bounds.Size))
             {
@@ -849,7 +873,7 @@ public class AudioBarControl : Control
             foreach (SectionSegment? section in sortedSections)
             {
                 double x = (section.StartBeat - offset) * ppb;
-                if (x >= 0 && x < bounds.Width)
+                if (x >= visiblePixelStart && x < visiblePixelEnd)
                 {
                     // Draw vertical line
                     context.DrawLine(TimelineResources.SectionBorderPen, new Point(x, 0), new Point(x, bounds.Height));
@@ -867,13 +891,12 @@ public class AudioBarControl : Control
             }
 
             // 4. Draw Signature Labels (bottom of waveform)
-            if (Signatures != null)
+            if (sortedSignatures.Count > 0)
             {
-                List<SignatureSegment> sortedSigs = [.. Signatures.OrderBy(s => s.Marker)];
-                foreach (SignatureSegment sig in sortedSigs)
+                foreach (SignatureSegment sig in sortedSignatures)
                 {
                     double x = (sig.Marker - offset) * ppb;
-                    if (x >= 0 && x < bounds.Width)
+                    if (x >= visiblePixelStart && x < visiblePixelEnd)
                     {
                         // Get or create formatted text for this signature
                         if (!_signatureTextCache.TryGetValue(sig.Beats, out FormattedText? sigText))
@@ -921,12 +944,12 @@ public class AudioBarControl : Control
 
                 // Semi-transparent dark background
                 context.FillRectangle(
-                    new SolidColorBrush(Color.FromArgb(220, 30, 30, 30)),
+                    TooltipBackgroundBrush,
                     tooltipBgRect);
 
                 // Border
                 context.DrawRectangle(
-                    new Pen(new SolidColorBrush(Colors.White), 1),
+                    TooltipBorderPen,
                     tooltipBgRect);
 
                 // Text
@@ -948,25 +971,42 @@ public class AudioBarControl : Control
             Color.FromArgb(100, 255, 255, 255));
     }
 
-    private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double maxBeat)
+    private (double Start, double End) GetVisiblePixelRange(double totalWidth)
     {
-        List<SignatureSegment> sortedSigs = Signatures?.OrderBy(s => s.Marker).ToList() ?? [];
-        List<double> sectionStarts = Sections != null
-            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
-            : [];
+        double start = 0;
+        double end = totalWidth;
 
-        SolidColorBrush brushA = new(Colors.White, 0.05);
-        SolidColorBrush brushB = new(Colors.White, 0.02);
-        SolidColorBrush brushErr = new(Colors.Red, 0.08);
+        if (_parentScrollViewer != null && _parentScrollViewer.Viewport.Width > 0)
+        {
+            start = Math.Max(0, _parentScrollViewer.Offset.X - ViewportRenderPadding);
+            end = Math.Min(totalWidth, _parentScrollViewer.Offset.X + _parentScrollViewer.Viewport.Width + ViewportRenderPadding);
+        }
 
-        double rangeStart = offset;
-        double rangeEnd = offset + maxBeat;
+        return (start, Math.Max(start, end));
+    }
 
-        // Build section intervals (in absolute beat space)
-        List<(double start, double end)> intervals = [];
+    private void DrawMeasureBackgrounds(
+        DrawingContext context,
+        Rect bounds,
+        double ppb,
+        int offset,
+        double maxBeat,
+        double visibleStartBeat,
+        double visibleEndBeat,
+        double visiblePixelStart,
+        double visiblePixelEnd,
+        IReadOnlyList<SignatureSegment> sortedSigs,
+        List<double> sectionStarts)
+    {
+        double rangeStart = Math.Max(offset, visibleStartBeat);
+        double rangeEnd = Math.Min(offset + maxBeat, visibleEndBeat);
+        if (rangeEnd <= rangeStart)
+            return;
+
+        int colorIndex = 0;
         if (sectionStarts.Count == 0)
         {
-            intervals.Add((rangeStart, rangeEnd));
+            DrawSection(rangeStart, rangeEnd, isLastSection: true, ref colorIndex);
         }
         else
         {
@@ -974,25 +1014,20 @@ public class AudioBarControl : Control
             {
                 double sStart = sectionStarts[i];
                 double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
-                intervals.Add((sStart, sEnd));
+                DrawSection(sStart, sEnd, i == sectionStarts.Count - 1, ref colorIndex);
             }
         }
 
-        int colorIndex = 0;
-        for (int si = 0; si < intervals.Count; si++)
+        void DrawSection(double sStart, double sEnd, bool isLastSection, ref int colorIndex)
         {
-            bool isLastSection = si == intervals.Count - 1;
-            (double sStart, double sEnd) = intervals[si];
-
             if (sEnd <= rangeStart)
             {
-                // Advance colorIndex for off-screen sections
                 colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
-                continue;
+                return;
             }
 
             if (sStart >= rangeEnd)
-                break;
+                return;
 
             int sectionColor = colorIndex;
             int groupInSection = 0;
@@ -1021,10 +1056,12 @@ public class AudioBarControl : Control
 
                 double xStart = (pos - offset) * ppb;
                 double xEnd = (gEnd - offset) * ppb;
-                if (xEnd >= 0 && xStart <= bounds.Width)
+                if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
                 {
-                    SolidColorBrush brush = isPartial ? brushErr : ((sectionColor + groupInSection) % 2 == 0 ? brushA : brushB);
-                    context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, bounds.Height));
+                    SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                    double clippedStart = Math.Max(xStart, visiblePixelStart);
+                    double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
+                    context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
                 }
 
                 groupInSection++;
@@ -1035,23 +1072,87 @@ public class AudioBarControl : Control
         }
     }
 
-    private void DrawGridLines(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    private void DrawGridLines(
+        DrawingContext context,
+        Rect bounds,
+        double ppb,
+        int offset,
+        double visibleStartBeat,
+        double visibleEndBeat,
+        double visiblePixelStart,
+        double visiblePixelEnd,
+        List<double> sectionStarts)
     {
-        List<double> sectionStarts = Sections != null
-            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
-            : [];
-
+        bool drawBeatLines = ppb >= 6;
         for (int beat = (int)visibleStartBeat; beat <= (int)visibleEndBeat; beat++)
         {
             double x = (beat - offset) * ppb;
-            if (x < 0 || x > bounds.Width)
+            if (x < visiblePixelStart || x > visiblePixelEnd)
                 continue;
 
             bool isMeasure = TimelineRenderHelper.IsBaseGroupBeat(beat, sectionStarts);
             if (isMeasure)
                 context.DrawLine(TimelineResources.MeasureGridPen, new Point(x, 0), new Point(x, bounds.Height));
-            else
+            else if (drawBeatLines)
                 context.DrawLine(TimelineResources.BeatGridPen, new Point(x, 0), new Point(x, bounds.Height));
         }
+    }
+
+    private IReadOnlyList<SectionSegment> GetSortedSections()
+    {
+        if (!_sectionCacheDirty)
+            return _sortedSectionCache;
+
+        _sortedSectionCache.Clear();
+        _sectionStartCache.Clear();
+        if (Sections != null)
+        {
+            foreach (SectionSegment section in Sections)
+                _sortedSectionCache.Add(section);
+
+            _sortedSectionCache.Sort(CompareSectionsByStartBeat);
+            foreach (SectionSegment section in _sortedSectionCache)
+                _sectionStartCache.Add(section.StartBeat);
+        }
+
+        _sectionCacheDirty = false;
+        return _sortedSectionCache;
+    }
+
+    private List<double> GetSectionStarts()
+    {
+        if (_sectionCacheDirty)
+            GetSortedSections();
+
+        return _sectionStartCache;
+    }
+
+    private IReadOnlyList<SignatureSegment> GetSortedSignatures()
+    {
+        if (!_signatureCacheDirty)
+            return _sortedSignatureCache;
+
+        _sortedSignatureCache.Clear();
+        if (Signatures != null)
+        {
+            foreach (SignatureSegment signature in Signatures)
+                _sortedSignatureCache.Add(signature);
+
+            _sortedSignatureCache.Sort(CompareSignaturesByMarker);
+        }
+
+        _signatureCacheDirty = false;
+        return _sortedSignatureCache;
+    }
+
+    private static SolidColorBrush GetSectionBackgroundBrush(SongSectionType sectionType)
+    {
+        if (_sectionBackgroundBrushes.TryGetValue(sectionType, out SolidColorBrush? brush))
+            return brush;
+
+        Color color = _sectionColors.TryGetValue(sectionType, out Color c) ? c : Colors.Gray;
+        brush = new SolidColorBrush(color, 0.3);
+        _sectionBackgroundBrushes[sectionType] = brush;
+        return brush;
     }
 }

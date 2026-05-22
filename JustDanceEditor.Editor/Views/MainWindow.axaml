@@ -9,17 +9,13 @@
         x:Class="JustDanceEditor.Editor.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Just Dance Editor"
-        
-        TransparencyLevelHint="Mica, AcrylicBlur"
-        Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True"
-        WindowDecorations="Full"
-        ExtendClientAreaTitleBarHeightHint="32">
+        Title="Just Dance Editor">
 
 	<Grid RowDefinitions="32, *">
 		<!-- Title Bar / Menu Area -->
-		<Grid Grid.Row="0" ColumnDefinitions="Auto, *">
+		<Grid Grid.Row="0"
+		      ColumnDefinitions="Auto, *"
+		      Margin="{DynamicResource JdeMainWindowTitleBarContentMargin}">
 
 			<!-- Menu: Placed in the TitleBar area -->
 			<Menu Grid.Column="0"
@@ -44,6 +40,7 @@
 		<dock:DockControl Grid.Row="1" Layout="{Binding Layout}">
 			<dock:DockControl.Resources>
 				<Thickness x:Key="DockDocumentContentBorderThickness">0</Thickness>
+				<x:Boolean x:Key="DockDocumentTabStripHideWhenEmpty">False</x:Boolean>
 			</dock:DockControl.Resources>
 			<dock:DockControl.Styles>
 				<Style Selector="dock|DockControl">

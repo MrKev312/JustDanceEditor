@@ -12,10 +12,12 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using SkiaSharp;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
@@ -40,12 +42,15 @@ public sealed class SkiaPictogramPreviewControl : Control
     }
 
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
+    private readonly List<PictogramClipViewModel> _sortedPictograms = [];
+    private readonly List<DrawItem> _drawItems = [];
     private readonly List<HitItem> _lastHitItems = [];
     private TrackViewModel? _pictogramTrack;
     private TimelineEditorViewModel? _subscribedTimeline;
     private ClipViewModel? _draggingClip;
     private double _dragOffsetX;
     private double _lastScrollDuration;
+    private bool _pictogramCacheDirty = true;
 
     static SkiaPictogramPreviewControl()
     {
@@ -67,38 +72,47 @@ public sealed class SkiaPictogramPreviewControl : Control
         if (size.Width <= 1 || size.Height <= 1)
             return;
 
-        List<DrawItem> items = BuildDrawItems(size, updateHitItems: true);
-        context.Custom(new SkiaPictogramDrawOperation(new Rect(size), items));
+        BuildDrawItems(size, updateHitItems: true);
+        context.Custom(SkiaPictogramDrawOperation.Create(new Rect(size), _drawItems));
     }
 
-    private List<DrawItem> BuildDrawItems(Size size, bool updateHitItems)
+    private void BuildDrawItems(Size size, bool updateHitItems)
     {
         EnsureTimelineSubscription();
 
-        List<DrawItem> drawItems = [];
+        _drawItems.Clear();
         if (updateHitItems)
             _lastHitItems.Clear();
 
         TimelineEditorViewModel? timeline = ActiveTimeline;
         TrackViewModel? track = _pictogramTrack;
         if (timeline == null || track == null)
-            return drawItems;
+            return;
+
+        EnsurePictogramCache();
 
         TimelineStructureDocument timelineStructure = timeline.TimelineStructure;
         double currentBeat = CurrentBeat;
         double scrollDuration = GetScrollDurationInBeats(currentBeat, timelineStructure);
         if (scrollDuration <= 0)
-            return drawItems;
+            return;
 
         int coachCount = timeline.CoachCount;
         double defaultAspect = GetDefaultAspect(coachCount);
+        double searchStartBeat = currentBeat - scrollDuration;
+        double searchEndBeat = currentBeat + scrollDuration;
+        int startIndex = FindFirstPictogramAtOrAfter(searchStartBeat);
 
-        foreach (ClipViewModel clip in track.Clips)
+        for (int i = startIndex; i < _sortedPictograms.Count; i++)
         {
-            if (clip is not PictogramClipViewModel pictogram || string.IsNullOrWhiteSpace(pictogram.ImagePath))
+            PictogramClipViewModel pictogram = _sortedPictograms[i];
+            if (pictogram.StartBeat > searchEndBeat)
+                break;
+
+            if (string.IsNullOrWhiteSpace(pictogram.ImagePath))
                 continue;
 
-            double startBeat = clip.StartBeat;
+            double startBeat = pictogram.StartBeat;
             double beatsPerPixel = GetBeatsPerPixel(coachCount, startBeat, timelineStructure);
             double expectedWidth = GetPictogramExpectedWidth(coachCount);
             double stopBeat = startBeat + beatsPerPixel * expectedWidth;
@@ -131,13 +145,12 @@ public sealed class SkiaPictogramPreviewControl : Control
                 continue;
 
             Rect rect = new(drawX, drawY, drawWidth, drawHeight);
-            drawItems.Add(new DrawItem(image, rect, opacity));
+            _drawItems.Add(new DrawItem(image, rect, opacity));
             if (updateHitItems)
-                _lastHitItems.Add(new HitItem(clip, rect));
+                _lastHitItems.Add(new HitItem(pictogram, rect));
         }
 
         _lastScrollDuration = scrollDuration;
-        return drawItems;
     }
 
     private void EnsureTimelineSubscription()
@@ -155,6 +168,8 @@ public sealed class SkiaPictogramPreviewControl : Control
         _pictogramTrack.Clips.CollectionChanged += OnPictogramClipsChanged;
         foreach (ClipViewModel clip in _pictogramTrack.Clips)
             AddClipHandler(clip);
+
+        _pictogramCacheDirty = true;
     }
 
     private void OnPictogramClipsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -173,6 +188,7 @@ public sealed class SkiaPictogramPreviewControl : Control
                     AddClipHandler(clip);
         }
 
+        _pictogramCacheDirty = true;
         InvalidateVisual();
     }
 
@@ -188,6 +204,7 @@ public sealed class SkiaPictogramPreviewControl : Control
                 or nameof(ClipViewModel.ImagePath)
                 or nameof(PictogramClipViewModel.PictogramId))
             {
+                _pictogramCacheDirty = true;
                 InvalidateVisual();
             }
         }
@@ -213,7 +230,43 @@ public sealed class SkiaPictogramPreviewControl : Control
             clip.PropertyChanged -= handler;
 
         _clipHandlers.Clear();
+        _sortedPictograms.Clear();
+        _pictogramCacheDirty = true;
         _pictogramTrack = null;
+    }
+
+    private void EnsurePictogramCache()
+    {
+        if (!_pictogramCacheDirty)
+            return;
+
+        _sortedPictograms.Clear();
+        if (_pictogramTrack != null)
+        {
+            _sortedPictograms.AddRange(
+                _pictogramTrack.Clips
+                    .OfType<PictogramClipViewModel>()
+                    .OrderBy(clip => clip.StartBeat));
+        }
+
+        _pictogramCacheDirty = false;
+    }
+
+    private int FindFirstPictogramAtOrAfter(double beat)
+    {
+        int low = 0;
+        int high = _sortedPictograms.Count;
+
+        while (low < high)
+        {
+            int mid = low + ((high - low) / 2);
+            if (_sortedPictograms[mid].StartBeat < beat)
+                low = mid + 1;
+            else
+                high = mid;
+        }
+
+        return low;
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -323,14 +376,36 @@ public sealed class SkiaPictogramPreviewControl : Control
     private static double GetDefaultAspect(int coachCount)
         => coachCount > 1 ? 354d / 512d : 1d;
 
-    private sealed record DrawItem(SkiaPictogramImage? Image, Rect Bounds, double Opacity);
-    private sealed record HitItem(ClipViewModel Clip, Rect Bounds);
+    private readonly record struct DrawItem(SkiaPictogramImage? Image, Rect Bounds, double Opacity);
+    private readonly record struct HitItem(ClipViewModel Clip, Rect Bounds);
 
-    private sealed class SkiaPictogramDrawOperation(Rect bounds, IReadOnlyList<DrawItem> items) : ICustomDrawOperation
+    private sealed class SkiaPictogramDrawOperation : ICustomDrawOperation
     {
         private static readonly SKSamplingOptions SamplingOptions = new(SKFilterMode.Linear, SKMipmapMode.Linear);
 
-        public Rect Bounds { get; } = bounds;
+        private readonly DrawItem[]? _rentedItems;
+        private readonly int _itemCount;
+        private bool _disposed;
+
+        private SkiaPictogramDrawOperation(Rect bounds, DrawItem[]? rentedItems, int itemCount)
+        {
+            Bounds = bounds;
+            _rentedItems = rentedItems;
+            _itemCount = itemCount;
+        }
+
+        public Rect Bounds { get; }
+
+        public static SkiaPictogramDrawOperation Create(Rect bounds, List<DrawItem> items)
+        {
+            int itemCount = items.Count;
+            if (itemCount == 0)
+                return new SkiaPictogramDrawOperation(bounds, null, 0);
+
+            DrawItem[] rentedItems = ArrayPool<DrawItem>.Shared.Rent(itemCount);
+            CollectionsMarshal.AsSpan(items).CopyTo(rentedItems);
+            return new SkiaPictogramDrawOperation(bounds, rentedItems, itemCount);
+        }
 
         public bool HitTest(Point p) => Bounds.Contains(p);
 
@@ -338,42 +413,58 @@ public sealed class SkiaPictogramPreviewControl : Control
 
         public void Render(ImmediateDrawingContext context)
         {
+            if (_rentedItems == null)
+                return;
+
             if (context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature)) is not ISkiaSharpApiLeaseFeature leaseFeature)
                 return;
 
             using ISkiaSharpApiLease lease = leaseFeature.Lease();
             SKCanvas canvas = lease.SkCanvas;
             canvas.Save();
-            canvas.ClipRect(Bounds.ToSKRect(), SKClipOperation.Intersect, antialias: false);
-
-            using SKPaint paint = new()
+            try
             {
-                IsAntialias = true
-            };
+                canvas.ClipRect(Bounds.ToSKRect(), SKClipOperation.Intersect, antialias: false);
 
-            foreach (DrawItem item in items)
-            {
-                SKRect destination = item.Bounds.ToSKRect();
-                paint.Color = new SKColor(255, 255, 255, (byte)Math.Round(item.Opacity * 255));
+                using SKPaint paint = new()
+                {
+                    IsAntialias = true
+                };
 
-                if (item.Image != null)
+                for (int i = 0; i < _itemCount; i++)
                 {
-                    canvas.DrawImage(item.Image.Image, destination, SamplingOptions, paint);
-                }
-                else
-                {
-                    paint.Style = SKPaintStyle.Fill;
-                    paint.Color = new SKColor(64, 64, 64, (byte)Math.Round(item.Opacity * 180));
-                    canvas.DrawRoundRect(destination, 4, 4, paint);
-                    paint.Style = SKPaintStyle.Fill;
+                    DrawItem item = _rentedItems[i];
+                    SKRect destination = item.Bounds.ToSKRect();
+                    paint.Color = new SKColor(255, 255, 255, (byte)Math.Round(item.Opacity * 255));
+
+                    if (item.Image != null)
+                    {
+                        canvas.DrawImage(item.Image.Image, destination, SamplingOptions, paint);
+                    }
+                    else
+                    {
+                        paint.Style = SKPaintStyle.Fill;
+                        paint.Color = new SKColor(64, 64, 64, (byte)Math.Round(item.Opacity * 180));
+                        canvas.DrawRoundRect(destination, 4, 4, paint);
+                        paint.Style = SKPaintStyle.Fill;
+                    }
                 }
             }
-
-            canvas.Restore();
+            finally
+            {
+                canvas.Restore();
+            }
         }
 
         public void Dispose()
         {
+            if (_disposed)
+                return;
+
+            if (_rentedItems != null)
+                ArrayPool<DrawItem>.Shared.Return(_rentedItems, clearArray: true);
+
+            _disposed = true;
         }
     }
 }

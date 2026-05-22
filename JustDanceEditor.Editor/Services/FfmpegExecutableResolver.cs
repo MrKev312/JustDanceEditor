@@ -27,7 +27,7 @@ internal static class FfmpegExecutableResolver
             if (!string.IsNullOrWhiteSpace(_ffmpegPath) && File.Exists(_ffmpegPath))
                 return _ffmpegPath;
 
-            _ffmpegPath = TryFindExecutable();
+            _ffmpegPath = TryFindExecutable(GetExecutableName("ffmpeg"));
             if (_ffmpegPath == null)
             {
                 string downloadDirectory = GetDownloadDirectory();
@@ -35,7 +35,7 @@ internal static class FfmpegExecutableResolver
                 FFmpeg.SetExecutablesPath(downloadDirectory);
 
                 await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, downloadDirectory);
-                _ffmpegPath = TryFindExecutable(downloadDirectory, includeNested: true);
+                _ffmpegPath = TryFindExecutable(GetExecutableName("ffmpeg"), downloadDirectory, includeNested: true);
             }
 
             if (_ffmpegPath == null)
@@ -53,6 +53,25 @@ internal static class FfmpegExecutableResolver
         }
     }
 
+    public static string? TryGetFfplayPath()
+    {
+        string executableName = GetExecutableName("ffplay");
+
+        if (!string.IsNullOrWhiteSpace(_ffmpegPath))
+        {
+            string? ffmpegDirectory = Path.GetDirectoryName(_ffmpegPath);
+            if (!string.IsNullOrWhiteSpace(ffmpegDirectory))
+            {
+                string sibling = Path.Combine(ffmpegDirectory, executableName);
+                if (File.Exists(sibling))
+                    return sibling;
+            }
+        }
+
+        return TryFindExecutable(executableName, GetDownloadDirectory(), includeNested: true)
+            ?? TryFindExecutable(executableName);
+    }
+
     private static string GetDownloadDirectory()
     {
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -62,13 +81,14 @@ internal static class FfmpegExecutableResolver
         return Path.Combine(localAppData, "JustDanceEditor", "ffmpeg");
     }
 
-    private static string? TryFindExecutable(bool includeNested = false)
-        => TryFindExecutable(null, includeNested);
+    private static string GetExecutableName(string baseName)
+        => OperatingSystem.IsWindows() ? $"{baseName}.exe" : baseName;
 
-    private static string? TryFindExecutable(string? preferredDirectory, bool includeNested = false)
+    private static string? TryFindExecutable(string executableName, bool includeNested = false)
+        => TryFindExecutable(executableName, null, includeNested);
+
+    private static string? TryFindExecutable(string executableName, string? preferredDirectory, bool includeNested = false)
     {
-        string executableName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
-
         foreach (string directory in GetCandidateDirectories(preferredDirectory))
         {
             string candidate = Path.Combine(directory, executableName);

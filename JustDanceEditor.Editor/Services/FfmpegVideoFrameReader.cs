@@ -1,15 +1,8 @@
-using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-
-using SkiaSharp;
-
 using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,7 +21,7 @@ internal sealed class FfmpegVideoFrameReader
 {
     private const int MaxPreviewWidth = 960;
     private const int MaxPreviewHeight = 540;
-    private const double DefaultFrameRate = 30;
+    private const double DefaultFrameRate = 25;
 
     public async Task<FfmpegVideoFrameInfo> GetVideoInfoAsync(string videoPath, CancellationToken cancellationToken = default)
     {
@@ -42,35 +35,40 @@ internal sealed class FfmpegVideoFrameReader
         int sourceWidth = Math.Max(1, videoStream.Width);
         int sourceHeight = Math.Max(1, videoStream.Height);
         (int outputWidth, int outputHeight) = FitInside(sourceWidth, sourceHeight, MaxPreviewWidth, MaxPreviewHeight);
+        double frameRate = videoStream.Framerate;
+        if (double.IsNaN(frameRate) || double.IsInfinity(frameRate) || frameRate <= 0)
+            frameRate = DefaultFrameRate;
 
-        return new FfmpegVideoFrameInfo(sourceWidth, sourceHeight, outputWidth, outputHeight, DefaultFrameRate);
+        return new FfmpegVideoFrameInfo(sourceWidth, sourceHeight, outputWidth, outputHeight, Math.Clamp(frameRate, 1, 60));
     }
 
-    public async Task<Bitmap> ReadFrameAsync(
+    public async Task ReadFramePixelsAsync(
         string videoPath,
         double timestampSeconds,
         FfmpegVideoFrameInfo info,
+        byte[] frameBytes,
         CancellationToken cancellationToken = default)
     {
+        int frameByteCount = GetFrameByteCount(info);
+        if (frameBytes.Length < frameByteCount)
+            throw new ArgumentException("The frame buffer is too small for the requested video frame.", nameof(frameBytes));
+
         string ffmpegPath = await FfmpegExecutableResolver.GetFfmpegPathAsync(cancellationToken);
         using Process process = StartFfmpeg(ffmpegPath, videoPath, timestampSeconds, info, stream: false);
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
         try
         {
-            byte[] frameBytes = new byte[info.OutputWidth * info.OutputHeight * 4];
-            int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, cancellationToken);
+            int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, frameByteCount, cancellationToken);
 
             await WaitForExitOrKillAsync(process, cancellationToken);
             string stderr = await stderrTask;
 
-            if (bytesRead != frameBytes.Length)
+            if (bytesRead != frameByteCount)
                 throw new InvalidOperationException($"FFmpeg returned an incomplete video frame. {stderr}".Trim());
 
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"FFmpeg exited with code {process.ExitCode}. {stderr}".Trim());
-
-            return CreateBitmap(frameBytes, info.OutputWidth, info.OutputHeight);
         }
         catch
         {
@@ -83,14 +81,15 @@ internal sealed class FfmpegVideoFrameReader
         string videoPath,
         double startSeconds,
         FfmpegVideoFrameInfo info,
-        Action<Bitmap> onFrame,
+        Func<byte[], FfmpegVideoFrameInfo, CancellationToken, Task> onFrame,
         CancellationToken cancellationToken = default)
     {
         string ffmpegPath = await FfmpegExecutableResolver.GetFfmpegPathAsync(cancellationToken);
         using Process process = StartFfmpeg(ffmpegPath, videoPath, startSeconds, info, stream: true);
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
-        byte[] frameBytes = new byte[info.OutputWidth * info.OutputHeight * 4];
+        int frameByteCount = GetFrameByteCount(info);
+        byte[] frameBytes = new byte[frameByteCount];
         TimeSpan frameInterval = TimeSpan.FromSeconds(1d / Math.Max(1, info.FrameRate));
         DateTime nextFrameAt = DateTime.UtcNow;
 
@@ -98,14 +97,14 @@ internal sealed class FfmpegVideoFrameReader
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, cancellationToken);
+                int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, frameByteCount, cancellationToken);
                 if (bytesRead == 0)
                     break;
 
-                if (bytesRead != frameBytes.Length)
+                if (bytesRead != frameByteCount)
                     throw new InvalidOperationException("FFmpeg ended before a complete video frame was read.");
 
-                onFrame(CreateBitmap(frameBytes, info.OutputWidth, info.OutputHeight));
+                await onFrame(frameBytes, info, cancellationToken);
 
                 nextFrameAt += frameInterval;
                 TimeSpan delay = nextFrameAt - DateTime.UtcNow;
@@ -171,12 +170,15 @@ internal sealed class FfmpegVideoFrameReader
         return process;
     }
 
-    private static async Task<int> ReadExactAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
+    private static int GetFrameByteCount(FfmpegVideoFrameInfo info)
+        => checked(info.OutputWidth * info.OutputHeight * 4);
+
+    private static async Task<int> ReadExactAsync(Stream stream, byte[] buffer, int length, CancellationToken cancellationToken)
     {
         int offset = 0;
-        while (offset < buffer.Length)
+        while (offset < length)
         {
-            int read = await stream.ReadAsync(buffer.AsMemory(offset, buffer.Length - offset), cancellationToken);
+            int read = await stream.ReadAsync(buffer.AsMemory(offset, length - offset), cancellationToken);
             if (read == 0)
                 break;
 
@@ -184,37 +186,6 @@ internal sealed class FfmpegVideoFrameReader
         }
 
         return offset;
-    }
-
-    private static Bitmap CreateBitmap(byte[] bgraPixels, int width, int height)
-    {
-        using SKBitmap skBitmap = new(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque));
-        Marshal.Copy(bgraPixels, 0, skBitmap.GetPixels(), bgraPixels.Length);
-
-        WriteableBitmap bitmap = new(
-            new PixelSize(width, height),
-            new Vector(96, 96),
-            Avalonia.Platform.PixelFormat.Bgra8888,
-            AlphaFormat.Opaque);
-
-        using ILockedFramebuffer framebuffer = bitmap.Lock();
-        CopySkiaPixelsToFramebuffer(skBitmap, framebuffer, width, height);
-        return bitmap;
-    }
-
-    private static void CopySkiaPixelsToFramebuffer(SKBitmap skBitmap, ILockedFramebuffer framebuffer, int width, int height)
-    {
-        int sourceStride = skBitmap.RowBytes;
-        int targetStride = framebuffer.RowBytes;
-        int rowBytes = width * 4;
-        byte[] row = new byte[rowBytes];
-        IntPtr source = skBitmap.GetPixels();
-
-        for (int y = 0; y < height; y++)
-        {
-            Marshal.Copy(IntPtr.Add(source, y * sourceStride), row, 0, rowBytes);
-            Marshal.Copy(row, 0, IntPtr.Add(framebuffer.Address, y * targetStride), rowBytes);
-        }
     }
 
     private static async Task WaitForExitOrKillAsync(Process process, CancellationToken cancellationToken)

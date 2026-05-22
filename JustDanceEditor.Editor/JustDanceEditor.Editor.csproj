@@ -12,6 +12,15 @@
 
 	<ItemGroup>
 		<AvaloniaResource Include="Assets\**" />
+		<AvaloniaResource Include="..\Shared\Avalonia\Styles\Platform\**\*.axaml"
+		                  Link="Styles\Platform\%(RecursiveDir)%(Filename)%(Extension)" />
+		<AvaloniaResource Include="..\Shared\Avalonia\Styles\Dock\**\*.axaml"
+		                  Link="Styles\Dock\%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\Shared\Avalonia\PlatformTheme.cs"
+		         Link="Shared\PlatformTheme.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -33,6 +42,8 @@
 		<PackageReference Include="KevInc.Avalonia.Timeline" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
+		<PackageReference Include="Concentus" Version="2.2.2" />
+		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
 		<PackageReference Include="NAudio" Version="2.3.0" />
 		<PackageReference Include="PortAudioSharp2" Version="1.0.6" />
 		<PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />

@@ -1,0 +1,78 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <FluentTheme>
+    <FluentTheme.Palettes>
+      <ColorPaletteResources x:Key="Dark"
+                              Accent="#0A84FF"
+                              RegionColor="#33232630"
+                              ChromeLow="#40232630"
+                              ChromeMediumLow="#59303846"
+                              ChromeMedium="#70424B5C"
+                              ChromeHigh="#A8DCE7F8" />
+    </FluentTheme.Palettes>
+  </FluentTheme>
+  <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+  <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+  <Styles.Resources>
+    <SolidColorBrush x:Key="JdeWindowBackgroundBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="JdeWindowFallbackBrush" Color="#20242C" />
+    <SolidColorBrush x:Key="JdeSurfaceBrush" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="JdeSurfaceBorderBrush" Color="#3CFFFFFF" />
+    <SolidColorBrush x:Key="JdeTextPrimaryBrush" Color="#FFF7FAFF" />
+    <SolidColorBrush x:Key="JdeTextSecondaryBrush" Color="#DDEBF3FF" />
+    <SolidColorBrush x:Key="JdeTextMutedBrush" Color="#B8CAD7E8" />
+    <SolidColorBrush x:Key="JdeInputBrush" Color="#20FFFFFF" />
+    <SolidColorBrush x:Key="JdeInputHoverBrush" Color="#2EFFFFFF" />
+    <SolidColorBrush x:Key="JdeInputFocusBrush" Color="#36FFFFFF" />
+    <SolidColorBrush x:Key="JdeInputBorderBrush" Color="#3DFFFFFF" />
+    <SolidColorBrush x:Key="JdeInputHoverBorderBrush" Color="#52FFFFFF" />
+    <SolidColorBrush x:Key="JdeInputFocusBorderBrush" Color="#AA64D2FF" />
+    <SolidColorBrush x:Key="JdeButtonBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonHoverBrush" Color="#34FFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonPressedBrush" Color="#2AFFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonBorderBrush" Color="#3DFFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonHoverBorderBrush" Color="#5EFFFFFF" />
+    <SolidColorBrush x:Key="JdeAccentBrush" Color="#FF0A84FF" />
+    <SolidColorBrush x:Key="JdeBadgeBrush" Color="#26FFFFFF" />
+    <SolidColorBrush x:Key="JdeBadgeBorderBrush" Color="#48FFFFFF" />
+    <SolidColorBrush x:Key="JdeListHoverBrush" Color="#22FFFFFF" />
+    <Thickness x:Key="JdeMainWindowTitleBarContentMargin">76,0,0,0</Thickness>
+  </Styles.Resources>
+
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource JdeWindowBackgroundBrush}" />
+    <Setter Property="TransparencyBackgroundFallback" Value="{DynamicResource JdeWindowFallbackBrush}" />
+    <Setter Property="FontFamily" Value=".AppleSystemUIFont, SF Pro Text, Inter" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="Window[WindowState=Maximized]">
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="Button, TextBox, ComboBox">
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource JdeButtonHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonHoverBorderBrush}" />
+  </Style>
+  <Style Selector="TextBox, ComboBox">
+    <Setter Property="Background" Value="{DynamicResource JdeInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JdeInputBorderBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="TextBox:pointerover, ComboBox:pointerover">
+    <Setter Property="Background" Value="{DynamicResource JdeInputHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JdeInputHoverBorderBrush}" />
+  </Style>
+  <Style Selector="TextBox:focus, ComboBox:focus">
+    <Setter Property="Background" Value="{DynamicResource JdeInputFocusBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource JdeInputFocusBorderBrush}" />
+  </Style>
+</Styles>

@@ -9,17 +9,9 @@
 		<ResourceDictionary>
 			<ResourceDictionary.MergedDictionaries>
 				<ResourceInclude Source="avares://KevInc.Avalonia/Resources/FlyoutResources.axaml" />
-				<ResourceInclude Source="avares://KevInc.Avalonia.Dock/Resources/DockMicaResources.axaml" />
 			</ResourceDictionary.MergedDictionaries>
 		</ResourceDictionary>
 	</Application.Resources>
-
-	<Application.Styles>
-		<StyleInclude Source="avares://KevInc.Avalonia/Styles/MicaFluentTheme.axaml" />
-		<StyleInclude Source="avares://KevInc.Avalonia/Styles/MicaWindowChrome.axaml" />
-		<StyleInclude Source="avares://KevInc.Avalonia.Dock/Styles/TransparentDockFluent.axaml" />
-	</Application.Styles>
-
 	<Application.DataTemplates>
 		<kev:ConventionViewLocator />
 	</Application.DataTemplates>

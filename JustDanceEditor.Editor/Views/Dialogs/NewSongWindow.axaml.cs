@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
+using JustDanceEditor.Shared.Avalonia;
 
 using System;
 
@@ -12,6 +13,7 @@ public partial class NewSongWindow : Window
     public NewSongWindow()
     {
         InitializeComponent();
+        PlatformTheme.ApplyFloatingWindowChrome(this);
         NextBtn.Click += NextBtn_Click;
         CancelBtn.Click += CancelBtn_Click;
     }

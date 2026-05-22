@@ -1,0 +1,23 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dock="using:Dock.Avalonia.Controls"
+        xmlns:themes="using:KevInc.Avalonia.Dock">
+  <themes:TransparentDockFluentTheme />
+
+  <Styles.Resources>
+    <SolidColorBrush x:Key="DockWindowChromeBackgroundBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="DockWindowChromeTitleBarBackgroundBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="DockWindowChromeForegroundBrush" Color="#FFFFFFFF" />
+    <x:Double x:Key="DockCaptionButtonWidth">46</x:Double>
+    <x:Double x:Key="DockCaptionButtonHeight">32</x:Double>
+    <SolidColorBrush x:Key="JdeDockBackgroundBrush" Color="#00000000" />
+    <SolidColorBrush x:Key="JdeDockPanelBrush" Color="#00000000" />
+  </Styles.Resources>
+
+  <Style Selector="dock|DockControl, dock|RootDockControl, dock|DocumentDockControl, dock|DocumentControl, dock|ToolDockControl, dock|ToolControl, dock|ProportionalDockControl, dock|StackDockControl, dock|GridDockControl, dock|SplitViewDockControl">
+    <Setter Property="Background" Value="{DynamicResource JdeDockBackgroundBrush}" />
+  </Style>
+  <Style Selector="dock|DocumentContentControl, dock|ToolContentControl, dock|DocumentTabStrip, dock|ToolTabStrip, dock|DocumentTabStripItem, dock|ToolTabStripItem">
+    <Setter Property="Background" Value="{DynamicResource JdeDockPanelBrush}" />
+  </Style>
+</Styles>

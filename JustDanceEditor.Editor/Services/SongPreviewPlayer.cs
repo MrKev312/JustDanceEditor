@@ -23,7 +23,7 @@ public class SongPreviewPlayer : IDisposable
     private WaveOutEvent? _outputDevice;
     private AudioFileReader? _audioReader;
     private MetronomeSampleProvider? _metronome;
-    private PortAudioPcmPlaybackEngine? _portAudioPlayer;
+    private IPcmPlaybackEngine? _pcmPlayer;
     private string? _tempWavPath;
     private readonly Stopwatch _stopwatch = new();
     private TimeSpan _baseTime = TimeSpan.Zero;
@@ -63,10 +63,10 @@ public class SongPreviewPlayer : IDisposable
 
         if (!OperatingSystem.IsWindows())
         {
-            _portAudioPlayer = new PortAudioPcmPlaybackEngine();
-            _portAudioPlayer.Load(_tempWavPath);
-            _portAudioPlayer.PlaybackCompleted += OnPortAudioPlaybackCompleted;
-            _duration = _portAudioPlayer.Duration;
+            _pcmPlayer = PcmPlaybackEngineFactory.Create();
+            _pcmPlayer.Load(_tempWavPath);
+            _pcmPlayer.PlaybackCompleted += OnPcmPlaybackCompleted;
+            _duration = _pcmPlayer.Duration;
             _baseTime = TimeSpan.Zero;
             _stopwatch.Reset();
             return;
@@ -95,10 +95,10 @@ public class SongPreviewPlayer : IDisposable
             _metronome.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sections?.Select(s => s.StartBeat));
         }
 
-        if (_portAudioPlayer != null)
+        if (_pcmPlayer != null)
         {
-            _portAudioPlayer.IsMetronomeEnabled = true;
-            _portAudioPlayer.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sections?.Select(s => (double)s.StartBeat));
+            _pcmPlayer.IsMetronomeEnabled = true;
+            _pcmPlayer.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sections?.Select(s => (double)s.StartBeat));
         }
     }
 
@@ -113,11 +113,21 @@ public class SongPreviewPlayer : IDisposable
         if (_audioReader != null)
             _audioReader.CurrentTime = CurrentTime;
 
+        if (_outputDevice == null && _pcmPlayer == null)
+            return;
+
         _metronome?.ResetPosition(CurrentTime.TotalSeconds);
-        _portAudioPlayer?.Play(CurrentTime, completeAtAudioEnd: true);
-        _stopwatch.Restart();
-        _outputDevice?.Play();
-        IsPlaying = true;
+        try
+        {
+            _pcmPlayer?.Play(CurrentTime, completeAtAudioEnd: true);
+            _outputDevice?.Play();
+            _stopwatch.Restart();
+            IsPlaying = true;
+        }
+        catch (Exception ex)
+        {
+            DisablePlayback(ex);
+        }
     }
 
     public void Pause()
@@ -125,8 +135,16 @@ public class SongPreviewPlayer : IDisposable
         if (!IsPlaying)
             return;
 
-        _outputDevice?.Pause();
-        _portAudioPlayer?.Pause();
+        try
+        {
+            _outputDevice?.Pause();
+            _pcmPlayer?.Pause();
+        }
+        catch (Exception ex)
+        {
+            DisablePlayback(ex);
+        }
+
         _baseTime += _stopwatch.Elapsed;
         _stopwatch.Stop();
         IsPlaying = false;
@@ -137,8 +155,16 @@ public class SongPreviewPlayer : IDisposable
         if (!IsLoaded && !IsPlaying)
             return;
 
-        _outputDevice?.Stop();
-        _portAudioPlayer?.Stop();
+        try
+        {
+            _outputDevice?.Stop();
+            _pcmPlayer?.Stop();
+        }
+        catch (Exception ex)
+        {
+            DisablePlayback(ex);
+        }
+
         _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
         IsPlaying = false;
@@ -163,12 +189,27 @@ public class SongPreviewPlayer : IDisposable
                 _audioReader.CurrentTime = time;
 
             _metronome?.ResetPosition(time.TotalSeconds);
-            _portAudioPlayer?.Seek(time);
+            try
+            {
+                _pcmPlayer?.Seek(time);
+            }
+            catch (Exception ex)
+            {
+                DisablePlayback(ex);
+            }
+
             _stopwatch.Restart();
         }
         else
         {
-            _portAudioPlayer?.Seek(time);
+            try
+            {
+                _pcmPlayer?.Seek(time);
+            }
+            catch (Exception ex)
+            {
+                DisablePlayback(ex);
+            }
         }
     }
 
@@ -182,7 +223,7 @@ public class SongPreviewPlayer : IDisposable
         }
     }
 
-    private void OnPortAudioPlaybackCompleted(object? sender, EventArgs e)
+    private void OnPcmPlaybackCompleted(object? sender, EventArgs e)
     {
         if (!IsPlaying)
             return;
@@ -204,10 +245,10 @@ public class SongPreviewPlayer : IDisposable
         _audioReader?.Dispose();
         _audioReader = null;
         _metronome = null;
-        if (_portAudioPlayer != null)
-            _portAudioPlayer.PlaybackCompleted -= OnPortAudioPlaybackCompleted;
-        _portAudioPlayer?.Dispose();
-        _portAudioPlayer = null;
+        if (_pcmPlayer != null)
+            _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
+        _pcmPlayer?.Dispose();
+        _pcmPlayer = null;
         _duration = TimeSpan.Zero;
 
         if (_tempWavPath != null)
@@ -220,6 +261,28 @@ public class SongPreviewPlayer : IDisposable
 
             _tempWavPath = null;
         }
+    }
+
+    private void DisablePlayback(Exception ex)
+    {
+        Debug.WriteLine($"Song preview playback disabled: {ex}");
+
+        if (_pcmPlayer != null)
+            _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
+
+        try
+        {
+            _outputDevice?.Dispose();
+            _pcmPlayer?.Dispose();
+        }
+        catch
+        {
+        }
+
+        _outputDevice = null;
+        _pcmPlayer = null;
+        _stopwatch.Stop();
+        IsPlaying = false;
     }
 
     public void Dispose()

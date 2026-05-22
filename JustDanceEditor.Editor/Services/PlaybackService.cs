@@ -15,11 +15,13 @@ namespace JustDanceEditor.Editor.Services;
 
 public class PlaybackService : IPlaybackService, IDisposable
 {
+    private readonly Func<IPcmPlaybackEngine> _pcmPlaybackEngineFactory;
+    private readonly bool _useWindowsAudio;
     private IWavePlayer? _outputDevice;
     private AudioFileReader? _audioFile;
     private EndlessSampleProvider? _endless;
     private MetronomeSampleProvider? _metronome;
-    private PortAudioPcmPlaybackEngine? _portAudioPlayer;
+    private IPcmPlaybackEngine? _pcmPlayer;
 
     private Func<double, double> _beatToSeconds = b => b * 0.5;
     private Func<double, double> _secondsToBeat = s => s / 0.5;
@@ -34,10 +36,13 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         get
         {
+            if (IsPlaying && TryGetPcmPlaybackTime(out TimeSpan playbackTime))
+                return ClampToDuration(playbackTime);
+
             TimeSpan time = _baseTime;
             if (IsPlaying)
                 time += _stopwatch.Elapsed;
-            return time;
+            return ClampToDuration(time);
         }
     }
 
@@ -49,7 +54,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         get
         {
             TimeSpan audioDur = _audioFile?.TotalTime ?? TimeSpan.Zero;
-            audioDur = _portAudioPlayer?.Duration ?? audioDur;
+            audioDur = _pcmPlayer?.Duration ?? audioDur;
             return field > audioDur ? field : audioDur;
         }
 
@@ -60,9 +65,16 @@ public class PlaybackService : IPlaybackService, IDisposable
     public event EventHandler? PlayStateChanged;
 
     public PlaybackService()
+        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows())
     {
+    }
+
+    internal PlaybackService(Func<IPcmPlaybackEngine> pcmPlaybackEngineFactory, bool useWindowsAudio)
+    {
+        _pcmPlaybackEngineFactory = pcmPlaybackEngineFactory;
+        _useWindowsAudio = useWindowsAudio;
         _updateTimer = new DispatcherTimer(
-            TimeSpan.FromMilliseconds(16),
+            DisplayRefreshRateProvider.GetRefreshInterval(),
             DispatcherPriority.Render,
             (s, e) =>
             {
@@ -93,7 +105,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         if (!string.IsNullOrEmpty(audioPath) && File.Exists(audioPath))
         {
-            if (OperatingSystem.IsWindows())
+            if (_useWindowsAudio)
             {
                 await Task.Run(() =>
                 {
@@ -108,8 +120,8 @@ public class PlaybackService : IPlaybackService, IDisposable
             {
                 await Task.Run(() =>
                 {
-                    _portAudioPlayer = new PortAudioPcmPlaybackEngine();
-                    _portAudioPlayer.Load(audioPath);
+                    _pcmPlayer = _pcmPlaybackEngineFactory();
+                    _pcmPlayer.Load(audioPath);
                 });
             }
         }
@@ -117,6 +129,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         // Reset timing
         _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
+        UpdateTimerInterval();
         _updateTimer.Start();
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
@@ -132,6 +145,7 @@ public class PlaybackService : IPlaybackService, IDisposable
             Seek(TimeSpan.Zero);
         }
 
+        UpdateTimerInterval();
         TimeSpan startTime = CurrentTime;
 
         if (_audioFile != null)
@@ -142,11 +156,11 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         _endless?.Reset(startTime.TotalSeconds);
         _metronome?.ResetPosition(startTime.TotalSeconds);
-        _portAudioPlayer?.Play(startTime, completeAtAudioEnd: false);
+        TryPlayPcm(startTime);
 
         IsPlaying = true;
         _stopwatch.Restart();
-        _outputDevice?.Play();
+        TryPlayOutputDevice();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -156,12 +170,12 @@ public class PlaybackService : IPlaybackService, IDisposable
         if (!IsPlaying)
             return;
 
-        _baseTime += _stopwatch.Elapsed;
+        _baseTime = CurrentTime;
         _stopwatch.Stop();
         IsPlaying = false;
 
-        _outputDevice?.Pause();
-        _portAudioPlayer?.Pause();
+        TryPauseOutputDevice();
+        TryPausePcm();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
         TimeChanged?.Invoke(this, EventArgs.Empty);
@@ -188,7 +202,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         _endless?.Reset(_baseTime.TotalSeconds);
         _metronome?.ResetPosition(_baseTime.TotalSeconds);
-        _portAudioPlayer?.Seek(_baseTime);
+        TrySeekPcm(_baseTime);
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
@@ -207,13 +221,13 @@ public class PlaybackService : IPlaybackService, IDisposable
         _outputDevice?.Stop();
         _outputDevice?.Dispose();
         _audioFile?.Dispose();
-        _portAudioPlayer?.Dispose();
+        _pcmPlayer?.Dispose();
 
         _outputDevice = null;
         _audioFile = null;
         _endless = null;
         _metronome = null;
-        _portAudioPlayer = null;
+        _pcmPlayer = null;
         Duration = TimeSpan.Zero;
     }
 
@@ -224,19 +238,119 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public bool IsMetronomeEnabled
     {
-        get => _metronome?.Enabled ?? _portAudioPlayer?.IsMetronomeEnabled ?? false;
+        get => _metronome?.Enabled ?? _pcmPlayer?.IsMetronomeEnabled ?? false;
         set
         {
             _metronome?.Enabled = value;
-            if (_portAudioPlayer != null)
-                _portAudioPlayer.IsMetronomeEnabled = value;
+            if (_pcmPlayer != null)
+                _pcmPlayer.IsMetronomeEnabled = value;
         }
     }
 
     public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
     {
         _metronome?.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
-        _portAudioPlayer?.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
+        _pcmPlayer?.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
+    }
+
+    private void TryPlayPcm(TimeSpan startTime)
+    {
+        if (_pcmPlayer == null)
+            return;
+
+        try
+        {
+            _pcmPlayer.Play(startTime, completeAtAudioEnd: false);
+        }
+        catch (Exception ex)
+        {
+            DisablePcmPlayback(ex);
+        }
+    }
+
+    private void TryPausePcm()
+    {
+        try
+        {
+            _pcmPlayer?.Pause();
+        }
+        catch (Exception ex)
+        {
+            DisablePcmPlayback(ex);
+        }
+    }
+
+    private void TrySeekPcm(TimeSpan time)
+    {
+        try
+        {
+            _pcmPlayer?.Seek(time);
+        }
+        catch (Exception ex)
+        {
+            DisablePcmPlayback(ex);
+        }
+    }
+
+    private void TryPlayOutputDevice()
+    {
+        try
+        {
+            _outputDevice?.Play();
+        }
+        catch (Exception ex)
+        {
+            DisableWaveOutPlayback(ex);
+        }
+    }
+
+    private void TryPauseOutputDevice()
+    {
+        try
+        {
+            _outputDevice?.Pause();
+        }
+        catch (Exception ex)
+        {
+            DisableWaveOutPlayback(ex);
+        }
+    }
+
+    private void DisablePcmPlayback(Exception ex)
+    {
+        Debug.WriteLine($"PCM audio playback disabled: {ex}");
+        _pcmPlayer?.Dispose();
+        _pcmPlayer = null;
+    }
+
+    private void DisableWaveOutPlayback(Exception ex)
+    {
+        Debug.WriteLine($"Wave audio playback disabled: {ex}");
+        _outputDevice?.Dispose();
+        _outputDevice = null;
+    }
+
+    private bool TryGetPcmPlaybackTime(out TimeSpan playbackTime)
+    {
+        if (_pcmPlayer is IAudioClockPlaybackEngine clock && clock.TryGetPlaybackTime(out playbackTime))
+            return true;
+
+        playbackTime = default;
+        return false;
+    }
+
+    private TimeSpan ClampToDuration(TimeSpan time)
+    {
+        if (time < TimeSpan.Zero)
+            return TimeSpan.Zero;
+
+        TimeSpan duration = Duration;
+        return duration > TimeSpan.Zero && time > duration ? duration : time;
+    }
+
+    private void UpdateTimerInterval()
+    {
+        _updateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval();
     }
 
     public void Dispose()

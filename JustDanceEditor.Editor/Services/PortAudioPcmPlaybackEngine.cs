@@ -10,7 +10,7 @@ using PortAudioStream = PortAudioSharp.Stream;
 
 namespace JustDanceEditor.Editor.Services;
 
-internal sealed class PortAudioPcmPlaybackEngine : IDisposable
+internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
 {
     private const uint FramesPerBuffer = 1024;
     private const double ClickDurationSeconds = 0.035;
@@ -160,11 +160,9 @@ internal sealed class PortAudioPcmPlaybackEngine : IDisposable
                 PortAudioRuntime.AddReference();
                 runtimeAdded = true;
 
-                int device = PortAudio.DefaultOutputDevice;
-                if (device == PortAudio.NoDevice)
-                    throw new InvalidOperationException("No default audio output device is available.");
+                if (!TryGetOutputDevice(_audio.Channels, out int device, out DeviceInfo deviceInfo))
+                    throw new AudioPlaybackUnavailableException(GetNoOutputDeviceMessage());
 
-                DeviceInfo deviceInfo = PortAudio.GetDeviceInfo(device);
                 StreamParameters output = new()
                 {
                     device = device,
@@ -195,6 +193,44 @@ internal sealed class PortAudioPcmPlaybackEngine : IDisposable
         }
     }
 
+    private static bool TryGetOutputDevice(int requestedChannels, out int device, out DeviceInfo deviceInfo)
+    {
+        deviceInfo = default;
+
+        device = PortAudio.DefaultOutputDevice;
+        if (device != PortAudio.NoDevice)
+        {
+            deviceInfo = PortAudio.GetDeviceInfo(device);
+            if (deviceInfo.maxOutputChannels >= requestedChannels)
+                return true;
+        }
+
+        int deviceCount = PortAudio.DeviceCount;
+        for (int index = 0; index < deviceCount; index++)
+        {
+            DeviceInfo candidate = PortAudio.GetDeviceInfo(index);
+            if (candidate.maxOutputChannels < requestedChannels)
+                continue;
+
+            device = index;
+            deviceInfo = candidate;
+            return true;
+        }
+
+        device = PortAudio.NoDevice;
+        return false;
+    }
+
+    private static string GetNoOutputDeviceMessage()
+    {
+        if (OperatingSystem.IsLinux() && LinuxAudioEnvironment.IsWsl())
+        {
+            return "No PortAudio-compatible output device is available in WSL. Install ffplay (usually from the ffmpeg package) or configure ALSA to route to WSLg/PulseAudio.";
+        }
+
+        return "No default audio output device is available.";
+    }
+
     private StreamCallbackResult OnAudioRequested(
         IntPtr input,
         IntPtr output,
@@ -209,7 +245,13 @@ internal sealed class PortAudioPcmPlaybackEngine : IDisposable
         {
             if (_audio == null || !_isPlaying)
             {
-                WriteSilence(output, frameCount, _audio?.Channels ?? 2);
+                int silentChannels = _audio?.Channels ?? 2;
+                int silentSampleCount = checked((int)frameCount * silentChannels);
+                if (_callbackBuffer.Length < silentSampleCount)
+                    _callbackBuffer = new short[silentSampleCount];
+
+                Array.Clear(_callbackBuffer, 0, silentSampleCount);
+                Marshal.Copy(_callbackBuffer, 0, output, silentSampleCount);
                 return StreamCallbackResult.Continue;
             }
 
@@ -293,13 +335,6 @@ internal sealed class PortAudioPcmPlaybackEngine : IDisposable
             for (int channel = 0; channel < channels; channel++)
                 buffer[sampleBase + channel] = ClampToInt16(buffer[sampleBase + channel] + click);
         }
-    }
-
-    private static void WriteSilence(IntPtr output, uint frameCount, int channels)
-    {
-        int bytes = checked((int)frameCount * Math.Max(1, channels) * sizeof(short));
-        byte[] silence = new byte[bytes];
-        Marshal.Copy(silence, 0, output, silence.Length);
     }
 
     private static long SecondsToFrame(double seconds, PcmWaveAudioData audio)

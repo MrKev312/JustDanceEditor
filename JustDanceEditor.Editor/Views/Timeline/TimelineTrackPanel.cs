@@ -22,6 +22,12 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel : Control
 {
+    private static readonly Comparison<ClipViewModel> CompareClipsByStartBeat =
+        static (left, right) => left.StartBeat.CompareTo(right.StartBeat);
+
+    private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
+        static (left, right) => left.Marker.CompareTo(right.Marker);
+
     // --- Dependency Properties ---
 
     public static readonly StyledProperty<double> PixelsPerBeatProperty =
@@ -95,6 +101,12 @@ public partial class TimelineTrackPanel : Control
 
     // Simple FormattedText cache to avoid recreating layouts repeatedly when rendering many clips
     private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = [];
+    private readonly List<ClipViewModel> _sortedClipCache = [];
+    private readonly List<SignatureSegment> _sortedSignatureCache = [];
+    private readonly List<double> _sectionStartCache = [];
+    private bool _sortedClipCacheDirty = true;
+    private bool _signatureCacheDirty = true;
+    private bool _sectionCacheDirty = true;
 
     // Track per-clip handlers so external updates invalidate visuals
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
@@ -147,17 +159,40 @@ public partial class TimelineTrackPanel : Control
 
     // Track the subscribed parent VM so we can unsubscribe cleanly
     private TimelineEditorViewModel? _subscribedTimelineVm;
+    private ScrollViewer? _parentScrollViewer;
+    private EventHandler<ScrollChangedEventArgs>? _scrollChangedHandler;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         SubscribeToTimelineVm();
+        SubscribeToScrollViewer();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        UnsubscribeFromScrollViewer();
         UnsubscribeFromTimelineVm();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void SubscribeToScrollViewer()
+    {
+        _parentScrollViewer = this.FindAncestorOfType<ScrollViewer>();
+        if (_parentScrollViewer == null)
+            return;
+
+        _scrollChangedHandler = (_, _) => InvalidateVisual();
+        _parentScrollViewer.ScrollChanged += _scrollChangedHandler;
+    }
+
+    private void UnsubscribeFromScrollViewer()
+    {
+        if (_parentScrollViewer != null && _scrollChangedHandler != null)
+            _parentScrollViewer.ScrollChanged -= _scrollChangedHandler;
+
+        _parentScrollViewer = null;
+        _scrollChangedHandler = null;
     }
 
     private void SubscribeToTimelineVm()
@@ -180,6 +215,8 @@ public partial class TimelineTrackPanel : Control
     {
         if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
         {
+            _signatureCacheDirty = true;
+            _sectionCacheDirty = true;
             InvalidateVisual();
         }
     }
@@ -193,6 +230,14 @@ public partial class TimelineTrackPanel : Control
             _textCache.Clear();
             InvalidateMeasure();
             InvalidateVisual();
+        }
+        else if (change.Property == SignaturesProperty)
+        {
+            _signatureCacheDirty = true;
+        }
+        else if (change.Property == SectionsProperty)
+        {
+            _sectionCacheDirty = true;
         }
     }
 
@@ -243,6 +288,7 @@ public partial class TimelineTrackPanel : Control
 
         // Clips changed -> clear cache
         _textCache.Clear();
+        _sortedClipCacheDirty = true;
 
         InvalidateMeasure();
         InvalidateVisual();
@@ -272,6 +318,7 @@ public partial class TimelineTrackPanel : Control
 
         // Items changed -> clear cache
         _textCache.Clear();
+        _sortedClipCacheDirty = true;
 
         InvalidateMeasure();
         InvalidateVisual();
@@ -286,10 +333,11 @@ public partial class TimelineTrackPanel : Control
 
         void handler(object? s, PropertyChangedEventArgs e)
         {
+            if (e.PropertyName is nameof(ClipViewModel.StartBeat) or nameof(ClipViewModel.DurationBeats))
+                _sortedClipCacheDirty = true;
+
             // clear text cache for this clip
-            List<(ClipViewModel clip, double fontSize)> keys = [.. _textCache.Keys.Where(k => k.clip == clip)];
-            foreach ((ClipViewModel clip, double fontSize) k in keys)
-                _textCache.Remove(k);
+            _textCache.Remove((clip, 12));
 
             // Ensure arrange/render happens on UI thread
             Dispatcher.UIThread.Post(() =>

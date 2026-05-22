@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
@@ -18,8 +20,19 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public partial class TimelineTrackPanel
 {
+    private const double ViewportRenderPadding = 64;
+    private const double MergeClipsBelowPixelsPerBeat = 8;
+    private const double MergeGapTolerancePixels = 1.5;
+    private const double MinimumDetailedClipWidth = 6;
+    private const double MinimumImageClipWidth = 28;
+    private const double MinimumTextClipWidth = 40;
+    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
+    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
+    private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
+
     // Cache clip-specific brushes to avoid recreating them frequently
     private readonly Dictionary<Color, SolidColorBrush> _brushCache = [];
+    private readonly Dictionary<(Color color, double thickness), Pen> _penCache = [];
 
     private SolidColorBrush GetOrCreateBrush(Color color)
     {
@@ -32,26 +45,41 @@ public partial class TimelineTrackPanel
         return brush;
     }
 
+    private Pen GetOrCreatePen(Color color, double thickness)
+    {
+        thickness = Math.Round(thickness, 2);
+        (Color color, double thickness) key = (color, thickness);
+        if (!_penCache.TryGetValue(key, out Pen? pen))
+        {
+            pen = new Pen(GetOrCreateBrush(color), thickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+            _penCache[key] = pen;
+        }
+
+        return pen;
+    }
+
     public override void Render(DrawingContext context)
     {
         Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
         int offset = BeatOffset;
 
-        double visibleStartBeat = offset - 1;
-        double visibleEndBeat = offset + (bounds.Width / Math.Max(1.0, ppb)) + 1;
+        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(bounds.Width);
+        Rect renderBounds = new(visiblePixelStart, 0, Math.Max(0, visiblePixelEnd - visiblePixelStart), bounds.Height);
+        double visibleStartBeat = offset + (visiblePixelStart / Math.Max(1.0, ppb)) - 1;
+        double visibleEndBeat = offset + (visiblePixelEnd / Math.Max(1.0, ppb)) + 1;
 
         if (Background != null)
-            context.FillRectangle(Background, new Rect(bounds.Size));
+            context.FillRectangle(Background, renderBounds);
 
         // Draw alternating measure backgrounds
-        DrawMeasureBackgrounds(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat);
+        DrawMeasureBackgrounds(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd);
 
         // Marker lines
         if (BeatOffset != 0)
         {
             double x0 = -offset * ppb;
-            if (x0 > -1 && x0 < bounds.Width + 1)
+            if (x0 > visiblePixelStart - 1 && x0 < visiblePixelEnd + 1)
                 context.DrawLine(TimelineResources.LinePen, new Point(x0, 0), new Point(x0, bounds.Height));
         }
         else
@@ -60,12 +88,12 @@ public partial class TimelineTrackPanel
         if (MaxBeat > 0)
         {
             double xEnd = MaxBeat * ppb;
-            if (xEnd > -1 && xEnd < bounds.Width + 1)
+            if (xEnd > visiblePixelStart - 1 && xEnd < visiblePixelEnd + 1)
                 context.DrawLine(TimelineResources.LinePen, new Point(xEnd, 0), new Point(xEnd, bounds.Height));
         }
 
         // Draw beat/measure grid lines (behind clips)
-        DrawGridLines(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat);
+        DrawGridLines(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd);
 
         // Draw box selection if active even when Clips is null
         if (_boxSelectionHandler?.IsActive == true)
@@ -84,6 +112,12 @@ public partial class TimelineTrackPanel
             return;
 
         bool drawText = ppb > 10;
+        bool drawImages = ppb > 8;
+        if (ppb < MergeClipsBelowPixelsPerBeat)
+        {
+            DrawMergedClipBlocks(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd);
+            return;
+        }
 
         foreach (ClipViewModel clip in Clips)
         {
@@ -97,29 +131,33 @@ public partial class TimelineTrackPanel
             double width = clip.DurationBeats * ppb;
             double endX = startX + width;
 
-            if (endX < 0 || startX > bounds.Width)
+            if (endX < visiblePixelStart || startX > visiblePixelEnd)
                 continue;
 
             Rect rect = new(startX, 2, Math.Max(0, width), Math.Max(1, bounds.Height - 4));
+            if (rect.Width <= 0)
+                continue;
 
             // Use cached brush for clip background (use RenderColor source-of-truth)
             SolidColorBrush clipBrush = GetOrCreateBrush(clip.RenderColor);
             context.FillRectangle(clipBrush, rect);
+            bool drawDetails = width >= MinimumDetailedClipWidth;
 
             // If this clip represents a move whose asset file was missing, overlay
             // diagonal stripes to warn the user.  We use the generic helper so the
             // appearance matches the waveform "no audio" stripes elsewhere.
-            if (clip is MoveClipViewModel mv && mv.IsAssetMissing)
+            if (drawDetails && clip is MoveClipViewModel mv && mv.IsAssetMissing)
             {
                 RenderingHelpers.OverlayStripes(context, rect, clip.RenderColor);
             }
 
             // Create darker outline from clip color
-            Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
-            SolidColorBrush outlineBrush = GetOrCreateBrush(outlineColor);
-            double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
-            Pen outlinePen = new(outlineBrush, outlineThickness, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
-            context.DrawRectangle(null, outlinePen, rect);
+            if (drawDetails)
+            {
+                Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
+                double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
+                context.DrawRectangle(null, GetOrCreatePen(outlineColor, outlineThickness), rect);
+            }
 
             // Selection visual
             if (clip.IsSelected)
@@ -129,7 +167,7 @@ public partial class TimelineTrackPanel
                 context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
             }
 
-            if (clip.ImagePath != null)
+            if (drawDetails && drawImages && width >= MinimumImageClipWidth && clip.ImagePath != null)
             {
                 if (ImageBitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
                 {
@@ -153,7 +191,7 @@ public partial class TimelineTrackPanel
                     ImageBitmapCache.ScheduleLoad(clip.ImagePath, InvalidateVisual);
                 }
             }
-            else if (drawText && width > 30 && !string.IsNullOrEmpty(clip.Name))
+            else if (drawText && width >= MinimumTextClipWidth && !string.IsNullOrEmpty(clip.Name))
             {
                 FormattedText ft = GetFormattedText(clip, clip.Name, 12, width, rect.Height);
                 double textX = startX + ((width - ft.Width) / 2);
@@ -174,24 +212,145 @@ public partial class TimelineTrackPanel
         return new Color(color.A, r, g, b);
     }
 
-    private void DrawMeasureBackgrounds(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    private (double Start, double End) GetVisiblePixelRange(double totalWidth)
     {
-        List<SignatureSegment> sortedSigs = Signatures?.OrderBy(s => s.Marker).ToList() ?? [];
-        List<double> sectionStarts = Sections != null
-            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
-            : [];
+        double start = 0;
+        double end = totalWidth;
 
-        SolidColorBrush brushA = new(Colors.White, 0.05);
-        SolidColorBrush brushB = new(Colors.White, 0.02);
-        SolidColorBrush brushErr = new(Colors.Red, 0.08);
+        if (_parentScrollViewer != null && _parentScrollViewer.Viewport.Width > 0)
+        {
+            start = Math.Max(0, _parentScrollViewer.Offset.X - ViewportRenderPadding);
+            end = Math.Min(totalWidth, _parentScrollViewer.Offset.X + _parentScrollViewer.Viewport.Width + ViewportRenderPadding);
+        }
 
-        double rangeStart = offset;
-        double rangeEnd = offset + MaxBeat;
+        return (start, Math.Max(start, end));
+    }
 
-        List<(double start, double end)> intervals = [];
+    private void DrawMergedClipBlocks(
+        DrawingContext context,
+        Rect bounds,
+        double ppb,
+        int offset,
+        double visibleStartBeat,
+        double visibleEndBeat,
+        double visiblePixelStart,
+        double visiblePixelEnd)
+    {
+        if (Clips == null)
+            return;
+
+        bool hasGroup = false;
+        double groupStartX = 0;
+        double groupEndX = 0;
+        Color groupColor = Colors.Transparent;
+        bool groupSelected = false;
+
+        foreach (ClipViewModel clip in GetSortedClips())
+        {
+            double clipStart = clip.StartBeat;
+            double clipEnd = clipStart + clip.DurationBeats;
+
+            if (clipEnd < visibleStartBeat)
+                continue;
+            if (clipStart > visibleEndBeat)
+                break;
+
+            double startX = (clipStart - offset) * ppb;
+            double endX = startX + clip.DurationBeats * ppb;
+            if (endX < visiblePixelStart || startX > visiblePixelEnd)
+                continue;
+
+            if (!hasGroup)
+            {
+                StartGroup(startX, endX, clip.RenderColor, clip.IsSelected);
+                continue;
+            }
+
+            bool touchesGroup = startX <= groupEndX + MergeGapTolerancePixels;
+            bool compatibleSelection = clip.IsSelected == groupSelected;
+            if (!touchesGroup || !compatibleSelection)
+            {
+                FlushGroup();
+                StartGroup(startX, endX, clip.RenderColor, clip.IsSelected);
+                continue;
+            }
+
+            groupEndX = Math.Max(groupEndX, endX);
+        }
+
+        FlushGroup();
+
+        void StartGroup(double startX, double endX, Color color, bool selected)
+        {
+            hasGroup = true;
+            groupStartX = startX;
+            groupEndX = endX;
+            groupColor = color;
+            groupSelected = selected;
+        }
+
+        void FlushGroup()
+        {
+            if (!hasGroup)
+                return;
+
+            double clippedStart = Math.Max(groupStartX, visiblePixelStart);
+            double clippedEnd = Math.Min(groupEndX, visiblePixelEnd);
+            if (clippedEnd > clippedStart)
+            {
+                Rect rect = new(clippedStart, 2, clippedEnd - clippedStart, Math.Max(1, bounds.Height - 4));
+                context.FillRectangle(GetOrCreateBrush(groupColor), rect);
+                if (groupSelected)
+                {
+                    context.FillRectangle(TimelineResources.SelectionOverlay, rect);
+                    context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
+                }
+            }
+
+            hasGroup = false;
+        }
+    }
+
+    private IReadOnlyList<ClipViewModel> GetSortedClips()
+    {
+        if (!_sortedClipCacheDirty)
+            return _sortedClipCache;
+
+        _sortedClipCache.Clear();
+        if (Clips != null)
+        {
+            foreach (ClipViewModel clip in Clips)
+                _sortedClipCache.Add(clip);
+
+            _sortedClipCache.Sort(CompareClipsByStartBeat);
+        }
+
+        _sortedClipCacheDirty = false;
+        return _sortedClipCache;
+    }
+
+    private void DrawMeasureBackgrounds(
+        DrawingContext context,
+        Rect bounds,
+        double ppb,
+        int offset,
+        double visibleStartBeat,
+        double visibleEndBeat,
+        double visiblePixelStart,
+        double visiblePixelEnd)
+    {
+        IReadOnlyList<SignatureSegment> sortedSigs = GetSortedSignatures();
+        List<double> sectionStarts = GetSectionStarts();
+
+        double rangeStart = Math.Max(offset, visibleStartBeat);
+        double rangeEnd = Math.Min(offset + MaxBeat, visibleEndBeat);
+        if (rangeEnd <= rangeStart)
+            return;
+
+        int colorIndex = 0;
         if (sectionStarts.Count == 0)
         {
-            intervals.Add((rangeStart, rangeEnd));
+            DrawSection(rangeStart, rangeEnd, isLastSection: true, ref colorIndex);
         }
         else
         {
@@ -199,24 +358,20 @@ public partial class TimelineTrackPanel
             {
                 double sStart = sectionStarts[i];
                 double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
-                intervals.Add((sStart, sEnd));
+                DrawSection(sStart, sEnd, i == sectionStarts.Count - 1, ref colorIndex);
             }
         }
 
-        int colorIndex = 0;
-        for (int si = 0; si < intervals.Count; si++)
+        void DrawSection(double sStart, double sEnd, bool isLastSection, ref int colorIndex)
         {
-            bool isLastSection = si == intervals.Count - 1;
-            (double sStart, double sEnd) = intervals[si];
-
             if (sEnd <= rangeStart)
             {
                 colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
-                continue;
+                return;
             }
 
             if (sStart >= rangeEnd)
-                break;
+                return;
 
             int sectionColor = colorIndex;
             int groupInSection = 0;
@@ -243,10 +398,12 @@ public partial class TimelineTrackPanel
 
                 double xStart = (pos - offset) * ppb;
                 double xEnd = (gEnd - offset) * ppb;
-                if (xEnd >= 0 && xStart <= bounds.Width)
+                if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
                 {
-                    SolidColorBrush brush = isPartial ? brushErr : ((sectionColor + groupInSection) % 2 == 0 ? brushA : brushB);
-                    context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, bounds.Height));
+                    SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                    double clippedStart = Math.Max(xStart, visiblePixelStart);
+                    double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
+                    context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
                 }
 
                 groupInSection++;
@@ -257,23 +414,66 @@ public partial class TimelineTrackPanel
         }
     }
 
-    private void DrawGridLines(DrawingContext context, Rect bounds, double ppb, int offset, double visibleStartBeat, double visibleEndBeat)
+    private void DrawGridLines(
+        DrawingContext context,
+        Rect bounds,
+        double ppb,
+        int offset,
+        double visibleStartBeat,
+        double visibleEndBeat,
+        double visiblePixelStart,
+        double visiblePixelEnd)
     {
-        List<double> sectionStarts = Sections != null
-            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
-            : [];
+        List<double> sectionStarts = GetSectionStarts();
 
+        bool drawBeatLines = ppb >= 6;
         for (int beat = (int)visibleStartBeat; beat <= (int)visibleEndBeat; beat++)
         {
             double x = (beat - offset) * ppb;
-            if (x < 0 || x > bounds.Width)
+            if (x < visiblePixelStart || x > visiblePixelEnd)
                 continue;
 
             bool isMeasure = TimelineRenderHelper.IsBaseGroupBeat(beat, sectionStarts);
             if (isMeasure)
                 context.DrawLine(TimelineResources.MeasureGridPen, new Point(x, 0), new Point(x, bounds.Height));
-            else
+            else if (drawBeatLines)
                 context.DrawLine(TimelineResources.BeatGridPen, new Point(x, 0), new Point(x, bounds.Height));
         }
+    }
+
+    private IReadOnlyList<SignatureSegment> GetSortedSignatures()
+    {
+        if (!_signatureCacheDirty)
+            return _sortedSignatureCache;
+
+        _sortedSignatureCache.Clear();
+        if (Signatures != null)
+        {
+            foreach (SignatureSegment signature in Signatures)
+                _sortedSignatureCache.Add(signature);
+
+            _sortedSignatureCache.Sort(CompareSignaturesByMarker);
+        }
+
+        _signatureCacheDirty = false;
+        return _sortedSignatureCache;
+    }
+
+    private List<double> GetSectionStarts()
+    {
+        if (!_sectionCacheDirty)
+            return _sectionStartCache;
+
+        _sectionStartCache.Clear();
+        if (Sections != null)
+        {
+            foreach (SectionSegment section in Sections)
+                _sectionStartCache.Add(section.StartBeat);
+
+            _sectionStartCache.Sort();
+        }
+
+        _sectionCacheDirty = false;
+        return _sectionStartCache;
     }
 }

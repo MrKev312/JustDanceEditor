@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
@@ -18,6 +19,14 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 public class TimeRulerControl : Control
 {
+    private const double ViewportRenderPadding = 64;
+    private const double MinimumLabelSpacing = 48;
+    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
+    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
+    private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
+    private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
+        static (left, right) => left.Marker.CompareTo(right.Marker);
+
     public static readonly StyledProperty<double> PixelsPerBeatProperty =
         AvaloniaProperty.Register<TimeRulerControl, double>(nameof(PixelsPerBeat), 50.0);
 
@@ -69,15 +78,24 @@ public class TimeRulerControl : Control
     }
 
     private TimelineEditorViewModel? _subscribedVm;
+    private ScrollViewer? _parentScrollViewer;
+    private EventHandler<ScrollChangedEventArgs>? _scrollChangedHandler;
+    private readonly List<SignatureSegment> _sortedSignatureCache = [];
+    private readonly List<double> _sectionStartCache = [];
+    private readonly Dictionary<int, FormattedText> _beatLabelCache = [];
+    private bool _signatureCacheDirty = true;
+    private bool _sectionCacheDirty = true;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         SubscribeToViewModel();
+        SubscribeToScrollViewer();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        UnsubscribeFromScrollViewer();
         UnsubscribeFromViewModel();
         base.OnDetachedFromVisualTree(e);
     }
@@ -107,7 +125,21 @@ public class TimeRulerControl : Control
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
+        {
+            _signatureCacheDirty = true;
+            _sectionCacheDirty = true;
             InvalidateVisual();
+        }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == SignaturesProperty)
+            _signatureCacheDirty = true;
+        else if (change.Property == SectionsProperty)
+            _sectionCacheDirty = true;
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -160,28 +192,25 @@ public class TimeRulerControl : Control
         double ppb = PixelsPerBeat;
         int offset = BeatOffset;
         double max = MaxBeat;
+        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(bounds.Width);
+        double visibleStartBeat = offset + (visiblePixelStart / Math.Max(1.0, ppb));
+        double visibleEndBeat = offset + (visiblePixelEnd / Math.Max(1.0, ppb));
 
         // 0. Catch all pointer events by drawing a transparent background
         context.FillRectangle(Brushes.Transparent, bounds);
 
         // 1. Draw Alternating Measure Backgrounds
-        List<SignatureSegment> sortedSigs = Signatures?.OrderBy(s => s.Marker).ToList() ?? [];
-        List<double> sectionStarts = Sections != null
-            ? [.. Sections.OrderBy(s => s.StartBeat).Select(s => (double)s.StartBeat)]
-            : [];
+        IReadOnlyList<SignatureSegment> sortedSigs = GetSortedSignatures();
+        List<double> sectionStarts = GetSectionStarts();
 
         {
-            SolidColorBrush brushA = new(Colors.White, 0.05);
-            SolidColorBrush brushB = new(Colors.White, 0.02);
-            SolidColorBrush brushErr = new(Colors.Red, 0.08);
+            double rangeStart = Math.Max(offset, visibleStartBeat - 1);
+            double rangeEnd = Math.Min(offset + max, visibleEndBeat + 1);
 
-            double rangeStart = offset;
-            double rangeEnd = offset + max;
-
-            List<(double start, double end)> intervals = [];
+            int colorIndex = 0;
             if (sectionStarts.Count == 0)
             {
-                intervals.Add((rangeStart, rangeEnd));
+                DrawSection(rangeStart, rangeEnd, isLastSection: true, ref colorIndex);
             }
             else
             {
@@ -189,24 +218,20 @@ public class TimeRulerControl : Control
                 {
                     double sStart = sectionStarts[i];
                     double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
-                    intervals.Add((sStart, sEnd));
+                    DrawSection(sStart, sEnd, i == sectionStarts.Count - 1, ref colorIndex);
                 }
             }
 
-            int colorIndex = 0;
-            for (int si = 0; si < intervals.Count; si++)
+            void DrawSection(double sStart, double sEnd, bool isLastSection, ref int colorIndex)
             {
-                bool isLastSection = si == intervals.Count - 1;
-                (double sStart, double sEnd) = intervals[si];
-
                 if (sEnd <= rangeStart)
                 {
                     colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
-                    continue;
+                    return;
                 }
 
                 if (sStart >= rangeEnd)
-                    break;
+                    return;
 
                 int sectionColor = colorIndex;
                 int groupInSection = 0;
@@ -233,10 +258,12 @@ public class TimeRulerControl : Control
 
                     double xStart = (pos - offset) * ppb;
                     double xEnd = (gEnd - offset) * ppb;
-                    if (xEnd >= 0 && xStart <= bounds.Width)
+                    if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
                     {
-                        SolidColorBrush brush = isPartial ? brushErr : ((sectionColor + groupInSection) % 2 == 0 ? brushA : brushB);
-                        context.FillRectangle(brush, new Rect(xStart, 0, xEnd - xStart, bounds.Height));
+                        SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                        double clippedStart = Math.Max(xStart, visiblePixelStart);
+                        double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
+                        context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
                     }
 
                     groupInSection++;
@@ -254,12 +281,16 @@ public class TimeRulerControl : Control
 
         context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
 
-        for (int i = 0; i <= max; i++)
+        int firstBeat = Math.Max(0, (int)Math.Floor(visiblePixelStart / Math.Max(1.0, ppb)) - 1);
+        int lastBeat = Math.Min((int)Math.Ceiling(max), (int)Math.Ceiling(visiblePixelEnd / Math.Max(1.0, ppb)) + 1);
+        double nextLabelX = double.NegativeInfinity;
+
+        for (int i = firstBeat; i <= lastBeat; i++)
         {
             double x = i * ppb;
-            if (x < 0)
+            if (x < visiblePixelStart)
                 continue;
-            if (x > bounds.Width)
+            if (x > visiblePixelEnd)
                 break;
 
             bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(i + offset, sectionStarts);
@@ -267,18 +298,98 @@ public class TimeRulerControl : Control
 
             context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
 
-            if (isMajor)
+            if (isMajor && x >= nextLabelX)
             {
-                FormattedText text = new(
-                    (i + offset).ToString(),
-                    System.Globalization.CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    TimelineResources.DefaultTypeface,
-                    10,
-                    labelBrush);
+                FormattedText text = GetBeatLabelText(i + offset, labelBrush);
 
                 context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
+                nextLabelX = x + Math.Max(MinimumLabelSpacing, text.Width + 8);
             }
         }
+    }
+
+    private FormattedText GetBeatLabelText(int beat, IBrush labelBrush)
+    {
+        if (_beatLabelCache.TryGetValue(beat, out FormattedText? text))
+            return text;
+
+        text = new FormattedText(
+            beat.ToString(),
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            TimelineResources.DefaultTypeface,
+            10,
+            labelBrush);
+        _beatLabelCache[beat] = text;
+        return text;
+    }
+
+    private IReadOnlyList<SignatureSegment> GetSortedSignatures()
+    {
+        if (!_signatureCacheDirty)
+            return _sortedSignatureCache;
+
+        _sortedSignatureCache.Clear();
+        if (Signatures != null)
+        {
+            foreach (SignatureSegment signature in Signatures)
+                _sortedSignatureCache.Add(signature);
+
+            _sortedSignatureCache.Sort(CompareSignaturesByMarker);
+        }
+
+        _signatureCacheDirty = false;
+        return _sortedSignatureCache;
+    }
+
+    private List<double> GetSectionStarts()
+    {
+        if (!_sectionCacheDirty)
+            return _sectionStartCache;
+
+        _sectionStartCache.Clear();
+        if (Sections != null)
+        {
+            foreach (SectionSegment section in Sections)
+                _sectionStartCache.Add(section.StartBeat);
+
+            _sectionStartCache.Sort();
+        }
+
+        _sectionCacheDirty = false;
+        return _sectionStartCache;
+    }
+
+    private void SubscribeToScrollViewer()
+    {
+        _parentScrollViewer = this.FindAncestorOfType<ScrollViewer>();
+        if (_parentScrollViewer == null)
+            return;
+
+        _scrollChangedHandler = (_, _) => InvalidateVisual();
+        _parentScrollViewer.ScrollChanged += _scrollChangedHandler;
+    }
+
+    private void UnsubscribeFromScrollViewer()
+    {
+        if (_parentScrollViewer != null && _scrollChangedHandler != null)
+            _parentScrollViewer.ScrollChanged -= _scrollChangedHandler;
+
+        _parentScrollViewer = null;
+        _scrollChangedHandler = null;
+    }
+
+    private (double Start, double End) GetVisiblePixelRange(double totalWidth)
+    {
+        double start = 0;
+        double end = totalWidth;
+
+        if (_parentScrollViewer != null && _parentScrollViewer.Viewport.Width > 0)
+        {
+            start = Math.Max(0, _parentScrollViewer.Offset.X - ViewportRenderPadding);
+            end = Math.Min(totalWidth, _parentScrollViewer.Offset.X + _parentScrollViewer.Viewport.Width + ViewportRenderPadding);
+        }
+
+        return (start, Math.Max(start, end));
     }
 }
