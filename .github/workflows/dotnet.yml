@@ -25,16 +25,80 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore --runtime win-x64
+        run: dotnet restore ./JustDanceEditor.slnx -p:UseLocalKevIncProjects=false
 
       - name: Build
-        run: dotnet build ./JustDanceEditor.UI/JustDanceEditor.UI.csproj --runtime win-x64 --configuration Release --no-restore
+        run: dotnet build ./JustDanceEditor.slnx --configuration Release --no-restore -p:UseLocalKevIncProjects=false
 
       - name: Test
-        run: dotnet test --configuration Release
+        run: dotnet test ./JustDanceEditor.slnx --configuration Release --no-build --no-restore -p:UseLocalKevIncProjects=false
 
-      - name: Upload release artifact
+      - name: Publish cross-platform release bundles
+        shell: pwsh
+        run: |
+          $bundles = @(
+            @{
+              Name = 'Windows'
+              Platforms = @('win-x64')
+              IncludeEditor = $true
+            },
+            @{
+              Name = 'Linux'
+              Platforms = @('linux-x64', 'linux-arm64')
+              IncludeEditor = $true
+            },
+            @{
+              Name = 'macOS'
+              Platforms = @('osx-x64', 'osx-arm64')
+              IncludeEditor = $true
+            }
+          )
+
+          foreach ($release in $bundles) {
+            $bundle = "./artifacts/JustDanceEditor-$($release.Name)"
+
+            foreach ($platform in $release.Platforms) {
+              $platformFolder = if ($release.Platforms.Count -eq 1) { $bundle } else { "$bundle/$platform" }
+
+              dotnet publish ./JustDanceEditor.Cli/JustDanceEditor.Cli.csproj `
+                --configuration Release `
+                --runtime $platform `
+                --self-contained false `
+                -p:UseLocalKevIncProjects=false `
+                --output "$platformFolder/CLI"
+
+              dotnet publish ./JustDanceEditor.GUI/JustDanceEditor.GUI.csproj `
+                --configuration Release `
+                --runtime $platform `
+                --self-contained false `
+                -p:UseLocalKevIncProjects=false `
+                --output "$platformFolder/GUI"
+
+              if ($release.IncludeEditor) {
+                dotnet publish ./JustDanceEditor.Editor/JustDanceEditor.Editor.csproj `
+                  --configuration Release `
+                  --runtime $platform `
+                  --self-contained false `
+                  -p:UseLocalKevIncProjects=false `
+                  --output "$platformFolder/Editor"
+              }
+            }
+          }
+
+      - name: Upload Windows release
         uses: actions/upload-artifact@v4
         with:
-          name: artifact
-          path: JustDanceEditor.UI/bin/Release/net10.0/win-x64/
+          name: JustDanceEditor-Windows
+          path: artifacts/JustDanceEditor-Windows/
+
+      - name: Upload Linux release
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustDanceEditor-Linux
+          path: artifacts/JustDanceEditor-Linux/
+
+      - name: Upload macOS release
+        uses: actions/upload-artifact@v4
+        with:
+          name: JustDanceEditor-macOS
+          path: artifacts/JustDanceEditor-macOS/

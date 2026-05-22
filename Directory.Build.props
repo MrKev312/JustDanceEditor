@@ -3,15 +3,16 @@
   <PropertyGroup>
     <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
     <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
+    <KevIncLocalTargetFramework Condition="'$(KevIncLocalTargetFramework)' == ''">net10.0</KevIncLocalTargetFramework>
 
     <KevIncAvaloniaRoot Condition="'$(KevIncAvaloniaRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Avalonia'))</KevIncAvaloniaRoot>
-    <KevIncAvaloniaPackageVersion>0.1.3</KevIncAvaloniaPackageVersion>
+    <KevIncAvaloniaPackageVersion>0.2.1</KevIncAvaloniaPackageVersion>
     <KevIncAvaloniaProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia\KevInc.Avalonia.csproj</KevIncAvaloniaProject>
     <KevIncAvaloniaDockProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Dock\KevInc.Avalonia.Dock.csproj</KevIncAvaloniaDockProject>
     <KevIncAvaloniaTimelineProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Timeline\KevInc.Avalonia.Timeline.csproj</KevIncAvaloniaTimelineProject>
 
     <KevIncAudioRoot Condition="'$(KevIncAudioRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Audio'))</KevIncAudioRoot>
-    <KevIncAudioPackageVersion>0.1.2</KevIncAudioPackageVersion>
+    <KevIncAudioPackageVersion>0.2.2</KevIncAudioPackageVersion>
     <KevIncAudioNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.NAudio\KevInc.Audio.NAudio.csproj</KevIncAudioNAudioProject>
     <KevIncAudioCafeNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Cafe.NAudio\KevInc.Audio.Cafe.NAudio.csproj</KevIncAudioCafeNAudioProject>
     <KevIncAudioNxNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Nx.NAudio\KevInc.Audio.Nx.NAudio.csproj</KevIncAudioNxNAudioProject>
@@ -19,16 +20,17 @@
     <KevIncAudioXma2NAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Xma2.NAudio\KevInc.Audio.Xma2.NAudio.csproj</KevIncAudioXma2NAudioProject>
 
     <KevIncTextureRoot Condition="'$(KevIncTextureRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Texture'))</KevIncTextureRoot>
-    <KevIncTexturePackageVersion>0.1.3</KevIncTexturePackageVersion>
+    <KevIncTexturePackageVersion>0.2.2</KevIncTexturePackageVersion>
     <KevIncTextureProject>$(KevIncTextureRoot)src\KevInc.Texture\KevInc.Texture.csproj</KevIncTextureProject>
     <KevIncTextureImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.ImageSharp\KevInc.Texture.ImageSharp.csproj</KevIncTextureImageSharpProject>
     <KevIncTextureNintendoImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Nintendo.ImageSharp\KevInc.Texture.Nintendo.ImageSharp.csproj</KevIncTextureNintendoImageSharpProject>
     <KevIncTexturePlayStationProject>$(KevIncTextureRoot)src\KevInc.Texture.PlayStation\KevInc.Texture.PlayStation.csproj</KevIncTexturePlayStationProject>
     <KevIncTexturePlayStationImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.PlayStation.ImageSharp\KevInc.Texture.PlayStation.ImageSharp.csproj</KevIncTexturePlayStationImageSharpProject>
+    <KevIncTextureXboxProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox\KevInc.Texture.Xbox.csproj</KevIncTextureXboxProject>
     <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
 
     <KevIncUbiArtRoot Condition="'$(KevIncUbiArtRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.UbiArt'))</KevIncUbiArtRoot>
-    <KevIncUbiArtPackageVersion>0.1.1</KevIncUbiArtPackageVersion>
+    <KevIncUbiArtPackageVersion>0.2.2</KevIncUbiArtPackageVersion>
     <KevIncUbiArtIpkProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Ipk\KevInc.UbiArt.Ipk.csproj</KevIncUbiArtIpkProject>
     <KevIncUbiArtFileSystemProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.FileSystem\KevInc.UbiArt.FileSystem.csproj</KevIncUbiArtFileSystemProject>
     <KevIncUbiArtRakiProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Raki\KevInc.UbiArt.Raki.csproj</KevIncUbiArtRakiProject>

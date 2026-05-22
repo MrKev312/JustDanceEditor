@@ -2,6 +2,7 @@
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net10.0</TargetFramework>
+		<RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
 		<LangVersion>Preview</LangVersion>
 		<Nullable>enable</Nullable>
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
@@ -14,11 +15,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.0.2" />
-		<PackageReference Include="Avalonia.Controls.ColorPicker" Version="12.0.2" />
-		<PackageReference Include="Avalonia.Desktop" Version="12.0.2" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.2" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.2" />
+		<PackageReference Include="Avalonia" Version="12.0.3" />
+		<PackageReference Include="Avalonia.Controls.ColorPicker" Version="12.0.3" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.0.3" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.3" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.3" />
 		<PackageReference Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 
@@ -31,19 +32,22 @@
 		<PackageReference Include="KevInc.Avalonia.Dock" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaDockProject)')" />
 		<PackageReference Include="KevInc.Avalonia.Timeline" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
-		<PackageReference Include="LibVLCSharp" Version="3.9.7.1" />
-		<PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.7.1" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
-                <PackageReference Include="NAudio" Version="2.3.0" />
-		<PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
+		<PackageReference Include="NAudio" Version="2.3.0" />
+		<PackageReference Include="PortAudioSharp2" Version="1.0.6" />
+		<PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4-preview.1.1" />
+		<PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4-preview.1.1" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
 		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
+		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="$(KevIncAvaloniaProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaProject)')" />
-	  <ProjectReference Include="$(KevIncAvaloniaDockProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaDockProject)')" />
-	  <ProjectReference Include="$(KevIncAvaloniaTimelineProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaTimelineProject)')" />
-	  <ProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
+	  <KevIncLocalProjectReference Include="$(KevIncAvaloniaProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaProject)')" />
+	  <KevIncLocalProjectReference Include="$(KevIncAvaloniaDockProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaDockProject)')" />
+	  <KevIncLocalProjectReference Include="$(KevIncAvaloniaTimelineProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaTimelineProject)')" />
+	  <KevIncLocalProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
 	  <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>
 

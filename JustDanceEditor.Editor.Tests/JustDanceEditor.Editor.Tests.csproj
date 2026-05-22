@@ -8,12 +8,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia.Headless.XUnit" Version="12.0.2" />
+		<PackageReference Include="Avalonia.Headless.XUnit" Version="12.0.3" />
 		<PackageReference Include="coverlet.collector" Version="10.0.0">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.8" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
 		<PackageReference Include="Moq" Version="4.20.72" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
@@ -28,6 +28,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<KevIncLocalProjectReference Include="$(KevIncAvaloniaProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAvaloniaDockProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaDockProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAvaloniaTimelineProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAvaloniaTimelineProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
 		<ProjectReference Include="..\JustDanceEditor.Editor\JustDanceEditor.Editor.csproj" />
 	</ItemGroup>
 </Project>
