@@ -25,7 +25,7 @@ public sealed record UnityMapPackageRequest(
     string PictoTempFolder,
     string PictoAtlasFolder,
     string? MovesFolder,
-    string TemplatePath,
+    string SeedBundlePath,
     string OutputFolderPath,
     bool ForCustomServer,
     UnityBundlePublishTarget? PublishTarget = null);
@@ -66,7 +66,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
                 pictoResult.ImageDictionary,
                 pictoResult.AtlasImages,
                 moveFiles,
-                request.TemplatePath,
+                request.SeedBundlePath,
                 request.OutputFolderPath,
                 request.ForCustomServer,
                 request.PublishTarget);
@@ -86,9 +86,10 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         ValidateBundleRequest(request);
 
         _logger.LogInformation("Converting MapPackage bundle for {Codename}...", request.Codename);
+        AssetsManager? manager = null;
         try
         {
-            (AssetsManager? manager, BundleFileInstance? bunInst, AssetsFileInstance? afileInst, AssetsFile? afile, AssetBundleFile? bunFile, List<AssetFileInfo>? sortedAssetInfos, AssetFileInfo? musicTrackInfo, AssetFileInfo? mapInfo) = InitializeBundle(request);
+            (manager, _, AssetsFileInstance afileInst, AssetsFile afile, AssetBundleFile bunFile, List<AssetFileInfo> sortedAssetInfos, AssetFileInfo musicTrackInfo, AssetFileInfo mapInfo) = InitializeBundle(request);
             (AssetTypeValueField? musicTrackBase, AssetTypeValueField? mapBase, AssetFileInfo? assetBundleInfo, AssetTypeValueField? assetBundleBase) = IdentifyAndPrepareMonoBehavioursAndAssetBundle(request, manager, afileInst, sortedAssetInfos);
             AssetTypeValueField assetBundleArray = assetBundleBase["m_PreloadTable"]["Array"];
 
@@ -119,13 +120,17 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             _logger.LogError(ex, "Failed to generate MapPackage bundle for {Codename}", request.Codename);
             throw;
         }
+        finally
+        {
+            ClearBundle(manager);
+        }
     }
 
     private void ValidateInput(UnityMapPackageRequest request)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
         ArgumentNullException.ThrowIfNull(request.UnityData);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.TemplatePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SeedBundlePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoTempFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoAtlasFolder);
@@ -139,8 +144,8 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             throw new ArgumentException("Codename must be provided.", nameof(request));
         if (request.UnityData == null)
             throw new ArgumentException("Unity export data must be provided.", nameof(request));
-        if (string.IsNullOrWhiteSpace(request.TemplatePath) || !File.Exists(request.TemplatePath))
-            throw new FileNotFoundException("Template bundle file not found.", request.TemplatePath);
+        if (string.IsNullOrWhiteSpace(request.SeedBundlePath) || !File.Exists(request.SeedBundlePath))
+            throw new FileNotFoundException("MapPackage seed bundle file not found.", request.SeedBundlePath);
         if (string.IsNullOrWhiteSpace(request.OutputFolderPath))
             throw new ArgumentException("Output folder path must be provided.", nameof(request));
         if (request.AtlasImages == null)
@@ -173,7 +178,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         InitializeBundle(BundleContext request)
     {
         AssetsManager manager = new();
-        BundleFileInstance bunInst = manager.LoadBundleFile(request.TemplatePath, true);
+        BundleFileInstance bunInst = manager.LoadBundleFile(request.SeedBundlePath, true);
         AssetBundleFile bunFile = bunInst.file;
         AssetsFileInstance afileInst = manager.LoadAssetsFileFromBundle(bunInst, 0, false);
         AssetsFile afile = afileInst.file;
@@ -190,7 +195,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
 
         AssetTypeValueField mapBaseTemp = manager.GetBaseField(afileInst, mapInfo);
         if (mapBaseTemp["m_Name"].AsString == string.Empty)
-            throw new InvalidOperationException("MapBehaviour name is empty, template might be corrupted or incorrect.");
+            throw new InvalidOperationException("MapBehaviour name is empty, MapPackage seed might be corrupted or incorrect.");
 
         return (manager, bunInst, afileInst, afile, bunFile, sortedAssetInfos, musicTrackInfo, mapInfo);
     }
@@ -217,7 +222,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         AssetTypeValueField mapBase = manager.GetBaseField(afileInst, mapInfo);
 
         if (mapBase["m_Name"].AsString == string.Empty)
-            throw new InvalidOperationException("Identified MapBehaviour has an empty name. Check template integrity.");
+            throw new InvalidOperationException("Identified MapBehaviour has an empty name. Check MapPackage seed integrity.");
 
         mapBase["m_Name"].AsString = request.Codename;
         mapBase["MapName"].AsString = request.Codename;
@@ -273,7 +278,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             afile.AssetInfos.Remove(asset);
 
         if (spriteTemplate == null)
-            throw new InvalidOperationException("Sprite template for pictos not found in template bundle.");
+            throw new InvalidOperationException("Sprite seed for pictos not found in MapPackage seed bundle.");
 
         return spriteTemplate;
     }
@@ -725,7 +730,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> PictoLookup,
         IReadOnlyList<Image<Rgba32>> AtlasImages,
         IReadOnlyList<UnityMoveFile> MoveFiles,
-        string TemplatePath,
+        string SeedBundlePath,
         string OutputFolderPath,
         bool ForCustomServer,
         UnityBundlePublishTarget? PublishTarget);

@@ -39,7 +39,6 @@ public class UnityConversionStrategyTests
         UnityConversionStrategy strategy = new();
         ConversionTargetDefinition target = Assert.Single(strategy.GetExportTargets(), target => target.TargetCode == "unity-offline-cache");
         PromptAnswerSet answers = new();
-        answers.Set("unity.templatePath", "C:\\Template");
         answers.Set("unity.cacheNumber", "7");
         answers.Set(UnityPromptIds.GenerateCacheIfMissing, "true");
 

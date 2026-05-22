@@ -4,6 +4,7 @@ using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
+using JustDanceEditor.Formats.Unity.Bundles.Synthesis;
 using JustDanceEditor.Formats.Unity.Cache;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
@@ -21,7 +22,6 @@ internal sealed class IntermediateToUnityConverter
     private readonly IntermediateSongPackage _package;
     private readonly string _packageRoot;
     private readonly UnityConversionRequest _request;
-    private readonly TemplateSet _templates;
     private readonly string _songFolderName;
     private string _outputRoot;
     private readonly ILogger _logger;
@@ -42,10 +42,6 @@ internal sealed class IntermediateToUnityConverter
         _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        if (string.IsNullOrWhiteSpace(request.TemplatePath))
-            throw new ArgumentException("Template path must be provided for Unity exports.");
-
-        _templates = new TemplateSet(request.TemplatePath);
         _songFolderName = BuildSongFolderName(_package.Metadata);
         _outputRoot = Path.Combine(request.OutputPath, _songFolderName);
     }
@@ -199,6 +195,7 @@ internal sealed class IntermediateToUnityConverter
         bool forCustomServer = _request.ExportType == ExportType.CustomServer;
 
         using UnityBundleWorkspace workspace = new(_songFolderName);
+        string mapPackageSeedPath = CreateSyntheticMapPackageSeed(workspace);
 
         string coverFolder = GetBundleOutputFolder("Cover", forCustomServer);
         string songTitleFolder = GetBundleOutputFolder("songTitleLogo", forCustomServer);
@@ -213,7 +210,6 @@ internal sealed class IntermediateToUnityConverter
             songName,
             unityData,
             menuArt,
-            _templates.Cover,
             coverFolder,
             forCustomServer,
             PublishTarget: CreateBundlePublishTarget("Cover", forCustomServer));
@@ -222,7 +218,6 @@ internal sealed class IntermediateToUnityConverter
             songName,
             unityData,
             menuArt,
-            _templates.SongTitleLogo,
             songTitleFolder,
             forCustomServer,
             PublishTarget: CreateBundlePublishTarget("songTitleLogo", forCustomServer));
@@ -232,7 +227,6 @@ internal sealed class IntermediateToUnityConverter
             coachCount,
             menuArt,
             unityData,
-            _templates.CoachesLarge,
             coachesLargeFolder,
             forCustomServer,
             CreateBundlePublishTarget("CoachesLarge", forCustomServer));
@@ -241,7 +235,6 @@ internal sealed class IntermediateToUnityConverter
             songName,
             coachCount,
             menuArt,
-            _templates.CoachesSmall,
             coachesSmallFolder,
             forCustomServer,
             CreateBundlePublishTarget("CoachesSmall", forCustomServer));
@@ -253,7 +246,7 @@ internal sealed class IntermediateToUnityConverter
             workspace.PictoTempFolder,
             workspace.PictoAtlasFolder,
             movesFolder,
-            _templates.MapPackage,
+            mapPackageSeedPath,
             mapPackageFolder,
             forCustomServer,
             CreateBundlePublishTarget("MapPackage", forCustomServer));
@@ -267,6 +260,14 @@ internal sealed class IntermediateToUnityConverter
 
         await Task.WhenAll(mapPackageTask, coverTask, titleTask, coachesLargeTask, coachesSmallTask);
         _logger.LogDebug("Unity bundle generation finished.");
+    }
+
+    private static string CreateSyntheticMapPackageSeed(UnityBundleWorkspace workspace)
+    {
+        string path = Path.Combine(workspace.Root, "synthetic-map-package.bundle");
+        using Stream classData = UnityClassDataProvider.OpenClassPackageStream();
+        File.WriteAllBytes(path, UnitySyntheticBundleFactory.CreateMapPackageSeed(classData));
+        return path;
     }
 
     private void CopyHashedFile(string relativeSourceFile, string destinationFolder, string extension)
@@ -585,32 +586,5 @@ internal sealed class IntermediateToUnityConverter
         public string PictoAtlasFolder { get; }
 
         public void Dispose() => TryDeleteDirectorySafe(Root);
-    }
-
-    private sealed class TemplateSet
-    {
-        public TemplateSet(string root)
-        {
-            string Resolve(string name)
-            {
-                string folder = Path.Combine(root, name);
-                if (!Directory.Exists(folder))
-                    throw new DirectoryNotFoundException($"Missing template folder '{folder}'.");
-                string file = Directory.EnumerateFiles(folder).OrderBy(f => f).FirstOrDefault() ?? throw new FileNotFoundException($"Template folder '{folder}' does not contain any files.");
-                return file;
-            }
-
-            Cover = Resolve("Cover");
-            SongTitleLogo = Resolve("SongTitleLogo");
-            CoachesLarge = Resolve("CoachesLarge");
-            CoachesSmall = Resolve("CoachesSmall");
-            MapPackage = Resolve("MapPackage");
-        }
-
-        public string Cover { get; }
-        public string SongTitleLogo { get; }
-        public string CoachesLarge { get; }
-        public string CoachesSmall { get; }
-        public string MapPackage { get; }
     }
 }

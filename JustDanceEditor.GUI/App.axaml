@@ -10,9 +10,4 @@
 			</ResourceDictionary.MergedDictionaries>
 		</ResourceDictionary>
 	</Application.Resources>
-
-	<Application.Styles>
-		<StyleInclude Source="avares://KevInc.Avalonia/Styles/MicaFluentTheme.axaml" />
-		<StyleInclude Source="avares://KevInc.Avalonia/Styles/MicaWindowChrome.axaml" />
-	</Application.Styles>
 </Application>

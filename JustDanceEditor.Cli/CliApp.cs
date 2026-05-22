@@ -180,8 +180,6 @@ internal sealed class CliApp(
             command.Options.Add(symbols.SongOption);
         if (options.HasFlag(CliOptionProfile.Answer))
             command.Options.Add(symbols.AnswerOption);
-        if (options.HasFlag(CliOptionProfile.Template))
-            command.Options.Add(symbols.TemplateOption);
         if (options.HasFlag(CliOptionProfile.DownloadOnlineAssets))
             command.Options.Add(symbols.DownloadOnlineAssetsOption);
         if (options.HasFlag(CliOptionProfile.Provider))
@@ -218,7 +216,6 @@ internal sealed class CliApp(
         options.Set("source", GetValue(parseResult, symbols.SourceOption));
         options.Set("song", GetValue(parseResult, symbols.SongOption));
         options.Set("answer", GetValue(parseResult, symbols.AnswerOption) ?? []);
-        options.Set("template", GetValue(parseResult, symbols.TemplateOption));
         options.Set("provider", GetValue(parseResult, symbols.ProviderOption));
         options.Set("platform", GetValue(parseResult, symbols.PlatformOption));
         options.Set("id", GetValue(parseResult, symbols.IdOption));
@@ -579,10 +576,6 @@ internal sealed class CliApp(
             answers.Set(answer[..equals], answer[(equals + 1)..]);
         }
 
-        string? template = options.Get("template");
-        if (!string.IsNullOrWhiteSpace(template))
-            answers.Set("unity.templatePath", template);
-
         return answers;
     }
 
@@ -852,7 +845,6 @@ internal sealed class CliApp(
             "source",
             "song",
             "answer",
-            "template",
             "provider",
             "platform",
             "id",
@@ -884,20 +876,19 @@ internal sealed class CliApp(
         Source = 1 << 4,
         Song = 1 << 5,
         Answer = 1 << 6,
-        Template = 1 << 7,
-        DownloadOnlineAssets = 1 << 8,
-        Provider = 1 << 9,
-        Platform = 1 << 10,
-        Id = 1 << 11,
-        Tool = 1 << 12,
-        Force = 1 << 13,
-        NoWait = 1 << 14,
-        Encoding = 1 << 15,
-        AudioEncoding = 1 << 16,
-        TextureEncoding = 1 << 17,
+        DownloadOnlineAssets = 1 << 7,
+        Provider = 1 << 8,
+        Platform = 1 << 9,
+        Id = 1 << 10,
+        Tool = 1 << 11,
+        Force = 1 << 12,
+        NoWait = 1 << 13,
+        Encoding = 1 << 14,
+        AudioEncoding = 1 << 15,
+        TextureEncoding = 1 << 16,
 
         DroppedPath = Headless | Output | Force | NoWait | Encoding | AudioEncoding | TextureEncoding,
-        JdiConversion = Headless | Input | Output | Target | Source | Song | Answer | Template | DownloadOnlineAssets,
+        JdiConversion = Headless | Input | Output | Target | Source | Song | Answer | DownloadOnlineAssets,
         IpkTool = Headless | Input | Output | Force,
         MediaConversion = Headless | Input | Output | Force | Encoding,
         ToolExecution = Headless | Input | Output | Force | Answer | Id | Tool,
@@ -939,11 +930,6 @@ internal sealed class CliApp(
         {
             Description = "Supply a prompt answer as id=value. Can be repeated.",
             Arity = ArgumentArity.ZeroOrMore
-        };
-
-        public Option<string?> TemplateOption { get; } = new("--template")
-        {
-            Description = "Shortcut for --answer unity.templatePath=<folder>."
         };
 
         public Option<bool> DownloadOnlineAssetsOption { get; } = new("--download-online-assets")

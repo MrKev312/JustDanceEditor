@@ -11,12 +11,7 @@
         Width="1160"
         Height="740"
         MinWidth="1000"
-        MinHeight="650"
-        TransparencyLevelHint="Mica, AcrylicBlur"
-        Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True"
-        WindowDecorations="Full"
-        ExtendClientAreaTitleBarHeightHint="32">
+        MinHeight="650">
 
   <Window.DataTemplates>
     <DataTemplate DataType="{x:Type prompts:TextPromptInputViewModel}" x:DataType="prompts:TextPromptInputViewModel">
@@ -68,25 +63,25 @@
     <Style Selector="TextBlock.sectionTitle">
       <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#F1ECFA" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
     </Style>
     <Style Selector="TextBlock.muted">
-      <Setter Property="Foreground" Value="#B8B0C6" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextMutedBrush}" />
       <Setter Property="FontSize" Value="12" />
     </Style>
     <Style Selector="TextBlock.songTitle">
       <Setter Property="FontSize" Value="26" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
     </Style>
     <Style Selector="TextBlock.songArtist">
       <Setter Property="FontSize" Value="15" />
-      <Setter Property="Foreground" Value="#D9D2E5" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextSecondaryBrush}" />
     </Style>
 
     <Style Selector="Border.surface">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="#445E5866" />
+      <Setter Property="Background" Value="{DynamicResource JdeSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeSurfaceBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Padding" Value="16" />
@@ -104,8 +99,8 @@
       <Setter Property="ClipToBounds" Value="True" />
     </Style>
     <Style Selector="Border.statusBadge">
-      <Setter Property="Background" Value="#18FFFFFF" />
-      <Setter Property="BorderBrush" Value="#44FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeBadgeBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeBadgeBorderBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Padding" Value="10,6" />
@@ -116,38 +111,38 @@
     </Style>
 
     <Style Selector="TextBox, ComboBox">
-      <Setter Property="Background" Value="#0EFFFFFF" />
-      <Setter Property="BorderBrush" Value="#36FFFFFF" />
-      <Setter Property="Foreground" Value="#F8F5FF" />
+      <Setter Property="Background" Value="{DynamicResource JdeInputBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
       <Setter Property="MinHeight" Value="34" />
     </Style>
     <Style Selector="TextBox:pointerover, ComboBox:pointerover">
-      <Setter Property="Background" Value="#18FFFFFF" />
-      <Setter Property="BorderBrush" Value="#42FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeInputHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputHoverBorderBrush}" />
     </Style>
     <Style Selector="TextBox:focus, ComboBox:focus">
-      <Setter Property="Background" Value="#20FFFFFF" />
-      <Setter Property="BorderBrush" Value="#668B5CF6" />
+      <Setter Property="Background" Value="{DynamicResource JdeInputFocusBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputFocusBorderBrush}" />
     </Style>
 
     <Style Selector="Button">
-      <Setter Property="Background" Value="#12FFFFFF" />
-      <Setter Property="BorderBrush" Value="#36FFFFFF" />
-      <Setter Property="Foreground" Value="#F8F5FF" />
+      <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
       <Setter Property="MinHeight" Value="34" />
       <Setter Property="Padding" Value="14,0" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button:pointerover">
-      <Setter Property="Background" Value="#20FFFFFF" />
-      <Setter Property="BorderBrush" Value="#4AFFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeButtonHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonHoverBorderBrush}" />
     </Style>
     <Style Selector="Button:pressed">
-      <Setter Property="Background" Value="#18FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeButtonPressedBrush}" />
     </Style>
     <Style Selector="Button.primary">
-      <Setter Property="Background" Value="#8B5CF6" />
+      <Setter Property="Background" Value="{DynamicResource JdeAccentBrush}" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -162,28 +157,31 @@
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="MinHeight" Value="34" />
-      <Setter Property="Background" Value="#12FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
     </Style>
     <Style Selector="Button.step.active">
-      <Setter Property="Background" Value="#8B5CF6" />
+      <Setter Property="Background" Value="{DynamicResource JdeAccentBrush}" />
       <Setter Property="Foreground" Value="White" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style Selector="ListBox">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderBrush" Value="#24FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeSurfaceBorderBrush}" />
     </Style>
     <Style Selector="ListBoxItem">
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="ListBoxItem:pointerover">
-      <Setter Property="Background" Value="#14FFFFFF" />
+      <Setter Property="Background" Value="{DynamicResource JdeListHoverBrush}" />
     </Style>
   </Window.Styles>
 
   <Grid RowDefinitions="32,*">
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Background="Transparent">
+    <Grid Grid.Row="0"
+          ColumnDefinitions="Auto,*"
+          Background="Transparent"
+          Margin="{DynamicResource JdeMainWindowTitleBarContentMargin}">
       <Menu Grid.Column="0" ItemsSource="{Binding MainMenu}" Background="Transparent">
         <Menu.Styles>
           <Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">

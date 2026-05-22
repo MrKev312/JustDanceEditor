@@ -75,7 +75,6 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
             throw new NotSupportedException("Unity exports require a materialized intermediate package.");
 
         _logger.LogInformation("Starting JDI -> Unity conversion for '{MapName}' into '{OutputPath}'", importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song", unityRequest.OutputPath);
-        _logger.LogDebug("Using Unity template folder '{TemplatePath}'", unityRequest.TemplatePath);
         IntermediateToUnityConverter converter = new(importResult.Package, importResult.MaterializedRoot, unityRequest, _logger);
         await converter.ConvertAsync();
         _logger.LogInformation("JDI -> Unity conversion completed for '{MapName}'", importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song");
@@ -145,33 +144,5 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
 
         if (request.ExportType is not ExportType.CustomServer and not ExportType.OfflineCache)
             throw new NotSupportedException($"Unity export type '{request.ExportType}' is not supported.");
-
-        ValidateTemplateFolder(request.TemplatePath);
-    }
-
-    private static void ValidateTemplateFolder(string templatePath)
-    {
-        if (string.IsNullOrWhiteSpace(templatePath))
-            throw new ArgumentException("Template path is required for Unity exports.", nameof(templatePath));
-
-        if (!Directory.Exists(templatePath))
-            throw new DirectoryNotFoundException($"Template path '{templatePath}' does not exist.");
-
-        string[] foldersToValidate = [
-            Path.Combine(templatePath, "Cover"),
-            Path.Combine(templatePath, "MapPackage"),
-            Path.Combine(templatePath, "CoachesLarge"),
-            Path.Combine(templatePath, "CoachesSmall"),
-            Path.Combine(templatePath, "SongTitleLogo")
-        ];
-
-        foreach (string folder in foldersToValidate)
-        {
-            if (!Directory.Exists(folder))
-                throw new DirectoryNotFoundException($"The template subfolder {folder} is missing. Please ensure the template structure is correct.");
-
-            if (!Directory.EnumerateFileSystemEntries(folder).Any())
-                throw new FileNotFoundException($"The template folder {folder} is empty. Please put a template file in the folder.");
-        }
     }
 }

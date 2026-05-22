@@ -68,7 +68,7 @@ public class UnityCacheToolProviderTests
 
         try
         {
-            UnityConversionRequest request = new("/input", outputPath, "/template")
+            UnityConversionRequest request = new("/input", outputPath)
             {
                 GenerateCacheIfMissing = true
             };

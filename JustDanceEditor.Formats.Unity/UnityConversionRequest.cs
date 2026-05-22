@@ -27,16 +27,8 @@ public enum ExportType
 /// </remarks>
 /// <param name="inputPath">Input folder path (JDI package or Unity song folder).</param>
 /// <param name="outputPath">Output folder path.</param>
-/// <param name="templatePath">Path to the Unity template folder containing bundle templates.</param>
-public class UnityConversionRequest(string inputPath, string outputPath, string templatePath) : ConversionRequestBase(inputPath, outputPath)
+public class UnityConversionRequest(string inputPath, string outputPath) : ConversionRequestBase(inputPath, outputPath)
 {
-
-    /// <summary>
-    /// Path to the Unity template folder containing bundle templates.
-    /// Required for export operations.
-    /// </summary>
-    public string TemplatePath { get; set; } = templatePath;
-
     /// <summary>
     /// The export type (OfflineCache or CustomServer).
     /// </summary>

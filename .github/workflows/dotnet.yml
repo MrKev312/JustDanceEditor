@@ -58,21 +58,21 @@ jobs:
             $bundle = "./artifacts/JustDanceEditor-$($release.Name)"
 
             foreach ($platform in $release.Platforms) {
-              $platformFolder = if ($release.Platforms.Count -eq 1) { $bundle } else { "$bundle/$platform" }
+              $platformFolder = "$bundle/$platform"
 
               dotnet publish ./JustDanceEditor.Cli/JustDanceEditor.Cli.csproj `
                 --configuration Release `
                 --runtime $platform `
                 --self-contained false `
                 -p:UseLocalKevIncProjects=false `
-                --output "$platformFolder/CLI"
+                --output "$platformFolder"
 
               dotnet publish ./JustDanceEditor.GUI/JustDanceEditor.GUI.csproj `
                 --configuration Release `
                 --runtime $platform `
                 --self-contained false `
                 -p:UseLocalKevIncProjects=false `
-                --output "$platformFolder/GUI"
+                --output "$platformFolder"
 
               if ($release.IncludeEditor) {
                 dotnet publish ./JustDanceEditor.Editor/JustDanceEditor.Editor.csproj `
@@ -80,7 +80,7 @@ jobs:
                   --runtime $platform `
                   --self-contained false `
                   -p:UseLocalKevIncProjects=false `
-                  --output "$platformFolder/Editor"
+                  --output "$platformFolder"
               }
             }
           }

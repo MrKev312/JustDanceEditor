@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\JustDanceEditor.Formats.Unity\JustDanceEditor.Formats.Unity.csproj" />
+    <KevIncLocalProjectReference Include="$(KevIncTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureProject)')" />
+    <PackageReference Include="KevInc.Texture" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureProject)')" />
     <PackageReference Include="coverlet.collector" Version="10.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

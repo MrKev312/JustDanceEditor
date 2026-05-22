@@ -25,14 +25,7 @@ public sealed class UnityConversionStrategy : IFormatConversionStrategy
                     ConversionPromptIds.OutputPath,
                     ConversionPromptKind.FolderPath,
                     "Enter the Unity output root (custom server layout)",
-                    Required: false),
-                new ConversionPrompt(
-                    UnityPromptIds.TemplatePath,
-                    ConversionPromptKind.FolderPath,
-                    "Enter the Unity template folder path",
-                    Required: true,
-                    DefaultValue: "./Template",
-                    MustExist: true)
+                    Required: false)
             ],
             Priority: 50),
         new(
@@ -50,13 +43,6 @@ public sealed class UnityConversionStrategy : IFormatConversionStrategy
                     "Enter the Unity cache root or any folder inside the SD_Cache tree",
                     Required: false),
                 new ConversionPrompt(
-                    UnityPromptIds.TemplatePath,
-                    ConversionPromptKind.FolderPath,
-                    "Enter the Unity template folder path",
-                    Required: true,
-                    DefaultValue: "./Template",
-                    MustExist: true),
-                new ConversionPrompt(
                     UnityPromptIds.CacheNumber,
                     ConversionPromptKind.Integer,
                     "Enter the runtime SD_Cache number",
@@ -73,7 +59,7 @@ public sealed class UnityConversionStrategy : IFormatConversionStrategy
 
     public ConversionRequestBase CreateImportRequest(ConversionRequestContext context)
     {
-        return new UnityConversionRequest(context.InputPath, context.OutputPath, context.OutputPath)
+        return new UnityConversionRequest(context.InputPath, context.OutputPath)
         {
             ExportType = ExportType.CustomServer
         };
@@ -81,27 +67,14 @@ public sealed class UnityConversionStrategy : IFormatConversionStrategy
 
     public ConversionRequestBase CreateExportRequest(ConversionRequestContext context)
     {
-        string templatePath = ResolveTemplatePath(context.Answers);
         bool offlineCache = context.Target?.TargetCode.Equals(OfflineCacheTargetCode, StringComparison.OrdinalIgnoreCase) == true;
-        return new UnityConversionRequest(context.InputPath, context.OutputPath, templatePath)
+        return new UnityConversionRequest(context.InputPath, context.OutputPath)
         {
             ExportType = offlineCache ? ExportType.OfflineCache : ExportType.CustomServer,
             CacheNumber = offlineCache ? ResolveCacheNumber(context.Answers) : null,
             GenerateCacheIfMissing = ResolveGenerateCacheIfMissing(context.Answers),
             Interaction = context.Interaction
         };
-    }
-
-    private static string ResolveTemplatePath(PromptAnswerSet? answers)
-    {
-        if (answers != null && answers.TryGetString(UnityPromptIds.TemplatePath, out string? templatePath) && !string.IsNullOrWhiteSpace(templatePath))
-            return templatePath;
-
-        const string defaultTemplate = "./Template";
-        if (Directory.Exists(defaultTemplate))
-            return defaultTemplate;
-
-        throw new InvalidOperationException("Unity export requires a template folder path.");
     }
 
     private static uint ResolveCacheNumber(PromptAnswerSet? answers)

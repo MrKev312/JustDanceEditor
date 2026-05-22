@@ -12,22 +12,20 @@ public class UnityConversionRequestTests
         // Arrange
         string inputPath = "/input/path";
         string outputPath = "/output/path";
-        string templatePath = "/template/path";
 
         // Act
-        UnityConversionRequest request = new(inputPath, outputPath, templatePath);
+        UnityConversionRequest request = new(inputPath, outputPath);
 
         // Assert
         Assert.Equal(inputPath, request.InputPath);
         Assert.Equal(outputPath, request.OutputPath);
-        Assert.Equal(templatePath, request.TemplatePath);
     }
 
     [Fact]
     public void UnityConversionRequest_DefaultsExportTypeToCustomServer()
     {
         // Act
-        UnityConversionRequest request = new("/in", "/out", "/template");
+        UnityConversionRequest request = new("/in", "/out");
 
         // Assert
         Assert.Equal(ExportType.CustomServer, request.ExportType);
@@ -37,7 +35,7 @@ public class UnityConversionRequestTests
     public void UnityConversionRequest_CanSetExportType()
     {
         // Arrange
-        UnityConversionRequest request = new("/in", "/out", "/template")
+        UnityConversionRequest request = new("/in", "/out")
         {
             // Act
             ExportType = ExportType.OfflineCache
@@ -51,7 +49,7 @@ public class UnityConversionRequestTests
     public void UnityConversionRequest_CanSetCacheNumber()
     {
         // Arrange
-        UnityConversionRequest request = new("/in", "/out", "/template");
+        UnityConversionRequest request = new("/in", "/out");
         uint cacheNumber = 123;
 
         // Act
@@ -65,7 +63,7 @@ public class UnityConversionRequestTests
     public void UnityConversionRequest_CacheNumberDefaultsToNull()
     {
         // Act
-        UnityConversionRequest request = new("/in", "/out", "/template");
+        UnityConversionRequest request = new("/in", "/out");
 
         // Assert
         Assert.Null(request.CacheNumber);
@@ -75,18 +73,16 @@ public class UnityConversionRequestTests
     public void UnityConversionRequest_CanChangeInputAndOutputPaths()
     {
         // Arrange
-        UnityConversionRequest request = new("/in1", "/out1", "/template")
+        UnityConversionRequest request = new("/in1", "/out1")
         {
             // Act
             InputPath = "/in2",
-            OutputPath = "/out2",
-            TemplatePath = "/template2"
+            OutputPath = "/out2"
         };
 
         // Assert
         Assert.Equal("/in2", request.InputPath);
         Assert.Equal("/out2", request.OutputPath);
-        Assert.Equal("/template2", request.TemplatePath);
     }
 }
 
@@ -100,7 +96,7 @@ public class ConversionRequestBaseTests
         string outputPath = "/output/path";
 
         // Act
-        UnityConversionRequest request = new(inputPath, outputPath, "/template");
+        UnityConversionRequest request = new(inputPath, outputPath);
 
         // Assert
         Assert.Equal(inputPath, request.InputPath);
@@ -111,7 +107,7 @@ public class ConversionRequestBaseTests
     public void ConversionRequestBase_CanModifyPaths()
     {
         // Arrange
-        ConversionRequestBase request = new UnityConversionRequest("/in1", "/out1", "/template")
+        ConversionRequestBase request = new UnityConversionRequest("/in1", "/out1")
         {
             // Act
             InputPath = "/in2",

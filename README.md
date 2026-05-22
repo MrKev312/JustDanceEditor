@@ -25,7 +25,7 @@ Release bundles are grouped by operating system:
 - `JustDanceEditor-Linux`
 - `JustDanceEditor-macOS`
 
-Linux and macOS bundles may include separate `x64` and `arm64` folders. The builds are framework-dependent, so install the .NET 10 runtime before launching them.
+Each release bundle contains one folder per runtime platform, such as `win-x64`, `linux-x64`, `linux-arm64`, `osx-x64`, or `osx-arm64`. Each runtime folder contains the CLI, GUI, and Editor together with shared binaries de-duplicated. The builds are framework-dependent, so install the .NET 10 runtime before launching them.
 
 ## Quick Start
 
@@ -56,7 +56,6 @@ You can drop multiple paths at once. Use `--output` to pick an output file or fo
 ## Notes
 
 - UbiArt game-folder exports expect the folder that directly contains the game IPKs.
-- Unity exports require a bundle template folder containing `CoachesSmall`, `CoachesLarge`, `Cover`, `MapPackage`, and `SongTitleLogo`.
 - Unity offline cache exports can use an existing cache root or create a new `SD_Cache` setup when needed.
 - FFmpeg is used for media conversion and Editor video/audio preparation. The tools can download it automatically, or you can place `ffmpeg`/`ffmpeg.exe` next to the executable.
 - Online cover downloads use [Just Dance Covers](https://github.com/MrKev312/JustDanceCovers) when enabled.
@@ -71,7 +70,7 @@ JustDanceEditor.Cli pack-ipk --input path\to\folder --output path\to\song.ipk
 
 ## Bug Reports
 
-Please include the tool version, operating system, source and target formats, song codename, error logs, and any relevant target details such as Unity template source or UbiArt patch IPK usage.
+Please include the tool version, operating system, source and target formats, song codename, error logs, and any relevant target details such as Unity cache layout or UbiArt patch IPK usage.
 
 Report issues at [GitHub Issues](https://github.com/MrKev312/JustDanceEditor/issues).
 

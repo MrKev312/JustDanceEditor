@@ -26,7 +26,22 @@ public static class UnityAssetExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
         byte[] compressedData = assetBundleFile.ToCompressedBundleData();
-        WriteCompressedBundle(compressedData, outputPath, keepExtension);
+        string hash = ComputeMd5Hash(compressedData);
+        byte[] finalData = [.. compressedData];
+        if (!TryUpdateCabHashInMemory(finalData, hash))
+        {
+            if (assetBundleFile.BlockAndDirInfo.DirectoryInfos.Count == 0)
+                throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
+
+            AssetBundleDirectoryInfo directoryInfo = assetBundleFile.BlockAndDirInfo.DirectoryInfos[0];
+            if (!directoryInfo.Name.StartsWith("CAB-", StringComparison.Ordinal))
+                throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
+
+            directoryInfo.Name = $"CAB-{hash}";
+            finalData = assetBundleFile.ToCompressedBundleData();
+        }
+
+        WriteCompressedBundleData(finalData, outputPath, keepExtension, hash);
     }
 
     public static byte[] ToCompressedBundleData(this AssetBundleFile assetBundleFile)
@@ -67,8 +82,14 @@ public static class UnityAssetExtensions
 
         byte[] finalData = [.. compressedData];
         string hash = ComputeMd5Hash(finalData);
-        UpdateCabHashInMemory(finalData, hash);
+        if (!TryUpdateCabHashInMemory(finalData, hash))
+            throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
 
+        return WriteCompressedBundleData(finalData, outputPath, keepExtension, hash);
+    }
+
+    private static string WriteCompressedBundleData(byte[] finalData, string outputPath, bool keepExtension, string hash)
+    {
         Directory.CreateDirectory(outputPath);
 
         string fileName = hash;
@@ -92,36 +113,29 @@ public static class UnityAssetExtensions
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
-    private static void UpdateCabHashInMemory(byte[] data, string hash)
+    private static bool TryUpdateCabHashInMemory(byte[] data, string hash)
     {
         // "CAB-" in UTF8 bytes
         ReadOnlySpan<byte> marker = "CAB-"u8;
         byte[] hashBytes = Encoding.UTF8.GetBytes(hash);
 
-        // We search the last 1KB (or less)
-        // Original logic: reader.BaseStream.Length - 0x40
-        int startSearch = Math.Max(0, data.Length - 0x400);
-
-        Span<byte> searchArea = data.AsSpan(startSearch);
-        int index = searchArea.IndexOf(marker);
+        Span<byte> searchArea = data.AsSpan();
+        int index = searchArea.LastIndexOf(marker);
 
         if (index != -1)
         {
             // Absolute position of the start of "CAB-"
-            int absoluteIndex = startSearch + index;
-
-            // We want to write immediately after "CAB-"
-            int writePos = absoluteIndex + marker.Length;
+            int writePos = index + marker.Length;
 
             // Safety check
             if (writePos + hashBytes.Length <= data.Length)
             {
                 hashBytes.CopyTo(data.AsSpan(writePos));
-                return;
+                return true;
             }
         }
 
-        throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
+        return false;
     }
 
     private class NonClosingStreamWrapper(Stream baseStream) : Stream

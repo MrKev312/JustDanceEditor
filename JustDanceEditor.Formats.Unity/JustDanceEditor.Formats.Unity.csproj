@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AssetsTools.NET" Version="3.0.4" />
+    <PackageReference Include="BCnEncoder.Net.ImageSharp" Version="1.1.3" />
     <PackageReference Include="KevInc.Texture" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureProject)')" />
     <PackageReference Include="KevInc.Texture.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
@@ -18,5 +19,8 @@
     <KevIncLocalProjectReference Include="$(KevIncTextureImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureImageSharpProject)')" />
     <ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
     <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\Examples\uabea-windows\classdata.tpk" LogicalName="JustDanceEditor.Formats.Unity.Assets.classdata.tpk" />
   </ItemGroup>
 </Project>

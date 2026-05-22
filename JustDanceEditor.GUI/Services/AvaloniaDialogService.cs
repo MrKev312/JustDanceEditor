@@ -8,6 +8,7 @@ using Avalonia.Threading;
 
 using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.GUI.ViewModels;
+using JustDanceEditor.Shared.Avalonia;
 
 namespace JustDanceEditor.GUI.Services;
 
@@ -171,14 +172,17 @@ public sealed class AvaloniaDialogService : IApplicationDialogService
         throw new InvalidOperationException("The main window is not available.");
     }
 
-    private static Window CreatePromptWindow(string title) =>
-        new()
+    private static Window CreatePromptWindow(string title)
+    {
+        Window window = new()
         {
             Title = title,
             Width = 460,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = new SolidColorBrush(Color.Parse("#2A2433"))
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
+        PlatformTheme.ApplyFloatingWindowChrome(window);
+        return window;
+    }
 }
