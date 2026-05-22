@@ -1,86 +1,85 @@
 # Just Dance Editor
 
-## Description
-This tool allows you to convert an UbiArt Just Dance song to Just Dance Next's format.
+Just Dance Editor converts, inspects, and edits Just Dance song packages across JDI, UbiArt, JDNext PC, and JD2023+ Unity layouts.
 
-## Legal Disclaimer
-This tool is not affiliated with Ubisoft in any way.
-It is a fan-made tool created for educational purposes.
-Please support the official releases.
-This tool assumes you have the rights to the content you are converting and that you got the files legally.
-The author is not responsible for any misuse of this tool.
+This project is not affiliated with Ubisoft. It is a fan-made tool for educational and preservation-oriented modding workflows. Only convert content you have the right to use.
 
-## Features
-- Auto converts the tracks to a MapPackage bundle.
-- Auto generates a cover.
-- Auto generates the coaches bundles.
-- Auto generates a preview.
-- Auto converts videos to the right aspect ratio and format.
+## What It Does
 
-## Installation
-1. Make sure you have .NET 9 installed. Without this, the program will not open.
-2. Download the latest release.
-3. Extract the files.
-4. Create a folder called ``template`` in the same directory as the executable. In there create the following folders:
-	- ``CoachesSmall``
-	- ``CoachesLarge``
-	- ``Cover``
-	- ``MapPackage``
- 	- ``songTitleLogo``
-	
-	Each folder should contain a bundle from an official Just Dance Next song.
-5. That's it!
+- Convert songs between JDI, UbiArt, JDNext PC, and JD2023+ Unity formats.
+- Import from extracted folders, IPK archives, JDI packages, JDNext PC maps, and Unity server/cache layouts.
+- Export to folders, IPKs, UbiArt game-folder layouts, Unity custom servers, Unity offline caches, and Unity platform bundles.
+- Patch required UbiArt game metadata during game-folder exports.
+- Generate, reuse, or download cover assets during conversion.
+- Edit JDI song metadata, timeline clips, lyrics, pictograms, and video offsets.
 
-## Usage
-1. Extract the ``ipk`` file of the song you want to convert by drag and dropping it onto the CLI executable, or run ``JustDanceEditor.Cli.exe extract-ipk --input <input.ipk> --output <folder>``.
-2. If the song is a ``mainscene``, in the song folder, place the following files in ``\world\maps\{MapName}\menuart\textures`` (either in ``.png``, ``.png.ckd``, or ``.tga.ckd``):
-	- ``{MapName}_Coach_1.tga.cdk``, ``{MapName}_Coach_2.tga.cdk``, ``{MapName}_Coach_..`` (up to 4 coaches)
-	- ``{MapName}_AlbumCoach.tga.cdk`` or a 1024x2048 ``{MapName}_Cover_Generic.tga``
-	- ``{MapName}_map_bkg.tga``
-	- You can optionally add in a ``cover.png`` file to use as the cover.
-	
-	In the song folder, create a new folder called ``media`` in ``\world\maps\{MapName}\`` and in it, place the ``webm`` and the ``ogg``, names don't matter.
-4. Launch ``JustDanceEditor.exe`` and select either ``1``.
-5. Drag and drop the song folder onto the window.
-6. Drag and drop the output folder onto the window.
-7. Select whether you want to download a cover from the internet.
-8. ???
-9. Profit!
+## Apps
 
-## Adding a song to the game
-### Automatically
-Make sure that your output folder is a valid cache folder, and it will be automatically added to the cache.
-### Manually
-Copy the output files to your cache and add the info in ``cachingStatus.json`` to the game's ``cachingStatus.json``.
+- `JustDanceEditor.GUI` - guided drag-and-drop converter.
+- `JustDanceEditor.Cli` - scriptable converter and media/IPK utility.
+- `JustDanceEditor.Editor` - JDI timeline editor.
 
-## Bug Reporting
-Before reporting, make sure that you're using the latest version of the tool!
+Release bundles are grouped by operating system:
 
-Please report any bugs you find in the [Issues](https://github.com/MrKev312/JustDanceEditor/issues) section.
-Be sure to include the following information:
-- The version of the tool you are using.
-- The song you are trying to convert and from which platform.
-- Which template you are using.
-- The error message you are getting.
-- Any other relevant information.
+- `JustDanceEditor-Windows`
+- `JustDanceEditor-Linux`
+- `JustDanceEditor-macOS`
 
-## Online Covers
-This tool can automatically download covers from the internet from this repository: [Just Dance Covers](https://github.com/MrKev312/JustDanceCovers).
-Feel free to add your own covers to the repository!
+Linux and macOS bundles may include separate `x64` and `arm64` folders. The builds are framework-dependent, so install the .NET 10 runtime before launching them.
 
-## Contributing
-Contributions are welcome! Please follow these guidelines:
-- Fork the repository.
-- Create a new branch.
-- Make your changes.
-- Submit a pull request.
+## Quick Start
+
+1. Open `JustDanceEditor.GUI`.
+2. Drag a source file or folder onto the window, or pick it manually.
+3. Choose the target format, platform, and game/version.
+4. Answer any target-specific prompts, choose the output folder, and run the conversion.
+
+For scripted CLI conversion:
+
+```powershell
+JustDanceEditor.Cli convert --input path\to\source --output path\to\output --target nx-2018
+```
+
+Use `JustDanceEditor.Cli targets` to list available targets.
+
+## CLI Drag And Drop
+
+You can pass paths directly to `JustDanceEditor.Cli`; desktop environments that support dropping files or folders onto an executable use the same quick utility mode:
+
+- Folders are packed into `.ipk` archives.
+- `.ipk` files are extracted into folders.
+- Audio files are converted after you choose a target encoding. Supported inputs include `.wav`, `.wave`, `.mp3`, `.aiff`, `.aif`, `.wma`, `.m4a`, `.aac`, `.flac`, `.opus`, and UbiArt `.wav.ckd` audio.
+- Images and texture files are converted after you choose a target encoding. Supported inputs include `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.gif`, `.tga`, `.dds`, `.ssd`, `.xtx`, `.gtx`, `.ps3tex`, `.tex`, and `.ckd`.
+
+You can drop multiple paths at once. Use `--output` to pick an output file or folder, `--force` to overwrite existing outputs, `--no-wait` to close without waiting for a key, and `--encoding`, `--audio-encoding`, or `--texture-encoding` to skip the encoding prompt.
+
+## Notes
+
+- UbiArt game-folder exports expect the folder that directly contains the game IPKs.
+- Unity exports require a bundle template folder containing `CoachesSmall`, `CoachesLarge`, `Cover`, `MapPackage`, and `SongTitleLogo`.
+- Unity offline cache exports can use an existing cache root or create a new `SD_Cache` setup when needed.
+- FFmpeg is used for media conversion and Editor video/audio preparation. The tools can download it automatically, or you can place `ffmpeg`/`ffmpeg.exe` next to the executable.
+- Online cover downloads use [Just Dance Covers](https://github.com/MrKev312/JustDanceCovers) when enabled.
+- Some legacy UbiArt targets are experimental or partially supported; the UI/CLI warns before using those paths.
+
+## CLI Utilities
+
+```powershell
+JustDanceEditor.Cli extract-ipk --input path\to\song.ipk --output path\to\folder
+JustDanceEditor.Cli pack-ipk --input path\to\folder --output path\to\song.ipk
+```
+
+## Bug Reports
+
+Please include the tool version, operating system, source and target formats, song codename, error logs, and any relevant target details such as Unity template source or UbiArt patch IPK usage.
+
+Report issues at [GitHub Issues](https://github.com/MrKev312/JustDanceEditor/issues).
 
 ## License
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
-## Contact
-For any inquiries, please dm me on Discord: ``mrkev312``
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 ## Credits
-- MrKev312: Creator of the tool
-- Stella/AboodXD and KillzXGaming for their XTX and GX2 converters
+
+- MrKev312: creator and maintainer.
+- Stella/AboodXD and KillzXGaming: original XTX/GX2 converter research.
