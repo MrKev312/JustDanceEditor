@@ -137,11 +137,14 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.ExportType != ExportType.CustomServer)
-            throw new NotSupportedException("Unity exports currently support only the Custom Server folder layout.");
-
         if (string.IsNullOrWhiteSpace(request.OutputPath))
-            throw new ArgumentException("Output path is required for Unity exports.", nameof(request.OutputPath));
+            throw new ArgumentException("Output path is required for Unity exports.", nameof(request));
+
+        if (request.ExportType == ExportType.OfflineCache && (!request.CacheNumber.HasValue || request.CacheNumber.Value == 0))
+            throw new ArgumentException("A positive cache number is required for Unity offline cache exports.", nameof(request));
+
+        if (request.ExportType is not ExportType.CustomServer and not ExportType.OfflineCache)
+            throw new NotSupportedException($"Unity export type '{request.ExportType}' is not supported.");
 
         ValidateTemplateFolder(request.TemplatePath);
     }

@@ -1,26 +1,19 @@
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.Unity.Builders;
+using JustDanceEditor.Formats.Unity.Cache;
 using JustDanceEditor.Formats.Unity.Models;
 
 using Microsoft.Extensions.Logging;
 
 using System.Globalization;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.Unity.Tools;
 
 public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logger) : IToolProvider
 {
-    private const string CreateCacheToolCode = "cache-create";
     private const string SpreadCacheToolCode = "cache-spread";
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true
-    };
 
     private readonly ILogger<UnityCacheToolProvider> _logger = logger;
 
@@ -30,20 +23,6 @@ public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logge
 
     public IReadOnlyCollection<ToolDefinition> GetTools() =>
     [
-        new(
-            ProviderCode,
-            ProviderName,
-            CreateCacheToolCode,
-            "Create NX Cache Structure",
-            "Create an empty NX Unity cache folder structure.",
-            [
-                new ConversionPrompt(
-                    ConversionPromptIds.OutputPath,
-                    ConversionPromptKind.FolderPath,
-                    "Enter the folder where the new cache structure should be created",
-                    Required: true)
-            ],
-            Priority: 10),
         new(
             ProviderCode,
             ProviderName,
@@ -67,9 +46,6 @@ public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logge
 
         switch (context.Tool.ToolCode)
         {
-            case CreateCacheToolCode:
-                GenerateCache(context.Answers.GetString(ConversionPromptIds.OutputPath));
-                break;
             case SpreadCacheToolCode:
                 await SpreadCacheAsync(
                     context.Answers.GetString(ConversionPromptIds.InputPath),
@@ -80,30 +56,6 @@ public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logge
             default:
                 throw new NotSupportedException($"Unknown Unity tool '{context.Tool.ToolCode}'.");
         }
-    }
-
-    private void GenerateCache(string path)
-    {
-        Directory.CreateDirectory(path);
-
-        string cachePath = Path.Combine(path, "SD_Cache.0000");
-        string addressablesPath = Path.Combine(cachePath, "Addressables");
-        string mapBaseCachePath = Path.Combine(cachePath, "MapBaseCache");
-
-        Directory.CreateDirectory(addressablesPath);
-        Directory.CreateDirectory(mapBaseCachePath);
-
-        string addressablesJsonCachePath = Path.Combine(addressablesPath, "json.cache");
-        File.WriteAllText(addressablesJsonCachePath, JDSongJSONBuilder.AddressablesJson());
-        _logger.LogInformation("Created {Path}", addressablesJsonCachePath);
-
-        string mapBaseCacheJsonCachePath = Path.Combine(mapBaseCachePath, "json.cache");
-        File.WriteAllText(mapBaseCacheJsonCachePath, JDSongJSONBuilder.MapBaseCacheJson());
-        _logger.LogInformation("Created {Path}", mapBaseCacheJsonCachePath);
-
-        string cachingStatusJsonPath = Path.Combine(mapBaseCachePath, "CachingStatus.json");
-        File.WriteAllText(cachingStatusJsonPath, JsonSerializer.Serialize(new JDCacheJSON(), JsonOptions));
-        _logger.LogInformation("Created {Path}", cachingStatusJsonPath);
     }
 
     private async Task SpreadCacheAsync(string cachePath, bool continueIfThresholdMissing, IConversionInteraction? interaction, CancellationToken cancellationToken)
@@ -142,7 +94,7 @@ public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logge
         _logger.LogInformation("Analyzing cache structure at {CachePath}", cachePath);
 
         using FileStream json = File.OpenRead(cachingStatusJsonPath);
-        JDCacheJSON cacheJson = JsonSerializer.Deserialize<JDCacheJSON>(json) ?? throw new JsonException("Failed to deserialize CachingStatus.json.");
+        JDCacheJSON cacheJson = JsonSerializer.Deserialize<JDCacheJSON>(json, UnityCacheJson.Options) ?? throw new JsonException("Failed to deserialize CachingStatus.json.");
 
         string[] folders = Directory.GetDirectories(cachePath);
         PriorityQueue<string, long> cacheOutputFolders = new();
@@ -204,7 +156,7 @@ public sealed class UnityCacheToolProvider(ILogger<UnityCacheToolProvider> logge
         File.Copy(cachingStatusJsonPath, backupPath, true);
         _logger.LogInformation("Backed up CachingStatus.json to {BackupPath}", backupPath);
 
-        File.WriteAllText(cachingStatusJsonPath, JsonSerializer.Serialize(cacheJson, JsonOptions));
+        File.WriteAllText(cachingStatusJsonPath, JsonSerializer.Serialize(cacheJson, UnityCacheJson.Options));
     }
 
     private static long GetFolderSize(string folder) =>

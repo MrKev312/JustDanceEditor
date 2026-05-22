@@ -1,6 +1,8 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
+using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.Unity.Services;
 using JustDanceEditor.Formats.Unity.Tools;
 
@@ -23,6 +25,7 @@ public sealed class UnityConverterPlugin : IConverterPlugin
 
         services.AddSingleton<IJdiFormat, UnityJdiFormat>();
         services.AddSingleton<IFormatConversionStrategy, UnityConversionStrategy>();
+        services.AddSingleton<ISongPreviewProvider, UnitySongPreviewProvider>();
         services.AddSingleton<IToolProvider, UnityCacheToolProvider>();
     }
 }

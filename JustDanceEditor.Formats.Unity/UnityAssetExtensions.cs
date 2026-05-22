@@ -25,37 +25,50 @@ public static class UnityAssetExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        // 1. Write Uncompressed to Memory
-        // We use the wrapper here so AssetsFileWriter doesn't kill our stream
+        byte[] compressedData = assetBundleFile.ToCompressedBundleData();
+        WriteCompressedBundle(compressedData, outputPath, keepExtension);
+    }
+
+    public static byte[] ToCompressedBundleData(this AssetBundleFile assetBundleFile)
+    {
+        ArgumentNullException.ThrowIfNull(assetBundleFile);
+
         using MemoryStream uncompressedMs = new();
-        using (AssetsFileWriter writer = new(new NonClosingStreamWrapper(uncompressedMs)))
+        using (AssetsFileWriter writer = new(WrapNonClosing(uncompressedMs)))
         {
             assetBundleFile.Write(writer);
         }
 
-        // Reset position to read it back
         uncompressedMs.Position = 0;
 
-        // 2. Load into new instance
         AssetBundleFile newUncompressedBundle = new();
         newUncompressedBundle.Read(new AssetsFileReader(uncompressedMs));
 
-        // 3. Pack (Compress) to Memory
-        // Here we don't need the wrapper because MemoryStream.ToArray() works even if closed
-        using MemoryStream compressedMs = new();
-        using (AssetsFileWriter compressedWriter = new(compressedMs))
+        try
         {
-            newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+            using MemoryStream compressedMs = new();
+            using (AssetsFileWriter compressedWriter = new(compressedMs))
+            {
+                newUncompressedBundle.Pack(compressedWriter, AssetBundleCompressionType.LZ4);
+            }
+
+            return compressedMs.ToArray();
         }
+        finally
+        {
+            newUncompressedBundle.Close();
+        }
+    }
 
-        // 4. Get raw bytes (works on closed MemoryStream)
-        byte[] compressedData = compressedMs.ToArray();
+    public static string WriteCompressedBundle(byte[] compressedData, string outputPath, bool keepExtension)
+    {
+        ArgumentNullException.ThrowIfNull(compressedData);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
 
-        // 5. Calculate Hash & Patch CAB (In-Memory)
-        string hash = ComputeMd5Hash(compressedData);
-        UpdateCabHashInMemory(compressedData, hash);
+        byte[] finalData = [.. compressedData];
+        string hash = ComputeMd5Hash(finalData);
+        UpdateCabHashInMemory(finalData, hash);
 
-        // 6. Write Final File
         Directory.CreateDirectory(outputPath);
 
         string fileName = hash;
@@ -67,11 +80,11 @@ public static class UnityAssetExtensions
         if (File.Exists(finalPath))
             File.Delete(finalPath);
 
-        File.WriteAllBytes(finalPath, compressedData);
-
-        // Explicit cleanup of the reader's stream if needed, though GC handles it.
-        newUncompressedBundle.Close();
+        File.WriteAllBytes(finalPath, finalData);
+        return finalPath;
     }
+
+    internal static Stream WrapNonClosing(Stream stream) => new NonClosingStreamWrapper(stream);
 
     private static string ComputeMd5Hash(byte[] data)
     {

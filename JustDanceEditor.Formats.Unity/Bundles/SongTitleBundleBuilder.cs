@@ -22,7 +22,8 @@ public sealed record UnitySongTitleRequest(
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer,
-    Image<Rgba32>? OverrideTitleImage = null);
+    Image<Rgba32>? OverrideTitleImage = null,
+    UnityBundlePublishTarget? PublishTarget = null);
 
 public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
 {
@@ -51,7 +52,8 @@ public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
             titleImage,
             request.TemplatePath,
             request.OutputFolderPath,
-            request.ForCustomServer);
+            request.ForCustomServer,
+            request.PublishTarget);
 
         GenerateBundle(internalRequest, logger);
     }
@@ -72,7 +74,7 @@ public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
             UpdateSongTitleTexture(request.Codename, manager, afileInst, textureInfo, request.TitleImage);
             UpdateSongTitleSprite(request.Codename, manager, afileInst, spriteInfo);
 
-            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
+            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData, request.PublishTarget);
 
             logger.LogInformation("Finished generating song title logo for {Codename}", request.Codename);
         }
@@ -162,5 +164,6 @@ public sealed class SongTitleBundleBuilder : UnityBundleBuilderBase
         Image<Rgba32> TitleImage,
         string TemplatePath,
         string OutputFolderPath,
-        bool ForCustomServer);
+        bool ForCustomServer,
+        UnityBundlePublishTarget? PublishTarget);
 }

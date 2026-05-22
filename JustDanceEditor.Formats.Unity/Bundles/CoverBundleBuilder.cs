@@ -22,7 +22,8 @@ public sealed record UnityCoverRequest(
     string TemplatePath,
     string OutputFolderPath,
     bool ForCustomServer,
-    Image<Rgba32>? OverrideCoverImage = null);
+    Image<Rgba32>? OverrideCoverImage = null,
+    UnityBundlePublishTarget? PublishTarget = null);
 
 public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
@@ -57,7 +58,8 @@ public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
             coverImage,
             request.TemplatePath,
             request.OutputFolderPath,
-            request.ForCustomServer);
+            request.ForCustomServer,
+            request.PublishTarget);
 
         GenerateBundle(internalRequest);
     }
@@ -89,7 +91,7 @@ public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
                 throw new InvalidOperationException("Asset bundle base not found in template bundle.");
 
             // Use the base finalizer to commit changes and save the bundle
-            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData);
+            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfo.SetNewData, request.PublishTarget);
 
             _logger.LogInformation("Finished generating cover for {Codename}", request.Codename);
         }
@@ -168,5 +170,6 @@ public sealed class CoverBundleBuilder(ILogger logger) : UnityBundleBuilderBase
         Image<Rgba32> CoverImage,
         string TemplatePath,
         string OutputFolderPath,
-        bool ForCustomServer);
+        bool ForCustomServer,
+        UnityBundlePublishTarget? PublishTarget);
 }

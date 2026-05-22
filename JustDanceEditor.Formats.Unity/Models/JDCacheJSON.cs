@@ -2,8 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace JustDanceEditor.Formats.Unity.Models;
 
-// TODO: Currently not supported but will re-implement after rewrite.
-
+// Runtime CachingStatus.json model used by the Unity offline cache exporter and cache repair tool.
 public class JDCacheJSON
 {
     [JsonPropertyName("schemaVersion")]

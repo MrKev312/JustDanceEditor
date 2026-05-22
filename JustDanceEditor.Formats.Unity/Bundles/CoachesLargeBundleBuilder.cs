@@ -22,7 +22,8 @@ public sealed record UnityCoachesLargeRequest(
     UnityExportData UnityData,
     string TemplatePath,
     string OutputFolderPath,
-    bool ForCustomServer);
+    bool ForCustomServer,
+    UnityBundlePublishTarget? PublishTarget = null);
 
 public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
@@ -58,7 +59,8 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
                 background,
                 request.TemplatePath,
                 request.OutputFolderPath,
-                request.ForCustomServer);
+                request.ForCustomServer,
+                request.PublishTarget);
 
             GenerateBundle(internalRequest);
         }
@@ -107,7 +109,7 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
             if (assetBundleBase == null)
                 throw new InvalidOperationException("Asset bundle base not found in template bundle.");
 
-            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData);
+            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData, request.PublishTarget);
             _logger.LogInformation("Finished CoachesLarge bundle for {Codename}", request.Codename);
         }
         catch (Exception ex)
@@ -347,5 +349,6 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger) : UnityBundleBuild
         Image<Rgba32> BackgroundImage,
         string TemplatePath,
         string OutputFolderPath,
-        bool ForCustomServer);
+        bool ForCustomServer,
+        UnityBundlePublishTarget? PublishTarget);
 }

@@ -419,7 +419,7 @@ public static partial class UnityServerIntermediateBuilder
 
     private static string LocateMapPackageBundle(string mapRoot)
     {
-        string folder = Path.Combine(mapRoot, "MapPackage");
+        string folder = UnityServerLayout.GetBundleFolder(mapRoot, "MapPackage");
         if (!Directory.Exists(folder))
             throw new DirectoryNotFoundException($"Unity server export missing MapPackage folder at '{folder}'.");
 

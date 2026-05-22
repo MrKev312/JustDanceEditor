@@ -24,6 +24,55 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         Quality = 100
     };
 
+    internal static bool TryExtractSingleImageAsset(string sourceFolder, string destinationFile)
+    {
+        string? extractedPath = ExtractSingleImage(sourceFolder, destinationFile);
+        return extractedPath is not null && File.Exists(extractedPath);
+    }
+
+    internal static void TryExtractPreviewCoachAssets(string unityRoot, string packageRoot, ILogger logger)
+    {
+        try
+        {
+            string coachFolder = UnityServerLayout.GetBundleFolder(unityRoot, "CoachesLarge");
+            if (!Directory.Exists(coachFolder))
+                return;
+
+            string coachesFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoachesFolder);
+            string backgroundDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MapBackgroundFile);
+            bool backgroundExported = false;
+            int exportedCoaches = 0;
+
+            ProcessBundleTextures(coachFolder, (name, image) =>
+            {
+                if (name.EndsWith("_map_bkg", StringComparison.OrdinalIgnoreCase))
+                {
+                    EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.BackgroundsFolder);
+                    SaveAsWebp(image, backgroundDest);
+                    backgroundExported = true;
+                    return true;
+                }
+
+                if (TryParseCoachIndex(name, out int index))
+                {
+                    SaveAsWebp(image, Path.Combine(coachesFolder, $"coach_{index:D2}.webp"));
+                    exportedCoaches++;
+                }
+
+                return true;
+            });
+
+            if (!backgroundExported)
+                TryDeleteFile(backgroundDest);
+            if (exportedCoaches == 0)
+                TryDeleteDirectory(coachesFolder);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Unity preview coach/background extraction failed for '{UnityRoot}'.", unityRoot);
+        }
+    }
+
     public void Materialize(IntermediateSongPackage package, string unityRoot, string targetRoot)
     {
         ArgumentNullException.ThrowIfNull(package);
@@ -131,10 +180,10 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.CoverAssetsFolder);
 
         string coverDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.CoverFile);
-        string? coverPath = ExtractSingleImage(Path.Combine(unityRoot, "Cover"), coverDest);
+        string? coverPath = ExtractSingleImage(UnityServerLayout.GetBundleFolder(unityRoot, "Cover"), coverDest);
 
         string logoDest = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.SongTitleFile);
-        string? logoPath = ExtractSingleImage(Path.Combine(unityRoot, "songTitleLogo"), logoDest);
+        string? logoPath = ExtractSingleImage(UnityServerLayout.GetBundleFolder(unityRoot, "songTitleLogo"), logoDest);
 
         if (coverPath == null)
         {
@@ -159,7 +208,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
     private void ExtractCoachAssets(string unityRoot, string packageRoot)
     {
-        string coachFolder = Path.Combine(unityRoot, "CoachesLarge");
+        string coachFolder = UnityServerLayout.GetBundleFolder(unityRoot, "CoachesLarge");
         if (!Directory.Exists(coachFolder))
         {
             _logger.LogWarning("Unity export does not include coach textures; 'assets/coaches' will be empty.");
@@ -214,7 +263,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
     private void ExtractPictograms(string unityRoot, string packageRoot)
     {
-        string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
+        string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
         if (bundlePath == null)
         {
@@ -306,7 +355,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
     private void ExtractMotionScripts(string unityRoot, string packageRoot)
     {
-        string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
+        string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
             EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
@@ -326,7 +375,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
 
     private void ExtractGestureFiles(string unityRoot, string packageRoot)
     {
-        string mapPackageFolder = Path.Combine(unityRoot, "MapPackage");
+        string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
             EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder),
@@ -541,7 +590,9 @@ public sealed class UnityAssetMaterializer(ILogger logger)
     private static void SaveAsWebp(Image<Rgba32> image, string destination)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException($"Could not determine the directory for '{destination}'."));
-        image.Save(destination, LosslessWebpEncoder);
+        using MemoryStream stream = new();
+        image.Save(stream, LosslessWebpEncoder);
+        File.WriteAllBytes(destination, stream.ToArray());
     }
 
     private static byte[] ExtractTextAssetBytes(AssetTypeValueField baseField)

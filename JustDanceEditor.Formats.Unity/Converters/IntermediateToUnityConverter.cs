@@ -4,6 +4,7 @@ using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.Unity.Builders;
 using JustDanceEditor.Formats.Unity.Bundles;
+using JustDanceEditor.Formats.Unity.Cache;
 using JustDanceEditor.Formats.Unity.Images;
 using JustDanceEditor.Formats.Unity.Models;
 
@@ -22,7 +23,7 @@ internal sealed class IntermediateToUnityConverter
     private readonly UnityConversionRequest _request;
     private readonly TemplateSet _templates;
     private readonly string _songFolderName;
-    private readonly string _outputRoot;
+    private string _outputRoot;
     private readonly ILogger _logger;
 
     static readonly JsonSerializerOptions serializerOptions = new()
@@ -53,18 +54,51 @@ internal sealed class IntermediateToUnityConverter
     {
         _logger.LogInformation("Starting JDI → Unity conversion for '{SongFolder}'", _songFolderName);
 
+        if (_request.ExportType == ExportType.OfflineCache)
+        {
+            await ConvertOfflineCacheAsync();
+            return;
+        }
+
         Directory.CreateDirectory(_outputRoot);
+        await GenerateUnityOutputAsync(includeSongInfo: true);
+        _logger.LogInformation("Unity conversion for '{SongFolder}' completed.", _songFolderName);
+    }
+
+    private async Task ConvertOfflineCacheAsync()
+    {
+        uint cacheNumber = _request.CacheNumber ?? throw new InvalidOperationException("Unity offline cache export requires a cache number.");
+        string selectedOutputPath = _request.OutputPath;
+        string cacheRoot = await UnityCacheLayout.ResolveOrCreateAsync(selectedOutputPath, _request, _logger).ConfigureAwait(false);
+        string stagingRoot = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "Unity", "OfflineCache", Guid.NewGuid().ToString("N"));
+        _outputRoot = Path.Combine(stagingRoot, _songFolderName);
+
+        try
+        {
+            Directory.CreateDirectory(_outputRoot);
+            await GenerateUnityOutputAsync(includeSongInfo: false);
+
+            UnityOfflineCacheExporter.Publish(_package, _outputRoot, cacheRoot, cacheNumber, _logger);
+            _logger.LogInformation("Unity offline cache conversion for '{SongFolder}' completed.", _songFolderName);
+        }
+        finally
+        {
+            TryDeleteDirectorySafe(stagingRoot, _logger);
+        }
+    }
+
+    private async Task GenerateUnityOutputAsync(bool includeSongInfo)
+    {
         _logger.LogDebug("Preparing assets and metadata in parallel...");
 
-        // Run audio, video, and SongInfo generation in parallel
+        // Run audio, video, and optional SongInfo generation in parallel.
         Task audioTask = CopyAudioAssetsAsync();
         Task videoTask = CopyVideoAssetsAsync();
-        Task songInfoTask = GenerateSongInfoAsync();
+        Task songInfoTask = includeSongInfo ? GenerateSongInfoAsync() : Task.CompletedTask;
         await Task.WhenAll(audioTask, videoTask, songInfoTask);
 
         _logger.LogDebug("Building Unity bundles...");
         await BuildUnityBundlesAsync();
-        _logger.LogInformation("Unity conversion for '{SongFolder}' completed.", _songFolderName);
     }
 
     private async Task CopyAudioAssetsAsync()
@@ -166,11 +200,11 @@ internal sealed class IntermediateToUnityConverter
 
         using UnityBundleWorkspace workspace = new(_songFolderName);
 
-        string coverFolder = EnsureOutputFolder("Cover");
-        string songTitleFolder = EnsureOutputFolder("songTitleLogo");
-        string coachesLargeFolder = EnsureOutputFolder("CoachesLarge");
-        string coachesSmallFolder = EnsureOutputFolder("CoachesSmall");
-        string mapPackageFolder = EnsureOutputFolder("MapPackage");
+        string coverFolder = GetBundleOutputFolder("Cover", forCustomServer);
+        string songTitleFolder = GetBundleOutputFolder("songTitleLogo", forCustomServer);
+        string coachesLargeFolder = GetBundleOutputFolder("CoachesLarge", forCustomServer);
+        string coachesSmallFolder = GetBundleOutputFolder("CoachesSmall", forCustomServer);
+        string mapPackageFolder = GetBundleOutputFolder("MapPackage", forCustomServer);
 
         string[] pictoFiles = ResolvePictoFiles();
         string? movesFolder = ResolveMovesFolder();
@@ -181,7 +215,8 @@ internal sealed class IntermediateToUnityConverter
             menuArt,
             _templates.Cover,
             coverFolder,
-            forCustomServer);
+            forCustomServer,
+            PublishTarget: CreateBundlePublishTarget("Cover", forCustomServer));
 
         UnitySongTitleRequest songTitleRequest = new(
             songName,
@@ -189,7 +224,8 @@ internal sealed class IntermediateToUnityConverter
             menuArt,
             _templates.SongTitleLogo,
             songTitleFolder,
-            forCustomServer);
+            forCustomServer,
+            PublishTarget: CreateBundlePublishTarget("songTitleLogo", forCustomServer));
 
         UnityCoachesLargeRequest coachesLargeRequest = new(
             songName,
@@ -198,7 +234,8 @@ internal sealed class IntermediateToUnityConverter
             unityData,
             _templates.CoachesLarge,
             coachesLargeFolder,
-            forCustomServer);
+            forCustomServer,
+            CreateBundlePublishTarget("CoachesLarge", forCustomServer));
 
         UnityCoachesSmallRequest coachesSmallRequest = new(
             songName,
@@ -206,7 +243,8 @@ internal sealed class IntermediateToUnityConverter
             menuArt,
             _templates.CoachesSmall,
             coachesSmallFolder,
-            forCustomServer);
+            forCustomServer,
+            CreateBundlePublishTarget("CoachesSmall", forCustomServer));
 
         UnityMapPackageRequest mapPackageRequest = new(
             songName,
@@ -217,7 +255,8 @@ internal sealed class IntermediateToUnityConverter
             movesFolder,
             _templates.MapPackage,
             mapPackageFolder,
-            forCustomServer);
+            forCustomServer,
+            CreateBundlePublishTarget("MapPackage", forCustomServer));
 
         _logger.LogDebug("Dispatching Unity bundle builders (cover, title, coaches, map package)...");
         Task coverTask = CoverBundleBuilder.GenerateAsync(coverRequest, _logger);
@@ -250,15 +289,26 @@ internal sealed class IntermediateToUnityConverter
         string assetsDir = ResolvePackagePath(IntermediatePackageLayout.Assets.VideoFolder);
         string[] assetSources = GetVideoFiles(assetsDir);
 
-        // If assets has 4 master videos, they're source-of-truth originals
+        // If assets has the full master set, they're source-of-truth originals.
+        int expectedCount = JdiVideoProfiles.Masters.Length;
+        if (assetSources.Length >= expectedCount)
+        {
+            Directory.CreateDirectory(destinationFolder);
+            foreach (string source in assetSources)
+                CopyHashedAsset(source, destinationFolder, ".webm");
+            _logger.LogInformation("Detected source-of-truth background videos ({ExpectedCount} variants) in assets. Copied all variants.", expectedCount);
+            return;
+        }
+
+        // Legacy generated scratch files use the master_ prefix.
         string[] assetMasters = [.. assetSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
 
-        if (assetMasters.Length == 4)
+        if (assetMasters.Length == expectedCount)
         {
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in assetMasters)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            _logger.LogInformation("Detected source-of-truth background videos (4 variants) in assets. Copied all variants.");
+            _logger.LogInformation("Detected source-of-truth background videos ({ExpectedCount} variants) in assets. Copied all variants.", expectedCount);
             return;
         }
 
@@ -267,12 +317,12 @@ internal sealed class IntermediateToUnityConverter
         string[] scratchSources = GetVideoFiles(scratchDir);
         string[] scratchMasters = [.. scratchSources.Where(f => Path.GetFileName(f).StartsWith("master_", StringComparison.OrdinalIgnoreCase))];
 
-        if (scratchMasters.Length == 4)
+        if (scratchMasters.Length == expectedCount)
         {
             Directory.CreateDirectory(destinationFolder);
             foreach (string source in scratchMasters)
                 CopyHashedAsset(source, destinationFolder, ".webm");
-            _logger.LogInformation("Using generated background videos (4 variants) from scratch.");
+            _logger.LogInformation("Using generated background videos ({ExpectedCount} variants) from scratch.", expectedCount);
             return;
         }
 
@@ -455,6 +505,18 @@ internal sealed class IntermediateToUnityConverter
         Directory.CreateDirectory(path);
         return path;
     }
+
+    private string GetPrimaryBundleOutputFolder(string bundleFolderName)
+    {
+        UnityServerPlatform primaryPlatform = UnityServerPlatforms.CustomServerDefaults[0];
+        return Path.Combine(_outputRoot, primaryPlatform.FolderName, bundleFolderName);
+    }
+
+    private string GetBundleOutputFolder(string bundleFolderName, bool forCustomServer) =>
+        forCustomServer ? GetPrimaryBundleOutputFolder(bundleFolderName) : EnsureOutputFolder(bundleFolderName);
+
+    private UnityBundlePublishTarget? CreateBundlePublishTarget(string bundleFolderName, bool forCustomServer) =>
+        forCustomServer ? new(_outputRoot, bundleFolderName, UnityServerPlatforms.CustomServerDefaults) : null;
 
     private string[] ResolvePictoFiles()
     {

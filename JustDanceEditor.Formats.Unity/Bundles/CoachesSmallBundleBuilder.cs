@@ -20,7 +20,8 @@ public sealed record UnityCoachesSmallRequest(
     UnityMenuArtSource MenuArt,
     string TemplatePath,
     string OutputFolderPath,
-    bool ForCustomServer);
+    bool ForCustomServer,
+    UnityBundlePublishTarget? PublishTarget = null);
 
 public sealed class CoachesSmallBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
@@ -51,7 +52,8 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger) : UnityBundleBuild
                 coachImages,
                 request.TemplatePath,
                 request.OutputFolderPath,
-                request.ForCustomServer);
+                request.ForCustomServer,
+                request.PublishTarget);
 
             GenerateBundle(internalRequest);
         }
@@ -96,7 +98,7 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger) : UnityBundleBuild
             if (assetBundleBase == null)
                 throw new InvalidOperationException("Asset bundle base not found in template bundle.");
 
-            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData);
+            FinalizeAndSaveBundle(request.OutputFolderPath, request.ForCustomServer, bunInst.file, afile, assetBundleBase, assetBundleInfoFinal.SetNewData, request.PublishTarget);
             _logger.LogInformation("Finished CoachesSmall bundle for {Codename}", request.Codename);
         }
         catch (Exception ex)
@@ -292,5 +294,6 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger) : UnityBundleBuild
         IReadOnlyList<Image<Rgba32>> CoachImages,
         string TemplatePath,
         string OutputFolderPath,
-        bool ForCustomServer);
+        bool ForCustomServer,
+        UnityBundlePublishTarget? PublishTarget);
 }

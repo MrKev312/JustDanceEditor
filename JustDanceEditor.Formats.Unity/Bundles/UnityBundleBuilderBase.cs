@@ -29,11 +29,29 @@ public abstract class UnityBundleBuilderBase
         return (manager, bunInst, afileInst, afile, assetBundleInfo, assetBundleBase, textureInfo, spriteInfo);
     }
 
-    protected void FinalizeAndSaveBundle(string outputFolderPath, bool forCustomServer, AssetBundleFile bun, AssetsFile afile, AssetTypeValueField assetBundleBase, Action<AssetTypeValueField> setAssetBundleData)
+    protected void FinalizeAndSaveBundle(
+        string outputFolderPath,
+        bool forCustomServer,
+        AssetBundleFile bun,
+        AssetsFile afile,
+        AssetTypeValueField assetBundleBase,
+        Action<AssetTypeValueField> setAssetBundleData,
+        UnityBundlePublishTarget? publishTarget = null)
     {
         setAssetBundleData(assetBundleBase);
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        bun.SaveAndCompress(outputFolderPath, forCustomServer);
+        SaveFinalBundle(bun, outputFolderPath, forCustomServer, publishTarget);
+    }
+
+    protected static void SaveFinalBundle(AssetBundleFile bun, string outputFolderPath, bool forCustomServer, UnityBundlePublishTarget? publishTarget)
+    {
+        if (publishTarget == null)
+        {
+            bun.SaveAndCompress(outputFolderPath, forCustomServer);
+            return;
+        }
+
+        UnityBundlePublisher.Publish(bun, publishTarget, forCustomServer);
     }
 
     protected void ClearBundle(AssetsManager? manager)

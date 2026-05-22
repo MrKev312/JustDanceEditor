@@ -1,3 +1,4 @@
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.JDI;
 
 namespace JustDanceEditor.Formats.Unity;
@@ -45,4 +46,14 @@ public class UnityConversionRequest(string inputPath, string outputPath, string 
     /// The cache number to use when <see cref="ExportType"/> is <see cref="ExportType.OfflineCache"/>.
     /// </summary>
     public uint? CacheNumber { get; set; }
+
+    /// <summary>
+    /// Optional interaction channel used by exports that need a late prompt after inspecting the output path.
+    /// </summary>
+    public IConversionInteraction? Interaction { get; set; }
+
+    /// <summary>
+    /// Headless override for creating a new cache setup when no SD_Cache folder can be found.
+    /// </summary>
+    public bool? GenerateCacheIfMissing { get; set; }
 }

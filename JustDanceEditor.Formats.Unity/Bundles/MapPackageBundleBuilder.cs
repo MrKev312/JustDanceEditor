@@ -27,7 +27,8 @@ public sealed record UnityMapPackageRequest(
     string? MovesFolder,
     string TemplatePath,
     string OutputFolderPath,
-    bool ForCustomServer);
+    bool ForCustomServer,
+    UnityBundlePublishTarget? PublishTarget = null);
 
 public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilderBase
 {
@@ -67,7 +68,8 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
                 moveFiles,
                 request.TemplatePath,
                 request.OutputFolderPath,
-                request.ForCustomServer);
+                request.ForCustomServer,
+                request.PublishTarget);
 
             GenerateBundle(internalRequest);
         }
@@ -714,7 +716,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
 
         setAssetBundleData();
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-        bun.SaveAndCompress(request.OutputFolderPath, request.ForCustomServer);
+            SaveFinalBundle(bun, request.OutputFolderPath, request.ForCustomServer, request.PublishTarget);
     }
 
     private sealed record BundleContext(
@@ -725,5 +727,6 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         IReadOnlyList<UnityMoveFile> MoveFiles,
         string TemplatePath,
         string OutputFolderPath,
-        bool ForCustomServer);
+        bool ForCustomServer,
+        UnityBundlePublishTarget? PublishTarget);
 }
