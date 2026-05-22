@@ -9,7 +9,7 @@ namespace JustDanceEditor.Editor.Services;
 
 /// <summary>
 /// Audio conversion and analysis utilities backed by FFmpeg.
-/// Handles format conversion (any → WAV), duration extraction, and waveform data generation.
+/// Handles format conversion, duration extraction, and waveform data generation.
 /// </summary>
 public class AudioConversionService
 {
@@ -21,20 +21,23 @@ public class AudioConversionService
         if (!File.Exists(audioPath))
             return 0;
 
+        await FfmpegExecutableResolver.GetFfmpegPathAsync();
         IMediaInfo info = await FFmpeg.GetMediaInfo(audioPath);
         IAudioStream? audioStream = info.AudioStreams.FirstOrDefault();
         return audioStream?.Duration.TotalSeconds ?? info.Duration.TotalSeconds;
     }
 
     /// <summary>
-    /// Converts any audio file to WAV using FFmpeg (for NAudio playback).
+    /// Converts any audio file to WAV using FFmpeg for editor preview and package creation.
     /// Returns the path to the temp WAV file.
     /// </summary>
     public static async Task<string> ConvertToWavAsync(string audioPath)
     {
+        await FfmpegExecutableResolver.GetFfmpegPathAsync();
+
         string tempWav = Path.Combine(Path.GetTempPath(), $"jdi_preview_{Guid.NewGuid()}.wav");
         IConversion conversion = FFmpeg.Conversions.New();
-        conversion.AddParameter($"-y -i \"{audioPath}\" -ar 48000 -ac 2 -sample_fmt s16");
+        conversion.AddParameter($"-y -i \"{audioPath}\" -vn -sn -ar 48000 -ac 2 -sample_fmt s16 -acodec pcm_s16le -f wav");
         conversion.SetOutput(tempWav);
         conversion.SetOverwriteOutput(true);
         await conversion.Start();
@@ -42,13 +45,15 @@ public class AudioConversionService
     }
 
     /// <summary>
-    /// Extracts normalized float waveform samples from an audio file (via FFmpeg → raw PCM).
+    /// Extracts normalized float waveform samples from an audio file through raw PCM.
     /// Returns an empty array if the file does not exist.
     /// </summary>
     public static async Task<float[]> GetWaveformDataAsync(string audioPath)
     {
         if (!File.Exists(audioPath))
             return [];
+
+        await FfmpegExecutableResolver.GetFfmpegPathAsync();
 
         string tempOut = Path.Combine(Path.GetTempPath(), $"jdi_wave_{Guid.NewGuid()}.raw");
         try

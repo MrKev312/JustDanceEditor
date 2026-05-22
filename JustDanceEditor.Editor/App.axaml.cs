@@ -6,8 +6,6 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.Views;
 
-using LibVLCSharp.Shared;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using System;
@@ -17,13 +15,10 @@ public partial class App : Application
 {
     public IServiceProvider? Services { get; private set; }
 
-    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
-    public LibVLC LibVLC => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<LibVLC>();
-
-    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
+    /// <summary>Convenience accessor for code-behind integration.</summary>
     public ITimelineContextService TimelineContext => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<ITimelineContextService>();
 
-    /// <summary>Convenience accessor — keeps existing code-behind references working.</summary>
+    /// <summary>Convenience accessor for dialog code-behind integration.</summary>
     public IDialogService DialogService => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<IDialogService>();
 
     public override void Initialize()
@@ -33,16 +28,7 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // ── Build DI container ──────────────────────────────────────────────────
         ServiceCollection sc = new();
-
-        sc.AddSingleton(_ => new LibVLC(
-            "--avcodec-hw=any",
-            "--no-stats",
-            "--no-video-title-show",
-            "--network-caching=300",
-            "--clock-jitter=0",
-            "--no-osd"));
 
         sc.AddSingleton<TimelineSettingsService>();
         sc.AddSingleton<ITimelineContextService, TimelineContextService>();
@@ -52,7 +38,6 @@ public partial class App : Application
         sc.AddTransient<MainWindowViewModel>();
 
         Services = sc.BuildServiceProvider();
-        // ───────────────────────────────────────────────────────────────────────
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

@@ -12,7 +12,6 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        LibVLCSharp.Shared.Core.Initialize();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }

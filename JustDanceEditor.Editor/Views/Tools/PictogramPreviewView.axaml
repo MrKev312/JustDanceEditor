@@ -2,36 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
              xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
-             xmlns:conv="using:JustDanceEditor.Editor.Views.Converters"
              x:Class="JustDanceEditor.Editor.Views.Tools.PictogramPreviewView"
              x:DataType="vm:PictogramPreviewViewModel">
-    
-    <UserControl.Resources>
-        <conv:BitmapValueConverter x:Key="BitmapValueConverter"/>
-    </UserControl.Resources>
-
     <Grid>
-        <ItemsControl ItemsSource="{Binding VisiblePictograms}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <local:PictogramScrollingPanel 
-                        ActiveTimeline="{Binding $parent[UserControl].((vm:PictogramPreviewViewModel)DataContext).ActiveTimeline}"
-                        CurrentBeat="{Binding $parent[UserControl].((vm:PictogramPreviewViewModel)DataContext).CurrentBeat}"/>
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Image Source="{Binding ImagePath, Converter={StaticResource BitmapValueConverter}}"
-                           Stretch="Uniform"
-                           RenderOptions.BitmapInterpolationMode="HighQuality"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Stretch"/>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        
-        <TextBlock Text="No Active Timeline" 
+        <local:SkiaPictogramPreviewControl
+            ActiveTimeline="{Binding ActiveTimeline}"
+            CurrentBeat="{Binding CurrentBeat}" />
+
+        <TextBlock Text="No Active Timeline"
                    IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
-                   Foreground="Gray" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                   Foreground="Gray"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
     </Grid>
 </UserControl>

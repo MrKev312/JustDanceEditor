@@ -7,8 +7,10 @@ public class PictogramScreenshotOptionsViewModelTests
     [Fact]
     public void Accept_DefaultsToNoneInsertion_WhenInsertionOptionsHidden()
     {
-        PictogramScreenshotOptionsViewModel vm = new();
-        vm.SelectedInsertionMode = PictogramInsertionMode.AllInstancesOfSelectedMove;
+        PictogramScreenshotOptionsViewModel vm = new()
+        {
+            SelectedInsertionMode = PictogramInsertionMode.AllInstancesOfSelectedMove
+        };
 
         vm.Accept();
 

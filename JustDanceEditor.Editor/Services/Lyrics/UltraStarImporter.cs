@@ -43,7 +43,7 @@ public sealed class UltraStarImporter : ILyricImporter
             if (string.IsNullOrEmpty(line))
                 continue;
 
-            // ── Header ──────────────────────────────────────────────
+            // Header metadata.
             if (line.StartsWith('#'))
             {
                 int colon = line.IndexOf(':');
@@ -72,7 +72,7 @@ public sealed class UltraStarImporter : ILyricImporter
             if (bpm <= 0)
                 continue;
 
-            // ── End marker ──────────────────────────────────────────
+            // End marker.
             if (line.StartsWith('E'))
             {
                 FlushLine(currentLine, raw);
@@ -80,7 +80,7 @@ public sealed class UltraStarImporter : ILyricImporter
                 break;
             }
 
-            // ── Line break ──────────────────────────────────────────
+            // Line break.
             if (line.StartsWith('-'))
             {
                 string[] parts = line[1..].Trim().Split(SplitChars, StringSplitOptions.RemoveEmptyEntries);
@@ -95,7 +95,7 @@ public sealed class UltraStarImporter : ILyricImporter
                 continue;
             }
 
-            // ── Note line ───────────────────────────────────────────
+            // Note line.
             char noteType = line[0];
             if (noteType is not ':' and not '*' and not 'F')
                 continue;

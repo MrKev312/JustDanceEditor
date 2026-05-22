@@ -11,7 +11,7 @@ using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null): ViewModelBase
+public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null) : ViewModelBase
 {
     [Inspectable("Start Beat", "Timing")]
     public double StartBeat

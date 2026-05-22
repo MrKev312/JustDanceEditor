@@ -1,49 +1,51 @@
-﻿using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+
+using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using LibVLCSharp.Shared;
-
 using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Video Preview", "View/Preview")]
 public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 {
-    private LibVLC LibVLC
-    {
-        get
-        {
-            if (field == null)
-                field = new LibVLC();
+    private const double RestartStreamDriftSeconds = 0.45;
+    private const double StillFrameToleranceSeconds = 0.04;
 
-            return field;
-        }
-    }
+    private readonly FfmpegVideoFrameReader _frameReader = new();
+    private readonly Stopwatch _streamClock = new();
+
+    private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _streamCts;
+    private CancellationTokenSource? _stillFrameCts;
+    private Task? _streamTask;
+    private FfmpegVideoFrameInfo? _videoInfo;
     private string? _loadedVideoPath;
-    private DateTime _lastSyncTime = DateTime.MinValue;
+    private string? _streamVideoPath;
+    private double _streamVideoStartSeconds;
+    private double _lastStillFrameSeconds = double.NaN;
     private bool _disposed;
 
-    public MediaPlayer MediaPlayer { get; }
+    [ObservableProperty]
+    public partial Bitmap? CurrentFrame { get; set; }
 
-    public VideoToolViewModel()
+    [ObservableProperty]
+    public partial string VideoStatusText { get; set; } = "No active timeline";
+
+    partial void OnCurrentFrameChanging(Bitmap? oldValue, Bitmap? newValue)
     {
-        // Resolve LibVLC from the DI container set up in App.axaml.cs.
-        // Activator.CreateInstance (used by the Dock framework) requires a parameterless ctor.
-        if (Application.Current is App app)
-        {
-            LibVLC = app.LibVLC;
-        }
-        else
-        {
-            // Design-time / test fallback — LibVLC may not be available
-            LibVLC = new LibVLC();
-        }
-
-        MediaPlayer = new MediaPlayer(LibVLC) { Mute = true };
+        if (!ReferenceEquals(oldValue, newValue))
+            oldValue?.Dispose();
     }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
@@ -53,8 +55,14 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
     protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
     {
+        StopStream();
+        CancelStillFrame();
+        _loadCts?.Cancel();
         _loadedVideoPath = null;
-        MediaPlayer.Media = null;
+        _videoInfo = null;
+        _lastStillFrameSeconds = double.NaN;
+        SetFrameOnUiThread(null);
+        VideoStatusText = "No active timeline";
     }
 
     protected override void OnTimelinePropertyChanged(string? propertyName)
@@ -74,62 +82,212 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     private void SyncMedia()
     {
         string? videoPath = ActiveTimeline?.VideoPath;
-        if (videoPath == _loadedVideoPath)
+        if (string.Equals(videoPath, _loadedVideoPath, StringComparison.Ordinal))
             return;
 
+        StopStream();
+        CancelStillFrame();
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
         _loadedVideoPath = videoPath;
+        _videoInfo = null;
+        _lastStillFrameSeconds = double.NaN;
+        SetFrameOnUiThread(null);
 
-        if (!string.IsNullOrEmpty(videoPath))
-            MediaPlayer?.Media = new Media(LibVLC, videoPath, FromType.FromPath);
-        else
-            MediaPlayer.Media = null;
+        if (string.IsNullOrWhiteSpace(videoPath) || !File.Exists(videoPath))
+        {
+            VideoStatusText = ActiveTimeline == null ? "No active timeline" : "No video found";
+            return;
+        }
+
+        VideoStatusText = "Loading video...";
+        _ = LoadVideoAsync(videoPath, _loadCts.Token);
+    }
+
+    private async Task LoadVideoAsync(string videoPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            FfmpegVideoFrameInfo info = await _frameReader.GetVideoInfoAsync(videoPath, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                _videoInfo = info;
+                VideoStatusText = "Ready";
+                SyncTime();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!cancellationToken.IsCancellationRequested)
+                    VideoStatusText = $"Video unavailable: {ex.Message}";
+            });
+        }
     }
 
     private void SyncTime()
     {
-        if (MediaPlayer.Media == null || ActiveTimeline == null)
+        if (_disposed || ActiveTimeline == null || _videoInfo == null || string.IsNullOrWhiteSpace(_loadedVideoPath))
             return;
 
-        bool isPlaying = ActiveTimeline.Playback.IsPlaying;
+        double targetSeconds = GetTargetVideoSeconds(ActiveTimeline);
+        if (ActiveTimeline.Playback.IsPlaying)
+        {
+            EnsureStream(targetSeconds);
+            return;
+        }
 
-        // Throttle VLC seeks while playing — its internal clock is stable enough
-        if (isPlaying && (DateTime.UtcNow - _lastSyncTime).TotalMilliseconds < 250)
+        StopStream();
+        RenderStillFrame(targetSeconds);
+    }
+
+    private void EnsureStream(double targetSeconds)
+    {
+        if (_videoInfo == null || string.IsNullOrWhiteSpace(_loadedVideoPath))
             return;
 
-        _lastSyncTime = DateTime.UtcNow;
-
-        double currentSeconds = ActiveTimeline.Playback.CurrentTime.TotalSeconds;
-        TimelineStructureDocument ts = ActiveTimeline.Package.TimelineStructure;
-        double songStartOffset = ts.GetSongStartOffset();
-        double videoOffset = ActiveTimeline.VideoOffset;
-        long targetMs = (long)((currentSeconds + songStartOffset + videoOffset) * 1000);
-        targetMs = Math.Max(0, targetMs);
-
-        long tolerance = isPlaying ? 500 : 50;
-        long diff = Math.Abs(MediaPlayer.Time - targetMs);
-
-        if (diff > tolerance)
+        if (_streamTask is { IsCompleted: false } &&
+            string.Equals(_streamVideoPath, _loadedVideoPath, StringComparison.Ordinal) &&
+            Math.Abs(GetEstimatedStreamVideoSeconds() - targetSeconds) <= RestartStreamDriftSeconds)
         {
-            if (MediaPlayer.State == VLCState.Ended)
-                MediaPlayer.Stop();
-
-            if (MediaPlayer.State is VLCState.Stopped or VLCState.NothingSpecial)
-                MediaPlayer.Play();
-
-            MediaPlayer.Time = targetMs;
+            return;
         }
 
-        VLCState vlcState = MediaPlayer.State;
-        if (isPlaying)
+        CancelStillFrame();
+        StopStream();
+
+        _streamCts = new CancellationTokenSource();
+        CancellationToken token = _streamCts.Token;
+        string videoPath = _loadedVideoPath;
+        FfmpegVideoFrameInfo info = _videoInfo;
+        _streamVideoPath = videoPath;
+        _streamVideoStartSeconds = targetSeconds;
+        _streamClock.Restart();
+        VideoStatusText = string.Empty;
+
+        _streamTask = Task.Run(async () =>
         {
-            if (vlcState is not VLCState.Playing and not VLCState.Buffering)
-                MediaPlayer.Play();
-        }
-        else
+            try
+            {
+                await _frameReader.StreamFramesAsync(
+                    videoPath,
+                    targetSeconds,
+                    info,
+                    frame => SetFrameOnUiThread(frame, token),
+                    token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                        VideoStatusText = $"Video preview stopped: {ex.Message}";
+                });
+            }
+        }, token);
+    }
+
+    private void RenderStillFrame(double targetSeconds)
+    {
+        if (_videoInfo == null || string.IsNullOrWhiteSpace(_loadedVideoPath))
+            return;
+
+        if (CurrentFrame != null && !double.IsNaN(_lastStillFrameSeconds) && Math.Abs(_lastStillFrameSeconds - targetSeconds) <= StillFrameToleranceSeconds)
+            return;
+
+        CancelStillFrame();
+        _stillFrameCts = new CancellationTokenSource();
+        CancellationToken token = _stillFrameCts.Token;
+        string videoPath = _loadedVideoPath;
+        FfmpegVideoFrameInfo info = _videoInfo;
+        _lastStillFrameSeconds = targetSeconds;
+
+        _ = Task.Run(async () =>
         {
-            if (vlcState is not VLCState.Paused and not VLCState.Stopped and not VLCState.NothingSpecial)
-                MediaPlayer.Pause();
-        }
+            try
+            {
+                Bitmap frame = await _frameReader.ReadFrameAsync(videoPath, targetSeconds, info, token);
+                SetFrameOnUiThread(frame, token);
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                        VideoStatusText = string.Empty;
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!token.IsCancellationRequested)
+                        VideoStatusText = $"Video unavailable: {ex.Message}";
+                });
+            }
+        }, token);
+    }
+
+    private static double GetTargetVideoSeconds(TimelineEditorViewModel timeline)
+    {
+        double currentSeconds = timeline.Playback.CurrentTime.TotalSeconds;
+        TimelineStructureDocument timelineStructure = timeline.Package.TimelineStructure;
+        double songStartOffset = timelineStructure.GetSongStartOffset();
+        double videoOffset = timeline.VideoOffset;
+        return Math.Max(0, currentSeconds + songStartOffset + videoOffset);
+    }
+
+    private double GetEstimatedStreamVideoSeconds()
+    {
+        if (!_streamClock.IsRunning)
+            return _streamVideoStartSeconds;
+
+        return _streamVideoStartSeconds + _streamClock.Elapsed.TotalSeconds;
+    }
+
+    private void SetFrameOnUiThread(Bitmap? frame, CancellationToken cancellationToken = default)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                frame?.Dispose();
+                return;
+            }
+
+            CurrentFrame = frame;
+        }, DispatcherPriority.Render);
+    }
+
+    private void CancelStillFrame()
+    {
+        _stillFrameCts?.Cancel();
+        _stillFrameCts?.Dispose();
+        _stillFrameCts = null;
+    }
+
+    private void StopStream()
+    {
+        _streamCts?.Cancel();
+        _streamCts?.Dispose();
+        _streamCts = null;
+        _streamTask = null;
+        _streamVideoPath = null;
+        _streamClock.Reset();
     }
 
     public void Dispose()
@@ -138,17 +296,17 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             return;
         _disposed = true;
 
-        // Detach from any active timeline first
         if (ActiveTimeline != null)
-        {
-            // The base class UnsubscribeFromTimeline handles event cleanup
             ActiveTimeline = null;
-        }
 
-        // Detach media before stopping/disposing to avoid a native crash
-        MediaPlayer.Media = null;
-        MediaPlayer.Stop();
-        MediaPlayer.Dispose();
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+
+        CancelStillFrame();
+        StopStream();
+
+        CurrentFrame = null;
 
         GC.SuppressFinalize(this);
     }

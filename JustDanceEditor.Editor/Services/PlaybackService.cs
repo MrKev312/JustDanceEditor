@@ -15,11 +15,11 @@ namespace JustDanceEditor.Editor.Services;
 
 public class PlaybackService : IPlaybackService, IDisposable
 {
-    // NAudio (audio only)
     private IWavePlayer? _outputDevice;
     private AudioFileReader? _audioFile;
     private EndlessSampleProvider? _endless;
     private MetronomeSampleProvider? _metronome;
+    private PortAudioPcmPlaybackEngine? _portAudioPlayer;
 
     private Func<double, double> _beatToSeconds = b => b * 0.5;
     private Func<double, double> _secondsToBeat = s => s / 0.5;
@@ -49,6 +49,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         get
         {
             TimeSpan audioDur = _audioFile?.TotalTime ?? TimeSpan.Zero;
+            audioDur = _portAudioPlayer?.Duration ?? audioDur;
             return field > audioDur ? field : audioDur;
         }
 
@@ -88,20 +89,29 @@ public class PlaybackService : IPlaybackService, IDisposable
         _beatToSeconds = beatToSeconds;
         _secondsToBeat = secondsToBeat;
 
-        // ---------- AUDIO (NAudio) ----------
         CleanUpAudio();
 
         if (!string.IsNullOrEmpty(audioPath) && File.Exists(audioPath))
         {
-            await Task.Run(() =>
+            if (OperatingSystem.IsWindows())
             {
-                // Load WAV with NAudio (reliable)
-                _audioFile = new AudioFileReader(audioPath);
-                _endless = new EndlessSampleProvider(_audioFile, _audioFile.TotalTime);
-                _metronome = new MetronomeSampleProvider(_endless);
-                _outputDevice = new WasapiOut(AudioClientShareMode.Shared, 10);
-                _outputDevice.Init(_metronome);
-            });
+                await Task.Run(() =>
+                {
+                    _audioFile = new AudioFileReader(audioPath);
+                    _endless = new EndlessSampleProvider(_audioFile, _audioFile.TotalTime);
+                    _metronome = new MetronomeSampleProvider(_endless);
+                    _outputDevice = new WasapiOut(AudioClientShareMode.Shared, 10);
+                    _outputDevice.Init(_metronome);
+                });
+            }
+            else
+            {
+                await Task.Run(() =>
+                {
+                    _portAudioPlayer = new PortAudioPcmPlaybackEngine();
+                    _portAudioPlayer.Load(audioPath);
+                });
+            }
         }
 
         // Reset timing
@@ -122,18 +132,20 @@ public class PlaybackService : IPlaybackService, IDisposable
             Seek(TimeSpan.Zero);
         }
 
-        IsPlaying = true;
-        _stopwatch.Restart();
+        TimeSpan startTime = CurrentTime;
 
         if (_audioFile != null)
         {
-            TimeSpan audioPos = CurrentTime < _audioFile.TotalTime ? CurrentTime : _audioFile.TotalTime;
+            TimeSpan audioPos = startTime < _audioFile.TotalTime ? startTime : _audioFile.TotalTime;
             _audioFile.CurrentTime = audioPos;
         }
 
-        _endless?.Reset(CurrentTime.TotalSeconds);
-        _metronome?.ResetPosition(CurrentTime.TotalSeconds);
+        _endless?.Reset(startTime.TotalSeconds);
+        _metronome?.ResetPosition(startTime.TotalSeconds);
+        _portAudioPlayer?.Play(startTime, completeAtAudioEnd: false);
 
+        IsPlaying = true;
+        _stopwatch.Restart();
         _outputDevice?.Play();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
@@ -149,6 +161,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = false;
 
         _outputDevice?.Pause();
+        _portAudioPlayer?.Pause();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
         TimeChanged?.Invoke(this, EventArgs.Empty);
@@ -175,6 +188,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         _endless?.Reset(_baseTime.TotalSeconds);
         _metronome?.ResetPosition(_baseTime.TotalSeconds);
+        _portAudioPlayer?.Seek(_baseTime);
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
@@ -193,35 +207,36 @@ public class PlaybackService : IPlaybackService, IDisposable
         _outputDevice?.Stop();
         _outputDevice?.Dispose();
         _audioFile?.Dispose();
+        _portAudioPlayer?.Dispose();
 
         _outputDevice = null;
         _audioFile = null;
         _endless = null;
         _metronome = null;
+        _portAudioPlayer = null;
         Duration = TimeSpan.Zero;
     }
-
-    // ─── Extended end (silence padding) ───
 
     public void SetExtendedEnd(TimeSpan end)
     {
         Duration = end;
     }
 
-    // ─── Metronome ───
-
     public bool IsMetronomeEnabled
     {
-        get => _metronome?.Enabled ?? false;
+        get => _metronome?.Enabled ?? _portAudioPlayer?.IsMetronomeEnabled ?? false;
         set
         {
             _metronome?.Enabled = value;
+            if (_portAudioPlayer != null)
+                _portAudioPlayer.IsMetronomeEnabled = value;
         }
     }
 
     public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
     {
         _metronome?.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
+        _portAudioPlayer?.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
     }
 
     public void Dispose()

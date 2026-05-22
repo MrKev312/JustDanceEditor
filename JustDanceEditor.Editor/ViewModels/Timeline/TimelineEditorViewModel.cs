@@ -279,12 +279,7 @@ public partial class TimelineEditorViewModel : Document
             // Prepare audio (Opus -> WAV)
             if (File.Exists(AudioPath))
             {
-                string tempDir = Path.Combine(Path.GetTempPath(), "JustDanceEditor");
-                Directory.CreateDirectory(tempDir);
-                PreparedAudioPath = Path.Combine(tempDir, $"{Id}_{Guid.NewGuid():N}.wav");
-
-                IConversion conversion = await FFmpeg.Conversions.FromSnippet.Convert(AudioPath, PreparedAudioPath);
-                await conversion.Start();
+                PreparedAudioPath = await AudioConversionService.ConvertToWavAsync(AudioPath);
             }
 
             // Marker-based timing logic

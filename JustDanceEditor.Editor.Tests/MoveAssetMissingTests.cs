@@ -92,8 +92,10 @@ public class MoveAssetMissingTests
             package.HandCoachMoves["missing"] = new CoachMoveDefinition();
 
             TimelineEditorViewModel timeline = new(package, tmp, new PlaybackService(), new TimelineSettingsService());
-            LibraryToolViewModel lib = new();
-            lib.ActiveTimeline = timeline;
+            LibraryToolViewModel lib = new()
+            {
+                ActiveTimeline = timeline
+            };
 
             LibraryItemViewModel itemExists = lib.Items.First(i => i.Id == "exists");
             LibraryItemViewModel itemMissing = lib.Items.First(i => i.Id == "missing");
@@ -170,8 +172,10 @@ public class MoveAssetMissingTests
             track.Clips.Add(new PictogramClipViewModel(new PictogramClip { PictogramId = "missing", Duration = 24 }, tmp, timeline));
             timeline.Tracks.Add(track);
 
-            LibraryToolViewModel lib = new();
-            lib.ActiveTimeline = timeline;
+            LibraryToolViewModel lib = new()
+            {
+                ActiveTimeline = timeline
+            };
 
             LibraryItemViewModel missingItem = lib.Items.First(i => i.Id == "missing");
             Assert.False(missingItem.HasAsset);

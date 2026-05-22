@@ -36,6 +36,7 @@ public static class ImageBitmapCache
         }
 
         _pending.TryRemove(path, out _);
+        SkiaPictogramImageCache.Invalidate(path);
     }
 
     private static Bitmap? GetRedPlaceholder()

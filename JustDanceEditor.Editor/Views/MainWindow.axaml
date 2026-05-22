@@ -42,8 +42,10 @@
 
 		<!-- Docking Area -->
 		<dock:DockControl Grid.Row="1" Layout="{Binding Layout}">
+			<dock:DockControl.Resources>
+				<Thickness x:Key="DockDocumentContentBorderThickness">0</Thickness>
+			</dock:DockControl.Resources>
 			<dock:DockControl.Styles>
-				<!-- Optional: Make the DockControl transparent so Mica shows in empty areas -->
 				<Style Selector="dock|DockControl">
 					<Setter Property="Background" Value="Transparent" />
 				</Style>

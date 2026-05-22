@@ -1,17 +1,17 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
              x:Class="JustDanceEditor.Editor.Views.Tools.VideoToolView"
              x:DataType="vm:VideoToolViewModel">
 	<Panel Background="Black">
-		<vlc:VideoView Name="VlcView"
-					   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       HorizontalAlignment="Stretch"
-                       VerticalAlignment="Stretch" />
+		<Image Source="{Binding CurrentFrame}"
+               IsVisible="{Binding CurrentFrame, Converter={x:Static ObjectConverters.IsNotNull}}"
+               Stretch="Uniform"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch" />
 
-		<TextBlock Text="No Active Timeline"
-                   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
+		<TextBlock Text="{Binding VideoStatusText}"
+                   IsVisible="{Binding CurrentFrame, Converter={x:Static ObjectConverters.IsNull}}"
                    Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 	</Panel>
 </UserControl>

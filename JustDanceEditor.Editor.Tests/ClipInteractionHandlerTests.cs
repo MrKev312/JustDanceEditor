@@ -68,9 +68,10 @@ public class ClipInteractionHandlerTests
         };
 
         TimelineEditorViewModel timeline = new(package, "root", new PlaybackService(), new TimelineSettingsService());
-        VideoClipViewModel clip = new(4.0, "", timeline);
-
-        clip.StartBeat = 2.0;
+        VideoClipViewModel clip = new(4.0, "", timeline)
+        {
+            StartBeat = 2.0
+        };
 
         Assert.Equal(-2.0, timeline.VideoOffset, 6);
         Assert.Equal(2.0, clip.StartBeat, 6);
