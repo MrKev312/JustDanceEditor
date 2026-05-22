@@ -3,6 +3,8 @@ using JustDanceEditor.Cli.Interactive;
 using JustDanceEditor.Cli.Interactive.Converting;
 using JustDanceEditor.Cli.Interactive.Helpers;
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
@@ -102,7 +104,6 @@ internal sealed class CliApp(
         rootCommand.Subcommands.Add(CreateCommand("pack-ipk", "Pack a folder into an IPK archive.", symbols, CliOptionProfile.IpkTool, PackIpk));
         rootCommand.Subcommands.Add(CreateCommand("audio", "Convert audio files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertAudio, "convert-audio"));
         rootCommand.Subcommands.Add(CreateCommand("texture", "Convert image and texture files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertTexture, "convert-texture"));
-        rootCommand.Subcommands.Add(CreateCommand("cache-create", "Create an empty NX Unity cache structure.", symbols, CliOptionProfile.Headless | CliOptionProfile.Output, options => RunToolByCode("unity.cache-create", options)));
         rootCommand.Subcommands.Add(CreateCommand("cache-spread", "Spread cache folders for exFAT.", symbols, CliOptionProfile.Headless | CliOptionProfile.Input | CliOptionProfile.Force, options => RunToolByCode("unity.cache-spread", options)));
         rootCommand.Subcommands.Add(CreateToolCommand(symbols));
 
@@ -383,7 +384,7 @@ internal sealed class CliApp(
             ? outputPath
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
 
-        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(inputPath, intermediatePath, songName, Interaction: interaction));
+        ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(inputPath, intermediatePath, songName, Answers: answers, Interaction: interaction));
         ConversionRequestBase exportRequest = targetStrategy.CreateExportRequest(new ConversionRequestContext(inputPath, outputPath, songName, target, answers, interaction));
 
         try
@@ -459,6 +460,7 @@ internal sealed class CliApp(
                 BatchConversionResult result = ConvertBatchInput(input, target, targetFormat, targetStrategy, answers, outputPath, existingSongs, downloadOnlineAssets);
                 converted += result.Converted;
                 skipped += result.Skipped;
+                failed += result.Failed;
             }
             catch (Exception ex)
             {
@@ -490,25 +492,38 @@ internal sealed class CliApp(
 
         try
         {
-            ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath));
+            ConversionRequestBase importRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath, Answers: answers));
             return ConvertOneBatchSong(input.SourceFormat, targetFormat, targetStrategy, importRequest, input.Path, outputPath, target, answers, existingSongs, downloadOnlineAssets)
-                ? new BatchConversionResult(1, 0)
-                : new BatchConversionResult(0, 1);
+                ? new BatchConversionResult(1, 0, 0)
+                : new BatchConversionResult(0, 1, 0);
         }
         catch (MultipleConversionItemsFoundException ex)
         {
             int converted = 0;
             int skipped = 0;
-            foreach (string songName in ex.AvailableItems)
+            int failed = 0;
+            foreach (string songName in ex.AvailableItems
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
             {
-                ConversionRequestBase songRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath, songName));
-                if (ConvertOneBatchSong(input.SourceFormat, targetFormat, targetStrategy, songRequest, input.Path, outputPath, target, answers, existingSongs, downloadOnlineAssets))
-                    converted++;
-                else
-                    skipped++;
+                try
+                {
+                    ConversionRequestBase songRequest = sourceStrategy.CreateImportRequest(new ConversionRequestContext(input.Path, intermediatePath, songName, Answers: answers));
+                    if (ConvertOneBatchSong(input.SourceFormat, targetFormat, targetStrategy, songRequest, input.Path, outputPath, target, answers, existingSongs, downloadOnlineAssets))
+                        converted++;
+                    else
+                        skipped++;
+                }
+                catch (Exception songException)
+                {
+                    failed++;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Failed: {input.Path} [{songName}]: {songException.Message}");
+                    Console.ResetColor();
+                }
             }
 
-            return new BatchConversionResult(converted, skipped);
+            return new BatchConversionResult(converted, skipped, failed);
         }
     }
 
@@ -579,6 +594,7 @@ internal sealed class CliApp(
         IConversionInteraction interaction = CreateInteraction(options, seedAnswers);
         PromptAnswerSet promptAnswers = interaction
             .AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", target.ExportPrompts))
+            .AsTask()
             .GetAwaiter()
             .GetResult();
 
@@ -651,7 +667,7 @@ internal sealed class CliApp(
         IConversionInteraction interaction = CreateInteraction(options, seedAnswers);
         PromptAnswerSet promptAnswers = tool.Prompts.Count == 0
             ? seedAnswers
-            : interaction.AskAsync(new ConversionPromptSet(tool.FullCode, tool.DisplayName, tool.Prompts)).GetAwaiter().GetResult();
+            : interaction.AskAsync(new ConversionPromptSet(tool.FullCode, tool.DisplayName, tool.Prompts)).AsTask().GetAwaiter().GetResult();
         PromptAnswerSet answers = MergeToolAnswers(seedAnswers, promptAnswers);
 
         provider.ExecuteAsync(new ToolExecutionContext(tool, answers, interaction)).GetAwaiter().GetResult();
@@ -855,7 +871,7 @@ internal sealed class CliApp(
 
     private sealed record BatchInput(string Path, IJdiFormat SourceFormat);
 
-    private readonly record struct BatchConversionResult(int Converted, int Skipped);
+    private readonly record struct BatchConversionResult(int Converted, int Skipped, int Failed);
 
     [Flags]
     private enum CliOptionProfile

@@ -7,7 +7,7 @@ namespace JustDanceEditor.AppHost;
 
 public static class ConverterPluginLoader
 {
-    private static readonly object ResolverLock = new();
+    private static readonly Lock ResolverLock = new();
     private static bool _resolverRegistered;
     private static string[] _assemblySearchDirectories = [];
     private static readonly List<string> LoadWarningsInternal = [];

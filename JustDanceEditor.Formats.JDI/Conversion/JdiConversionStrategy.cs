@@ -1,4 +1,5 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
 namespace JustDanceEditor.Formats.JDI.Conversion;
 
@@ -10,7 +11,7 @@ public sealed class JdiConversionStrategy : IFormatConversionStrategy
             FormatCode: "jdi",
             FormatName: "JDI",
             TargetCode: "jdi",
-            Platform: new PlatformDescriptor("intermediate", "Intermediate"),
+            Platform: new PlatformDescriptor("pc", "PC"),
             Version: new TargetVersionDescriptor.None("JDI package"),
             DisplayName: "JDI package",
             ExportPrompts:

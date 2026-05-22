@@ -58,7 +58,7 @@ public sealed class JdiFormat : IJdiFormat
         ArgumentNullException.ThrowIfNull(importResult);
 
         if (string.IsNullOrWhiteSpace(jdiRequest.OutputPath))
-            throw new ArgumentException("Output path is required", nameof(jdiRequest.OutputPath));
+            throw new ArgumentException("Output path is required", nameof(request));
 
         if (importResult.MaterializedRoot is null)
             throw new InvalidOperationException("Materialized root is null");

@@ -1,5 +1,5 @@
 using JustDanceEditor.Cli.Interactive.Helpers;
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
 namespace JustDanceEditor.Cli.Interactive.Converting;
 

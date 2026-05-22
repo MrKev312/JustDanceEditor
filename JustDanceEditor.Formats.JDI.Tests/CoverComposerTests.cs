@@ -60,11 +60,30 @@ public class CoverComposerTests
         Assert.Equal(1024, result.Width);
         Assert.Equal(1024, result.Height);
         // Left side should have content
-        bool hasLeftContent = HasNonTransparentPixels(result, 0, 256);
+        bool hasLeftContent = HasNonTransparentPixels(result, 0, 512);
         // Right side should have content
-        bool hasRightContent = HasNonTransparentPixels(result, 768, 1024);
+        bool hasRightContent = HasNonTransparentPixels(result, 512, 1024);
         Assert.True(hasLeftContent, "Left side should have content");
         Assert.True(hasRightContent, "Right side should have content");
+    }
+
+    [Fact]
+    public void ComposeAlbumCoach_WithTwoMaxHeightCoaches_MovesThemToNearTenPixelGap()
+    {
+        // Arrange
+        using Image<Bgra32> coach1 = CreateTestCoachImage(1, Color.Red);
+        using Image<Bgra32> coach2 = CreateTestCoachImage(2, Color.Blue);
+        List<Image<Bgra32>> coaches = [coach1, coach2];
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.ComposeAlbumCoach(coaches);
+
+        // Assert
+        List<(int Start, int End)> runs = FindAlphaColumnRuns(result);
+        Assert.True(runs.Count >= 2, "Album coach should contain two separated coach silhouettes.");
+
+        int nearestHorizontalDistance = runs[1].Start - runs[0].End;
+        Assert.InRange(nearestHorizontalDistance, 8, 12);
     }
 
     [Fact]
@@ -254,6 +273,22 @@ public class CoverComposerTests
         Assert.Equal(256, result.Height);
     }
 
+    [Fact]
+    public void ComposeSquareCover_ComposesMapBackgroundAndAlbumCoach()
+    {
+        // Arrange
+        using Image<Bgra32> background = new(2048, 1024, Color.Blue);
+        using Image<Bgra32> albumCoach = CreateTestCoachImage(1, Color.Red);
+
+        // Act
+        using Image<Bgra32> result = CoverComposer.ComposeSquareCover(background, albumCoach);
+
+        // Assert
+        Assert.Equal(512, result.Width);
+        Assert.Equal(512, result.Height);
+        Assert.True(HasNonTransparentPixels(result, 0, result.Width), "Composed square cover should contain coach pixels.");
+    }
+
     #endregion
 
     #region Helper Methods
@@ -318,6 +353,45 @@ public class CoverComposerTests
             }
         });
         return found;
+    }
+
+    private static List<(int Start, int End)> FindAlphaColumnRuns(Image<Bgra32> image)
+    {
+        bool[] hasAlphaByColumn = new bool[image.Width];
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    if (row[x].A > 0)
+                        hasAlphaByColumn[x] = true;
+                }
+            }
+        });
+
+        List<(int Start, int End)> runs = [];
+        int? start = null;
+        for (int x = 0; x < hasAlphaByColumn.Length; x++)
+        {
+            if (hasAlphaByColumn[x])
+            {
+                start ??= x;
+                continue;
+            }
+
+            if (start is int runStart)
+            {
+                runs.Add((runStart, x - 1));
+                start = null;
+            }
+        }
+
+        if (start is int finalRunStart)
+            runs.Add((finalRunStart, hasAlphaByColumn.Length - 1));
+
+        return runs;
     }
 
     #endregion

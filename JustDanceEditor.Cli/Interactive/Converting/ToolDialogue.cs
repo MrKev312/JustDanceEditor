@@ -1,5 +1,6 @@
 using JustDanceEditor.Cli.Interactive.Helpers;
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 
 using Microsoft.Extensions.Logging;
 
@@ -38,7 +39,7 @@ internal sealed class ToolDialogue(
         {
             PromptAnswerSet answers = tool.Prompts.Count == 0
                 ? new PromptAnswerSet()
-                : _interaction.AskAsync(new ConversionPromptSet(tool.FullCode, tool.DisplayName, tool.Prompts)).GetAwaiter().GetResult();
+                : _interaction.AskAsync(new ConversionPromptSet(tool.FullCode, tool.DisplayName, tool.Prompts)).AsTask().GetAwaiter().GetResult();
 
             provider.ExecuteAsync(new ToolExecutionContext(tool, answers, _interaction)).GetAwaiter().GetResult();
 

@@ -1,4 +1,5 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Preview;

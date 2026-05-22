@@ -1,6 +1,7 @@
 using JustDanceEditor.AppHost;
 using JustDanceEditor.Cli.Interactive.Helpers;
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
@@ -358,7 +359,7 @@ public sealed class ConversionWorkflow(
             ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Please enter the full path for the output folder where converted files will be saved", Required: false)]
             : target.ExportPrompts;
 
-        return _interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).GetAwaiter().GetResult();
+        return _interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).AsTask().GetAwaiter().GetResult();
     }
 
     private static string GetOutputPath(PromptAnswerSet answers)

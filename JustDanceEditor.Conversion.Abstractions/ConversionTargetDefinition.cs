@@ -1,3 +1,5 @@
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+
 namespace JustDanceEditor.Conversion.Abstractions;
 
 public sealed record ConversionTargetDefinition(

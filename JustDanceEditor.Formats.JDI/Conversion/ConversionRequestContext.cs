@@ -1,4 +1,5 @@
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
 namespace JustDanceEditor.Formats.JDI.Conversion;
 

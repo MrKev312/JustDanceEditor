@@ -1,6 +1,7 @@
 using JustDanceEditor.AppHost;
 using JustDanceEditor.Cli.Interactive.Helpers;
 using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
@@ -179,7 +180,7 @@ internal static class FormatConversionDialogue
             ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Enter the destination folder for the converted files", Required: false)]
             : target.ExportPrompts;
 
-        return interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).GetAwaiter().GetResult();
+        return interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).AsTask().GetAwaiter().GetResult();
     }
 
     private static string GetOutputPath(PromptAnswerSet answers)

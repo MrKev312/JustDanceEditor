@@ -51,6 +51,8 @@ public static class CoverComposer
     /// </summary>
     public const int AlbumCoachSize = 1024;
 
+    private const int AlbumCoachMaxHeightGap = 10;
+
     /// <summary>
     /// Banner dimensions.
     /// </summary>
@@ -123,6 +125,42 @@ public static class CoverComposer
             Size = new Size(size, size),
             Mode = ResizeMode.Stretch
         }));
+
+        return result;
+    }
+
+    /// <summary>
+    /// Generates a square cover from the center of the map background with the album coach composited on top.
+    /// </summary>
+    /// <param name="background">The background image (ideally 2048x1024).</param>
+    /// <param name="albumCoach">The album coach composite image (ideally 1024x1024). Can be null.</param>
+    /// <param name="size">Target square size.</param>
+    /// <returns>The composed square cover image.</returns>
+    public static Image<Bgra32> ComposeSquareCover(
+        Image<Bgra32> background,
+        Image<Bgra32>? albumCoach = null,
+        int size = 512)
+    {
+        ArgumentNullException.ThrowIfNull(background);
+
+        Image<Bgra32> result = background.Clone();
+        if (result.Width != BackgroundWidth || result.Height != BackgroundHeight)
+        {
+            result.Mutate(x => x.Resize(BackgroundWidth, BackgroundHeight));
+        }
+
+        if (albumCoach != null)
+        {
+            using Image<Bgra32> coachResized = albumCoach.Clone();
+            coachResized.Mutate(x => x.Resize(AlbumCoachSize, AlbumCoachSize));
+            result.Mutate(x => x.DrawImage(coachResized, new Point(512, 0), 1f));
+        }
+
+        result.Mutate(x => x.Crop(new Rectangle(512, 0, AlbumCoachSize, AlbumCoachSize)));
+        if (size != AlbumCoachSize)
+        {
+            result.Mutate(x => x.Resize(size, size));
+        }
 
         return result;
     }
@@ -602,12 +640,46 @@ public static class CoverComposer
             // Right image: visible right edge at canvas edge
             int xRight = (int)(canvasSize - (maxXRight * scale));
 
+            MoveMaxHeightCoachesCloser(
+                ref xLeft,
+                ref xRight,
+                scaledH,
+                canvasSize,
+                minXLeft,
+                maxXLeft,
+                minXRight,
+                scale);
+
             using Image<Bgra32> cLeft = leftImg.Clone(x => x.Resize(lW, lH));
             ctx.DrawImage(cLeft, new Point(xLeft, yPos), 1.0f);
 
             using Image<Bgra32> cRight = rightImg.Clone(x => x.Resize(rW, rH));
             ctx.DrawImage(cRight, new Point(xRight, yPos), 1.0f);
         }
+    }
+
+    private static void MoveMaxHeightCoachesCloser(
+        ref int xLeft,
+        ref int xRight,
+        int scaledHeight,
+        int canvasSize,
+        int minXLeft,
+        int maxXLeft,
+        int minXRight,
+        float scale)
+    {
+        if (scaledHeight < canvasSize)
+            return;
+
+        float leftVisibleRight = xLeft + (maxXLeft * scale);
+        float rightVisibleLeft = xRight + (minXRight * scale);
+        float gap = rightVisibleLeft - leftVisibleRight;
+        if (gap <= AlbumCoachMaxHeightGap)
+            return;
+
+        int inwardShift = (int)Math.Round((gap - AlbumCoachMaxHeightGap) / 2f);
+        xLeft += inwardShift;
+        xRight -= inwardShift;
     }
 
     private static float GetMaxOverlapScale(
@@ -756,10 +828,10 @@ public static class CoverComposer
 
         try
         {
-            byte r = Convert.ToByte(hex.Substring(0, 2), 16);
-            byte g = Convert.ToByte(hex.Substring(2, 2), 16);
-            byte b = Convert.ToByte(hex.Substring(4, 2), 16);
-            byte a = Convert.ToByte(hex.Substring(6, 2), 16);
+            byte r = Convert.ToByte(hex[..2], 16);
+            byte g = Convert.ToByte(hex[2..4], 16);
+            byte b = Convert.ToByte(hex[4..6], 16);
+            byte a = Convert.ToByte(hex[6..8], 16);
             return new Bgra32(r, g, b, a);
         }
         catch

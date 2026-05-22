@@ -1,4 +1,5 @@
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+using JustDanceEditor.Conversion.Abstractions.Tools;
 
 using KevInc.UbiArt.Ipk;
 
@@ -10,6 +11,7 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
 {
     private const string ExtractToolCode = "extract";
     private const string PackToolCode = "pack";
+    private const string SwapPathAndNamePromptId = "swapPathAndName";
     private readonly ILogger<IpkToolProvider> _logger = logger;
 
     public string ProviderCode => "ipk";
@@ -55,7 +57,13 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
                     ConversionPromptIds.OutputPath,
                     ConversionPromptKind.FilePath,
                     "Enter the output IPK path",
-                    Required: true)
+                    Required: true),
+                new ConversionPrompt(
+                    SwapPathAndNamePromptId,
+                    ConversionPromptKind.Boolean,
+                    "Swap path/name fields for legacy IPK order",
+                    Required: false,
+                    DefaultValue: "false")
             ],
             Priority: 20)
     ];
@@ -95,11 +103,29 @@ public sealed class IpkToolProvider(ILogger<IpkToolProvider> logger) : IToolProv
     {
         string inputPath = context.Answers.GetString(ConversionPromptIds.InputPath);
         string outputPath = context.Answers.GetString(ConversionPromptIds.OutputPath);
+        bool swapPathAndName = GetBoolean(context.Answers, SwapPathAndNamePromptId);
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Environment.CurrentDirectory);
 
-        _logger.LogInformation("Packing folder '{InputPath}' into IPK archive '{OutputPath}'", inputPath, outputPath);
-        UbiArtIpkWriter writer = new(inputPath, outputPath);
+        _logger.LogInformation(
+            "Packing folder '{InputPath}' into IPK archive '{OutputPath}' with SwapPathAndName={SwapPathAndName}",
+            inputPath,
+            outputPath,
+            swapPathAndName);
+        UbiArtIpkWriter writer = new(inputPath, outputPath, swapPathAndName);
         writer.Pack();
         _logger.LogInformation("Packed folder '{InputPath}' into IPK archive '{OutputPath}'", inputPath, outputPath);
+    }
+
+    private static bool GetBoolean(PromptAnswerSet answers, string id)
+    {
+        if (!answers.TryGetString(id, out string? value) || string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (bool.TryParse(value, out bool result))
+            return result;
+
+        return value.Equals("1", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("y", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Conversion.Abstractions;
+namespace JustDanceEditor.Conversion.Abstractions.Prompts;
 
 public enum ConversionPromptKind
 {

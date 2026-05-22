@@ -10,7 +10,8 @@ public sealed record SongPreviewResult(
     IntermediateSongPackage Package,
     string FormatName,
     string MaterializedRoot,
-    bool MaterializedRootIsTemporary);
+    bool MaterializedRootIsTemporary,
+    Task? AssetWarmupTask = null);
 
 public interface ISongPreviewProvider
 {

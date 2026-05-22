@@ -21,12 +21,17 @@ using NAudio.Wave;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
+using Xabe.FFmpeg;
+using Xabe.FFmpeg.Downloader;
+
 namespace JustDanceEditor.Cli;
 
 internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger, IAudioConverter audioConverter)
 {
-    private static readonly object ConsoleLock = new();
-    private static readonly object TextureRegistrationLock = new();
+    private static readonly Lock ConsoleLock = new();
+    private static readonly Lock TextureRegistrationLock = new();
+    private static readonly SemaphoreSlim FFmpegInitializationLock = new(1, 1);
+    private static bool ffmpegInitialized;
     private static readonly AudioTargetEncoding[] AudioTargetEncodings =
     [
         new("opus", "Ogg Opus (.opus)", ".opus", ["ogg-opus"]),
@@ -558,8 +563,50 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
             return null;
         }
 
-        waveStream = new AudioFileReader(inputPath);
-        return null;
+        if (Path.GetExtension(inputPath).Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+            Path.GetExtension(inputPath).Equals(".wave", StringComparison.OrdinalIgnoreCase))
+        {
+            waveStream = new WaveFileReader(inputPath);
+            return null;
+        }
+
+        string tempWavePath = Path.Combine(Path.GetTempPath(), $"jde_audio_{Guid.NewGuid():N}.wav");
+        ConvertToWaveFile(inputPath, tempWavePath);
+        waveStream = new WaveFileReader(tempWavePath);
+        return new TempFileLifetime(tempWavePath);
+    }
+
+    private static void ConvertToWaveFile(string inputPath, string outputPath)
+    {
+        EnsureFFmpegInitializedAsync().GetAwaiter().GetResult();
+
+        IConversion conversion = FFmpeg.Conversions.New();
+        conversion.SetOverwriteOutput(true);
+        conversion.AddParameter($"-i \"{inputPath}\" -ar 48000 -ac 2 -sample_fmt s16");
+        conversion.SetOutput(outputPath);
+        conversion.Start().GetAwaiter().GetResult();
+    }
+
+    private static async Task EnsureFFmpegInitializedAsync()
+    {
+        if (ffmpegInitialized)
+            return;
+
+        await FFmpegInitializationLock.WaitAsync();
+        try
+        {
+            if (ffmpegInitialized)
+                return;
+
+            if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
+                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+
+            ffmpegInitialized = true;
+        }
+        finally
+        {
+            FFmpegInitializationLock.Release();
+        }
     }
 
     private static AudioTargetEncoding ResolveAudioTarget(string? targetEncoding, bool headless)
@@ -712,8 +759,8 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         Span<byte> header = stackalloc byte[8];
         using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         int read = stream.Read(header);
-        return read >= 4 && header[..4].SequenceEqual("RAKI"u8) ||
-               read >= 8 && header.Slice(4, 4).SequenceEqual("RAKI"u8);
+        return (read >= 4 && header[..4].SequenceEqual("RAKI"u8)) ||
+               (read >= 8 && header.Slice(4, 4).SequenceEqual("RAKI"u8));
     }
 
     private sealed record AudioTargetEncoding(string Code, string Label, string Extension, IReadOnlyList<string>? AlternativeCodes = null)
@@ -735,6 +782,21 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         {
             return Code.Equals(value, StringComparison.OrdinalIgnoreCase) ||
                    Aliases.Any(alias => alias.Equals(value, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private sealed class TempFileLifetime(string path) : IDisposable
+    {
+        public void Dispose()
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+            }
         }
     }
 }

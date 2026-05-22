@@ -25,14 +25,36 @@ public static class JdiVideoConverter
         {
             if (_ffmpegInitialized)
                 return;
-            if (!File.Exists("ffmpeg.exe") && !File.Exists("ffmpeg"))
+
+            string? executableDirectory = TryFindFFmpegExecutableDirectory();
+            if (executableDirectory is null)
+            {
                 await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+                executableDirectory = TryFindFFmpegExecutableDirectory() ?? Environment.CurrentDirectory;
+            }
+
+            FFmpeg.SetExecutablesPath(executableDirectory);
             _ffmpegInitialized = true;
         }
         finally
         {
             InitLock.Release();
         }
+    }
+
+    private static string? TryFindFFmpegExecutableDirectory()
+    {
+        string executableName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+        string[] candidates =
+        [
+            Environment.CurrentDirectory,
+            AppContext.BaseDirectory
+        ];
+
+        return candidates
+            .Where(directory => !string.IsNullOrWhiteSpace(directory))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(directory => File.Exists(Path.Combine(directory, executableName)));
     }
 
     public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken ct = default)
@@ -145,16 +167,17 @@ public static class JdiVideoConverter
         await EnsureFFmpegInitializedAsync();
         string scratchFolder = GetScratchFolder(packageRoot);
         string assetsVideoFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        string truthFolder = IntermediatePackageLayout.Resolve(packageRoot, truthFolderAbsPath);
 
         // 1. Check Source-of-Truth
-        if (HasCompleteSet(truthFolderAbsPath, profiles, type))
+        if (HasCompleteSet(truthFolder, profiles, type, requirePrefix: false))
         {
             logger.LogDebug("Source-of-truth {Type} videos found.", type);
             return;
         }
 
         // 2. Check Scratch
-        if (HasCompleteSet(scratchFolder, profiles, type) && ValidateManifest(scratchFolder, profiles, type))
+        if (HasCompleteSet(scratchFolder, profiles, type, requirePrefix: true) && ValidateManifest(scratchFolder, profiles, type))
         {
             logger.LogDebug("Scratch {Type} videos found and valid.", type);
             return;
@@ -317,12 +340,12 @@ public static class JdiVideoConverter
         return null;
     }
 
-    private static bool HasCompleteSet(string folder, VideoQualityProfile[] profiles, string prefix)
+    private static bool HasCompleteSet(string folder, VideoQualityProfile[] profiles, string prefix, bool requirePrefix)
     {
         if (!Directory.Exists(folder))
             return false;
         int count = Directory.EnumerateFiles(folder)
-            .Count(f => Path.GetFileName(f).StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase)
+            .Count(f => (!requirePrefix || Path.GetFileName(f).StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase))
                      && AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()));
         return count >= profiles.Length;
     }

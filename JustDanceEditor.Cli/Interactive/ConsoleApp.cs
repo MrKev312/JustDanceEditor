@@ -1,6 +1,6 @@
 using JustDanceEditor.Cli.Interactive.Converting;
 using JustDanceEditor.Cli.Interactive.Helpers;
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 
@@ -33,11 +33,11 @@ internal sealed class ConsoleApp(IEnumerable<IJdiFormat> formatsEnumerable, IEnu
         AssemblyInformationalVersionAttribute versionAttribute = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?? throw new InvalidOperationException("Assembly informational version attribute is missing.");
         string versionMessage = $"Version: {versionAttribute.InformationalVersion}";
-        _logger.LogDebug(versionMessage);
+        _logger.LogDebug("{VersionMessage}", versionMessage);
         Console.WriteLine(versionMessage);
 
         string directoryMessage = $"Current Directory: {Environment.CurrentDirectory}";
-        _logger.LogDebug(directoryMessage);
+        _logger.LogDebug("{DirectoryMessage}", directoryMessage);
         Console.WriteLine(directoryMessage);
         Console.WriteLine();
 

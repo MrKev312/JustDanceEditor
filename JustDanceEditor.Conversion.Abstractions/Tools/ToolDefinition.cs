@@ -1,4 +1,6 @@
-namespace JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
+
+namespace JustDanceEditor.Conversion.Abstractions.Tools;
 
 public sealed record ToolDefinition(
     string ProviderCode,

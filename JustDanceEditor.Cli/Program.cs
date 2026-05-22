@@ -1,7 +1,7 @@
 using JustDanceEditor.AppHost;
 using JustDanceEditor.Cli.Interactive;
 using JustDanceEditor.Cli.Interactive.Converting;
-using JustDanceEditor.Conversion.Abstractions;
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

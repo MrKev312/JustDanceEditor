@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Conversion.Abstractions;
+namespace JustDanceEditor.Conversion.Abstractions.Prompts;
 
 public sealed class PromptAnswerSet
 {
@@ -27,9 +27,4 @@ public sealed class PromptAnswerSet
 
         throw new KeyNotFoundException($"No prompt answer was provided for '{id}'.");
     }
-}
-
-public interface IConversionInteraction
-{
-    ValueTask<PromptAnswerSet> AskAsync(ConversionPromptSet promptSet, CancellationToken cancellationToken = default);
 }
