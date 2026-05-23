@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-
 namespace JustDanceEditor.Editor.Services;
 
 internal sealed class SilentPcmPlaybackEngine : IPcmPlaybackEngine
@@ -14,13 +12,10 @@ internal sealed class SilentPcmPlaybackEngine : IPcmPlaybackEngine
     public TimeSpan Duration => _audio?.Duration ?? TimeSpan.Zero;
     public bool IsMetronomeEnabled { get; set; }
 
-    public void Load(string wavPath)
+    public void Load(PcmWaveAudioData audio)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(wavPath);
-        if (!File.Exists(wavPath))
-            throw new FileNotFoundException("The audio preview file does not exist.", wavPath);
-
-        _audio = PcmWaveAudioData.Read(wavPath);
+        ArgumentNullException.ThrowIfNull(audio);
+        _audio = audio;
     }
 
     public void Play(TimeSpan startTime, bool completeAtAudioEnd)

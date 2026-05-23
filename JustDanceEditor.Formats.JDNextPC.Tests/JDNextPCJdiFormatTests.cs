@@ -2,8 +2,10 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Video;
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -119,7 +121,7 @@ public class JDNextPCJdiFormatTests
     }
 
     [Fact]
-    public async Task ExportAsync_UsesLargestVp8VideoWithoutTranscoding()
+    public async Task ExportAsync_RequestsCachedVp9ServerVideo()
     {
         string packageRoot = CreateTempDirectory();
         string outputRoot = CreateTempDirectory();
@@ -146,7 +148,10 @@ public class JDNextPCJdiFormatTests
             string exportedVideoPath = Path.Combine(outputRoot, "videopassthrough", "media", "videopassthrough.webm");
             Assert.True(File.Exists(exportedVideoPath));
             Assert.Equal(largeVideo, File.ReadAllBytes(exportedVideoPath));
-            Assert.DoesNotContain(mediaProcessor.Calls, call => call.Output.EndsWith(".webm", StringComparison.OrdinalIgnoreCase));
+            MediaCall videoCall = Assert.Single(mediaProcessor.Calls, call => call.VideoRequest is not null);
+            Assert.Equal(largeVideoPath, videoCall.Input);
+            Assert.EndsWith(Path.Combine("scratch", "video", "jdnextpc_vp9.webm"), videoCall.Output, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("vp9", videoCall.VideoRequest!.Codec);
         }
         finally
         {
@@ -156,7 +161,7 @@ public class JDNextPCJdiFormatTests
     }
 
     [Fact]
-    public async Task ExportAsync_TranscodesLargestVideoWhenItIsNotVp8()
+    public async Task ExportAsync_UsesServerVp9SettingsForNonVp9Video()
     {
         string packageRoot = CreateTempDirectory();
         string outputRoot = CreateTempDirectory();
@@ -180,7 +185,13 @@ public class JDNextPCJdiFormatTests
 
             MediaCall videoCall = Assert.Single(mediaProcessor.Calls, call => call.Output.EndsWith(".webm", StringComparison.OrdinalIgnoreCase));
             Assert.Equal(Path.Combine(videoRoot, "large.webm"), videoCall.Input);
-            Assert.Contains("-c:v libvpx", videoCall.ExtraArgs);
+            Assert.NotNull(videoCall.VideoRequest);
+            Assert.Equal("vp9", videoCall.VideoRequest.Codec);
+            Assert.Equal(0, videoCall.VideoRequest.Encoding.Bitrate);
+            Assert.Equal(10, videoCall.VideoRequest.Encoding.ConstantRateFactor);
+            Assert.Equal("yuv420p", videoCall.VideoRequest.Encoding.PixelFormat);
+            Assert.Equal(4, videoCall.VideoRequest.Encoding.Speed);
+            Assert.True(videoCall.VideoRequest.Encoding.RowMultithreading);
         }
         finally
         {
@@ -392,13 +403,26 @@ public class JDNextPCJdiFormatTests
 
     private sealed class FakeMediaProcessor : IMediaProcessor
     {
-        public Task EnsureInitializedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
+        public Task EncodeAudioAsync(JdiAudioEncodeRequest request, string outputPath, CancellationToken cancellationToken = default)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? throw new InvalidOperationException($"Could not determine the directory for '{output}'."));
-            File.Copy(input, output, true);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
+            File.Copy(request.SourcePath, outputPath, true);
             return Task.CompletedTask;
+        }
+
+        public async Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default)
+        {
+            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken));
+            output.Position = 0;
+            return output;
+        }
+
+        public Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default)
+        {
+            string outputPath = GetCachedVideoPath(request);
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
+            File.Copy(ResolveVideoSource(request), outputPath, true);
+            return Task.FromResult<string?>(outputPath);
         }
     }
 
@@ -428,16 +452,51 @@ public class JDNextPCJdiFormatTests
     {
         public List<MediaCall> Calls { get; } = [];
 
-        public Task EnsureInitializedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
+        public Task EncodeAudioAsync(JdiAudioEncodeRequest request, string outputPath, CancellationToken cancellationToken = default)
         {
-            Calls.Add(new MediaCall(input, output, extraArgs ?? []));
-            Directory.CreateDirectory(Path.GetDirectoryName(output) ?? throw new InvalidOperationException($"Could not determine the directory for '{output}'."));
-            File.Copy(input, output, true);
+            Calls.Add(new MediaCall(request.SourcePath, outputPath, [], AudioRequest: request));
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
+            File.Copy(request.SourcePath, outputPath, true);
             return Task.CompletedTask;
+        }
+
+        public async Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new MediaCall(request.SourcePath, $"memory:{request.OutputFormat ?? request.Codec}", [], AudioRequest: request));
+            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken));
+            output.Position = 0;
+            return output;
+        }
+
+        public Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default)
+        {
+            string outputPath = GetCachedVideoPath(request);
+            string input = ResolveVideoSource(request);
+            Calls.Add(new MediaCall(input, outputPath, [], VideoRequest: request));
+            Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{outputPath}'."));
+            File.Copy(input, outputPath, true);
+            return Task.FromResult<string?>(outputPath);
         }
     }
 
-    private sealed record MediaCall(string Input, string Output, string[] ExtraArgs);
+    private sealed record MediaCall(
+        string Input,
+        string Output,
+        string[] ExtraArgs,
+        JdiAudioEncodeRequest? AudioRequest = null,
+        JdiVideoEncodeRequest? VideoRequest = null);
+
+    private static string GetCachedVideoPath(JdiVideoEncodeRequest request) =>
+        Path.Combine(request.PackageRoot, "scratch", "video", request.CacheFileName);
+
+    private static string ResolveVideoSource(JdiVideoEncodeRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.SourcePath))
+            return request.SourcePath;
+
+        string videoRoot = Path.Combine(request.PackageRoot, "assets", "video");
+        return Directory.EnumerateFiles(videoRoot)
+            .OrderByDescending(path => new FileInfo(path).Length)
+            .First();
+    }
 }

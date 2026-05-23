@@ -11,7 +11,7 @@ internal interface IPcmPlaybackEngine : IDisposable
     TimeSpan Duration { get; }
     bool IsMetronomeEnabled { get; set; }
 
-    void Load(string wavPath);
+    void Load(PcmWaveAudioData audio);
     void Play(TimeSpan startTime, bool completeAtAudioEnd);
     void Pause();
     void Stop();

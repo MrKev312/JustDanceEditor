@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Video;
 
 using Microsoft.Extensions.Logging;
 
@@ -434,11 +435,13 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
             if (audioPath is not null)
             {
                 _logger.LogInformation("Converting JDNext PC audio '{AudioFile}' to master.opus", Path.GetFileName(audioPath));
-                await _mediaProcessor.EnsureInitializedAsync(cancellationToken);
-                await _mediaProcessor.ConvertAsync(
-                    audioPath,
+                await _mediaProcessor.EncodeAudioAsync(
+                    new JdiAudioEncodeRequest(audioPath)
+                    {
+                        Codec = "opus",
+                        SampleRate = 48000
+                    },
                     IntermediatePackageLayout.Resolve(outputRoot, IntermediatePackageLayout.Assets.AudioMasterFile),
-                    ["-c:a libopus", "-ar 48000"],
                     cancellationToken);
             }
         }
@@ -468,7 +471,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         if (sourceVideo is not null)
         {
             _logger.LogInformation("Preparing JDNext PC video from '{VideoFile}'", Path.GetFileName(sourceVideo));
-            await EnsureVp8WebmAsync(sourceVideo, targetVideoPath, cancellationToken);
+            await EnsureServerWebmAsync(packageRoot, sourceVideo, targetVideoPath, cancellationToken);
         }
         else
         {
@@ -478,11 +481,13 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         if (File.Exists(audioPath))
         {
             _logger.LogInformation("Converting JDI master audio to JDNext PC ogg");
-            await _mediaProcessor.EnsureInitializedAsync(cancellationToken);
-            await _mediaProcessor.ConvertAsync(
-                audioPath,
+            await _mediaProcessor.EncodeAudioAsync(
+                new JdiAudioEncodeRequest(audioPath)
+                {
+                    Codec = "vorbis",
+                    SampleRate = 48000
+                },
                 Path.Combine(mediaRoot, $"{songFileName}.ogg"),
-                ["-c:a libvorbis", "-ar 48000"],
                 cancellationToken);
         }
         else
@@ -602,57 +607,30 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         await _textureService.ConvertTextureAsync(input, destinationPath, cancellationToken);
     }
 
-    private async Task EnsureVp8WebmAsync(string sourceVideoPath, string destinationPath, CancellationToken cancellationToken)
+    private async Task EnsureServerWebmAsync(string packageRoot, string sourceVideoPath, string destinationPath, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? throw new System.InvalidOperationException($"Could not determine the directory for '{destinationPath}'."));
 
-        if (LooksLikeVp8Webm(sourceVideoPath))
-        {
-            _logger.LogInformation("Video '{VideoFile}' is already VP8 WebM; copying directly", Path.GetFileName(sourceVideoPath));
-            File.Copy(sourceVideoPath, destinationPath, true);
-            return;
-        }
-
-        _logger.LogInformation("Video '{VideoFile}' is not VP8 WebM; transcoding to VP8", Path.GetFileName(sourceVideoPath));
-        await _mediaProcessor.EnsureInitializedAsync(cancellationToken);
-        await _mediaProcessor.ConvertAsync(
-            sourceVideoPath,
-            destinationPath,
-            ["-c:v libvpx", "-b:v 0", "-crf 10", "-pix_fmt yuv420p", "-an"],
+        _logger.LogInformation("Requesting cached VP9 WebM for '{VideoFile}'", Path.GetFileName(sourceVideoPath));
+        string? cachedVideo = await _mediaProcessor.GetOrCreateVideoAsync(
+            new JdiVideoEncodeRequest(packageRoot, "jdnextpc_vp9.webm", ".webm", "vp9")
+            {
+                SourcePath = sourceVideoPath,
+                Encoding = new JdiVideoEncodingSettings
+                {
+                    UseDefaultCodecTuning = false,
+                    Bitrate = 0,
+                    ConstantRateFactor = 10,
+                    PixelFormat = "yuv420p",
+                    Speed = 4,
+                    RowMultithreading = true
+                }
+            },
+            _logger,
             cancellationToken);
-    }
 
-    private static bool LooksLikeVp8Webm(string path)
-    {
-        ReadOnlySpan<byte> pattern = "V_VP8"u8;
-        using FileStream stream = File.OpenRead(path);
-        byte[] buffer = new byte[8192];
-        int overlap = pattern.Length - 1;
-        int preserved = 0;
-
-        while (true)
-        {
-            int read = stream.Read(buffer, preserved, buffer.Length - preserved);
-            if (read <= 0)
-                return false;
-
-            int total = preserved + read;
-            for (int index = 0; index <= total - pattern.Length; index++)
-            {
-                if (buffer.AsSpan(index, pattern.Length).SequenceEqual(pattern))
-                    return true;
-            }
-
-            if (total < overlap)
-            {
-                preserved = total;
-            }
-            else
-            {
-                buffer.AsSpan(total - overlap, overlap).CopyTo(buffer);
-                preserved = overlap;
-            }
-        }
+        if (cachedVideo is not null)
+            File.Copy(cachedVideo, destinationPath, true);
     }
 
     private static string? SelectLargestFile(string directory, IReadOnlyList<string> patterns)

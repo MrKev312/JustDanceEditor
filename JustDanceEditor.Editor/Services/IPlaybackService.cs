@@ -18,7 +18,7 @@ public interface IPlaybackService : IDisposable
     /// Loads audio and initialises beat-mapping. Video sync is handled separately by VideoToolViewModel.
     /// </summary>
     Task LoadMediaAsync(
-        string audioPath,
+        PcmWaveAudioData? audio,
         Func<double, double> beatToSeconds,
         Func<double, double> secondsToBeat);
     void Play();

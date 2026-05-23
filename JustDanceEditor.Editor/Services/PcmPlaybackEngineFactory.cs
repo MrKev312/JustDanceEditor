@@ -1,3 +1,5 @@
+using JustDanceEditor.Formats.JDI.Video;
+
 using System;
 using System.Collections.Generic;
 
@@ -10,7 +12,7 @@ internal static class PcmPlaybackEngineFactory
         if (!OperatingSystem.IsLinux())
             return new PortAudioPcmPlaybackEngine();
 
-        string? ffplayPath = FfmpegExecutableResolver.TryGetFfplayPath();
+        string? ffplayPath = JdiFfmpegResolver.TryGetFfplayPath();
         if (LinuxAudioEnvironment.IsWsl())
         {
             if (PulseAudioPcmPlaybackEngine.IsAvailable())
@@ -37,7 +39,7 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
     private readonly IPcmPlaybackEngine _fallback = fallback;
     private IPcmPlaybackEngine _active = primary;
 
-    private string? _wavPath;
+    private PcmWaveAudioData? _audio;
     private bool _fallbackLoaded;
     private bool _disposed;
     private bool _isMetronomeEnabled;
@@ -82,12 +84,14 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
         }
     }
 
-    public void Load(string wavPath)
+    public void Load(PcmWaveAudioData audio)
     {
-        _wavPath = wavPath;
+        ArgumentNullException.ThrowIfNull(audio);
+
+        _audio = audio;
         _fallbackLoaded = false;
         _active = _primary;
-        _primary.Load(wavPath);
+        _primary.Load(audio);
         ApplyState(_primary);
     }
 
@@ -141,7 +145,7 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
 
     private void SwitchToFallback(Exception cause)
     {
-        if (_wavPath == null)
+        if (_audio == null)
             throw new AudioPlaybackUnavailableException("Audio playback is unavailable.", cause);
 
         _primary.Dispose();
@@ -149,7 +153,7 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
 
         if (!_fallbackLoaded)
         {
-            _fallback.Load(_wavPath);
+            _fallback.Load(_audio);
             _fallbackLoaded = true;
         }
 

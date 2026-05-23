@@ -54,17 +54,15 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         set => _metronomeEnabled = value;
     }
 
-    public void Load(string wavPath)
+    public void Load(PcmWaveAudioData audio)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(wavPath);
-        if (!File.Exists(wavPath))
-            throw new FileNotFoundException("The audio preview file does not exist.", wavPath);
+        ArgumentNullException.ThrowIfNull(audio);
 
         StopProcess();
 
         lock (_gate)
         {
-            _audio = PcmWaveAudioData.Read(wavPath);
+            _audio = audio;
             _positionFrames = 0;
             _completeAtAudioEnd = false;
             _isPlaying = false;

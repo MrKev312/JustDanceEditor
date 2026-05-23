@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging;
 
 namespace JustDanceEditor.Formats.UbiArt.Export;
 
-public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory loggerFactory) : IUbiArtAssetWriter
+public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory loggerFactory, IMediaProcessor? mediaProcessor = null) : IUbiArtAssetWriter
 {
     private readonly IFileSystem? _io = io;
     private readonly ILoggerFactory _loggerFactory = loggerFactory;
+    private readonly IMediaProcessor? _mediaProcessor = mediaProcessor;
 
     // Phase 1: Initialize default implementations
     private readonly IUbiArtExporterFactory _exporterFactory = new UbiArtExporterFactory();
@@ -23,7 +24,7 @@ public sealed class UbiArtAssetWriterService(IFileSystem? io, ILoggerFactory log
         ILogger<UbiArtAssetWriter> writerLogger = _loggerFactory.CreateLogger<UbiArtAssetWriter>();
 
         // Inject exporter factory
-        UbiArtAssetWriter writer = new(writerLogger, _exporterFactory);
+        UbiArtAssetWriter writer = new(writerLogger, _exporterFactory, _mediaProcessor);
 
         return writer.ExportAsync(package, materializedRoot, outputFolder, platform, engineVersion, layout, io ?? _io);
     }

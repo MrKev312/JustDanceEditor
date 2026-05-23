@@ -21,7 +21,6 @@ public interface IIntermediateImageService
 
     /// <summary>
     /// Gets or creates the square cover image (1:1 aspect ratio, squashed from standard cover).
-    /// Used by UbiArt formats.
     /// </summary>
     /// <param name="width">Target width. If null, returns at stored resolution.</param>
     /// <param name="height">Target height. If null, returns at stored resolution.</param>

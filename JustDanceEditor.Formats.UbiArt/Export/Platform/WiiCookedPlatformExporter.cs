@@ -1,4 +1,3 @@
-using KevInc.Audio.NAudio;
 using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Raki;
 using KevInc.UbiArt.Texture;
@@ -53,33 +52,23 @@ public class WiiCookedPlatformExporter : IPlatformExporter
         return Task.CompletedTask;
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public async Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        try
+        await Task.Run(() =>
         {
-            await Task.Run(() =>
-            {
-                using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
-                    ? new OpusWaveStream(sourcePath)
-                    : new WaveFileReader(sourcePath);
+            using WaveStream waveStream = source.OpenWaveStream();
+            using FileStream output = File.Create(destPath);
 
-                using FileStream output = File.Create(destPath);
-
-                bool isAmb = UbiArtPlatformExportRules.IsAmbAudio(destPath);
-                RakiCafeDspAdpcmAudioEncoder.Encode(
-                    waveStream,
-                    output,
-                    splitChannels: isAmb,
-                    platform: UbiArtPlatformExportRules.GetAdpcmPlatform(Platform),
-                    version: UbiArtPlatformExportRules.GetAdpcmVersion(Platform, context.EngineVersion));
-            });
-        }
-        catch (Exception)
-        {
-            File.Copy(sourcePath, destPath, true);
-        }
+            bool isAmb = UbiArtPlatformExportRules.IsAmbAudio(destPath);
+            RakiCafeDspAdpcmAudioEncoder.Encode(
+                waveStream,
+                output,
+                splitChannels: isAmb,
+                platform: UbiArtPlatformExportRules.GetAdpcmPlatform(Platform),
+                version: UbiArtPlatformExportRules.GetAdpcmVersion(Platform, context.EngineVersion));
+        });
     }
 }

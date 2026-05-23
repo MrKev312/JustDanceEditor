@@ -90,7 +90,7 @@ public class DurangoExportTests
             DurangoCookedPlatformExporter exporter = new();
             ExportContext context = new(root, new UbiArtLayoutResolver(), new SystemFileSystem());
 
-            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "durango", "world", "maps", "song", "audio", "song.wav"), sourceWav);
+            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "durango", "world", "maps", "song", "audio", "song.wav"), new UbiArtAudioExportSource(sourceWav));
 
             byte[] output = File.ReadAllBytes(Path.Combine(root, "cache", "itf_cooked", "durango", "world", "maps", "song", "audio", "song.wav.ckd"));
             Assert.Equal("RAKI", Encoding.ASCII.GetString(output, 0, 4));

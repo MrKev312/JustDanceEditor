@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.Unity.Builders;
@@ -11,9 +12,9 @@ using JustDanceEditor.Formats.Unity.Models;
 
 using Microsoft.Extensions.Logging;
 
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
-
-using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Formats.Unity.Converters;
 
@@ -25,6 +26,7 @@ internal sealed class IntermediateToUnityConverter
     private readonly string _songFolderName;
     private string _outputRoot;
     private readonly ILogger _logger;
+    private readonly IMediaProcessor _mediaProcessor;
 
     static readonly JsonSerializerOptions serializerOptions = new()
     {
@@ -36,12 +38,14 @@ internal sealed class IntermediateToUnityConverter
         IntermediateSongPackage package,
         string packageRoot,
         UnityConversionRequest request,
-        ILogger logger)
+        ILogger logger,
+        IMediaProcessor? mediaProcessor = null)
     {
         _package = package ?? throw new ArgumentNullException(nameof(package));
         _packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _mediaProcessor = mediaProcessor ?? new DefaultMediaProcessor();
         _songFolderName = BuildSongFolderName(_package.Metadata);
         _outputRoot = Path.Combine(request.OutputPath, _songFolderName);
     }
@@ -129,6 +133,12 @@ internal sealed class IntermediateToUnityConverter
 
     private async Task CopyVideoAssetsAsync()
     {
+        if (_request.ExportType == ExportType.OfflineCache)
+        {
+            await CopyOfflineCacheVideoAssetsAsync();
+            return;
+        }
+
         // Generate background and preview videos in parallel
         Task backgroundTask = JdiVideoConverter.EnsureBackgroundVideosAsync(_packageRoot, _logger);
         Task previewTask = JdiVideoConverter.EnsurePreviewVideosAsync(_package, _packageRoot, _logger);
@@ -138,10 +148,121 @@ internal sealed class IntermediateToUnityConverter
         CopyPreviewVideos(Path.Combine(_outputRoot, "videoPreview"));
     }
 
+    private async Task CopyOfflineCacheVideoAssetsAsync()
+    {
+        string backgroundDestination = Path.Combine(_outputRoot, "video");
+        string previewDestination = Path.Combine(_outputRoot, "videoPreview");
+        string assetsVideoFolder = ResolvePackagePath(IntermediatePackageLayout.Assets.VideoFolder);
+        string assetsPreviewFolder = ResolvePackagePath(IntermediatePackageLayout.Assets.PreviewVideoFolder);
+
+        string? backgroundSource = await SelectBestOfflineCacheVideoSourceAsync(GetVideoFiles(assetsVideoFolder));
+        if (backgroundSource is not null)
+        {
+            string? normalizedBackground = await EnsureOfflineCacheVideoAsync(
+                "background",
+                backgroundSource,
+                start: default,
+                duration: default);
+
+            if (normalizedBackground is not null)
+            {
+                Directory.CreateDirectory(backgroundDestination);
+                CopyHashedAsset(normalizedBackground, backgroundDestination, ".webm");
+            }
+        }
+        else
+        {
+            _logger.LogWarning("No background video found for Unity offline cache export.");
+        }
+
+        string? previewSource = await SelectBestOfflineCacheVideoSourceAsync(GetVideoFiles(assetsPreviewFolder));
+        if (previewSource is not null)
+        {
+            string? normalizedPreview = await EnsureOfflineCacheVideoAsync(
+                "preview",
+                previewSource,
+                start: default,
+                duration: default);
+
+            if (normalizedPreview is not null)
+            {
+                Directory.CreateDirectory(previewDestination);
+                CopyHashedAsset(normalizedPreview, previewDestination, ".webm");
+            }
+
+            return;
+        }
+
+        if (backgroundSource is null)
+        {
+            _logger.LogWarning("No preview video source found for Unity offline cache export.");
+            return;
+        }
+
+        (TimeSpan previewStart, TimeSpan previewDuration) = _package.TimelineStructure.GetVideoPreviewTiming();
+        string? generatedPreview = await EnsureOfflineCacheVideoAsync(
+            "preview",
+            backgroundSource,
+            previewStart,
+            previewDuration);
+
+        if (generatedPreview is not null)
+        {
+            Directory.CreateDirectory(previewDestination);
+            CopyHashedAsset(generatedPreview, previewDestination, ".webm");
+        }
+    }
+
+    private async Task<string?> SelectBestOfflineCacheVideoSourceAsync(string[] sources)
+    {
+        if (sources.Length == 0)
+            return null;
+
+        string[] candidates = [.. sources.OrderByDescending(file => new FileInfo(file).Length).ThenBy(file => file, StringComparer.OrdinalIgnoreCase)];
+        foreach (string candidate in candidates)
+        {
+            JdiVideoInfo? info = await JdiVideoConverter.TryInspectVideoAsync(candidate);
+            if (IsOfflineCacheCompatibleVideo(candidate, info))
+                return candidate;
+        }
+
+        return candidates[0];
+    }
+
+    private async Task<string?> EnsureOfflineCacheVideoAsync(string role, string sourcePath, TimeSpan start, TimeSpan duration)
+    {
+        JdiVideoInfo? info = await JdiVideoConverter.TryInspectVideoAsync(sourcePath);
+        if (info is not null &&
+            start <= TimeSpan.Zero &&
+            duration <= TimeSpan.Zero &&
+            IsOfflineCacheCompatibleVideo(sourcePath, info))
+        {
+            _logger.LogDebug("Using offline cache {Role} video as-is from '{VideoFile}'.", role, Path.GetFileName(sourcePath));
+            return sourcePath;
+        }
+
+        string codec = IsVp8OrVp9(info?.Codec) ? info!.Codec : "vp9";
+        JdiVideoTransform transform = BuildSixteenNineTransform(info);
+        string cacheFileName = BuildOfflineCacheVideoCacheFileName(role, sourcePath, start, duration, codec, transform);
+
+        _logger.LogInformation("Normalizing Unity offline cache {Role} video from '{VideoFile}' as {Codec} 16:9 WebM.", role, Path.GetFileName(sourcePath), codec);
+        return await _mediaProcessor.GetOrCreateVideoAsync(
+            new JdiVideoEncodeRequest(_packageRoot, cacheFileName, ".webm", codec)
+            {
+                SourcePath = sourcePath,
+                Transform = transform,
+                Start = start,
+                Duration = duration,
+                Encoding = new JdiVideoEncodingSettings
+                {
+                    PixelFormat = "yuv420p"
+                }
+            },
+            _logger);
+    }
+
     private async Task EnsurePreviewAudioAsync()
     {
-        await JdiVideoConverter.EnsureFFmpegInitializedAsync();
-
         string assetsPreviewPath = ResolvePackagePath(IntermediatePackageLayout.Assets.AudioPreviewFile);
         string scratchPreviewPath = Path.Combine(GetScratchAudioFolder(), "preview.opus");
 
@@ -170,11 +291,18 @@ internal sealed class IntermediateToUnityConverter
         string scratchFolder = GetScratchAudioFolder();
         Directory.CreateDirectory(scratchFolder);
         (TimeSpan start, TimeSpan duration) = _package.TimelineStructure.GetAudioPreviewTiming();
-
-        string args = FormattableString.Invariant($"-ss {start.TotalSeconds} -i \"{masterPath}\" -c:a libopus -ar 48000 -t {duration.TotalSeconds} -af \"afade=t=in:st=0:d=1,afade=t=out:st={Math.Max(0, duration.TotalSeconds - 1)}:d=1\" -y \"{scratchPreviewPath}\"");
-
-        IConversion conversion = FFmpeg.Conversions.New();
-        await conversion.Start(args);
+        await _mediaProcessor.EncodeAudioAsync(
+            new JdiAudioEncodeRequest(masterPath)
+            {
+                Codec = "opus",
+                SampleRate = 48000,
+                Start = start,
+                Duration = duration,
+                FadeInDuration = TimeSpan.FromSeconds(1),
+                FadeOutStart = TimeSpan.FromSeconds(Math.Max(0, duration.TotalSeconds - 1)),
+                FadeOutDuration = TimeSpan.FromSeconds(1)
+            },
+            scratchPreviewPath);
         _logger.LogInformation("Generated preview audio in scratch from master.opus.");
     }
 
@@ -443,6 +571,70 @@ internal sealed class IntermediateToUnityConverter
         return [.. Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
             .Where(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
             .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    internal static bool IsOfflineCacheCompatibleVideo(string path, JdiVideoInfo? info)
+    {
+        return info is not null &&
+               Path.GetExtension(path).Equals(".webm", StringComparison.OrdinalIgnoreCase) &&
+               IsSixteenNine(info) &&
+               IsVp8OrVp9(info.Codec);
+    }
+
+    internal static bool IsVp8OrVp9(string? codec)
+    {
+        return codec?.Equals("vp8", StringComparison.OrdinalIgnoreCase) == true ||
+               codec?.Equals("vp9", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    internal static bool IsSixteenNine(JdiVideoInfo info)
+    {
+        if (info.Width <= 0 || info.Height <= 0)
+            return false;
+
+        const double target = 16.0 / 9.0;
+        double ratio = info.Width / (double)info.Height;
+        return Math.Abs(ratio - target) < 0.01;
+    }
+
+    internal static JdiVideoTransform BuildSixteenNineTransform(JdiVideoInfo? info)
+    {
+        if (info is null || IsSixteenNine(info))
+            return JdiVideoTransform.None;
+
+        string crop = info.Width / (double)info.Height < 16.0 / 9.0
+            ? "crop=trunc(in_w/2)*2:trunc(in_w*9/16/2)*2"
+            : "crop=trunc(in_h*16/9/2)*2:trunc(in_h/2)*2";
+
+        return new JdiVideoTransform
+        {
+            AdditionalFilters = [crop]
+        };
+    }
+
+    private static string BuildOfflineCacheVideoCacheFileName(
+        string role,
+        string sourcePath,
+        TimeSpan start,
+        TimeSpan duration,
+        string codec,
+        JdiVideoTransform transform)
+    {
+        FileInfo info = new(sourcePath);
+        string key = string.Join(
+            '|',
+            role,
+            info.FullName,
+            info.Length.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            info.LastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            start.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            duration.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            codec,
+            string.Join(',', transform.AdditionalFilters),
+            transform.Width?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
+            transform.Height?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "");
+        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key))).ToLowerInvariant()[..16];
+        return $"unity_offline_{role}_{hash}.webm";
     }
 
     private static string BuildSongFolderName(IntermediateMetadata metadata)

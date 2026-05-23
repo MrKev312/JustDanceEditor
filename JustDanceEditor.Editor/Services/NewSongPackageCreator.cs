@@ -140,76 +140,62 @@ public static class NewSongPackageCreator
         string masterPath = Path.Combine(rootPath, IntermediatePackageLayout.Assets.AudioMasterFile
             .Replace('/', Path.DirectorySeparatorChar));
 
-        // Convert source audio to WAV first (handles Opus and all other formats via FFmpeg)
-        string tempWav = await AudioConversionService.ConvertToWavAsync(result.AudioFilePath);
+        PcmWaveAudioData audio = await AudioConversionService.DecodeToPcmAsync(result.AudioFilePath, cancellationToken: ct);
 
-        try
+        await Task.Run(() =>
         {
-            await Task.Run(() =>
+            // In the original audio file, beat 0 is at ZeroBeatTimeSeconds.
+            // startBeat (e.g. -8) occurs at ZeroBeatTime + startBeat * beatDuration in the original.
+            // endBeat occurs at ZeroBeatTime + endBeat * beatDuration in the original.
+            // The processed audio should span from startBeat to endBeat.
+            double audioStartTime = result.ZeroBeatTimeSeconds + (startBeat * beatDurationSeconds);
+            double desiredDuration = (endBeat - startBeat) * beatDurationSeconds;
+
+            double sourceDuration = audio.Duration.TotalSeconds;
+            ISampleProvider source = new PcmWaveSampleProvider(audio);
+
+            // Step 1: Handle the start — trim or pad
+            if (audioStartTime > 0)
             {
-                // In the original audio file, beat 0 is at ZeroBeatTimeSeconds.
-                // startBeat (e.g. -8) occurs at ZeroBeatTime + startBeat * beatDuration in the original.
-                // endBeat occurs at ZeroBeatTime + endBeat * beatDuration in the original.
-                // The processed audio should span from startBeat to endBeat.
-                double audioStartTime = result.ZeroBeatTimeSeconds + (startBeat * beatDurationSeconds);
-                double desiredDuration = (endBeat - startBeat) * beatDurationSeconds;
-
-                using AudioFileReader reader = new(tempWav);
-                double sourceDuration = reader.TotalTime.TotalSeconds;
-                ISampleProvider source = reader;
-
-                // Step 1: Handle the start — trim or pad
-                if (audioStartTime > 0)
+                // The start of our range is inside the audio file — skip into it
+                source = new OffsetSampleProvider(source)
                 {
-                    // The start of our range is inside the audio file — skip into it
-                    source = new OffsetSampleProvider(source)
-                    {
-                        SkipOver = TimeSpan.FromSeconds(audioStartTime)
-                    };
-                }
-                else if (audioStartTime < 0)
-                {
-                    // The start of our range is before the audio file — pad with silence
-                    source = new OffsetSampleProvider(source)
-                    {
-                        DelayBy = TimeSpan.FromSeconds(-audioStartTime)
-                    };
-                }
-
-                // Step 2: Handle the end — pad with silence if needed
-                // How much audio is available after audioStartTime?
-                double availableFromStart = sourceDuration - Math.Max(0, audioStartTime);
-                // If audioStartTime < 0, we added silence at the start, so total available becomes:
-                double totalAvailable = audioStartTime < 0
-                    ? -audioStartTime + sourceDuration  // silence padding + full file
-                    : availableFromStart;               // from trim point to end
-
-                if (totalAvailable < desiredDuration)
-                {
-                    double silenceNeeded = desiredDuration - totalAvailable;
-                    source = new OffsetSampleProvider(source)
-                    {
-                        LeadOut = TimeSpan.FromSeconds(silenceNeeded)
-                    };
-                }
-
-                // Step 3: Truncate to exactly the desired duration using a limiting wrapper
-                source = new TruncatingSampleProvider(source, desiredDuration);
-
-                // Encode to Opus
-                using FileStream fs = File.Create(masterPath);
-                OpusEncoderHelper.EncodeToOpus(source, fs);
-            }, ct);
-        }
-        finally
-        {
-            // Clean up temp WAV
-            try
-            {
-                File.Delete(tempWav);
+                    SkipOver = TimeSpan.FromSeconds(audioStartTime)
+                };
             }
-            catch { /* ignore */ }
-        }
+            else if (audioStartTime < 0)
+            {
+                // The start of our range is before the audio file — pad with silence
+                source = new OffsetSampleProvider(source)
+                {
+                    DelayBy = TimeSpan.FromSeconds(-audioStartTime)
+                };
+            }
+
+            // Step 2: Handle the end — pad with silence if needed
+            // How much audio is available after audioStartTime?
+            double availableFromStart = sourceDuration - Math.Max(0, audioStartTime);
+            // If audioStartTime < 0, we added silence at the start, so total available becomes:
+            double totalAvailable = audioStartTime < 0
+                ? -audioStartTime + sourceDuration  // silence padding + full file
+                : availableFromStart;               // from trim point to end
+
+            if (totalAvailable < desiredDuration)
+            {
+                double silenceNeeded = desiredDuration - totalAvailable;
+                source = new OffsetSampleProvider(source)
+                {
+                    LeadOut = TimeSpan.FromSeconds(silenceNeeded)
+                };
+            }
+
+            // Step 3: Truncate to exactly the desired duration using a limiting wrapper
+            source = new TruncatingSampleProvider(source, desiredDuration);
+
+            // Encode to Opus
+            using FileStream fs = File.Create(masterPath);
+            OpusEncoderHelper.EncodeToOpus(source, fs);
+        }, ct);
     }
 
     /// <summary>

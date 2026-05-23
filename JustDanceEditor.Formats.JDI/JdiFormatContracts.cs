@@ -21,7 +21,7 @@ public interface IJdiFormat
     /// <summary>
     /// Heuristically checks whether the provided input path corresponds to this format.
     /// Should be a fast, non-throwing check when possible. Implementations may log additional
-    /// information (for UbiArt this prints platform and engine version).
+    /// information useful to explain a positive match.
     /// </summary>
     bool Check(string inputPath);
 }

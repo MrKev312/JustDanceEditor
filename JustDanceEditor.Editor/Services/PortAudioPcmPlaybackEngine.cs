@@ -2,7 +2,6 @@ using PortAudioSharp;
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -52,17 +51,15 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
         set => _metronomeEnabled = value;
     }
 
-    public void Load(string wavPath)
+    public void Load(PcmWaveAudioData audio)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(wavPath);
-        if (!File.Exists(wavPath))
-            throw new FileNotFoundException("The audio preview file does not exist.", wavPath);
+        ArgumentNullException.ThrowIfNull(audio);
 
         CloseStream();
 
         lock (_gate)
         {
-            _audio = PcmWaveAudioData.Read(wavPath);
+            _audio = audio;
             _positionFrames = 0;
             _completedNaturally = false;
             _streamCompleted = false;

@@ -11,5 +11,9 @@ public record ExportContext(
     string OutputFolder,
     IUbiArtLayout Layout,
     IFileSystem IO,
-    UbiArtEngineVersion EngineVersion = UbiArtEngineVersion.Unknown
-);
+    UbiArtEngineVersion EngineVersion = UbiArtEngineVersion.Unknown,
+    IMediaProcessor? MediaProcessor = null
+)
+{
+    public IMediaProcessor GetMediaProcessor() => MediaProcessor ?? new DefaultMediaProcessor(IO);
+}

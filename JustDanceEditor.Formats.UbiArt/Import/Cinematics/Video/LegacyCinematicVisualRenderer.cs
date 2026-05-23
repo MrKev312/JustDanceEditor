@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Core;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Materials;
@@ -237,7 +238,7 @@ internal static class LegacyCinematicVisualRenderer
             codecArgs +
             $"-y \"{destination}\"";
 
-        ProcessStartInfo startInfo = new(FindFfmpegExecutable(), args)
+        ProcessStartInfo startInfo = new(JdiFfmpegResolver.GetFfmpegPath(), args)
         {
             UseShellExecute = false,
             RedirectStandardInput = true,
@@ -313,24 +314,6 @@ internal static class LegacyCinematicVisualRenderer
         threads >= 9 ? 9 :
         threads >= 6 ? 6 :
         4;
-
-    private static string FindFfmpegExecutable()
-    {
-        string[] candidates =
-        [
-            Path.Combine(Environment.CurrentDirectory, "ffmpeg.exe"),
-            Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe"),
-            "ffmpeg"
-        ];
-
-        foreach (string candidate in candidates)
-        {
-            if (candidate.Equals("ffmpeg", StringComparison.OrdinalIgnoreCase) || File.Exists(candidate))
-                return candidate;
-        }
-
-        return "ffmpeg";
-    }
 
     private static int GetRenderThreadCount() => Math.Max(1, Environment.ProcessorCount);
 

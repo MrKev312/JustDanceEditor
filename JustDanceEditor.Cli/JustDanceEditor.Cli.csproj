@@ -49,7 +49,5 @@
 		<PackageReference Include="NAudio.Core" Version="2.3.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="System.CommandLine" Version="2.0.8" />
-		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
-		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
 	</ItemGroup>
 </Project>

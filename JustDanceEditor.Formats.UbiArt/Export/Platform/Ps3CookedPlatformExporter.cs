@@ -1,3 +1,4 @@
+using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import;
 
 using KevInc.Texture.PlayStation;
@@ -8,8 +9,6 @@ using KevInc.UbiArt.Texture;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-
-using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
@@ -78,29 +77,25 @@ public sealed class Ps3CookedPlatformExporter : IPlatformExporter
         return Task.CompletedTask;
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public async Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        string tempMp3 = context.IO.Combine(context.IO.GetTempPath(), $"jdi_ps3_{Guid.NewGuid():N}.mp3");
-        try
+        JdiAudioEncodeRequest audioRequest = new(source.SourcePath)
         {
-            IConversion conversion = FFmpeg.Conversions.New();
-            conversion.SetOverwriteOutput(true);
-            conversion.AddParameter($"-i \"{sourcePath}\" -ar 48000 -ac 2 -codec:a libmp3lame -b:a 192k");
-            conversion.SetOutput(tempMp3);
-            await conversion.Start();
+            OutputFormat = "mp3",
+            Codec = "mp3",
+            SampleRate = 48000,
+            Channels = 2,
+            Bitrate = "192k",
+            Start = source.Start,
+            Duration = source.Duration
+        };
+        using MemoryStream mp3Source = await context.GetMediaProcessor().EncodeAudioToMemoryAsync(audioRequest);
 
-            await using FileStream mp3Source = File.OpenRead(tempMp3);
-            await using FileStream output = File.Create(destPath);
-            RakiPlayStation3Mp3AudioEncoder.WrapMp3(mp3Source, output, version: GetRakiVersion(context.EngineVersion));
-        }
-        finally
-        {
-            if (context.IO.FileExists(tempMp3))
-                context.IO.DeleteFile(tempMp3);
-        }
+        await using FileStream output = File.Create(destPath);
+        RakiPlayStation3Mp3AudioEncoder.WrapMp3(mp3Source, output, version: GetRakiVersion(context.EngineVersion));
     }
 
     private static bool ShouldWriteAsTextResource(byte[] data)

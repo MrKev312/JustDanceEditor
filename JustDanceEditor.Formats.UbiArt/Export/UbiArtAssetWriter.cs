@@ -17,13 +17,12 @@ using SixLabors.ImageSharp.PixelFormats;
 using System.Globalization;
 using System.Text;
 
-using Xabe.FFmpeg;
-
 namespace JustDanceEditor.Formats.UbiArt.Export;
 
-public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger, IUbiArtExporterFactory? factory = null) : IUbiArtAssetWriter
+public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger, IUbiArtExporterFactory? factory = null, IMediaProcessor? mediaProcessor = null) : IUbiArtAssetWriter
 {
     private readonly IUbiArtExporterFactory _factory = factory ?? new UbiArtExporterFactory();
+    private readonly IMediaProcessor _mediaProcessor = mediaProcessor ?? new DefaultMediaProcessor();
 
     public async Task ExportAsync(IntermediateSongPackage package, string? materializedRoot, string outputFolder, UbiArtPlatform platform, UbiArtEngineVersion engineVersion, IUbiArtLayout? layout = null, IFileSystem? io = null)
     {
@@ -57,7 +56,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 ipkExporter!.ArchiveFolder);
         }
 
-        ExportContext exportContext = new(assetOutputFolder, layout, iofs, engineVersion);
+        ExportContext exportContext = new(assetOutputFolder, layout, iofs, engineVersion, _mediaProcessor);
 
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
@@ -68,9 +67,6 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string rawMapWorldBase = layout.GetMapWorldFolder("", mapNameLower, platform, engineVersion);
 
         logger.LogInformation("Exporting {MapName} ({Platform}, {Version})...", mapName, platform, engineVersion);
-
-        if (!string.IsNullOrEmpty(materializedRoot))
-            await JdiVideoConverter.EnsureFFmpegInitializedAsync();
 
         // 1. Generate Colors from Background
         if (!string.IsNullOrEmpty(materializedRoot))
@@ -275,76 +271,29 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string ambFolderRel = Path.Combine(audioFolderRel, "amb");
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
 
-        string tempWav = ctx.IO.Combine(ctx.IO.GetTempPath(), $"jdi_{Guid.NewGuid()}.wav");
-        try
+        double startBeat = package.TimelineStructure.StartBeat;
+        double cutSeconds = 0;
+        if (startBeat < 0 && package.TimelineStructure.Markers.Count > 1)
         {
-            // First convert to WAV because encoders usually expect WAV input
-            IConversion conv = FFmpeg.Conversions.New();
-            conv.SetOverwriteOutput(true);
-            conv.AddParameter($"-i \"{sourceFile}\" -ar 48000 -ac 2");
-            conv.SetOutput(tempWav);
-            await conv.Start();
-
-            double startBeat = package.TimelineStructure.StartBeat;
-            double cutSeconds = 0;
-            if (startBeat < 0 && package.TimelineStructure.Markers.Count > 1)
-            {
-                cutSeconds = package.TimelineStructure.Markers[(int)Math.Abs(startBeat)] / 48000.0;
-            }
-
-            List<Task> audioTasks = [];
-
-            if (cutSeconds > 0.001)
-                audioTasks.Add(CreateAndWriteAmbAudioAsync(ctx, exporter, tempWav, ambFolderRel, mapNameLower, cutSeconds));
-
-            audioTasks.Add(CreateAndWriteMainAudioAsync(ctx, exporter, tempWav, audioFolderRel, mapNameLower, cutSeconds, package.TimelineStructure.Markers));
-            await Task.WhenAll(audioTasks);
+            cutSeconds = package.TimelineStructure.Markers[(int)Math.Abs(startBeat)] / 48000.0;
         }
-        finally
+
+        List<Task> audioTasks = [];
+
+        if (cutSeconds > 0.001)
         {
-            if (ctx.IO.FileExists(tempWav))
-                ctx.IO.DeleteFile(tempWav);
+            audioTasks.Add(exporter.WriteAudioAsync(
+                ctx,
+                Path.Combine(ambFolderRel, $"amb_{mapNameLower}_intro.wav"),
+                new UbiArtAudioExportSource(sourceFile, Duration: TimeSpan.FromSeconds(cutSeconds))));
         }
-    }
 
-    private static async Task CreateAndWriteAmbAudioAsync(ExportContext ctx, IPlatformExporter exporter, string tempWav, string ambFolderRel, string mapNameLower, double cutSeconds)
-    {
-        string ambTemp = ctx.IO.Combine(ctx.IO.GetTempPath(), $"amb_{Guid.NewGuid()}.wav");
-        try
-        {
-            IConversion ambConv = FFmpeg.Conversions.New();
-            ambConv.SetOverwriteOutput(true);
-            ambConv.AddParameter($"-i \"{tempWav}\" -t {cutSeconds.ToString(CultureInfo.InvariantCulture)}");
-            ambConv.SetOutput(ambTemp);
-            await ambConv.Start();
+        audioTasks.Add(exporter.WriteAudioAsync(
+            ctx,
+            Path.Combine(audioFolderRel, $"{mapNameLower}.wav"),
+            new UbiArtAudioExportSource(sourceFile, Start: TimeSpan.FromSeconds(cutSeconds), Markers: package.TimelineStructure.Markers)));
 
-            await exporter.WriteAudioAsync(ctx, Path.Combine(ambFolderRel, $"amb_{mapNameLower}_intro.wav"), ambTemp);
-        }
-        finally
-        {
-            if (ctx.IO.FileExists(ambTemp))
-                ctx.IO.DeleteFile(ambTemp);
-        }
-    }
-
-    private static async Task CreateAndWriteMainAudioAsync(ExportContext ctx, IPlatformExporter exporter, string tempWav, string audioFolderRel, string mapNameLower, double cutSeconds, List<int> markers)
-    {
-        string mainTemp = ctx.IO.Combine(ctx.IO.GetTempPath(), $"main_{Guid.NewGuid()}.wav");
-        try
-        {
-            IConversion mainConv = FFmpeg.Conversions.New();
-            mainConv.SetOverwriteOutput(true);
-            mainConv.AddParameter($"-ss {cutSeconds.ToString(CultureInfo.InvariantCulture)} -i \"{tempWav}\"");
-            mainConv.SetOutput(mainTemp);
-            await mainConv.Start();
-
-            await exporter.WriteAudioAsync(ctx, Path.Combine(audioFolderRel, $"{mapNameLower}.wav"), mainTemp, markers);
-        }
-        finally
-        {
-            if (ctx.IO.FileExists(mainTemp))
-                ctx.IO.DeleteFile(mainTemp);
-        }
+        await Task.WhenAll(audioTasks);
     }
 
     private async Task ProcessAndWriteTexturesAsync(
@@ -533,64 +482,15 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
         if (ctx.IO.DirectoryExists(videoSourceDir))
         {
-            string? sourceFile;
+            string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
+            string destFileName = GetUbiArtVideoFileName(mapNameLower, platform, version);
+            JdiVideoEncodeRequest request = BuildUbiArtVideoRequest(materializedRoot, destFileName, platform, version);
 
-            // Wii needs special handling
-            if (platform == UbiArtPlatform.Revolution)
-            {
-                // Use specific 2-pass encoding for Wii to meet strict requirements
-                sourceFile = await JDI.Video.JdiVideoConverter.EnsureWiiVideoAsync(materializedRoot, logger);
-            }
-            else if (version == UbiArtEngineVersion.JD2017)
-            {
-                sourceFile = await JDI.Video.JdiVideoConverter.EnsureVideoFormatAsync(
-                    materializedRoot,
-                    ".webm",
-                    "vp8",
-                    logger
-                );
-            }
-            else
-            {
-                sourceFile = ctx.IO.GetFiles(videoSourceDir, "*.webm")
-                    .OrderByDescending(f => new FileInfo(f).Length)
-                    .FirstOrDefault();
-            }
-
-            // Fallback if specific conversion failed or wasn't needed
-            sourceFile ??= ctx.IO.GetFiles(videoSourceDir, "*.webm")
-                    .OrderByDescending(f => new FileInfo(f).Length)
-                    .FirstOrDefault();
+            string? sourceFile = await JdiVideoConverter.GetOrCreateVideoAsync(request, logger);
 
             if (sourceFile != null && ctx.IO.FileExists(sourceFile))
             {
-                // All platforms use videoscoach folder for video files
                 string relFolder = Path.Combine(rawMapWorldBase, "videoscoach");
-
-                string destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.webm";
-
-                if (platform == UbiArtPlatform.NX)
-                {
-                    destFileName = version == UbiArtEngineVersion.JD2017
-                        ? $"{package.Metadata.MapName.ToLowerInvariant()}.webm"
-                        : $"{package.Metadata.MapName.ToLowerInvariant()}.vp9.720.webm";
-                }
-
-                if (platform == UbiArtPlatform.Revolution)
-                {
-                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.wii.webm";
-                }
-
-                if (platform == UbiArtPlatform.Xenon)
-                {
-                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.x360.webm";
-                }
-
-                if (platform == UbiArtPlatform.Cell)
-                {
-                    destFileName = $"{package.Metadata.MapName.ToLowerInvariant()}.ps3.webm";
-                }
-
                 string destPath = Path.Combine(relFolder, destFileName);
                 string fullDest = ctx.IO.Combine(ctx.OutputFolder, destPath);
 
@@ -603,6 +503,48 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
         CopyRawMoveAssets(materializedRoot, rawMapWorldBase, ctx, platform);
     }
+
+    private static JdiVideoEncodeRequest BuildUbiArtVideoRequest(string materializedRoot, string destFileName, UbiArtPlatform platform, UbiArtEngineVersion version)
+    {
+        if (platform == UbiArtPlatform.Revolution)
+        {
+            return new JdiVideoEncodeRequest(materializedRoot, destFileName, ".webm", "vp8")
+            {
+                Transform = new JdiVideoTransform
+                {
+                    Width = 512,
+                    Height = 384,
+                    ScaleAlgorithm = JdiScaleAlgorithm.Bicubic,
+                    SampleAspectRatio = "1",
+                    DisplayAspectRatio = "4/3"
+                },
+                Encoding = new JdiVideoEncodingSettings
+                {
+                    UseDefaultCodecTuning = false,
+                    Profile = 2,
+                    PixelFormat = "yuv420p",
+                    AutoAltRef = false,
+                    Bitrate = 2_000_000,
+                    Quality = "good",
+                    CpuUsed = 16
+                },
+                ForceTranscode = true
+            };
+        }
+
+        string codec = version == UbiArtEngineVersion.JD2017 ? "vp8" : "vp9";
+        return new JdiVideoEncodeRequest(materializedRoot, destFileName, ".webm", codec);
+    }
+
+    private static string GetUbiArtVideoFileName(string mapNameLower, UbiArtPlatform platform, UbiArtEngineVersion version)
+        => platform switch
+        {
+            UbiArtPlatform.NX when version != UbiArtEngineVersion.JD2017 => $"{mapNameLower}.vp9.720.webm",
+            UbiArtPlatform.Revolution => $"{mapNameLower}.wii.webm",
+            UbiArtPlatform.Xenon => $"{mapNameLower}.x360.webm",
+            UbiArtPlatform.Cell => $"{mapNameLower}.ps3.webm",
+            _ => $"{mapNameLower}.webm"
+        };
 
     private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform)
     {

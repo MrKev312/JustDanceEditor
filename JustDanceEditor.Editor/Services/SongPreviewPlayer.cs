@@ -15,16 +15,16 @@ namespace JustDanceEditor.Editor.Services;
 
 /// <summary>
 /// Manages audio playback with metronome for the New Song dialog.
-/// Converts the source audio to WAV via FFmpeg, then plays through the
-/// platform audio backend with beat/section click sounds.
+/// Decodes source audio through FFmpeg, then plays through the platform audio
+/// backend with beat/section click sounds.
 /// </summary>
 public class SongPreviewPlayer : IDisposable
 {
     private WaveOutEvent? _outputDevice;
-    private AudioFileReader? _audioReader;
+    private PcmWaveSampleProvider? _audioSource;
     private MetronomeSampleProvider? _metronome;
     private IPcmPlaybackEngine? _pcmPlayer;
-    private string? _tempWavPath;
+    private PcmWaveAudioData? _audio;
     private readonly Stopwatch _stopwatch = new();
     private TimeSpan _baseTime = TimeSpan.Zero;
     private TimeSpan _duration = TimeSpan.Zero;
@@ -32,7 +32,7 @@ public class SongPreviewPlayer : IDisposable
 
     public bool IsPlaying { get; private set; }
     public bool IsLoaded => _duration > TimeSpan.Zero;
-    public TimeSpan Duration => _audioReader?.TotalTime ?? _duration;
+    public TimeSpan Duration => _audioSource?.TotalTime ?? _duration;
 
     public TimeSpan CurrentTime
     {
@@ -47,7 +47,7 @@ public class SongPreviewPlayer : IDisposable
 
     /// <summary>
     /// Loads the audio file for preview playback.
-    /// Converts to WAV via FFmpeg first (to support Opus and other formats).
+    /// Decodes via FFmpeg first to support Opus and other formats.
     /// </summary>
     public async Task LoadAsync(string audioFilePath)
     {
@@ -57,14 +57,13 @@ public class SongPreviewPlayer : IDisposable
         if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
             return;
 
-        // Convert to WAV via FFmpeg
-        _tempWavPath = await AudioConversionService.ConvertToWavAsync(audioFilePath);
-        _duration = TimeSpan.FromSeconds(await AudioConversionService.GetDurationAsync(_tempWavPath));
+        _audio = await AudioConversionService.DecodeToPcmAsync(audioFilePath);
+        _duration = _audio.Duration;
 
         if (!OperatingSystem.IsWindows())
         {
             _pcmPlayer = PcmPlaybackEngineFactory.Create();
-            _pcmPlayer.Load(_tempWavPath);
+            _pcmPlayer.Load(_audio);
             _pcmPlayer.PlaybackCompleted += OnPcmPlaybackCompleted;
             _duration = _pcmPlayer.Duration;
             _baseTime = TimeSpan.Zero;
@@ -72,9 +71,9 @@ public class SongPreviewPlayer : IDisposable
             return;
         }
 
-        _audioReader = new AudioFileReader(_tempWavPath);
-        _duration = _audioReader.TotalTime;
-        _metronome = new MetronomeSampleProvider(_audioReader);
+        _audioSource = new PcmWaveSampleProvider(_audio);
+        _duration = _audioSource.TotalTime;
+        _metronome = new MetronomeSampleProvider(_audioSource);
         _outputDevice = new WaveOutEvent();
         _outputDevice.Init(_metronome);
         _outputDevice.PlaybackStopped += OnPlaybackStopped;
@@ -110,8 +109,8 @@ public class SongPreviewPlayer : IDisposable
         if (CurrentTime >= Duration)
             Seek(TimeSpan.Zero);
 
-        if (_audioReader != null)
-            _audioReader.CurrentTime = CurrentTime;
+        if (_audioSource != null)
+            _audioSource.CurrentTime = CurrentTime;
 
         if (_outputDevice == null && _pcmPlayer == null)
             return;
@@ -169,8 +168,8 @@ public class SongPreviewPlayer : IDisposable
         _stopwatch.Reset();
         IsPlaying = false;
 
-        _audioReader?.Position = 0;
-
+        if (_audioSource != null)
+            _audioSource.CurrentTime = TimeSpan.Zero;
         _metronome?.ResetPosition(0);
     }
 
@@ -185,8 +184,8 @@ public class SongPreviewPlayer : IDisposable
 
         if (IsPlaying)
         {
-            if (_audioReader != null)
-                _audioReader.CurrentTime = time;
+            if (_audioSource != null)
+                _audioSource.CurrentTime = time;
 
             _metronome?.ResetPosition(time.TotalSeconds);
             try
@@ -242,25 +241,14 @@ public class SongPreviewPlayer : IDisposable
             _outputDevice = null;
         }
 
-        _audioReader?.Dispose();
-        _audioReader = null;
+        _audioSource = null;
         _metronome = null;
         if (_pcmPlayer != null)
             _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
         _pcmPlayer?.Dispose();
         _pcmPlayer = null;
+        _audio = null;
         _duration = TimeSpan.Zero;
-
-        if (_tempWavPath != null)
-        {
-            try
-            {
-                File.Delete(_tempWavPath);
-            }
-            catch { /* ignore */ }
-
-            _tempWavPath = null;
-        }
     }
 
     private void DisablePlayback(Exception ex)

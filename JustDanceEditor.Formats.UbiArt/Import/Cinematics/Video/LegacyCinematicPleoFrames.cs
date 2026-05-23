@@ -1,3 +1,4 @@
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Core;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Rendering;
 
@@ -160,7 +161,7 @@ internal sealed class PleoFrameProvider : IDisposable
 
         ProcessStartInfo startInfo = new()
         {
-            FileName = ResolveFfmpegExecutable(),
+            FileName = JdiFfmpegResolver.GetFfmpegPath(),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -203,24 +204,6 @@ internal sealed class PleoFrameProvider : IDisposable
         string error = pipeError?.ToString() ?? string.Empty;
         throw new InvalidOperationException(
             $"ffmpeg Pleo pipe exited with code {pipeProcess.ExitCode}: {error}");
-    }
-
-    internal static string ResolveFfmpegExecutable()
-    {
-        foreach (string start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
-        {
-            DirectoryInfo? directory = new(start);
-            while (directory != null)
-            {
-                string candidate = Path.Combine(directory.FullName, "ffmpeg.exe");
-                if (File.Exists(candidate))
-                    return candidate;
-
-                directory = directory.Parent;
-            }
-        }
-
-        return "ffmpeg";
     }
 
     internal static bool ReadExactly(Stream stream, Span<byte> buffer)

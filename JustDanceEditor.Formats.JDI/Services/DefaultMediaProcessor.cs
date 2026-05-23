@@ -1,5 +1,10 @@
+using JustDanceEditor.Formats.JDI.Video;
+
+using Microsoft.Extensions.Logging;
+
+using System.Globalization;
+
 using Xabe.FFmpeg;
-using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Formats.JDI.Services;
 
@@ -7,20 +12,114 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
 {
     private readonly IFileSystem _io = io ?? new SystemFileSystem();
 
-    public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    public async Task EncodeAudioAsync(JdiAudioEncodeRequest request, string outputPath, CancellationToken cancellationToken = default)
     {
-        if (!_io.FileExists("ffmpeg.exe") && !_io.FileExists("ffmpeg"))
-            await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
+
+        IConversion conversion = FFmpeg.Conversions.New();
+        conversion.SetOverwriteOutput(request.OverwriteOutput);
+        conversion.AddParameter($"-i \"{request.SourcePath}\"");
+        AddAudioEncodeParameters(conversion, request);
+        conversion.SetOutput(outputPath);
+
+        await conversion.Start(cancellationToken);
     }
 
-    public async Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default)
+    public async Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default)
     {
-        IConversion conversion = FFmpeg.Conversions.New();
-        conversion.AddParameter($"-i \"{input}\"");
-        if (extraArgs is { Length: > 0 })
-            conversion.AddParameter(string.Join(' ', extraArgs));
+        ArgumentNullException.ThrowIfNull(request);
+        string outputFormat = request.OutputFormat ?? request.Codec ?? throw new ArgumentException("A memory audio encode needs an output format or codec.", nameof(request));
 
-        conversion.SetOutput(output);
-        await conversion.Start(cancellationToken);
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
+
+        MemoryStream output = new();
+        object outputLock = new();
+
+        IConversion conversion = FFmpeg.Conversions.New();
+        conversion.AddParameter($"-i \"{request.SourcePath}\"");
+        AddAudioEncodeParameters(conversion, request);
+        conversion.AddParameter($"-f {outputFormat}");
+        conversion.PipeOutput(PipeDescriptor.stdout);
+        conversion.OnVideoDataReceived += (_, args) =>
+        {
+            if (args.Data is not { Length: > 0 })
+                return;
+
+            lock (outputLock)
+                output.Write(args.Data, 0, args.Data.Length);
+        };
+
+        try
+        {
+            await conversion.Start(cancellationToken);
+            output.Position = 0;
+            return output;
+        }
+        catch
+        {
+            await output.DisposeAsync();
+            throw;
+        }
+    }
+
+    public Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default)
+        => JdiVideoConverter.GetOrCreateVideoAsync(request, logger, cancellationToken);
+
+    private static void AddAudioEncodeParameters(IConversion conversion, JdiAudioEncodeRequest request)
+    {
+        foreach (string argument in BuildAudioEncodeArguments(request))
+            conversion.AddParameter(argument);
+    }
+
+    private static IEnumerable<string> BuildAudioEncodeArguments(JdiAudioEncodeRequest request)
+    {
+        if (request.Start > TimeSpan.Zero)
+            yield return string.Create(CultureInfo.InvariantCulture, $"-ss {request.Start.TotalSeconds}");
+        if (request.Duration.HasValue)
+            yield return string.Create(CultureInfo.InvariantCulture, $"-t {request.Duration.Value.TotalSeconds}");
+        if (!string.IsNullOrWhiteSpace(request.Codec))
+            yield return $"-codec:a {ResolveAudioEncoder(request.Codec)}";
+        if (request.SampleRate.HasValue)
+            yield return string.Create(CultureInfo.InvariantCulture, $"-ar {request.SampleRate.Value}");
+        if (request.Channels.HasValue)
+            yield return string.Create(CultureInfo.InvariantCulture, $"-ac {request.Channels.Value}");
+        if (!string.IsNullOrWhiteSpace(request.Bitrate))
+            yield return $"-b:a {request.Bitrate}";
+        if (!string.IsNullOrWhiteSpace(request.SampleFormat))
+            yield return $"-sample_fmt {request.SampleFormat}";
+
+        string filters = BuildAudioFilter(request);
+        if (!string.IsNullOrWhiteSpace(filters))
+            yield return $"-af \"{filters}\"";
+    }
+
+    private static string BuildAudioFilter(JdiAudioEncodeRequest request)
+    {
+        List<string> filters = [];
+        if (request.FadeInDuration is { } fadeIn && fadeIn > TimeSpan.Zero)
+            filters.Add(string.Create(CultureInfo.InvariantCulture, $"afade=t=in:st=0:d={fadeIn.TotalSeconds}"));
+        if (request.FadeOutStart is { } fadeOutStart &&
+            request.FadeOutDuration is { } fadeOutDuration &&
+            fadeOutDuration > TimeSpan.Zero)
+        {
+            filters.Add(string.Create(CultureInfo.InvariantCulture, $"afade=t=out:st={fadeOutStart.TotalSeconds}:d={fadeOutDuration.TotalSeconds}"));
+        }
+
+        return string.Join(",", filters);
+    }
+
+    private static string ResolveAudioEncoder(string codec)
+    {
+        if (codec.Equals("opus", StringComparison.OrdinalIgnoreCase))
+            return "libopus";
+        if (codec.Equals("vorbis", StringComparison.OrdinalIgnoreCase))
+            return "libvorbis";
+        if (codec.Equals("mp3", StringComparison.OrdinalIgnoreCase))
+            return "libmp3lame";
+
+        return codec;
     }
 }

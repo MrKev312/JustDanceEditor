@@ -1,4 +1,3 @@
-using KevInc.Audio.NAudio;
 using KevInc.Texture.Nintendo.ImageSharp;
 using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Raki;
@@ -73,34 +72,20 @@ public class NxCookedPlatformExporter : IPlatformExporter
         return Task.CompletedTask;
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public async Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        try
+        await Task.Run(() =>
         {
-            await Task.Run(() =>
-            {
-                using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
-                    ? new OpusWaveStream(sourcePath)
-                    : new WaveFileReader(sourcePath);
+            using WaveStream waveStream = source.OpenWaveStream();
+            using FileStream output = File.Create(destPath);
 
-                using FileStream output = File.Create(destPath);
-
-                if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
-                {
-                    RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Nx  ", type: "pcm ");
-                }
-                else
-                {
-                    RakiNintendoSwitchOpusAudioEncoder.Encode(waveStream, output);
-                }
-            });
-        }
-        catch (Exception)
-        {
-            File.Copy(sourcePath, destPath, true);
-        }
+            if (Path.GetFileName(destPath).StartsWith("amb_", StringComparison.OrdinalIgnoreCase))
+                RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Nx  ", type: "pcm ");
+            else
+                RakiNintendoSwitchOpusAudioEncoder.Encode(waveStream, output);
+        });
     }
 }

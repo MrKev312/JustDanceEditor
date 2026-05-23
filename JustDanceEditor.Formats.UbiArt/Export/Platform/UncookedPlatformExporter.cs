@@ -1,11 +1,11 @@
 using KevInc.UbiArt.FileSystem;
 
+using NAudio.Wave;
+
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Tga;
 using SixLabors.ImageSharp.PixelFormats;
-
-using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Platform;
 
@@ -45,22 +45,16 @@ public class UncookedPlatformExporter : IPlatformExporter
         }
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public async Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath);
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        if (Path.GetExtension(sourcePath).Equals(".wav", StringComparison.OrdinalIgnoreCase))
+        await Task.Run(() =>
         {
-            File.Copy(sourcePath, destPath, true);
-        }
-        else
-        {
-            IConversion conversion = FFmpeg.Conversions.New();
-            conversion.SetOverwriteOutput(true);
-            conversion.AddParameter($"-i \"{sourcePath}\" -ar 48000 -ac 2 -sample_fmt s16");
-            conversion.SetOutput(destPath);
-            await conversion.Start();
-        }
+            using WaveStream waveStream = source.OpenWaveStream();
+            using FileStream output = File.Create(destPath);
+            WaveFileWriter.WriteWavFileToStream(output, waveStream);
+        });
     }
 }

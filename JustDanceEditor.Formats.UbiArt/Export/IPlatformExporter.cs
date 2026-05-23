@@ -30,9 +30,9 @@ public interface IPlatformExporter
     Task WriteTextureAsync(ExportContext context, string relativePath, Image<Bgra32> image);
 
     /// <summary>
-    /// Writes an audio file. Handles format conversion (WAV vs RAKI/Opus) and trimming.
+    /// Writes an audio file. Handles platform-specific wrapping from a normalized JDI audio source.
     /// </summary>
-    Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null);
+    Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source);
 
     /// <summary>
     /// Gets the root folder relative to the output for this platform (e.g., "cache/itf_cooked/nx" or "world/maps").

@@ -14,8 +14,6 @@ using NAudio.Wave.SampleProviders;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
-using Xabe.FFmpeg;
-
 namespace JustDanceEditor.Formats.UbiArt.Import.Audio;
 
 public sealed record UbiArtAudioClipSource(SoundSetClip Clip, CookedFile File);
@@ -114,7 +112,7 @@ public static class UbiArtAudioConverter
             sourceFileName += ".ckd";
 
         if (IsPlainAudioFile(sourceFile, src))
-            return ConvertPlainAudioFile(src, sourceFile.Extension, request.TempAudioFolder);
+            return ConvertPlainAudioFile(src, sourceFile.Extension);
 
         return request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
     }
@@ -151,10 +149,8 @@ public static class UbiArtAudioConverter
         }
     }
 
-    private static WaveStream ConvertPlainAudioFile(Stream source, string extension, string tempAudioFolder)
+    private static WaveStream ConvertPlainAudioFile(Stream source, string extension)
     {
-        Directory.CreateDirectory(tempAudioFolder);
-
         if (extension.Equals(".wav", StringComparison.OrdinalIgnoreCase))
         {
             MemoryStream wavCopy = new();
@@ -163,48 +159,10 @@ public static class UbiArtAudioConverter
             return new WaveFileReader(wavCopy);
         }
 
-        string inputPath = Path.Combine(tempAudioFolder, $"{Guid.NewGuid():N}{extension}");
-        string outputPath = Path.Combine(tempAudioFolder, $"{Guid.NewGuid():N}.wav");
-
-        try
-        {
-            using (FileStream input = File.Create(inputPath))
-            {
-                source.CopyTo(input);
-            }
-
-            IConversion conversion = FFmpeg.Conversions.New();
-            conversion.SetOverwriteOutput(true);
-            conversion.AddParameter($"-i \"{inputPath}\" -ar 48000 -ac 2");
-            conversion.SetOutput(outputPath);
-            conversion.Start().GetAwaiter().GetResult();
-
-            MemoryStream wavCopy = new();
-            using (FileStream output = File.OpenRead(outputPath))
-            {
-                output.CopyTo(wavCopy);
-            }
-
-            wavCopy.Position = 0;
-            return new WaveFileReader(wavCopy);
-        }
-        finally
-        {
-            TryDeleteFile(inputPath);
-            TryDeleteFile(outputPath);
-        }
-    }
-
-    private static void TryDeleteFile(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch
-        {
-        }
+        MemoryStream opusCopy = new();
+        source.CopyTo(opusCopy);
+        opusCopy.Position = 0;
+        return new OpusWaveStream(opusCopy, ownsStream: true);
     }
 
     private static ISampleProvider MergeAudioStreams(

@@ -7,21 +7,14 @@ public sealed class PlaybackServiceAudioFailureTests
     [Fact]
     public async Task Play_WhenPcmBackendFails_DoesNotThrow()
     {
-        string audioPath = Path.GetTempFileName();
-        try
-        {
-            using PlaybackService playback = new(() => new ThrowingPcmPlaybackEngine(), useWindowsAudio: false);
-            await playback.LoadMediaAsync(audioPath, beat => beat * 0.5, seconds => seconds / 0.5);
+        PcmWaveAudioData audio = new(48000, 2, new short[48000 * 2]);
+        using PlaybackService playback = new(() => new ThrowingPcmPlaybackEngine(), useWindowsAudio: false);
+        await playback.LoadMediaAsync(audio, beat => beat * 0.5, seconds => seconds / 0.5);
 
-            Exception? exception = Record.Exception(playback.Play);
+        Exception? exception = Record.Exception(playback.Play);
 
-            Assert.Null(exception);
-            Assert.True(playback.IsPlaying);
-        }
-        finally
-        {
-            File.Delete(audioPath);
-        }
+        Assert.Null(exception);
+        Assert.True(playback.IsPlaying);
     }
 
     private sealed class ThrowingPcmPlaybackEngine : IPcmPlaybackEngine
@@ -36,7 +29,7 @@ public sealed class PlaybackServiceAudioFailureTests
         public TimeSpan Duration => TimeSpan.FromSeconds(10);
         public bool IsMetronomeEnabled { get; set; }
 
-        public void Load(string wavPath)
+        public void Load(PcmWaveAudioData audio)
         {
         }
 

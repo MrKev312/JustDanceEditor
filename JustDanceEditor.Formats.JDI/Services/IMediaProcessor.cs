@@ -1,7 +1,12 @@
+using JustDanceEditor.Formats.JDI.Video;
+
+using Microsoft.Extensions.Logging;
+
 namespace JustDanceEditor.Formats.JDI.Services;
 
 public interface IMediaProcessor
 {
-    Task EnsureInitializedAsync(CancellationToken cancellationToken = default);
-    Task ConvertAsync(string input, string output, string[]? extraArgs = null, CancellationToken cancellationToken = default);
+    Task EncodeAudioAsync(JdiAudioEncodeRequest request, string outputPath, CancellationToken cancellationToken = default);
+    Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default);
+    Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default);
 }

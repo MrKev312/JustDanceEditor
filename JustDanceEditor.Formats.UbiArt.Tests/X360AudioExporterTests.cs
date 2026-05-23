@@ -34,7 +34,7 @@ public class X360AudioExporterTests
             ExportContext context = new(root, new UbiArtLayoutResolver(), new SystemFileSystem());
             X360CookedPlatformExporter exporter = new();
 
-            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav"), sourceWav);
+            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav"), new UbiArtAudioExportSource(sourceWav));
 
             string outputPath = Path.Combine(root, "cache", "itf_cooked", "x360", "world", "maps", "song", "audio", "song.wav.ckd");
             Assert.True(File.Exists(outputPath));

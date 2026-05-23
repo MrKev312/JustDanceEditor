@@ -1,3 +1,4 @@
+using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Formats.Unity.Cache;
 using JustDanceEditor.Formats.Unity.Tools;
 
@@ -5,6 +6,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Xunit;
@@ -82,6 +85,53 @@ public class UnityCacheToolProviderTests
         {
             if (Directory.Exists(outputPath))
                 Directory.Delete(outputPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveOrCreateAsync_AsksInteractionWhenCacheIsMissing()
+    {
+        string outputPath = Path.Combine(Path.GetTempPath(), $"jde-unity-cache-prompt-{Guid.NewGuid():N}");
+        RecordingInteraction interaction = new("true");
+
+        try
+        {
+            Directory.CreateDirectory(outputPath);
+            File.WriteAllText(Path.Combine(outputPath, "not-a-cache.txt"), "placeholder");
+
+            UnityConversionRequest request = new("/input", outputPath)
+            {
+                Interaction = interaction
+            };
+
+            string resolved = await UnityCacheLayout.ResolveOrCreateAsync(outputPath, request, NullLogger.Instance, TestContext.Current.CancellationToken);
+
+            Assert.Equal(outputPath, resolved);
+            Assert.Equal("unity.cache.missing", interaction.LastPromptSetId);
+            Assert.Contains("likely the wrong output folder", interaction.LastPromptLabel);
+            Assert.True(File.Exists(Path.Combine(outputPath, "SD_Cache.0000", "MapBaseCache", "CachingStatus.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(outputPath))
+                Directory.Delete(outputPath, recursive: true);
+        }
+    }
+
+    private sealed class RecordingInteraction(string value) : IConversionInteraction
+    {
+        public string? LastPromptSetId { get; private set; }
+
+        public string LastPromptLabel { get; private set; } = string.Empty;
+
+        public ValueTask<PromptAnswerSet> AskAsync(ConversionPromptSet promptSet, CancellationToken cancellationToken = default)
+        {
+            LastPromptSetId = promptSet.Id;
+            LastPromptLabel = promptSet.Prompts.Single().Label;
+
+            PromptAnswerSet answers = new();
+            answers.Set(promptSet.Prompts.Single().Id, value);
+            return ValueTask.FromResult(answers);
         }
     }
 }

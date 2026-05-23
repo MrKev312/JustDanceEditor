@@ -30,13 +30,23 @@
 		<PackageReference Include="KevInc.UbiArt.Texture" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtTextureProject)')" />
 	</ItemGroup>
 	<ItemGroup>
+		<KevIncLocalProjectReference Include="$(KevIncCrnLibProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncCrnLibProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncCrnLibImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncCrnLibImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTextureImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureNintendoProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureNintendoProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTextureNintendoImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureNintendoImageSharpProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTexturePlayStationProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTexturePlayStationImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationImageSharpProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTextureXboxProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncTextureXboxImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioCafeProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioCafeProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioCafeNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioCafeNAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioNxProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNxProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioNxNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNxNAudioProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioXma2Project)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2Project)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioXma2NAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2NAudioProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />

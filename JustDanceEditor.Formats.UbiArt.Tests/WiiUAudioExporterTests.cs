@@ -37,7 +37,7 @@ public class WiiUAudioExporterTests
             ExportContext context = new(root, new UbiArtLayoutResolver(), new SystemFileSystem(), engineVersion);
             WiiUCookedPlatformExporter exporter = new();
 
-            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "wiiu", "world", "maps", "song", "audio", "amb", "amb_song_intro.wav"), sourceWav);
+            await exporter.WriteAudioAsync(context, Path.Combine("cache", "itf_cooked", "wiiu", "world", "maps", "song", "audio", "amb", "amb_song_intro.wav"), new UbiArtAudioExportSource(sourceWav));
 
             string outputPath = Path.Combine(root, "cache", "itf_cooked", "wiiu", "world", "maps", "song", "audio", "amb", "amb_song_intro.wav.ckd");
             Assert.True(File.Exists(outputPath));

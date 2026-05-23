@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
@@ -17,9 +18,6 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-using Xabe.FFmpeg;
-using Xabe.FFmpeg.Downloader;
-
 namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 
 internal static class IntermediateAssetWriter
@@ -36,8 +34,6 @@ internal static class IntermediateAssetWriter
         context.IntermediatePackage ??= package;
 
         ResetAssetsRoot(packageRoot, iofs);
-
-        await EnsurePrerequisitesAsync(iofs);
 
         JDUbiArtSong songData = context.SongData ?? throw new InvalidOperationException("Song data not loaded.");
         string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder, iofs);
@@ -59,12 +55,6 @@ internal static class IntermediateAssetWriter
         TryDeleteDirectory(previewVideoFolder, logger, iofs);
 
         await CopyAssetsToPackageAsync(context, packageRoot, logger, textureService, iofs);
-    }
-
-    private static async Task EnsurePrerequisitesAsync(IFileSystem io)
-    {
-        if (!io.FileExists("ffmpeg.exe") && !io.FileExists("ffmpeg"))
-            await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
     }
 
     private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
@@ -514,13 +504,12 @@ internal static class IntermediateAssetWriter
     {
         try
         {
-            IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourcePath);
-            IVideoStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault();
-            if (videoStream == null)
+            JdiVideoInfo? videoInfo = await JdiVideoConverter.TryInspectVideoAsync(sourcePath);
+            if (videoInfo == null)
                 return null;
 
-            int width = videoStream.Width;
-            int height = videoStream.Height;
+            int width = videoInfo.Width;
+            int height = videoInfo.Height;
             if (width <= 0 || height <= 0 || height % 3 != 0)
                 return null;
 
@@ -549,7 +538,7 @@ internal static class IntermediateAssetWriter
                 outputWidth,
                 outputHeight);
 
-            return new LegacyCutoutVideoLayout(width, height, visibleHeight, alphaHeight, outputWidth, outputHeight, mediaInfo.Duration.TotalSeconds);
+            return new LegacyCutoutVideoLayout(width, height, visibleHeight, alphaHeight, outputWidth, outputHeight, videoInfo.Duration.TotalSeconds);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

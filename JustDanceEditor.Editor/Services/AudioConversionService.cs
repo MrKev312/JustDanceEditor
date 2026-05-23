@@ -1,6 +1,12 @@
+using JustDanceEditor.Formats.JDI.Video;
+
 using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Xabe.FFmpeg;
@@ -21,27 +27,41 @@ public class AudioConversionService
         if (!File.Exists(audioPath))
             return 0;
 
-        await FfmpegExecutableResolver.GetFfmpegPathAsync();
+        await JdiFfmpegResolver.GetFfmpegPathAsync();
         IMediaInfo info = await FFmpeg.GetMediaInfo(audioPath);
         IAudioStream? audioStream = info.AudioStreams.FirstOrDefault();
         return audioStream?.Duration.TotalSeconds ?? info.Duration.TotalSeconds;
     }
 
-    /// <summary>
-    /// Converts any audio file to WAV using FFmpeg for editor preview and package creation.
-    /// Returns the path to the temp WAV file.
-    /// </summary>
-    public static async Task<string> ConvertToWavAsync(string audioPath)
+    public static async Task<PcmWaveAudioData> DecodeToPcmAsync(
+        string audioPath,
+        int sampleRate = 48000,
+        int channels = 2,
+        CancellationToken cancellationToken = default)
     {
-        await FfmpegExecutableResolver.GetFfmpegPathAsync();
+        if (!File.Exists(audioPath))
+            throw new FileNotFoundException("The audio file does not exist.", audioPath);
 
-        string tempWav = Path.Combine(Path.GetTempPath(), $"jdi_preview_{Guid.NewGuid()}.wav");
-        IConversion conversion = FFmpeg.Conversions.New();
-        conversion.AddParameter($"-y -i \"{audioPath}\" -vn -sn -ar 48000 -ac 2 -sample_fmt s16 -acodec pcm_s16le -f wav");
-        conversion.SetOutput(tempWav);
-        conversion.SetOverwriteOutput(true);
-        await conversion.Start();
-        return tempWav;
+        byte[] bytes = await RunFfmpegToMemoryAsync(
+            audioPath,
+            [
+                "-vn",
+                "-sn",
+                "-ar",
+                sampleRate.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "-ac",
+                channels.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "-sample_fmt",
+                "s16",
+                "-acodec",
+                "pcm_s16le",
+                "-f",
+                "s16le",
+                "pipe:1"
+            ],
+            cancellationToken);
+
+        return PcmWaveAudioData.FromS16Le(sampleRate, channels, bytes);
     }
 
     /// <summary>
@@ -53,35 +73,82 @@ public class AudioConversionService
         if (!File.Exists(audioPath))
             return [];
 
-        await FfmpegExecutableResolver.GetFfmpegPathAsync();
+        byte[] bytes = await RunFfmpegToMemoryAsync(
+            audioPath,
+            [
+                "-f",
+                "s16le",
+                "-acodec",
+                "pcm_s16le",
+                "-ac",
+                "1",
+                "-ar",
+                "8000",
+                "pipe:1"
+            ]);
 
-        string tempOut = Path.Combine(Path.GetTempPath(), $"jdi_wave_{Guid.NewGuid()}.raw");
+        float[] samples = new float[bytes.Length / 2];
+        for (int i = 0; i < samples.Length; i++)
+            samples[i] = BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(i * 2, 2)) / 32768f;
+
+        return samples;
+    }
+
+    private static async Task<byte[]> RunFfmpegToMemoryAsync(
+        string inputPath,
+        IReadOnlyList<string> outputArguments,
+        CancellationToken cancellationToken = default)
+    {
+        string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
+
+        ProcessStartInfo startInfo = new()
+        {
+            FileName = ffmpegPath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        startInfo.ArgumentList.Add("-hide_banner");
+        startInfo.ArgumentList.Add("-loglevel");
+        startInfo.ArgumentList.Add("error");
+        startInfo.ArgumentList.Add("-nostdin");
+        startInfo.ArgumentList.Add("-i");
+        startInfo.ArgumentList.Add(inputPath);
+        foreach (string argument in outputArguments)
+            startInfo.ArgumentList.Add(argument);
+
+        using Process process = new() { StartInfo = startInfo, EnableRaisingEvents = true };
+        if (!process.Start())
+            throw new InvalidOperationException("Failed to start FFmpeg audio decoder.");
+
+        await using MemoryStream output = new();
+        Task copyOutput = process.StandardOutput.BaseStream.CopyToAsync(output, cancellationToken);
+        Task<string> readError = process.StandardError.ReadToEndAsync(cancellationToken);
+
         try
         {
-            IConversion conversion = FFmpeg.Conversions.New();
-            conversion.AddParameter($"-y -i \"{audioPath}\" -f s16le -ac 1 -ar 8000");
-            conversion.SetOutput(tempOut);
-            conversion.SetOverwriteOutput(true);
-            await conversion.Start();
-
-            byte[] bytes = await File.ReadAllBytesAsync(tempOut);
-            float[] samples = new float[bytes.Length / 2];
-            for (int i = 0; i < samples.Length; i++)
-            {
-                short sample = BitConverter.ToInt16(bytes, i * 2);
-                samples[i] = sample / 32768f;
-            }
-
-            return samples;
+            await Task.WhenAll(copyOutput, readError, process.WaitForExitAsync(cancellationToken));
         }
-        finally
+        catch
         {
             try
             {
-                if (File.Exists(tempOut))
-                    File.Delete(tempOut);
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
             }
-            catch { }
+            catch
+            {
+            }
+
+            throw;
         }
+
+        string error = await readError;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"FFmpeg audio decode failed with code {process.ExitCode}: {error}");
+
+        return output.ToArray();
     }
 }

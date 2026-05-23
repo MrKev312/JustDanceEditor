@@ -8,7 +8,6 @@ using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
@@ -18,7 +17,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     private readonly Func<IPcmPlaybackEngine> _pcmPlaybackEngineFactory;
     private readonly bool _useWindowsAudio;
     private IWavePlayer? _outputDevice;
-    private AudioFileReader? _audioFile;
+    private PcmWaveSampleProvider? _audioSource;
     private EndlessSampleProvider? _endless;
     private MetronomeSampleProvider? _metronome;
     private IPcmPlaybackEngine? _pcmPlayer;
@@ -53,7 +52,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         get
         {
-            TimeSpan audioDur = _audioFile?.TotalTime ?? TimeSpan.Zero;
+            TimeSpan audioDur = _audioSource?.TotalTime ?? TimeSpan.Zero;
             audioDur = _pcmPlayer?.Duration ?? audioDur;
             return field > audioDur ? field : audioDur;
         }
@@ -92,7 +91,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     }
 
     public async Task LoadMediaAsync(
-        string audioPath,
+        PcmWaveAudioData? audio,
         Func<double, double> beatToSeconds,
         Func<double, double> secondsToBeat)
     {
@@ -103,14 +102,14 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         CleanUpAudio();
 
-        if (!string.IsNullOrEmpty(audioPath) && File.Exists(audioPath))
+        if (audio != null)
         {
             if (_useWindowsAudio)
             {
                 await Task.Run(() =>
                 {
-                    _audioFile = new AudioFileReader(audioPath);
-                    _endless = new EndlessSampleProvider(_audioFile, _audioFile.TotalTime);
+                    _audioSource = new PcmWaveSampleProvider(audio);
+                    _endless = new EndlessSampleProvider(_audioSource, _audioSource.TotalTime);
                     _metronome = new MetronomeSampleProvider(_endless);
                     _outputDevice = new WasapiOut(AudioClientShareMode.Shared, 10);
                     _outputDevice.Init(_metronome);
@@ -121,7 +120,7 @@ public class PlaybackService : IPlaybackService, IDisposable
                 await Task.Run(() =>
                 {
                     _pcmPlayer = _pcmPlaybackEngineFactory();
-                    _pcmPlayer.Load(audioPath);
+                    _pcmPlayer.Load(audio);
                 });
             }
         }
@@ -148,10 +147,10 @@ public class PlaybackService : IPlaybackService, IDisposable
         UpdateTimerInterval();
         TimeSpan startTime = CurrentTime;
 
-        if (_audioFile != null)
+        if (_audioSource != null)
         {
-            TimeSpan audioPos = startTime < _audioFile.TotalTime ? startTime : _audioFile.TotalTime;
-            _audioFile.CurrentTime = audioPos;
+            TimeSpan audioPos = startTime < _audioSource.TotalTime ? startTime : _audioSource.TotalTime;
+            _audioSource.CurrentTime = audioPos;
         }
 
         _endless?.Reset(startTime.TotalSeconds);
@@ -194,10 +193,10 @@ public class PlaybackService : IPlaybackService, IDisposable
             _baseTime = Duration;
 
         // Clamp audio file reader to its own duration (CurrentTime can't go past TotalTime)
-        if (_audioFile != null)
+        if (_audioSource != null)
         {
-            TimeSpan audioPos = _baseTime < _audioFile.TotalTime ? _baseTime : _audioFile.TotalTime;
-            _audioFile.CurrentTime = audioPos;
+            TimeSpan audioPos = _baseTime < _audioSource.TotalTime ? _baseTime : _audioSource.TotalTime;
+            _audioSource.CurrentTime = audioPos;
         }
 
         _endless?.Reset(_baseTime.TotalSeconds);
@@ -220,11 +219,10 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         _outputDevice?.Stop();
         _outputDevice?.Dispose();
-        _audioFile?.Dispose();
         _pcmPlayer?.Dispose();
 
         _outputDevice = null;
-        _audioFile = null;
+        _audioSource = null;
         _endless = null;
         _metronome = null;
         _pcmPlayer = null;

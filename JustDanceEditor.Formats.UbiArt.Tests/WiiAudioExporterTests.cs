@@ -37,7 +37,7 @@ public sealed class WiiAudioExporterTests
             await exporter.WriteAudioAsync(
                 context,
                 Path.Combine("cache", "itf_cooked", "wii", "world", "maps", "song", "audio", relativeAudioPath),
-                sourceWav);
+                new UbiArtAudioExportSource(sourceWav));
 
             string outputPath = Path.Combine(root, "cache", "itf_cooked", "wii", "world", "maps", "song", "audio", relativeAudioPath + ".ckd");
             Assert.True(File.Exists(outputPath));

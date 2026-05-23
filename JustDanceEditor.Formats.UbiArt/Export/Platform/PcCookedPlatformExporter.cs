@@ -1,4 +1,3 @@
-using KevInc.Audio.NAudio;
 using KevInc.Texture.ImageSharp;
 using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Raki;
@@ -71,28 +70,17 @@ public class PcCookedPlatformExporter : IPlatformExporter
         return Task.CompletedTask;
     }
 
-    public async Task WriteAudioAsync(ExportContext context, string relativePath, string sourcePath, List<int>? markers = null)
+    public async Task WriteAudioAsync(ExportContext context, string relativePath, UbiArtAudioExportSource source)
     {
         string destPath = context.IO.Combine(context.OutputFolder, relativePath + ".ckd");
         context.IO.CreateDirectory(Path.GetDirectoryName(destPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{destPath}'."));
 
-        try
+        await Task.Run(() =>
         {
-            await Task.Run(() =>
-            {
-                using WaveStream waveStream = Path.GetExtension(sourcePath) == ".opus"
-                    ? new OpusWaveStream(sourcePath)
-                    : new WaveFileReader(sourcePath);
-
-                using FileStream output = File.Create(destPath);
-
-                RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Win ", type: "pcm ");
-            });
-        }
-        catch (Exception)
-        {
-            File.Copy(sourcePath, destPath, true);
-        }
+            using WaveStream waveStream = source.OpenWaveStream();
+            using FileStream output = File.Create(destPath);
+            RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Win ", type: "pcm ");
+        });
     }
 
 }

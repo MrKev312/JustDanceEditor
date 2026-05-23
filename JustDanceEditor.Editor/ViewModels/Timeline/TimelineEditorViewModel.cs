@@ -17,6 +17,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.JDI.Utilities;
+using JustDanceEditor.Formats.JDI.Video;
 
 using SixLabors.ImageSharp.Processing;
 
@@ -132,7 +133,7 @@ public partial class TimelineEditorViewModel : Document
 
     public string AudioPath { get; private set; } = "";
     public string VideoPath { get; private set; } = "";
-    public string PreparedAudioPath { get; private set; } = "";
+    public PcmWaveAudioData? PreparedAudio { get; private set; }
     public double StartBeatValue { get; private set; }
     public double VideoOffset { get; private set; }
     public double VideoDurationSeconds { get; private set; }
@@ -276,10 +277,10 @@ public partial class TimelineEditorViewModel : Document
             SetVideoOffset(-Package.TimelineStructure.VideoStartOffset, syncTrack: false);
             SyncVideoTrackClip();
 
-            // Prepare audio (Opus -> WAV)
+            // Prepare audio once so playback can reuse decoded PCM without temp files.
             if (File.Exists(AudioPath))
             {
-                PreparedAudioPath = await AudioConversionService.ConvertToWavAsync(AudioPath);
+                PreparedAudio = await AudioConversionService.DecodeToPcmAsync(AudioPath);
             }
 
             // Marker-based timing logic
@@ -288,7 +289,7 @@ public partial class TimelineEditorViewModel : Document
 
             // Ensure this timeline is loaded
             await Playback.LoadMediaAsync(
-                PreparedAudioPath,
+                PreparedAudio,
                 b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
                 s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)));
 
@@ -457,13 +458,12 @@ public partial class TimelineEditorViewModel : Document
         BuildTimeline();
         SyncVideoTrackClip();
 
-        // Reload playback with updated beat-to-time mapping
-        // (reuse the already-converted WAV — no FFmpeg re-conversion needed)
+        // Reload playback with updated beat-to-time mapping.
         TimelineStructureDocument ts = Package.TimelineStructure;
-        if (!string.IsNullOrEmpty(PreparedAudioPath) && File.Exists(PreparedAudioPath))
+        if (PreparedAudio != null)
         {
             await Playback.LoadMediaAsync(
-                PreparedAudioPath,
+                PreparedAudio,
                 b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
                 s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)));
 
@@ -555,6 +555,7 @@ public partial class TimelineEditorViewModel : Document
         if (!File.Exists(mediaPath))
             return 0;
 
+        await JdiFfmpegResolver.GetFfmpegPathAsync();
         IMediaInfo info = await FFmpeg.GetMediaInfo(mediaPath);
         IVideoStream? videoStream = info.VideoStreams.FirstOrDefault();
         return videoStream?.Duration.TotalSeconds ?? info.Duration.TotalSeconds;
@@ -2163,14 +2164,6 @@ public partial class TimelineEditorViewModel : Document
         }
 
         Playback.Dispose();
-        if (!string.IsNullOrEmpty(PreparedAudioPath) && File.Exists(PreparedAudioPath))
-        {
-            try
-            {
-                File.Delete(PreparedAudioPath);
-            }
-            catch { }
-        }
 
         return base.OnClose();
     }

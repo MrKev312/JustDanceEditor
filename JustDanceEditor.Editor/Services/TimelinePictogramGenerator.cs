@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.JDI.Video;
 
 using System;
 using System.Collections.Generic;
@@ -377,6 +378,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
 
     private static async Task ExtractFrameAsync(string videoPath, double timestampSeconds, string outputPath, CancellationToken cancellationToken)
     {
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
         IConversion conversion = FFmpeg.Conversions.New();
         string timestamp = Math.Max(0, timestampSeconds).ToString("0.###", CultureInfo.InvariantCulture);
         conversion.AddParameter($"-y -ss {timestamp} -i \"{videoPath}\" -frames:v 1");
@@ -387,6 +389,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
 
     private static async Task ConvertImageToWebpAsync(string sourcePath, string outputPath, CancellationToken cancellationToken)
     {
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
         IConversion conversion = FFmpeg.Conversions.New();
         conversion.AddParameter($"-y -i \"{sourcePath}\"");
         conversion.SetOutput(outputPath);

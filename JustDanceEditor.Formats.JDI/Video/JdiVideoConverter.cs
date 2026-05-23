@@ -4,57 +4,29 @@ using System.Globalization;
 using System.Text;
 
 using Xabe.FFmpeg;
-using Xabe.FFmpeg.Downloader;
 
 namespace JustDanceEditor.Formats.JDI.Video;
+
+public sealed record JdiVideoInfo(int Width, int Height, TimeSpan Duration, string Codec);
 
 public static class JdiVideoConverter
 {
     private static readonly string[] AllowedExtensions = [".webm", ".mp4", ".mkv", ".mov"];
     // Limit total concurrent FFmpeg processes
     private static readonly SemaphoreSlim FFmpegSemaphore = new(Math.Max(1, Environment.ProcessorCount / 2), Math.Max(1, Environment.ProcessorCount / 2));
-    private static readonly SemaphoreSlim InitLock = new(1, 1);
-    private static bool _ffmpegInitialized = false;
 
-    public static async Task EnsureFFmpegInitializedAsync()
+    public static async Task<JdiVideoInfo?> TryInspectVideoAsync(string sourceVideo, CancellationToken ct = default)
     {
-        if (_ffmpegInitialized)
-            return;
-        await InitLock.WaitAsync();
-        try
-        {
-            if (_ffmpegInitialized)
-                return;
+        if (string.IsNullOrWhiteSpace(sourceVideo) || !File.Exists(sourceVideo))
+            return null;
 
-            string? executableDirectory = TryFindFFmpegExecutableDirectory();
-            if (executableDirectory is null)
-            {
-                await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official);
-                executableDirectory = TryFindFFmpegExecutableDirectory() ?? Environment.CurrentDirectory;
-            }
+        await JdiFfmpegResolver.GetFfmpegPathAsync(ct);
+        IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourceVideo, ct);
+        IVideoStream? videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+        if (videoStream is null)
+            return null;
 
-            FFmpeg.SetExecutablesPath(executableDirectory);
-            _ffmpegInitialized = true;
-        }
-        finally
-        {
-            InitLock.Release();
-        }
-    }
-
-    private static string? TryFindFFmpegExecutableDirectory()
-    {
-        string executableName = OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
-        string[] candidates =
-        [
-            Environment.CurrentDirectory,
-            AppContext.BaseDirectory
-        ];
-
-        return candidates
-            .Where(directory => !string.IsNullOrWhiteSpace(directory))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(directory => File.Exists(Path.Combine(directory, executableName)));
+        return new JdiVideoInfo(videoStream.Width, videoStream.Height, mediaInfo.Duration, videoStream.Codec);
     }
 
     public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken ct = default)
@@ -85,70 +57,41 @@ public static class JdiVideoConverter
         );
     }
 
-    public static async Task<string?> EnsureWiiVideoAsync(string packageRoot, ILogger logger, CancellationToken ct = default)
+    public static async Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken ct = default)
     {
-        await EnsureFFmpegInitializedAsync();
-        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string scratchFolder = GetScratchFolder(packageRoot);
+        ArgumentNullException.ThrowIfNull(request);
 
-        string? sourceVideo = SelectSourceVideo(assetsFolder);
-        if (sourceVideo == null)
-            return LogNotFound(logger);
-
-        string cachedPath = Path.Combine(scratchFolder, $"{Path.GetFileNameWithoutExtension(sourceVideo)}_wii.webm");
+        await JdiFfmpegResolver.GetFfmpegPathAsync(ct);
+        string scratchFolder = GetScratchFolder(request.PackageRoot);
+        string cachedPath = Path.Combine(scratchFolder, request.CacheFileName);
         if (File.Exists(cachedPath))
             return cachedPath;
 
-        Directory.CreateDirectory(scratchFolder);
-
-        // Wii Specifics: VP8, 512x384, Fixed Filters
-        string filter = "scale=512:384:flags=bicubic,setsar=1,setdar=4/3";
-        string codecArgs = "-c:v vp8 -profile:v 2 -pix_fmt yuv420p -auto-alt-ref 0 -b:v 2000k -quality good -cpu-used 16";
-
-        logger.LogInformation("Transcoding Wii video (2-pass)...");
-        await RunTwoPassEncodingAsync(sourceVideo, cachedPath, filter, codecArgs, TimeSpan.Zero, TimeSpan.Zero, logger, ct);
-
-        return cachedPath;
-    }
-
-    public static async Task<string?> EnsureVideoFormatAsync(string packageRoot, string targetExt, string codec, ILogger logger, CancellationToken ct = default)
-    {
-        await EnsureFFmpegInitializedAsync();
-        string assetsFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
-        string scratchFolder = GetScratchFolder(packageRoot);
-
-        string? sourceVideo = SelectSourceVideo(assetsFolder);
+        string? sourceVideo = ResolveSourceVideo(request);
         if (sourceVideo == null)
             return LogNotFound(logger);
 
-        // Check if source already matches requirements
         IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(sourceVideo, ct);
         IVideoStream? vidStream = mediaInfo.VideoStreams.FirstOrDefault();
-        if (vidStream?.Codec.Equals(codec, StringComparison.OrdinalIgnoreCase) == true &&
-            Path.GetExtension(sourceVideo).Equals(targetExt, StringComparison.OrdinalIgnoreCase))
+        Directory.CreateDirectory(Path.GetDirectoryName(cachedPath) ?? scratchFolder);
+
+        long bitrate = vidStream?.Bitrate > 0 ? vidStream.Bitrate : 4_000_000;
+        if (!request.ForceTranscode &&
+            vidStream?.Codec.Equals(request.Codec, StringComparison.OrdinalIgnoreCase) == true &&
+            Path.GetExtension(sourceVideo).Equals(request.ContainerExtension, StringComparison.OrdinalIgnoreCase) &&
+            request.Transform.IsEmpty &&
+            request.Start <= TimeSpan.Zero &&
+            request.Duration <= TimeSpan.Zero)
         {
-            return sourceVideo;
+            File.Copy(sourceVideo, cachedPath, overwrite: true);
+            return cachedPath;
         }
 
-        string cachedPath = Path.Combine(scratchFolder, $"{Path.GetFileNameWithoutExtension(sourceVideo)}_{codec.Replace(":", "")}{targetExt}");
-        if (File.Exists(cachedPath))
-            return cachedPath;
+        string videoFilter = BuildVideoFilter(request.Transform);
+        string codecArgs = BuildVideoCodecArgs(request.Codec, bitrate, request.Encoding);
 
-        Directory.CreateDirectory(scratchFolder);
-
-        // Derive bitrate from source or default to 4M
-        long bitrate = vidStream?.Bitrate > 0 ? vidStream.Bitrate : 4_000_000;
-
-        string codecArgs;
-        if (codec == "vp8")
-            codecArgs = $"-c:v vp8 -b:v {bitrate} -maxrate {bitrate * 1.5} -bufsize {bitrate * 3} -quality good -cpu-used 1 -slices 4";
-        else if (codec == "vp9")
-            codecArgs = $"-c:v vp9 -b:v {bitrate} -maxrate {bitrate * 1.5} -bufsize {bitrate * 3} -quality good -speed 4 -row-mt 1";
-        else
-            codecArgs = $"-c:v {codec} -b:v {bitrate}";
-
-        logger.LogInformation("Transcoding legacy video to {Codec} (2-pass)...", codec);
-        await RunTwoPassEncodingAsync(sourceVideo, cachedPath, "", codecArgs, TimeSpan.Zero, TimeSpan.Zero, logger, ct);
+        logger.LogInformation("Encoding cached JDI video as {Codec}...", request.Codec);
+        await RunTwoPassEncodingAsync(sourceVideo, cachedPath, videoFilter, codecArgs, request.Start, request.Duration, logger, ct);
 
         return cachedPath;
     }
@@ -164,7 +107,7 @@ public static class JdiVideoConverter
         TimeSpan start = default,
         TimeSpan duration = default)
     {
-        await EnsureFFmpegInitializedAsync();
+        await JdiFfmpegResolver.GetFfmpegPathAsync(ct);
         string scratchFolder = GetScratchFolder(packageRoot);
         string assetsVideoFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.VideoFolder);
         string truthFolder = IntermediatePackageLayout.Resolve(packageRoot, truthFolderAbsPath);
@@ -253,7 +196,6 @@ public static class JdiVideoConverter
         await FFmpegSemaphore.WaitAsync(ct);
         try
         {
-            // -an is explicitly kept from original code for Wii/Previews
             string p2Args = $"{timeArgs} -i \"{input}\" {codecArgs} {vfArg} -pass 2 -passlogfile \"{passLogPrefix}\" -an -y \"{output}\"";
             IConversion conv = FFmpeg.Conversions.New();
             conv.OnDataReceived += (s, e) =>
@@ -324,6 +266,22 @@ public static class JdiVideoConverter
 
     private static string GetScratchFolder(string root) => Path.Combine(root, "scratch", "video");
 
+    private static string? ResolveSourceVideo(JdiVideoEncodeRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.SourcePath))
+        {
+            if (Path.IsPathFullyQualified(request.SourcePath))
+                return File.Exists(request.SourcePath) ? request.SourcePath : null;
+
+            string packageRelative = Path.Combine(request.PackageRoot, request.SourcePath);
+            if (File.Exists(packageRelative))
+                return packageRelative;
+        }
+
+        string assetsFolder = IntermediatePackageLayout.Resolve(request.PackageRoot, IntermediatePackageLayout.Assets.VideoFolder);
+        return SelectSourceVideo(assetsFolder);
+    }
+
     private static string? SelectSourceVideo(string folder)
     {
         if (!Directory.Exists(folder))
@@ -348,6 +306,98 @@ public static class JdiVideoConverter
             .Count(f => (!requirePrefix || Path.GetFileName(f).StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase))
                      && AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()));
         return count >= profiles.Length;
+    }
+
+    internal static string BuildVideoFilter(JdiVideoTransform transform)
+    {
+        if (transform.IsEmpty)
+            return "";
+
+        List<string> filters = [];
+        if (transform.Width.HasValue || transform.Height.HasValue)
+        {
+            string width = transform.Width?.ToString(CultureInfo.InvariantCulture) ?? "-1";
+            string height = transform.Height?.ToString(CultureInfo.InvariantCulture) ?? "-1";
+            string scale = $"scale={width}:{height}";
+            if (transform.ScaleAlgorithm == JdiScaleAlgorithm.Bicubic)
+                scale += ":flags=bicubic";
+            filters.Add(scale);
+        }
+
+        if (!string.IsNullOrWhiteSpace(transform.SampleAspectRatio))
+            filters.Add($"setsar={transform.SampleAspectRatio}");
+        if (!string.IsNullOrWhiteSpace(transform.DisplayAspectRatio))
+            filters.Add($"setdar={transform.DisplayAspectRatio}");
+        filters.AddRange(transform.AdditionalFilters.Where(filter => !string.IsNullOrWhiteSpace(filter)));
+
+        return string.Join(",", filters);
+    }
+
+    internal static string BuildVideoCodecArgs(string codec, long sourceBitrate, JdiVideoEncodingSettings settings, bool includeAudioOption = false)
+    {
+        long bitrate = settings.Bitrate ?? sourceBitrate;
+        long? maxBitrate = settings.MaxBitrate;
+        long? bufferSize = settings.BufferSize;
+
+        if (settings.UseDefaultCodecTuning)
+        {
+            maxBitrate ??= (long)(bitrate * 1.5);
+            bufferSize ??= bitrate * 3;
+        }
+
+        StringBuilder builder = new();
+        builder.Append(CultureInfo.InvariantCulture, $"-c:v {ResolveVideoEncoder(codec)} ");
+        if (settings.Profile.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-profile:v {settings.Profile.Value} ");
+        if (!string.IsNullOrWhiteSpace(settings.PixelFormat))
+            builder.Append(CultureInfo.InvariantCulture, $"-pix_fmt {settings.PixelFormat} ");
+        if (settings.AutoAltRef.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-auto-alt-ref {(settings.AutoAltRef.Value ? 1 : 0)} ");
+
+        builder.Append(CultureInfo.InvariantCulture, $"-b:v {bitrate} ");
+        if (maxBitrate.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-maxrate {maxBitrate.Value} ");
+        if (bufferSize.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-bufsize {bufferSize.Value} ");
+        if (settings.ConstantRateFactor.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-crf {settings.ConstantRateFactor.Value} ");
+
+        if (!string.IsNullOrWhiteSpace(settings.Quality))
+            builder.Append(CultureInfo.InvariantCulture, $"-quality {settings.Quality} ");
+        if (settings.CpuUsed.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-cpu-used {settings.CpuUsed.Value} ");
+        else if (settings.UseDefaultCodecTuning && codec.Equals("vp8", StringComparison.OrdinalIgnoreCase))
+            builder.Append("-cpu-used 1 ");
+
+        if (settings.Speed.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-speed {settings.Speed.Value} ");
+        else if (settings.UseDefaultCodecTuning && codec.Equals("vp9", StringComparison.OrdinalIgnoreCase))
+            builder.Append("-speed 4 ");
+
+        if (settings.Slices.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-slices {settings.Slices.Value} ");
+        else if (settings.UseDefaultCodecTuning && codec.Equals("vp8", StringComparison.OrdinalIgnoreCase))
+            builder.Append("-slices 4 ");
+
+        if (settings.RowMultithreading.HasValue)
+            builder.Append(CultureInfo.InvariantCulture, $"-row-mt {(settings.RowMultithreading.Value ? 1 : 0)} ");
+        else if (settings.UseDefaultCodecTuning && codec.Equals("vp9", StringComparison.OrdinalIgnoreCase))
+            builder.Append("-row-mt 1 ");
+
+        if (includeAudioOption && settings.OmitAudio)
+            builder.Append("-an ");
+
+        return builder.ToString();
+    }
+
+    private static string ResolveVideoEncoder(string codec)
+    {
+        if (codec.Equals("vp8", StringComparison.OrdinalIgnoreCase))
+            return "libvpx";
+        if (codec.Equals("vp9", StringComparison.OrdinalIgnoreCase))
+            return "libvpx-vp9";
+
+        return codec;
     }
 
     private static void WriteManifest(string folder, VideoQualityProfile[] profiles, string type, ILogger log)
