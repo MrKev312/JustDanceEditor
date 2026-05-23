@@ -19,6 +19,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<EmbeddedResource Include="Layouts\DefaultLayout.json" Condition="Exists('Layouts\DefaultLayout.json')" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Compile Include="..\Shared\Avalonia\PlatformTheme.cs"
 		         Link="Shared\PlatformTheme.cs" />
 	</ItemGroup>
