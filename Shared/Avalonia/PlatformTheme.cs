@@ -79,7 +79,7 @@ internal static class PlatformTheme
                     WindowTransparencyLevel.Transparent
                 ];
                 window.Background = Brushes.Transparent;
-                window.TransparencyBackgroundFallback = Brush("#20242C");
+                window.TransparencyBackgroundFallback = Brush("#171719");
                 window.ExtendClientAreaToDecorationsHint = !floatingWindow;
                 window.ExtendClientAreaTitleBarHeightHint = 38;
                 window.FontFamily = new FontFamily(".AppleSystemUIFont, SF Pro Text, Inter");

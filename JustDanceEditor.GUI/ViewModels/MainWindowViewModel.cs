@@ -12,6 +12,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.GUI.Services;
 using JustDanceEditor.GUI.ViewModels.Prompts;
 
@@ -955,8 +956,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         IJdiFormat targetFormat = ResolveFormat(target.FormatName);
         bool downloadOnlineAssets = DownloadAssetsWhenLoading;
 
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
+
         PromptAnswerSet answers = BuildConversionAnswers();
-        IConversionInteraction interaction = new StaticConversionInteraction(answers);
+        IConversionInteraction interaction = new GuiConversionInteraction(_dialogs, answers);
         string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
             ? outputPath
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileNameWithoutExtension(inputPath) ?? "Export");

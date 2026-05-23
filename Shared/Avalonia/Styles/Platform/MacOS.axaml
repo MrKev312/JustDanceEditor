@@ -4,44 +4,44 @@
     <FluentTheme.Palettes>
       <ColorPaletteResources x:Key="Dark"
                               Accent="#0A84FF"
-                              RegionColor="#33232630"
-                              ChromeLow="#40232630"
-                              ChromeMediumLow="#59303846"
-                              ChromeMedium="#70424B5C"
-                              ChromeHigh="#A8DCE7F8" />
+                              RegionColor="#4A111114"
+                              ChromeLow="#5C151518"
+                              ChromeMediumLow="#781C1C20"
+                              ChromeMedium="#9126262B"
+                              ChromeHigh="#F2F7FAFF" />
     </FluentTheme.Palettes>
   </FluentTheme>
   <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
   <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
   <Styles.Resources>
-    <SolidColorBrush x:Key="JdeWindowBackgroundBrush" Color="#00000000" />
-    <SolidColorBrush x:Key="JdeWindowFallbackBrush" Color="#20242C" />
-    <SolidColorBrush x:Key="JdeSurfaceBrush" Color="#24FFFFFF" />
-    <SolidColorBrush x:Key="JdeSurfaceBorderBrush" Color="#3CFFFFFF" />
+    <SolidColorBrush x:Key="JdeWindowBackgroundBrush" Color="#52101012" />
+    <SolidColorBrush x:Key="JdeWindowFallbackBrush" Color="#171719" />
+    <SolidColorBrush x:Key="JdeSurfaceBrush" Color="#781C1C20" />
+    <SolidColorBrush x:Key="JdeSurfaceBorderBrush" Color="#66FFFFFF" />
     <SolidColorBrush x:Key="JdeTextPrimaryBrush" Color="#FFF7FAFF" />
-    <SolidColorBrush x:Key="JdeTextSecondaryBrush" Color="#DDEBF3FF" />
-    <SolidColorBrush x:Key="JdeTextMutedBrush" Color="#B8CAD7E8" />
-    <SolidColorBrush x:Key="JdeInputBrush" Color="#20FFFFFF" />
-    <SolidColorBrush x:Key="JdeInputHoverBrush" Color="#2EFFFFFF" />
-    <SolidColorBrush x:Key="JdeInputFocusBrush" Color="#36FFFFFF" />
-    <SolidColorBrush x:Key="JdeInputBorderBrush" Color="#3DFFFFFF" />
-    <SolidColorBrush x:Key="JdeInputHoverBorderBrush" Color="#52FFFFFF" />
+    <SolidColorBrush x:Key="JdeTextSecondaryBrush" Color="#E6EAF2FF" />
+    <SolidColorBrush x:Key="JdeTextMutedBrush" Color="#C8D8DEE8" />
+    <SolidColorBrush x:Key="JdeInputBrush" Color="#3DFFFFFF" />
+    <SolidColorBrush x:Key="JdeInputHoverBrush" Color="#4CFFFFFF" />
+    <SolidColorBrush x:Key="JdeInputFocusBrush" Color="#5CFFFFFF" />
+    <SolidColorBrush x:Key="JdeInputBorderBrush" Color="#59FFFFFF" />
+    <SolidColorBrush x:Key="JdeInputHoverBorderBrush" Color="#73FFFFFF" />
     <SolidColorBrush x:Key="JdeInputFocusBorderBrush" Color="#AA64D2FF" />
-    <SolidColorBrush x:Key="JdeButtonBrush" Color="#22FFFFFF" />
-    <SolidColorBrush x:Key="JdeButtonHoverBrush" Color="#34FFFFFF" />
-    <SolidColorBrush x:Key="JdeButtonPressedBrush" Color="#2AFFFFFF" />
-    <SolidColorBrush x:Key="JdeButtonBorderBrush" Color="#3DFFFFFF" />
-    <SolidColorBrush x:Key="JdeButtonHoverBorderBrush" Color="#5EFFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonBrush" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonHoverBrush" Color="#4DFFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonPressedBrush" Color="#26FFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonBorderBrush" Color="#59FFFFFF" />
+    <SolidColorBrush x:Key="JdeButtonHoverBorderBrush" Color="#80FFFFFF" />
     <SolidColorBrush x:Key="JdeAccentBrush" Color="#FF0A84FF" />
-    <SolidColorBrush x:Key="JdeBadgeBrush" Color="#26FFFFFF" />
-    <SolidColorBrush x:Key="JdeBadgeBorderBrush" Color="#48FFFFFF" />
-    <SolidColorBrush x:Key="JdeListHoverBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="JdeBadgeBrush" Color="#3DFFFFFF" />
+    <SolidColorBrush x:Key="JdeBadgeBorderBrush" Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="JdeListHoverBrush" Color="#2EFFFFFF" />
     <Thickness x:Key="JdeMainWindowTitleBarContentMargin">76,0,0,0</Thickness>
   </Styles.Resources>
 
   <Style Selector="Window">
-    <Setter Property="Background" Value="{DynamicResource JdeWindowBackgroundBrush}" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="TransparencyBackgroundFallback" Value="{DynamicResource JdeWindowFallbackBrush}" />
     <Setter Property="FontFamily" Value=".AppleSystemUIFont, SF Pro Text, Inter" />
     <Setter Property="Padding" Value="0" />

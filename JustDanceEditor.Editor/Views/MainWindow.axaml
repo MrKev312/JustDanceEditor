@@ -11,6 +11,7 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="Just Dance Editor">
 
+	<Border Background="{DynamicResource JdeWindowBackgroundBrush}">
 	<Grid RowDefinitions="32, *">
 		<!-- Title Bar / Menu Area -->
 		<Grid Grid.Row="0"
@@ -49,4 +50,5 @@
 			</dock:DockControl.Styles>
 		</dock:DockControl>
 	</Grid>
+	</Border>
 </Window>

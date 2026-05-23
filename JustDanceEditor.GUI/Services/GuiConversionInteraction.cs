@@ -24,7 +24,7 @@ internal sealed class GuiConversionInteraction(IApplicationDialogService dialogs
             if (prompt.Kind == ConversionPromptKind.Boolean)
             {
                 bool result = await _dialogs.AskBooleanAsync(promptSet.Title, prompt.Label, cancellationToken);
-                response.Set(prompt.Id, result ? "true" : "false");
+                SetAnswer(response, prompt.Id, result ? "true" : "false");
                 continue;
             }
 
@@ -33,20 +33,20 @@ internal sealed class GuiConversionInteraction(IApplicationDialogService dialogs
                 string? selected = await _dialogs.AskChoiceAsync(promptSet.Title, prompt.Label, prompt.Options, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(selected))
                 {
-                    response.Set(prompt.Id, selected);
+                    SetAnswer(response, prompt.Id, selected);
                     continue;
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(prompt.DefaultValue))
             {
-                response.Set(prompt.Id, prompt.DefaultValue);
+                SetAnswer(response, prompt.Id, prompt.DefaultValue);
                 continue;
             }
 
             if (!prompt.Required)
             {
-                response.Set(prompt.Id, string.Empty);
+                SetAnswer(response, prompt.Id, string.Empty);
                 continue;
             }
 
@@ -54,5 +54,11 @@ internal sealed class GuiConversionInteraction(IApplicationDialogService dialogs
         }
 
         return response;
+    }
+
+    private void SetAnswer(PromptAnswerSet response, string id, string value)
+    {
+        response.Set(id, value);
+        _answers.Set(id, value);
     }
 }

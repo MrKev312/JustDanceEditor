@@ -177,6 +177,7 @@
     </Style>
   </Window.Styles>
 
+  <Border Background="{DynamicResource JdeWindowBackgroundBrush}">
   <Grid RowDefinitions="32,*">
     <Grid Grid.Row="0"
           ColumnDefinitions="Auto,*"
@@ -422,4 +423,5 @@
       </Border>
     </Grid>
   </Grid>
+  </Border>
 </Window>
