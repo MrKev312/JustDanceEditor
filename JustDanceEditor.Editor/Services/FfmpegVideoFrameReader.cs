@@ -1,3 +1,5 @@
+using JustDanceEditor.Formats.JDI.Video;
+
 using System;
 using System.Diagnostics;
 using System.Globalization;
@@ -26,7 +28,7 @@ internal sealed class FfmpegVideoFrameReader
     public async Task<FfmpegVideoFrameInfo> GetVideoInfoAsync(string videoPath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(videoPath);
-        await FfmpegExecutableResolver.GetFfmpegPathAsync(cancellationToken);
+        await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
 
         IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(videoPath, cancellationToken);
         IVideoStream videoStream = mediaInfo.VideoStreams.FirstOrDefault()
@@ -42,56 +44,24 @@ internal sealed class FfmpegVideoFrameReader
         return new FfmpegVideoFrameInfo(sourceWidth, sourceHeight, outputWidth, outputHeight, Math.Clamp(frameRate, 1, 60));
     }
 
-    public async Task ReadFramePixelsAsync(
-        string videoPath,
-        double timestampSeconds,
-        FfmpegVideoFrameInfo info,
-        byte[] frameBytes,
-        CancellationToken cancellationToken = default)
-    {
-        int frameByteCount = GetFrameByteCount(info);
-        if (frameBytes.Length < frameByteCount)
-            throw new ArgumentException("The frame buffer is too small for the requested video frame.", nameof(frameBytes));
-
-        string ffmpegPath = await FfmpegExecutableResolver.GetFfmpegPathAsync(cancellationToken);
-        using Process process = StartFfmpeg(ffmpegPath, videoPath, timestampSeconds, info, stream: false);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
-
-        try
-        {
-            int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, frameByteCount, cancellationToken);
-
-            await WaitForExitOrKillAsync(process, cancellationToken);
-            string stderr = await stderrTask;
-
-            if (bytesRead != frameByteCount)
-                throw new InvalidOperationException($"FFmpeg returned an incomplete video frame. {stderr}".Trim());
-
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException($"FFmpeg exited with code {process.ExitCode}. {stderr}".Trim());
-        }
-        catch
-        {
-            KillIfRunning(process);
-            throw;
-        }
-    }
-
     public async Task StreamFramesAsync(
         string videoPath,
         double startSeconds,
         FfmpegVideoFrameInfo info,
-        Func<byte[], FfmpegVideoFrameInfo, CancellationToken, Task> onFrame,
+        Func<byte[], FfmpegVideoFrameInfo, double, CancellationToken, Task<bool>> onFrame,
+        bool paceFrames = true,
         CancellationToken cancellationToken = default)
     {
-        string ffmpegPath = await FfmpegExecutableResolver.GetFfmpegPathAsync(cancellationToken);
-        using Process process = StartFfmpeg(ffmpegPath, videoPath, startSeconds, info, stream: true);
+        string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
+        using Process process = StartFfmpeg(ffmpegPath, videoPath, startSeconds, info);
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
         int frameByteCount = GetFrameByteCount(info);
         byte[] frameBytes = new byte[frameByteCount];
         TimeSpan frameInterval = TimeSpan.FromSeconds(1d / Math.Max(1, info.FrameRate));
         DateTime nextFrameAt = DateTime.UtcNow;
+        long frameIndex = 0;
+        bool reachedEnd = false;
 
         try
         {
@@ -99,24 +69,37 @@ internal sealed class FfmpegVideoFrameReader
             {
                 int bytesRead = await ReadExactAsync(process.StandardOutput.BaseStream, frameBytes, frameByteCount, cancellationToken);
                 if (bytesRead == 0)
+                {
+                    reachedEnd = true;
                     break;
+                }
 
                 if (bytesRead != frameByteCount)
                     throw new InvalidOperationException("FFmpeg ended before a complete video frame was read.");
 
-                await onFrame(frameBytes, info, cancellationToken);
+                double frameSeconds = startSeconds + frameIndex / Math.Max(1, info.FrameRate);
+                frameIndex++;
+                bool shouldContinue = await onFrame(frameBytes, info, frameSeconds, cancellationToken);
+                if (!shouldContinue)
+                    break;
 
-                nextFrameAt += frameInterval;
-                TimeSpan delay = nextFrameAt - DateTime.UtcNow;
-                if (delay > TimeSpan.Zero)
-                    await Task.Delay(delay, cancellationToken);
-                else if (delay < -frameInterval)
-                    nextFrameAt = DateTime.UtcNow;
+                if (paceFrames)
+                {
+                    nextFrameAt += frameInterval;
+                    TimeSpan delay = nextFrameAt - DateTime.UtcNow;
+                    if (delay > TimeSpan.Zero)
+                        await Task.Delay(delay, cancellationToken);
+                    else if (delay < -frameInterval)
+                        nextFrameAt = DateTime.UtcNow;
+                }
             }
+
+            if (!reachedEnd)
+                KillIfRunning(process);
 
             await WaitForExitOrKillAsync(process, cancellationToken);
             string stderr = await stderrTask;
-            if (!cancellationToken.IsCancellationRequested && process.ExitCode != 0)
+            if (!cancellationToken.IsCancellationRequested && reachedEnd && process.ExitCode != 0)
                 throw new InvalidOperationException($"FFmpeg exited with code {process.ExitCode}. {stderr}".Trim());
         }
         catch
@@ -126,7 +109,7 @@ internal sealed class FfmpegVideoFrameReader
         }
     }
 
-    private static Process StartFfmpeg(string ffmpegPath, string videoPath, double startSeconds, FfmpegVideoFrameInfo info, bool stream)
+    private static Process StartFfmpeg(string ffmpegPath, string videoPath, double startSeconds, FfmpegVideoFrameInfo info)
     {
         ProcessStartInfo startInfo = new()
         {
@@ -138,9 +121,7 @@ internal sealed class FfmpegVideoFrameReader
         };
 
         string timestamp = Math.Max(0, startSeconds).ToString("0.###", CultureInfo.InvariantCulture);
-        string filter = stream
-            ? $"scale={info.OutputWidth}:{info.OutputHeight},fps={info.FrameRate.ToString("0.###", CultureInfo.InvariantCulture)}"
-            : $"scale={info.OutputWidth}:{info.OutputHeight}";
+        string filter = $"scale={info.OutputWidth}:{info.OutputHeight},fps={info.FrameRate.ToString("0.###", CultureInfo.InvariantCulture)}";
 
         startInfo.ArgumentList.Add("-hide_banner");
         startInfo.ArgumentList.Add("-loglevel");
@@ -151,12 +132,8 @@ internal sealed class FfmpegVideoFrameReader
         startInfo.ArgumentList.Add(videoPath);
         startInfo.ArgumentList.Add("-an");
         startInfo.ArgumentList.Add("-sn");
-        if (!stream)
-        {
-            startInfo.ArgumentList.Add("-frames:v");
-            startInfo.ArgumentList.Add("1");
-        }
-
+        startInfo.ArgumentList.Add("-sws_flags");
+        startInfo.ArgumentList.Add("fast_bilinear");
         startInfo.ArgumentList.Add("-vf");
         startInfo.ArgumentList.Add(filter);
         startInfo.ArgumentList.Add("-f");

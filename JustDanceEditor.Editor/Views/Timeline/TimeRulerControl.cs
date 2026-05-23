@@ -283,7 +283,7 @@ public class TimeRulerControl : Control
 
         int firstBeat = Math.Max(0, (int)Math.Floor(visiblePixelStart / Math.Max(1.0, ppb)) - 1);
         int lastBeat = Math.Min((int)Math.Ceiling(max), (int)Math.Ceiling(visiblePixelEnd / Math.Max(1.0, ppb)) + 1);
-        double nextLabelX = double.NegativeInfinity;
+        int labelGroupInterval = GetLabelGroupInterval(ppb);
 
         for (int i = firstBeat; i <= lastBeat; i++)
         {
@@ -298,14 +298,36 @@ public class TimeRulerControl : Control
 
             context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
 
-            if (isMajor && x >= nextLabelX)
+            if (isMajor && ShouldDrawBeatLabel(i + offset, sectionStarts, labelGroupInterval))
             {
                 FormattedText text = GetBeatLabelText(i + offset, labelBrush);
-
                 context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
-                nextLabelX = x + Math.Max(MinimumLabelSpacing, text.Width + 8);
             }
         }
+    }
+
+    private static int GetLabelGroupInterval(double pixelsPerBeat)
+    {
+        const double baseGroupBeats = 4;
+        double pixelsPerGroup = Math.Max(1, pixelsPerBeat * baseGroupBeats);
+        return Math.Max(1, (int)Math.Ceiling(MinimumLabelSpacing / pixelsPerGroup));
+    }
+
+    private static bool ShouldDrawBeatLabel(int beat, List<double> sectionStarts, int labelGroupInterval)
+    {
+        const double baseGroupBeats = 4;
+        double sectionStart = 0;
+        for (int i = sectionStarts.Count - 1; i >= 0; i--)
+        {
+            if (beat >= sectionStarts[i] - 0.01)
+            {
+                sectionStart = sectionStarts[i];
+                break;
+            }
+        }
+
+        int groupIndex = (int)Math.Round((beat - sectionStart) / baseGroupBeats);
+        return groupIndex % labelGroupInterval == 0;
     }
 
     private FormattedText GetBeatLabelText(int beat, IBrush labelBrush)
