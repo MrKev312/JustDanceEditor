@@ -77,36 +77,18 @@ public sealed class IntermediateImageService(
         int targetSize = width ?? height ?? SquareCoverSize;
         string squareCoverPath = ResolvePath(IntermediatePackageLayout.Assets.SquareCoverFile);
 
-        // If square cover doesn't exist, generate it from regular cover
+        // If square cover doesn't exist, compose it from the source assets directly.
         if (!_fileSystem.FileExists(squareCoverPath))
         {
-            logger?.LogDebug("Square cover not found, attempting to generate from cover");
-            Image<Bgra32> cover = await GetCoverAsync(cancellationToken: cancellationToken);
-
-            // If cover is a placeholder, return a square placeholder
-            if (IsPlaceholder(cover))
+            logger?.LogDebug("Square cover not found, attempting to generate from map background and album coach");
+            Image<Bgra32>? generated = await GenerateSquareCoverAsync(cancellationToken);
+            if (generated != null)
             {
-                cover.Dispose();
-                return CoverComposer.CreatePlaceholder("Square Cover", targetSize, targetSize);
+                await SaveImageAsync(generated, squareCoverPath, cancellationToken);
+                return ScaleImage(generated, width, height);
             }
 
-            using (cover)
-            {
-                // Create square version by squashing the cover
-                int squareSize = Math.Min(cover.Width, cover.Height);
-                Image<Bgra32> squareCover = cover.Clone();
-                squareCover.Mutate(x => x.Resize(new ResizeOptions
-                {
-                    Size = new Size(squareSize, squareSize),
-                    Mode = ResizeMode.Stretch
-                }));
-
-                // Save the full-resolution square cover
-                await SaveImageAsync(squareCover, squareCoverPath, cancellationToken);
-
-                // Return scaled version if requested
-                return ScaleImage(squareCover, width, height);
-            }
+            return CoverComposer.CreatePlaceholder("Square Cover", targetSize, targetSize);
         }
 
         return await LoadAndScaleImageAsync(squareCoverPath, width, height, cancellationToken)
@@ -289,6 +271,22 @@ public sealed class IntermediateImageService(
     {
         logger?.LogInformation("Generating all missing images for package at {Root}", _packageRoot);
 
+        // Generate album coach composite first so cover generation can compose it.
+        if (!HasImage(ImageAssetType.AlbumCoach))
+        {
+            logger?.LogDebug("Generating album coach composite");
+            using Image<Bgra32> albumCoach = await GetAlbumCoachAsync(cancellationToken: cancellationToken);
+            // GetAlbumCoachAsync already saves it if generated
+        }
+
+        // Generate map background before derived cover/banner assets.
+        if (!HasImage(ImageAssetType.MapBackground))
+        {
+            logger?.LogDebug("Generating map background");
+            using Image<Bgra32> mapBg = await GetMapBackgroundAsync(cancellationToken: cancellationToken);
+            // GetMapBackgroundAsync already saves it if generated
+        }
+
         // Generate square cover if missing
         if (!HasImage(ImageAssetType.SquareCover))
         {
@@ -303,22 +301,6 @@ public sealed class IntermediateImageService(
             logger?.LogDebug("Generating cover");
             using Image<Bgra32> cover = await GetCoverAsync(cancellationToken: cancellationToken);
             // GetCoverAsync already saves it
-        }
-
-        // Generate album coach composite if missing
-        if (!HasImage(ImageAssetType.AlbumCoach))
-        {
-            logger?.LogDebug("Generating album coach composite");
-            using Image<Bgra32> albumCoach = await GetAlbumCoachAsync(cancellationToken: cancellationToken);
-            // GetAlbumCoachAsync already saves it if generated
-        }
-
-        // Generate map background if missing
-        if (!HasImage(ImageAssetType.MapBackground))
-        {
-            logger?.LogDebug("Generating map background");
-            using Image<Bgra32> mapBg = await GetMapBackgroundAsync(cancellationToken: cancellationToken);
-            // GetMapBackgroundAsync already saves it if generated
         }
 
         // Generate banner if missing (from map background)
@@ -478,6 +460,45 @@ public sealed class IntermediateImageService(
         catch (Exception ex)
         {
             logger?.LogWarning(ex, "Failed to generate cover from map background and album coach");
+            return null;
+        }
+    }
+
+    private async Task<Image<Bgra32>?> GenerateSquareCoverAsync(CancellationToken cancellationToken)
+    {
+        Image<Bgra32> background = await GetMapBackgroundAsync(cancellationToken: cancellationToken);
+        if (IsPlaceholder(background))
+        {
+            background.Dispose();
+            logger?.LogDebug("Cannot generate square cover: no map background available");
+            return null;
+        }
+
+        Image<Bgra32>? albumCoach = null;
+        try
+        {
+            Image<Bgra32> coach = await GetAlbumCoachAsync(cancellationToken: cancellationToken);
+            if (!IsPlaceholder(coach))
+                albumCoach = coach;
+            else
+                coach.Dispose();
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "Could not load album coach for square cover composition, proceeding without it");
+        }
+
+        try
+        {
+            using (background)
+            using (albumCoach)
+            {
+                return CoverComposer.ComposeSquareCover(background, albumCoach, SquareCoverSize);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to generate square cover from map background and album coach");
             return null;
         }
     }

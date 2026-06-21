@@ -21,6 +21,7 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
 
         IConversion conversion = FFmpeg.Conversions.New();
         conversion.SetOverwriteOutput(request.OverwriteOutput);
+        AddAudioInputParameters(conversion, request);
         conversion.AddParameter($"-i \"{request.SourcePath}\"");
         AddAudioEncodeParameters(conversion, request);
         conversion.SetOutput(outputPath);
@@ -39,6 +40,7 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
         object outputLock = new();
 
         IConversion conversion = FFmpeg.Conversions.New();
+        AddAudioInputParameters(conversion, request);
         conversion.AddParameter($"-i \"{request.SourcePath}\"");
         AddAudioEncodeParameters(conversion, request);
         conversion.AddParameter($"-f {outputFormat}");
@@ -68,17 +70,30 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
     public Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default)
         => JdiVideoConverter.GetOrCreateVideoAsync(request, logger, cancellationToken);
 
+    private static void AddAudioInputParameters(IConversion conversion, JdiAudioEncodeRequest request)
+    {
+        foreach (string argument in BuildAudioInputArguments(request))
+            conversion.AddParameter(argument);
+    }
+
     private static void AddAudioEncodeParameters(IConversion conversion, JdiAudioEncodeRequest request)
     {
         foreach (string argument in BuildAudioEncodeArguments(request))
             conversion.AddParameter(argument);
     }
 
-    private static IEnumerable<string> BuildAudioEncodeArguments(JdiAudioEncodeRequest request)
+    internal static IEnumerable<string> BuildAudioInputArguments(JdiAudioEncodeRequest request)
     {
-        if (request.Start > TimeSpan.Zero)
+        yield break;
+    }
+
+    internal static IEnumerable<string> BuildAudioEncodeArguments(JdiAudioEncodeRequest request)
+    {
+        bool trimInFilter = ShouldTrimInFilter(request);
+
+        if (request.Start > TimeSpan.Zero && !trimInFilter)
             yield return string.Create(CultureInfo.InvariantCulture, $"-ss {request.Start.TotalSeconds}");
-        if (request.Duration.HasValue)
+        if (request.Duration.HasValue && !trimInFilter)
             yield return string.Create(CultureInfo.InvariantCulture, $"-t {request.Duration.Value.TotalSeconds}");
         if (!string.IsNullOrWhiteSpace(request.Codec))
             yield return $"-codec:a {ResolveAudioEncoder(request.Codec)}";
@@ -99,6 +114,28 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
     private static string BuildAudioFilter(JdiAudioEncodeRequest request)
     {
         List<string> filters = [];
+        if (ShouldTrimInFilter(request))
+        {
+            string trim = request.Start > TimeSpan.Zero
+                ? string.Create(CultureInfo.InvariantCulture, $"atrim=start={request.Start.TotalSeconds}")
+                : string.Empty;
+
+            if (request.Duration is { } duration)
+            {
+                string durationOption = string.Create(CultureInfo.InvariantCulture, $"duration={duration.TotalSeconds}");
+                trim = trim.Length == 0
+                    ? $"atrim={durationOption}"
+                    : $"{trim}:{durationOption}";
+            }
+            else if (trim.Length == 0)
+            {
+                trim = "atrim";
+            }
+
+            filters.Add(trim);
+            filters.Add("asetpts=PTS-STARTPTS");
+        }
+
         if (request.FadeInDuration is { } fadeIn && fadeIn > TimeSpan.Zero)
             filters.Add(string.Create(CultureInfo.InvariantCulture, $"afade=t=in:st=0:d={fadeIn.TotalSeconds}"));
         if (request.FadeOutStart is { } fadeOutStart &&
@@ -110,6 +147,15 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
 
         return string.Join(",", filters);
     }
+
+    private static bool ShouldTrimInFilter(JdiAudioEncodeRequest request)
+        => (request.Start > TimeSpan.Zero || request.Duration.HasValue) && HasTimestampSensitiveAudioFilter(request);
+
+    private static bool HasTimestampSensitiveAudioFilter(JdiAudioEncodeRequest request)
+        => request.FadeInDuration is { } fadeIn && fadeIn > TimeSpan.Zero ||
+           request.FadeOutStart is not null &&
+           request.FadeOutDuration is { } fadeOutDuration &&
+           fadeOutDuration > TimeSpan.Zero;
 
     private static string ResolveAudioEncoder(string codec)
     {

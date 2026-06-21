@@ -4,8 +4,8 @@ using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.JDI.Video;
 
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;

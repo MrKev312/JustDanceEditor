@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 using Xabe.FFmpeg;
 
@@ -27,6 +29,119 @@ public static class JdiVideoConverter
             return null;
 
         return new JdiVideoInfo(videoStream.Width, videoStream.Height, mediaInfo.Duration, videoStream.Codec);
+    }
+
+    public static async Task<JdiVideoInfo?> TryInspectVideoAsync(Func<Stream> sourceFactory, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(sourceFactory);
+
+        string ffprobePath = await JdiFfmpegResolver.GetFfprobePathAsync(ct);
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = ffprobePath,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            }
+        };
+
+        process.StartInfo.ArgumentList.Add("-v");
+        process.StartInfo.ArgumentList.Add("error");
+        process.StartInfo.ArgumentList.Add("-select_streams");
+        process.StartInfo.ArgumentList.Add("v:0");
+        process.StartInfo.ArgumentList.Add("-show_entries");
+        process.StartInfo.ArgumentList.Add("stream=width,height,codec_name:format=duration");
+        process.StartInfo.ArgumentList.Add("-of");
+        process.StartInfo.ArgumentList.Add("json");
+        process.StartInfo.ArgumentList.Add("-i");
+        process.StartInfo.ArgumentList.Add("pipe:0");
+
+        if (!process.Start())
+            return null;
+
+        Task inputTask = Task.Run(async () =>
+        {
+            try
+            {
+                await using Stream source = sourceFactory();
+                await source.CopyToAsync(process.StandardInput.BaseStream, ct).ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+                // ffprobe may close stdin as soon as it has enough header data.
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            finally
+            {
+                try
+                {
+                    await process.StandardInput.BaseStream.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (IOException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+        }, ct);
+
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(ct);
+        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        await inputTask.ConfigureAwait(false);
+        string stdout = await stdoutTask.ConfigureAwait(false);
+        await stderrTask.ConfigureAwait(false);
+
+        if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout))
+            return null;
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(stdout);
+            JsonElement root = document.RootElement;
+            if (!root.TryGetProperty("streams", out JsonElement streams) ||
+                streams.ValueKind != JsonValueKind.Array ||
+                streams.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            JsonElement stream = streams[0];
+            int width = stream.TryGetProperty("width", out JsonElement widthElement)
+                ? widthElement.GetInt32()
+                : 0;
+            int height = stream.TryGetProperty("height", out JsonElement heightElement)
+                ? heightElement.GetInt32()
+                : 0;
+            string codec = stream.TryGetProperty("codec_name", out JsonElement codecElement)
+                ? codecElement.GetString() ?? string.Empty
+                : string.Empty;
+
+            double durationSeconds = 0.0;
+            if (root.TryGetProperty("format", out JsonElement format) &&
+                format.TryGetProperty("duration", out JsonElement durationElement))
+            {
+                if (durationElement.ValueKind == JsonValueKind.Number)
+                    durationSeconds = durationElement.GetDouble();
+                else if (durationElement.ValueKind == JsonValueKind.String)
+                    double.TryParse(durationElement.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out durationSeconds);
+            }
+
+            return width > 0 && height > 0
+                ? new JdiVideoInfo(width, height, TimeSpan.FromSeconds(Math.Max(0.0, durationSeconds)), codec)
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public static async Task EnsurePreviewVideosAsync(IntermediateSongPackage package, string packageRoot, ILogger logger, CancellationToken ct = default)
@@ -196,7 +311,8 @@ public static class JdiVideoConverter
         await FFmpegSemaphore.WaitAsync(ct);
         try
         {
-            string p2Args = $"{timeArgs} -i \"{input}\" {codecArgs} {vfArg} -pass 2 -passlogfile \"{passLogPrefix}\" -an -y \"{output}\"";
+            string muxerArgs = BuildVideoMuxerArgs(output);
+            string p2Args = $"{timeArgs} -i \"{input}\" {codecArgs} {vfArg} -pass 2 -passlogfile \"{passLogPrefix}\" -an {muxerArgs}-y \"{output}\"";
             IConversion conv = FFmpeg.Conversions.New();
             conv.OnDataReceived += (s, e) =>
             {
@@ -217,6 +333,13 @@ public static class JdiVideoConverter
                 File.Delete(f);
         }
         catch { /* ignore */ }
+    }
+
+    internal static string BuildVideoMuxerArgs(string output)
+    {
+        return Path.GetExtension(output).Equals(".webm", StringComparison.OrdinalIgnoreCase)
+            ? "-f webm -cues_to_front 1 "
+            : "";
     }
 
     private static string BuildVp9ProfileArgs(VideoQualityProfile p)

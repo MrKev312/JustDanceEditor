@@ -9,6 +9,7 @@ public static class JdiFfmpegResolver
 {
     private static readonly SemaphoreSlim InitLock = new(1, 1);
     private static string? _ffmpegPath;
+    private static string? _ffprobePath;
 
     public static string GetFfmpegPath()
     {
@@ -20,6 +21,9 @@ public static class JdiFfmpegResolver
         {
             if (TryUseCachedFfmpeg(out cached))
                 return cached;
+
+            if (TryResolveBundledExecutables(out string? bundledFfmpegPath, out string? bundledFfprobePath))
+                return UseResolvedFfmpeg(bundledFfmpegPath, bundledFfprobePath);
 
             string downloadDirectory = GetDownloadDirectory();
             Directory.CreateDirectory(downloadDirectory);
@@ -52,6 +56,9 @@ public static class JdiFfmpegResolver
             if (TryUseCachedFfmpeg(out cached))
                 return cached;
 
+            if (TryResolveBundledExecutables(out string? bundledFfmpegPath, out string? bundledFfprobePath))
+                return UseResolvedFfmpeg(bundledFfmpegPath, bundledFfprobePath);
+
             string downloadDirectory = GetDownloadDirectory();
             Directory.CreateDirectory(downloadDirectory);
             FFmpeg.SetExecutablesPath(downloadDirectory);
@@ -74,6 +81,32 @@ public static class JdiFfmpegResolver
         }
     }
 
+    public static string GetFfprobePath()
+    {
+        if (TryUseCachedFfprobe(out string? cached))
+            return cached;
+
+        GetFfmpegPath();
+
+        if (TryUseCachedFfprobe(out cached))
+            return cached;
+
+        throw new FileNotFoundException("FFprobe could not be resolved beside FFmpeg.");
+    }
+
+    public static async Task<string> GetFfprobePathAsync(CancellationToken cancellationToken = default)
+    {
+        if (TryUseCachedFfprobe(out string? cached))
+            return cached;
+
+        await GetFfmpegPathAsync(cancellationToken);
+
+        if (TryUseCachedFfprobe(out cached))
+            return cached;
+
+        throw new FileNotFoundException("FFprobe could not be resolved beside FFmpeg.");
+    }
+
     public static string? TryGetFfplayPath()
     {
         string? ffmpegDirectory = Path.GetDirectoryName(_ffmpegPath ?? string.Empty);
@@ -82,6 +115,28 @@ public static class JdiFfmpegResolver
 
         string ffplayPath = Path.Combine(ffmpegDirectory, GetExecutableName("ffplay"));
         return File.Exists(ffplayPath) ? ffplayPath : null;
+    }
+
+    private static bool TryResolveBundledExecutables(
+        [NotNullWhen(true)] out string? ffmpegPath,
+        [NotNullWhen(true)] out string? ffprobePath)
+    {
+        foreach (string directory in EnumerateBundledSearchDirectories())
+        {
+            ffmpegPath = Path.Combine(directory, GetExecutableName("ffmpeg"));
+            ffprobePath = Path.Combine(directory, GetExecutableName("ffprobe"));
+            if (File.Exists(ffmpegPath) && File.Exists(ffprobePath))
+                return true;
+        }
+
+        ffmpegPath = null;
+        ffprobePath = null;
+        return false;
+    }
+
+    private static IEnumerable<string> EnumerateBundledSearchDirectories()
+    {
+        yield return AppContext.BaseDirectory;
     }
 
     private static bool TryResolveDownloadedExecutables(
@@ -106,6 +161,7 @@ public static class JdiFfmpegResolver
 
         FFmpeg.SetExecutablesPath(executableDirectory);
         _ffmpegPath = ffmpegPath;
+        _ffprobePath = ffprobePath;
         return ffmpegPath;
     }
 
@@ -120,6 +176,15 @@ public static class JdiFfmpegResolver
             return false;
 
         FFmpeg.SetExecutablesPath(executableDirectory);
+        return true;
+    }
+
+    private static bool TryUseCachedFfprobe([NotNullWhen(true)] out string? ffprobePath)
+    {
+        ffprobePath = _ffprobePath;
+        if (string.IsNullOrWhiteSpace(ffprobePath) || !File.Exists(ffprobePath))
+            return false;
+
         return true;
     }
 
