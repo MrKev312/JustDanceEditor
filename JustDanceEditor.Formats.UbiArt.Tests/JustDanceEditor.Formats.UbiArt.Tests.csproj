@@ -10,7 +10,7 @@
     <KevIncLocalProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
     <KevIncLocalProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
     <KevIncLocalProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
-    <ProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
+    <KevIncLocalProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
     <ProjectReference Include="..\JustDanceEditor.Formats.UbiArt\JustDanceEditor.Formats.UbiArt.csproj" />
     <PackageReference Include="KevInc.UbiArt.Cinematics" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtCinematicsProject)')" />
     <PackageReference Include="coverlet.collector" Version="10.0.0">

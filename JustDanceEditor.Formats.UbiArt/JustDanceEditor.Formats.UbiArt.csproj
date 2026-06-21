@@ -48,7 +48,7 @@
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtTextureProject)')" />
-		<ProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>
