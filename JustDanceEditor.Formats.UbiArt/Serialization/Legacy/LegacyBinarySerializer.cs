@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.IO.Hashing;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -8,6 +9,9 @@ namespace JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 internal static class LegacyBinarySerializer
 {
+    private static readonly ConcurrentDictionary<Type, uint> TypeIdCache = new();
+    private static readonly object SkippedMemberValue = new();
+
     public static byte[] Serialize(object value)
     {
         using MemoryStream stream = new();
@@ -81,15 +85,23 @@ internal static class LegacyBinarySerializer
         return (TBase)value;
     }
 
-    public static uint GetTypeId<T>() => GetTypeId(typeof(T));
+    public static uint GetTypeId<T>() => LegacyBinaryTypeIdCache<T>.Value;
 
     public static bool IsTypeId<T>(uint typeId) => typeId == GetTypeId<T>();
 
-    public static uint GetTypeId(Type type)
+    public static uint GetTypeId(Type type) =>
+        TypeIdCache.GetOrAdd(type, ReadTypeIdAttribute);
+
+    private static uint ReadTypeIdAttribute(Type type)
     {
         LegacyBinaryTypeIdAttribute attribute = type.GetCustomAttribute<LegacyBinaryTypeIdAttribute>()
             ?? throw new InvalidOperationException($"Legacy binary type '{type.FullName}' has no type id attribute.");
         return attribute.Value;
+    }
+
+    private static class LegacyBinaryTypeIdCache<T>
+    {
+        public static readonly uint Value = LegacyBinarySerializer.GetTypeId(typeof(T));
     }
 
     private static object? ReadValue(
@@ -102,7 +114,7 @@ internal static class LegacyBinarySerializer
         Type valueType = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
 
         if (!ShouldReadMember(member, owner, context))
-            return GetDefaultValue(valueType);
+            return SkippedMemberValue;
 
         LegacyBinaryPaddingAttribute? paddingAttribute = member?.GetCustomAttribute<LegacyBinaryPaddingAttribute>();
         if (paddingAttribute != null)
@@ -202,6 +214,9 @@ internal static class LegacyBinarySerializer
         foreach (MemberInfo member in GetOrderedMembers(valueType, forWrite: false))
         {
             object? memberValue = ReadValue(reader, GetMemberType(member), member, value, context);
+            if (ReferenceEquals(memberValue, SkippedMemberValue))
+                continue;
+
             SetMemberValue(member, value, memberValue);
         }
     }
@@ -493,9 +508,6 @@ internal static class LegacyBinarySerializer
 
         return true;
     }
-
-    private static object? GetDefaultValue(Type type) =>
-        type.IsValueType ? Activator.CreateInstance(type) : null;
 
     private static object ReadSwitchedObject(
         ILegacyBinaryReader reader,

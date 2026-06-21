@@ -98,6 +98,9 @@ internal sealed class LegacyBinaryBufferReader(byte[] bytes, int offset = 0) : I
     public string ReadString()
     {
         int length = ReadInt32();
+        if (length == -1)
+            return string.Empty;
+
         if (length < 0 || length > 4096 || Offset + length > Bytes.Length)
             throw new InvalidDataException($"Invalid legacy string length {length} at 0x{Offset - 4:X}.");
 

@@ -5,6 +5,8 @@ using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
+using Microsoft.Extensions.Logging;
+
 using JDIGoldEffectClip = JustDanceEditor.Formats.JDI.Timelines.GoldEffectClip;
 using JDIHideUserInterfaceClip = JustDanceEditor.Formats.JDI.Timelines.HideUserInterfaceClip;
 using JDIKaraokeClip = JustDanceEditor.Formats.JDI.Timelines.KaraokeClip;
@@ -21,7 +23,7 @@ namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 internal static class IntermediatePackageBuilder
 {
 
-    public static IntermediateSongPackage FromUbiArt(ConversionContext context)
+    public static IntermediateSongPackage FromUbiArt(ConversionContext context, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(context.SongData);
@@ -38,7 +40,7 @@ internal static class IntermediatePackageBuilder
 
         IntermediateSongPackage package = new()
         {
-            Metadata = BuildMetadata(context, structure),
+            Metadata = BuildMetadata(context, structure, logger),
             TimelineStructure = BuildTimelineStructure(structure),
             Lyrics = BuildLyricsDocument(context),
             Pictograms = BuildPictogramDocument(context),
@@ -55,11 +57,13 @@ internal static class IntermediatePackageBuilder
         return package;
     }
 
-    private static IntermediateMetadata BuildMetadata(ConversionContext context, Structure structure)
+    private static IntermediateMetadata BuildMetadata(ConversionContext context, Structure structure, ILogger? logger)
     {
         InfoComponent info = context.SongData.SongDesc.Components.First();
 
-        double mapLengthSeconds = CalculateMapLengthSeconds(structure);
+        double mapLengthSeconds = context.SongData.LegacyMashup is { DurationBeats: > 0 } mashup
+            ? CalculateMapLengthSeconds(structure, mashup.DurationBeats)
+            : CalculateMapLengthSeconds(structure);
         string lyricsColor = ConvertColor(info.DefaultColors.Lyrics);
 
         // Extract song colors for background generation
@@ -81,7 +85,7 @@ internal static class IntermediatePackageBuilder
             OriginalJDVersion = context.SongData.JDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
-            SweatDifficulty = info.SweatDifficulty,
+            SweatDifficulty = NormalizeSweatDifficulty(info, logger),
             Tags = info.Tags?.ToList() ?? [],
             Status = info.Status,
             MojoValue = info.MojoValue,
@@ -98,6 +102,19 @@ internal static class IntermediatePackageBuilder
         metadata.AdditionalMetadata["songcolor_2b"] = songColor2B;
 
         return metadata;
+    }
+
+    internal static uint NormalizeSweatDifficulty(InfoComponent info, ILogger? logger)
+    {
+        uint sweatDifficulty = info.EffectiveSweatDifficulty;
+        if (sweatDifficulty != 0)
+            return sweatDifficulty;
+
+        logger?.LogWarning(
+            "UbiArt map '{MapName}' has SweatDifficulty/Energy 0; defaulting sweat difficulty to 1.",
+            info.MapName);
+
+        return 1;
     }
 
     private static TimelineStructureDocument BuildTimelineStructure(Structure structure)
@@ -340,13 +357,16 @@ internal static class IntermediatePackageBuilder
         definition.MoveType = moveType;
     }
 
-    private static double CalculateMapLengthSeconds(Structure structure)
+    private static double CalculateMapLengthSeconds(Structure structure, int? durationBeats = null)
     {
         if (structure?.Markers == null || structure.Markers.Length == 0)
             return 0;
 
         int startIndex = Math.Clamp(Math.Abs(structure.StartBeat), 0, structure.Markers.Length - 1);
-        int endIndex = Math.Clamp(structure.Markers.Length - 1, 0, structure.Markers.Length - 1);
+        int requestedEndIndex = durationBeats.HasValue
+            ? startIndex + durationBeats.Value
+            : structure.Markers.Length - 1;
+        int endIndex = Math.Clamp(requestedEndIndex, 0, structure.Markers.Length - 1);
 
         double startTime = structure.Markers[startIndex] / 48d / 1000d;
         double endTime = structure.Markers[endIndex] / 48d / 1000d;

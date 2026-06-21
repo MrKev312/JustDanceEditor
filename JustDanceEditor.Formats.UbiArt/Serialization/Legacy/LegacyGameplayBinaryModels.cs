@@ -29,6 +29,111 @@ internal sealed class LegacySongDesc : LegacyResourceFileBinary<LegacySongDescCo
         (SongDesc)value.Component;
 }
 
+internal sealed class LegacyBlockFlow : LegacyResourceFileBinary<LegacyBlockFlowTemplateComponent>
+{
+    public LegacyMashupData ToMashupData(string mashupMapName, string baseSongName, bool hasDatabaseGameId)
+    {
+        LegacyBlockReplacement[] replacements = Component.BlockDescriptorVector;
+        List<LegacyMashupBlock> blocks = new(replacements.Length);
+        int absoluteStartBeat = 0;
+
+        for (int i = 0; i < replacements.Length; i++)
+        {
+            LegacyBlockReplacement replacement = replacements[i];
+            LegacyBlockDescriptor source = replacement.BaseBlock.IsEmptyBlock != 0
+                ? replacement.BaseBlock
+                : replacement.AlternativeBlocks.Length > 0
+                ? replacement.AlternativeBlocks[0]
+                : replacement.BaseBlock;
+
+            LegacyMashupBlock block = new()
+            {
+                Index = i,
+                AbsoluteStartBeat = absoluteStartBeat,
+                BaseBlock = replacement.BaseBlock.ToRuntime(hasDatabaseGameId),
+                SourceBlock = source.ToRuntime(hasDatabaseGameId),
+                UsesAlternativeBlock = replacement.BaseBlock.IsEmptyBlock == 0 && replacement.AlternativeBlocks.Length > 0
+            };
+            blocks.Add(block);
+
+            absoluteStartBeat += Math.Max(0, source.LastBeat - source.FirstBeat);
+        }
+
+        return new LegacyMashupData
+        {
+            MapName = mashupMapName,
+            BaseSongName = baseSongName,
+            Blocks = blocks
+        };
+    }
+}
+
+[LegacyBinaryTypeId(0x5B648E44)]
+internal sealed class LegacyBlockFlowTemplateComponent : LegacyResourceComponent
+{
+    public int IsMashUp { get; set; }
+    public int IsPartyMaster { get; set; }
+    public LegacyBlockReplacement[] BlockDescriptorVector { get; set; } = [];
+}
+
+internal sealed class LegacyBlockReplacement
+{
+    public int SerializedSize { get; set; }
+    public LegacyBlockDescriptor BaseBlock { get; set; } = new();
+    public LegacyBlockDescriptor[] AlternativeBlocks { get; set; } = [];
+}
+
+internal sealed class LegacyBlockDescriptor
+{
+    public int SerializedSize { get; set; }
+    public string SongName { get; set; } = string.Empty;
+
+    [LegacyBinaryEngineVersionCondition(MaxEngineVersion = 2014)]
+    public int DatabaseGameId { get; set; }
+
+    public int FirstBeat { get; set; }
+    public int LastBeat { get; set; }
+    public int SongSwitch { get; set; }
+    public float VideoCoachOffsetX { get; set; }
+    public float VideoCoachOffsetY { get; set; }
+    public float VideoCoachScale { get; set; }
+    public string DanceStepName { get; set; } = string.Empty;
+
+    [LegacyBinaryEngineVersionCondition(MinEngineVersion = 2015)]
+    public float PlayingSpeed { get; set; }
+
+    [LegacyBinaryEngineVersionCondition(MinEngineVersion = 2015)]
+    public int IsEntryPoint { get; set; }
+
+    [LegacyBinaryEngineVersionCondition(MinEngineVersion = 2015)]
+    public int IsEmptyBlock { get; set; }
+
+    [LegacyBinaryEngineVersionCondition(MinEngineVersion = 2015)]
+    public int IsNoScoreBlock { get; set; }
+
+    [LegacyBinaryEngineVersionCondition(MinEngineVersion = 2015)]
+    public string Guid { get; set; } = string.Empty;
+
+    public LegacyMashupBlockDescriptor ToRuntime(bool hasDatabaseGameId) => new()
+    {
+        SongName = SongName,
+        DatabaseGameId = hasDatabaseGameId ? DatabaseGameId : null,
+        FirstBeat = FirstBeat,
+        LastBeat = LastBeat,
+        SongSwitch = SongSwitch != 0,
+        SongSwitchValue = SongSwitch,
+        VideoCoachOffsetX = VideoCoachOffsetX,
+        VideoCoachOffsetY = VideoCoachOffsetY,
+        VideoCoachScale = VideoCoachScale == 0 ? 1.0f : VideoCoachScale,
+        DanceStepName = DanceStepName,
+        PlayingSpeed = PlayingSpeed == 0 ? 1.0f : PlayingSpeed,
+        IsEntryPoint = IsEntryPoint != 0,
+        IsEmptyBlock = IsEmptyBlock != 0,
+        IsNoScoreBlock = IsNoScoreBlock != 0,
+        Guid = Guid
+    };
+}
+
 internal abstract class LegacySongDescComponent : LegacyResourceComponent
 {
     public string MapName { get; set; } = string.Empty;
@@ -48,17 +153,61 @@ internal abstract class LegacySongDescComponent : LegacyResourceComponent
 [LegacyBinaryTypeId(0x8AC2B5C6, MaxEngineVersion = 2014)]
 internal sealed class LegacyJd2014SongDescComponent : LegacySongDescComponent
 {
+    private const int BetaComponentSize = 0x88;
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public string[] RelatedAlbums { get; set; } = [];
 
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaUnknown0 { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaUnknown1 { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaUnknown2 { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public LegacyJd2014SongDescEntry[] SongDescEntries { get; set; } = [];
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public string BetaArtist { get; set; } = string.Empty;
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public string BetaTitle { get; set; } = string.Empty;
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public string Artist { get; set; } = string.Empty;
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public string Title { get; set; } = string.Empty;
+
     public uint CoachCount { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaDifficulty { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaDefaultCoachId { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize)]
+    public uint BetaUnknown3 { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public uint DefaultCoachId { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public uint Difficulty { get; set; }
+
     public float TagScale { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public LegacySongDescPreview Preview { get; set; } = new();
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public uint LyricColorIntensity { get; set; }
+
+    [LegacyBinaryCondition(nameof(ComponentSize), BetaComponentSize, Invert = true)]
     public LegacyTypedAbgrColor LyricColor { get; set; } = new();
 
     public static explicit operator SongDesc(LegacyJd2014SongDescComponent value) => new()
@@ -72,22 +221,26 @@ internal sealed class LegacyJd2014SongDescComponent : LegacySongDescComponent
                 MapName = value.MapName,
                 JDVersion = 2014,
                 OriginalJDVersion = 2014,
-                Artist = value.Artist,
+                Artist = value.IsBeta ? value.BetaArtist : value.Artist,
                 DancerName = string.Empty,
-                Title = value.Title,
+                Title = value.IsBeta ? value.BetaTitle : value.Title,
                 NumCoach = checked((int)value.CoachCount),
-                MainCoach = value.DefaultCoachId == uint.MaxValue ? 0 : checked((int)value.DefaultCoachId),
-                Difficulty = value.Difficulty,
+                MainCoach = value.EffectiveDefaultCoachId == uint.MaxValue ? 0 : checked((int)value.EffectiveDefaultCoachId),
+                Difficulty = value.EffectiveDifficulty,
                 SweatDifficulty = 0,
                 Status = 0,
                 LocaleID = 1,
                 DefaultColors = new DefaultColors
                 {
-                    Lyrics = value.LyricColor.Color.ToRgba()
+                    Lyrics = value.IsBeta ? [1f, 1f, 1f, 1f] : value.LyricColor.Color.ToRgba()
                 }
             }
         ]
     };
+
+    private bool IsBeta => ComponentSize == BetaComponentSize;
+    private uint EffectiveDefaultCoachId => IsBeta ? BetaDefaultCoachId : DefaultCoachId;
+    private uint EffectiveDifficulty => IsBeta ? BetaDifficulty : Difficulty;
 }
 
 [LegacyBinaryTypeId(0x8AC2B5C6, MinEngineVersion = 2015, MaxEngineVersion = 2015)]

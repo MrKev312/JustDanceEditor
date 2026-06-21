@@ -10,12 +10,18 @@ public class JDUbiArtSong
     public List<Clip> Clips { get; set; } = [];
     public MusicTrack MusicTrack { get; set; } = new();
     public SongDesc SongDesc { get; set; } = new();
+    public LegacyMashupData? LegacyMashup { get; set; }
+    public bool IsLegacyMashup => LegacyMashup != null;
 
     public float GetSongStartTime()
     {
-        int beat = MusicTrack.Components[0].TrackData.Structure.StartBeat;
+        Structure structure = MusicTrack.Components[0].TrackData.Structure;
+        if (Math.Abs(structure.VideoStartTime) > 0.000001f)
+            return -structure.VideoStartTime;
+
+        int beat = structure.StartBeat;
         int marker = Math.Abs(beat);
-        float time = MusicTrack.Components[0].TrackData.Structure.Markers[marker] / 48f / 1000f;
+        float time = structure.Markers[marker] / 48f / 1000f;
 
         if (beat > 0)
             time = -time;

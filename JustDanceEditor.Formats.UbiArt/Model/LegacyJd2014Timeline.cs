@@ -206,45 +206,59 @@ internal sealed class LegacyJd2014KaraokeEntry
 
 internal sealed class LegacyJd2014TimelineEvent
 {
+    private const int GeneratedMarker = 0;
+    private const int InlineGeneratedBodyPrefix = 0x48;
+
     public uint SerializedSizeOrMarker { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker)]
     public uint GeneratedExtraSize { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker)]
     [LegacyBinaryCondition(nameof(GeneratedExtraSize), 0)]
     public LegacyJd2014GeneratedTimelineEventBody? GeneratedBody { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker)]
     [LegacyBinaryCondition(nameof(GeneratedExtraSize), 0, Invert = true)]
     [LegacyBinaryByteCount(nameof(GeneratedExtraSize), Add = 86)]
     public byte[]? GeneratedExtraPayload { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix)]
+    public LegacyJd2014GeneratedTimelineEventBody? InlineGeneratedBody { get; set; }
+
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public string? SourceId { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public float SourceStartBeat { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public float SourceEndBeat { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public int SourceLayerId { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public string? SourceModelName { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public uint SourceColor { get; set; }
 
-    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), 0, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), GeneratedMarker, Invert = true)]
+    [LegacyBinaryCondition(nameof(SerializedSizeOrMarker), InlineGeneratedBodyPrefix, Invert = true)]
     public LegacyJd2014BlockParameter[]? SourceParameters { get; set; }
 
     public static explicit operator Clip[](LegacyJd2014TimelineEvent value)
     {
-        if (value.GeneratedBody != null)
-            return (Clip[])value.GeneratedBody;
+        LegacyJd2014GeneratedTimelineEventBody? generatedBody = value.GeneratedBody ?? value.InlineGeneratedBody;
+        if (generatedBody != null)
+            return (Clip[])generatedBody;
 
         if (!string.Equals(value.SourceModelName, "goldmove", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(value.SourceModelName, "goldmovecascade", StringComparison.OrdinalIgnoreCase))

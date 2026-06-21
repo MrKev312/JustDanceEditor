@@ -45,6 +45,10 @@ public class InfoComponent
     public int MainCoach { get; set; }
     public uint Difficulty { get; set; }
     public uint SweatDifficulty { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public uint Energy { get; set; }
+    [JsonIgnore]
+    public uint EffectiveSweatDifficulty => SweatDifficulty != 0 ? SweatDifficulty : Energy;
     public int BackgroundType { get; set; }
     public int LyricsType { get; set; }
     public string[] Tags { get; set; } = [];
