@@ -102,7 +102,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             AddDanceMoveAssets(request, manager, afileInst, afile, mapBase["HandDeviceMoveModels"]["list"]["Array"], assetBundleArray);
 
             long[] atlasIds = AddPictoAtlasTextureAssets(request, manager, afileInst, afile, assetBundleArray);
-            AddPictoSpriteAssets(request, manager, afileInst, afile, spriteTemplate, spriteAtlasBase, request.PictoLookup, atlasIds, assetBundleArray);
+            AddPictoSpriteAssets(request, manager, afileInst, afile, spriteTemplate, spriteAtlasInfo, spriteAtlasBase, request.PictoLookup, atlasIds, assetBundleArray);
             FinalizeSpriteAtlas(afile, spriteAtlasInfo, spriteAtlasBase, spriteTemplate);
 
             PopulateDanceDataClips(request, mapBase, request.PictoLookup);
@@ -454,6 +454,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
     }
 
     private void AddPictoSpriteAssets(BundleContext request, AssetsManager manager, AssetsFileInstance afileInst, AssetsFile afile, AssetFileInfo spriteTemplate,
+        AssetFileInfo spriteAtlasInfo,
         AssetTypeValueField spriteAtlasBase, IReadOnlyDictionary<string, (int AtlasIndex, (int Width, int Height) Size)> imageDict, long[] atlasIds, AssetTypeValueField assetBundleArray)
     {
         List<string> sortedPictoNames = [.. imageDict.Keys];
@@ -473,10 +474,15 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             float wMagic = coachCount == 1 ? 256f : 177f;
 
             spriteBaseField["m_Name"].AsString = pictoName;
+            spriteBaseField["m_Extrude"].AsUInt = 1;
             spriteBaseField["m_Rect"]["width"].AsFloat = size.Width;
             spriteBaseField["m_Rect"]["height"].AsFloat = size.Height;
+            spriteBaseField["m_Pivot"]["x"].AsFloat = 0.5f;
+            spriteBaseField["m_Pivot"]["y"].AsFloat = 0.5f;
             spriteBaseField["m_PixelsToUnits"].AsFloat = pixelsToUnits;
             spriteBaseField["m_AtlasTags"]["Array"].Children[0].AsString = request.Codename;
+            spriteBaseField["m_SpriteAtlas"]["m_FileID"].AsInt = 0;
+            spriteBaseField["m_SpriteAtlas"]["m_PathID"].AsLong = spriteAtlasInfo.PathId;
 
             spriteBaseField["m_RD"]["textureRect"]["x"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRect"]["y"].AsFloat = 0;
@@ -484,6 +490,9 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             spriteBaseField["m_RD"]["textureRect"]["height"].AsFloat = size.Height;
             spriteBaseField["m_RD"]["textureRectOffset"]["x"].AsFloat = 0;
             spriteBaseField["m_RD"]["textureRectOffset"]["y"].AsFloat = 0;
+            spriteBaseField["m_RD"]["atlasRectOffset"]["x"].AsFloat = -1;
+            spriteBaseField["m_RD"]["atlasRectOffset"]["y"].AsFloat = -1;
+            spriteBaseField["m_RD"]["downscaleMultiplier"].AsFloat = 1;
             spriteBaseField["m_RD"]["settingsRaw"].AsUInt = 0;
             spriteBaseField["m_RD"]["uvTransform"]["x"].AsFloat = pixelsToUnits;
             spriteBaseField["m_RD"]["uvTransform"]["y"].AsFloat = 256;
@@ -500,20 +509,8 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
             spriteBaseField["m_RD"]["m_SubMeshes"]["Array"][0]["vertexCount"].AsUInt = 4;
             spriteBaseField["m_RD"]["m_IndexBuffer"]["Array"].AsByteArray = [0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0];
             spriteBaseField["m_RD"]["m_VertexData"]["m_VertexCount"].AsUInt = 4;
-            byte[] vertexDataBytes =
-                [10, 215, 35, 192, 10, 215, 35, 64, 0, 0, 0, 0, 10, 215, 35, 64, 10, 215, 35, 64,
-             0, 0, 0, 0, 10, 215, 35, 192, 10, 215, 35, 192, 0, 0, 0, 0, 10, 215, 35, 64, 10,
-             215, 35, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            byte[] vertexMagics = coachCount == 1 ? [10, 215, 35] : [97, 247, 108];
-            for (int j = 0; j <= 36; j += 12)
-            {
-                vertexDataBytes[j] = vertexMagics[0];
-                vertexDataBytes[j + 1] = vertexMagics[1];
-                vertexDataBytes[j + 2] = vertexMagics[2];
-            }
-
-            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = vertexDataBytes;
+            PopulatePictoSpriteVertexChannels(spriteBaseField["m_RD"]["m_VertexData"]["m_Channels"]["Array"]);
+            spriteBaseField["m_RD"]["m_VertexData"]["m_DataSize"].AsByteArray = CreatePictoVertexData(coachCount);
 
             AssetFileInfo newSpriteInfo = AssetFileInfo.Create(afile, spriteId, (int)AssetClassID.Sprite, null);
             newSpriteInfo.SetNewData(spriteBaseField);
@@ -564,6 +561,46 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
 
             spriteAtlasBase["m_RenderDataMap"]["Array"].Children.Add(renderDataEntry);
         }
+    }
+
+    private static void PopulatePictoSpriteVertexChannels(AssetTypeValueField channels)
+    {
+        channels.Children.Clear();
+        for (int i = 0; i < 14; i++)
+        {
+            AssetTypeValueField channel = ValueBuilder.DefaultValueFieldFromArrayTemplate(channels);
+            channel["stream"].AsByte = (byte)(i == 4 ? 1 : 0);
+            channel["offset"].AsByte = 0;
+            channel["format"].AsByte = 0;
+            channel["dimension"].AsByte = (byte)(i == 0 ? 3 : i == 4 ? 2 : 0);
+            channels.Children.Add(channel);
+        }
+    }
+
+    private static byte[] CreatePictoVertexData(int coachCount)
+    {
+        byte[] data = new byte[80];
+        byte[] xBytes = coachCount == 1 ? [10, 215, 35] : [97, 247, 108];
+        byte[] yBytes = [10, 215, 35];
+
+        WritePictoFloat(data, 0, xBytes, 192);
+        WritePictoFloat(data, 4, yBytes, 64);
+        WritePictoFloat(data, 12, xBytes, 64);
+        WritePictoFloat(data, 16, yBytes, 64);
+        WritePictoFloat(data, 24, xBytes, 192);
+        WritePictoFloat(data, 28, yBytes, 192);
+        WritePictoFloat(data, 36, xBytes, 64);
+        WritePictoFloat(data, 40, yBytes, 192);
+
+        return data;
+    }
+
+    private static void WritePictoFloat(byte[] data, int offset, byte[] valueBytes, byte signByte)
+    {
+        data[offset] = valueBytes[0];
+        data[offset + 1] = valueBytes[1];
+        data[offset + 2] = valueBytes[2];
+        data[offset + 3] = signByte;
     }
 
     private static void FinalizeSpriteAtlas(AssetsFile afile, AssetFileInfo spriteAtlasInfo, AssetTypeValueField spriteAtlasBase, AssetFileInfo spriteTemplate)
@@ -721,7 +758,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
 
         setAssetBundleData();
         bun.BlockAndDirInfo.DirectoryInfos[0].SetNewData(afile);
-            SaveFinalBundle(bun, request.OutputFolderPath, request.ForCustomServer, request.PublishTarget);
+        SaveFinalBundle(bun, request.OutputFolderPath, request.ForCustomServer, request.PublishTarget);
     }
 
     private sealed record BundleContext(

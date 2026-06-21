@@ -81,7 +81,7 @@ internal static class UnityTextureExtractor
         stream.Position = streamInfo.Offset;
         int length = checked((int)streamInfo.Size);
         imageData = new byte[length];
-        _ = stream.Read(imageData, 0, length);
+        stream.ReadExactly(imageData, 0, length);
         return true;
     }
 

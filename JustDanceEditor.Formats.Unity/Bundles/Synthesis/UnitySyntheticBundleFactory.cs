@@ -13,6 +13,7 @@ namespace JustDanceEditor.Formats.Unity.Bundles.Synthesis;
 internal static class UnitySyntheticBundleFactory
 {
     private const string UnityVersion = "2021.3.40f1";
+    private const string SerializedFileUnityVersion = "0.0.0";
     private const uint DefaultTargetPlatform = 19;
 
     public static byte[] CreateEmptyBundle(uint targetPlatform = DefaultTargetPlatform)
@@ -63,6 +64,8 @@ internal static class UnitySyntheticBundleFactory
             AssetTypeValueField assetBundleBase = CreateDefaultField(classDatabase, (int)AssetClassID.AssetBundle);
             assetBundleBase["m_Name"].AsString = bundleName;
             assetBundleBase["m_AssetBundleName"].AsString = bundleName;
+            SetUInt(assetBundleBase["m_RuntimeCompatibility"], 1);
+            SetInt(assetBundleBase["m_ExplicitDataLayout"], 1);
 
             long[] textureIds = new long[assets.Count];
             long[] spriteIds = new long[assets.Count];
@@ -182,6 +185,8 @@ internal static class UnitySyntheticBundleFactory
             AssetTypeValueField assetBundle = CreateDefaultField(classDatabase, (int)AssetClassID.AssetBundle);
             assetBundle["m_Name"].AsString = "Synthetic_MapPackage";
             assetBundle["m_AssetBundleName"].AsString = "Synthetic_MapPackage";
+            SetUInt(assetBundle["m_RuntimeCompatibility"], 1);
+            SetInt(assetBundle["m_ExplicitDataLayout"], 1);
             AssetTypeValueField preloadArray = assetBundle["m_PreloadTable"]["Array"];
             AddPreload(preloadArray, musicScriptId);
             AddPreload(preloadArray, mapScriptId);
@@ -215,7 +220,7 @@ internal static class UnitySyntheticBundleFactory
             },
             Metadata = new AssetsFileMetadata
             {
-                UnityVersion = UnityVersion,
+                UnityVersion = SerializedFileUnityVersion,
                 TargetPlatform = targetPlatform,
                 TypeTreeEnabled = true,
                 TypeTreeTypes = [],
@@ -321,7 +326,9 @@ internal static class UnitySyntheticBundleFactory
         SetInt(textureBase["m_ForcedFallbackFormat"], (int)TextureFormat.RGBA32);
         SetInt(textureBase["m_ImageCount"], 1);
         SetInt(textureBase["m_TextureDimension"], 2);
+        SetInt(textureBase["m_LightmapFormat"], 6);
         SetInt(textureBase["m_ColorSpace"], 1);
+        SetBool(textureBase["m_IsAlphaChannelOptional"], asset.TextureFormat == TextureFormat.DXT1Crunched);
         SetUInt(textureBase["m_CompleteImageSize"], (uint)encoded.Length);
         SetByteArray(textureBase["image data"], encoded);
 
@@ -339,6 +346,7 @@ internal static class UnitySyntheticBundleFactory
     private static void UpdateSprite(AssetTypeValueField spriteBase, UnityImageBundleAsset asset, long textureId)
     {
         spriteBase["m_Name"].AsString = asset.SpriteName;
+        SetUInt(spriteBase["m_Extrude"], 1);
         SetRect(spriteBase["m_Rect"], 0, 0, asset.Width, asset.Height);
         SetVector2(spriteBase["m_Offset"], 0, 0);
         SetVector2(spriteBase["m_Pivot"], 0.5f, 0.5f);
@@ -348,10 +356,11 @@ internal static class UnitySyntheticBundleFactory
         SetPPtr(renderData["texture"], textureId);
         SetRect(renderData["textureRect"], 0, 0, asset.Width, asset.Height);
         SetVector2(renderData["textureRectOffset"], 0, 0);
-        SetVector2(renderData["atlasRectOffset"], 0, 0);
-        SetUInt(renderData["settingsRaw"], 0);
+        SetVector2(renderData["atlasRectOffset"], -1, -1);
+        SetUInt(renderData["settingsRaw"], 64);
         SetFloat(renderData["downscaleMultiplier"], 1);
-        SetVector4(renderData["uvTransform"], 1, 0, 1, 0);
+        SetVector4(renderData["uvTransform"], 100, asset.Width / 2f, 100, asset.Height / 2f);
+        PopulateSpriteQuad(spriteBase, asset.Width / 200f, asset.Height / 200f);
 
         AssetTypeValueField atlasTags = spriteBase["m_AtlasTags"]["Array"];
         if (!atlasTags.IsDummy)
@@ -363,6 +372,84 @@ internal static class UnitySyntheticBundleFactory
         SetUInt(key["data[1]"], renderKey[1]);
         SetUInt(key["data[2]"], renderKey[2]);
         SetUInt(key["data[3]"], renderKey[3]);
+        SetInteger(spriteBase["m_RenderDataKey"]["second"], 21300000);
+    }
+
+    private static void PopulateSpriteQuad(AssetTypeValueField spriteBase, float halfWidth, float halfHeight)
+    {
+        AssetTypeValueField renderData = spriteBase["m_RD"];
+        AssetTypeValueField subMeshes = renderData["m_SubMeshes"]["Array"];
+        subMeshes.Children.Clear();
+        AssetTypeValueField subMesh = ValueBuilder.DefaultValueFieldFromArrayTemplate(subMeshes);
+        SetUInt(subMesh["firstByte"], 0);
+        SetUInt(subMesh["indexCount"], 6);
+        SetInt(subMesh["topology"], 0);
+        SetUInt(subMesh["baseVertex"], 0);
+        SetUInt(subMesh["firstVertex"], 0);
+        SetUInt(subMesh["vertexCount"], 4);
+        SetVector3(subMesh["localAABB"]["m_Center"], 0, 0, 0);
+        SetVector3(subMesh["localAABB"]["m_Extent"], 0, 0, 0);
+        subMeshes.Children.Add(subMesh);
+
+        SetByteArray(renderData["m_IndexBuffer"]["Array"], [3, 0, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0]);
+        SetUInt(renderData["m_VertexData"]["m_VertexCount"], 4);
+        PopulateSpriteVertexChannels(renderData["m_VertexData"]["m_Channels"]["Array"]);
+        SetByteArray(renderData["m_VertexData"]["m_DataSize"], CreateSpriteVertexData(halfWidth, halfHeight));
+
+        AssetTypeValueField physicsShapes = spriteBase["m_PhysicsShape"]["Array"];
+        physicsShapes.Children.Clear();
+        AssetTypeValueField shape = ValueBuilder.DefaultValueFieldFromArrayTemplate(physicsShapes);
+        AssetTypeValueField points = shape["Array"];
+        points.Children.Clear();
+        AddPhysicsPoint(points, -halfWidth, halfHeight);
+        AddPhysicsPoint(points, -halfWidth, -halfHeight);
+        AddPhysicsPoint(points, halfWidth, -halfHeight);
+        AddPhysicsPoint(points, halfWidth, halfHeight);
+        physicsShapes.Children.Add(shape);
+    }
+
+    private static void PopulateSpriteVertexChannels(AssetTypeValueField channels)
+    {
+        channels.Children.Clear();
+        for (int i = 0; i < 14; i++)
+        {
+            AssetTypeValueField channel = ValueBuilder.DefaultValueFieldFromArrayTemplate(channels);
+            SetByte(channel["stream"], (byte)(i == 4 ? 1 : 0));
+            SetByte(channel["offset"], 0);
+            SetByte(channel["format"], 0);
+            SetByte(channel["dimension"], (byte)(i == 0 ? 3 : i == 4 ? 2 : 0));
+            channels.Children.Add(channel);
+        }
+    }
+
+    private static byte[] CreateSpriteVertexData(float halfWidth, float halfHeight)
+    {
+        byte[] data = new byte[80];
+        WriteFloat(data, 0, -halfWidth);
+        WriteFloat(data, 4, halfHeight);
+        WriteFloat(data, 8, 0);
+        WriteFloat(data, 12, halfWidth);
+        WriteFloat(data, 16, -halfHeight);
+        WriteFloat(data, 20, 0);
+        WriteFloat(data, 24, halfWidth);
+        WriteFloat(data, 28, halfHeight);
+        WriteFloat(data, 32, 0);
+        WriteFloat(data, 36, -halfWidth);
+        WriteFloat(data, 40, -halfHeight);
+        WriteFloat(data, 44, 0);
+        return data;
+    }
+
+    private static void WriteFloat(byte[] data, int offset, float value)
+    {
+        BitConverter.TryWriteBytes(data.AsSpan(offset, sizeof(float)), value);
+    }
+
+    private static void AddPhysicsPoint(AssetTypeValueField points, float x, float y)
+    {
+        AssetTypeValueField point = ValueBuilder.DefaultValueFieldFromArrayTemplate(points);
+        SetVector2(point, x, y);
+        points.Children.Add(point);
     }
 
     private static void PopulateAssetBundle(AssetTypeValueField assetBundleBase, IReadOnlyList<UnityImageBundleAsset> assets, long[] textureIds, long[] spriteIds)
@@ -431,6 +518,16 @@ internal static class UnitySyntheticBundleFactory
         SetFloat(field["y"], y);
     }
 
+    private static void SetVector3(AssetTypeValueField field, float x, float y, float z)
+    {
+        if (field.IsDummy)
+            return;
+
+        SetFloat(field["x"], x);
+        SetFloat(field["y"], y);
+        SetFloat(field["z"], z);
+    }
+
     private static void SetVector4(AssetTypeValueField field, float x, float y, float z, float w)
     {
         if (field.IsDummy)
@@ -448,10 +545,22 @@ internal static class UnitySyntheticBundleFactory
             field.AsInt = value;
     }
 
+    private static void SetByte(AssetTypeValueField field, byte value)
+    {
+        if (!field.IsDummy)
+            field.AsByte = value;
+    }
+
     private static void SetUInt(AssetTypeValueField field, uint value)
     {
         if (!field.IsDummy)
             field.AsUInt = value;
+    }
+
+    private static void SetBool(AssetTypeValueField field, bool value)
+    {
+        if (!field.IsDummy)
+            field.AsBool = value;
     }
 
     private static void SetInteger(AssetTypeValueField field, long value)

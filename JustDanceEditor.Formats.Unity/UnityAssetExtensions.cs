@@ -7,6 +7,8 @@ namespace JustDanceEditor.Formats.Unity;
 
 public static class UnityAssetExtensions
 {
+    private const string BlankCabName = "CAB-00000000000000000000000000000000";
+
     public static uint[] ToUnity(this Guid guid)
     {
         byte[] guidBytes = guid.ToByteArray();
@@ -48,6 +50,8 @@ public static class UnityAssetExtensions
     {
         ArgumentNullException.ThrowIfNull(assetBundleFile);
 
+        EnsureUniqueCabNames(assetBundleFile);
+
         using MemoryStream uncompressedMs = new();
         using (AssetsFileWriter writer = new(WrapNonClosing(uncompressedMs)))
         {
@@ -75,6 +79,17 @@ public static class UnityAssetExtensions
         }
     }
 
+    internal static void EnsureUniqueCabNames(AssetBundleFile assetBundleFile)
+    {
+        ArgumentNullException.ThrowIfNull(assetBundleFile);
+
+        foreach (AssetBundleDirectoryInfo directoryInfo in assetBundleFile.BlockAndDirInfo.DirectoryInfos)
+        {
+            if (string.Equals(directoryInfo.Name, BlankCabName, StringComparison.Ordinal))
+                directoryInfo.Name = $"CAB-{Guid.NewGuid():N}";
+        }
+    }
+
     public static string WriteCompressedBundle(byte[] compressedData, string outputPath, bool keepExtension)
     {
         ArgumentNullException.ThrowIfNull(compressedData);
@@ -82,8 +97,7 @@ public static class UnityAssetExtensions
 
         byte[] finalData = [.. compressedData];
         string hash = ComputeMd5Hash(finalData);
-        if (!TryUpdateCabHashInMemory(finalData, hash))
-            throw new InvalidOperationException("Marker 'CAB-' not found in the bundle.");
+        TryUpdateCabHashInMemory(finalData, hash);
 
         return WriteCompressedBundleData(finalData, outputPath, keepExtension, hash);
     }

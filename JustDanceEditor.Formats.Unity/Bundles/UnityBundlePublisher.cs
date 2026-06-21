@@ -1,5 +1,4 @@
 using AssetsTools.NET;
-using AssetsTools.NET.Extra;
 
 namespace JustDanceEditor.Formats.Unity.Bundles;
 
@@ -26,12 +25,12 @@ internal static class UnityBundlePublisher
         ArgumentNullException.ThrowIfNull(generatedBundle);
         ArgumentNullException.ThrowIfNull(target);
 
-        foreach (UnityServerPlatform platform in target.Platforms)
+        Parallel.ForEach(target.Platforms, platform =>
         {
             byte[] platformBundle = UnityBundlePlatformConverter.Convert(generatedBundle, platform.BuildTarget);
             string outputFolder = Path.Combine(target.OutputRoot, platform.FolderName, target.BundleFolderName);
             WriteBundle(platformBundle, outputFolder, keepExtension);
-        }
+        });
     }
 
     public static void WriteBundle(byte[] bundle, string outputFolder, bool keepExtension)
@@ -39,16 +38,6 @@ internal static class UnityBundlePublisher
         ArgumentNullException.ThrowIfNull(bundle);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputFolder);
 
-        using MemoryStream stream = new(bundle, writable: false);
-        AssetsManager manager = new();
-        try
-        {
-            BundleFileInstance bundleInstance = manager.LoadBundleFile(stream, "generated.bundle", true);
-            bundleInstance.file.SaveAndCompress(outputFolder, keepExtension);
-        }
-        finally
-        {
-            manager.UnloadAll(true);
-        }
+        UnityAssetExtensions.WriteCompressedBundle(bundle, outputFolder, keepExtension);
     }
 }

@@ -38,7 +38,9 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger)
         List<Image<Rgba32>> coachImages = [];
         try
         {
-            LoadCoachImages(request, coachImages);
+            if (!TryLoadCoachImages(request, coachImages, _logger))
+                return;
+
             UnityImageBundleGenerator.Generate(new UnityImageBundleRequest(
                 $"{request.SongName}_CoachesSmall",
                 request.OutputFolderPath,
@@ -64,11 +66,14 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger)
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
     }
 
-    private static void LoadCoachImages(UnityCoachesSmallRequest request, List<Image<Rgba32>> destination)
+    private static bool TryLoadCoachImages(UnityCoachesSmallRequest request, List<Image<Rgba32>> destination, ILogger logger)
     {
         IReadOnlyList<string> coachFiles = request.MenuArt.CoachImagePaths;
         if (coachFiles.Count == 0)
-            throw new FileNotFoundException("No coach images defined in the intermediate package.");
+        {
+            logger.LogWarning("No coach images defined in the intermediate package; skipping CoachesSmall bundle generation.");
+            return false;
+        }
 
         for (int i = 0; i < request.CoachCount; i++)
         {
@@ -77,6 +82,8 @@ public sealed class CoachesSmallBundleBuilder(ILogger logger)
 
             destination.Add(Image.Load<Rgba32>(coachFiles[i]));
         }
+
+        return true;
     }
 
     private static IReadOnlyList<UnityImageBundleAsset> BuildAssets(string songName, IReadOnlyList<Image<Rgba32>> coachImages)

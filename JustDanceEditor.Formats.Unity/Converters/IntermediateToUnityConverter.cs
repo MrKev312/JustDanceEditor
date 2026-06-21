@@ -97,8 +97,21 @@ internal sealed class IntermediateToUnityConverter
         Task songInfoTask = includeSongInfo ? GenerateSongInfoAsync() : Task.CompletedTask;
         await Task.WhenAll(audioTask, videoTask, songInfoTask);
 
+        await EnsureMissingImageAssetsAsync();
+
         _logger.LogDebug("Building Unity bundles...");
         await BuildUnityBundlesAsync();
+    }
+
+    private async Task EnsureMissingImageAssetsAsync()
+    {
+        IntermediateImageService imageService = new(
+            _packageRoot,
+            _package,
+            new SystemFileSystem(),
+            logger: _logger);
+
+        await imageService.GenerateAllMissingImagesAsync();
     }
 
     private async Task CopyAudioAssetsAsync()

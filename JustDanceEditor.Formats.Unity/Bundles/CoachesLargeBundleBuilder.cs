@@ -42,7 +42,9 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger)
 
         try
         {
-            LoadCoachImages(request, coachImages);
+            if (!TryLoadCoachImages(request, coachImages, _logger))
+                return;
+
             background = ImageLoader.TryLoadImage(request.MenuArt.CoachesBackgroundPath) ?? CreateFallbackBackground();
 
             UnityImageBundleGenerator.Generate(new UnityImageBundleRequest(
@@ -72,11 +74,14 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger)
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputFolderPath);
     }
 
-    private static void LoadCoachImages(UnityCoachesLargeRequest request, List<Image<Rgba32>> destination)
+    private static bool TryLoadCoachImages(UnityCoachesLargeRequest request, List<Image<Rgba32>> destination, ILogger logger)
     {
         IReadOnlyList<string> coachFiles = request.MenuArt.CoachImagePaths;
         if (coachFiles.Count == 0)
-            throw new FileNotFoundException("No coach images defined in the intermediate package.");
+        {
+            logger.LogWarning("No coach images defined in the intermediate package; skipping CoachesLarge bundle generation.");
+            return false;
+        }
 
         for (int i = 0; i < request.CoachCount; i++)
         {
@@ -85,6 +90,8 @@ public sealed class CoachesLargeBundleBuilder(ILogger logger)
 
             destination.Add(Image.Load<Rgba32>(coachFiles[i]));
         }
+
+        return true;
     }
 
     private static Image<Rgba32> CreateFallbackBackground() => new(2048, 1024, Color.Magenta);
