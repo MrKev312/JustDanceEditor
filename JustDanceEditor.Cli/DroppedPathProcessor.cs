@@ -51,6 +51,9 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         new("dds-dxt1", "DDS DXT1 (.dds)", ".dds", ["dds-bc1"]),
         new("dds-dxt5", "DDS DXT5 (.dds)", ".dds", ["dds-bc3", "dds"]),
         new("dds-rgba8", "DDS RGBA8 (.dds)", ".dds"),
+        new("ckd-dds-dxt1", "UbiArt TEX-wrapped PC DDS DXT1 (.ckd)", ".ckd", ["pc-dxt1", "pc-dds-dxt1", "ubiart-pc-dxt1"]),
+        new("ckd-dds-dxt5", "UbiArt TEX-wrapped PC DDS DXT5 (.ckd)", ".ckd", ["pc-dxt5", "pc-dds-dxt5", "ubiart-pc-dxt5"]),
+        new("ckd-dds-rgba8", "UbiArt TEX-wrapped PC DDS RGBA8 (.ckd)", ".ckd", ["pc-rgba8", "pc-dds-rgba8", "ubiart-pc-rgba8"]),
         new("gtx-bc3", "Wii U GTX BC3/DXT5 (.gtx)", ".gtx", ["gtx", "gtx-dxt5"]),
         new("gtx-rgba8", "Wii U GTX RGBA8 (.gtx)", ".gtx"),
         new("ckd-gtx-bc3", "UbiArt TEX-wrapped Wii U GTX BC3/DXT5 (.gtx.ckd)", ".gtx.ckd", ["gtx-ckd", "gtx-dxt5-ckd", "ubiart-gtx"]),
@@ -207,7 +210,8 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         }
 
         bool batch = Directory.Exists(inputPath) || inputs.Length > 1;
-        return ProcessMediaFiles(inputs, input => ConvertAudioFile(input, ResolveBatchOutputPath(input, outputPath, target.Extension, batch), force, target)) == 0;
+        string? inputRoot = Directory.Exists(inputPath) ? Path.GetFullPath(inputPath) : null;
+        return ProcessMediaFiles(inputs, input => ConvertAudioFile(input, ResolveMediaOutputPath(input, inputRoot, outputPath, target.Extension, batch), force, target)) == 0;
     }
 
     public bool ConvertTexture(string inputPath, string? outputPath, bool force, string? targetEncoding, bool headless)
@@ -221,7 +225,8 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         }
 
         bool batch = Directory.Exists(inputPath) || inputs.Length > 1;
-        return ProcessMediaFiles(inputs, input => ConvertTextureFile(input, ResolveBatchOutputPath(input, outputPath, target.Extension, batch), force, target)) == 0;
+        string? inputRoot = Directory.Exists(inputPath) ? Path.GetFullPath(inputPath) : null;
+        return ProcessMediaFiles(inputs, input => ConvertTextureFile(input, ResolveMediaOutputPath(input, inputRoot, outputPath, target.Extension, batch), force, target)) == 0;
     }
 
     private int ProcessDroppedAudioFiles(IReadOnlyList<string> paths, DroppedPathOptions options, bool batch)
@@ -491,6 +496,18 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                 using (Image<Bgra32> gtxBc3 = image.CloneAs<Bgra32>())
                     UbiArtTextureEncoder.EncodeWiiUGtx(gtxBc3, GTX.GX2SurfaceFormat.T_BC3_UNORM, outputStream);
                 break;
+            case "dds-dxt1":
+                using (Image<Bgra32> pcDxt1 = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodePcDds(pcDxt1, DDS.DDSFormat.DXT1, outputStream, false);
+                break;
+            case "dds-dxt5":
+                using (Image<Bgra32> pcDxt5 = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodePcDds(pcDxt5, DDS.DDSFormat.DXT5, outputStream, false);
+                break;
+            case "dds-rgba8":
+                using (Image<Bgra32> pcRgba8 = image.CloneAs<Bgra32>())
+                    UbiArtTextureEncoder.EncodePcDds(pcRgba8, DDS.DDSFormat.RGBA8, outputStream, false);
+                break;
             case "gtx-rgba8":
                 using (Image<Bgra32> gtxRgba = image.CloneAs<Bgra32>())
                     UbiArtTextureEncoder.EncodeWiiUGtx(gtxRgba, GTX.GX2SurfaceFormat.TCS_R8_G8_B8_A8_UNORM, outputStream);
@@ -661,11 +678,28 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         if (!outputIsDirectory)
             return outputPath;
 
+        string inputFileName = Path.GetFileName(inputPath);
         string fileName = string.IsNullOrEmpty(extension)
             ? Path.GetFileNameWithoutExtension(inputPath)
-            : Path.ChangeExtension(Path.GetFileName(inputPath), extension);
+            : inputFileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
+                ? inputFileName
+                : Path.ChangeExtension(inputFileName, extension);
 
         return Path.Combine(outputPath, fileName);
+    }
+
+    private static string? ResolveMediaOutputPath(string inputPath, string? inputRoot, string? outputPath, string extension, bool batch)
+    {
+        if (!string.IsNullOrWhiteSpace(inputRoot) && !string.IsNullOrWhiteSpace(outputPath))
+        {
+            string relativePath = Path.GetRelativePath(inputRoot, Path.GetFullPath(inputPath));
+            string outputRelativePath = relativePath.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
+                ? relativePath
+                : Path.ChangeExtension(relativePath, extension);
+            return Path.Combine(outputPath, outputRelativePath);
+        }
+
+        return ResolveBatchOutputPath(inputPath, outputPath, extension, batch);
     }
 
     private static string GetDefaultIpkOutputPath(string folderPath)
@@ -716,7 +750,20 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                extension.Equals(".gtx", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".ps3tex", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".tex", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".ckd", StringComparison.OrdinalIgnoreCase);
+               IsLikelyTextureCkdPath(path);
+    }
+
+    private static bool IsLikelyTextureCkdPath(string path)
+    {
+        string fileName = Path.GetFileName(path);
+        return fileName.EndsWith(".png.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".tga.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".dds.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".xtx.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".gtx.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".ps3tex.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".tex.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".ssd.ckd", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsLikelyImagePath(string path)

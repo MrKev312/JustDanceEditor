@@ -8,6 +8,7 @@ using JustDanceEditor.Conversion.Abstractions.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Conversion;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.UbiArt.Export.Ipk;
 
 using Microsoft.Extensions.Logging;
 
@@ -102,6 +103,7 @@ internal sealed class CliApp(
         rootCommand.Subcommands.Add(CreateCommand("batch", "Convert every detected source in a folder.", symbols, CliOptionProfile.JdiConversion, ConvertBatch, "batch-convert"));
         rootCommand.Subcommands.Add(CreateCommand("extract-ipk", "Extract an IPK archive.", symbols, CliOptionProfile.IpkTool, options => RunToolByCode("ipk.extract", options)));
         rootCommand.Subcommands.Add(CreateCommand("pack-ipk", "Pack a folder into an IPK archive.", symbols, CliOptionProfile.IpkTool, PackIpk));
+        rootCommand.Subcommands.Add(CreateCommand("rebuild-secure-fat", "Rebuild secure_fat.gf from platform IPK archives.", symbols, CliOptionProfile.Headless | CliOptionProfile.Input | CliOptionProfile.Platform, RebuildSecureFat));
         rootCommand.Subcommands.Add(CreateCommand("audio", "Convert audio files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertAudio, "convert-audio"));
         rootCommand.Subcommands.Add(CreateCommand("texture", "Convert image and texture files to a selected target encoding.", symbols, CliOptionProfile.MediaConversion, ConvertTexture, "convert-texture"));
         rootCommand.Subcommands.Add(CreateCommand("cache-spread", "Spread cache folders for exFAT.", symbols, CliOptionProfile.Headless | CliOptionProfile.Input | CliOptionProfile.Force, options => RunToolByCode("unity.cache-spread", options)));
@@ -182,6 +184,8 @@ internal sealed class CliApp(
             command.Options.Add(symbols.AnswerOption);
         if (options.HasFlag(CliOptionProfile.DownloadOnlineAssets))
             command.Options.Add(symbols.DownloadOnlineAssetsOption);
+        if (options.HasFlag(CliOptionProfile.Speedtest))
+            command.Options.Add(symbols.SpeedtestOption);
         if (options.HasFlag(CliOptionProfile.Provider))
             command.Options.Add(symbols.ProviderOption);
         if (options.HasFlag(CliOptionProfile.Platform))
@@ -224,6 +228,7 @@ internal sealed class CliApp(
         options.Set("audio-encoding", GetValue(parseResult, symbols.AudioEncodingOption));
         options.Set("texture-encoding", GetValue(parseResult, symbols.TextureEncodingOption));
         options.SetFlag("download-online-assets", GetValue(parseResult, symbols.DownloadOnlineAssetsOption));
+        options.SetFlag("speedtest", GetValue(parseResult, symbols.SpeedtestOption));
         options.SetFlag("force", GetValue(parseResult, symbols.ForceOption));
         options.SetFlag("no-wait", GetValue(parseResult, symbols.NoWaitOption));
 
@@ -576,6 +581,9 @@ internal sealed class CliApp(
             answers.Set(answer[..equals], answer[(equals + 1)..]);
         }
 
+        if (options.HasFlag("speedtest"))
+            answers.Set("ubiart.renderSpeedTest", "true");
+
         return answers;
     }
 
@@ -674,6 +682,16 @@ internal sealed class CliApp(
         string? outputPath = options.Get("output");
         bool force = options.HasFlag("force");
         return _droppedPathProcessor.PackIpk(inputPath, outputPath, force) ? 0 : 1;
+    }
+
+    private int RebuildSecureFat(CliOptions options)
+    {
+        string inputPath = RequireOrAsk(options, "input", () => Question.AskFolder("Enter the game archive folder", mustExist: true));
+        string platform = options.Get("platform") ?? "pc";
+
+        UbiArtSecureFatWriter.Update(inputPath, platform, _logger);
+        Console.WriteLine($"Rebuilt secure_fat.gf for {platform}: {Path.Combine(inputPath, "secure_fat.gf")}");
+        return 0;
     }
 
     private int ConvertAudio(CliOptions options)
@@ -886,9 +904,10 @@ internal sealed class CliApp(
         Encoding = 1 << 14,
         AudioEncoding = 1 << 15,
         TextureEncoding = 1 << 16,
+        Speedtest = 1 << 17,
 
         DroppedPath = Headless | Output | Force | NoWait | Encoding | AudioEncoding | TextureEncoding,
-        JdiConversion = Headless | Input | Output | Target | Source | Song | Answer | DownloadOnlineAssets,
+        JdiConversion = Headless | Input | Output | Target | Source | Song | Answer | DownloadOnlineAssets | Speedtest,
         IpkTool = Headless | Input | Output | Force,
         MediaConversion = Headless | Input | Output | Force | Encoding,
         ToolExecution = Headless | Input | Output | Force | Answer | Id | Tool,
@@ -935,6 +954,11 @@ internal sealed class CliApp(
         public Option<bool> DownloadOnlineAssetsOption { get; } = new("--download-online-assets")
         {
             Description = "Download online assets after import."
+        };
+
+        public Option<bool> SpeedtestOption { get; } = new("--speedtest", "--render-speedtest")
+        {
+            Description = "Render cinematic video frames and discard the output stream instead of encoding video."
         };
 
         public Option<string?> ProviderOption { get; } = new("--provider")
