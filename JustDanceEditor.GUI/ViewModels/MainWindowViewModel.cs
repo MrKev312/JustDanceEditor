@@ -41,6 +41,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private ConversionTargetDefinition[] _targets = [];
     private CancellationTokenSource? _previewLoadCts;
     private CancellationTokenSource? _formatDetectionCts;
+    private CancellationTokenSource? _outputDetectionCts;
     private CancellationTokenSource? _previewOnlineAssetCts;
     private JdiImportResult? _previewImportResult;
     private string? _previewLoadedFormatName;
@@ -145,6 +146,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string DetectedFormatText { get; set; } = "No source selected.";
+
+    [ObservableProperty]
+    public partial string DetectedOutputText { get; set; } = "No output selected.";
 
     [ObservableProperty]
     public partial PlatformItemViewModel? SelectedPlatform { get; set; }
@@ -258,15 +262,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         PageTitle = value switch
         {
-            GuiPage.Target => "Select Target",
-            GuiPage.Output => "Choose Output",
+            GuiPage.Target => "Target and Options",
             GuiPage.Tool => "Tool",
-            _ => "Select Song"
+            _ => "Select Folders"
         };
 
         PrimaryActionText = value switch
         {
-            GuiPage.Output => "Convert",
+            GuiPage.Target => "Convert",
             GuiPage.Tool => "Run Tool",
             _ => "Next"
         };
@@ -292,6 +295,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnInputPathChanged(string value)
     {
         _ = UpdateInputPathAsync(resetSongSelection: true);
+    }
+
+    partial void OnOutputPathChanged(string value)
+    {
+        _ = UpdateDetectedOutputAsync();
     }
 
     partial void OnDownloadAssetsWhenLoadingChanged(bool value)
@@ -424,15 +432,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void ShowTargetPage() => ShowPage(GuiPage.Target);
 
     [RelayCommand]
-    private void ShowOutputPage() => ShowPage(GuiPage.Output);
-
-    [RelayCommand]
     private void Back()
     {
         ShowPage(CurrentPage switch
         {
             GuiPage.Target => GuiPage.Source,
-            GuiPage.Output => GuiPage.Target,
             GuiPage.Tool => GuiPage.Source,
             _ => GuiPage.Source
         });
@@ -447,12 +451,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         switch (CurrentPage)
         {
             case GuiPage.Source:
-                ShowPage(GuiPage.Target);
+                await ContinueFromSourceAsync();
                 break;
             case GuiPage.Target:
-                ShowPage(GuiPage.Output);
-                break;
-            case GuiPage.Output:
                 await RunBusyAsync("Converting...", ConvertAsync);
                 break;
             case GuiPage.Tool:
@@ -482,6 +483,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _isDisposed = true;
         CancelAndDispose(ref _previewLoadCts);
         CancelAndDispose(ref _formatDetectionCts);
+        CancelAndDispose(ref _outputDetectionCts);
         CancelAndDispose(ref _previewOnlineAssetCts);
         CoverPreviewImage = null;
         CoverPreviewSecondaryImage = null;
@@ -714,6 +716,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         await LoadPreviewAsync(resetSongSelection);
     }
 
+    private async Task ContinueFromSourceAsync()
+    {
+        RequireInputPath();
+        RequireOutputPath();
+        await UpdateDetectedOutputAsync();
+        ShowPage(GuiPage.Target);
+    }
+
     private async Task UpdateDetectedFormatAsync()
     {
         string path = NormalizePath(InputPath);
@@ -758,6 +768,64 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             DetectedFormatText = $"Source detection failed: {ex.Message}";
         }
+    }
+
+    private async Task UpdateDetectedOutputAsync()
+    {
+        string path = NormalizePath(OutputPath);
+        CancelAndDispose(ref _outputDetectionCts);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            DetectedOutputText = "No output selected.";
+            return;
+        }
+
+        CancellationTokenSource cts = new();
+        _outputDetectionCts = cts;
+        CancellationToken cancellationToken = cts.Token;
+
+        DetectedOutputText = "Detecting output target...";
+
+        try
+        {
+            OutputTargetDetectionResult result = await Task.Run(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return OutputTargetDetector.Detect(path, _formats, _targets);
+            }, cancellationToken);
+
+            if (_outputDetectionCts != cts || cancellationToken.IsCancellationRequested)
+                return;
+
+            DetectedOutputText = result.Message;
+            if (result.Target is not null)
+                SelectTarget(result.Target);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            DetectedOutputText = $"Output detection failed: {ex.Message}";
+        }
+    }
+
+    private void SelectTarget(ConversionTargetDefinition target)
+    {
+        PlatformItemViewModel? platform = Platforms.FirstOrDefault(item =>
+            item.Platform.PlatformCode.Equals(target.Platform.PlatformCode, StringComparison.OrdinalIgnoreCase));
+        if (platform is null)
+            return;
+
+        if (!ReferenceEquals(SelectedPlatform, platform))
+            SelectedPlatform = platform;
+
+        TargetItemViewModel? targetItem = Targets.FirstOrDefault(item =>
+            item.Target.TargetCode.Equals(target.TargetCode, StringComparison.OrdinalIgnoreCase) &&
+            item.Target.FormatCode.Equals(target.FormatCode, StringComparison.OrdinalIgnoreCase));
+        if (targetItem is not null)
+            SelectedTarget = targetItem;
     }
 
     private async Task LoadPreviewAsync(bool resetSongSelection)

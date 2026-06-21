@@ -14,8 +14,9 @@ internal static class FormatConversionDialogue
 {
     public static void Start(IEnumerable<IJdiFormat> formatsEnumerable, IEnumerable<IFormatConversionStrategy> strategies, IConversionInteraction interaction, ILogger logger)
     {
-        // Ask for input folder or IPK up front so we can auto-detect its format
         string inputPath = Question.AskFolderOrIpk("Enter the input folder or IPK for the conversion");
+        string outputPath = Question.AskFolder("Enter the output folder for the conversion");
+        Directory.CreateDirectory(outputPath);
 
         IJdiFormat[] formats = [.. formatsEnumerable];
         IFormatConversionStrategy[] conversionStrategies = [.. strategies];
@@ -54,16 +55,24 @@ internal static class FormatConversionDialogue
         IJdiFormat sourceFormat = formats.First(f => f.DisplayName.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
         IFormatConversionStrategy sourceStrategy = ResolveStrategy(conversionStrategies, sourceName);
 
+        OutputTargetDetectionResult detectedOutput = OutputTargetDetector.Detect(outputPath, formats, conversionStrategies);
+        if (detectedOutput.Target is not null)
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine(detectedOutput.Message);
+            Console.ResetColor();
+        }
+
         ConversionTargetDefinition target = ConsoleConversionTargetSelector.AskTarget(
             conversionStrategies,
-            (choices, defaultIndex, question) => Question.Ask([.. choices], defaultIndex, question));
+            (choices, defaultIndex, question) => Question.Ask([.. choices], defaultIndex, question),
+            detectedOutputTarget: detectedOutput.Target);
         IFormatConversionStrategy targetStrategy = ResolveStrategy(conversionStrategies, target.FormatName);
 
         string targetName = target.FormatName;
         IJdiFormat targetFormat = formats.First(f => f.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
-        PromptAnswerSet targetAnswers = AskTargetPrompts(target, interaction);
-        string outputPath = GetOutputPath(targetAnswers);
+        PromptAnswerSet targetAnswers = AskTargetPrompts(target, interaction, outputPath);
         string intermediatePath = target.FormatName.Equals("JDI", StringComparison.OrdinalIgnoreCase)
             ? outputPath
             : Path.Combine(Path.GetTempPath(), "JustDanceEditor", "JDI", Path.GetFileName(inputPath) ?? "Export");
@@ -174,20 +183,27 @@ internal static class FormatConversionDialogue
         return strategies.First(strategy => strategy.FormatName.Equals(formatName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target, IConversionInteraction interaction)
+    private static PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target, IConversionInteraction interaction, string outputPath)
     {
-        IReadOnlyList<ConversionPrompt> prompts = target.ExportPrompts.Count == 0
-            ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Enter the destination folder for the converted files", Required: false)]
-            : target.ExportPrompts;
+        PromptAnswerSet answers = new();
+        answers.Set(ConversionPromptIds.OutputPath, outputPath);
 
-        return interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).AsTask().GetAwaiter().GetResult();
-    }
+        ConversionPrompt[] prompts = [.. target.ExportPrompts
+            .Where(prompt => !prompt.Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase))];
 
-    private static string GetOutputPath(PromptAnswerSet answers)
-    {
-        string path = answers.GetString(ConversionPromptIds.OutputPath);
-        Directory.CreateDirectory(path);
-        return path;
+        if (prompts.Length == 0)
+            return answers;
+
+        PromptAnswerSet promptAnswers = interaction
+            .AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts))
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+
+        foreach (KeyValuePair<string, string> answer in promptAnswers.Answers)
+            answers.Set(answer.Key, answer.Value);
+
+        return answers;
     }
 
     private static void LogImportStep(ILogger logger, string sourceName, string inputPath, string intermediatePath)

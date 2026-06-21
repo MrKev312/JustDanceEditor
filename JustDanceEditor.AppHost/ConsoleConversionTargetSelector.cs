@@ -8,7 +8,8 @@ public static class ConsoleConversionTargetSelector
     public static ConversionTargetDefinition AskTarget(
         IEnumerable<IFormatConversionStrategy> strategies,
         Func<IReadOnlyList<string>, int, string, int> ask,
-        string prompt = "Select the target format/platform")
+        string prompt = "Select the target format/platform",
+        ConversionTargetDefinition? detectedOutputTarget = null)
     {
         ConversionTargetDefinition[] allTargets = ConversionTargetSelector.GetAvailableTargets(strategies);
 
@@ -17,8 +18,26 @@ public static class ConsoleConversionTargetSelector
 
         PlatformDescriptor[] platforms = ConversionTargetSelector.GetSortedPlatforms(allTargets);
 
-        int platformSelection = ask([.. platforms.Select(platform => platform.DisplayName)], 0, "Select the target platform");
-        PlatformDescriptor selectedPlatform = platforms[platformSelection];
+        PlatformDescriptor selectedPlatform;
+        if (detectedOutputTarget is not null)
+        {
+            string[] platformLabels =
+            [
+                $"Use detected output: {OutputTargetDetector.FormatTargetLabel(detectedOutputTarget)}",
+                .. platforms.Select(platform => platform.DisplayName)
+            ];
+
+            int platformSelection = ask(platformLabels, 0, "Select the target platform");
+            if (platformSelection == 0)
+                return detectedOutputTarget;
+
+            selectedPlatform = platforms[platformSelection - 1];
+        }
+        else
+        {
+            int platformSelection = ask([.. platforms.Select(platform => platform.DisplayName)], 0, "Select the target platform");
+            selectedPlatform = platforms[platformSelection];
+        }
 
         ConversionTargetDefinition[] targets = ConversionTargetSelector.GetSortedTargetsForPlatform(allTargets, selectedPlatform.PlatformCode);
 

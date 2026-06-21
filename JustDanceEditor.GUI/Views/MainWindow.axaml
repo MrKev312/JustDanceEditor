@@ -206,21 +206,16 @@
           <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="14">
             <StackPanel Spacing="10">
               <TextBlock Classes="h1" Text="{Binding PageTitle}" />
-              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" IsVisible="{Binding IsStepPanelVisible}">
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsStepPanelVisible}">
                 <Button Classes="step"
                         Classes.active="{Binding IsSourcePage}"
-                        Content="1 Source"
+                        Content="1 Folders"
                         Command="{Binding ShowSourcePageCommand}" />
                 <Button Grid.Column="1"
                         Classes="step"
                         Classes.active="{Binding IsTargetPage}"
                         Content="2 Target"
                         Command="{Binding ShowTargetPageCommand}" />
-                <Button Grid.Column="2"
-                        Classes="step"
-                        Classes.active="{Binding IsOutputPage}"
-                        Content="3 Output"
-                        Command="{Binding ShowOutputPageCommand}" />
               </Grid>
             </StackPanel>
 
@@ -239,6 +234,18 @@
                     <Button Grid.Column="2" Content="Folder" Command="{Binding BrowseInputFolderCommand}" />
                   </Grid>
                   <TextBlock Classes="muted" Text="{Binding DetectedFormatText}" TextWrapping="Wrap" />
+
+                  <TextBlock Classes="sectionTitle" Text="Output" />
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="6"
+                        Background="Transparent"
+                        behaviors:PathDrop.Command="{Binding SetOutputPathCommand}">
+                    <TextBox Text="{Binding OutputPath, Mode=TwoWay}"
+                             PlaceholderText="Drop or choose the destination folder"
+                             behaviors:PathDrop.Command="{Binding SetOutputPathCommand}" />
+                    <Button Grid.Column="1" Content="Folder" Command="{Binding BrowseOutputFolderCommand}" />
+                  </Grid>
+                  <TextBlock Classes="muted" Text="{Binding DetectedOutputText}" TextWrapping="Wrap" />
 
                   <StackPanel Spacing="8" IsVisible="{Binding IsSongSelectionVisible}">
                     <TextBlock Classes="sectionTitle" Text="Song" />
@@ -298,19 +305,6 @@
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                   </ItemsControl>
-                </StackPanel>
-
-                <StackPanel Spacing="12" IsVisible="{Binding IsOutputPage}">
-                  <TextBlock Classes="sectionTitle" Text="Output" />
-                  <Grid ColumnDefinitions="*,Auto"
-                        ColumnSpacing="6"
-                        Background="Transparent"
-                        behaviors:PathDrop.Command="{Binding SetOutputPathCommand}">
-                    <TextBox Text="{Binding OutputPath, Mode=TwoWay}"
-                             PlaceholderText="Drop or choose a destination folder"
-                             behaviors:PathDrop.Command="{Binding SetOutputPathCommand}" />
-                    <Button Grid.Column="1" Content="Folder" Command="{Binding BrowseOutputFolderCommand}" />
-                  </Grid>
                 </StackPanel>
 
                 <StackPanel Spacing="12" IsVisible="{Binding IsToolPage}">

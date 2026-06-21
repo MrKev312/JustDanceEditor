@@ -355,13 +355,12 @@ internal sealed class CliApp(
 
     private int ConvertSingle(CliOptions options)
     {
-        if (!HasRequiredOptions(options, "input", "output", "target"))
+        if (!HasRequiredOptions(options, "input", "output"))
         {
             if (options.Headless)
             {
                 options.Require("input");
                 options.Require("output");
-                options.Require("target");
             }
 
             FormatConversionDialogue.Start(_formats, _strategies, _interactiveInteraction, _logger);
@@ -370,7 +369,7 @@ internal sealed class CliApp(
 
         string inputPath = options.Require("input");
         string outputPath = options.Require("output");
-        ConversionTargetDefinition target = ResolveTarget(options.Require("target"));
+        ConversionTargetDefinition target = ResolveTargetForConversion(options, outputPath);
         IJdiFormat sourceFormat = ResolveSourceFormat(inputPath, options.Get("source"));
         IFormatConversionStrategy sourceStrategy = ResolveStrategy(sourceFormat.DisplayName);
         IFormatConversionStrategy targetStrategy = ResolveStrategy(target.FormatName);
@@ -420,13 +419,12 @@ internal sealed class CliApp(
 
     private int ConvertBatch(CliOptions options)
     {
-        if (!HasRequiredOptions(options, "input", "output", "target"))
+        if (!HasRequiredOptions(options, "input", "output"))
         {
             if (options.Headless)
             {
                 options.Require("input");
                 options.Require("output");
-                options.Require("target");
             }
 
             _conversionWorkflow.ConvertAllSongsInFolder();
@@ -435,7 +433,7 @@ internal sealed class CliApp(
 
         string inputPath = options.Require("input");
         string outputPath = options.Require("output");
-        ConversionTargetDefinition target = ResolveTarget(options.Require("target"));
+        ConversionTargetDefinition target = ResolveTargetForConversion(options, outputPath);
         IFormatConversionStrategy targetStrategy = ResolveStrategy(target.FormatName);
         IJdiFormat targetFormat = ResolveFormat(target.FormatName);
         PromptAnswerSet answers = CompleteTargetAnswers(options, target, BuildAnswers(options, outputPath));
@@ -785,6 +783,22 @@ internal sealed class CliApp(
             ?? throw new ArgumentException($"Unknown target '{targetCode}'. Run 'targets' to list available targets.");
     }
 
+    private ConversionTargetDefinition ResolveTargetForConversion(CliOptions options, string outputPath)
+    {
+        string? targetCode = options.Get("target");
+        if (!string.IsNullOrWhiteSpace(targetCode))
+            return ResolveTarget(targetCode);
+
+        OutputTargetDetectionResult detectedOutput = OutputTargetDetector.Detect(outputPath, _formats, _strategies);
+        if (detectedOutput.Target is not null)
+        {
+            Console.WriteLine(detectedOutput.Message);
+            return detectedOutput.Target;
+        }
+
+        throw new ArgumentException($"{detectedOutput.Message} Pass --target <target>.");
+    }
+
     private IJdiFormat ResolveSourceFormat(string inputPath, string? source)
     {
         if (!string.IsNullOrWhiteSpace(source))
@@ -794,7 +808,7 @@ internal sealed class CliApp(
         return detected.Length switch
         {
             1 => detected[0],
-            > 1 => detected.FirstOrDefault(format => !format.DisplayName.Equals("JDI", StringComparison.OrdinalIgnoreCase)) ?? detected[0],
+            > 1 => throw new ArgumentException($"Multiple source formats detected for '{inputPath}': {string.Join(", ", detected.Select(format => format.DisplayName))}. Use --source <format>."),
             _ => throw new InvalidOperationException($"Could not detect source format for '{inputPath}'. Use --source <format>.")
         };
     }
@@ -841,7 +855,7 @@ internal sealed class CliApp(
             IJdiFormat format = ResolveSourceFormat(path, forcedSource);
             return new(path, format);
         }
-        catch
+        catch (InvalidOperationException)
         {
             return null;
         }

@@ -51,6 +51,15 @@ public sealed class CliContractTests
     }
 
     [Fact]
+    public async Task ConvertHelp_DoesNotShowUseDetectedOutput()
+    {
+        CliResult result = await RunCliAsync("convert", "-h");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.DoesNotContain("--use-detected-output", result.Output);
+    }
+
+    [Fact]
     public async Task HeadlessAudioMissingInput_FailsCleanly()
     {
         CliResult result = await RunCliAsync("audio", "-n");
@@ -235,6 +244,83 @@ public sealed class CliContractTests
         Assert.Equal(0, extractResult.ExitCode);
         Assert.True(Directory.Exists(extractFolder));
         Assert.True(Directory.EnumerateFileSystemEntries(extractFolder, "*", SearchOption.AllDirectories).Any());
+    }
+
+    [Fact]
+    public async Task HeadlessBatch_TargetOmitted_UsesDetectedUnityServerOutput()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputFolder = Path.Combine(temp.Path, "input");
+        string outputFolder = Path.Combine(temp.Path, "maps");
+        Directory.CreateDirectory(inputFolder);
+        Directory.CreateDirectory(Path.Combine(outputFolder, "existing"));
+        File.WriteAllText(Path.Combine(outputFolder, "existing", "SongInfo.json"), "{}");
+
+        CliResult result = await RunCliAsync("batch", "-n", "--input", inputFolder, "--output", outputFolder);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Output format: Unity", result.Output);
+        Assert.Contains("No compatible inputs were found.", result.Output);
+        Assert.DoesNotContain("Missing required option '--target'.", result.Output);
+    }
+
+    [Fact]
+    public async Task HeadlessBatch_TargetOmitted_MixedDetectedOutputFails()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputFolder = Path.Combine(temp.Path, "input");
+        string outputFolder = Path.Combine(temp.Path, "maps");
+        Directory.CreateDirectory(inputFolder);
+        Directory.CreateDirectory(Path.Combine(outputFolder, "unity"));
+        File.WriteAllText(Path.Combine(outputFolder, "unity", "SongInfo.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(outputFolder, "jdnextpc"));
+        File.WriteAllText(Path.Combine(outputFolder, "jdnextpc", "songdesc.json"), "{}");
+        File.WriteAllText(Path.Combine(outputFolder, "jdnextpc", "timeline.json"), "{}");
+        File.WriteAllText(Path.Combine(outputFolder, "jdnextpc", "musictrack.json"), "{}");
+
+        CliResult result = await RunCliAsync("batch", "-n", "--input", inputFolder, "--output", outputFolder);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Output format: Mixed (JDNext PC, Unity)", result.Output);
+        Assert.Contains("Pass --target <target>.", result.Output);
+        Assert.DoesNotContain("No compatible inputs were found.", result.Output);
+    }
+
+    [Fact]
+    public async Task HeadlessBatch_TargetOmitted_EmptyOutputFails()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputFolder = Path.Combine(temp.Path, "input");
+        string outputFolder = Path.Combine(temp.Path, "empty-output");
+        Directory.CreateDirectory(inputFolder);
+        Directory.CreateDirectory(outputFolder);
+
+        CliResult result = await RunCliAsync("batch", "-n", "--input", inputFolder, "--output", outputFolder);
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Output format: Empty", result.Output);
+        Assert.Contains("Pass --target <target>.", result.Output);
+        Assert.DoesNotContain("No compatible inputs were found.", result.Output);
+    }
+
+    [Fact]
+    public async Task HeadlessConvert_SourceOmitted_MultipleDetectedInputsFails()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputFolder = Path.Combine(temp.Path, "input");
+        string outputFolder = Path.Combine(temp.Path, "out");
+        Directory.CreateDirectory(inputFolder);
+        Directory.CreateDirectory(outputFolder);
+        File.WriteAllText(Path.Combine(inputFolder, "metadata.json"), "{}");
+        File.WriteAllText(Path.Combine(inputFolder, "SongInfo.json"), "{}");
+
+        CliResult result = await RunCliAsync("convert", "-n", "--input", inputFolder, "--output", outputFolder, "--target", "jdi");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("Multiple source formats detected", result.Output);
+        Assert.Contains("JDI", result.Output);
+        Assert.Contains("Unity", result.Output);
+        Assert.Contains("Use --source <format>.", result.Output);
     }
 
     private static async Task<CliResult> RunCliAsync(params string[] args)

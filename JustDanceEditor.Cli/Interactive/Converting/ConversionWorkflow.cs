@@ -30,14 +30,23 @@ public sealed class ConversionWorkflow(
         {
             Console.WriteLine("Starting batch conversion process for all songs in a folder.");
 
+            string inputFolder = AskBatchInputPath();
+            string outputFolder = AskOutputPath();
+            OutputTargetDetectionResult detectedOutput = OutputTargetDetector.Detect(outputFolder, _formatsEnumerable, _strategies);
+            if (detectedOutput.Target is not null)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine(detectedOutput.Message);
+                Console.ResetColor();
+            }
+
             ConversionTargetDefinition target = ConsoleConversionTargetSelector.AskTarget(
                 _strategies,
                 (choices, defaultIndex, question) => Question.Ask([.. choices], defaultIndex, question),
-                "Select the export target for all songs");
-            PromptAnswerSet targetAnswers = AskTargetPrompts(target);
+                "Select the export target for all songs",
+                detectedOutput.Target);
+            PromptAnswerSet targetAnswers = AskTargetPrompts(target, outputFolder);
 
-            string inputFolder = AskBatchInputPath();
-            string outputFolder = GetOutputPath(targetAnswers);
             bool downloadOnlineAssets = Question.Ask(["Yes", "No"], 0, "Download online assets for all imported songs when available?") == 0;
             HashSet<string> existingSongs = Directory.Exists(outputFolder)
                 ? new HashSet<string>(Directory.GetDirectories(outputFolder).Select(Path.GetFileName).OfType<string>(), StringComparer.OrdinalIgnoreCase)
@@ -353,18 +362,32 @@ public sealed class ConversionWorkflow(
         return (inputPath, maps[index]);
     }
 
-    private PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target)
+    private PromptAnswerSet AskTargetPrompts(ConversionTargetDefinition target, string outputPath)
     {
-        IReadOnlyList<ConversionPrompt> prompts = target.ExportPrompts.Count == 0
-            ? [new ConversionPrompt(ConversionPromptIds.OutputPath, ConversionPromptKind.FolderPath, "Please enter the full path for the output folder where converted files will be saved", Required: false)]
-            : target.ExportPrompts;
+        PromptAnswerSet answers = new();
+        answers.Set(ConversionPromptIds.OutputPath, outputPath);
 
-        return _interaction.AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts)).AsTask().GetAwaiter().GetResult();
+        ConversionPrompt[] prompts = [.. target.ExportPrompts
+            .Where(prompt => !prompt.Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase))];
+
+        if (prompts.Length == 0)
+            return answers;
+
+        PromptAnswerSet promptAnswers = _interaction
+            .AskAsync(new ConversionPromptSet($"target.{target.TargetCode}", $"Configure {target.DisplayName}", prompts))
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+
+        foreach (KeyValuePair<string, string> answer in promptAnswers.Answers)
+            answers.Set(answer.Key, answer.Value);
+
+        return answers;
     }
 
-    private static string GetOutputPath(PromptAnswerSet answers)
+    private static string AskOutputPath()
     {
-        string outputPath = answers.GetString(ConversionPromptIds.OutputPath);
+        string outputPath = Question.AskFolder("Enter the output folder where converted files will be saved");
         Directory.CreateDirectory(outputPath);
         return outputPath;
     }
