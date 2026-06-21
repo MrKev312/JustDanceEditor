@@ -5,7 +5,8 @@ using Avalonia.Markup.Xaml;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.Views;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,7 +26,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        PlatformTheme.Apply(this, typeof(App).Assembly.GetName().Name!, includeDockStyles: true);
+        PlatformTheme.Apply(this, includeDockStyles: true);
     }
 
     public override void OnFrameworkInitializationCompleted()

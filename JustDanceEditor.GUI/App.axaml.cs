@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-using JustDanceEditor.Shared.Avalonia;
+using KevInc.Avalonia;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,7 +15,7 @@ public sealed partial class App(IServiceProvider services) : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        PlatformTheme.Apply(this, typeof(App).Assembly.GetName().Name!, includeDockStyles: false);
+        PlatformTheme.Apply(this, includeDockStyles: false);
     }
 
     public override void OnFrameworkInitializationCompleted()

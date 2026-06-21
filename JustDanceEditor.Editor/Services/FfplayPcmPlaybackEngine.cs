@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -167,8 +166,6 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         startInfo.ArgumentList.Add(audio.Channels.ToString(System.Globalization.CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add("-i");
         startInfo.ArgumentList.Add("pipe:0");
-        ApplyWslAudioEnvironment(startInfo);
-
         Process? process = null;
         try
         {
@@ -482,16 +479,6 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         {
             return false;
         }
-    }
-
-    private static void ApplyWslAudioEnvironment(ProcessStartInfo startInfo)
-    {
-        if (!LinuxAudioEnvironment.IsWsl())
-            return;
-
-        startInfo.Environment.TryAdd("SDL_AUDIODRIVER", "pulseaudio");
-        if (!startInfo.Environment.ContainsKey("PULSE_SERVER") && File.Exists("/mnt/wslg/PulseServer"))
-            startInfo.Environment["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer";
     }
 
     private void ThrowIfDisposed()

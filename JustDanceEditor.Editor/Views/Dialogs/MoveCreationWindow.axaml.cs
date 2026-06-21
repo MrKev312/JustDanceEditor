@@ -3,7 +3,8 @@ using Avalonia.Interactivity;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 namespace JustDanceEditor.Editor.Views.Dialogs;
 

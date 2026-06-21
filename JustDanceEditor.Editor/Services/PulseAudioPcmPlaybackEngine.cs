@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -334,8 +333,6 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
 
     private IntPtr OpenStream(PcmWaveAudioData audio)
     {
-        ApplyWslAudioEnvironment();
-
         PulseNative.SampleSpec sampleSpec = new()
         {
             Format = PulseNative.SampleS16Le,
@@ -405,15 +402,6 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
     {
         NativeLibrary.Free(library);
         return true;
-    }
-
-    private static void ApplyWslAudioEnvironment()
-    {
-        if (!LinuxAudioEnvironment.IsWsl())
-            return;
-
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PULSE_SERVER")) && File.Exists("/mnt/wslg/PulseServer"))
-            Environment.SetEnvironmentVariable("PULSE_SERVER", "unix:/mnt/wslg/PulseServer");
     }
 
     private static long SecondsToFrame(double seconds, PcmWaveAudioData audio)

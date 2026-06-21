@@ -1,6 +1,6 @@
 using Dock.Avalonia.Controls;
 
-using JustDanceEditor.Shared.Avalonia;
+using KevInc.Avalonia;
 
 namespace JustDanceEditor.Editor.Views;
 

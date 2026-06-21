@@ -8,7 +8,8 @@ using Avalonia.Threading;
 
 using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.GUI.ViewModels;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 namespace JustDanceEditor.GUI.Services;
 

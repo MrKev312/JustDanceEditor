@@ -14,7 +14,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
-using System.Linq;
 
 using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
 

@@ -2,7 +2,6 @@ using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
-using DockWindow = Dock.Model.Mvvm.Core.DockWindow;
 
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.ViewModels.Timeline;
@@ -12,6 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+
+using DockWindow = Dock.Model.Mvvm.Core.DockWindow;
 
 namespace JustDanceEditor.Editor.Docking;
 

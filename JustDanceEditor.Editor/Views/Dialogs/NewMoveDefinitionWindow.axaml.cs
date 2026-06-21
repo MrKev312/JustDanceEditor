@@ -2,7 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 using System;
 

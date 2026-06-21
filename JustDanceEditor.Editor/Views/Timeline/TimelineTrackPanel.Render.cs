@@ -1,8 +1,6 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
@@ -10,7 +8,6 @@ using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
 using TimelineRenderHelper = KevInc.Avalonia.Timeline.TimelineRenderHelper;

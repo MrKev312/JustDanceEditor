@@ -17,7 +17,8 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 using Microsoft.Extensions.DependencyInjection;
 

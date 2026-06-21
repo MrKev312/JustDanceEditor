@@ -1,6 +1,8 @@
 using Avalonia.Controls;
+
 using JustDanceEditor.GUI.ViewModels;
-using JustDanceEditor.Shared.Avalonia;
+
+using KevInc.Avalonia;
 
 namespace JustDanceEditor.GUI;
 
