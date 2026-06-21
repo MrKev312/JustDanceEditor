@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 
 using JustDanceEditor.Editor.Views.Timeline;
 
@@ -27,37 +27,43 @@ public class TimelineTrackPanelTests
         }
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void OpenAddClipMenu_ClosesPreviousMenu()
     {
-        // arrange: stub out an existing menu and verify close is invoked
-        TimelineTrackPanel panel = new();
-        TestMenu stub = new();
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            // arrange: stub out an existing menu and verify close is invoked
+            TimelineTrackPanel panel = new();
+            TestMenu stub = new();
 
-        // use reflection to bypass the private setter on the public property
-        PropertyInfo prop = GetCurrentContextMenuProperty();
-        prop.SetValue(null, stub);
+            // use reflection to bypass the private setter on the public property
+            PropertyInfo prop = GetCurrentContextMenuProperty();
+            prop.SetValue(null, stub);
 
-        // act
-        panel.OpenAddClipMenu(null);
+            // act
+            panel.OpenAddClipMenu(null);
 
-        // assert
-        Assert.True(stub.CloseCalled);
-        Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
+            // assert
+            Assert.True(stub.CloseCalled);
+            Assert.NotSame(stub, TimelineTrackPanel.CurrentContextMenu);
+        });
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void OpenAddClipMenu_ReplacesCurrentMenu()
     {
-        TimelineTrackPanel panel = new();
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            TimelineTrackPanel panel = new();
 
-        panel.OpenAddClipMenu(null);
-        ContextMenu? first = TimelineTrackPanel.CurrentContextMenu;
-        Assert.NotNull(first);
+            panel.OpenAddClipMenu(null);
+            ContextMenu? first = TimelineTrackPanel.CurrentContextMenu;
+            Assert.NotNull(first);
 
-        panel.OpenAddClipMenu(null);
-        ContextMenu? second = TimelineTrackPanel.CurrentContextMenu;
+            panel.OpenAddClipMenu(null);
+            ContextMenu? second = TimelineTrackPanel.CurrentContextMenu;
 
-        Assert.NotSame(first, second);
+            Assert.NotSame(first, second);
+        });
     }
 }
