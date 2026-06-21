@@ -12,6 +12,7 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
@@ -33,7 +34,7 @@ public static class UbiArtPictoConverter
         ArgumentNullException.ThrowIfNull(request.SourceFiles);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.PictoTempFolder);
 
-        CookedFile[] pictoFiles = [.. request.SourceFiles];
+        CookedFile[] pictoFiles = DeduplicatePictoSources(request.SourceFiles, logger);
         if (pictoFiles.Length == 0)
         {
             logger.LogWarning("No pictos found in input folder, skipping picto conversion.");
@@ -58,13 +59,53 @@ public static class UbiArtPictoConverter
         io.CreateDirectory(folder);
     }
 
+    internal static CookedFile[] DeduplicatePictoSources(IEnumerable<CookedFile> sourceFiles, ILogger? logger = null)
+    {
+        ArgumentNullException.ThrowIfNull(sourceFiles);
+
+        List<CookedFile> unique = [];
+        HashSet<string> seenOutputNames = new(StringComparer.OrdinalIgnoreCase);
+        int duplicateCount = 0;
+
+        foreach (CookedFile file in sourceFiles)
+        {
+            string outputName = GetOutputName(file);
+            if (seenOutputNames.Add(outputName))
+            {
+                unique.Add(file);
+                continue;
+            }
+
+            duplicateCount++;
+            logger?.LogDebug(
+                "Skipping duplicate pictogram source '{Path}' because '{OutputName}.webp' is already queued.",
+                file.RelativePath,
+                outputName);
+        }
+
+        if (duplicateCount > 0)
+        {
+            logger?.LogInformation(
+                "Skipped {DuplicateCount} duplicate pictogram source(s) that would write to an existing output name.",
+                duplicateCount);
+        }
+
+        return [.. unique];
+    }
+
     private static void ProcessAndSaveRawPictoFiles(JDUbiArtSong songData, CookedFile[] pictoFiles, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, JustDanceUbiArtFileSystem fileSystem)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+
         logger.LogInformation("Processing {Count} pictograms...", pictoFiles.Length);
-        Parallel.For(0, pictoFiles.Length, i =>
+        ConcurrentDictionary<string, byte> writtenPictograms = new(StringComparer.OrdinalIgnoreCase);
+        CookedFile[] montageFiles = [.. pictoFiles.Where(file => IsMontage(file))];
+        CookedFile[] individualFiles = [.. pictoFiles.Where(file => !IsMontage(file))];
+
+        Parallel.For(0, individualFiles.Length, i =>
         {
-            CookedFile cooked = pictoFiles[i];
-            string baseName = Path.GetFileName(cooked.RelativePath).Split('.')[0];
+            CookedFile cooked = individualFiles[i];
+            string baseName = GetOutputName(cooked);
 
             try
             {
@@ -72,35 +113,65 @@ public static class UbiArtPictoConverter
                 using Image<Bgra32>? pictoImage = textureService.ConvertToImage(s);
                 if (pictoImage is null)
                 {
-                    logger?.LogWarning("Failed to convert pictogram: {Path} (texture decoder returned no image)", cooked.RelativePath);
+                    logger.LogWarning("Failed to convert pictogram: {Path} (texture decoder returned no image)", cooked.RelativePath);
                     return;
                 }
 
-                if (baseName.Equals("montage", StringComparison.OrdinalIgnoreCase))
-                {
-                    SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger, textureService, fs, fileSystem.VersionProfile.PictoNameComparer);
-                }
-                else
-                {
-                    ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder, fs);
-                }
+                ResizeAndSaveIndividualPicto(pictoImage, baseName, songData, pictoTempFolder, logger, fs, writtenPictograms);
             }
             catch (FileNotFoundException)
             {
-                logger?.LogWarning("Failed to convert pictogram: {Path} (not found)", cooked.RelativePath);
+                logger.LogWarning("Failed to convert pictogram: {Path} (not found)", cooked.RelativePath);
                 return;
             }
             catch (Exception ex)
             {
-                logger?.LogWarning(ex, "Failed to convert pictogram: {Path}: {Message}", cooked.RelativePath, ex.Message);
+                logger.LogWarning(ex, "Failed to convert pictogram: {Path}: {Message}", cooked.RelativePath, ex.Message);
                 return;
             }
         });
+
+        foreach (CookedFile montageFile in montageFiles)
+        {
+            try
+            {
+                using Stream s = fileSystem.GetFileStream(montageFile);
+                using Image<Bgra32>? pictoImage = textureService.ConvertToImage(s);
+                if (pictoImage is null)
+                {
+                    logger.LogWarning("Failed to convert pictogram: {Path} (texture decoder returned no image)", montageFile.RelativePath);
+                    continue;
+                }
+
+                SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger, textureService, fs, writtenPictograms, fileSystem.VersionProfile.PictoNameComparer);
+            }
+            catch (FileNotFoundException)
+            {
+                logger.LogWarning("Failed to convert pictogram: {Path} (not found)", montageFile.RelativePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to convert pictogram: {Path}: {Message}", montageFile.RelativePath, ex.Message);
+            }
+        }
+
         logger.LogInformation("Finished processing pictograms.");
     }
 
-    private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, JDUbiArtSong songData, string pictoTempFolder, IFileSystem fs)
+    private static string GetOutputName(CookedFile file) =>
+        Path.GetFileName(file.RelativePath).Split('.')[0];
+
+    private static bool IsMontage(CookedFile file) =>
+        GetOutputName(file).Equals("montage", StringComparison.OrdinalIgnoreCase);
+
+    private static void ResizeAndSaveIndividualPicto(Image<Bgra32> pictoImage, string name, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, IFileSystem fs, ConcurrentDictionary<string, byte> writtenPictograms)
     {
+        if (!writtenPictograms.TryAdd(name, 0))
+        {
+            logger.LogDebug("Skipping duplicate pictogram output '{Name}.webp'.", name);
+            return;
+        }
+
         int coachCount = songData.CoachCount;
         int targetWidth = 512;
         int targetHeight = coachCount > 1 ? 354 : 512;
@@ -117,7 +188,7 @@ public static class UbiArtPictoConverter
         pictoImage.Save(fs.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, IComparer<string>? comparer = null)
+    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, ConcurrentDictionary<string, byte> writtenPictograms, IComparer<string>? comparer = null)
     {
         // Sort pictograms using a comparer supplied by the caller; if none supplied, fall back to
         // the existing AlphanumericTextFirstComparer to preserve historic behaviour.
@@ -164,7 +235,7 @@ public static class UbiArtPictoConverter
 
             Rectangle cropRectangle = new(colIndex * cellWidth, rowIndex * cellHeight, cellWidth, cellHeight);
             using Image<Bgra32> pictoPart = montageImage.Clone(x => x.Crop(cropRectangle));
-            ResizeAndSaveIndividualPicto(pictoPart, pictoNamesFromClips[i], songData, pictoTempFolder, fs);
+            ResizeAndSaveIndividualPicto(pictoPart, pictoNamesFromClips[i], songData, pictoTempFolder, logger, fs, writtenPictograms);
         }
 
         logger.LogInformation("Finished splitting montage into individual pictos.");

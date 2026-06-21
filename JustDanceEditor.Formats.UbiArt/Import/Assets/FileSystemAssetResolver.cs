@@ -5,6 +5,7 @@ using JustDanceEditor.Formats.UbiArt.Model;
 using KevInc.UbiArt.FileSystem;
 
 using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Assets;
 
@@ -14,7 +15,10 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
     private readonly JustDanceUbiArtFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
-    private readonly string[] AudioExtensions = [".ogg", ".wav", ".wem"];
+    private readonly string[] AudioExtensions = [".ogg", ".opus", ".wav", ".wem"];
+    private string AssetSongName => string.IsNullOrWhiteSpace(_fileSystem.ContentSongName)
+        ? _fileSystem.SongName
+        : _fileSystem.ContentSongName;
 
     public CookedFile[] GetPictograms()
     {
@@ -31,41 +35,48 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
     public CookedFile? GetCoverArt()
     {
-        string pattern = $"{_fileSystem.SongName}_cover_*";
-        CookedFile[] files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, pattern);
+        string pattern = $"{AssetSongName}_cover_*";
+        CookedFile[] files = GetMenuArtFiles(pattern);
         if (files.Length > 0)
             return files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).First();
 
         // Try more generic patterns
-        files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, "*cover*");
+        files = GetMenuArtFiles("*cover*");
         return files.FirstOrDefault();
     }
 
     public CookedFile[] GetCoachTextures()
     {
-        CookedFile[] files = [.. _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_coach_*").Where(f => !f.Name.EndsWith("_phone", StringComparison.OrdinalIgnoreCase))];
-        return files;
+        return
+        [
+            .. EnumerateMenuArtFiles($"{AssetSongName}_coach_*", $"{AssetSongName}_coach*")
+                .Where(IsIndividualCoachTexture)
+                .GroupBy(GetLogicalMenuArtName, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(GetCoachOrdinal)
+                .ThenBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+        ];
     }
 
     public CookedFile? GetAlbumCoach()
     {
-        // Prefer exact album coach pattern: {song}_cover_albumcoach.*
-        CookedFile[] files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_cover_albumcoach.*");
-        if (files.Length > 0)
-            return files.OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase).First();
-
-        // Fallback: any file with "albumcoach" in the name
-        files = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, "*albumcoach*");
-        return files.FirstOrDefault();
+        return EnumerateMenuArtFiles(
+                $"{AssetSongName}_cover_albumcoach.*",
+                $"{AssetSongName}_albumcoach.*",
+                $"{AssetSongName}_AlbumCoach.*",
+                "*albumcoach*",
+                "*AlbumCoach*")
+            .OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
     }
 
     public CookedFile? GetBackgroundTexture()
     {
-        CookedFile[] candidates = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_map_bkg.*");
+        CookedFile[] candidates = GetMenuArtFiles($"{AssetSongName}_map_bkg.*");
         if (candidates.Length > 0)
             return candidates[0];
 
-        candidates = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, $"{_fileSystem.SongName}_banner_bkg.*");
+        candidates = GetMenuArtFiles($"{AssetSongName}_banner_bkg.*");
         return candidates.FirstOrDefault();
     }
 
@@ -112,25 +123,22 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
     public string? FindFirstVideoFile()
     {
-        if (_fileSystem.GetFolderPath(_fileSystem.InputFolders.MediaFolder, out _))
-        {
-            CookedFile[] mediaVideos = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MediaFolder, "*.webm");
-            if (mediaVideos.Length > 0)
-                return mediaVideos[0];
-        }
-
-        CookedFile[] coachVideos = _fileSystem.GetAllFiles(_io.Combine(_fileSystem.InputFolders.MapWorldFolder, "videoscoach"), "*.webm");
-        if (coachVideos.Length > 0)
-            return coachVideos[0];
-
-        return null;
+        return UbiArtVideoFileSelector.FindPreferredVideoFile(_fileSystem)?.RelativePath;
     }
 
     public bool TryFindAudio(string relativePath, [NotNullWhen(true)] out CookedFile? file)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            file = null;
+            return false;
+        }
+
         // Use the file system's existing resolution first
-        if (_fileSystem.GetFilePath(relativePath, out file))
+        if (_fileSystem.GetFilePath(relativePath, out file) && IsSupportedAudioFile(file))
             return true;
+
+        file = null;
 
         // Fallback via extensions
         string baseName = Path.GetFileNameWithoutExtension(relativePath);
@@ -156,12 +164,30 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
         // Try the MusicTrack path
         string relativePath = songData.MusicTrack.Components[0].TrackData.Path;
-        return TryFindAudio(relativePath, out file);
+        if (!string.IsNullOrWhiteSpace(relativePath) && TryFindAudio(relativePath, out file))
+        {
+            isPreMerged = IsPreMergedAudioFile(file);
+            return true;
+        }
+
+        string songName = string.IsNullOrWhiteSpace(songData.Name)
+            ? _fileSystem.SongName
+            : songData.Name;
+        if (!string.IsNullOrWhiteSpace(songName) &&
+            TryFindFileWithExtensions(_fileSystem.InputFolders.AudioFolder, songName, AudioExtensions, out file))
+        {
+            return true;
+        }
+
+        file = null;
+        return false;
     }
 
     public bool TryFindFileWithExtensions(string folderRelative, string baseName, IEnumerable<string> extensions, [NotNullWhen(true)] out CookedFile? file)
     {
         file = null;
+        if (string.IsNullOrWhiteSpace(baseName))
+            return false;
 
         // Build ordered list of extensions to try, including cooked variants if necessary
         List<string> extList = [.. extensions];
@@ -206,15 +232,21 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
                 string rootName = fileName.Split('.')[0]; // strip all extensions
                 if (string.Equals(rootName, baseName, StringComparison.OrdinalIgnoreCase))
                 {
-                    file = f;
-                    return true;
+                    if (IsSupportedAudioFile(f))
+                    {
+                        file = f;
+                        return true;
+                    }
                 }
 
                 // Also consider names like baseName_suffix
                 if (fileName.StartsWith(baseName + ".", StringComparison.OrdinalIgnoreCase) || fileName.StartsWith(baseName + "_", StringComparison.OrdinalIgnoreCase))
                 {
-                    file = f;
-                    return true;
+                    if (IsSupportedAudioFile(f))
+                    {
+                        file = f;
+                        return true;
+                    }
                 }
             }
         }
@@ -222,12 +254,74 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
         // As a final fallback, check absolute path for plain baseName (no extension)
         string fallbackAbsolute = _io.Combine(_fileSystem.ConversionRequest.InputPath, folderRelative, baseName);
-        if (_io.FileExists(fallbackAbsolute))
+        if (!string.Equals(Path.GetFullPath(fallbackAbsolute), Path.GetFullPath(_fileSystem.ConversionRequest.InputPath), StringComparison.OrdinalIgnoreCase) &&
+            _io.FileExists(fallbackAbsolute))
         {
             file = new CookedFile(fallbackAbsolute);
             return true;
         }
 
         return false;
+    }
+
+    private bool IsSupportedAudioFile(CookedFile file) =>
+        AudioExtensions.Any(extension => file.Extension.Equals(extension, StringComparison.OrdinalIgnoreCase));
+
+    private CookedFile[] GetMenuArtFiles(string pattern)
+    {
+        try
+        {
+            return _fileSystem.GetAllFiles(_fileSystem.InputFolders.MenuArtFolder, pattern);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private IEnumerable<CookedFile> EnumerateMenuArtFiles(params string[] patterns)
+    {
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string pattern in patterns)
+        {
+            foreach (CookedFile file in GetMenuArtFiles(pattern).OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase))
+            {
+                if (seen.Add(file.RelativePath))
+                    yield return file;
+            }
+        }
+    }
+
+    private static bool IsIndividualCoachTexture(CookedFile file)
+    {
+        string logicalName = GetLogicalMenuArtName(file);
+
+        return logicalName.Contains("_coach", StringComparison.OrdinalIgnoreCase) &&
+            !logicalName.Contains("albumcoach", StringComparison.OrdinalIgnoreCase) &&
+            !logicalName.Contains("phone", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetLogicalMenuArtName(CookedFile file)
+    {
+        string fileName = file.RelativePath.Replace('\\', '/').Split('/')[^1];
+        int extensionIndex = fileName.IndexOf('.');
+        return extensionIndex >= 0
+            ? fileName[..extensionIndex]
+            : fileName;
+    }
+
+    private static int GetCoachOrdinal(CookedFile file)
+    {
+        Match match = Regex.Match(GetLogicalMenuArtName(file), @"coach_?(\d+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success && int.TryParse(match.Groups[1].Value, out int ordinal)
+            ? ordinal
+            : int.MaxValue;
+    }
+
+    private static bool IsPreMergedAudioFile(CookedFile file)
+    {
+        string relativePath = file.RelativePath.Replace('\\', '/');
+        return relativePath.Contains("/media/", StringComparison.OrdinalIgnoreCase);
     }
 }

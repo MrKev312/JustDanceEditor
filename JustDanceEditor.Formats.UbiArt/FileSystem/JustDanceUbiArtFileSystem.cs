@@ -32,7 +32,8 @@ public class JustDanceUbiArtFileSystem : IDisposable
         {
             InputPath = ConversionRequest.InputPath,
             Platform = VersionProfile.Platform,
-            IsUncooked = ConversionRequest.Type == CookedType.Uncooked
+            IsUncooked = ConversionRequest.Type == CookedType.Uncooked,
+            AdditionalSearchRoots = GetAdditionalSearchRoots(ConversionRequest.InputPath, VersionProfile.Platform, io)
         }, new JdiUbiArtFileSystemAdapter(io));
 
         TempFolders = new(this, _logger, tempManager);
@@ -47,6 +48,9 @@ public class JustDanceUbiArtFileSystem : IDisposable
     public UbiArtVersionProfile VersionProfile { get; private set; }
     public UbiArtConversionRequest ConversionRequest { get; private set; }
     public string SongName { get; private set; } = "";
+    public string ContentSongName { get; private set; } = "";
+    public bool IsLegacyMashupSelection { get; private set; }
+    public string? LegacyMashupBaseSongName { get; private set; }
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
     public IUbiArtAssetResolver? AssetResolver => new FileSystemAssetResolver(VersionProfile.Layout, this);
@@ -59,7 +63,7 @@ public class JustDanceUbiArtFileSystem : IDisposable
         _fileSystem.Initialize();
 
         if (ConversionRequest.SongName != null)
-            SongName = ConversionRequest.SongName;
+            UpdateSongName(ConversionRequest.SongName);
     }
 
     public void InitializeSongID()
@@ -74,6 +78,7 @@ public class JustDanceUbiArtFileSystem : IDisposable
             throw new DirectoryNotFoundException($"Multiple songs found in the bundle. Use GetAvailableSongs() to list them: {string.Join(", ", songs.Select(s => s.SongName))}");
 
         SongName = songs[0].SongName;
+        UpdateSongRouting(SongName);
     }
 
     public (string SongName, string SongDescPath)[] GetAvailableSongs()
@@ -82,8 +87,9 @@ public class JustDanceUbiArtFileSystem : IDisposable
 
         if (!string.IsNullOrWhiteSpace(ConversionRequest.SongName))
         {
-            string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, ConversionRequest.SongName, VersionProfile.Platform, VersionProfile.EngineVersion)
-                ?? Path.Combine("world", "maps", ConversionRequest.SongName);
+            string contentSongName = ResolveContentSongName(ConversionRequest.SongName);
+            string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, contentSongName, VersionProfile.Platform, VersionProfile.EngineVersion)
+                ?? Path.Combine("world", "maps", contentSongName);
             string songDescPath = TryGetSongDescriptorPath(ConversionRequest.SongName, out CookedFile? descriptor)
                 ? descriptor.RelativePath
                 : Path.Combine(mapFolder, "songdesc.tpl");
@@ -119,7 +125,12 @@ public class JustDanceUbiArtFileSystem : IDisposable
         foreach (string songName in songFolderNames)
         {
             if (TryGetSongDescriptorPath(songName, out CookedFile? songDescPath))
+            {
                 songs.Add((songName, songDescPath.RelativePath));
+
+                if (TryGetLegacyMashupTemplatePath(songName + "MU", out _))
+                    songs.Add((songName + "MU", songDescPath.RelativePath));
+            }
         }
 
         return
@@ -138,14 +149,15 @@ public class JustDanceUbiArtFileSystem : IDisposable
         if (string.IsNullOrWhiteSpace(songName))
             return false;
 
-        string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, songName, VersionProfile.Platform, VersionProfile.EngineVersion)
-            ?? Path.Combine("world", "maps", songName);
+        string contentSongName = ResolveContentSongName(songName);
+        string mapFolder = VersionProfile.Layout?.GetMapWorldFolder(ConversionRequest.InputPath, contentSongName, VersionProfile.Platform, VersionProfile.EngineVersion)
+            ?? Path.Combine("world", "maps", contentSongName);
 
-        string songNameLower = songName.ToLowerInvariant();
+        string songNameLower = contentSongName.ToLowerInvariant();
         string[] candidates =
         [
             Path.Combine(mapFolder, "songdesc.tpl"),
-            Path.Combine("cache", "legacyconverteddata", songName, "songdesc.main_legacy.tpl"),
+            Path.Combine("cache", "legacyconverteddata", contentSongName, "songdesc.main_legacy.tpl"),
             Path.Combine("cache", "legacyconverteddata", songNameLower, "songdesc.main_legacy.tpl"),
             Path.Combine(mapFolder, "songdesc.act")
         ];
@@ -172,6 +184,7 @@ public class JustDanceUbiArtFileSystem : IDisposable
 
         SongName = newSongName;
         ConversionRequest.SongName = newSongName;
+        UpdateSongRouting(newSongName);
     }
 
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath) => _fileSystem.GetFilePath(relativeFilePath, out filePath);
@@ -188,5 +201,180 @@ public class JustDanceUbiArtFileSystem : IDisposable
     {
         _fileSystem.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    public bool TryGetLegacyMashupTemplatePath(string songName, [MaybeNullWhen(false)] out CookedFile templatePath)
+    {
+        templatePath = null;
+
+        if (!TryGetLegacyMashupBaseSongName(songName, out string? baseSongName))
+            return false;
+
+        string timelineFolder = VersionProfile.Layout?.GetTimelineFolder(ConversionRequest.InputPath, baseSongName, VersionProfile.Platform, VersionProfile.EngineVersion)
+            ?? Path.Combine("world", "maps", baseSongName, "timeline");
+        string lowerBase = baseSongName.ToLowerInvariant();
+        string[] candidates =
+        [
+            Path.Combine(timelineFolder, $"{baseSongName}mu.tpl"),
+            Path.Combine(timelineFolder, $"{lowerBase}mu.tpl"),
+            Path.Combine(timelineFolder, $"{baseSongName}MU.tpl")
+        ];
+
+        foreach (string candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (GetFilePath(candidate, out CookedFile? found))
+            {
+                templatePath = found;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public bool TryGetLegacyMashupBaseSongName(string songName, [MaybeNullWhen(false)] out string baseSongName)
+    {
+        baseSongName = null;
+        if (!IsLegacyMashupName(songName))
+            return false;
+
+        string candidate = songName[..^2];
+        if (string.IsNullOrWhiteSpace(candidate))
+            return false;
+
+        baseSongName = candidate;
+        return true;
+    }
+
+    private string ResolveContentSongName(string songName) =>
+        TryGetLegacyMashupBaseSongName(songName, out string? baseSongName) &&
+        TryGetLegacyMashupTemplatePath(songName, out _)
+            ? baseSongName
+            : songName;
+
+    private void UpdateSongRouting(string songName)
+    {
+        ContentSongName = ResolveContentSongName(songName);
+        IsLegacyMashupSelection = !string.Equals(ContentSongName, songName, StringComparison.OrdinalIgnoreCase);
+        LegacyMashupBaseSongName = IsLegacyMashupSelection ? ContentSongName : null;
+    }
+
+    private static bool IsLegacyMashupName(string songName) =>
+        !string.IsNullOrWhiteSpace(songName) &&
+        songName.EndsWith("MU", StringComparison.OrdinalIgnoreCase);
+
+    private static string[] GetAdditionalSearchRoots(string inputPath, UbiArtPlatform platform, JDI.Services.IFileSystem io)
+    {
+        return
+        [
+            .. GetSharedPackageSearchRoots(inputPath, platform, io),
+            .. GetDlcBaseSearchRoots(inputPath, platform, io)
+        ];
+    }
+
+    private static string[] GetSharedPackageSearchRoots(string inputPath, UbiArtPlatform platform, JDI.Services.IFileSystem io)
+    {
+        if (platform == UbiArtPlatform.Uncooked || string.IsNullOrWhiteSpace(inputPath))
+            return [];
+
+        string? packageParent = GetPackageParentFolder(inputPath, io);
+        if (string.IsNullOrWhiteSpace(packageParent) || !io.DirectoryExists(packageParent))
+            return [];
+
+        string platformName = platform.GetCookedFolderName();
+        if (string.IsNullOrWhiteSpace(platformName))
+            return [];
+
+        string upperPlatformName = platformName.ToUpperInvariant();
+        List<string> roots = [];
+        AddPackageSearchRoot(roots, io, packageParent, $"Bundle_{upperPlatformName}");
+        AddPackageSearchRoot(roots, io, packageParent, $"bundle_{platformName}");
+        AddPackageSearchRoot(roots, io, packageParent, $"patch_{upperPlatformName}");
+        AddPackageSearchRoot(roots, io, packageParent, $"Patch_{upperPlatformName}");
+        return
+        [
+            .. roots
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(root => !string.Equals(Path.GetFullPath(root), Path.GetFullPath(inputPath), StringComparison.OrdinalIgnoreCase))
+        ];
+    }
+
+    private static void AddPackageSearchRoot(
+        List<string> roots,
+        JDI.Services.IFileSystem io,
+        string packageParent,
+        string packageName)
+    {
+        string folder = io.Combine(packageParent, packageName);
+        if (io.DirectoryExists(folder))
+            roots.Add(folder);
+
+        string ipk = folder + ".ipk";
+        if (io.FileExists(ipk))
+            roots.Add(ipk);
+    }
+
+    private static string[] GetDlcBaseSearchRoots(string inputPath, UbiArtPlatform platform, JDI.Services.IFileSystem io)
+    {
+        if (platform == UbiArtPlatform.Uncooked || string.IsNullOrWhiteSpace(inputPath))
+            return [];
+
+        string? packageParent = GetPackageParentFolder(inputPath, io);
+        if (string.IsNullOrWhiteSpace(packageParent))
+            return [];
+
+        if (HasPlatformBundle(packageParent, platform, io))
+            return [];
+
+        string? titleFolder = Path.GetDirectoryName(packageParent);
+        string? contentRoot = string.IsNullOrWhiteSpace(titleFolder) ? null : Path.GetDirectoryName(titleFolder);
+        if (string.IsNullOrWhiteSpace(contentRoot) || !io.DirectoryExists(contentRoot))
+            return [];
+
+        return [contentRoot];
+    }
+
+    private static string? GetPackageParentFolder(string inputPath, JDI.Services.IFileSystem io)
+    {
+        if (Path.GetExtension(inputPath).Equals(".ipk", StringComparison.OrdinalIgnoreCase))
+            return Path.GetDirectoryName(inputPath);
+
+        if (io.DirectoryExists(inputPath))
+            return Path.GetDirectoryName(inputPath);
+
+        return null;
+    }
+
+    private static bool HasPlatformBundle(string folder, UbiArtPlatform platform, JDI.Services.IFileSystem io)
+    {
+        string platformName = platform.GetCookedFolderName();
+        if (string.IsNullOrWhiteSpace(platformName))
+            return false;
+
+        string upperPlatformName = platformName.ToUpperInvariant();
+        foreach (string bundleName in new[] { $"Bundle_{upperPlatformName}", $"bundle_{platformName}" })
+        {
+            if (io.FileExists(io.Combine(folder, bundleName + ".ipk")) ||
+                io.DirectoryExists(io.Combine(folder, bundleName)))
+            {
+                return true;
+            }
+        }
+
+        if (!io.DirectoryExists(folder))
+            return false;
+
+        string numberedBundleSuffix = "_" + upperPlatformName;
+        foreach (string child in io.GetDirectories(folder))
+        {
+            string name = Path.GetFileName(child);
+            if (name.StartsWith("Bundle_", StringComparison.OrdinalIgnoreCase) &&
+                name.EndsWith(numberedBundleSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

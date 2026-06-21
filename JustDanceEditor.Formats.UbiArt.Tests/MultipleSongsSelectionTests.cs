@@ -20,6 +20,99 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class MultipleSongsSelectionTests
 {
     [Fact]
+    public void GetFilePath_NumberedLegacyBundle_ResolvesSharedSiblingBundleScene()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "jde_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string inputBundle = Path.Combine(root, "Bundle_1_WIIU");
+            string sharedBundle = Path.Combine(root, "Bundle_WIIU");
+            string siblingSongBundle = Path.Combine(root, "Bundle_2_WIIU");
+            string inputSongFolder = Path.Combine(inputBundle, "cache", "itf_cooked", "wiiu", "world", "jd5", "blameit");
+            string siblingSongFolder = Path.Combine(siblingSongBundle, "cache", "itf_cooked", "wiiu", "world", "jd5", "siblingsong");
+            string sharedMashupFolder = Path.Combine(sharedBundle, "cache", "itf_cooked", "wiiu", "world", "jd5", "_mashup");
+            Directory.CreateDirectory(inputSongFolder);
+            Directory.CreateDirectory(siblingSongFolder);
+            Directory.CreateDirectory(sharedMashupFolder);
+            File.WriteAllText(Path.Combine(inputSongFolder, "songdesc.tpl.ckd"), "input song");
+            File.WriteAllText(Path.Combine(siblingSongFolder, "songdesc.tpl.ckd"), "sibling song");
+            File.WriteAllText(Path.Combine(sharedMashupFolder, "_mashup_main_scene.isc.ckd"), "shared scene");
+
+            UbiArtConversionRequest req = new(inputBundle, Path.Combine(root, "out"), null)
+            {
+                Type = CookedType.Cooked
+            };
+            UbiArtVersionProfile profile = new(UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new BinaryUbiArtSerializer());
+            using JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+            fs.Initialize();
+
+            bool foundSharedScene = fs.GetFilePath(
+                Path.Combine("world", "jd5", "_mashup", "_mashup_main_scene.isc"),
+                out CookedFile? sharedScene);
+            (string SongName, string SongDescPath)[] songs = fs.GetAvailableSongs();
+
+            Assert.True(foundSharedScene);
+            Assert.NotNull(sharedScene);
+            Assert.Equal(["blameit"], songs.Select(song => song.SongName));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public void GetFilePath_NumberedLegacyIpk_ResolvesSharedSiblingIpkScene()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "jde_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string inputSource = Path.Combine(root, "input-source");
+            string sharedSource = Path.Combine(root, "shared-source");
+            string inputSongFolder = Path.Combine(inputSource, "cache", "itf_cooked", "wiiu", "world", "jd5", "blameit");
+            string sharedMashupFolder = Path.Combine(sharedSource, "cache", "itf_cooked", "wiiu", "world", "jd5", "_mashup");
+            Directory.CreateDirectory(inputSongFolder);
+            Directory.CreateDirectory(sharedMashupFolder);
+            File.WriteAllText(Path.Combine(inputSongFolder, "songdesc.tpl.ckd"), "input song");
+            File.WriteAllText(Path.Combine(sharedMashupFolder, "_mashup_main_scene.isc.ckd"), "shared scene");
+
+            string inputIpk = Path.Combine(root, "Bundle_1_WIIU.ipk");
+            string sharedIpk = Path.Combine(root, "Bundle_WIIU.ipk");
+            new UbiArtIpkWriter(inputSource, inputIpk).Pack();
+            new UbiArtIpkWriter(sharedSource, sharedIpk).Pack();
+
+            UbiArtConversionRequest req = new(inputIpk, Path.Combine(root, "out"), null)
+            {
+                Type = CookedType.Cooked
+            };
+            UbiArtVersionProfile profile = new(UbiArtPlatform.Cafe, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new BinaryUbiArtSerializer());
+            using JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+            fs.Initialize();
+
+            bool foundSharedScene = fs.GetFilePath(
+                Path.Combine("world", "jd5", "_mashup", "_mashup_main_scene.isc"),
+                out CookedFile? sharedScene);
+
+            Assert.True(foundSharedScene);
+            Assert.NotNull(sharedScene);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch { }
+        }
+    }
+
+    [Fact]
     public void GetAvailableSongs_ForIpkInput_DoesNotListSiblingIpkSongs()
     {
         string root = Path.Combine(Path.GetTempPath(), "jde_test_" + Guid.NewGuid().ToString("N"));

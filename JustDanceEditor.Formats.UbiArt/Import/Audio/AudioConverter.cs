@@ -81,15 +81,31 @@ public static class AudioConverter
 
         foreach (SoundSetClip clip in audioClips)
         {
-            string relativePath = Path.ChangeExtension(clip.SoundSetPath, ".wav");
-            if (!fileSystem.GetFilePath(relativePath, out CookedFile? wavPath))
+            CookedFile? audioPath = null;
+            foreach (string relativePath in UbiArtSoundSetTemplateResolver.GetAudioPathCandidates(fileSystem, clip.SoundSetPath))
+            {
+                bool found = fileSystem.AssetResolver?.TryFindAudio(relativePath, out audioPath) == true ||
+                    fileSystem.GetFilePath(relativePath, out audioPath);
+                if (found && audioPath != null && IsSupportedAudioFile(audioPath))
+                    break;
+
+                audioPath = null;
+            }
+
+            if (audioPath == null)
                 continue;
 
-            clipSources.Add(new UbiArtAudioClipSource(clip, wavPath));
+            clipSources.Add(new UbiArtAudioClipSource(clip, audioPath));
         }
 
         return clipSources;
     }
+
+    private static bool IsSupportedAudioFile(CookedFile file) =>
+        file.Extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase) ||
+        file.Extension.Equals(".opus", StringComparison.OrdinalIgnoreCase) ||
+        file.Extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+        file.Extension.Equals(".wem", StringComparison.OrdinalIgnoreCase);
 
     private static CookedFile GetMainSongPath(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem, out bool isPreMerged)
     {
@@ -113,9 +129,27 @@ public static class AudioConverter
 
         string relativePath = songData.MusicTrack.Components[0].TrackData.Path;
 
-        if (fileSystem.GetFilePath(relativePath, out CookedFile? mainSongPath))
+        if (!string.IsNullOrWhiteSpace(relativePath) && fileSystem.GetFilePath(relativePath, out CookedFile? mainSongPath))
+        {
+            isPreMerged = IsPreMergedAudioFile(mainSongPath);
             return mainSongPath;
+        }
+
+        string songName = string.IsNullOrWhiteSpace(songData.Name)
+            ? fileSystem.SongName
+            : songData.Name;
+        if (!string.IsNullOrWhiteSpace(songName) &&
+            fileSystem.GetFilePath(Path.Combine(fileSystem.InputFolders.AudioFolder, songName + ".wav"), out mainSongPath))
+        {
+            return mainSongPath;
+        }
 
         throw new InvalidOperationException("Main song not found.");
+    }
+
+    private static bool IsPreMergedAudioFile(CookedFile file)
+    {
+        string relativePath = file.RelativePath.Replace('\\', '/');
+        return relativePath.Contains("/media/", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
@@ -13,6 +14,7 @@ using NAudio.Wave.SampleProviders;
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Audio;
 
@@ -35,6 +37,8 @@ public sealed record UbiArtAudioConversionRequest(
 /// </summary>
 public static class UbiArtAudioConverter
 {
+    private const int MasterOpusBitrate = 256000;
+
     public static Task ConvertAudioAsync(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem? io = null) =>
         Task.Run(() => ConvertAudio(request, logger, io));
 
@@ -52,6 +56,12 @@ public static class UbiArtAudioConverter
         logger.LogInformation("Converting audio files...");
         Stopwatch stopwatch = Stopwatch.StartNew();
 
+        if (request.IsMainSongPreMerged && TryEncodePreMergedMainSongWithFfmpeg(request, logger, iofs))
+        {
+            logger.LogInformation("Finished converting audio files in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+            return;
+        }
+
         // Convert main song to WaveStream
         WaveStream mainSongStream = ConvertMainSong(request, logger);
 
@@ -61,8 +71,8 @@ public static class UbiArtAudioConverter
 
         if (request.IsMainSongPreMerged)
         {
-            // Main song is already merged, just use it directly
-            mergedAudio = ApplyOffset(mainSongStream.ToSampleProvider(), request.SongData.GetSongStartTime());
+            // Pre-merged media audio is already aligned to the downloaded video.
+            mergedAudio = mainSongStream.ToSampleProvider();
         }
         else
         {
@@ -84,7 +94,7 @@ public static class UbiArtAudioConverter
         {
             try
             {
-                WaveStream waveStream = ConvertSourceFile(request, clipSource.File);
+                WaveStream waveStream = ConvertSourceFile(request, clipSource.File, logger);
                 string clipKey = Path.GetFileNameWithoutExtension(clipSource.Clip.SoundSetPath);
                 clipStreams[clipKey] = waveStream;
             }
@@ -99,12 +109,12 @@ public static class UbiArtAudioConverter
 
     private static WaveStream ConvertMainSong(UbiArtAudioConversionRequest request, ILogger logger)
     {
-        WaveStream waveStream = ConvertSourceFile(request, request.MainSongFile);
+        WaveStream waveStream = ConvertSourceFile(request, request.MainSongFile, logger);
         logger.LogDebug("Converted main song to WaveStream");
         return waveStream;
     }
 
-    private static WaveStream ConvertSourceFile(UbiArtAudioConversionRequest request, CookedFile sourceFile)
+    private static WaveStream ConvertSourceFile(UbiArtAudioConversionRequest request, CookedFile sourceFile, ILogger logger)
     {
         using Stream src = request.FileSystem.GetFileStream(sourceFile);
         string sourceFileName = sourceFile.Name + sourceFile.Extension;
@@ -112,9 +122,36 @@ public static class UbiArtAudioConverter
             sourceFileName += ".ckd";
 
         if (IsPlainAudioFile(sourceFile, src))
-            return ConvertPlainAudioFile(src, sourceFile.Extension);
+            return ConvertPlainAudioFile(src, sourceFile.Extension, logger);
 
         return request.AudioConverter.ConvertAsync(src, sourceFileName).GetAwaiter().GetResult();
+    }
+
+    private static bool TryEncodePreMergedMainSongWithFfmpeg(UbiArtAudioConversionRequest request, ILogger logger, IFileSystem io)
+    {
+        CookedFile sourceFile = request.MainSongFile;
+        if (sourceFile.IsCooked || !IsPlainAudioExtension(sourceFile.Extension))
+            return false;
+
+        logger.LogInformation("Encoding pre-merged audio to Opus with FFmpeg...");
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        io.CreateDirectory(request.MasterOutputFolder);
+        string outputPath = io.Combine(request.MasterOutputFolder, "master.opus");
+
+        using Stream source = request.FileSystem.GetFileStream(sourceFile);
+        using FileStream output = new(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+        RunFfmpegPipeAsync(
+                source,
+                output,
+                BuildFfmpegOpusEncodeArguments(offsetSeconds: 0))
+            .GetAwaiter()
+            .GetResult();
+
+        stopwatch.Stop();
+        logger.LogInformation("Finished encoding pre-merged audio to Opus in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
+        return true;
     }
 
     private static bool IsPlainAudioFile(CookedFile sourceFile, Stream source)
@@ -149,7 +186,7 @@ public static class UbiArtAudioConverter
         }
     }
 
-    private static WaveStream ConvertPlainAudioFile(Stream source, string extension)
+    private static WaveStream ConvertPlainAudioFile(Stream source, string extension, ILogger logger)
     {
         if (extension.Equals(".wav", StringComparison.OrdinalIgnoreCase))
         {
@@ -159,10 +196,181 @@ public static class UbiArtAudioConverter
             return new WaveFileReader(wavCopy);
         }
 
-        MemoryStream opusCopy = new();
-        source.CopyTo(opusCopy);
-        opusCopy.Position = 0;
-        return new OpusWaveStream(opusCopy, ownsStream: true);
+        MemoryStream oggCopy = new();
+        source.CopyTo(oggCopy);
+        oggCopy.Position = 0;
+
+        if (IsOggOpusStream(oggCopy))
+        {
+            oggCopy.Position = 0;
+            return new OpusWaveStream(oggCopy, ownsStream: true);
+        }
+
+        logger.LogDebug("Decoding plain Ogg audio with FFmpeg because it is not Ogg Opus.");
+        oggCopy.Position = 0;
+        return DecodePlainAudioWithFfmpegAsync(oggCopy).GetAwaiter().GetResult();
+    }
+
+    private static bool IsPlainAudioExtension(string extension) =>
+        extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".opus", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".wav", StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsOggOpusStream(Stream source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (!source.CanSeek)
+            return false;
+
+        long originalPosition = source.Position;
+        try
+        {
+            Span<byte> header = stackalloc byte[512];
+            int read = source.Read(header);
+            if (read < 4 || !header[..4].SequenceEqual("OggS"u8))
+                return false;
+
+            return IndexOf(header[..read], "OpusHead"u8) >= 0;
+        }
+        finally
+        {
+            source.Position = originalPosition;
+        }
+    }
+
+    private static async Task<WaveStream> DecodePlainAudioWithFfmpegAsync(Stream source)
+    {
+        MemoryStream wavStream = new();
+        await RunFfmpegPipeAsync(source, wavStream, BuildFfmpegWavDecodeArguments()).ConfigureAwait(false);
+        wavStream.Position = 0;
+        return new WaveFileReader(wavStream);
+    }
+
+    private static async Task RunFfmpegPipeAsync(Stream input, Stream output, IEnumerable<string> arguments)
+    {
+        string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync().ConfigureAwait(false);
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            }
+        };
+
+        foreach (string arg in arguments)
+            process.StartInfo.ArgumentList.Add(arg);
+
+        if (!process.Start())
+            throw new InvalidOperationException("Failed to start FFmpeg for audio conversion.");
+
+        Exception? inputException = null;
+        Task writeInputTask = Task.Run(async () =>
+        {
+            try
+            {
+                await input.CopyToAsync(process.StandardInput.BaseStream).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                inputException = ex;
+            }
+            finally
+            {
+                await process.StandardInput.BaseStream.DisposeAsync().ConfigureAwait(false);
+            }
+        });
+        Task readOutputTask = process.StandardOutput.BaseStream.CopyToAsync(output);
+        Task<string> readErrorTask = process.StandardError.ReadToEndAsync();
+
+        await Task.WhenAll(writeInputTask, readOutputTask, readErrorTask, process.WaitForExitAsync()).ConfigureAwait(false);
+
+        string stderr = await readErrorTask.ConfigureAwait(false);
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"FFmpeg audio conversion exited with code {process.ExitCode}: {stderr}");
+        if (inputException != null)
+            throw new InvalidOperationException("Failed to pipe audio into FFmpeg.", inputException);
+    }
+
+    private static IEnumerable<string> BuildFfmpegWavDecodeArguments()
+    {
+        yield return "-hide_banner";
+        yield return "-loglevel";
+        yield return "error";
+        yield return "-i";
+        yield return "pipe:0";
+        yield return "-f";
+        yield return "wav";
+        yield return "-codec:a";
+        yield return "pcm_s16le";
+        yield return "-ar";
+        yield return "48000";
+        yield return "-ac";
+        yield return "2";
+        yield return "-sample_fmt";
+        yield return "s16";
+        yield return "pipe:1";
+    }
+
+    private static IEnumerable<string> BuildFfmpegOpusEncodeArguments(float offsetSeconds)
+    {
+        yield return "-hide_banner";
+        yield return "-loglevel";
+        yield return "error";
+        yield return "-i";
+        yield return "pipe:0";
+
+        string? filter = BuildAudioOffsetFilter(offsetSeconds);
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            yield return "-af";
+            yield return filter;
+        }
+
+        yield return "-f";
+        yield return "opus";
+        yield return "-codec:a";
+        yield return "libopus";
+        yield return "-b:a";
+        yield return MasterOpusBitrate.ToString(CultureInfo.InvariantCulture);
+        yield return "-ar";
+        yield return "48000";
+        yield return "-ac";
+        yield return "2";
+        yield return "pipe:1";
+    }
+
+    private static string? BuildAudioOffsetFilter(float offsetSeconds)
+    {
+        if (Math.Abs(offsetSeconds) <= 0.000001f)
+            return null;
+
+        if (offsetSeconds > 0)
+        {
+            int delayMs = (int)Math.Round(offsetSeconds * 1000, MidpointRounding.AwayFromZero);
+            return string.Create(CultureInfo.InvariantCulture, $"adelay={delayMs}:all=1");
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"atrim=start={-offsetSeconds},asetpts=PTS-STARTPTS");
+    }
+
+    private static int IndexOf(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
+    {
+        if (needle.IsEmpty)
+            return 0;
+
+        for (int i = 0; i <= haystack.Length - needle.Length; i++)
+        {
+            if (haystack.Slice(i, needle.Length).SequenceEqual(needle))
+                return i;
+        }
+
+        return -1;
     }
 
     private static ISampleProvider MergeAudioStreams(
@@ -300,7 +508,7 @@ public static class UbiArtAudioConverter
         Stopwatch stopwatch = Stopwatch.StartNew();
 
         // Encode to Opus in memory
-        using MemoryStream opusStream = OpusEncoderHelper.EncodeToOpusStream(audioSource);
+        using MemoryStream opusStream = OpusEncoderHelper.EncodeToOpusStream(audioSource, MasterOpusBitrate);
 
         stopwatch.Stop();
         logger.LogInformation("Finished encoding to Opus in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
