@@ -94,7 +94,7 @@ public sealed class UnitySyntheticBundleFactoryTests
     [Fact]
     public void CreateImageBundle_CreatesReadableBundleWithoutTemplateBundle()
     {
-        string classDataPath = FindClassDataPackage();
+        using Stream classData = UnityClassDataProvider.OpenClassPackageStream();
         using Image<Rgba32> image = new(4, 4, Color.HotPink);
         UnityImageBundleAsset asset = new(
             "synthetic_cover",
@@ -106,7 +106,7 @@ public sealed class UnitySyntheticBundleFactoryTests
             TextureFormat.DXT1Crunched);
 
         byte[] bundleBytes = UnitySyntheticBundleFactory.CreateImageBundle(
-            classDataPath,
+            classData,
             "Synthetic_Cover",
             [asset]);
 
@@ -153,9 +153,8 @@ public sealed class UnitySyntheticBundleFactoryTests
     [Fact]
     public void CreateMapPackageSeed_CreatesReadableMapPackageLikeBundleWithoutTemplateAssets()
     {
-        string classDataPath = FindClassDataPackage();
-
-        byte[] bundleBytes = UnitySyntheticBundleFactory.CreateMapPackageSeed(classDataPath);
+        using Stream classData = UnityClassDataProvider.OpenClassPackageStream();
+        byte[] bundleBytes = UnitySyntheticBundleFactory.CreateMapPackageSeed(classData);
 
         using MemoryStream stream = new(bundleBytes, writable: false);
         AssetsManager manager = new();
@@ -193,14 +192,14 @@ public sealed class UnitySyntheticBundleFactoryTests
     [Fact]
     public void CreateMapPackageSeed_CanBeConsumedByMapPackageBuilder()
     {
-        string classDataPath = FindClassDataPackage();
         string tempFolder = CreateTempFolder();
         try
         {
             string syntheticSeedPath = Path.Combine(tempFolder, "synthetic-map-package.bundle");
+            using Stream classData = UnityClassDataProvider.OpenClassPackageStream();
             File.WriteAllBytes(
                 syntheticSeedPath,
-                UnitySyntheticBundleFactory.CreateMapPackageSeed(classDataPath));
+                UnitySyntheticBundleFactory.CreateMapPackageSeed(classData));
 
             string outputFolder = Path.Combine(tempFolder, "output");
             string pictoTempFolder = Path.Combine(tempFolder, "pictos");
@@ -273,14 +272,14 @@ public sealed class UnitySyntheticBundleFactoryTests
     [Fact]
     public void MapPackageBuilder_LinksGeneratedPictoSpritesToSpriteAtlas()
     {
-        string classDataPath = FindClassDataPackage();
         string tempFolder = CreateTempFolder();
         try
         {
             string syntheticSeedPath = Path.Combine(tempFolder, "synthetic-map-package.bundle");
+            using Stream classData = UnityClassDataProvider.OpenClassPackageStream();
             File.WriteAllBytes(
                 syntheticSeedPath,
-                UnitySyntheticBundleFactory.CreateMapPackageSeed(classDataPath));
+                UnitySyntheticBundleFactory.CreateMapPackageSeed(classData));
 
             string outputFolder = Path.Combine(tempFolder, "output");
             string pictoTempFolder = Path.Combine(tempFolder, "pictos");
@@ -398,21 +397,6 @@ public sealed class UnitySyntheticBundleFactoryTests
             if (Directory.Exists(tempFolder))
                 Directory.Delete(tempFolder, recursive: true);
         }
-    }
-
-    private static string FindClassDataPackage()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            string candidate = Path.Combine(directory.FullName, "Examples", "uabea-windows", "classdata.tpk");
-            if (File.Exists(candidate))
-                return candidate;
-
-            directory = directory.Parent;
-        }
-
-        throw new FileNotFoundException("Could not find Examples/uabea-windows/classdata.tpk.");
     }
 
     private static string CreateTempFolder()

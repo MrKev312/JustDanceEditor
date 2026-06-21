@@ -20,6 +20,6 @@
     <ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\Examples\uabea-windows\classdata.tpk" LogicalName="JustDanceEditor.Formats.Unity.Assets.classdata.tpk" />
+    <EmbeddedResource Include="Assets\classdata.tpk" LogicalName="JustDanceEditor.Formats.Unity.Assets.classdata.tpk" />
   </ItemGroup>
 </Project>
