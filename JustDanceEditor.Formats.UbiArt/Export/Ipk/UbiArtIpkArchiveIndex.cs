@@ -87,7 +87,7 @@ internal sealed class UbiArtIpkArchiveIndex
 
         uint version = unchecked((uint)reader.ReadInt32BigEndian());
         uint platformSupported = unchecked((uint)reader.ReadInt32BigEndian());
-        _ = reader.ReadInt32BigEndian();
+        SkipInt32(reader);
         int filesCount = reader.ReadInt32BigEndian();
         uint compressed = unchecked((uint)reader.ReadInt32BigEndian());
         uint binaryScene = unchecked((uint)reader.ReadInt32BigEndian());
@@ -95,7 +95,7 @@ internal sealed class UbiArtIpkArchiveIndex
         uint dataSignature = unchecked((uint)reader.ReadInt32BigEndian());
         uint engineSignature = unchecked((uint)reader.ReadInt32BigEndian());
         uint engineVersion = unchecked((uint)reader.ReadInt32BigEndian());
-        _ = reader.ReadInt32BigEndian();
+        SkipInt32(reader);
 
         stream.Seek(0x30, SeekOrigin.Begin);
 
@@ -187,24 +187,30 @@ internal sealed class UbiArtIpkArchiveIndex
     private static RawEntry ReadFileEntry(BinaryReader reader)
     {
         int dummy1 = reader.ReadInt32BigEndian();
-        _ = reader.ReadInt32BigEndian();
-        _ = reader.ReadInt32BigEndian();
-        _ = reader.ReadInt64BigEndian();
-        _ = reader.ReadInt64BigEndian();
+        SkipInt32(reader);
+        SkipInt32(reader);
+        SkipInt64(reader);
+        SkipInt64(reader);
 
         if (dummy1 == 2)
         {
-            _ = reader.ReadInt32BigEndian();
-            _ = reader.ReadInt32BigEndian();
+            SkipInt32(reader);
+            SkipInt32(reader);
         }
 
         string path = reader.ReadNTString();
         string name = reader.ReadNTString();
         uint crc = unchecked((uint)reader.ReadInt32BigEndian());
-        _ = reader.ReadInt32BigEndian();
+        SkipInt32(reader);
 
         return new RawEntry(path, name, crc);
     }
+
+    private static void SkipInt32(BinaryReader reader)
+        => reader.BaseStream.Seek(sizeof(int), SeekOrigin.Current);
+
+    private static void SkipInt64(BinaryReader reader)
+        => reader.BaseStream.Seek(sizeof(long), SeekOrigin.Current);
 
     private static string ToLogicalPath(RawEntry entry, bool swapPathAndName)
     {

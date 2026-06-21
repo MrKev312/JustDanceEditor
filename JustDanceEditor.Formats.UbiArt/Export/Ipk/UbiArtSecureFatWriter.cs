@@ -6,7 +6,7 @@ using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
 
-internal static class UbiArtSecureFatWriter
+public static class UbiArtSecureFatWriter
 {
     private const uint FileSignature = 0x55534654; // USFT
     private const uint FileVersion = 1;

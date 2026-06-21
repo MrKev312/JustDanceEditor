@@ -257,7 +257,7 @@ internal static class UbiArtSkuScenePatcher
             for (int actorIndex = 0; actorIndex < actorCount; actorIndex++)
             {
                 int offset = actorsEnd;
-                _ = ReadUInt32BigEndian(bytes, ref offset);
+                SkipUInt32BigEndian(bytes, ref offset);
                 offset += 4 * 4;
                 string name = ReadString(bytes, ref offset);
                 offset += 4 * 8;
@@ -379,7 +379,7 @@ internal static class UbiArtSkuScenePatcher
         {
             int offset = headerOffset;
             for (int index = 0; index < headerStringCount; index++)
-                _ = ReadString(footer, ref offset);
+                SkipString(footer, ref offset);
 
             offset += 8;
 
@@ -470,6 +470,15 @@ internal static class UbiArtSkuScenePatcher
         return value;
     }
 
+    private static void SkipString(byte[] bytes, ref int offset)
+    {
+        int length = ReadInt32BigEndian(bytes, ref offset);
+        if (length < 0 || offset + length > bytes.Length)
+            throw new InvalidDataException("Invalid UbiArt string length.");
+
+        offset += length;
+    }
+
     private static int ReadInt32BigEndian(byte[] bytes, ref int offset)
     {
         uint value = ReadUInt32BigEndian(bytes, ref offset);
@@ -488,6 +497,14 @@ internal static class UbiArtSkuScenePatcher
             bytes[offset + 3];
         offset += 4;
         return value;
+    }
+
+    private static void SkipUInt32BigEndian(byte[] bytes, ref int offset)
+    {
+        if (offset < 0 || offset + 4 > bytes.Length)
+            throw new InvalidDataException("Unexpected end of binary skuscene.");
+
+        offset += 4;
     }
 
     private static void WriteInt32BigEndian(byte[] bytes, int offset, int value)

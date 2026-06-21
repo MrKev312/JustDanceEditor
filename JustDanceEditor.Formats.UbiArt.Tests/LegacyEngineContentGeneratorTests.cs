@@ -299,6 +299,8 @@ public class LegacyEngineContentGeneratorTests
     public void BinarySerializer_DeserializesLegacyDanceTape()
     {
         IntermediateSongPackage package = CreatePackage();
+        package.CoachTimelines[0].TrackId = 456;
+        package.GoldEffects.Clips[0].TrackId = 789;
         LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2019);
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package));
 
@@ -310,9 +312,52 @@ public class LegacyEngineContentGeneratorTests
         UbiArtGoldEffectClip gold = tape.Clips.OfType<UbiArtGoldEffectClip>().Single();
 
         Assert.Equal("world/maps/testmap/timeline/moves/move_a.msm", motion.ClassifierPath);
+        Assert.Equal(456u, motion.TrackId);
         Assert.Equal(1, motion.GoldMove);
         Assert.Equal("world/maps/testmap/timeline/pictos/picto_a.png", pictogram.PictoPath);
+        Assert.Equal(789u, gold.TrackId);
         Assert.Equal(1, gold.EffectType);
+    }
+
+    [Fact]
+    public void BinarySerializer_DeserializesLegacyDanceTapeWithFullBodyMoves()
+    {
+        IntermediateSongPackage package = CreatePackage();
+        package.FullBodyCoachTimelines.Add(new MoveTimeline
+        {
+            CoachId = 0,
+            TrackId = 654,
+            Clips =
+            [
+                new MoveClip { Id = 6, StartTime = 60, MoveId = "gesture_a" }
+            ]
+        });
+        package.FullBodyCoachMoves["gesture_a"] = new CoachMoveDefinition
+        {
+            Duration = 18,
+            Color = "#556677",
+            MoveType = CoachMoveType.FullBodyTracking
+        };
+
+        LegacyEngineContentGenerator generator = new(UbiArtEngineVersion.JD2015, UbiArtPlatform.Xenon);
+        byte[] bytes = UbiArtEngineContentSerializer.Serialize(generator.GenerateDanceTape(package));
+
+        UbiArtClipTape tape = (UbiArtClipTape)new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015)
+            .Deserialize<LegacyClipTape>(new MemoryStream(bytes));
+
+        UbiArtMotionClip[] motions = [.. tape.Clips.OfType<UbiArtMotionClip>()];
+        UbiArtMotionClip handMove = motions.Single(clip => clip.ClassifierPath.EndsWith("move_a.msm", StringComparison.Ordinal));
+        UbiArtMotionClip fullBodyMove = motions.Single(clip => clip.ClassifierPath.EndsWith("gesture_a.gesture", StringComparison.Ordinal));
+
+        Assert.Equal("world/jd2015/testmap/timeline/moves/move_a.msm", handMove.ClassifierPath);
+        Assert.Equal(0, handMove.MoveType);
+        Assert.Equal("world/jd2015/testmap/timeline/moves/gesture_a.gesture", fullBodyMove.ClassifierPath);
+        Assert.Equal(654u, fullBodyMove.TrackId);
+        Assert.Equal(1, fullBodyMove.MoveType);
+        Assert.InRange(fullBodyMove.Color[0], 0.999f, 1.001f);
+        Assert.InRange(fullBodyMove.Color[1], (0x55 / 255f) - 0.001f, (0x55 / 255f) + 0.001f);
+        Assert.InRange(fullBodyMove.Color[2], (0x66 / 255f) - 0.001f, (0x66 / 255f) + 0.001f);
+        Assert.InRange(fullBodyMove.Color[3], (0x77 / 255f) - 0.001f, (0x77 / 255f) + 0.001f);
     }
 
     [Fact]
@@ -706,7 +751,7 @@ public class LegacyEngineContentGeneratorTests
     [Fact]
     public void UncookedGenerateMenuArtActor_ReturnsTextForWriteEdgeEncoding()
     {
-        UncookedEngineContentGenerator generator = new(UbiArtEngineVersion.JD2020);
+        UncookedEngineContentGenerator generator = new();
 
         object generated = generator.GenerateMenuArtActor("testmap_cover_generic", "TestMap");
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generated);

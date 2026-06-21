@@ -54,10 +54,32 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
                 clips.Add(new LegacyMotionClip
                 {
                     Id = (uint)clip.Id,
-                    TrackId = 0,
+                    TrackId = ToLegacyTrackId(timeline.TrackId, 0),
                     StartTime = clip.StartTime,
                     Duration = move.Duration,
                     ClassifierPath = P($"{clip.MoveId}.msm", Paths.MapSubFolder(mapNameLower, "timeline/moves")),
+                    GoldMove = clip.IsGoldMove ? 1 : 0,
+                    CoachId = timeline.CoachId,
+                    MoveType = (int)move.MoveType,
+                    Color = ConvertColorToAbgr(move.Color)
+                });
+            }
+        }
+
+        foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
+        {
+            foreach (MoveClip clip in timeline.Clips)
+            {
+                if (!package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move))
+                    continue;
+
+                clips.Add(new LegacyMotionClip
+                {
+                    Id = (uint)clip.Id,
+                    TrackId = ToLegacyTrackId(timeline.TrackId, 0),
+                    StartTime = clip.StartTime,
+                    Duration = move.Duration,
+                    ClassifierPath = P($"{clip.MoveId}.gesture", Paths.MapSubFolder(mapNameLower, "timeline/moves")),
                     GoldMove = clip.IsGoldMove ? 1 : 0,
                     CoachId = timeline.CoachId,
                     MoveType = (int)move.MoveType,
@@ -83,7 +105,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
             clips.Add(new LegacyGoldEffectClip
             {
                 Id = (uint)clip.Id,
-                TrackId = 1111,
+                TrackId = ToLegacyTrackId(clip.TrackId, 1111),
                 StartTime = clip.StartTime,
                 Duration = clip.Duration,
                 EffectType = clip.EffectType
@@ -575,6 +597,11 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
         try
         {
             string hex = hexColor.TrimStart('#');
+            if (hex.Length == 6)
+                hex += "FF";
+            if (hex.Length != 8)
+                return LegacyAbgrColor.White;
+
             return new LegacyAbgrColor(
                 int.Parse(hex.Substring(6, 2), NumberStyles.HexNumber) / 255.0f,
                 int.Parse(hex.Substring(4, 2), NumberStyles.HexNumber) / 255.0f,
@@ -586,4 +613,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
             return LegacyAbgrColor.White;
         }
     }
+
+    private static uint ToLegacyTrackId(long trackId, uint fallback) =>
+        trackId > 0 && trackId <= uint.MaxValue ? (uint)trackId : fallback;
 }

@@ -74,8 +74,8 @@ internal static class UbiArtIpkArchiveMerger
         byte[] header = new byte[0x30];
         Buffer.BlockCopy(bytes, 0, header, 0, header.Length);
 
-        _ = reader.ReadInt32BigEndian();
-        _ = reader.ReadInt32BigEndian();
+        SkipInt32(reader);
+        SkipInt32(reader);
         int baseOffset = reader.ReadInt32BigEndian();
         int filesCount = reader.ReadInt32BigEndian();
 
@@ -129,6 +129,9 @@ internal static class UbiArtIpkArchiveMerger
             flags,
             LogicalPath: string.Empty);
     }
+
+    private static void SkipInt32(BinaryReader reader)
+        => reader.BaseStream.Seek(sizeof(int), SeekOrigin.Current);
 
     private static string ToLogicalPath(ExistingEntry entry, bool swapPathAndName)
     {

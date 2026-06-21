@@ -1,6 +1,5 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using System.Reflection;
@@ -12,19 +11,10 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 /// Engine content generator that produces Lua-formatted output for Uncooked UbiArt packages.
 /// Uncooked packages are raw, human-readable project files used during development and modding.
 /// </summary>
-/// <remarks>
-/// The <paramref name="EngineVersion"/> parameter is kept for interface consistency but is not used
-/// since Uncooked Lua format is the same across all engine versions.
-/// </remarks>
 public class UncookedEngineContentGenerator : IEngineContentGenerator
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
-
-    public UncookedEngineContentGenerator(UbiArtEngineVersion engineVersion)
-    {
-        _ = engineVersion;
-    }
 
     private static byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
 
