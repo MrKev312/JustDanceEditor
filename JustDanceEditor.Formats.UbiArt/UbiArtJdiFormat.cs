@@ -63,7 +63,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             _logger.LogInformation("Song name: {SongName}", fileSystem.SongName);
 
         string platformName = fileSystem.VersionProfile.Platform.ToString();
-        ConversionSupportStatus supportStatus = GetPlatformSupportStatus(fileSystem.VersionProfile.Platform);
+        ConversionSupportStatus supportStatus = UbiArtSupportStatus.ForPlatform(fileSystem.VersionProfile.Platform);
         if (supportStatus == ConversionSupportStatus.Stable)
         {
             _logger.LogInformation("Platform: {Platform}", platformName);
@@ -206,16 +206,6 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             _io.DeleteDirectory(targetFolder, true);
         _io.CreateDirectory(targetFolder);
     }
-
-    private static ConversionSupportStatus GetPlatformSupportStatus(UbiArtPlatform platform) => platform switch
-    {
-        UbiArtPlatform.Revolution => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.Cell => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.Xenon => ConversionSupportStatus.Experimental,
-        UbiArtPlatform.Durango => ConversionSupportStatus.KnownPartial,
-        UbiArtPlatform.Orbis => ConversionSupportStatus.KnownPartial,
-        _ => ConversionSupportStatus.Stable
-    };
 
     private static string FormatSupportStatus(ConversionSupportStatus supportStatus) => supportStatus switch
     {
