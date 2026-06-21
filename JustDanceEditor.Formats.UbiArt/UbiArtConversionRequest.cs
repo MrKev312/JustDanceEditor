@@ -66,13 +66,14 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     public UbiArtEngineVersion ExportEngineVersion { get; set; } = UbiArtEngineVersion.JD2022;
 
     /// <summary>
+    /// Render cinematic videos and discard the raw frame stream instead of encoding a video.
+    /// </summary>
+    public bool RenderVideoSpeedTest { get; set; }
+
+    /// <summary>
     /// Optional delegate for UI to select a song when multiple songs are present in the input.
     /// Receives an array of available song names and should return the selected name, or null to cancel.
     /// </summary>
     public Func<string[], Task<string?>>? SelectSongAsync { get; set; }
 
-    /// <summary>
-    /// Optional import-only cap for diagnostic legacy cinematic renders.
-    /// </summary>
-    public int? LegacyCinematicFrameLimit { get; set; }
 }

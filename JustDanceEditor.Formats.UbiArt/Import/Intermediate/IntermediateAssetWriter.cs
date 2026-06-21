@@ -1,12 +1,15 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
+using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.AssetExtraction;
+using JustDanceEditor.Formats.UbiArt.Import.Assets;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Model;
+using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
 using KevInc.Audio.NAudio;
 using KevInc.UbiArt.FileSystem;
@@ -18,10 +21,18 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
+using System.Diagnostics;
+using System.Globalization;
+
+using UbiArtPictogramClip = JustDanceEditor.Formats.UbiArt.Model.Clips.PictogramClip;
+
 namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 
 internal static class IntermediateAssetWriter
 {
+    private const double CinematicDurationPaddingSeconds = 5.0;
+    private const int CinematicOutputHeight = 1080;
+
     static ImageEncoder Encoder => JDI.Utilities.WebpSettings.LosslessWebpEncoder;
     public static async Task PopulateFromUbiArtAsync(ConversionContext context, IntermediateSongPackage package, string packageRoot, ILogger logger, ITextureService textureService, IAudioConverter audioConverter, IFileSystem? io = null)
     {
@@ -39,28 +50,29 @@ internal static class IntermediateAssetWriter
         string audioMasterFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder, iofs);
         string audioPreviewFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.AudioFolder, iofs);
         string videoFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.VideoFolder, iofs);
+        string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
+        TryDeleteDirectory(previewVideoFolder, logger, iofs);
 
-        // Parallelize pictogram conversion, audio conversion, and video copy
         Task pictoTask = ConvertPictogramsAsync(context, packageRoot, logger, textureService, iofs);
         Task audioTask = AudioConverter.ConvertAudioAsync(songData, context.FileSystem, new AudioConversionOptions
         {
             MasterOutputFolder = audioMasterFolder,
             PreviewOutputFolder = audioPreviewFolder,
         }, audioConverter, logger);
-        Task videoTask = CopyMasterVideoAsync(context.FileSystem, package, videoFolder, logger, textureService, iofs);
+        Task videoTask = CopyMasterVideoAsync(context.FileSystem, songData, package, videoFolder, logger, textureService, iofs, context.Request.RenderVideoSpeedTest);
+        Task assetTask = CopyAssetsToPackageAsync(context, packageRoot, logger, textureService, iofs);
 
-        await Task.WhenAll(pictoTask, audioTask, videoTask);
-
-        string previewVideoFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.PreviewVideoFolder);
-        TryDeleteDirectory(previewVideoFolder, logger, iofs);
-
-        await CopyAssetsToPackageAsync(context, packageRoot, logger, textureService, iofs);
+        await Task.WhenAll(pictoTask, audioTask, videoTask, assetTask);
     }
 
     private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        CookedFile[] pictoFiles = context.FileSystem.AssetResolver?.GetPictograms() ?? [];
-        string[] pictoPaths = [.. pictoFiles.Select(file => (string)file)];
+        CookedFile[] folderPictos = context.FileSystem.AssetResolver?.GetPictograms() ?? [];
+        CookedFile[] referencedPictos = [.. EnumerateReferencedPictogramFiles(context)];
+        CookedFile[] pictoFiles = [.. folderPictos
+            .Concat(referencedPictos)
+            .GroupBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())];
 
         string outputFolder = EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.PictogramsFolder, io);
 
@@ -70,6 +82,21 @@ internal static class IntermediateAssetWriter
             outputFolder);
 
         await Task.Run(() => UbiArtPictoConverter.Convert(request, logger, textureService, context.FileSystem, io));
+    }
+
+    private static IEnumerable<CookedFile> EnumerateReferencedPictogramFiles(ConversionContext context)
+    {
+        if (context.SongData == null)
+            yield break;
+
+        foreach (UbiArtPictogramClip clip in context.SongData.Clips.OfType<UbiArtPictogramClip>())
+        {
+            if (TryResolveReferencedCookedFile(context.FileSystem, clip.PictoPath, out CookedFile? file) &&
+                file != null)
+            {
+                yield return file;
+            }
+        }
     }
 
     private static async Task CopyAssetsToPackageAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)
@@ -143,13 +170,14 @@ internal static class IntermediateAssetWriter
     private static void ExportSquareCoverImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
+        string assetSongName = GetAssetSongName(song);
 
         // Try to find square cover in MenuArt (prefer cover_generic as it's the highest resolution)
-        CookedFile? squareCover = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_generic.*")
+        CookedFile? squareCover = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{assetSongName}_cover_generic.*")
             .FirstOrDefault();
 
         // Fall back to cover_online if cover_generic doesn't exist
-        squareCover ??= context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_online.*")
+        squareCover ??= context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{assetSongName}_cover_online.*")
                 .FirstOrDefault();
 
         if (squareCover != null)
@@ -176,11 +204,8 @@ internal static class IntermediateAssetWriter
 
     private static void ExportAlbumCoachImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
-        JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
-
         // Try to find album coach in MenuArt
-        CookedFile? albumCoach = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_cover_albumcoach.*")
-            .FirstOrDefault();
+        CookedFile? albumCoach = context.FileSystem.AssetResolver?.GetAlbumCoach();
 
         if (albumCoach != null)
         {
@@ -207,9 +232,10 @@ internal static class IntermediateAssetWriter
     private static void ExportBannerImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
+        string assetSongName = GetAssetSongName(song);
 
         // Try to find banner in MenuArt
-        CookedFile? banner = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_banner_bkg.*")
+        CookedFile? banner = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{assetSongName}_banner_bkg.*")
             .FirstOrDefault();
 
         if (banner != null)
@@ -237,9 +263,10 @@ internal static class IntermediateAssetWriter
     private static void ExportMapBackgroundImage(ConversionContext context, string destination, ILogger logger, ITextureService textureService, IFileSystem io)
     {
         JDUbiArtSong song = context.SongData ?? throw new ArgumentException("SongData cannot be null.", nameof(context));
+        string assetSongName = GetAssetSongName(song);
 
         // Try to find map background in MenuArt
-        CookedFile? mapBkg = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{song.Name}_map_bkg.*")
+        CookedFile? mapBkg = context.FileSystem.GetAllFiles(context.FileSystem.InputFolders.MenuArtFolder, $"{assetSongName}_map_bkg.*")
             .FirstOrDefault();
 
         if (mapBkg != null)
@@ -319,6 +346,15 @@ internal static class IntermediateAssetWriter
 
         string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
         CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder, io);
+
+        foreach (MotionClip clip in context.SongData?.Clips.OfType<MotionClip>() ?? [])
+        {
+            string extension = Path.GetExtension(clip.ClassifierPath);
+            string destinationFolder = extension.Equals(".gesture", StringComparison.OrdinalIgnoreCase)
+                ? gesturesFolder
+                : movesFolder;
+            CopyReferencedCookedFile(context, clip.ClassifierPath, destinationFolder, io);
+        }
     }
 
     private static IEnumerable<string> EnumerateMotionSearchFolders(ConversionContext context)
@@ -378,6 +414,49 @@ internal static class IntermediateAssetWriter
         return destinationFolder;
     }
 
+    private static void CopyReferencedCookedFile(ConversionContext context, string relativePath, string destinationFolder, IFileSystem io)
+    {
+        if (!TryResolveReferencedCookedFile(context.FileSystem, relativePath, out CookedFile? file) ||
+            file == null)
+        {
+            return;
+        }
+
+        io.CreateDirectory(destinationFolder);
+        string destination = io.Combine(destinationFolder, $"{file.Name}{file.Extension}");
+        try
+        {
+            using Stream sourceStream = context.FileSystem.GetFileStream(file);
+            using FileStream destStream = File.Open(destination, FileMode.Create, FileAccess.Write);
+            sourceStream.CopyTo(destStream);
+        }
+        catch (FileNotFoundException)
+        {
+        }
+    }
+
+    private static bool TryResolveReferencedCookedFile(JustDanceUbiArtFileSystem fileSystem, string relativePath, out CookedFile? file)
+    {
+        file = null;
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return false;
+
+        string normalized = relativePath.Replace('\\', '/');
+        string[] candidates =
+        [
+            normalized,
+            normalized.EndsWith(".ckd", StringComparison.OrdinalIgnoreCase) ? normalized : normalized + ".ckd"
+        ];
+
+        foreach (string candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (fileSystem.GetFilePath(candidate, out file))
+                return true;
+        }
+
+        return false;
+    }
+
     private static void ResetAssetsRoot(string packageRoot, IFileSystem io)
     {
         string assetsRoot = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.Root);
@@ -386,44 +465,82 @@ internal static class IntermediateAssetWriter
         io.CreateDirectory(assetsRoot);
     }
 
-    private static async Task CopyMasterVideoAsync(JustDanceUbiArtFileSystem fileSystem, IntermediateSongPackage package, string destinationFolder, ILogger logger, ITextureService textureService, IFileSystem io)
+    private static async Task CopyMasterVideoAsync(
+        JustDanceUbiArtFileSystem fileSystem,
+        JDUbiArtSong songData,
+        IntermediateSongPackage package,
+        string destinationFolder,
+        ILogger logger,
+        ITextureService textureService,
+        IFileSystem io,
+        bool renderVideoSpeedTest)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(songData);
         ArgumentNullException.ThrowIfNull(package);
         ArgumentNullException.ThrowIfNull(textureService);
 
-        CookedFile? sourceFile = GetVideoFile(fileSystem, io);
-        if (sourceFile == null)
+        if (songData.LegacyMashup != null)
+        {
+            io.CreateDirectory(destinationFolder);
+            string mashupDestination = io.Combine(destinationFolder, $"{songData.Name}{GetRenderedVideoExtension(renderVideoSpeedTest)}");
+            await MashupVideoRenderer.RenderAsync(
+                fileSystem,
+                songData,
+                package.TimelineStructure,
+                fileSystem.TempFolders.MapFolder,
+                mashupDestination,
+                textureService,
+                logger,
+                io);
+            return;
+        }
+
+        CookedFile[] sourceFiles = GetVideoFiles(fileSystem);
+        if (sourceFiles.Length == 0)
         {
             logger.LogWarning("No video file found in UbiArt input; skipping video copy.");
             return;
         }
 
+        if (sourceFiles.Length == 1)
+            logger.LogInformation("Selected UbiArt master video '{VideoPath}'.", sourceFiles[0].RelativePath);
+        else
+            logger.LogInformation("Selected {Count} UbiArt master video variants: {VideoPaths}.", sourceFiles.Length, string.Join(", ", sourceFiles.Select(file => file.RelativePath)));
+
         io.CreateDirectory(destinationFolder);
+        foreach (CookedFile sourceFile in sourceFiles)
+            await CopyMasterVideoFileAsync(fileSystem, sourceFile, package, destinationFolder, logger, textureService, io, renderVideoSpeedTest);
+    }
+
+    private static async Task CopyMasterVideoFileAsync(
+        JustDanceUbiArtFileSystem fileSystem,
+        CookedFile sourceFile,
+        IntermediateSongPackage package,
+        string destinationFolder,
+        ILogger logger,
+        ITextureService textureService,
+        IFileSystem io,
+        bool renderVideoSpeedTest)
+    {
         string destination = io.Combine(destinationFolder, Path.GetFileName(sourceFile.RelativePath));
         string? tempSource = null;
         try
         {
-            LegacyCutoutVideoLayout? cutoutLayout = null;
+            tempSource = await MaterializeCookedFileAsync(fileSystem, sourceFile, io);
+            LegacyCutoutVideoLayout? cutoutLayout = await TryGetLegacyCutoutLayoutAsync(fileSystem, sourceFile, tempSource, logger);
 
-            if (ShouldInspectForLegacyCutout(fileSystem))
-            {
-                tempSource = await MaterializeCookedFileAsync(fileSystem, sourceFile, io);
-                cutoutLayout = await TryGetLegacyCutoutLayoutAsync(fileSystem, sourceFile, tempSource, logger);
-            }
-
-            if (cutoutLayout != null && tempSource != null)
+            if (cutoutLayout != null)
             {
                 string tempFolder = Path.GetDirectoryName(tempSource) ?? fileSystem.TempFolders.MapFolder;
-                double outputDurationSeconds = GetDebugLimitedLegacyVideoDurationSeconds(
-                    GetMasterVideoDurationSeconds(package, cutoutLayout.Value.DurationSeconds),
-                    logger);
+                double outputDurationSeconds = GetCinematicRenderDurationSeconds(package, cutoutLayout.Value.DurationSeconds);
+                string renderDestination = GetRenderedVideoDestination(destination, renderVideoSpeedTest);
 
-                await LegacyCinematicVisualRenderer.RenderCutoutVideoAsync(
+                await CinematicVisualRenderer.RenderCutoutVideoAsync(
                     fileSystem,
                     tempFolder,
                     tempSource,
-                    destination,
+                    renderDestination,
                     outputDurationSeconds,
                     package.TimelineStructure,
                     cutoutLayout.Value.Width,
@@ -431,7 +548,6 @@ internal static class IntermediateAssetWriter
                     cutoutLayout.Value.AlphaHeight,
                     cutoutLayout.Value.OutputWidth,
                     cutoutLayout.Value.OutputHeight,
-                    fileSystem.ConversionRequest.LegacyCinematicFrameLimit,
                     textureService,
                     logger,
                     io);
@@ -439,6 +555,9 @@ internal static class IntermediateAssetWriter
                 logger.LogInformation("Imported legacy cutout video into intermediate package with unified cinematic renderer.");
                 return;
             }
+
+            if (await TryNormalizeSingleVideoSceneTo16By9Async(fileSystem, sourceFile, package, tempSource, destination, logger, io))
+                return;
 
             await CopyCookedFileAsync(fileSystem, sourceFile, destination);
             logger.LogInformation("Copied master video into intermediate package without conversion.");
@@ -453,15 +572,151 @@ internal static class IntermediateAssetWriter
         }
     }
 
-    private static bool ShouldInspectForLegacyCutout(JustDanceUbiArtFileSystem fileSystem) =>
-        fileSystem.VersionProfile.EngineVersion is UbiArtEngineVersion.JD2014 or UbiArtEngineVersion.JD2015;
+    private static async Task<bool> TryNormalizeSingleVideoSceneTo16By9Async(
+        JustDanceUbiArtFileSystem fileSystem,
+        CookedFile sourceFile,
+        IntermediateSongPackage package,
+        string? existingTempSource,
+        string destination,
+        ILogger logger,
+        IFileSystem io)
+    {
+        string tempSource = existingTempSource ?? await MaterializeCookedFileAsync(fileSystem, sourceFile, io);
+        bool ownsTempSource = existingTempSource == null;
+        try
+        {
+            JdiVideoInfo? videoInfo = await JdiVideoConverter.TryInspectVideoAsync(tempSource);
+            if (videoInfo == null || videoInfo.Width <= 0 || videoInfo.Height <= 0)
+                return false;
 
-    private static double GetMasterVideoDurationSeconds(IntermediateSongPackage package, double fallbackDurationSeconds)
+            double aspect = videoInfo.Width / (double)videoInfo.Height;
+            const double targetAspect = 16.0 / 9.0;
+            if (Math.Abs(aspect - targetAspect) < 0.001)
+                return false;
+
+            double outputDurationSeconds = GetCinematicRenderDurationSeconds(package, videoInfo.Duration.TotalSeconds);
+            if (!CinematicPrerenderedVideoAnalyzer.TryAnalyzeSingleVideoScene(
+                fileSystem,
+                sourceFile,
+                outputDurationSeconds,
+                logger,
+                out CinematicSingleVideoScene singleVideoScene))
+            {
+                return false;
+            }
+
+            string cropFilter = BuildCenterCrop16By9Filter(videoInfo.Width, videoInfo.Height);
+            string filter = $"{cropFilter},setsar=1";
+            string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync();
+            string tempOutput = Path.Combine(Path.GetDirectoryName(destination) ?? fileSystem.TempFolders.MapFolder, $"{Path.GetFileNameWithoutExtension(destination)}_{Guid.NewGuid():N}.webm");
+
+            string[] args =
+            [
+                "-hide_banner",
+                "-y",
+                "-i", tempSource,
+                "-an",
+                "-vf", filter,
+                "-c:v", "libvpx",
+                "-deadline", "realtime",
+                "-cpu-used", "8",
+                "-threads", Math.Max(1, Environment.ProcessorCount).ToString(CultureInfo.InvariantCulture),
+                "-lag-in-frames", "0",
+                "-auto-alt-ref", "0",
+                "-crf", "10",
+                "-b:v", "12M",
+                "-maxrate", "18M",
+                "-bufsize", "24M",
+                "-pix_fmt", "yuv420p",
+                tempOutput
+            ];
+
+            await RunFfmpegAsync(ffmpegPath, args, logger);
+            if (File.Exists(destination))
+                File.Delete(destination);
+            File.Move(tempOutput, destination);
+            logger.LogInformation(
+                "Normalized pre-rendered single-video scene '{Video}' from {SourceWidth}x{SourceHeight} to native-cropped 16:9 using {Filter}; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
+                Path.GetFileName(sourceFile.RelativePath),
+                videoInfo.Width,
+                videoInfo.Height,
+                filter,
+                singleVideoScene.SourceVideoPath,
+                singleVideoScene.OutputActorKey);
+            return true;
+        }
+        finally
+        {
+            if (ownsTempSource)
+                TryDeleteFile(tempSource, io);
+        }
+    }
+
+    private static string GetAssetSongName(JDUbiArtSong song) =>
+        song.LegacyMashup?.BaseSongName ?? song.Name;
+
+    private static string GetRenderedVideoExtension(bool renderVideoSpeedTest) =>
+        renderVideoSpeedTest ? ".speedtest" : ".webm";
+
+    private static string GetRenderedVideoDestination(string destination, bool renderVideoSpeedTest) =>
+        !renderVideoSpeedTest
+            ? destination
+            : Path.ChangeExtension(destination, GetRenderedVideoExtension(renderVideoSpeedTest));
+
+    private static string BuildCenterCrop16By9Filter(int width, int height)
+    {
+        const double targetAspect = 16.0 / 9.0;
+        double aspect = width / (double)height;
+        if (aspect < targetAspect)
+        {
+            int cropHeight = RoundToEven((int)Math.Floor(width * 9.0 / 16.0));
+            int y = Math.Max(0, (height - cropHeight) / 2);
+            return $"crop={width}:{cropHeight}:0:{y}";
+        }
+
+        int cropWidth = RoundToEven((int)Math.Floor(height * 16.0 / 9.0));
+        int x = Math.Max(0, (width - cropWidth) / 2);
+        return $"crop={cropWidth}:{height}:{x}:0";
+    }
+
+    private static async Task RunFfmpegAsync(string ffmpegPath, IReadOnlyList<string> args, ILogger logger)
+    {
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            }
+        };
+
+        foreach (string arg in args)
+            process.StartInfo.ArgumentList.Add(arg);
+
+        process.Start();
+        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        string stdout = await stdoutTask;
+        string stderr = await stderrTask;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"ffmpeg exited with code {process.ExitCode}: {stderr}");
+
+        if (!string.IsNullOrWhiteSpace(stdout))
+            logger.LogTrace("ffmpeg stdout: {Output}", stdout);
+        if (!string.IsNullOrWhiteSpace(stderr))
+            logger.LogTrace("ffmpeg stderr: {Output}", stderr);
+    }
+
+    internal static double GetMasterVideoDurationSeconds(IntermediateSongPackage package, double fallbackDurationSeconds)
     {
         try
         {
-            double endBeatIndex = package.TimelineStructure.GetIndexFromBeatLabel(package.TimelineStructure.EndBeat);
-            double durationSeconds = package.TimelineStructure.GetSecondsAtBeat(endBeatIndex);
+            double durationSeconds = GetMusicTrackVideoTimeSeconds(
+                package.TimelineStructure,
+                GetEffectiveEndBeat(package.TimelineStructure));
             if (durationSeconds > 0)
                 return durationSeconds;
         }
@@ -472,8 +727,59 @@ internal static class IntermediateAssetWriter
         return fallbackDurationSeconds;
     }
 
-    private static double GetDebugLimitedLegacyVideoDurationSeconds(double durationSeconds, ILogger logger) =>
-        durationSeconds;
+    internal static double GetCinematicRenderDurationSeconds(IntermediateSongPackage package, double fallbackDurationSeconds) =>
+        GetMasterVideoDurationSeconds(package, fallbackDurationSeconds) + CinematicDurationPaddingSeconds;
+
+    private static double GetMusicTrackVideoTimeSeconds(TimelineStructureDocument timelineStructure, double beat) =>
+        GetMusicTrackSecondsAtBeat(timelineStructure.Markers, beat) - timelineStructure.VideoStartOffset;
+
+    private static double GetMusicTrackSecondsAtBeat(IReadOnlyList<int> markers, double beat)
+    {
+        if (markers.Count < 2)
+            throw new NotSupportedException("At least two markers are required for beat to seconds conversion.");
+
+        int previousWholeBeat = (int)Math.Floor(beat);
+        int firstMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat);
+        int secondMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat + 1);
+        double beatFractionalPart = beat - previousWholeBeat;
+        double sampleOffset = firstMarkerPosition + (beatFractionalPart * (secondMarkerPosition - firstMarkerPosition));
+        return sampleOffset / 48000.0;
+    }
+
+    private static int GetMusicTrackBeatSamplePosition(IReadOnlyList<int> markers, int beat)
+    {
+        if (beat < 0)
+        {
+            int averageBeatLength = ComputeAverageMarkerSpacing(markers, 0, Math.Min(4, markers.Count - 1));
+            return beat * averageBeatLength;
+        }
+
+        if (beat >= markers.Count)
+        {
+            int endMarker = markers.Count - 1;
+            int startMarker = Math.Max(0, endMarker - 4);
+            int averageBeatLength = ComputeAverageMarkerSpacing(markers, startMarker, endMarker);
+            return markers[endMarker] + ((beat - markers.Count + 1) * averageBeatLength);
+        }
+
+        return markers[beat];
+    }
+
+    private static int ComputeAverageMarkerSpacing(IReadOnlyList<int> markers, int startMarker, int endMarker)
+    {
+        if (endMarker <= startMarker)
+            return markers.Count >= 2 ? markers[1] - markers[0] : 24000;
+
+        return (markers[endMarker] - markers[startMarker]) / (endMarker - startMarker);
+    }
+
+    private static int GetEffectiveEndBeat(TimelineStructureDocument timelineStructure)
+    {
+        if (timelineStructure.EndBeat != 0)
+            return timelineStructure.EndBeat;
+
+        return Math.Max(0, timelineStructure.Markers.Count - 1);
+    }
 
     private static async Task<string> MaterializeCookedFileAsync(JustDanceUbiArtFileSystem fileSystem, CookedFile sourceFile, IFileSystem io)
     {
@@ -522,8 +828,10 @@ internal static class IntermediateAssetWriter
             if (!HasLegacyStackedAlphaLayout(width, visibleHeight, stretchTo16By9))
                 return null;
 
-            int outputHeight = visibleHeight;
-            int outputWidth = stretchTo16By9 ? RoundToEven((int)Math.Round(outputHeight * 16.0 / 9.0, MidpointRounding.AwayFromZero)) : width;
+            int outputHeight = Math.Max(visibleHeight, CinematicOutputHeight);
+            int outputWidth = stretchTo16By9
+                ? RoundToEven((int)Math.Round(outputHeight * 16.0 / 9.0, MidpointRounding.AwayFromZero))
+                : RoundToEven((int)Math.Round(width * (outputHeight / (double)visibleHeight), MidpointRounding.AwayFromZero));
             if (outputWidth <= 0)
                 outputWidth = width;
 
@@ -602,23 +910,8 @@ internal static class IntermediateAssetWriter
 
     private readonly record struct LegacyCutoutVideoLayout(int Width, int Height, int VisibleHeight, int AlphaHeight, int OutputWidth, int OutputHeight, double DurationSeconds);
 
-    private static CookedFile? GetVideoFile(JustDanceUbiArtFileSystem fileSystem, IFileSystem io)
-    {
-        if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out string? mediaFolder))
-        {
-            CookedFile[] mediaVideos = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.webm");
-            if (mediaVideos.Length > 0)
-                return mediaVideos[0];
-        }
-
-        string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
-        CookedFile[] coachVideos = [.. fileSystem.GetAllFiles(videosCoachFolder, "*.webm")];
-
-        if (coachVideos.Length > 0)
-            return coachVideos[0];
-
-        return null;
-    }
+    private static CookedFile[] GetVideoFiles(JustDanceUbiArtFileSystem fileSystem) =>
+        UbiArtVideoFileSelector.FindPreferredVideoFiles(fileSystem);
 
     private static string EnsureFolder(string packageRoot, string relativeFolder, IFileSystem io)
     {

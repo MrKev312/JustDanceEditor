@@ -2,8 +2,10 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
+using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
+using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +17,60 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class SongDataLoaderTests
 {
+    [Theory]
+    [InlineData("AlphaClip")]
+    [InlineData("MaterialGraphicUVScrollClip")]
+    [InlineData("TranslationClip")]
+    public void IsRenderOnlyCinematicClipClass_RecognizesKnownRenderClips(string className)
+    {
+        Assert.True(SongDataLoader.IsRenderOnlyCinematicClipClass(className));
+    }
+
+    [Theory]
+    [InlineData("MotionClip")]
+    [InlineData("UnknownFutureClip")]
+    [InlineData("")]
+    public void IsRenderOnlyCinematicClipClass_LeavesGameplayAndUnknownClipsVisible(string className)
+    {
+        Assert.False(SongDataLoader.IsRenderOnlyCinematicClipClass(className));
+    }
+
+    [Fact]
+    public void TryRemapMashupCoachClip_CanCollapseMotionClipsToSingleCoachTimeline()
+    {
+        int framesPerBeat = (int)CinematicConstants.TapeFramesPerBeat;
+        LegacyMashupBlock block = new()
+        {
+            AbsoluteStartBeat = 32,
+            SourceBlock = new LegacyMashupBlockDescriptor
+            {
+                SongName = "Source",
+                FirstBeat = 8,
+                LastBeat = 16
+            }
+        };
+        MotionClip source = new()
+        {
+            Id = 10,
+            CoachId = 22,
+            ClassifierPath = "world/maps/source/timeline/move.msm",
+            StartTime = 10 * framesPerBeat,
+            Duration = 4 * framesPerBeat,
+            Color = [1.0f, 0.2f, 0.3f, 0.4f]
+        };
+
+        Assert.True(SongDataLoader.TryRemapMashupCoachClip(source, block, 99, forceSingleCoachTimeline: true, out Clip? collapsedClip));
+        MotionClip collapsedMotion = Assert.IsType<MotionClip>(collapsedClip);
+        Assert.Equal(0, collapsedMotion.CoachId);
+        Assert.Equal(99, collapsedMotion.Id);
+        Assert.Equal(34 * framesPerBeat, collapsedMotion.StartTime);
+        Assert.Equal(4 * framesPerBeat, collapsedMotion.Duration);
+
+        Assert.True(SongDataLoader.TryRemapMashupCoachClip(source, block, 100, forceSingleCoachTimeline: false, out Clip? preservedClip));
+        MotionClip preservedMotion = Assert.IsType<MotionClip>(preservedClip);
+        Assert.Equal(22, preservedMotion.CoachId);
+    }
+
     [Fact]
     public void LoadSongData_Preserves_OriginalJDVersion()
     {

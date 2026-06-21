@@ -3,7 +3,6 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="BCnEncoder.Net.ImageSharp" Version="1.1.3" />
@@ -12,9 +11,6 @@
 		<PackageReference Include="Concentus" Version="2.2.2" />
 		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
 		<PackageReference Include="NAudio.Core" Version="2.3.0" />
-		<PackageReference Include="Silk.NET.Shaderc" Version="2.23.0" />
-		<PackageReference Include="Silk.NET.Shaderc.Native" Version="2.23.0" />
-		<PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
 		<PackageReference Include="System.IO.Hashing" Version="10.0.8" />
@@ -28,6 +24,7 @@
 		<PackageReference Include="KevInc.UbiArt.FileSystem" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Raki" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtRakiProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Texture" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtTextureProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Cinematics" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtCinematicsProject)')" />
 	</ItemGroup>
 	<ItemGroup>
 		<KevIncLocalProjectReference Include="$(KevIncCrnLibProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncCrnLibProject)')" />
@@ -51,10 +48,11 @@
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtTextureProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>
-	<ItemGroup>
-		<None Include="Import\Cinematics\Vulkan\Shaders\*.*" CopyToOutputDirectory="PreserveNewest" />
+	<ItemGroup Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')">
+		<None Include="$(KevIncUbiArtRoot)src\KevInc.UbiArt.Cinematics\Vulkan\Shaders\*.*" Link="Vulkan\Shaders\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 </Project>

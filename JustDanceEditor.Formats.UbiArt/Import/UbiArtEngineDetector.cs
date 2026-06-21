@@ -274,17 +274,17 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         {
             int offset = 0;
             uint version = ReadUInt32BigEndian(bytes, ref offset);
-            _ = ReadUInt32BigEndian(bytes, ref offset); // serialized size
+            SkipUInt32BigEndian(bytes, ref offset); // serialized size
             uint baseTypeId = ReadUInt32BigEndian(bytes, ref offset);
-            _ = ReadUInt32BigEndian(bytes, ref offset); // base type size
+            SkipUInt32BigEndian(bytes, ref offset); // base type size
 
             if (version != 1 || baseTypeId != 0x1B857BCE)
                 return false;
 
             offset += 28; // reserved resource header bytes
-            _ = ReadUInt32BigEndian(bytes, ref offset); // component count
+            SkipUInt32BigEndian(bytes, ref offset); // component count
             uint componentTypeId = ReadUInt32BigEndian(bytes, ref offset);
-            _ = ReadUInt32BigEndian(bytes, ref offset); // component size
+            SkipUInt32BigEndian(bytes, ref offset); // component size
 
             if (componentTypeId != 0x8AC2B5C6)
                 return false;
@@ -309,6 +309,14 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         uint value = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset, sizeof(uint)));
         offset += sizeof(uint);
         return value;
+    }
+
+    private static void SkipUInt32BigEndian(byte[] bytes, ref int offset)
+    {
+        if (offset + sizeof(uint) > bytes.Length)
+            throw new EndOfStreamException();
+
+        offset += sizeof(uint);
     }
 
     private static bool TrySkipUbiArtString(byte[] bytes, ref int offset)

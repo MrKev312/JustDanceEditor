@@ -89,7 +89,7 @@ public sealed class UbiArtSongPreviewProvider(
 
         IntermediateSongPackage package = new()
         {
-            Metadata = BuildMetadata(info, profile)
+            Metadata = BuildMetadata(info, profile, _logger)
         };
 
         string packageRoot = Path.Combine(request.WorkingRoot, package.Metadata.MapName);
@@ -106,7 +106,7 @@ public sealed class UbiArtSongPreviewProvider(
             MaterializedRootIsTemporary: true));
     }
 
-    private static IntermediateMetadata BuildMetadata(InfoComponent info, UbiArtVersionProfile profile)
+    private static IntermediateMetadata BuildMetadata(InfoComponent info, UbiArtVersionProfile profile, ILogger logger)
     {
         IntermediateMetadata metadata = new()
         {
@@ -120,7 +120,7 @@ public sealed class UbiArtSongPreviewProvider(
             OriginalJDVersion = info.OriginalJDVersion == 0 ? info.JDVersion : info.OriginalJDVersion,
             CoachCount = info.NumCoach,
             Difficulty = info.Difficulty,
-            SweatDifficulty = info.SweatDifficulty,
+            SweatDifficulty = NormalizeSweatDifficulty(info, logger),
             Tags = info.Tags?.ToList() ?? [],
             Status = info.Status,
             MojoValue = info.MojoValue,
@@ -135,6 +135,19 @@ public sealed class UbiArtSongPreviewProvider(
         metadata.AdditionalMetadata["songcolor_2b"] = ConvertColor(info.DefaultColors.SongColor2b);
 
         return metadata;
+    }
+
+    private static uint NormalizeSweatDifficulty(InfoComponent info, ILogger logger)
+    {
+        uint sweatDifficulty = info.EffectiveSweatDifficulty;
+        if (sweatDifficulty != 0)
+            return sweatDifficulty;
+
+        logger.LogWarning(
+            "UbiArt map '{MapName}' has SweatDifficulty/Energy 0; defaulting sweat difficulty to 1.",
+            info.MapName);
+
+        return 1;
     }
 
     private void TryWriteCoverAssets(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
@@ -193,7 +206,7 @@ public sealed class UbiArtSongPreviewProvider(
 
     private void TryWriteAlbumCoachAsset(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
     {
-        CookedFile? albumCoach = fileSystem.GetAllFiles(fileSystem.InputFolders.MenuArtFolder, $"{songName}_cover_albumcoach.*").FirstOrDefault();
+        CookedFile? albumCoach = fileSystem.AssetResolver?.GetAlbumCoach();
         if (albumCoach is null)
             return;
 

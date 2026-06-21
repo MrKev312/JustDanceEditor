@@ -8,7 +8,6 @@ using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
-using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 
 using KevInc.Audio.NAudio;
@@ -92,14 +91,19 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             context.FileSystem.TempFolders.DeleteMap(previousMap);
         }
 
-        context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context);
+        context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context, _logger);
         string outputFolder = _io.Combine(ubiRequest.OutputPath, context.SongData.Name);
         PrepareOutputDirectory(outputFolder);
         _logger.LogInformation("Materializing UbiArt assets into JDI package at '{OutputFolder}'", outputFolder);
 
-        await IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, TextureService, AudioConverter);
-        _logger.LogDebug("Writing JDI package metadata to '{OutputFolder}'", outputFolder);
-        IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
+        Task assetTask = IntermediateAssetWriter.PopulateFromUbiArtAsync(context, context.IntermediatePackage, outputFolder, _logger, TextureService, AudioConverter);
+        Task metadataTask = Task.Run(() =>
+        {
+            _logger.LogDebug("Writing JDI package metadata to '{OutputFolder}'", outputFolder);
+            IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
+        });
+
+        await Task.WhenAll(assetTask, metadataTask);
 
         _logger.LogInformation("UbiArt -> JDI conversion completed for '{SongName}' at '{OutputFolder}'", context.SongData.Name, outputFolder);
 

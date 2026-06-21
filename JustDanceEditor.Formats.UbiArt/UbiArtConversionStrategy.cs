@@ -6,13 +6,12 @@ using JustDanceEditor.Formats.UbiArt.Import;
 
 using KevInc.UbiArt.FileSystem;
 
-using System.Globalization;
-
 namespace JustDanceEditor.Formats.UbiArt;
 
 public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
 {
     private const string SongNamePromptId = "ubiart.songName";
+    private const string RenderVideoSpeedTestPromptId = "ubiart.renderSpeedTest";
 
     private readonly Dictionary<string, UbiArtTargetDefinition> _targets;
 
@@ -28,13 +27,10 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
 
     public ConversionRequestBase CreateImportRequest(ConversionRequestContext context)
     {
-        UbiArtConversionRequest request = new(context.InputPath, context.OutputPath, context.SongName);
-        if (context.Answers?.TryGetString("ubiart.legacyCinematicFrameLimit", out string? frameLimitText) == true &&
-            int.TryParse(frameLimitText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frameLimit))
+        UbiArtConversionRequest request = new(context.InputPath, context.OutputPath, context.SongName)
         {
-            request.LegacyCinematicFrameLimit = frameLimit;
-        }
-
+            RenderVideoSpeedTest = ParseRenderVideoSpeedTest(context.Answers)
+        };
         if (context.Interaction is not null)
         {
             request.SelectSongAsync = async names =>
@@ -139,6 +135,24 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
             ConversionPromptKind.FolderPath,
             "Enter the destination folder for the converted files",
             Required: false);
+
+    private static bool ParseRenderVideoSpeedTest(PromptAnswerSet? answers)
+    {
+        if (answers == null ||
+            !answers.TryGetString(RenderVideoSpeedTestPromptId, out string? value) ||
+            string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "1" or "true" or "yes" or "on" => true,
+            "0" or "false" or "no" or "off" => false,
+            _ => throw new ArgumentException(
+                $"Unsupported UbiArt render speedtest value '{value}'. Use '{RenderVideoSpeedTestPromptId}=true' or '{RenderVideoSpeedTestPromptId}=false'.")
+        };
+    }
 
     private static UbiArtEngineVersion ToEngineVersion(int year) => year switch
     {
