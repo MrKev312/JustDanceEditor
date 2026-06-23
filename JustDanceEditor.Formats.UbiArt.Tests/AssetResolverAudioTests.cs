@@ -89,6 +89,50 @@ public class AssetResolverAudioTests
     }
 
     [Fact]
+    public void TryFindMainAudio_Returns_PreMergedOgg_From_AudioFolder()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string audioFolder = Path.Combine(root, "world", "maps", "song", "audio");
+        Directory.CreateDirectory(audioFolder);
+
+        File.WriteAllText(Path.Combine(audioFolder, "song.ogg"), "OGGDATA");
+        File.WriteAllText(Path.Combine(audioFolder, "song_musictrack.wav"), "WAVDATA");
+
+        UbiArtVersionProfile profile = new(UbiArtPlatform.NX, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new JsonUbiArtSerializer());
+        UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = CookedType.Cooked };
+        JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+        fs.Initialize();
+
+        JDUbiArtSong song = new()
+        {
+            Name = "song",
+            MusicTrack = new MusicTrack
+            {
+                Components =
+                [
+                    new TrackDataHolder
+                    {
+                        TrackData = new TrackData
+                        {
+                            Path = Path.Combine("world", "maps", "song", "audio", "song_musictrack.tpl")
+                        }
+                    }
+                ]
+            }
+        };
+
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
+        bool found = resolver.TryFindMainAudio(song, out CookedFile? file, out bool isPreMerged);
+
+        Assert.True(found);
+        Assert.True(isPreMerged);
+        CookedFile resolvedFile = file ?? throw new System.InvalidOperationException("Expected main audio file to be resolved.");
+        Assert.EndsWith("song.ogg", resolvedFile.RelativePath);
+
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void TryFindAudio_Fallsback_To_Wav_Extension_If_Tpl_Not_Present()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

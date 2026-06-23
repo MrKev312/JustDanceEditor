@@ -150,10 +150,13 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
     {
         isPreMerged = false;
 
-        // Pre-merged OGG in media folder
-        if (_fileSystem.GetFolderPath(_fileSystem.InputFolders.MediaFolder, out _))
+        string[] preMergedAudioFolders = _fileSystem.GetFolderPath(_fileSystem.InputFolders.MediaFolder, out _)
+            ? [_fileSystem.InputFolders.MediaFolder, _fileSystem.InputFolders.AudioFolder]
+            : [_fileSystem.InputFolders.AudioFolder];
+
+        foreach (string audioFolder in preMergedAudioFolders)
         {
-            CookedFile[] oggFiles = _fileSystem.GetAllFiles(_fileSystem.InputFolders.MediaFolder, "*.ogg");
+            CookedFile[] oggFiles = _fileSystem.GetAllFiles(audioFolder, "*.ogg");
             if (oggFiles.Length > 0)
             {
                 isPreMerged = true;
