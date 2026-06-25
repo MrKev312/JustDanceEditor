@@ -99,7 +99,37 @@ public static class IntermediatePackageLayout
         /// Gets the relative path for a pictogram image.
         /// </summary>
         /// <param name="pictogramId">Pictogram identifier (filename without extension).</param>
-        public static string PictogramFile(string pictogramId) => $"{PictogramsFolder}/{pictogramId}.webp";
+        public static string PictogramFile(string pictogramId)
+        {
+            ValidatePictogramId(pictogramId);
+            return $"{PictogramsFolder}/{pictogramId}.webp";
+        }
+
+        /// <summary>
+        /// Validates that a pictogram identifier is a simple file name, not a path.
+        /// </summary>
+        /// <param name="pictogramId">Pictogram identifier (filename without extension).</param>
+        public static void ValidatePictogramId(string pictogramId)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(pictogramId);
+
+            if (HasTraversalSegment(pictogramId))
+                throw new ArgumentException("Pictogram IDs cannot contain traversal segments.", nameof(pictogramId));
+
+            if (Path.IsPathRooted(pictogramId) || HasWindowsDriveSpecifier(pictogramId))
+                throw new ArgumentException("Pictogram IDs cannot be rooted paths.", nameof(pictogramId));
+
+            if (pictogramId.Contains('/') || pictogramId.Contains('\\'))
+                throw new ArgumentException("Pictogram IDs cannot contain path separators.", nameof(pictogramId));
+        }
+
+        private static bool HasTraversalSegment(string value) =>
+            value.Split(['/', '\\'], StringSplitOptions.None).Any(segment => segment == "..");
+
+        private static bool HasWindowsDriveSpecifier(string value) =>
+            value.Length >= 2
+            && value[1] == ':'
+            && ((value[0] >= 'A' && value[0] <= 'Z') || (value[0] >= 'a' && value[0] <= 'z'));
     }
 
     public static string Resolve(string root, string relative)

@@ -101,6 +101,117 @@ public class JDNextPCJdiFormatTests
         }
     }
 
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData(@"..\escape")]
+    [InlineData("/escape")]
+    [InlineData(@"C:\escape")]
+    public async Task ImportAsync_RejectsUnsafePictogramIdsBeforeMaterializingAssets(string unsafePictogramId)
+    {
+        string jdNextRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            CreateJdNextInput(jdNextRoot);
+            ReplaceTimelinePictogramId(jdNextRoot, "picto_a", unsafePictogramId);
+            WriteBytes(Path.Combine(jdNextRoot, "escape.png"), "ESCAPE"u8.ToArray());
+
+            JDNextPCJdiFormat format = CreateFormat();
+
+            ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await format.ImportAsync(
+                    new JDNextPCConversionRequest(jdNextRoot, outputRoot),
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Equal("pictogramId", exception.ParamName);
+            Assert.Empty(Directory.EnumerateFileSystemEntries(outputRoot));
+        }
+        finally
+        {
+            Directory.Delete(jdNextRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData(@"..\escape")]
+    [InlineData("/escape")]
+    [InlineData(@"C:\escape")]
+    public async Task ExportAsync_RejectsUnsafePictogramIdsBeforeWritingOutput(string unsafePictogramId)
+    {
+        string packageRoot = CreateTempDirectory();
+        string outputRoot = CreateTempDirectory();
+
+        try
+        {
+            IntermediateSongPackage package = CreateMinimalPackage("Traversal");
+            package.Pictograms.Clips.Add(new PictogramClip
+            {
+                Id = 1,
+                StartTime = 0,
+                Duration = 24,
+                PictogramId = unsafePictogramId,
+                CoachCount = -1
+            });
+            WriteBytes(Path.Combine(packageRoot, "assets", "escape.webp"), "ESCAPE"u8.ToArray());
+
+            JDNextPCJdiFormat format = CreateFormat();
+
+            ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await format.ExportAsync(
+                    new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
+                    new JDNextPCConversionRequest(packageRoot, outputRoot),
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Equal("pictogramId", exception.ParamName);
+            Assert.Empty(Directory.EnumerateFileSystemEntries(outputRoot));
+        }
+        finally
+        {
+            Directory.Delete(packageRoot, true);
+            Directory.Delete(outputRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ImportAsync_WhenOutputParentIsInputParent_RedirectsMaterializedRootAndPreservesSource()
+    {
+        string parentRoot = CreateTempDirectory();
+        string jdNextRoot = Path.Combine(parentRoot, "makeba");
+        string? materializedRoot = null;
+
+        try
+        {
+            Directory.CreateDirectory(jdNextRoot);
+            CreateJdNextInput(jdNextRoot);
+            File.WriteAllText(Path.Combine(jdNextRoot, "source.keep"), "keep");
+
+            JDNextPCJdiFormat format = CreateFormat();
+            JdiImportResult result = await format.ImportAsync(
+                new JDNextPCConversionRequest(jdNextRoot, parentRoot),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            materializedRoot = result.MaterializedRoot;
+            Assert.NotNull(materializedRoot);
+            Assert.False(MaterializedOutputPathResolver.PathsOverlap(jdNextRoot, materializedRoot));
+            Assert.True(File.Exists(Path.Combine(materializedRoot, "metadata.json")));
+            Assert.True(File.Exists(Path.Combine(jdNextRoot, "songdesc.json")));
+            Assert.True(File.Exists(Path.Combine(jdNextRoot, "timeline.json")));
+            Assert.True(File.Exists(Path.Combine(jdNextRoot, "musictrack.json")));
+            Assert.True(File.Exists(Path.Combine(jdNextRoot, "source.keep")));
+        }
+        finally
+        {
+            if (Directory.Exists(parentRoot))
+                Directory.Delete(parentRoot, true);
+
+            if (!string.IsNullOrWhiteSpace(materializedRoot) && Directory.Exists(materializedRoot))
+                Directory.Delete(materializedRoot, true);
+        }
+    }
+
     [Fact]
     public void Check_ReturnsTrueForJDNextSongFolder()
     {
@@ -117,6 +228,43 @@ public class JDNextPCJdiFormatTests
         finally
         {
             Directory.Delete(jdNextRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ExportAsync_WhenOutputParentIsSourceParent_RedirectsOutputRootAndPreservesSource()
+    {
+        string parentRoot = CreateTempDirectory();
+        string packageRoot = Path.Combine(parentRoot, "makeba");
+
+        try
+        {
+            Directory.CreateDirectory(packageRoot);
+            IntermediateSongPackage package = CreateJdiPackage("Makeba");
+            CreateJdiExportAssets(packageRoot, coachCount: 3);
+            File.WriteAllText(Path.Combine(packageRoot, "source.keep"), "keep");
+
+            JDNextPCJdiFormat format = CreateFormat();
+            await format.ExportAsync(
+                new JdiImportResult(package, "JDI", packageRoot, MaterializedRootIsTemporary: false),
+                new JDNextPCConversionRequest(packageRoot, parentRoot),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            string outputRoot = Assert.Single(
+                Directory.GetDirectories(parentRoot),
+                path => !Path.GetFileName(path).Equals("makeba", StringComparison.OrdinalIgnoreCase));
+
+            Assert.False(MaterializedOutputPathResolver.PathsOverlap(packageRoot, outputRoot));
+            Assert.True(File.Exists(Path.Combine(outputRoot, "songdesc.json")));
+            Assert.True(File.Exists(Path.Combine(outputRoot, "timeline.json")));
+            Assert.True(File.Exists(Path.Combine(outputRoot, "musictrack.json")));
+            Assert.True(File.Exists(Path.Combine(packageRoot, "source.keep")));
+            Assert.True(File.Exists(Path.Combine(packageRoot, "assets", "audio", "master.opus")));
+        }
+        finally
+        {
+            if (Directory.Exists(parentRoot))
+                Directory.Delete(parentRoot, true);
         }
     }
 
@@ -390,6 +538,14 @@ public class JDNextPCJdiFormatTests
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException($"Could not determine the directory for '{path}'."));
         File.WriteAllText(path, json);
+    }
+
+    private static void ReplaceTimelinePictogramId(string jdNextRoot, string oldId, string newId)
+    {
+        string timelinePath = Path.Combine(jdNextRoot, "timeline.json");
+        string timelineJson = File.ReadAllText(timelinePath)
+            .Replace(JsonSerializer.Serialize(oldId), JsonSerializer.Serialize(newId), StringComparison.Ordinal);
+        File.WriteAllText(timelinePath, timelineJson);
     }
 
     private static byte[] CreatePseudoWebmBytes(int totalLength, bool isVp8)

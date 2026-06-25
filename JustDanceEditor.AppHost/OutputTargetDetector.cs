@@ -172,8 +172,17 @@ public static class OutputTargetDetector
         }
     }
 
-    private static ConversionTargetDefinition? ResolveTarget(IJdiFormat format, IReadOnlyList<ConversionTargetDefinition> targets) =>
-        targets.FirstOrDefault(target => target.FormatName.Equals(format.DisplayName, StringComparison.OrdinalIgnoreCase));
+    private static ConversionTargetDefinition? ResolveTarget(IJdiFormat format, IReadOnlyList<ConversionTargetDefinition> targets)
+    {
+        ConversionTargetDefinition[] formatTargets =
+        [
+            .. targets.Where(target => target.FormatName.Equals(format.DisplayName, StringComparison.OrdinalIgnoreCase))
+        ];
+
+        return formatTargets.Length == 1
+            ? formatTargets[0]
+            : null;
+    }
 
     private static string FormatMixedStatus(IReadOnlyList<string> formatNames)
     {

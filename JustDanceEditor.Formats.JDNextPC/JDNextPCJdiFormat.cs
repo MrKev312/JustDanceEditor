@@ -56,6 +56,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         JDNextSongDescription songDescription = ReadJson<JDNextSongDescription>(Path.Combine(inputRoot, "songdesc.json"));
         JDNextTimelineDocument timelineDocument = ReadJson<JDNextTimelineDocument>(Path.Combine(inputRoot, "timeline.json"));
         JDNextMusicTrackDocument musicTrack = ReadJson<JDNextMusicTrackDocument>(Path.Combine(inputRoot, "musictrack.json"));
+        ValidatePictogramIds(timelineDocument.Pictos.Select(picto => picto.Name));
         _logger.LogInformation(
             "Loaded JDNext PC metadata for '{Title}' by '{Artist}' with {MoveCount} move clip(s), {LyricCount} lyric clip(s), and {PictoCount} pictogram clip(s)",
             songDescription.Title,
@@ -98,7 +99,18 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
             }
         }
 
-        string materializedRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, package.Metadata.MapName);
+        string requestedMaterializedRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, package.Metadata.MapName);
+        MaterializedOutputPath materializedOutput = MaterializedOutputPathResolver.Resolve(requestedMaterializedRoot, inputRoot, package.Metadata.MapName);
+        string materializedRoot = materializedOutput.Path;
+        if (materializedOutput.WasRedirected)
+        {
+            _logger.LogWarning(
+                "JDNext PC -> JDI materialized output '{RequestedOutput}' overlaps source '{InputRoot}'. Using safe materialization path '{MaterializedRoot}'.",
+                requestedMaterializedRoot,
+                inputRoot,
+                materializedRoot);
+        }
+
         PrepareMaterializedDirectory(materializedRoot);
         _logger.LogDebug("Prepared JDI materialized directory '{MaterializedRoot}'", materializedRoot);
         _logger.LogInformation("Materializing JDNext PC assets into JDI package at '{OutputRoot}'", materializedRoot);
@@ -112,7 +124,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
             package,
             DisplayName,
             materializedRoot,
-            MaterializedRootIsTemporary: false,
+            MaterializedRootIsTemporary: materializedOutput.IsTemporary,
             SuggestedOutputFolder: materializedRoot);
     }
 
@@ -127,7 +139,20 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         if (string.IsNullOrWhiteSpace(importResult.MaterializedRoot) || !Directory.Exists(importResult.MaterializedRoot))
             throw new InvalidOperationException("JDNext PC export requires a materialized JDI root.");
 
-        string outputRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, importResult.Package.Metadata.MapName);
+        ValidatePictogramIds(importResult.Package.Pictograms.Clips.Select(clip => clip.PictogramId));
+
+        string requestedOutputRoot = BuildSuggestedOutputFolder(jdNextRequest.OutputPath, importResult.Package.Metadata.MapName);
+        MaterializedOutputPath exportOutput = MaterializedOutputPathResolver.Resolve(requestedOutputRoot, importResult.MaterializedRoot, importResult.Package.Metadata.MapName);
+        string outputRoot = exportOutput.Path;
+        if (exportOutput.WasRedirected)
+        {
+            _logger.LogWarning(
+                "JDNext PC export output '{RequestedOutput}' overlaps source JDI package '{MaterializedRoot}'. Using safe output path '{OutputRoot}'.",
+                requestedOutputRoot,
+                importResult.MaterializedRoot,
+                outputRoot);
+        }
+
         PrepareMaterializedDirectory(outputRoot);
         _logger.LogInformation("Starting JDI -> JDNext PC conversion for '{MapName}' into '{OutputRoot}'", importResult.Package.Metadata.MapName, outputRoot);
         _logger.LogDebug("Building JDNext PC songdesc, musictrack, and timeline documents");
@@ -408,7 +433,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         {
             foreach (string pictoId in timelineDocument.Pictos.Select(picto => picto.Name).Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                string sourcePath = Path.Combine(pictosRoot, $"{pictoId}.png");
+                string sourcePath = GetJDNextPictogramPath(pictosRoot, pictoId);
                 if (!File.Exists(sourcePath))
                     continue;
 
@@ -526,7 +551,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
             }
 
             await using FileStream input = File.OpenRead(sourcePictoPath);
-            await _textureService.ConvertTextureAsync(input, Path.Combine(pictosRoot, $"{pictoId}.png"), cancellationToken);
+            await _textureService.ConvertTextureAsync(input, GetJDNextPictogramPath(pictosRoot, pictoId), cancellationToken);
         }
     }
 
@@ -681,6 +706,18 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
 
     private static string NormalizeFolderName(string mapName) =>
         string.IsNullOrWhiteSpace(mapName) ? "song" : mapName.Trim().ToLowerInvariant();
+
+    private static void ValidatePictogramIds(IEnumerable<string> pictogramIds)
+    {
+        foreach (string pictogramId in pictogramIds.Distinct(StringComparer.OrdinalIgnoreCase))
+            IntermediatePackageLayout.Assets.ValidatePictogramId(pictogramId);
+    }
+
+    private static string GetJDNextPictogramPath(string pictosRoot, string pictogramId)
+    {
+        IntermediatePackageLayout.Assets.ValidatePictogramId(pictogramId);
+        return Path.Combine(pictosRoot, $"{pictogramId}.png");
+    }
 
     private static double TimelineTicksToSeconds(TimelineStructureDocument structure, int startTime) =>
         structure.GetSecondsAtBeat(startTime / (double)TimelineTicksPerBeat);

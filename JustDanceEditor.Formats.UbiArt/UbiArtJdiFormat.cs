@@ -92,7 +92,18 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         }
 
         context.IntermediatePackage = IntermediatePackageBuilder.FromUbiArt(context, _logger);
-        string outputFolder = _io.Combine(ubiRequest.OutputPath, context.SongData.Name);
+        string requestedOutputFolder = _io.Combine(ubiRequest.OutputPath, context.SongData.Name);
+        MaterializedOutputPath materializedOutput = MaterializedOutputPathResolver.Resolve(requestedOutputFolder, ubiRequest.InputPath, context.SongData.Name);
+        string outputFolder = materializedOutput.Path;
+        if (materializedOutput.WasRedirected)
+        {
+            _logger.LogWarning(
+                "UbiArt -> JDI materialized output '{RequestedOutput}' overlaps source '{InputPath}'. Using safe materialization path '{OutputFolder}'.",
+                requestedOutputFolder,
+                ubiRequest.InputPath,
+                outputFolder);
+        }
+
         PrepareOutputDirectory(outputFolder);
         _logger.LogInformation("Materializing UbiArt assets into JDI package at '{OutputFolder}'", outputFolder);
 
@@ -111,7 +122,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             context.IntermediatePackage,
             "UbiArt",
             outputFolder,
-            MaterializedRootIsTemporary: outputFolder.Contains(_io.GetTempPath(), StringComparison.OrdinalIgnoreCase),
+            MaterializedRootIsTemporary: materializedOutput.IsTemporary,
             SuggestedOutputFolder: outputFolder);
     }
 

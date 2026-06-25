@@ -104,6 +104,36 @@ public sealed class CliContractTests
     }
 
     [Fact]
+    public async Task AudioCommand_UnsupportedSingleFileReportsNoSupportedFiles()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputPath = Path.Combine(temp.Path, "notes.txt");
+        File.WriteAllText(inputPath, "not audio");
+
+        CliResult result = await RunCliAsync("audio", "-n", "--input", inputPath, "--encoding", "wav");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains($"No supported audio files found in: {inputPath}", result.Output);
+        Assert.DoesNotContain("Converting audio:", result.Output);
+        Assert.DoesNotContain("Error processing", result.Output);
+    }
+
+    [Fact]
+    public async Task TextureCommand_UnsupportedSingleFileReportsNoSupportedFiles()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputPath = Path.Combine(temp.Path, "notes.txt");
+        File.WriteAllText(inputPath, "not texture");
+
+        CliResult result = await RunCliAsync("texture", "-n", "--input", inputPath, "--encoding", "png");
+
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains($"No supported texture or image files found in: {inputPath}", result.Output);
+        Assert.DoesNotContain("Converting texture/image:", result.Output);
+        Assert.DoesNotContain("Error processing", result.Output);
+    }
+
+    [Fact]
     public async Task DroppedAudioPath_UsesHeadlessEncoding()
     {
         using TempFolder temp = TempFolder.Create();
@@ -138,6 +168,24 @@ public sealed class CliContractTests
 
         Assert.Equal(0, result.ExitCode);
         Assert.True(File.Exists(Path.Combine(outputFolder, "sample.png")));
+    }
+
+    [Fact]
+    public async Task DroppedTexturePath_DetectsXbox360TextureExtension()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputPath = Path.Combine(temp.Path, "sample.x360tex");
+        string outputFolder = Path.Combine(temp.Path, "out");
+        string expectedOutput = Path.Combine(outputFolder, "sample.png");
+        Directory.CreateDirectory(outputFolder);
+        File.WriteAllBytes(inputPath, [0]);
+        File.WriteAllText(expectedOutput, "already converted");
+
+        CliResult result = await RunCliAsync(inputPath, "-n", "--encoding", "png", "--output", outputFolder, "--no-wait");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"Output file already exists, skipping: {expectedOutput}", result.Output);
+        Assert.DoesNotContain("Unsupported dropped file", result.Output);
     }
 
     [Fact]
@@ -186,6 +234,40 @@ public sealed class CliContractTests
         Assert.True(File.Exists(ckdOutput));
         Assert.NotEqual("TEX\0", ReadAscii(nativeOutput, 4, 4));
         Assert.Equal("TEX\0", ReadAscii(ckdOutput, 4, 4));
+    }
+
+    [Fact]
+    public async Task AudioCommand_StripsCompoundSourceExtensionBeforeTargetExtension()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputPath = Path.Combine(temp.Path, "audio.wav.ckd");
+        string expectedOutput = Path.Combine(temp.Path, "audio.wav");
+        string oldMangledOutput = Path.Combine(temp.Path, "audio.wav.wav");
+        File.WriteAllText(inputPath, "not a real raki stream");
+        File.WriteAllText(expectedOutput, "already converted");
+
+        CliResult result = await RunCliAsync("audio", "-n", "--input", inputPath, "--encoding", "wav");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"Output file already exists, skipping: {expectedOutput}", result.Output);
+        Assert.False(File.Exists(oldMangledOutput));
+    }
+
+    [Fact]
+    public async Task TextureCommand_StripsCompoundSourceExtensionBeforeTargetExtension()
+    {
+        using TempFolder temp = TempFolder.Create();
+        string inputPath = Path.Combine(temp.Path, "image.gtx.ckd");
+        string expectedOutput = Path.Combine(temp.Path, "image.png");
+        string oldMangledOutput = Path.Combine(temp.Path, "image.gtx.png");
+        File.WriteAllText(inputPath, "not a real texture");
+        File.WriteAllText(expectedOutput, "already converted");
+
+        CliResult result = await RunCliAsync("texture", "-n", "--input", inputPath, "--encoding", "png");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains($"Output file already exists, skipping: {expectedOutput}", result.Output);
+        Assert.False(File.Exists(oldMangledOutput));
     }
 
     [Fact]
@@ -247,7 +329,7 @@ public sealed class CliContractTests
     }
 
     [Fact]
-    public async Task HeadlessBatch_TargetOmitted_UsesDetectedUnityServerOutput()
+    public async Task HeadlessBatch_TargetOmitted_AmbiguousUnityOutputFails()
     {
         using TempFolder temp = TempFolder.Create();
         string inputFolder = Path.Combine(temp.Path, "input");
@@ -260,8 +342,8 @@ public sealed class CliContractTests
 
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("Output format: Unity", result.Output);
-        Assert.Contains("No compatible inputs were found.", result.Output);
-        Assert.DoesNotContain("Missing required option '--target'.", result.Output);
+        Assert.Contains("Pass --target <target>.", result.Output);
+        Assert.DoesNotContain("No compatible inputs were found.", result.Output);
     }
 
     [Fact]

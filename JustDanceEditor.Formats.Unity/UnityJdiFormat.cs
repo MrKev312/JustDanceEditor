@@ -29,7 +29,18 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
         _logger.LogInformation("Built intermediate metadata for Unity song '{MapName}'", package.Metadata.MapName ?? package.Metadata.Title ?? "song");
 
         string songName = DetermineSongName(package);
-        string suggestedOutput = BuildSuggestedOutputFolder(unityRequest.OutputPath, songName);
+        string requestedOutput = BuildSuggestedOutputFolder(unityRequest.OutputPath, songName);
+        MaterializedOutputPath materializedOutput = MaterializedOutputPathResolver.Resolve(requestedOutput, unityRequest.InputPath, songName);
+        string suggestedOutput = materializedOutput.Path;
+        if (materializedOutput.WasRedirected)
+        {
+            _logger.LogWarning(
+                "Unity -> JDI materialized output '{RequestedOutput}' overlaps source '{InputPath}'. Using safe materialization path '{MaterializedRoot}'.",
+                requestedOutput,
+                unityRequest.InputPath,
+                suggestedOutput);
+        }
+
         PrepareMaterializedDirectory(suggestedOutput);
         _logger.LogDebug("Prepared JDI materialized directory '{MaterializedRoot}'", suggestedOutput);
 
@@ -46,7 +57,7 @@ public sealed class UnityJdiFormat(Func<string, IntermediateSongPackage> serverB
             package,
             "Unity",
             suggestedOutput,
-            MaterializedRootIsTemporary: false,
+            MaterializedRootIsTemporary: materializedOutput.IsTemporary,
             SuggestedOutputFolder: suggestedOutput);
 
         _logger.LogInformation("Unity -> JDI conversion completed for '{SongName}' at '{MaterializedRoot}'", songName, suggestedOutput);

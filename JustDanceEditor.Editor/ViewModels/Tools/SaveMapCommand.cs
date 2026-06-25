@@ -1,6 +1,11 @@
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+
+using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -11,17 +16,20 @@ public class SaveMapCommand : IRunCommand
 
     public void Run(ITimelineContextService? timelineContext)
     {
+        _ = RunAsync(timelineContext, GetMainWindow());
+    }
+
+    internal static async Task<bool> RunAsync(ITimelineContextService? timelineContext, Window? owner = null)
+    {
         TimelineEditorViewModel? timeline = timelineContext?.ActiveTimeline;
         if (timeline == null)
-            return;
+            return false;
 
-        try
-        {
-            timeline.Save();
-        }
-        catch
-        {
-            // Failed to save map — swallow exception or report via UI
-        }
+        return await timeline.TrySaveAndReportFailureAsync(owner);
     }
+
+    private static Window? GetMainWindow()
+        => Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            ? desktop.MainWindow
+            : null;
 }

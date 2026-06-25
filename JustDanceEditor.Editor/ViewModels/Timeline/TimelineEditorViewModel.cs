@@ -24,6 +24,7 @@ using SixLabors.ImageSharp.Processing;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -2168,6 +2169,61 @@ public partial class TimelineEditorViewModel : Document
         return base.OnClose();
     }
 
+    internal async Task<bool> TrySaveAndReportFailureAsync(Window? owner)
+    {
+        try
+        {
+            Save();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveErrorAsync(owner, ex);
+            return false;
+        }
+    }
+
+    internal async Task<bool> TrySaveAndCloseAfterPromptAsync(Window? owner)
+    {
+        if (!await TrySaveAndReportFailureAsync(owner))
+            return false;
+
+        CloseAfterConfirmedPrompt();
+        return true;
+    }
+
+    internal static async Task ShowSaveErrorAsync(Window? owner, Exception exception)
+    {
+        Debug.WriteLine($"Failed to save map: {exception}");
+
+        if (owner == null)
+            return;
+
+        Window errorWin = new()
+        {
+            Title = "Error Saving Map",
+            Width = 420,
+            Height = 200,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new TextBlock
+            {
+                Text = $"Failed to save map:\n{exception.Message}",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(16),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            }
+        };
+
+        await errorWin.ShowDialog(owner);
+    }
+
+    private void CloseAfterConfirmedPrompt()
+    {
+        _allowClose = true;
+        (Owner as IDock)?.Factory?.CloseDockable(this);
+    }
+
     /// <summary>
     /// Shows a "Save / Don't Save / Cancel" dialog when the user tries to close a
     /// dirty tab. On confirmation the dockable is closed programmatically.
@@ -2228,19 +2284,12 @@ public partial class TimelineEditorViewModel : Document
 
         if (choice == "save")
         {
-            try
-            {
-                Save();
-            }
-            catch { /* save failure – still allow close */ }
+            await TrySaveAndCloseAfterPromptAsync(mainWindow);
+            return;
         }
 
-        if (choice is "save" or "discard")
-        {
-            _allowClose = true;
-            // Trigger the real close through the Dock factory
-            (Owner as IDock)?.Factory?.CloseDockable(this);
-        }
+        if (choice == "discard")
+            CloseAfterConfirmedPrompt();
     }
 
     partial void OnSnapToGridChanged(bool value)

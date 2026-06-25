@@ -1,6 +1,8 @@
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -210,5 +212,63 @@ public class TimelineEditorViewModelTests
         Assert.Equal("#FF0000", package.HandCoachMoves["moveA"].Color);
 
         Directory.Delete(temp, true);
+    }
+
+    [Fact]
+    public async Task TrySaveAndCloseAfterPromptAsync_WhenSaveFails_KeepsDocumentDirtyAndCloseBlocked()
+    {
+        string rootFile = Path.GetTempFileName();
+        try
+        {
+            TimelineEditorViewModel vm = CreateSaveFailureTimeline(rootFile);
+            vm.UndoService.Record(static () => { }, static () => { });
+
+            bool closed = await vm.TrySaveAndCloseAfterPromptAsync(owner: null);
+
+            Assert.False(closed);
+            Assert.True(vm.UndoService.IsDirty);
+            Assert.Equal("Broken Save *", vm.Title);
+            Assert.False((bool)(GetRequiredField("_allowClose").GetValue(vm) ?? true));
+        }
+        finally
+        {
+            File.Delete(rootFile);
+        }
+    }
+
+    [Fact]
+    public async Task SaveMapCommand_RunAsync_WhenSaveFails_ReportsFailureAndKeepsDocumentDirty()
+    {
+        string rootFile = Path.GetTempFileName();
+        try
+        {
+            TimelineEditorViewModel vm = CreateSaveFailureTimeline(rootFile);
+            vm.UndoService.Record(static () => { }, static () => { });
+
+            bool saved = await SaveMapCommand.RunAsync(new TestTimelineContextService(vm));
+
+            Assert.False(saved);
+            Assert.True(vm.UndoService.IsDirty);
+            Assert.Equal("Broken Save *", vm.Title);
+        }
+        finally
+        {
+            File.Delete(rootFile);
+        }
+    }
+
+    private static TimelineEditorViewModel CreateSaveFailureTimeline(string rootPath)
+    {
+        IntermediateSongPackage package = new()
+        {
+            Metadata =
+            {
+                MapName = "Broken Save"
+            }
+        };
+        package.TimelineStructure.StartBeat = 0;
+        package.TimelineStructure.EndBeat = 64;
+
+        return new TimelineEditorViewModel(package, rootPath, new PlaybackService(), new TimelineSettingsService());
     }
 }

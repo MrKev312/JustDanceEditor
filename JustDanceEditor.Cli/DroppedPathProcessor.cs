@@ -78,6 +78,20 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         new("ckd-ps3-rgba8", "UbiArt TEX-wrapped PlayStation 3 texture A8R8G8B8 (.ps3tex.ckd)", ".ps3tex.ckd", ["ps3-rgba8-ckd"]),
     ];
 
+    private static readonly string[] CompoundSourceExtensions =
+    [
+        ".wav.ckd",
+        ".png.ckd",
+        ".tga.ckd",
+        ".dds.ckd",
+        ".xtx.ckd",
+        ".gtx.ckd",
+        ".x360tex.ckd",
+        ".ps3tex.ckd",
+        ".tex.ckd",
+        ".ssd.ckd",
+    ];
+
     private static bool textureFormatsRegistered;
     private readonly ILogger<DroppedPathProcessor> _logger = logger;
     private readonly IAudioConverter _audioConverter = audioConverter;
@@ -300,7 +314,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
 
     private bool ConvertAudioFile(string inputPath, string? outputPath, bool force, AudioTargetEncoding target)
     {
-        string resolvedOutput = outputPath ?? Path.ChangeExtension(inputPath, target.Extension);
+        string resolvedOutput = outputPath ?? ChangeMediaExtension(inputPath, target.Extension);
         if (Path.GetFullPath(inputPath).Equals(Path.GetFullPath(resolvedOutput), StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine($"Input already uses target encoding, skipping: {inputPath}");
@@ -328,7 +342,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
 
     private bool ConvertTextureFile(string inputPath, string? outputPath, bool force, TextureTargetEncoding target)
     {
-        string resolvedOutput = outputPath ?? Path.ChangeExtension(inputPath, target.Extension);
+        string resolvedOutput = outputPath ?? ChangeMediaExtension(inputPath, target.Extension);
         if (Path.GetFullPath(inputPath).Equals(Path.GetFullPath(resolvedOutput), StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine($"Input already uses target encoding, skipping: {inputPath}");
@@ -654,7 +668,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
     private static string[] ExpandInputFiles(string inputPath, Func<string, bool> predicate)
     {
         if (File.Exists(inputPath))
-            return predicate(inputPath) ? [inputPath] : [inputPath];
+            return predicate(inputPath) ? [inputPath] : [];
 
         if (!Directory.Exists(inputPath))
             throw new FileNotFoundException("Input path was not found.", inputPath);
@@ -681,9 +695,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         string inputFileName = Path.GetFileName(inputPath);
         string fileName = string.IsNullOrEmpty(extension)
             ? Path.GetFileNameWithoutExtension(inputPath)
-            : inputFileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
-                ? inputFileName
-                : Path.ChangeExtension(inputFileName, extension);
+            : ChangeMediaExtension(inputFileName, extension);
 
         return Path.Combine(outputPath, fileName);
     }
@@ -693,13 +705,25 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         if (!string.IsNullOrWhiteSpace(inputRoot) && !string.IsNullOrWhiteSpace(outputPath))
         {
             string relativePath = Path.GetRelativePath(inputRoot, Path.GetFullPath(inputPath));
-            string outputRelativePath = relativePath.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
-                ? relativePath
-                : Path.ChangeExtension(relativePath, extension);
+            string outputRelativePath = ChangeMediaExtension(relativePath, extension);
             return Path.Combine(outputPath, outputRelativePath);
         }
 
         return ResolveBatchOutputPath(inputPath, outputPath, extension, batch);
+    }
+
+    private static string ChangeMediaExtension(string path, string extension)
+    {
+        if (string.IsNullOrEmpty(extension))
+            return path;
+
+        foreach (string compoundExtension in CompoundSourceExtensions)
+        {
+            if (path.EndsWith(compoundExtension, StringComparison.OrdinalIgnoreCase))
+                return path[..^compoundExtension.Length] + extension;
+        }
+
+        return Path.ChangeExtension(path, extension);
     }
 
     private static string GetDefaultIpkOutputPath(string folderPath)
@@ -748,6 +772,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                extension.Equals(".ssd", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".xtx", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".gtx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".x360tex", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".ps3tex", StringComparison.OrdinalIgnoreCase) ||
                extension.Equals(".tex", StringComparison.OrdinalIgnoreCase) ||
                IsLikelyTextureCkdPath(path);
@@ -761,6 +786,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                fileName.EndsWith(".dds.ckd", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".xtx.ckd", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".gtx.ckd", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".x360tex.ckd", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".ps3tex.ckd", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".tex.ckd", StringComparison.OrdinalIgnoreCase) ||
                fileName.EndsWith(".ssd.ckd", StringComparison.OrdinalIgnoreCase);
