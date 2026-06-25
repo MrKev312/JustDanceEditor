@@ -35,8 +35,6 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
     private bool _completeAtAudioEnd;
     private bool _isPlaying;
     private bool _disposed;
-
-    private bool _metronomeEnabled;
     private double _zeroBeatTimeSeconds;
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
@@ -47,11 +45,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
     public bool IsLoaded => _audio != null;
     public TimeSpan Duration => _audio?.Duration ?? TimeSpan.Zero;
 
-    public bool IsMetronomeEnabled
-    {
-        get => _metronomeEnabled;
-        set => _metronomeEnabled = value;
-    }
+    public bool IsMetronomeEnabled { get; set; }
 
     public void Load(PcmWaveAudioData audio)
     {
@@ -352,7 +346,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
                 0,
                 framesToCopy * channels);
 
-            if (_metronomeEnabled)
+            if (IsMetronomeEnabled)
                 MixMetronome(buffer, sourceFrame, framesToCopy, channels, _audio.SampleRate);
 
             return framesToCopy;

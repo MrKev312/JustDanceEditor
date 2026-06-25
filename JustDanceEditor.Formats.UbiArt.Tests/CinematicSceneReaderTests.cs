@@ -605,4 +605,3 @@ public sealed class CinematicSceneReaderTests
     }
 
 }
-

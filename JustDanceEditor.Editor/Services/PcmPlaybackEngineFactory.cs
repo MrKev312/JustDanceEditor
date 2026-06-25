@@ -42,7 +42,6 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
     private PcmWaveAudioData? _audio;
     private bool _fallbackLoaded;
     private bool _disposed;
-    private bool _isMetronomeEnabled;
     private double _zeroBeatTimeSeconds;
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
@@ -76,10 +75,10 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
 
     public bool IsMetronomeEnabled
     {
-        get => _isMetronomeEnabled;
+        get;
         set
         {
-            _isMetronomeEnabled = value;
+            field = value;
             _active.IsMetronomeEnabled = value;
         }
     }
@@ -162,7 +161,7 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
 
     private void ApplyState(IPcmPlaybackEngine engine)
     {
-        engine.IsMetronomeEnabled = _isMetronomeEnabled;
+        engine.IsMetronomeEnabled = IsMetronomeEnabled;
         engine.UpdateMetronome(_zeroBeatTimeSeconds, _bpm, _beatsPerMeasure, _sectionStarts);
     }
 

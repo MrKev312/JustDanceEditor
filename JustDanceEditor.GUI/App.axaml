@@ -1,7 +1,51 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:prompts="using:JustDanceEditor.GUI.ViewModels.Prompts"
+             xmlns:behaviors="clr-namespace:KevInc.Avalonia.Behaviors;assembly=KevInc.Avalonia"
              x:Class="JustDanceEditor.GUI.App"
              RequestedThemeVariant="Dark">
+
+	<Application.DataTemplates>
+		<DataTemplate DataType="{x:Type prompts:TextPromptInputViewModel}" x:DataType="prompts:TextPromptInputViewModel">
+			<StackPanel Spacing="6">
+				<TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+				<TextBox Text="{Binding Text, Mode=TwoWay}"
+								 PlaceholderText="{Binding PlaceholderText}" />
+			</StackPanel>
+		</DataTemplate>
+
+		<DataTemplate DataType="{x:Type prompts:BooleanPromptInputViewModel}" x:DataType="prompts:BooleanPromptInputViewModel">
+			<StackPanel Spacing="6">
+				<TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+				<CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+			</StackPanel>
+		</DataTemplate>
+
+		<DataTemplate DataType="{x:Type prompts:ChoicePromptInputViewModel}" x:DataType="prompts:ChoicePromptInputViewModel">
+			<StackPanel Spacing="6">
+				<TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+				<ComboBox ItemsSource="{Binding Options}"
+									SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
+			</StackPanel>
+		</DataTemplate>
+
+		<DataTemplate DataType="{x:Type prompts:PathPromptInputViewModel}" x:DataType="prompts:PathPromptInputViewModel">
+			<StackPanel Spacing="6">
+				<TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
+				<Grid ColumnDefinitions="*,Auto"
+							ColumnSpacing="6"
+							Background="Transparent"
+							behaviors:PathDrop.Command="{Binding SetPathCommand}">
+					<TextBox Text="{Binding Path, Mode=TwoWay}"
+									 PlaceholderText="{Binding PlaceholderText}"
+									 behaviors:PathDrop.Command="{Binding SetPathCommand}" />
+					<Button Grid.Column="1"
+									Content="{Binding BrowseLabel}"
+									Command="{Binding BrowseCommand}" />
+				</Grid>
+			</StackPanel>
+		</DataTemplate>
+	</Application.DataTemplates>
 
 	<Application.Resources>
 		<ResourceDictionary>

@@ -1,4 +1,3 @@
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -14,7 +13,7 @@ using JustDanceEditor.Formats.JDI.Preview;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Video;
 using JustDanceEditor.GUI.Services;
-using JustDanceEditor.GUI.ViewModels.Prompts;
+using JustDanceEditor.GUI.ViewModels.Pages;
 
 using KevInc.Avalonia.Logging;
 
@@ -26,8 +25,6 @@ namespace JustDanceEditor.GUI.ViewModels;
 
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
-    private const string DefaultPlatformCode = "pc";
-    private const string DefaultTargetCode = "jdi";
     private readonly IJdiFormat[] _formats;
     private readonly IFormatConversionStrategy[] _strategies;
     private readonly IToolProvider[] _toolProviders;
@@ -38,7 +35,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly List<MenuItemViewModel> _menuRoots = [];
 
-    private ConversionTargetDefinition[] _targets = [];
     private CancellationTokenSource? _previewLoadCts;
     private CancellationTokenSource? _formatDetectionCts;
     private CancellationTokenSource? _outputDetectionCts;
@@ -47,12 +43,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string? _previewLoadedFormatName;
     private Task? _previewAssetWarmupTask;
     private string? _previewTempRoot;
-    private bool _updatingSongSelection;
-    private bool _updatingCoverGenerators;
-    private bool _mapBackgroundSourceUserSelected;
-    private bool _albumCoachSourceUserSelected;
     private MenuItemViewModel? _activityLogMenuItem;
-    private ToolMenuItemViewModel? _selectedTool;
     private bool _isDisposed;
 
     public MainWindowViewModel(
@@ -72,9 +63,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _dialogs = dialogs;
         _logger = logger;
         _coverPreviewBuilder = new CoverPreviewBuilder(_logger);
+        SourcePage = new SourcePageViewModel(dialogs);
+        TargetPage = new TargetPageViewModel(_strategies, dialogs);
+        ToolPage = new ToolPageViewModel(dialogs);
+        Preview = new PreviewPanelViewModel(_coverPreviewBuilder);
 
+        SubscribePageEvents();
         BuildMenus();
-        LoadTargets();
         ClearPreview("Select a source to load the song.");
         ShowPage(GuiPage.Source);
         _ = UpdateDetectedFormatAsync();
@@ -82,23 +77,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<MenuItemViewModel> MainMenu { get; } = [];
 
-    public ObservableCollection<PlatformItemViewModel> Platforms { get; } = [];
+    public SourcePageViewModel SourcePage { get; }
 
-    public ObservableCollection<TargetItemViewModel> Targets { get; } = [];
+    public TargetPageViewModel TargetPage { get; }
 
-    public ObservableCollection<SongItemViewModel> Songs { get; } = [];
+    public ToolPageViewModel ToolPage { get; }
 
-    public ObservableCollection<PromptInputViewModel> TargetPrompts { get; } = [];
-
-    public ObservableCollection<PromptInputViewModel> ToolPrompts { get; } = [];
-
-    public ObservableCollection<CoverGeneratorItemViewModel> SquareCoverGenerators { get; } = [];
-
-    public ObservableCollection<CoverGeneratorItemViewModel> WideCoverGenerators { get; } = [];
-
-    public ObservableCollection<CoverAssetSourceItemViewModel> MapBackgroundSources { get; } = [];
-
-    public ObservableCollection<CoverAssetSourceItemViewModel> AlbumCoachSources { get; } = [];
+    public PreviewPanelViewModel Preview { get; }
 
     public ObservableCollection<string> LogEntries => _logBuffer.Entries;
 
@@ -120,6 +105,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public bool CanUseActions => !IsBusy;
 
+    public bool CanUsePrimaryAction => CanPrimaryAction();
+
     [ObservableProperty]
     public partial GuiPage CurrentPage { get; set; }
 
@@ -136,117 +123,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public partial string StatusText { get; set; } = "Ready.";
 
     [ObservableProperty]
-    public partial string InputPath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string OutputPath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool DownloadAssetsWhenLoading { get; set; } = true;
-
-    [ObservableProperty]
-    public partial string DetectedFormatText { get; set; } = "No source selected.";
-
-    [ObservableProperty]
-    public partial string DetectedOutputText { get; set; } = "No output selected.";
-
-    [ObservableProperty]
-    public partial PlatformItemViewModel? SelectedPlatform { get; set; }
-
-    [ObservableProperty]
-    public partial TargetItemViewModel? SelectedTarget { get; set; }
-
-    [ObservableProperty]
-    public partial CoverGeneratorItemViewModel? SelectedSquareCoverGenerator { get; set; }
-
-    [ObservableProperty]
-    public partial CoverGeneratorItemViewModel? SelectedWideCoverGenerator { get; set; }
-
-    [ObservableProperty]
-    public partial CoverAssetSourceItemViewModel? SelectedMapBackgroundSource { get; set; }
-
-    [ObservableProperty]
-    public partial CoverAssetSourceItemViewModel? SelectedAlbumCoachSource { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsSquareCoverGeneratorVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsWideCoverGeneratorVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool AreCoverGeneratorOptionsVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsCompositionSourceOptionsVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsMapBackgroundSourceOptionsVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsAlbumCoachSourceOptionsVisible { get; set; }
-
-    [ObservableProperty]
-    public partial string TargetSupportText { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial SongItemViewModel? SelectedSong { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsSongSelectionVisible { get; set; }
-
-    [ObservableProperty]
-    public partial Bitmap? CoverPreviewImage { get; set; }
-
-    [ObservableProperty]
-    public partial Bitmap? CoverPreviewSecondaryImage { get; set; }
-
-    [ObservableProperty]
-    public partial int CoverPreviewWidth { get; set; } = 512;
-
-    [ObservableProperty]
-    public partial int CoverPreviewHeight { get; set; } = 512;
-
-    [ObservableProperty]
-    public partial int CoverPreviewSecondaryWidth { get; set; } = 640;
-
-    [ObservableProperty]
-    public partial int CoverPreviewSecondaryHeight { get; set; } = 360;
-
-    [ObservableProperty]
-    public partial bool IsSingleCoverPreviewVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsDualCoverPreviewVisible { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsPreviewPlaceholderVisible { get; set; } = true;
-
-    [ObservableProperty]
-    public partial string PreviewPlaceholderText { get; set; } = "Select a source to load the song.";
-
-    [ObservableProperty]
-    public partial string PreviewTitleText { get; set; } = "No song loaded";
-
-    [ObservableProperty]
-    public partial string PreviewArtistText { get; set; } = "-";
-
-    [ObservableProperty]
-    public partial string PreviewMapText { get; set; } = "Map: -";
-
-    [ObservableProperty]
-    public partial string PreviewFormatText { get; set; } = "Format: -";
-
-    [ObservableProperty]
-    public partial string PreviewStatusText { get; set; } = "Waiting";
-
-    [ObservableProperty]
-    public partial string ToolTitleText { get; set; } = "Tool";
-
-    [ObservableProperty]
-    public partial string ToolDescriptionText { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial bool IsLogDrawerVisible { get; set; }
 
     partial void OnCurrentPageChanged(GuiPage value)
@@ -259,6 +135,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsPreviewVisible));
         OnPropertyChanged(nameof(IsStepPanelVisible));
         OnPropertyChanged(nameof(WorkflowColumnSpan));
+        NotifyPrimaryActionStateChanged();
 
         PageTitle = value switch
         {
@@ -278,89 +155,49 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnIsBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanUseActions));
+        NotifyPrimaryActionStateChanged();
     }
 
-    partial void OnCoverPreviewImageChanged(Bitmap? oldValue, Bitmap? newValue)
+    private void SubscribePageEvents()
     {
-        if (!ReferenceEquals(oldValue, newValue))
-            oldValue?.Dispose();
-    }
+        SourcePage.InputPathUpdated += (_, _) =>
+        {
+            _ = UpdateInputPathAsync(resetSongSelection: true);
+            NotifyPrimaryActionStateChanged();
+        };
 
-    partial void OnCoverPreviewSecondaryImageChanged(Bitmap? oldValue, Bitmap? newValue)
-    {
-        if (!ReferenceEquals(oldValue, newValue))
-            oldValue?.Dispose();
-    }
+        SourcePage.OutputPathUpdated += (_, _) =>
+        {
+            _ = UpdateDetectedOutputAsync();
+            NotifyPrimaryActionStateChanged();
+        };
 
-    partial void OnInputPathChanged(string value)
-    {
-        _ = UpdateInputPathAsync(resetSongSelection: true);
-    }
+        SourcePage.DownloadAssetsWhenLoadingUpdated += (_, _) =>
+        {
+            if (SourcePage.DownloadAssetsWhenLoading)
+                StartPreviewOnlineAssetRequest();
+            else
+                CancelAndDispose(ref _previewOnlineAssetCts);
 
-    partial void OnOutputPathChanged(string value)
-    {
-        _ = UpdateDetectedOutputAsync();
-    }
-
-    partial void OnDownloadAssetsWhenLoadingChanged(bool value)
-    {
-        if (value)
-            StartPreviewOnlineAssetRequest();
-        else
-            CancelAndDispose(ref _previewOnlineAssetCts);
-
-        RebuildCoverGeneratorOptions(SelectedTarget?.Target);
-        _ = RefreshCurrentPreviewAssetAsync();
-    }
-
-    partial void OnSelectedPlatformChanged(PlatformItemViewModel? value)
-    {
-        LoadTargetsForPlatform(value);
-    }
-
-    partial void OnSelectedTargetChanged(TargetItemViewModel? value)
-    {
-        _ = UpdateSelectedTargetAsync(value);
-    }
-
-    partial void OnSelectedSquareCoverGeneratorChanged(CoverGeneratorItemViewModel? value)
-    {
-        UpdateCompositionSourceOptionsVisibility();
-        if (!_updatingCoverGenerators)
+            UpdateTargetPreviewContext();
             _ = RefreshCurrentPreviewAssetAsync();
-    }
+        };
 
-    partial void OnSelectedWideCoverGeneratorChanged(CoverGeneratorItemViewModel? value)
-    {
-        UpdateCompositionSourceOptionsVisibility();
-        if (!_updatingCoverGenerators)
+        SourcePage.SelectedSongUpdated += (_, _) =>
+        {
+            _ = LoadPreviewAsync(resetSongSelection: false);
+        };
+
+        TargetPage.SelectedTargetUpdated += (_, _) =>
+        {
+            NotifyPrimaryActionStateChanged();
             _ = RefreshCurrentPreviewAssetAsync();
-    }
+        };
 
-    partial void OnSelectedMapBackgroundSourceChanged(CoverAssetSourceItemViewModel? value)
-    {
-        if (!_updatingCoverGenerators && value is not null)
-            _mapBackgroundSourceUserSelected = true;
-
-        if (!_updatingCoverGenerators)
+        TargetPage.CoverOptionsUpdated += (_, _) =>
+        {
             _ = RefreshCurrentPreviewAssetAsync();
-    }
-
-    partial void OnSelectedAlbumCoachSourceChanged(CoverAssetSourceItemViewModel? value)
-    {
-        if (!_updatingCoverGenerators && value is not null)
-            _albumCoachSourceUserSelected = true;
-
-        if (!_updatingCoverGenerators)
-            _ = RefreshCurrentPreviewAssetAsync();
-    }
-
-    partial void OnSelectedSongChanged(SongItemViewModel? value)
-    {
-        if (_updatingSongSelection)
-            return;
-
-        _ = LoadPreviewAsync(resetSongSelection: false);
+        };
     }
 
     partial void OnIsLogDrawerVisibleChanged(bool value)
@@ -388,50 +225,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private async Task BrowseInputFileAsync()
-    {
-        string? path = await _dialogs.PickFileAsync("Select source file");
-        if (path is not null)
-            InputPath = path;
-    }
-
-    [RelayCommand]
-    private async Task BrowseInputFolderAsync()
-    {
-        string? path = await _dialogs.PickFolderAsync("Select source folder");
-        if (path is not null)
-            InputPath = path;
-    }
-
-    [RelayCommand]
-    private async Task BrowseOutputFolderAsync()
-    {
-        string? path = await _dialogs.PickFolderAsync("Select output folder");
-        if (path is not null)
-            OutputPath = path;
-    }
-
-    [RelayCommand]
-    private void SetInputPath(string? path)
-    {
-        if (!string.IsNullOrWhiteSpace(path))
-            InputPath = path;
-    }
-
-    [RelayCommand]
-    private void SetOutputPath(string? path)
-    {
-        if (!string.IsNullOrWhiteSpace(path))
-            OutputPath = path;
-    }
-
-    [RelayCommand]
-    private void ShowSourcePage() => ShowPage(GuiPage.Source);
-
-    [RelayCommand]
-    private void ShowTargetPage() => ShowPage(GuiPage.Target);
-
-    [RelayCommand]
     private void Back()
     {
         ShowPage(CurrentPage switch
@@ -442,7 +235,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         });
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanPrimaryAction))]
     private async Task PrimaryActionAsync()
     {
         if (IsBusy)
@@ -468,11 +261,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (selection is null)
             return;
 
-        _selectedTool = selection;
-        ToolTitleText = $"{selection.Provider.ProviderName} - {selection.Tool.DisplayName}";
-        ToolDescriptionText = selection.Tool.Description;
-        RebuildPrompts(ToolPrompts, selection.Tool.Prompts, skipOutputPath: false);
+        ToolPage.Load(selection);
         ShowPage(GuiPage.Tool);
+        NotifyPrimaryActionStateChanged();
     }
 
     public void Dispose()
@@ -485,8 +276,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CancelAndDispose(ref _formatDetectionCts);
         CancelAndDispose(ref _outputDetectionCts);
         CancelAndDispose(ref _previewOnlineAssetCts);
-        CoverPreviewImage = null;
-        CoverPreviewSecondaryImage = null;
+        Preview.Dispose();
         CleanupPreviewTemp();
     }
 
@@ -589,122 +379,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return toolsMenu;
     }
 
-    private void LoadTargets()
-    {
-        _targets = ConversionTargetSelector.GetAvailableTargets(_strategies);
-        Platforms.Clear();
-
-        foreach (PlatformItemViewModel platform in ConversionTargetSelector.GetSortedPlatforms(_targets)
-            .Select(platform => new PlatformItemViewModel(platform)))
-        {
-            Platforms.Add(platform);
-        }
-
-        SelectedPlatform = Platforms.FirstOrDefault(platform =>
-                platform.Platform.PlatformCode.Equals(DefaultPlatformCode, StringComparison.OrdinalIgnoreCase))
-            ?? Platforms.FirstOrDefault();
-    }
-
-    private void LoadTargetsForPlatform(PlatformItemViewModel? platform)
-    {
-        Targets.Clear();
-        if (platform is null)
-        {
-            SelectedTarget = null;
-            return;
-        }
-
-        foreach (TargetItemViewModel target in ConversionTargetSelector
-            .GetSortedTargetsForPlatform(_targets, platform.Platform.PlatformCode)
-            .Select(target => new TargetItemViewModel(target)))
-        {
-            Targets.Add(target);
-        }
-
-        SelectedTarget = Targets.FirstOrDefault(target =>
-                target.Target.TargetCode.Equals(DefaultTargetCode, StringComparison.OrdinalIgnoreCase)
-                || target.Target.FormatCode.Equals(DefaultTargetCode, StringComparison.OrdinalIgnoreCase))
-            ?? Targets.FirstOrDefault();
-    }
-
-    private async Task UpdateSelectedTargetAsync(TargetItemViewModel? target)
-    {
-        TargetSupportText = target is null ? string.Empty : GetSupportText(target.Target);
-        RebuildPrompts(TargetPrompts, target?.Target.ExportPrompts ?? [], skipOutputPath: true);
-        RebuildCoverGeneratorOptions(target?.Target);
-        await RefreshCurrentPreviewAssetAsync();
-    }
-
-    private void RebuildCoverGeneratorOptions(ConversionTargetDefinition? target)
-    {
-        _updatingCoverGenerators = true;
-        try
-        {
-            CoverGeneratorOptionResult options = CoverGeneratorOptionService.Build(new CoverGeneratorOptionRequest(
-                Target: target,
-                SourceFormatName: _previewLoadedFormatName ?? _previewImportResult?.SourceFormat,
-                Inventory: new CoverAssetInventory(_previewImportResult?.MaterializedRoot, DownloadAssetsWhenLoading),
-                PreviousSquareGenerator: SelectedSquareCoverGenerator?.Kind,
-                PreviousWideGenerator: SelectedWideCoverGenerator?.Kind,
-                PreviousMapBackgroundSource: SelectedMapBackgroundSource?.Kind,
-                PreviousAlbumCoachSource: SelectedAlbumCoachSource?.Kind,
-                PreserveMapBackgroundSource: _mapBackgroundSourceUserSelected,
-                PreserveAlbumCoachSource: _albumCoachSourceUserSelected));
-
-            ReplaceCollection(SquareCoverGenerators, options.SquareGenerators);
-            ReplaceCollection(WideCoverGenerators, options.WideGenerators);
-            ReplaceCollection(MapBackgroundSources, options.MapBackgroundSources);
-            ReplaceCollection(AlbumCoachSources, options.AlbumCoachSources);
-
-            SelectedSquareCoverGenerator = options.SelectedSquareGenerator;
-            SelectedWideCoverGenerator = options.SelectedWideGenerator;
-            SelectedMapBackgroundSource = options.SelectedMapBackgroundSource;
-            SelectedAlbumCoachSource = options.SelectedAlbumCoachSource;
-            IsSquareCoverGeneratorVisible = options.IsSquareCoverGeneratorVisible;
-            IsWideCoverGeneratorVisible = options.IsWideCoverGeneratorVisible;
-            AreCoverGeneratorOptionsVisible = options.AreCoverGeneratorOptionsVisible;
-            UpdateCompositionSourceOptionsVisibility();
-        }
-        finally
-        {
-            _updatingCoverGenerators = false;
-        }
-    }
-
-    private void UpdateCompositionSourceOptionsVisibility()
-    {
-        bool compositionGeneratorSelected =
-            AreCoverGeneratorOptionsVisible &&
-            ((SelectedSquareCoverGenerator?.Kind == CoverGeneratorKind.FromMapBackground) ||
-             (SelectedWideCoverGenerator?.Kind == CoverGeneratorKind.FromMapBackground));
-
-        IsMapBackgroundSourceOptionsVisible = compositionGeneratorSelected && MapBackgroundSources.Count > 1;
-        IsAlbumCoachSourceOptionsVisible = compositionGeneratorSelected && AlbumCoachSources.Count > 1;
-        IsCompositionSourceOptionsVisible = IsMapBackgroundSourceOptionsVisible || IsAlbumCoachSourceOptionsVisible;
-    }
-
-    private void RebuildPrompts(
-        ObservableCollection<PromptInputViewModel> target,
-        IReadOnlyList<ConversionPrompt> prompts,
-        bool skipOutputPath)
-    {
-        target.Clear();
-        foreach (ConversionPrompt prompt in prompts)
-        {
-            if (skipOutputPath && prompt.Id.Equals(ConversionPromptIds.OutputPath, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            target.Add(PromptInputViewModel.Create(prompt, _dialogs));
-        }
-    }
-
-    private static void ReplaceCollection<T>(ObservableCollection<T> target, IEnumerable<T> items)
-    {
-        target.Clear();
-        foreach (T item in items)
-            target.Add(item);
-    }
-
     private void ShowPage(GuiPage page)
     {
         CurrentPage = page;
@@ -718,18 +392,46 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private async Task ContinueFromSourceAsync()
     {
-        RequireInputPath();
-        RequireOutputPath();
+        SourcePage.RequireInputPath();
+        SourcePage.RequireOutputPath();
         await UpdateDetectedOutputAsync();
         ShowPage(GuiPage.Target);
     }
 
+    private bool CanPrimaryAction()
+    {
+        if (IsBusy)
+            return false;
+
+        return CurrentPage switch
+        {
+            GuiPage.Source => SourcePage.CanContinue,
+            GuiPage.Target => TargetPage.CanConvert,
+            GuiPage.Tool => ToolPage.HasSelection,
+            _ => false
+        };
+    }
+
+    private void NotifyPrimaryActionStateChanged()
+    {
+        OnPropertyChanged(nameof(CanUsePrimaryAction));
+        PrimaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    private void UpdateTargetPreviewContext()
+    {
+        TargetPage.UpdatePreviewContext(
+            _previewLoadedFormatName ?? _previewImportResult?.SourceFormat,
+            _previewImportResult?.MaterializedRoot,
+            SourcePage.DownloadAssetsWhenLoading);
+    }
+
     private async Task UpdateDetectedFormatAsync()
     {
-        string path = NormalizePath(InputPath);
+        string path = SourcePage.NormalizedInputPath;
         if (string.IsNullOrWhiteSpace(path))
         {
-            DetectedFormatText = "No source selected.";
+            SourcePage.DetectedFormatText = "No source selected.";
             return;
         }
 
@@ -738,7 +440,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _formatDetectionCts = cts;
         CancellationToken cancellationToken = cts.Token;
 
-        DetectedFormatText = "Detecting source format...";
+        SourcePage.DetectedFormatText = "Detecting source format...";
 
         try
         {
@@ -754,7 +456,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             if (_formatDetectionCts != cts || cancellationToken.IsCancellationRequested)
                 return;
 
-            DetectedFormatText = detected.Length switch
+            SourcePage.DetectedFormatText = detected.Length switch
             {
                 0 => "Source format: not detected yet.",
                 1 => $"Source format: {detected[0]}",
@@ -766,18 +468,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            DetectedFormatText = $"Source detection failed: {ex.Message}";
+            SourcePage.DetectedFormatText = $"Source detection failed: {ex.Message}";
         }
     }
 
     private async Task UpdateDetectedOutputAsync()
     {
-        string path = NormalizePath(OutputPath);
+        string path = SourcePage.NormalizedOutputPath;
         CancelAndDispose(ref _outputDetectionCts);
 
         if (string.IsNullOrWhiteSpace(path))
         {
-            DetectedOutputText = "No output selected.";
+            SourcePage.DetectedOutputText = "No output selected.";
             return;
         }
 
@@ -785,52 +487,35 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _outputDetectionCts = cts;
         CancellationToken cancellationToken = cts.Token;
 
-        DetectedOutputText = "Detecting output target...";
+        SourcePage.DetectedOutputText = "Detecting output target...";
 
         try
         {
             OutputTargetDetectionResult result = await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return OutputTargetDetector.Detect(path, _formats, _targets);
+                return OutputTargetDetector.Detect(path, _formats, TargetPage.AvailableTargets);
             }, cancellationToken);
 
             if (_outputDetectionCts != cts || cancellationToken.IsCancellationRequested)
                 return;
 
-            DetectedOutputText = result.Message;
+            SourcePage.DetectedOutputText = result.Message;
             if (result.Target is not null)
-                SelectTarget(result.Target);
+                TargetPage.SelectTarget(result.Target);
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
         {
-            DetectedOutputText = $"Output detection failed: {ex.Message}";
+            SourcePage.DetectedOutputText = $"Output detection failed: {ex.Message}";
         }
-    }
-
-    private void SelectTarget(ConversionTargetDefinition target)
-    {
-        PlatformItemViewModel? platform = Platforms.FirstOrDefault(item =>
-            item.Platform.PlatformCode.Equals(target.Platform.PlatformCode, StringComparison.OrdinalIgnoreCase));
-        if (platform is null)
-            return;
-
-        if (!ReferenceEquals(SelectedPlatform, platform))
-            SelectedPlatform = platform;
-
-        TargetItemViewModel? targetItem = Targets.FirstOrDefault(item =>
-            item.Target.TargetCode.Equals(target.TargetCode, StringComparison.OrdinalIgnoreCase) &&
-            item.Target.FormatCode.Equals(target.FormatCode, StringComparison.OrdinalIgnoreCase));
-        if (targetItem is not null)
-            SelectedTarget = targetItem;
     }
 
     private async Task LoadPreviewAsync(bool resetSongSelection)
     {
-        string inputPath = NormalizePath(InputPath);
+        string inputPath = SourcePage.NormalizedInputPath;
         if (string.IsNullOrWhiteSpace(inputPath))
         {
             ClearPreview("Select a source to load the song.");
@@ -852,7 +537,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CancellationToken cancellationToken = cts.Token;
 
         if (resetSongSelection)
-            ClearSongChoices();
+            SourcePage.ClearSongChoices();
 
         SetBusy(true, "Loading song...");
         ClearPreview("Loading song...");
@@ -867,12 +552,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             _previewLoadedFormatName = preview.FormatName;
             _previewAssetWarmupTask = preview.AssetWarmupTask;
 
-            RebuildCoverGeneratorOptions(SelectedTarget?.Target);
-            Task onlineAssetTask = DownloadOnlineAssetsForPreviewAsync(preview.ImportResult, SelectedTarget?.Target, cancellationToken);
-            await WaitForPreviewAssetWarmupIfNeededAsync(preview.AssetWarmupTask, SelectedTarget?.Target, preview.FormatName, cancellationToken);
+            UpdateTargetPreviewContext();
+            Task onlineAssetTask = DownloadOnlineAssetsForPreviewAsync(preview.ImportResult, TargetPage.CurrentTarget, cancellationToken);
+            await WaitForPreviewAssetWarmupIfNeededAsync(preview.AssetWarmupTask, TargetPage.CurrentTarget, preview.FormatName, cancellationToken);
             await onlineAssetTask;
-            RebuildCoverGeneratorOptions(SelectedTarget?.Target);
-            await DisplayPreviewAsync(preview.ImportResult, SelectedTarget?.Target, preview.FormatName, cancellationToken);
+            UpdateTargetPreviewContext();
+            await DisplayPreviewAsync(preview.ImportResult, TargetPage.CurrentTarget, preview.FormatName, cancellationToken);
             StatusText = "Song loaded.";
         }
         catch (OperationCanceledException)
@@ -880,7 +565,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
         catch (MultipleConversionItemsFoundException ex)
         {
-            ShowSongChoices(ex.AvailableItems);
+            SourcePage.ShowSongChoices(ex.AvailableItems);
             ClearPreview("Choose a song from the source.");
             StatusText = "Choose a song from the source.";
             _logger.LogInformation("Source contains multiple songs: {Songs}", string.Join(", ", ex.AvailableItems));
@@ -904,8 +589,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _previewTempRoot = Path.Combine(Path.GetTempPath(), "JustDanceEditor", "GuiPreview", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_previewTempRoot);
 
-        string? selectedSong = GetSongName();
-        bool downloadOnlineAssets = DownloadAssetsWhenLoading;
+        string? selectedSong = SourcePage.GetSongName();
+        bool downloadOnlineAssets = SourcePage.DownloadAssetsWhenLoading;
         ISongPreviewProvider? previewProvider = await Task.Run(
             () => _previewProviders.FirstOrDefault(provider => provider.CanPreview(inputPath)),
             cancellationToken);
@@ -968,10 +653,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         try
         {
-            await WaitForPreviewAssetWarmupIfNeededAsync(_previewAssetWarmupTask, SelectedTarget?.Target, _previewLoadedFormatName ?? _previewImportResult.SourceFormat, CancellationToken.None);
+            await WaitForPreviewAssetWarmupIfNeededAsync(_previewAssetWarmupTask, TargetPage.CurrentTarget, _previewLoadedFormatName ?? _previewImportResult.SourceFormat, CancellationToken.None);
             if (rebuildGeneratorOptions)
-                RebuildCoverGeneratorOptions(SelectedTarget?.Target);
-            await DisplayPreviewAsync(_previewImportResult, SelectedTarget?.Target, _previewLoadedFormatName ?? "JDI", CancellationToken.None);
+                UpdateTargetPreviewContext();
+            await DisplayPreviewAsync(_previewImportResult, TargetPage.CurrentTarget, _previewLoadedFormatName ?? "JDI", CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -986,43 +671,25 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         string sourceFormatName,
         CancellationToken cancellationToken)
     {
-        CoverPreviewData preview = await _coverPreviewBuilder.BuildPreviewDataAsync(
+        await Preview.DisplayPreviewAsync(
             importResult,
             target,
-            CreateCoverPreviewOptions(),
+            TargetPage.CreateCoverPreviewOptions(),
+            sourceFormatName,
             cancellationToken);
-
-        CoverPreviewImage = preview.Bitmap;
-        CoverPreviewSecondaryImage = preview.SecondaryBitmap;
-        CoverPreviewWidth = preview.Width;
-        CoverPreviewHeight = preview.Height;
-        CoverPreviewSecondaryWidth = preview.SecondaryWidth;
-        CoverPreviewSecondaryHeight = preview.SecondaryHeight;
-        IsDualCoverPreviewVisible = preview.SecondaryBitmap is not null;
-        IsSingleCoverPreviewVisible = !IsDualCoverPreviewVisible;
-        IsPreviewPlaceholderVisible = false;
-        PreviewTitleText = string.IsNullOrWhiteSpace(preview.Package.Metadata.Title)
-            ? preview.Package.Metadata.MapName
-            : preview.Package.Metadata.Title;
-        PreviewArtistText = string.IsNullOrWhiteSpace(preview.Package.Metadata.Artist) ? "-" : preview.Package.Metadata.Artist;
-        PreviewMapText = $"Map: {preview.Package.Metadata.MapName}";
-        PreviewFormatText = $"Format: {sourceFormatName}";
-        PreviewStatusText = preview.Package.Metadata.OriginalJDVersion > 0
-            ? $"JD{preview.Package.Metadata.OriginalJDVersion}"
-            : "Loaded";
     }
 
     private async Task ConvertAsync(CancellationToken cancellationToken)
     {
-        string inputPath = RequireInputPath();
-        string outputPath = RequireOutputPath();
-        string? songName = GetSongName();
-        ConversionTargetDefinition target = SelectedTarget?.Target ?? throw new InvalidOperationException("Select a target first.");
+        string inputPath = SourcePage.RequireInputPath();
+        string outputPath = SourcePage.RequireOutputPath();
+        string? songName = SourcePage.GetSongName();
+        ConversionTargetDefinition target = TargetPage.CurrentTarget ?? throw new InvalidOperationException("Select a target first.");
         IJdiFormat sourceFormat = ResolveSourceFormat(inputPath);
         IFormatConversionStrategy sourceStrategy = ResolveStrategy(sourceFormat.DisplayName);
         IFormatConversionStrategy targetStrategy = ResolveStrategy(target.FormatName);
         IJdiFormat targetFormat = ResolveFormat(target.FormatName);
-        bool downloadOnlineAssets = DownloadAssetsWhenLoading;
+        bool downloadOnlineAssets = SourcePage.DownloadAssetsWhenLoading;
 
         await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
 
@@ -1056,8 +723,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private async Task RunToolAsync(CancellationToken cancellationToken)
     {
-        ToolMenuItemViewModel selection = _selectedTool ?? throw new InvalidOperationException("Select a tool from the Tools menu first.");
-        PromptAnswerSet answers = BuildAnswersFromInputs(ToolPrompts);
+        ToolMenuItemViewModel selection = ToolPage.Selection ?? throw new InvalidOperationException("Select a tool from the Tools menu first.");
+        PromptAnswerSet answers = ToolPage.BuildAnswers();
         IConversionInteraction interaction = new GuiConversionInteraction(_dialogs, answers);
         await Task.Run(async () => await selection.Provider.ExecuteAsync(new ToolExecutionContext(selection.Tool, answers, interaction), cancellationToken), cancellationToken);
     }
@@ -1067,7 +734,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         PromptAnswerSet answers = new();
         answers.Set(ConversionPromptIds.OutputPath, previewRoot);
 
-        string? songName = GetSongName();
+        string? songName = SourcePage.GetSongName();
         if (!string.IsNullOrWhiteSpace(songName))
             answers.Set("ubiart.songName", songName);
 
@@ -1078,7 +745,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         CancelAndDispose(ref _previewOnlineAssetCts);
 
-        if (!DownloadAssetsWhenLoading || _previewImportResult?.MaterializedRoot is null)
+        if (!SourcePage.DownloadAssetsWhenLoading || _previewImportResult?.MaterializedRoot is null)
             return;
 
         JdiImportResult importResult = _previewImportResult;
@@ -1090,7 +757,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             try
             {
-                await DownloadOnlineAssetsForPreviewAsync(importResult, SelectedTarget?.Target, cancellationToken);
+                await DownloadOnlineAssetsForPreviewAsync(importResult, TargetPage.CurrentTarget, cancellationToken);
 
                 cancellationToken.ThrowIfCancellationRequested();
                 Dispatcher.UIThread.Post(async () =>
@@ -1102,7 +769,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                         return;
                     }
 
-                    RebuildCoverGeneratorOptions(SelectedTarget?.Target);
+                    UpdateTargetPreviewContext();
                     await RefreshCurrentPreviewAssetAsync();
                 });
             }
@@ -1121,15 +788,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ConversionTargetDefinition? target,
         CancellationToken cancellationToken)
     {
-        if (!DownloadAssetsWhenLoading || importResult.MaterializedRoot is null)
+        if (!SourcePage.DownloadAssetsWhenLoading || importResult.MaterializedRoot is null)
             return;
 
         OnlineAssetDefinition[] requestedAssets =
         [
             .. CoverRules.GetRequiredOnlineAssetsForSelection(
                 target,
-                ResolveSquareCoverGeneratorKind(),
-                ResolveWideCoverGeneratorKind())
+                TargetPage.ResolveSquareCoverGeneratorKind(),
+                TargetPage.ResolveWideCoverGeneratorKind())
         ];
         if (requestedAssets.Length == 0)
             return;
@@ -1144,29 +811,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private PromptAnswerSet BuildConversionAnswers()
     {
-        PromptAnswerSet answers = new();
-        answers.Set(ConversionPromptIds.OutputPath, RequireOutputPath());
-
-        foreach (KeyValuePair<string, string> answer in BuildAnswersFromInputs(TargetPrompts).Answers)
-            answers.Set(answer.Key, answer.Value);
-
-        string? songName = GetSongName();
-        if (!string.IsNullOrWhiteSpace(songName))
-            answers.Set("ubiart.songName", songName);
-
-        return answers;
-    }
-
-    private static PromptAnswerSet BuildAnswersFromInputs(IEnumerable<PromptInputViewModel> inputs)
-    {
-        PromptAnswerSet answers = new();
-        foreach (PromptInputViewModel input in inputs)
-        {
-            if (input.ShouldInclude)
-                answers.Set(input.Id, input.Value);
-        }
-
-        return answers;
+        return TargetPage.BuildConversionAnswers(SourcePage.RequireOutputPath(), SourcePage.GetSongName());
     }
 
     private async Task RunBusyAsync(string busyText, Func<CancellationToken, Task> operation)
@@ -1179,7 +824,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
         catch (MultipleConversionItemsFoundException ex)
         {
-            ShowSongChoices(ex.AvailableItems);
+            SourcePage.ShowSongChoices(ex.AvailableItems);
             ShowPage(GuiPage.Source);
             StatusText = "Choose a song from the source.";
             _logger.LogWarning("Multiple maps found: {Maps}", string.Join(", ", ex.AvailableItems));
@@ -1202,78 +847,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             StatusText = status;
     }
 
-    private void ClearSongChoices()
-    {
-        _updatingSongSelection = true;
-        Songs.Clear();
-        SelectedSong = null;
-        IsSongSelectionVisible = false;
-        _updatingSongSelection = false;
-    }
-
-    private void ShowSongChoices(IEnumerable<string> songs)
-    {
-        SongItemViewModel[] songItems = [.. songs
-            .Where(song => !string.IsNullOrWhiteSpace(song))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(song => song, StringComparer.OrdinalIgnoreCase)
-            .Select(song => new SongItemViewModel(song))];
-
-        _updatingSongSelection = true;
-        Songs.Clear();
-        foreach (SongItemViewModel song in songItems)
-            Songs.Add(song);
-        SelectedSong = songItems.Length == 1 ? songItems[0] : null;
-        IsSongSelectionVisible = songItems.Length > 0;
-        _updatingSongSelection = false;
-    }
-
     private void ClearPreview(string message)
     {
-        CoverPreviewImage = null;
-        CoverPreviewSecondaryImage = null;
-        CoverPreviewWidth = 512;
-        CoverPreviewHeight = 512;
-        CoverPreviewSecondaryWidth = 640;
-        CoverPreviewSecondaryHeight = 360;
-        IsSingleCoverPreviewVisible = false;
-        IsDualCoverPreviewVisible = false;
-        PreviewPlaceholderText = message;
-        IsPreviewPlaceholderVisible = true;
-        PreviewTitleText = "No song loaded";
-        PreviewArtistText = "-";
-        PreviewMapText = "Map: -";
-        PreviewFormatText = "Format: -";
-        PreviewStatusText = "Waiting";
+        Preview.Clear(message);
         _previewImportResult = null;
         _previewLoadedFormatName = null;
         _previewAssetWarmupTask = null;
-        _mapBackgroundSourceUserSelected = false;
-        _albumCoachSourceUserSelected = false;
-        RebuildCoverGeneratorOptions(SelectedTarget?.Target);
-    }
-
-    private string RequireInputPath()
-    {
-        string path = NormalizePath(InputPath);
-        if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException("Choose a source path first.");
-        if (!File.Exists(path) && !Directory.Exists(path))
-            throw new FileNotFoundException("Source path not found.", path);
-        return path;
-    }
-
-    private string RequireOutputPath()
-    {
-        string path = NormalizePath(OutputPath);
-        if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException("Choose an output folder first.");
-        return path;
-    }
-
-    private string? GetSongName()
-    {
-        return IsSongSelectionVisible && SelectedSong is not null ? SelectedSong.Name : null;
+        TargetPage.ResetCoverSourceSelections();
+        UpdateTargetPreviewContext();
     }
 
     private IJdiFormat ResolveSourceFormat(string inputPath)
@@ -1306,20 +887,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ?? throw new ArgumentException($"No conversion strategy registered for '{format}'.");
     }
 
-    private CoverGeneratorKind ResolveSquareCoverGeneratorKind() =>
-        SelectedSquareCoverGenerator?.Kind ?? CoverGeneratorKind.Automatic;
-
-    private CoverGeneratorKind ResolveWideCoverGeneratorKind() =>
-        SelectedWideCoverGenerator?.Kind ?? CoverGeneratorKind.Automatic;
-
-    private CoverPreviewOptions CreateCoverPreviewOptions() =>
-        new(
-            DownloadAssetsWhenLoading,
-            ResolveSquareCoverGeneratorKind(),
-            ResolveWideCoverGeneratorKind(),
-            SelectedMapBackgroundSource?.Kind,
-            SelectedAlbumCoachSource?.Kind);
-
     private async Task WaitForPreviewAssetWarmupIfNeededAsync(
         Task? warmupTask,
         ConversionTargetDefinition? target,
@@ -1331,8 +898,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             !CoverRules.SelectedCoverGeneratorsNeedMapBackground(
                 target,
                 sourceFormatName,
-                ResolveSquareCoverGeneratorKind(),
-                ResolveWideCoverGeneratorKind()))
+                TargetPage.ResolveSquareCoverGeneratorKind(),
+                TargetPage.ResolveWideCoverGeneratorKind()))
             return;
 
         Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(4), cancellationToken);
@@ -1382,7 +949,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         await _coverPreviewBuilder.ApplySelectedCoverGeneratorsAsync(
             importResult,
             target,
-            CreateCoverPreviewOptions(),
+            TargetPage.CreateCoverPreviewOptions(),
             cancellationToken);
     }
 
@@ -1424,8 +991,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         foreach (string directory in Directory.GetDirectories(sourceDir))
             CopyDirectory(directory, Path.Combine(destDir, Path.GetFileName(directory)));
     }
-
-    private static string NormalizePath(string path) => path.Trim().Trim('"');
 
     private sealed record PreviewImport(JdiImportResult ImportResult, string FormatName, Task? AssetWarmupTask);
 }

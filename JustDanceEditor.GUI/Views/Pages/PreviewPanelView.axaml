@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pages="using:JustDanceEditor.GUI.ViewModels.Pages"
+             x:Class="JustDanceEditor.GUI.Views.Pages.PreviewPanelView"
+             x:DataType="pages:PreviewPanelViewModel">
+  <Border Classes="surface previewSurface">
+    <Grid RowDefinitions="*,Auto" RowSpacing="18">
+      <Border Classes="imageWell">
+        <Grid>
+          <Viewbox Stretch="Uniform"
+                   IsVisible="{Binding IsSingleCoverPreviewVisible}">
+            <Border Classes="previewImage"
+                    Width="{Binding CoverPreviewWidth}"
+                    Height="{Binding CoverPreviewHeight}">
+              <Image Source="{Binding CoverPreviewImage}"
+                     Stretch="Fill" />
+            </Border>
+          </Viewbox>
+          <Grid RowDefinitions="*,*"
+                RowSpacing="12"
+                IsVisible="{Binding IsDualCoverPreviewVisible}">
+            <Viewbox Stretch="Uniform">
+              <Border Classes="previewImage"
+                      Width="{Binding CoverPreviewWidth}"
+                      Height="{Binding CoverPreviewHeight}">
+                <Image Source="{Binding CoverPreviewImage}"
+                       Stretch="Fill" />
+              </Border>
+            </Viewbox>
+            <Viewbox Grid.Row="1" Stretch="Uniform">
+              <Border Classes="previewImage"
+                      Width="{Binding CoverPreviewSecondaryWidth}"
+                      Height="{Binding CoverPreviewSecondaryHeight}">
+                <Image Source="{Binding CoverPreviewSecondaryImage}"
+                       Stretch="Fill" />
+              </Border>
+            </Viewbox>
+          </Grid>
+          <TextBlock Classes="muted"
+                     Text="{Binding PreviewPlaceholderText}"
+                     IsVisible="{Binding IsPreviewPlaceholderVisible}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     TextWrapping="Wrap" />
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="18">
+        <StackPanel Spacing="6">
+          <TextBlock Classes="songTitle" Text="{Binding PreviewTitleText}" TextWrapping="Wrap" />
+          <TextBlock Classes="songArtist" Text="{Binding PreviewArtistText}" TextWrapping="Wrap" />
+          <TextBlock Classes="muted" Text="{Binding PreviewMapText}" TextWrapping="Wrap" />
+          <TextBlock Classes="muted" Text="{Binding PreviewFormatText}" TextWrapping="Wrap" />
+        </StackPanel>
+        <Border Grid.Column="1" Classes="statusBadge">
+          <TextBlock Text="{Binding PreviewStatusText}" />
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

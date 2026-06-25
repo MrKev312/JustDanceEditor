@@ -2,8 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
         xmlns:vm="using:JustDanceEditor.GUI.ViewModels"
-        xmlns:prompts="using:JustDanceEditor.GUI.ViewModels.Prompts"
-        xmlns:behaviors="clr-namespace:KevInc.Avalonia.Behaviors;assembly=KevInc.Avalonia"
+        xmlns:pages="using:JustDanceEditor.GUI.Views.Pages"
         x:Class="JustDanceEditor.GUI.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Just Dance Converter"
@@ -12,48 +11,6 @@
         Height="740"
         MinWidth="1000"
         MinHeight="650">
-
-  <Window.DataTemplates>
-    <DataTemplate DataType="{x:Type prompts:TextPromptInputViewModel}" x:DataType="prompts:TextPromptInputViewModel">
-      <StackPanel Spacing="6">
-        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
-        <TextBox Text="{Binding Text, Mode=TwoWay}"
-                 PlaceholderText="{Binding PlaceholderText}" />
-      </StackPanel>
-    </DataTemplate>
-
-    <DataTemplate DataType="{x:Type prompts:BooleanPromptInputViewModel}" x:DataType="prompts:BooleanPromptInputViewModel">
-      <StackPanel Spacing="6">
-        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
-        <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" />
-      </StackPanel>
-    </DataTemplate>
-
-    <DataTemplate DataType="{x:Type prompts:ChoicePromptInputViewModel}" x:DataType="prompts:ChoicePromptInputViewModel">
-      <StackPanel Spacing="6">
-        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
-        <ComboBox ItemsSource="{Binding Options}"
-                  SelectedItem="{Binding SelectedOption, Mode=TwoWay}" />
-      </StackPanel>
-    </DataTemplate>
-
-    <DataTemplate DataType="{x:Type prompts:PathPromptInputViewModel}" x:DataType="prompts:PathPromptInputViewModel">
-      <StackPanel Spacing="6">
-        <TextBlock Classes="sectionTitle" Text="{Binding Label}" TextWrapping="Wrap" />
-        <Grid ColumnDefinitions="*,Auto"
-              ColumnSpacing="6"
-              Background="Transparent"
-              behaviors:PathDrop.Command="{Binding SetPathCommand}">
-          <TextBox Text="{Binding Path, Mode=TwoWay}"
-                   PlaceholderText="{Binding PlaceholderText}"
-                   behaviors:PathDrop.Command="{Binding SetPathCommand}" />
-          <Button Grid.Column="1"
-                  Content="{Binding BrowseLabel}"
-                  Command="{Binding BrowseCommand}" />
-        </Grid>
-      </StackPanel>
-    </DataTemplate>
-  </Window.DataTemplates>
 
   <Window.Styles>
     <Style Selector="TextBlock.h1">
@@ -153,14 +110,25 @@
       <Setter Property="HorizontalContentAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.step">
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-      <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Style Selector="Border.step">
       <Setter Property="MinHeight" Value="34" />
       <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="14,0" />
     </Style>
-    <Style Selector="Button.step.active">
+    <Style Selector="Border.step.active">
       <Setter Property="Background" Value="{DynamicResource JdeAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeAccentBrush}" />
+    </Style>
+    <Style Selector="Border.step TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.step.active TextBlock">
       <Setter Property="Foreground" Value="White" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -207,117 +175,29 @@
             <StackPanel Spacing="10">
               <TextBlock Classes="h1" Text="{Binding PageTitle}" />
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsStepPanelVisible}">
-                <Button Classes="step"
-                        Classes.active="{Binding IsSourcePage}"
-                        Content="1 Folders"
-                        Command="{Binding ShowSourcePageCommand}" />
-                <Button Grid.Column="1"
+                <Border Classes="step"
+                        Classes.active="{Binding IsSourcePage}">
+                  <TextBlock Text="1 Folders" />
+                </Border>
+                <Border Grid.Column="1"
                         Classes="step"
-                        Classes.active="{Binding IsTargetPage}"
-                        Content="2 Target"
-                        Command="{Binding ShowTargetPageCommand}" />
+                        Classes.active="{Binding IsTargetPage}">
+                  <TextBlock Text="2 Target" />
+                </Border>
               </Grid>
             </StackPanel>
 
             <ScrollViewer Grid.Row="1" Background="Transparent">
               <Grid>
-                <StackPanel Spacing="12" IsVisible="{Binding IsSourcePage}">
-                  <TextBlock Classes="sectionTitle" Text="Source" />
-                  <Grid ColumnDefinitions="*,Auto,Auto"
-                        ColumnSpacing="6"
-                        Background="Transparent"
-                        behaviors:PathDrop.Command="{Binding SetInputPathCommand}">
-                    <TextBox Text="{Binding InputPath, Mode=TwoWay}"
-                             PlaceholderText="Drop or choose a folder, IPK, or JDI package"
-                             behaviors:PathDrop.Command="{Binding SetInputPathCommand}" />
-                    <Button Grid.Column="1" Content="File" Command="{Binding BrowseInputFileCommand}" />
-                    <Button Grid.Column="2" Content="Folder" Command="{Binding BrowseInputFolderCommand}" />
-                  </Grid>
-                  <TextBlock Classes="muted" Text="{Binding DetectedFormatText}" TextWrapping="Wrap" />
-
-                  <TextBlock Classes="sectionTitle" Text="Output" />
-                  <Grid ColumnDefinitions="*,Auto"
-                        ColumnSpacing="6"
-                        Background="Transparent"
-                        behaviors:PathDrop.Command="{Binding SetOutputPathCommand}">
-                    <TextBox Text="{Binding OutputPath, Mode=TwoWay}"
-                             PlaceholderText="Drop or choose the destination folder"
-                             behaviors:PathDrop.Command="{Binding SetOutputPathCommand}" />
-                    <Button Grid.Column="1" Content="Folder" Command="{Binding BrowseOutputFolderCommand}" />
-                  </Grid>
-                  <TextBlock Classes="muted" Text="{Binding DetectedOutputText}" TextWrapping="Wrap" />
-
-                  <StackPanel Spacing="8" IsVisible="{Binding IsSongSelectionVisible}">
-                    <TextBlock Classes="sectionTitle" Text="Song" />
-                    <ComboBox ItemsSource="{Binding Songs}"
-                              SelectedItem="{Binding SelectedSong, Mode=TwoWay}" />
-                    <TextBlock Classes="muted"
-                               Text="This source contains more than one map. Pick one to load its cover and metadata."
-                               TextWrapping="Wrap" />
-                  </StackPanel>
-
-                  <CheckBox Content="Download online assets when loading the song"
-                            IsChecked="{Binding DownloadAssetsWhenLoading, Mode=TwoWay}" />
-                </StackPanel>
-
-                <StackPanel Spacing="12" IsVisible="{Binding IsTargetPage}">
-                  <TextBlock Classes="sectionTitle" Text="Target" />
-                  <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <ComboBox ItemsSource="{Binding Platforms}"
-                              SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}" />
-                    <ComboBox Grid.Column="1"
-                              ItemsSource="{Binding Targets}"
-                              SelectedItem="{Binding SelectedTarget, Mode=TwoWay}" />
-                  </Grid>
-                  <TextBlock Classes="muted" Text="{Binding TargetSupportText}" TextWrapping="Wrap" />
-                  <StackPanel Spacing="8" IsVisible="{Binding AreCoverGeneratorOptionsVisible}">
-                    <TextBlock Classes="sectionTitle" Text="Cover Generators" />
-                    <StackPanel Spacing="6" IsVisible="{Binding IsSquareCoverGeneratorVisible}">
-                      <TextBlock Classes="muted" Text="Square" />
-                      <ComboBox ItemsSource="{Binding SquareCoverGenerators}"
-                                SelectedItem="{Binding SelectedSquareCoverGenerator, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Spacing="6" IsVisible="{Binding IsWideCoverGeneratorVisible}">
-                      <TextBlock Classes="muted" Text="Wide" />
-                      <ComboBox ItemsSource="{Binding WideCoverGenerators}"
-                                SelectedItem="{Binding SelectedWideCoverGenerator, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Spacing="6" IsVisible="{Binding IsCompositionSourceOptionsVisible}">
-                      <TextBlock Classes="muted" Text="Composition sources" />
-                      <StackPanel Orientation="Horizontal" Spacing="8">
-                        <StackPanel Width="160" Spacing="4" IsVisible="{Binding IsMapBackgroundSourceOptionsVisible}">
-                          <TextBlock Classes="muted" Text="Map background" />
-                          <ComboBox ItemsSource="{Binding MapBackgroundSources}"
-                                    SelectedItem="{Binding SelectedMapBackgroundSource, Mode=TwoWay}" />
-                        </StackPanel>
-                        <StackPanel Width="160" Spacing="4" IsVisible="{Binding IsAlbumCoachSourceOptionsVisible}">
-                          <TextBlock Classes="muted" Text="Album coach" />
-                          <ComboBox ItemsSource="{Binding AlbumCoachSources}"
-                                    SelectedItem="{Binding SelectedAlbumCoachSource, Mode=TwoWay}" />
-                        </StackPanel>
-                      </StackPanel>
-                    </StackPanel>
-                  </StackPanel>
-                  <ItemsControl ItemsSource="{Binding TargetPrompts}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Spacing="8" />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                  </ItemsControl>
-                </StackPanel>
-
-                <StackPanel Spacing="12" IsVisible="{Binding IsToolPage}">
-                  <TextBlock Classes="sectionTitle" Text="{Binding ToolTitleText}" />
-                  <TextBlock Classes="muted" Text="{Binding ToolDescriptionText}" TextWrapping="Wrap" />
-                  <ItemsControl ItemsSource="{Binding ToolPrompts}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Spacing="8" />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                  </ItemsControl>
-                </StackPanel>
+                <Panel IsVisible="{Binding IsSourcePage}">
+                  <pages:SourcePageView DataContext="{Binding SourcePage}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsTargetPage}">
+                  <pages:TargetPageView DataContext="{Binding TargetPage}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsToolPage}">
+                  <pages:ToolPageView DataContext="{Binding ToolPage}" />
+                </Panel>
               </Grid>
             </ScrollViewer>
 
@@ -329,7 +209,7 @@
               <Button Grid.Column="2"
                       Classes="primary action"
                       Content="{Binding PrimaryActionText}"
-                      IsEnabled="{Binding CanUseActions}"
+                      IsEnabled="{Binding CanUsePrimaryAction}"
                       Command="{Binding PrimaryActionCommand}" />
             </Grid>
 
@@ -340,63 +220,9 @@
           </Grid>
         </Border>
 
-        <Border Grid.Column="1"
-                Classes="surface previewSurface"
-                IsVisible="{Binding IsPreviewVisible}">
-          <Grid RowDefinitions="*,Auto" RowSpacing="18">
-            <Border Classes="imageWell">
-              <Grid>
-                <Viewbox Stretch="Uniform"
-                         IsVisible="{Binding IsSingleCoverPreviewVisible}">
-                  <Border Classes="previewImage"
-                          Width="{Binding CoverPreviewWidth}"
-                          Height="{Binding CoverPreviewHeight}">
-                    <Image Source="{Binding CoverPreviewImage}"
-                           Stretch="Fill" />
-                  </Border>
-                </Viewbox>
-                <Grid RowDefinitions="*,*"
-                      RowSpacing="12"
-                      IsVisible="{Binding IsDualCoverPreviewVisible}">
-                  <Viewbox Stretch="Uniform">
-                    <Border Classes="previewImage"
-                            Width="{Binding CoverPreviewWidth}"
-                            Height="{Binding CoverPreviewHeight}">
-                      <Image Source="{Binding CoverPreviewImage}"
-                             Stretch="Fill" />
-                    </Border>
-                  </Viewbox>
-                  <Viewbox Grid.Row="1" Stretch="Uniform">
-                    <Border Classes="previewImage"
-                            Width="{Binding CoverPreviewSecondaryWidth}"
-                            Height="{Binding CoverPreviewSecondaryHeight}">
-                      <Image Source="{Binding CoverPreviewSecondaryImage}"
-                             Stretch="Fill" />
-                    </Border>
-                  </Viewbox>
-                </Grid>
-                <TextBlock Classes="muted"
-                           Text="{Binding PreviewPlaceholderText}"
-                           IsVisible="{Binding IsPreviewPlaceholderVisible}"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           TextWrapping="Wrap" />
-              </Grid>
-            </Border>
-
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="18">
-              <StackPanel Spacing="6">
-                <TextBlock Classes="songTitle" Text="{Binding PreviewTitleText}" TextWrapping="Wrap" />
-                <TextBlock Classes="songArtist" Text="{Binding PreviewArtistText}" TextWrapping="Wrap" />
-                <TextBlock Classes="muted" Text="{Binding PreviewMapText}" TextWrapping="Wrap" />
-                <TextBlock Classes="muted" Text="{Binding PreviewFormatText}" TextWrapping="Wrap" />
-              </StackPanel>
-              <Border Grid.Column="1" Classes="statusBadge">
-                <TextBlock Text="{Binding PreviewStatusText}" />
-              </Border>
-            </Grid>
-          </Grid>
-        </Border>
+        <Panel Grid.Column="1" IsVisible="{Binding IsPreviewVisible}">
+          <pages:PreviewPanelView DataContext="{Binding Preview}" />
+        </Panel>
       </Grid>
 
       <Border Grid.Row="1"

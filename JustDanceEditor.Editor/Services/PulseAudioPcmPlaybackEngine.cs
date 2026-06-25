@@ -34,8 +34,6 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
     private bool _completeAtAudioEnd;
     private bool _isPlaying;
     private bool _disposed;
-
-    private bool _metronomeEnabled;
     private double _zeroBeatTimeSeconds;
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
@@ -46,11 +44,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
     public bool IsLoaded => _audio != null;
     public TimeSpan Duration => _audio?.Duration ?? TimeSpan.Zero;
 
-    public bool IsMetronomeEnabled
-    {
-        get => _metronomeEnabled;
-        set => _metronomeEnabled = value;
-    }
+    public bool IsMetronomeEnabled { get; set; }
 
     public static bool IsAvailable()
         => OperatingSystem.IsLinux()
@@ -295,7 +289,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             }
 
             int framesToWrite = completeAtAudioEnd ? framesToCopy : maxFrames;
-            if (_metronomeEnabled)
+            if (IsMetronomeEnabled)
                 MixMetronome(buffer, sourceFrame, framesToWrite, channels, _audio.SampleRate);
 
             return framesToWrite;

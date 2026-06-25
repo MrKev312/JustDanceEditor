@@ -354,4 +354,3 @@ public sealed class MashupTransitionSchedulerTests
 
 
 }
-

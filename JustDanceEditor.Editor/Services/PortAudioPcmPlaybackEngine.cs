@@ -27,8 +27,6 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
     private bool _streamCompleted;
     private bool _isPlaying;
     private bool _disposed;
-
-    private bool _metronomeEnabled;
     private double _zeroBeatTimeSeconds;
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
@@ -45,11 +43,7 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
     public bool IsLoaded => _audio != null;
     public TimeSpan Duration => _audio?.Duration ?? TimeSpan.Zero;
 
-    public bool IsMetronomeEnabled
-    {
-        get => _metronomeEnabled;
-        set => _metronomeEnabled = value;
-    }
+    public bool IsMetronomeEnabled { get; set; }
 
     public void Load(PcmWaveAudioData audio)
     {
@@ -272,7 +266,7 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
                     framesToCopy * channels);
             }
 
-            if (_metronomeEnabled)
+            if (IsMetronomeEnabled)
                 MixMetronome(_callbackBuffer, sourceFrame, (int)frameCount, channels, _audio.SampleRate);
 
             _positionFrames += frameCount;
