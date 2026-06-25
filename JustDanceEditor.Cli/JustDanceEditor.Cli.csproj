@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\JustDanceEditor.AppHost\JustDanceEditor.AppHost.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioCafeNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioCafeNAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioNxNAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioNxNAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncAudioXma2NAudioProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncAudioXma2NAudioProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureNintendoImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureNintendoImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTexturePlayStationProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTexturePlayStationImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTexturePlayStationImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureXboxProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncTextureXboxImageSharpProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncTextureXboxImageSharpProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncUbiArtIpkProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtIpkProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
+		<KevIncLocalProjectReference Include="$(KevIncUbiArtTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtTextureProject)')" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
+		<PackageReference Include="KevInc.Audio.Cafe.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioCafeNAudioProject)')" />
+		<PackageReference Include="KevInc.Audio.Nx.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNxNAudioProject)')" />
+		<PackageReference Include="KevInc.Audio.Xma2.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioXma2NAudioProject)')" />
+		<PackageReference Include="KevInc.Texture.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.Nintendo.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureNintendoImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.PlayStation" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTexturePlayStationProject)')" />
+		<PackageReference Include="KevInc.Texture.PlayStation.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTexturePlayStationImageSharpProject)')" />
+		<PackageReference Include="KevInc.Texture.Xbox.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureXboxImageSharpProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Ipk" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtIpkProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Raki" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtRakiProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Texture" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtTextureProject)')" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />
+		<PackageReference Include="BCnEncoder.Net.ImageSharp" Version="1.1.3" />
+		<PackageReference Include="Concentus" Version="2.2.2" />
+		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
+		<PackageReference Include="NAudio.Core" Version="2.3.0" />
+		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+		<PackageReference Include="System.CommandLine" Version="2.0.8" />
+	</ItemGroup>
+</Project>

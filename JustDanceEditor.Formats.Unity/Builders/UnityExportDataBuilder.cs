@@ -1,0 +1,125 @@
+using JustDanceEditor.Formats.JDI;
+using JustDanceEditor.Formats.JDI.Metadata;
+using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.Unity.Models;
+
+using Microsoft.Extensions.Logging;
+
+namespace JustDanceEditor.Formats.Unity.Builders;
+
+public static class UnityExportDataBuilder
+{
+    public static UnityExportData Create(IntermediateSongPackage package, ILogger logger)
+    {
+        IntermediateMetadata metadata = package.Metadata;
+        metadata.Validate();
+
+        ServerSongJSON exportMetadata = new(metadata)
+        {
+            Artist = metadata.Artist ?? string.Empty,
+            Credits = metadata.Credits ?? string.Empty,
+            LyricsColor = string.IsNullOrWhiteSpace(metadata.LyricsColor) ? "#FFFFFFFF" : metadata.LyricsColor,
+            OriginalJDVersion = MapOriginalJDVersion(metadata.OriginalJDVersion),
+            Title = metadata.Title ?? string.Empty,
+        };
+
+        string name = string.IsNullOrWhiteSpace(metadata.MapName)
+            ? metadata.Title ?? string.Empty
+            : metadata.MapName;
+
+        if (string.IsNullOrWhiteSpace(name))
+            name = "Song";
+
+        return new UnityExportData(
+            name,
+            exportMetadata,
+            package.TimelineStructure ?? new(),
+            BuildOrderedClips(package.Lyrics?.Clips),
+            BuildOrderedClips(package.Pictograms?.Clips),
+            BuildMotionClips(package, logger),
+            BuildOrderedClips(package.GoldEffects?.Clips),
+            BuildOrderedClips(package.HideUserInterface?.Clips));
+    }
+
+    private static IReadOnlyList<T> BuildOrderedClips<T>(List<T>? clips) where T : TimelineClipBase
+    {
+        return clips?.OrderBy(c => c.StartTime).ToList() ?? (IReadOnlyList<T>)[];
+    }
+
+    private static uint MapOriginalJDVersion(uint original)
+    {
+        return original switch
+        {
+            123 => 2014,
+            4884 => 2017,
+            _ => original
+        };
+    }
+
+    private static IReadOnlyList<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> BuildMotionClips(IntermediateSongPackage package, ILogger logger)
+    {
+        if (package.CoachTimelines == null && package.FullBodyCoachTimelines == null)
+            return [];
+
+        List<(MoveClip Clip, int CoachId, long TrackId, int MoveType, int Duration, string color)> clips = [];
+
+        foreach ((MoveTimeline timeline, CoachMoveType moveType) in EnumerateCoachTimelines(package).OrderBy(entry => entry.Timeline.CoachId))
+        {
+            foreach (MoveClip clip in timeline.Clips.OrderBy(c => c.StartTime))
+            {
+                CoachMoveDefinition? definition = FindMoveDefinition(package, clip.MoveId, moveType);
+
+                if (definition == null)
+                    logger.LogWarning("Move definition not found for move ID '{MoveId}' (Coach ID: {CoachId}). Using default duration.", clip.MoveId, timeline.CoachId);
+
+                int duration = definition?.Duration ?? 48;
+                int moveTypeValue = moveType == CoachMoveType.FullBodyTracking ? 1 : 0;
+                string color = definition?.Color[1..] ?? "FFFFFF";
+
+                clips.Add((clip, timeline.CoachId, timeline.TrackId, moveTypeValue, duration, color));
+            }
+        }
+
+        return clips;
+    }
+
+    private static IEnumerable<(MoveTimeline Timeline, CoachMoveType MoveType)> EnumerateCoachTimelines(IntermediateSongPackage package)
+    {
+        if (package.CoachTimelines != null)
+        {
+            foreach (MoveTimeline timeline in package.CoachTimelines)
+                yield return (timeline, CoachMoveType.HandTracking);
+        }
+
+        if (package.FullBodyCoachTimelines != null)
+        {
+            foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
+                yield return (timeline, CoachMoveType.FullBodyTracking);
+        }
+    }
+
+    private static CoachMoveDefinition? FindMoveDefinition(IntermediateSongPackage package, string moveId, CoachMoveType preferredType)
+    {
+        if (string.IsNullOrWhiteSpace(moveId))
+            return null;
+
+        CoachMoveDefinition? definition = TryLookupMoveDefinition(package, moveId, preferredType);
+        if (definition != null)
+            return definition;
+
+        CoachMoveType alternate = preferredType == CoachMoveType.FullBodyTracking
+            ? CoachMoveType.HandTracking
+            : CoachMoveType.FullBodyTracking;
+
+        return TryLookupMoveDefinition(package, moveId, alternate);
+    }
+
+    private static CoachMoveDefinition? TryLookupMoveDefinition(IntermediateSongPackage package, string moveId, CoachMoveType moveType)
+    {
+        Dictionary<string, CoachMoveDefinition>? catalog = moveType == CoachMoveType.FullBodyTracking
+            ? package.FullBodyCoachMoves
+            : package.HandCoachMoves;
+
+        return catalog?.GetValueOrDefault(moveId);
+    }
+}

@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Dialogs;assembly=JustDanceEditor.Editor"
+        x:Class="JustDanceEditor.Editor.Views.Dialogs.PictogramScreenshotOptionsWindow"
+        x:DataType="vm:PictogramScreenshotOptionsViewModel"
+        Title="Screenshot Pictogram Options"
+        Width="420"
+        Height="360"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="12,24,12,0" RowDefinitions="*,Auto">
+    <Border Grid.Row="1" VerticalAlignment="Bottom">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Frame Layout"/>
+        <ComboBox ItemsSource="{Binding FrameLayoutModes}" SelectedItem="{Binding SelectedFrameLayoutMode, Mode=TwoWay}"/>
+
+        <TextBlock Text="Horizontal Focus" IsVisible="{Binding ShowHorizontalFocus}"/>
+        <ComboBox ItemsSource="{Binding HorizontalFocusOptions}" SelectedItem="{Binding SelectedHorizontalFocus, Mode=TwoWay}" IsVisible="{Binding ShowHorizontalFocus}"/>
+
+        <TextBlock Text="Apply To" IsVisible="{Binding ShowInsertionOptions}"/>
+        <ComboBox ItemsSource="{Binding InsertionModes}" SelectedItem="{Binding SelectedInsertionMode, Mode=TwoWay}" IsVisible="{Binding ShowInsertionOptions}"/>
+
+        <TextBlock Text="Reference Move Clip" IsVisible="{Binding ShowReferenceMoveOptions}"/>
+        <ComboBox ItemsSource="{Binding ReferenceMoveOptions}" SelectedItem="{Binding SelectedReferenceMove, Mode=TwoWay}" IsVisible="{Binding ShowReferenceMoveOptions}"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+          <Button Name="CancelBtn" Content="Cancel" MinWidth="84"/>
+          <Button Name="OkBtn" Content="Generate" MinWidth="84"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

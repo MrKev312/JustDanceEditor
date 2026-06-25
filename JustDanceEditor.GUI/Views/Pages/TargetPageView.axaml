@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pages="using:JustDanceEditor.GUI.ViewModels.Pages"
+             x:Class="JustDanceEditor.GUI.Views.Pages.TargetPageView"
+             x:DataType="pages:TargetPageViewModel">
+  <StackPanel Spacing="12">
+    <TextBlock Classes="sectionTitle" Text="Target" />
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+      <ComboBox ItemsSource="{Binding Platforms}"
+                SelectedItem="{Binding SelectedPlatform, Mode=TwoWay}" />
+      <ComboBox Grid.Column="1"
+                ItemsSource="{Binding Targets}"
+                SelectedItem="{Binding SelectedTarget, Mode=TwoWay}" />
+    </Grid>
+    <TextBlock Classes="muted" Text="{Binding TargetSupportText}" TextWrapping="Wrap" />
+    <StackPanel Spacing="8" IsVisible="{Binding AreCoverGeneratorOptionsVisible}">
+      <TextBlock Classes="sectionTitle" Text="Cover Generators" />
+      <StackPanel Spacing="6" IsVisible="{Binding IsSquareCoverGeneratorVisible}">
+        <TextBlock Classes="muted" Text="Square" />
+        <ComboBox ItemsSource="{Binding SquareCoverGenerators}"
+                  SelectedItem="{Binding SelectedSquareCoverGenerator, Mode=TwoWay}" />
+      </StackPanel>
+      <StackPanel Spacing="6" IsVisible="{Binding IsWideCoverGeneratorVisible}">
+        <TextBlock Classes="muted" Text="Wide" />
+        <ComboBox ItemsSource="{Binding WideCoverGenerators}"
+                  SelectedItem="{Binding SelectedWideCoverGenerator, Mode=TwoWay}" />
+      </StackPanel>
+      <StackPanel Spacing="6" IsVisible="{Binding IsCompositionSourceOptionsVisible}">
+        <TextBlock Classes="muted" Text="Composition sources" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <StackPanel Width="160" Spacing="4" IsVisible="{Binding IsMapBackgroundSourceOptionsVisible}">
+            <TextBlock Classes="muted" Text="Map background" />
+            <ComboBox ItemsSource="{Binding MapBackgroundSources}"
+                      SelectedItem="{Binding SelectedMapBackgroundSource, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Width="160" Spacing="4" IsVisible="{Binding IsAlbumCoachSourceOptionsVisible}">
+            <TextBlock Classes="muted" Text="Album coach" />
+            <ComboBox ItemsSource="{Binding AlbumCoachSources}"
+                      SelectedItem="{Binding SelectedAlbumCoachSource, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+    <ItemsControl ItemsSource="{Binding Prompts}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

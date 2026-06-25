@@ -1,0 +1,247 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        xmlns:vm="using:JustDanceEditor.GUI.ViewModels"
+        xmlns:pages="using:JustDanceEditor.GUI.Views.Pages"
+        x:Class="JustDanceEditor.GUI.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Just Dance Converter"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="1160"
+        Height="740"
+        MinWidth="1000"
+        MinHeight="650">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="21" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextMutedBrush}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.songTitle">
+      <Setter Property="FontSize" Value="26" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.songArtist">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextSecondaryBrush}" />
+    </Style>
+
+    <Style Selector="Border.surface">
+      <Setter Property="Background" Value="{DynamicResource JdeSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeSurfaceBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.previewSurface">
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.imageWell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.previewImage">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="Border.statusBadge">
+      <Setter Property="Background" Value="{DynamicResource JdeBadgeBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeBadgeBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="VerticalAlignment" Value="Bottom" />
+    </Style>
+    <Style Selector="Border.logDrawer">
+      <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <Style Selector="TextBox, ComboBox">
+      <Setter Property="Background" Value="{DynamicResource JdeInputBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+      <Setter Property="MinHeight" Value="34" />
+    </Style>
+    <Style Selector="TextBox:pointerover, ComboBox:pointerover">
+      <Setter Property="Background" Value="{DynamicResource JdeInputHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputHoverBorderBrush}" />
+    </Style>
+    <Style Selector="TextBox:focus, ComboBox:focus">
+      <Setter Property="Background" Value="{DynamicResource JdeInputFocusBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeInputFocusBorderBrush}" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonBorderBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="14,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource JdeButtonHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonHoverBorderBrush}" />
+    </Style>
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="{DynamicResource JdeButtonPressedBrush}" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource JdeAccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.action">
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.step">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Background" Value="{DynamicResource JdeButtonBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeButtonBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style Selector="Border.step.active">
+      <Setter Property="Background" Value="{DynamicResource JdeAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeAccentBrush}" />
+    </Style>
+    <Style Selector="Border.step TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource JdeTextPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.step.active TextBlock">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource JdeSurfaceBorderBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover">
+      <Setter Property="Background" Value="{DynamicResource JdeListHoverBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="{DynamicResource JdeWindowBackgroundBrush}">
+  <Grid RowDefinitions="32,*">
+    <Grid Grid.Row="0"
+          ColumnDefinitions="Auto,*"
+          Background="Transparent"
+          Margin="{DynamicResource JdeMainWindowTitleBarContentMargin}">
+      <Menu Grid.Column="0" ItemsSource="{Binding MainMenu}" Background="Transparent">
+        <Menu.Styles>
+          <Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
+            <Setter Property="Header" Value="{Binding Header}" />
+            <Setter Property="ItemsSource" Value="{Binding Items}" />
+            <Setter Property="Command" Value="{Binding Command}" />
+            <Setter Property="CommandParameter" Value="{Binding CommandParameter}" />
+            <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+          </Style>
+        </Menu.Styles>
+      </Menu>
+
+      <Panel Grid.Column="1"
+             Background="Transparent"
+             chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+    </Grid>
+
+    <Grid Grid.Row="1" Margin="18" RowDefinitions="*,Auto" Background="Transparent">
+      <Grid ColumnDefinitions="430,*" ColumnSpacing="18" Background="Transparent">
+        <Border Classes="surface" Grid.ColumnSpan="{Binding WorkflowColumnSpan}">
+          <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="14">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="h1" Text="{Binding PageTitle}" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding IsStepPanelVisible}">
+                <Border Classes="step"
+                        Classes.active="{Binding IsSourcePage}">
+                  <TextBlock Text="1 Folders" />
+                </Border>
+                <Border Grid.Column="1"
+                        Classes="step"
+                        Classes.active="{Binding IsTargetPage}">
+                  <TextBlock Text="2 Target" />
+                </Border>
+              </Grid>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" Background="Transparent">
+              <Grid>
+                <Panel IsVisible="{Binding IsSourcePage}">
+                  <pages:SourcePageView DataContext="{Binding SourcePage}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsTargetPage}">
+                  <pages:TargetPageView DataContext="{Binding TargetPage}" />
+                </Panel>
+                <Panel IsVisible="{Binding IsToolPage}">
+                  <pages:ToolPageView DataContext="{Binding ToolPage}" />
+                </Panel>
+              </Grid>
+            </ScrollViewer>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+              <Button Content="Back"
+                      IsVisible="{Binding IsBackVisible}"
+                      IsEnabled="{Binding CanUseActions}"
+                      Command="{Binding BackCommand}" />
+              <Button Grid.Column="2"
+                      Classes="primary action"
+                      Content="{Binding PrimaryActionText}"
+                      IsEnabled="{Binding CanUsePrimaryAction}"
+                      Command="{Binding PrimaryActionCommand}" />
+            </Grid>
+
+            <StackPanel Grid.Row="3" Spacing="8">
+              <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+              <TextBlock Classes="muted" Text="{Binding StatusText}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Panel Grid.Column="1" IsVisible="{Binding IsPreviewVisible}">
+          <pages:PreviewPanelView DataContext="{Binding Preview}" />
+        </Panel>
+      </Grid>
+
+      <Border Grid.Row="1"
+              Classes="surface logDrawer"
+              Height="210"
+              Margin="0,12,0,0"
+              IsVisible="{Binding IsLogDrawerVisible}">
+        <Grid RowDefinitions="Auto,*" RowSpacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="sectionTitle" Text="Activity Log" />
+            <Button Grid.Column="1" Content="Clear" Command="{Binding ClearLogCommand}" />
+          </Grid>
+          <ListBox Grid.Row="1"
+                   ItemsSource="{Binding LogEntries}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   FontSize="12" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+  </Border>
+</Window>

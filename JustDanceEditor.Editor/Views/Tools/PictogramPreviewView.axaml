@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.PictogramPreviewView"
+             x:DataType="vm:PictogramPreviewViewModel">
+    <Grid>
+        <local:SkiaPictogramPreviewControl
+            ActiveTimeline="{Binding ActiveTimeline}"
+            CurrentBeat="{Binding CurrentBeat}" />
+
+        <TextBlock Text="No Active Timeline"
+                   IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
+                   Foreground="Gray"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+    </Grid>
+</UserControl>

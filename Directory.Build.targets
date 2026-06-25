@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="BuildKevIncLocalProjectReferences"
+          Condition="'$(UseLocalKevIncProjects)' == 'true' and '@(KevIncLocalProjectReference)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="@(KevIncLocalProjectReference)"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration);TargetFramework=$(KevIncLocalTargetFramework);RuntimeIdentifier=;SelfContained=false"
+             BuildInParallel="true" />
+  </Target>
+
+  <Target Name="AddKevIncLocalAssemblyReferences"
+          BeforeTargets="ResolveAssemblyReferences"
+          DependsOnTargets="BuildKevIncLocalProjectReferences"
+          Condition="'$(UseLocalKevIncProjects)' == 'true' and '@(KevIncLocalProjectReference)' != ''">
+    <ItemGroup>
+      <Reference Include="%(KevIncLocalProjectReference.Filename)">
+        <HintPath>%(KevIncLocalProjectReference.RootDir)%(KevIncLocalProjectReference.Directory)bin\$(Configuration)\$(KevIncLocalTargetFramework)\%(KevIncLocalProjectReference.Filename).dll</HintPath>
+        <Private>true</Private>
+        <SpecificVersion>false</SpecificVersion>
+        <Visible>false</Visible>
+      </Reference>
+    </ItemGroup>
+  </Target>
+</Project>

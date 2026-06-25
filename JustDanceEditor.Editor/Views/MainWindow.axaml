@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:JustDanceEditor.Editor.ViewModels"
+        xmlns:dock="using:Dock.Avalonia.Controls"
+        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="JustDanceEditor.Editor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Just Dance Editor">
+
+	<Border Background="{DynamicResource JdeWindowBackgroundBrush}">
+	<Grid RowDefinitions="32, *">
+		<!-- Title Bar / Menu Area -->
+		<Grid Grid.Row="0"
+		      ColumnDefinitions="Auto, *"
+		      Margin="{DynamicResource JdeMainWindowTitleBarContentMargin}">
+
+			<!-- Menu: Placed in the TitleBar area -->
+			<Menu Grid.Column="0"
+				  ItemsSource="{Binding ViewMenu}"
+				  Background="Transparent">
+				<Menu.Styles>
+					<Style Selector="MenuItem" x:DataType="vm:MenuItemViewModel">
+						<Setter Property="Header" Value="{Binding Header}"/>
+						<Setter Property="ItemsSource" Value="{Binding Items}"/>
+						<Setter Property="Command" Value="{Binding Command}"/>
+					</Style>
+				</Menu.Styles>
+			</Menu>
+
+			<!-- Drag zone between the menu and the native Windows caption buttons. -->
+			<Panel Grid.Column="1"
+				   Background="Transparent"
+				   chrome:WindowDecorationProperties.ElementRole="TitleBar" />
+		</Grid>
+
+		<!-- Docking Area -->
+		<dock:DockControl Grid.Row="1" Layout="{Binding Layout}">
+			<dock:DockControl.Resources>
+				<Thickness x:Key="DockDocumentContentBorderThickness">0</Thickness>
+				<x:Boolean x:Key="DockDocumentTabStripHideWhenEmpty">False</x:Boolean>
+			</dock:DockControl.Resources>
+			<dock:DockControl.Styles>
+				<Style Selector="dock|DockControl">
+					<Setter Property="Background" Value="Transparent" />
+				</Style>
+			</dock:DockControl.Styles>
+		</dock:DockControl>
+	</Grid>
+	</Border>
+</Window>

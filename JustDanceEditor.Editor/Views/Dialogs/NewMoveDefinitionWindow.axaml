@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Dialogs;assembly=JustDanceEditor.Editor"
+        x:Class="JustDanceEditor.Editor.Views.Dialogs.NewMoveDefinitionWindow"
+        x:DataType="vm:NewMoveDefinitionViewModel"
+        Title="New Move Definition"
+        Width="380"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="12">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="130"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="12"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- Name -->
+    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Name:" Margin="0,4"/>
+    <TextBox   Grid.Row="0" Grid.Column="1" Name="NameBox" Text="{Binding Name, Mode=TwoWay}" Margin="0,4"/>
+
+    <!-- Duration in ticks -->
+    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Duration (ticks):" Margin="0,4"/>
+    <NumericUpDown Grid.Row="1" Grid.Column="1"
+                   Value="{Binding DurationTicks, Mode=TwoWay}"
+                   Minimum="1"
+                   Maximum="10000"
+                   Increment="1"
+                   FormatString="0"
+                   Margin="0,4"/>
+
+    <!-- Color -->
+    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Color:" Margin="0,4"/>
+    <ColorPicker Grid.Row="2" Grid.Column="1"
+                 Color="{Binding SelectedColor, Mode=TwoWay}"
+                 IsAlphaEnabled="False"
+                 Margin="0,4"/>
+
+    <!-- Buttons -->
+    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Name="OkBtn" Margin="6,0,0,0" IsDefault="True">OK</Button>
+      <Button Name="CancelBtn" Margin="6,0,0,0" IsCancel="True">Cancel</Button>
+    </StackPanel>
+  </Grid>
+</Window>

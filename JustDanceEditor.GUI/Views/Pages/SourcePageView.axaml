@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pages="using:JustDanceEditor.GUI.ViewModels.Pages"
+             xmlns:behaviors="clr-namespace:KevInc.Avalonia.Behaviors;assembly=KevInc.Avalonia"
+             x:Class="JustDanceEditor.GUI.Views.Pages.SourcePageView"
+             x:DataType="pages:SourcePageViewModel">
+  <StackPanel Spacing="12">
+    <TextBlock Classes="sectionTitle" Text="Source" />
+    <Grid ColumnDefinitions="*,Auto,Auto"
+          ColumnSpacing="6"
+          Background="Transparent"
+          behaviors:PathDrop.Command="{Binding SetInputPathCommand}">
+      <TextBox Text="{Binding InputPath, Mode=TwoWay}"
+               PlaceholderText="Drop or choose a folder, IPK, or JDI package"
+               behaviors:PathDrop.Command="{Binding SetInputPathCommand}" />
+      <Button Grid.Column="1" Content="File" Command="{Binding BrowseInputFileCommand}" />
+      <Button Grid.Column="2" Content="Folder" Command="{Binding BrowseInputFolderCommand}" />
+    </Grid>
+    <TextBlock Classes="muted" Text="{Binding DetectedFormatText}" TextWrapping="Wrap" />
+
+    <TextBlock Classes="sectionTitle" Text="Output" />
+    <Grid ColumnDefinitions="*,Auto"
+          ColumnSpacing="6"
+          Background="Transparent"
+          behaviors:PathDrop.Command="{Binding SetOutputPathCommand}">
+      <TextBox Text="{Binding OutputPath, Mode=TwoWay}"
+               PlaceholderText="Drop or choose the destination folder"
+               behaviors:PathDrop.Command="{Binding SetOutputPathCommand}" />
+      <Button Grid.Column="1" Content="Folder" Command="{Binding BrowseOutputFolderCommand}" />
+    </Grid>
+    <TextBlock Classes="muted" Text="{Binding DetectedOutputText}" TextWrapping="Wrap" />
+
+    <StackPanel Spacing="8" IsVisible="{Binding IsSongSelectionVisible}">
+      <TextBlock Classes="sectionTitle" Text="Song" />
+      <ComboBox ItemsSource="{Binding Songs}"
+                SelectedItem="{Binding SelectedSong, Mode=TwoWay}" />
+      <TextBlock Classes="muted"
+                 Text="This source contains more than one map. Pick one to load its cover and metadata."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <CheckBox Content="Download online assets when loading the song"
+              IsChecked="{Binding DownloadAssetsWhenLoading, Mode=TwoWay}" />
+  </StackPanel>
+</UserControl>
