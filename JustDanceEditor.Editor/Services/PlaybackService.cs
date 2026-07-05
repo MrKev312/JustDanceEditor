@@ -1,5 +1,9 @@
 ﻿using Avalonia.Threading;
 
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+
 using KevInc.Audio.NAudio.Providers;
 
 using NAudio.CoreAudioApi;
@@ -26,8 +30,11 @@ public class PlaybackService : IPlaybackService, IDisposable
     private Func<double, double> _secondsToBeat = s => s / 0.5;
 
     private TimeSpan _baseTime = TimeSpan.Zero;
-    private readonly DispatcherTimer _updateTimer;
+    private readonly DispatcherTimer _fallbackUpdateTimer;
     private readonly Stopwatch _stopwatch = new();
+    private int _animationFrameRequestId;
+    private bool _animationFramePending;
+    private bool _disposed;
 
     public bool IsPlaying { get; private set; }
 
@@ -72,22 +79,10 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         _pcmPlaybackEngineFactory = pcmPlaybackEngineFactory;
         _useWindowsAudio = useWindowsAudio;
-        _updateTimer = new DispatcherTimer(
+        _fallbackUpdateTimer = new DispatcherTimer(
             DisplayRefreshRateProvider.GetRefreshInterval(),
             DispatcherPriority.Render,
-            (s, e) =>
-            {
-                if (IsPlaying)
-                {
-                    if (CurrentTime >= Duration)
-                    {
-                        Pause();
-                        Seek(Duration);
-                    }
-
-                    TimeChanged?.Invoke(this, EventArgs.Empty);
-                }
-            });
+            (s, e) => OnPlaybackTick());
     }
 
     public async Task LoadMediaAsync(
@@ -129,7 +124,6 @@ public class PlaybackService : IPlaybackService, IDisposable
         _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
         UpdateTimerInterval();
-        _updateTimer.Start();
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -160,6 +154,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = true;
         _stopwatch.Restart();
         TryPlayOutputDevice();
+        StartPlaybackUpdates();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -172,6 +167,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         _baseTime = CurrentTime;
         _stopwatch.Stop();
         IsPlaying = false;
+        StopPlaybackUpdates();
 
         TryPauseOutputDevice();
         TryPausePcm();
@@ -348,12 +344,94 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private void UpdateTimerInterval()
     {
-        _updateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval();
+        _fallbackUpdateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval();
+    }
+
+    private void StartPlaybackUpdates()
+    {
+        if (_disposed || !IsPlaying)
+            return;
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(StartPlaybackUpdates, DispatcherPriority.Render);
+            return;
+        }
+
+        if (TryRequestAnimationFrame())
+        {
+            _fallbackUpdateTimer.Stop();
+            return;
+        }
+
+        UpdateTimerInterval();
+        _fallbackUpdateTimer.Start();
+    }
+
+    private void StopPlaybackUpdates()
+    {
+        _fallbackUpdateTimer.Stop();
+        _animationFramePending = false;
+        _animationFrameRequestId++;
+    }
+
+    private bool TryRequestAnimationFrame()
+    {
+        if (_animationFramePending)
+            return true;
+
+        TopLevel? topLevel = GetAnimationTopLevel();
+        if (topLevel == null)
+            return false;
+
+        _animationFramePending = true;
+        int requestId = ++_animationFrameRequestId;
+        topLevel.RequestAnimationFrame(_ => OnAnimationFrame(requestId));
+        return true;
+    }
+
+    private static TopLevel? GetAnimationTopLevel()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            return desktop.MainWindow;
+
+        return null;
+    }
+
+    private void OnAnimationFrame(int requestId)
+    {
+        if (requestId != _animationFrameRequestId)
+            return;
+
+        _animationFramePending = false;
+        if (_disposed || !IsPlaying)
+            return;
+
+        OnPlaybackTick();
+
+        if (IsPlaying)
+            StartPlaybackUpdates();
+    }
+
+    private void OnPlaybackTick()
+    {
+        if (_disposed || !IsPlaying)
+            return;
+
+        if (CurrentTime >= Duration)
+        {
+            Pause();
+            Seek(Duration);
+            return;
+        }
+
+        TimeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()
     {
-        _updateTimer.Stop();
+        _disposed = true;
+        StopPlaybackUpdates();
         _stopwatch.Stop();
 
         CleanUpAudio();

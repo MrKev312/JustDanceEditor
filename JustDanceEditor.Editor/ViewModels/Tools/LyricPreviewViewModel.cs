@@ -197,16 +197,16 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (timeline == null)
             return;
 
-        TrackViewModel? pictoTrack = timeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
-        if (pictoTrack == null)
+        TrackViewModel? lyricsTrack = timeline.Tracks.FirstOrDefault(t => t.TrackType == TrackType.Lyrics);
+        if (lyricsTrack == null)
             return;
 
         // Subscribe to changes on the lyrics track so we update when clips reorder
-        SubscribeLyricsTrack(pictoTrack);
+        SubscribeLyricsTrack(lyricsTrack);
 
         List<ClipViewModel> currentLineClips = [];
         // iterate clips sorted by StartBeat so BuildLines reflects current timing order
-        foreach (KaraokeClipViewModel clip in pictoTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
+        foreach (KaraokeClipViewModel clip in lyricsTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
         {
             currentLineClips.Add(clip);
             if (clip.IsEndOfLine)

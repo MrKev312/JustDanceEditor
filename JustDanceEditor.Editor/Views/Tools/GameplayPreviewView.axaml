@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:tools="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.GameplayPreviewView"
+             x:DataType="vm:GameplayPreviewViewModel">
+    <Grid Background="#000000"
+          ClipToBounds="True">
+        <Viewbox Stretch="Uniform">
+            <Grid Width="1920"
+                  Height="1080"
+                  Background="#000000"
+                  ClipToBounds="True">
+                <tools:VideoToolView />
+
+                <tools:SkiaGameplayHudControl IsHitTestVisible="False"
+                                              IsVisible="{Binding IsHudVisible}"
+                                              ActiveTimeline="{Binding ActiveTimeline}"
+                                              CurrentBeat="{Binding CurrentBeat}"
+                                              CurrentLine="{Binding CurrentLine}"
+                                              NextLine="{Binding NextLine}"
+                                              TargetColor="{Binding TargetColor}"
+                                              HudOpacity="{Binding HudOpacity}" />
+            </Grid>
+        </Viewbox>
+    </Grid>
+</UserControl>

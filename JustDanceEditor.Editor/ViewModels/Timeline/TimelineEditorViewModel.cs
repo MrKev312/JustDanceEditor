@@ -428,6 +428,19 @@ public partial class TimelineEditorViewModel : Document
         AddTrack("Gold Effects", 30, Colors.OrangeRed, TrackType.GoldEffect, Package.GoldEffects.Clips.Cast<TimelineClipBase>());
 
         SyncVideoTrackClip();
+        PreloadPictogramImages();
+    }
+
+    private void PreloadPictogramImages()
+    {
+        TrackViewModel? pictogramTrack = Tracks.FirstOrDefault(t => t.TrackType == TrackType.Pictogram);
+        if (pictogramTrack == null)
+            return;
+
+        SkiaPictogramImageCache.Preload(
+            pictogramTrack.Clips
+                .OfType<PictogramClipViewModel>()
+                .Select(clip => clip.ImagePath));
     }
 
     /// <summary>
@@ -916,6 +929,8 @@ public partial class TimelineEditorViewModel : Document
                 targetTrack.Clips.Add(clip);
         }
 
+        SkiaPictogramImageCache.Preload(generatedClips.Select(clip => clip.ImagePath));
+
         // Keep timeline tools (including Library) in sync with both generated files and new clip references.
         OnPropertyChanged(nameof(AvailablePictograms));
         OnPropertyChanged(nameof(Tracks));
@@ -1003,6 +1018,8 @@ public partial class TimelineEditorViewModel : Document
                 pictogramTrack.Clips.Add(clip);
         }
 
+        SkiaPictogramImageCache.Preload(created.Select(clip => clip.ImagePath));
+
         OnPropertyChanged(nameof(AvailablePictograms));
         OnPropertyChanged(nameof(Tracks));
     }
@@ -1084,6 +1101,7 @@ public partial class TimelineEditorViewModel : Document
 
             OnPropertyChanged(nameof(AvailablePictograms));
             OnPropertyChanged(nameof(Tracks));
+            SkiaPictogramImageCache.Preload(affected.Select(c => c.ImagePath));
         }
 
         ApplyRename(oldId, newId, oldPath, newPath);
@@ -1137,6 +1155,7 @@ public partial class TimelineEditorViewModel : Document
                 ImageBitmapCache.Invalidate(counterpartPath);
                 OnPropertyChanged(nameof(AvailablePictograms));
                 OnPropertyChanged(nameof(Tracks));
+                SkiaPictogramImageCache.Preload(affectedClips.Select(c => c.ImagePath));
             }
 
             ApplyRelink(pictogramId, Path.GetFileNameWithoutExtension(counterpartPath));
@@ -1216,6 +1235,7 @@ public partial class TimelineEditorViewModel : Document
                 ImageBitmapCache.Invalidate(counterpartPath);
                 OnPropertyChanged(nameof(AvailablePictograms));
                 OnPropertyChanged(nameof(Tracks));
+                SkiaPictogramImageCache.Preload(affectedClips.Select(c => c.ImagePath));
             }
 
             ApplyRelinkCreated(pictogramId, toId);
@@ -1239,6 +1259,7 @@ public partial class TimelineEditorViewModel : Document
                     ImageBitmapCache.Invalidate(currentPath);
                     OnPropertyChanged(nameof(AvailablePictograms));
                     OnPropertyChanged(nameof(Tracks));
+                    SkiaPictogramImageCache.Preload(affectedClips.Select(c => c.ImagePath));
                 },
                 redo: () => ApplyRelinkCreated(pictogramId, toId)
             );
@@ -1396,6 +1417,8 @@ public partial class TimelineEditorViewModel : Document
         ImageBitmapCache.Invalidate(outputPath);
         if (!string.IsNullOrWhiteSpace(clip.ImagePath))
             ImageBitmapCache.Invalidate(clip.ImagePath);
+
+        SkiaPictogramImageCache.Preload([clip.ImagePath]);
 
         OnPropertyChanged(nameof(AvailablePictograms));
         OnPropertyChanged(nameof(Tracks));

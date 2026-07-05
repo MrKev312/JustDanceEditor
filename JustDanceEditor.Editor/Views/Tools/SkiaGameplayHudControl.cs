@@ -1,12 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using SkiaSharp;
@@ -21,10 +21,17 @@ using System.Runtime.InteropServices;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
-public sealed class SkiaPictogramPreviewControl : Control
+public sealed class SkiaGameplayHudControl : Control
 {
+    private const double BaseWidth = 1920;
+    private const double BaseHeight = 1080;
+
+    private static readonly Rect CurrentLyricBaseBounds = new(48, 892, 860, 74);
+    private static readonly Rect NextLyricBaseBounds = new(48, 974, 860, 50);
+    private static readonly Rect PictogramBaseBounds = new(1095, 808, 825, 220);
+
     public static readonly StyledProperty<double> CurrentBeatProperty =
-        AvaloniaProperty.Register<SkiaPictogramPreviewControl, double>(nameof(CurrentBeat));
+        AvaloniaProperty.Register<SkiaGameplayHudControl, double>(nameof(CurrentBeat));
 
     public double CurrentBeat
     {
@@ -33,7 +40,7 @@ public sealed class SkiaPictogramPreviewControl : Control
     }
 
     public static readonly StyledProperty<TimelineEditorViewModel?> ActiveTimelineProperty =
-        AvaloniaProperty.Register<SkiaPictogramPreviewControl, TimelineEditorViewModel?>(nameof(ActiveTimeline));
+        AvaloniaProperty.Register<SkiaGameplayHudControl, TimelineEditorViewModel?>(nameof(ActiveTimeline));
 
     public TimelineEditorViewModel? ActiveTimeline
     {
@@ -41,30 +48,64 @@ public sealed class SkiaPictogramPreviewControl : Control
         set => SetValue(ActiveTimelineProperty, value);
     }
 
-    public static readonly StyledProperty<bool> AllowFadeOutOverflowProperty =
-        AvaloniaProperty.Register<SkiaPictogramPreviewControl, bool>(nameof(AllowFadeOutOverflow));
+    public static readonly StyledProperty<LyricLineViewModel?> CurrentLineProperty =
+        AvaloniaProperty.Register<SkiaGameplayHudControl, LyricLineViewModel?>(nameof(CurrentLine));
 
-    public bool AllowFadeOutOverflow
+    public LyricLineViewModel? CurrentLine
     {
-        get => GetValue(AllowFadeOutOverflowProperty);
-        set => SetValue(AllowFadeOutOverflowProperty, value);
+        get => GetValue(CurrentLineProperty);
+        set => SetValue(CurrentLineProperty, value);
+    }
+
+    public static readonly StyledProperty<LyricLineViewModel?> NextLineProperty =
+        AvaloniaProperty.Register<SkiaGameplayHudControl, LyricLineViewModel?>(nameof(NextLine));
+
+    public LyricLineViewModel? NextLine
+    {
+        get => GetValue(NextLineProperty);
+        set => SetValue(NextLineProperty, value);
+    }
+
+    public static readonly StyledProperty<Color> TargetColorProperty =
+        AvaloniaProperty.Register<SkiaGameplayHudControl, Color>(nameof(TargetColor), Colors.SkyBlue);
+
+    public Color TargetColor
+    {
+        get => GetValue(TargetColorProperty);
+        set => SetValue(TargetColorProperty, value);
+    }
+
+    public static readonly StyledProperty<double> HudOpacityProperty =
+        AvaloniaProperty.Register<SkiaGameplayHudControl, double>(nameof(HudOpacity), 1.0);
+
+    public double HudOpacity
+    {
+        get => GetValue(HudOpacityProperty);
+        set => SetValue(HudOpacityProperty, value);
     }
 
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
     private readonly List<PictogramClipViewModel> _sortedPictograms = [];
     private readonly List<DrawItem> _drawItems = [];
-    private readonly List<HitItem> _lastHitItems = [];
     private TrackViewModel? _pictogramTrack;
     private TimelineEditorViewModel? _subscribedTimeline;
-    private ClipViewModel? _draggingClip;
-    private double _dragOffsetX;
-    private double _lastScrollDuration;
     private bool _pictogramCacheDirty = true;
+    private SkiaLyricLineLayout? _currentLyricLayout;
+    private SkiaLyricLineLayout? _nextLyricLayout;
 
-    static SkiaPictogramPreviewControl()
+    static SkiaGameplayHudControl()
     {
-        AffectsRender<SkiaPictogramPreviewControl>(CurrentBeatProperty, ActiveTimelineProperty, AllowFadeOutOverflowProperty);
-        ActiveTimelineProperty.Changed.AddClassHandler<SkiaPictogramPreviewControl>((control, _) => control.OnActiveTimelineChanged());
+        AffectsRender<SkiaGameplayHudControl>(
+            CurrentBeatProperty,
+            ActiveTimelineProperty,
+            CurrentLineProperty,
+            NextLineProperty,
+            TargetColorProperty,
+            HudOpacityProperty);
+
+        ActiveTimelineProperty.Changed.AddClassHandler<SkiaGameplayHudControl>((control, _) => control.OnActiveTimelineChanged());
+        CurrentLineProperty.Changed.AddClassHandler<SkiaGameplayHudControl>((control, _) => control.ResetCurrentLyricLayout());
+        NextLineProperty.Changed.AddClassHandler<SkiaGameplayHudControl>((control, _) => control.ResetNextLyricLayout());
     }
 
     private void OnActiveTimelineChanged()
@@ -78,23 +119,49 @@ public sealed class SkiaPictogramPreviewControl : Control
         base.Render(context);
 
         Size size = Bounds.Size;
-        if (size.Width <= 1 || size.Height <= 1)
+        double hudOpacity = Math.Clamp(HudOpacity, 0, 1);
+        if (size.Width <= 1 || size.Height <= 1 || hudOpacity <= 0.001)
             return;
 
-        BuildDrawItems(size, updateHitItems: IsHitTestVisible);
-        Rect drawBounds = AllowFadeOutOverflow
-            ? new Rect(0, -size.Height, size.Width, size.Height * 2)
-            : new Rect(size);
-        context.Custom(SkiaPictogramDrawOperation.Create(drawBounds, _drawItems));
+        BuildPictogramDrawItems(size);
+
+        Rect currentLyricBounds = ScaleRect(CurrentLyricBaseBounds, size);
+        Rect nextLyricBounds = ScaleRect(NextLyricBaseBounds, size);
+        SkiaLyricLineLayout? currentLyricLayout = EnsureLyricLayout(ref _currentLyricLayout, CurrentLine, currentLyricBounds);
+        SkiaLyricLineLayout? nextLyricLayout = EnsureLyricLayout(ref _nextLyricLayout, NextLine, nextLyricBounds);
+
+        context.Custom(SkiaGameplayHudDrawOperation.Create(
+            new Rect(size),
+            _drawItems,
+            currentLyricLayout,
+            nextLyricLayout,
+            CurrentBeat,
+            TargetColor,
+            hudOpacity));
     }
 
-    private void BuildDrawItems(Size size, bool updateHitItems)
+    private SkiaLyricLineLayout? EnsureLyricLayout(ref SkiaLyricLineLayout? layout, LyricLineViewModel? line, Rect bounds)
+    {
+        if (line == null || line.Clips.Count == 0)
+        {
+            layout?.Dispose();
+            layout = null;
+            return null;
+        }
+
+        if (layout?.Matches(line, bounds, isTextLeftAligned: true) == true)
+            return layout;
+
+        layout?.Dispose();
+        layout = SkiaLyricLineLayout.Create(line, bounds, isTextLeftAligned: true);
+        return layout;
+    }
+
+    private void BuildPictogramDrawItems(Size size)
     {
         EnsureTimelineSubscription();
 
         _drawItems.Clear();
-        if (updateHitItems)
-            _lastHitItems.Clear();
 
         TimelineEditorViewModel? timeline = ActiveTimeline;
         TrackViewModel? track = _pictogramTrack;
@@ -109,6 +176,7 @@ public sealed class SkiaPictogramPreviewControl : Control
         if (scrollDuration <= 0)
             return;
 
+        Rect pictogramBounds = ScaleRect(PictogramBaseBounds, size);
         int coachCount = timeline.CoachCount;
         double defaultAspect = GetDefaultAspect(coachCount);
         double searchStartBeat = currentBeat - scrollDuration;
@@ -129,9 +197,9 @@ public sealed class SkiaPictogramPreviewControl : Control
             double expectedWidth = GetPictogramExpectedWidth(coachCount);
             double stopBeat = startBeat + beatsPerPixel * expectedWidth;
 
-            double drawX = size.Width * ((startBeat - currentBeat) / scrollDuration);
-            double drawWidth = size.Width * ((stopBeat - startBeat) / scrollDuration);
-            if (drawWidth <= 0 || drawX > size.Width || drawX + drawWidth < 0)
+            double relativeDrawX = pictogramBounds.Width * ((startBeat - currentBeat) / scrollDuration);
+            double drawWidth = pictogramBounds.Width * ((stopBeat - startBeat) / scrollDuration);
+            if (drawWidth <= 0 || relativeDrawX > pictogramBounds.Width || relativeDrawX + drawWidth < 0)
                 continue;
 
             SkiaPictogramImage? image = null;
@@ -143,26 +211,22 @@ public sealed class SkiaPictogramPreviewControl : Control
                 : defaultAspect;
 
             double drawHeight = drawWidth * aspect;
-            double drawY = (size.Height - drawHeight) / 2.0;
+            double drawX = pictogramBounds.X + relativeDrawX;
+            double drawY = pictogramBounds.Y + (pictogramBounds.Height - drawHeight) / 2.0;
 
-            double offScreenLeft = drawX < 0 ? -drawX / drawWidth : 0;
+            double offScreenLeft = relativeDrawX < 0 ? -relativeDrawX / drawWidth : 0;
             double opacity = Math.Clamp(1.0 - 1.8 * offScreenLeft, 0, 1);
-            if (drawX < 0)
+            if (relativeDrawX < 0)
             {
                 drawY -= 0.4 * drawHeight * offScreenLeft;
-                drawX = 0;
+                drawX = pictogramBounds.X;
             }
 
             if (opacity <= 0.01 || drawHeight <= 0)
                 continue;
 
-            Rect rect = new(drawX, drawY, drawWidth, drawHeight);
-            _drawItems.Add(new DrawItem(image, rect, opacity));
-            if (updateHitItems)
-                _lastHitItems.Add(new HitItem(pictogram, rect));
+            _drawItems.Add(new DrawItem(image, new Rect(drawX, drawY, drawWidth, drawHeight), opacity));
         }
-
-        _lastScrollDuration = scrollDuration;
     }
 
     private void EnsureTimelineSubscription()
@@ -287,69 +351,27 @@ public sealed class SkiaPictogramPreviewControl : Control
         base.OnDetachedFromVisualTree(e);
         UnsubscribeTrack();
         _subscribedTimeline = null;
+        ResetCurrentLyricLayout();
+        ResetNextLyricLayout();
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    private void ResetCurrentLyricLayout()
     {
-        base.OnPointerPressed(e);
-
-        PointerPoint pointer = e.GetCurrentPoint(this);
-        if (!pointer.Properties.IsLeftButtonPressed)
-            return;
-
-        Point point = pointer.Position;
-        for (int i = _lastHitItems.Count - 1; i >= 0; i--)
-        {
-            HitItem item = _lastHitItems[i];
-            if (!item.Bounds.Contains(point))
-                continue;
-
-            _draggingClip = item.Clip;
-            _dragOffsetX = point.X - item.Bounds.X;
-            e.Pointer.Capture(this);
-            e.Handled = true;
-            break;
-        }
+        _currentLyricLayout?.Dispose();
+        _currentLyricLayout = null;
     }
 
-    protected override void OnPointerMoved(PointerEventArgs e)
+    private void ResetNextLyricLayout()
     {
-        base.OnPointerMoved(e);
-
-        if (_draggingClip == null || ActiveTimeline == null || Bounds.Width <= 0 || _lastScrollDuration <= 0)
-            return;
-
-        Point point = e.GetCurrentPoint(this).Position;
-        double newDrawX = Math.Clamp(point.X - _dragOffsetX, 0, Bounds.Width);
-        double newStart = CurrentBeat + newDrawX / Bounds.Width * _lastScrollDuration;
-        if (newStart < 0)
-            newStart = 0;
-
-        newStart = SnappingService.FindSnapBeat(newStart, ActiveTimeline, [_draggingClip]);
-        _draggingClip.StartBeat = newStart;
-
-        InvalidateVisual();
-        e.Handled = true;
+        _nextLyricLayout?.Dispose();
+        _nextLyricLayout = null;
     }
 
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    private static Rect ScaleRect(Rect rect, Size size)
     {
-        base.OnPointerReleased(e);
-        ClearDrag(e.Pointer);
-        e.Handled = true;
-    }
-
-    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
-    {
-        base.OnPointerCaptureLost(e);
-        ClearDrag(null);
-    }
-
-    private void ClearDrag(IPointer? pointer)
-    {
-        _draggingClip = null;
-        _dragOffsetX = 0;
-        pointer?.Capture(null);
+        double scaleX = size.Width / BaseWidth;
+        double scaleY = size.Height / BaseHeight;
+        return new Rect(rect.X * scaleX, rect.Y * scaleY, rect.Width * scaleX, rect.Height * scaleY);
     }
 
     private static double GetScrollDurationInBeats(double beat, TimelineStructureDocument timelineStructure)
@@ -390,45 +412,68 @@ public sealed class SkiaPictogramPreviewControl : Control
         => coachCount > 1 ? 354d / 512d : 1d;
 
     private readonly record struct DrawItem(SkiaPictogramImage? Image, Rect Bounds, double Opacity);
-    private readonly record struct HitItem(ClipViewModel Clip, Rect Bounds);
 
-    private sealed class SkiaPictogramDrawOperation : ICustomDrawOperation
+    private sealed class SkiaGameplayHudDrawOperation : ICustomDrawOperation
     {
         private static readonly SKSamplingOptions SamplingOptions = new(SKFilterMode.Linear, SKMipmapMode.Linear);
 
         private readonly DrawItem[]? _rentedItems;
         private readonly int _itemCount;
+        private readonly SkiaLyricLineLayout? _currentLyricLayout;
+        private readonly SkiaLyricLineLayout? _nextLyricLayout;
+        private readonly double _currentBeat;
+        private readonly Color _targetColor;
+        private readonly double _hudOpacity;
         private bool _disposed;
 
-        private SkiaPictogramDrawOperation(Rect bounds, DrawItem[]? rentedItems, int itemCount)
+        private SkiaGameplayHudDrawOperation(
+            Rect bounds,
+            DrawItem[]? rentedItems,
+            int itemCount,
+            SkiaLyricLineLayout? currentLyricLayout,
+            SkiaLyricLineLayout? nextLyricLayout,
+            double currentBeat,
+            Color targetColor,
+            double hudOpacity)
         {
             Bounds = bounds;
             _rentedItems = rentedItems;
             _itemCount = itemCount;
+            _currentLyricLayout = currentLyricLayout?.AddReference();
+            _nextLyricLayout = nextLyricLayout?.AddReference();
+            _currentBeat = currentBeat;
+            _targetColor = targetColor;
+            _hudOpacity = hudOpacity;
         }
 
         public Rect Bounds { get; }
 
-        public static SkiaPictogramDrawOperation Create(Rect bounds, List<DrawItem> items)
+        public static SkiaGameplayHudDrawOperation Create(
+            Rect bounds,
+            List<DrawItem> items,
+            SkiaLyricLineLayout? currentLyricLayout,
+            SkiaLyricLineLayout? nextLyricLayout,
+            double currentBeat,
+            Color targetColor,
+            double hudOpacity)
         {
             int itemCount = items.Count;
-            if (itemCount == 0)
-                return new SkiaPictogramDrawOperation(bounds, null, 0);
+            DrawItem[]? rentedItems = null;
+            if (itemCount > 0)
+            {
+                rentedItems = ArrayPool<DrawItem>.Shared.Rent(itemCount);
+                CollectionsMarshal.AsSpan(items).CopyTo(rentedItems);
+            }
 
-            DrawItem[] rentedItems = ArrayPool<DrawItem>.Shared.Rent(itemCount);
-            CollectionsMarshal.AsSpan(items).CopyTo(rentedItems);
-            return new SkiaPictogramDrawOperation(bounds, rentedItems, itemCount);
+            return new SkiaGameplayHudDrawOperation(bounds, rentedItems, itemCount, currentLyricLayout, nextLyricLayout, currentBeat, targetColor, hudOpacity);
         }
 
-        public bool HitTest(Point p) => Bounds.Contains(p);
+        public bool HitTest(Point p) => false;
 
         public bool Equals(ICustomDrawOperation? other) => false;
 
         public void Render(ImmediateDrawingContext context)
         {
-            if (_rentedItems == null)
-                return;
-
             if (context.TryGetFeature(typeof(ISkiaSharpApiLeaseFeature)) is not ISkiaSharpApiLeaseFeature leaseFeature)
                 return;
 
@@ -438,34 +483,44 @@ public sealed class SkiaPictogramPreviewControl : Control
             try
             {
                 canvas.ClipRect(Bounds.ToSKRect(), SKClipOperation.Intersect, antialias: false);
-
-                using SKPaint paint = new()
-                {
-                    IsAntialias = true
-                };
-
-                for (int i = 0; i < _itemCount; i++)
-                {
-                    DrawItem item = _rentedItems[i];
-                    SKRect destination = item.Bounds.ToSKRect();
-                    paint.Color = new SKColor(255, 255, 255, (byte)Math.Round(item.Opacity * 255));
-
-                    if (item.Image != null)
-                    {
-                        canvas.DrawImage(item.Image.Image, destination, SamplingOptions, paint);
-                    }
-                    else
-                    {
-                        paint.Style = SKPaintStyle.Fill;
-                        paint.Color = new SKColor(64, 64, 64, (byte)Math.Round(item.Opacity * 180));
-                        canvas.DrawRoundRect(destination, 4, 4, paint);
-                        paint.Style = SKPaintStyle.Fill;
-                    }
-                }
+                RenderPictograms(canvas);
+                SkiaLyricRenderer.Render(canvas, _currentLyricLayout, _currentBeat, _targetColor, _hudOpacity);
+                SkiaLyricRenderer.Render(canvas, _nextLyricLayout, -1, Colors.White, _hudOpacity);
             }
             finally
             {
                 canvas.Restore();
+            }
+        }
+
+        private void RenderPictograms(SKCanvas canvas)
+        {
+            if (_rentedItems == null)
+                return;
+
+            using SKPaint paint = new()
+            {
+                IsAntialias = true
+            };
+
+            for (int i = 0; i < _itemCount; i++)
+            {
+                DrawItem item = _rentedItems[i];
+                SKRect destination = item.Bounds.ToSKRect();
+                byte alpha = (byte)Math.Clamp(Math.Round(item.Opacity * _hudOpacity * 255), 0, 255);
+                paint.Color = new SKColor(255, 255, 255, alpha);
+
+                if (item.Image != null)
+                {
+                    canvas.DrawImage(item.Image.Image, destination, SamplingOptions, paint);
+                }
+                else
+                {
+                    paint.Style = SKPaintStyle.Fill;
+                    paint.Color = new SKColor(64, 64, 64, (byte)Math.Clamp(Math.Round(item.Opacity * _hudOpacity * 180), 0, 255));
+                    canvas.DrawRoundRect(destination, 4, 4, paint);
+                    paint.Style = SKPaintStyle.Fill;
+                }
             }
         }
 
@@ -476,6 +531,9 @@ public sealed class SkiaPictogramPreviewControl : Control
 
             if (_rentedItems != null)
                 ArrayPool<DrawItem>.Shared.Return(_rentedItems, clearArray: true);
+
+            _currentLyricLayout?.Dispose();
+            _nextLyricLayout?.Dispose();
 
             _disposed = true;
         }
