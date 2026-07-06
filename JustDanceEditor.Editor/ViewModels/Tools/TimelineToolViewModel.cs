@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+using Avalonia.Threading;
 
 using Dock.Model.Mvvm.Controls;
 
@@ -21,8 +21,27 @@ public abstract partial class TimelineToolViewModel : Tool
     private EventHandler? _playbackTimeChangedHandler;
     private PropertyChangedEventHandler? _timelinePropertyChangedHandler;
 
-    [ObservableProperty]
-    public partial TimelineEditorViewModel? ActiveTimeline { get; set; }
+    public TimelineEditorViewModel? ActiveTimeline
+    {
+        get;
+        set
+        {
+            if (ReferenceEquals(field, value))
+                return;
+
+            TimelineEditorViewModel? oldValue = field;
+            if (oldValue != null)
+                UnsubscribeFromTimeline(oldValue);
+
+            field = value;
+            OnPropertyChanged(nameof(ActiveTimeline));
+
+            if (value != null)
+                SubscribeToTimeline(value);
+
+            OnTimelineAttached(value);
+        }
+    }
 
     protected TimelineToolViewModel()
     {
@@ -31,7 +50,7 @@ public abstract partial class TimelineToolViewModel : Tool
         {
             TimelineContext = app.TimelineContext;
             TimelineContext.PropertyChanged += Context_PropertyChanged;
-            ActiveTimeline = TimelineContext.ActiveTimeline;
+            Dispatcher.UIThread.Post(SyncActiveTimelineFromContext);
         }
     }
 
@@ -43,24 +62,9 @@ public abstract partial class TimelineToolViewModel : Tool
         }
     }
 
-    partial void OnActiveTimelineChanging(TimelineEditorViewModel? oldValue, TimelineEditorViewModel? newValue)
+    private void SyncActiveTimelineFromContext()
     {
-        // Detach from previous timeline (do this before the property changes)
-        if (oldValue != null)
-        {
-            UnsubscribeFromTimeline(oldValue);
-        }
-    }
-
-    partial void OnActiveTimelineChanged(TimelineEditorViewModel? value)
-    {
-        // Attach to new timeline (property has been updated, ActiveTimeline == value)
-        if (value != null)
-        {
-            SubscribeToTimeline(value);
-        }
-
-        OnTimelineAttached(value);
+        ActiveTimeline = TimelineContext?.ActiveTimeline;
     }
 
     /// <summary>
