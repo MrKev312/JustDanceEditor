@@ -62,7 +62,6 @@ public sealed class CinematicSceneBoundaryReaderTests
         }
     }
 
-
     [Fact]
     public void Mesh3DLayout_Jd2014ReadsScaleZAfterGraphicComponentHeader()
     {
@@ -77,7 +76,6 @@ public sealed class CinematicSceneBoundaryReaderTests
 
         AssertClose(1.25, scaleZ);
     }
-
 
     [Fact]
     public void Mesh3DLayout_Jd2015ReadsCompactScaleZ()

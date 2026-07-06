@@ -55,7 +55,7 @@ internal static class UnityMapPackageTypeTreeFactory
             ScriptIdHash = CreateHash(scriptHash),
             TypeHash = CreateHash(typeHash),
             Nodes = nodes,
-            StringBufferBytes = stringBuffer.ToArray(),
+            StringBufferBytes = [.. stringBuffer],
             IsRefType = false,
             TypeDependencies = []
         };

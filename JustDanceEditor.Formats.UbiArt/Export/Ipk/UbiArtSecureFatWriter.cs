@@ -32,7 +32,7 @@ public static class UbiArtSecureFatWriter
         ExistingSecureFat existing = TryReadExisting(secureFatPath);
 
         string platformSuffix = "_" + platformFolder;
-        List<UbiArtIpkArchiveIndex> archives = Directory
+        List<UbiArtIpkArchiveIndex> archives = [.. Directory
             .EnumerateFiles(archiveFolder, "*.ipk", SearchOption.TopDirectoryOnly)
             .Where(path => Path.GetFileNameWithoutExtension(path)
                 .EndsWith(platformSuffix, StringComparison.OrdinalIgnoreCase))
@@ -50,8 +50,7 @@ public static class UbiArtSecureFatWriter
             })
             .OfType<UbiArtIpkArchiveIndex>()
             .Where(archive => !archive.IsPatch)
-            .OrderBy(archive => archive.FileName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(archive => archive.FileName, StringComparer.OrdinalIgnoreCase)];
 
         if (archives.Count == 0)
         {
@@ -180,9 +179,7 @@ public static class UbiArtSecureFatWriter
     {
         List<BundleEntry> bundles = [];
         HashSet<byte> usedIds = [];
-        List<(UbiArtIpkArchiveIndex Archive, string Name)> namedArchives = archives
-            .Select(archive => (Archive: archive, Name: GetBundleName(archive.FileName, platformFolder)))
-            .ToList();
+        List<(UbiArtIpkArchiveIndex Archive, string Name)> namedArchives = [.. archives.Select(archive => (Archive: archive, Name: GetBundleName(archive.FileName, platformFolder)))];
 
         foreach ((UbiArtIpkArchiveIndex archive, string bundleName) in namedArchives)
         {

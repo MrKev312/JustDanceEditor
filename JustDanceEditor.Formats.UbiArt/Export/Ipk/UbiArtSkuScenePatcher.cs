@@ -288,13 +288,12 @@ internal static class UbiArtSkuScenePatcher
     {
         updatedBytes = originalBytes;
 
-        List<LegacySkuActor> duplicateSongDescActors = actors
+        List<LegacySkuActor> duplicateSongDescActors = [.. actors
             .Where(actor => actor.IsSongDescActor)
             .GroupBy(actor => actor.ResourceId)
             .Where(group => group.Count() > 1)
             .SelectMany(group => group)
-            .Where(actor => actor.ResourceId == ComputeLegacyResourceId(GetFileName(actor.FullPath)))
-            .ToList();
+            .Where(actor => actor.ResourceId == ComputeLegacyResourceId(GetFileName(actor.FullPath)))];
 
         if (duplicateSongDescActors.Count == 0)
             return false;
@@ -385,7 +384,7 @@ internal static class UbiArtSkuScenePatcher
 
             int countOffset = offset;
             int coverCount = ReadInt32BigEndian(footer, ref offset);
-            if (coverCount < 0 || coverCount > 10000)
+            if (coverCount is < 0 or > 10000)
                 return false;
 
             bool? folderFirst = null;
@@ -561,9 +560,9 @@ internal static class UbiArtSkuScenePatcher
             : SecondPathPart + FirstPathPart;
 
         private static bool LooksLikeFolder(string value)
-            => value.EndsWith("/", StringComparison.Ordinal) || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
+            => value.EndsWith('/') || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
     }
 
     private static bool LooksLikeFolder(string value)
-        => value.EndsWith("/", StringComparison.Ordinal) || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        => value.EndsWith('/') || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
 }

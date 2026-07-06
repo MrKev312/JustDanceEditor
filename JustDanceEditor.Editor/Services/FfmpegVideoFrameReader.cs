@@ -77,7 +77,7 @@ internal sealed class FfmpegVideoFrameReader
                 if (bytesRead != frameByteCount)
                     throw new InvalidOperationException("FFmpeg ended before a complete video frame was read.");
 
-                double frameSeconds = startSeconds + frameIndex / Math.Max(1, info.FrameRate);
+                double frameSeconds = startSeconds + (frameIndex / Math.Max(1, info.FrameRate));
                 frameIndex++;
                 bool shouldContinue = await onFrame(frameBytes, info, frameSeconds, cancellationToken);
                 if (!shouldContinue)

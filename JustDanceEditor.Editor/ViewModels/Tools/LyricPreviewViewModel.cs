@@ -231,8 +231,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             return;
         }
 
-        TimelineStructureDocument ts = ActiveTimeline.TimelineStructure;
-        double currentSeconds = ts.GetSecondsAtBeat(CurrentBeat);
+        TimelineEditorViewModel timeline = ActiveTimeline;
+        double currentSeconds = timeline.GetPlaybackSecondsAtBeatLabel(CurrentBeat);
 
         // Find the index of the first line that hasn't finished yet
         int idx = _allLines.FindIndex(l => l.EndBeat > CurrentBeat);
@@ -245,7 +245,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         else
         {
             LyricLineViewModel targetLine = _allLines[idx];
-            double startSeconds = ts.GetSecondsAtBeat(targetLine.StartBeat);
+            double startSeconds = timeline.GetPlaybackSecondsAtBeatLabel(targetLine.StartBeat);
 
             // If we are currently singing the line OR it starts within the next 2 seconds
             if (CurrentBeat >= targetLine.StartBeat || (startSeconds - currentSeconds) <= 2.0)

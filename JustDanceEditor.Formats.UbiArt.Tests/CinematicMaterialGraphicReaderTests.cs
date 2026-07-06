@@ -67,7 +67,6 @@ public sealed class CinematicMaterialGraphicReaderTests
         }
     }
 
-
     [Fact]
     public void MaterialGraphicPathScan_ReturnsTextureOnlyActorWithoutMaterial()
     {
@@ -113,7 +112,6 @@ public sealed class CinematicMaterialGraphicReaderTests
             stream.Write(text);
         }
     }
-
 
     [Fact]
     public void MaterialGraphicPathScan_ReturnsMaterialWhenTailBoundaryIsNotSerialized()
@@ -168,7 +166,6 @@ public sealed class CinematicMaterialGraphicReaderTests
         }
     }
 
-
     [Fact]
     public void MaterialGraphicTextureOrder_PreservesSerializedSlotsWhenMaterialNameMatchesLaterLayer()
     {
@@ -185,7 +182,6 @@ public sealed class CinematicMaterialGraphicReaderTests
             ],
             ordered);
     }
-
 
     [Fact]
     public void MaterialGraphicTextureOrder_PreservesNumberedVariantsBeforePrimary()
@@ -205,7 +201,6 @@ public sealed class CinematicMaterialGraphicReaderTests
             ],
             ordered);
     }
-
 
     [Fact]
     public void MaterialGraphicPathScan_StopsAtNextActorBoundary()
@@ -256,7 +251,6 @@ public sealed class CinematicMaterialGraphicReaderTests
         }
     }
 
-
     [Fact]
     public void MaterialGraphicLayout_Jd2014ReadsAtlasIndexBeforeAnchor()
     {
@@ -297,7 +291,6 @@ public sealed class CinematicMaterialGraphicReaderTests
             0));
     }
 
-
     [Fact]
     public void MaterialGraphicLayout_Jd2015ReadsCompactAnchorFields()
     {
@@ -321,5 +314,4 @@ public sealed class CinematicMaterialGraphicReaderTests
         AssertClose(-0.3, fields.CustomAnchorX);
         AssertClose(-0.7, fields.CustomAnchorY);
     }
-
 }

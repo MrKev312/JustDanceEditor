@@ -1,12 +1,15 @@
-using JustDanceEditor.Editor.Attributes;
-using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
-
 using Avalonia.Media;
 using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+
+using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI.Timelines;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using System;
 using System.Collections.Generic;
@@ -40,6 +43,8 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
     [ObservableProperty]
     public partial double HudOpacity { get; set; } = 1.0;
 
+    public MotionRecordingScoreHudService ScoreHud { get; }
+
     private readonly List<LyricLineViewModel> _allLines = [];
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = [];
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _hideHudClipHandlers = [];
@@ -47,6 +52,12 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
     private TrackViewModel? _hideHudTrack;
     private int _lineIndex = -1;
     private bool _rebuildPending;
+
+    public GameplayPreviewViewModel()
+    {
+        IServiceProvider? services = (Avalonia.Application.Current as App)?.Services;
+        ScoreHud = services?.GetService<MotionRecordingScoreHudService>() ?? new MotionRecordingScoreHudService();
+    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
@@ -297,8 +308,8 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
             return;
         }
 
-        TimelineStructureDocument timelineStructure = ActiveTimeline.TimelineStructure;
-        double currentSeconds = timelineStructure.GetSecondsAtBeat(CurrentBeat);
+        TimelineEditorViewModel timeline = ActiveTimeline;
+        double currentSeconds = timeline.GetPlaybackSecondsAtBeatLabel(CurrentBeat);
         int lineIndex = GetActiveLineIndex(CurrentBeat);
 
         if (lineIndex == -1)
@@ -310,7 +321,7 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
         }
 
         LyricLineViewModel targetLine = _allLines[lineIndex];
-        double startSeconds = timelineStructure.GetSecondsAtBeat(targetLine.StartBeat);
+        double startSeconds = timeline.GetPlaybackSecondsAtBeatLabel(targetLine.StartBeat);
 
         _lineIndex = lineIndex;
         if (CurrentBeat >= targetLine.StartBeat || startSeconds - currentSeconds <= 2.0)
@@ -345,7 +356,6 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
         if (hideHudTrack == null)
             return 1.0;
 
-        TimelineStructureDocument timelineStructure = timeline.TimelineStructure;
         double opacity = 1.0;
         foreach (HideUserInterfaceClipViewModel clip in hideHudTrack.Clips.OfType<HideUserInterfaceClipViewModel>())
         {
@@ -357,12 +367,12 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
             if (clipEnd <= clipStart)
                 continue;
 
-            bool reachesTimelineEnd = clipEnd >= timelineStructure.EndBeat - BeatEpsilon;
+            bool reachesTimelineEnd = clipEnd >= timeline.TimelineStructure.EndBeat - BeatEpsilon;
             bool isInsideClip = beat >= clipStart && (beat < clipEnd || (reachesTimelineEnd && beat <= clipEnd));
             if (!isInsideClip)
                 continue;
 
-            opacity = Math.Min(opacity, GetClipHudOpacity(timelineStructure, clipStart, clipEnd, beat));
+            opacity = Math.Min(opacity, GetClipHudOpacity(timeline, clipStart, clipEnd, beat));
             if (opacity <= 0)
                 return 0;
         }
@@ -370,14 +380,15 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
         return opacity;
     }
 
-    private static double GetClipHudOpacity(TimelineStructureDocument timelineStructure, double clipStart, double clipEnd, double beat)
+    private static double GetClipHudOpacity(TimelineEditorViewModel timeline, double clipStart, double clipEnd, double beat)
     {
+        TimelineStructureDocument timelineStructure = timeline.TimelineStructure;
         bool startsAtTimelineStart = clipStart <= timelineStructure.StartBeat + BeatEpsilon;
         bool endsAtTimelineEnd = clipEnd >= timelineStructure.EndBeat - BeatEpsilon;
 
-        double currentSeconds = timelineStructure.GetSecondsAtBeat(beat);
-        double startSeconds = timelineStructure.GetSecondsAtBeat(clipStart);
-        double endSeconds = timelineStructure.GetSecondsAtBeat(clipEnd);
+        double currentSeconds = timeline.GetPlaybackSecondsAtBeatLabel(beat);
+        double startSeconds = timeline.GetPlaybackSecondsAtBeatLabel(clipStart);
+        double endSeconds = timeline.GetPlaybackSecondsAtBeatLabel(clipEnd);
 
         double opacity = 0.0;
         if (!startsAtTimelineStart)

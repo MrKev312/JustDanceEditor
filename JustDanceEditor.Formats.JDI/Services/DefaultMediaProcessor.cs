@@ -152,10 +152,10 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
         => (request.Start > TimeSpan.Zero || request.Duration.HasValue) && HasTimestampSensitiveAudioFilter(request);
 
     private static bool HasTimestampSensitiveAudioFilter(JdiAudioEncodeRequest request)
-        => request.FadeInDuration is { } fadeIn && fadeIn > TimeSpan.Zero ||
-           request.FadeOutStart is not null &&
+        => (request.FadeInDuration is { } fadeIn && fadeIn > TimeSpan.Zero) ||
+           (request.FadeOutStart is not null &&
            request.FadeOutDuration is { } fadeOutDuration &&
-           fadeOutDuration > TimeSpan.Zero;
+           fadeOutDuration > TimeSpan.Zero);
 
     private static string ResolveAudioEncoder(string codec)
     {

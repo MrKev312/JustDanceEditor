@@ -654,7 +654,7 @@ internal static class CinematicFriezeReader
             if (value == 0)
                 continue;
 
-            if (value < 0x20 || value > 0x7E)
+            if (value is < 0x20 or > 0x7E)
                 return false;
         }
 

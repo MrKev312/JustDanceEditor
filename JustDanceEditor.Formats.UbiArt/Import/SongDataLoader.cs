@@ -661,7 +661,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
                 StartTime = startTime,
                 Duration = duration,
                 CoachId = forceSingleCoachTimeline ? 0 : motion.CoachId,
-                Color = motion.Color.ToArray()
+                Color = [.. motion.Color]
             },
             GoldEffectClip gold => gold with
             {

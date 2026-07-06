@@ -837,7 +837,6 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
                    Aliases.Any(alias => alias.Equals(value, StringComparison.OrdinalIgnoreCase));
         }
     }
-
 }
 
 internal sealed record DroppedPathOptions(

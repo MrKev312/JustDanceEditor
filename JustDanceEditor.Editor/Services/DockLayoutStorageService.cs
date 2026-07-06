@@ -56,10 +56,8 @@ public sealed class DockLayoutStorageService
 
     public SavedDockLayout Load(string name)
     {
-        SavedDockLayout? layout = TryLoadFromFile(GetLayoutPath(name));
-        if (layout == null)
-            throw new FileNotFoundException($"Layout '{name}' could not be loaded.");
-
+        SavedDockLayout? layout = TryLoadFromFile(GetLayoutPath(name))
+            ?? throw new FileNotFoundException($"Layout '{name}' could not be loaded.");
         return layout;
     }
 

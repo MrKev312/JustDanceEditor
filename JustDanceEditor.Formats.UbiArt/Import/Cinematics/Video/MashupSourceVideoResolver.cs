@@ -112,7 +112,7 @@ internal static class MashupSourceVideoResolver
                 StartBeat = structure.StartBeat,
                 EndBeat = structure.EndBeat,
                 VideoStartOffset = structure.VideoStartTime,
-                Markers = structure.Markers.ToList()
+                Markers = [.. structure.Markers]
             };
             return true;
         }

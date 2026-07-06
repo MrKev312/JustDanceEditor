@@ -170,9 +170,8 @@ public sealed class SkiaGameplayHudControl : Control
 
         EnsurePictogramCache();
 
-        TimelineStructureDocument timelineStructure = timeline.TimelineStructure;
         double currentBeat = CurrentBeat;
-        double scrollDuration = GetScrollDurationInBeats(currentBeat, timelineStructure);
+        double scrollDuration = GetScrollDurationInBeats(currentBeat, timeline);
         if (scrollDuration <= 0)
             return;
 
@@ -193,17 +192,16 @@ public sealed class SkiaGameplayHudControl : Control
                 continue;
 
             double startBeat = pictogram.StartBeat;
-            double beatsPerPixel = GetBeatsPerPixel(coachCount, startBeat, timelineStructure);
+            double beatsPerPixel = GetBeatsPerPixel(coachCount, startBeat, timeline);
             double expectedWidth = GetPictogramExpectedWidth(coachCount);
-            double stopBeat = startBeat + beatsPerPixel * expectedWidth;
+            double stopBeat = startBeat + (beatsPerPixel * expectedWidth);
 
             double relativeDrawX = pictogramBounds.Width * ((startBeat - currentBeat) / scrollDuration);
             double drawWidth = pictogramBounds.Width * ((stopBeat - startBeat) / scrollDuration);
             if (drawWidth <= 0 || relativeDrawX > pictogramBounds.Width || relativeDrawX + drawWidth < 0)
                 continue;
 
-            SkiaPictogramImage? image = null;
-            if (!SkiaPictogramImageCache.TryGet(pictogram.ImagePath, out image))
+            if (!SkiaPictogramImageCache.TryGet(pictogram.ImagePath, out SkiaPictogramImage? image))
                 SkiaPictogramImageCache.ScheduleLoad(pictogram.ImagePath, InvalidateVisual);
 
             double aspect = image != null && image.Width > 0
@@ -212,10 +210,10 @@ public sealed class SkiaGameplayHudControl : Control
 
             double drawHeight = drawWidth * aspect;
             double drawX = pictogramBounds.X + relativeDrawX;
-            double drawY = pictogramBounds.Y + (pictogramBounds.Height - drawHeight) / 2.0;
+            double drawY = pictogramBounds.Y + ((pictogramBounds.Height - drawHeight) / 2.0);
 
             double offScreenLeft = relativeDrawX < 0 ? -relativeDrawX / drawWidth : 0;
-            double opacity = Math.Clamp(1.0 - 1.8 * offScreenLeft, 0, 1);
+            double opacity = Math.Clamp(1.0 - (1.8 * offScreenLeft), 0, 1);
             if (relativeDrawX < 0)
             {
                 drawY -= 0.4 * drawHeight * offScreenLeft;
@@ -374,16 +372,16 @@ public sealed class SkiaGameplayHudControl : Control
         return new Rect(rect.X * scaleX, rect.Y * scaleY, rect.Width * scaleX, rect.Height * scaleY);
     }
 
-    private static double GetScrollDurationInBeats(double beat, TimelineStructureDocument timelineStructure)
+    private static double GetScrollDurationInBeats(double beat, TimelineEditorViewModel timeline)
     {
-        double seconds = timelineStructure.GetSecondsAtBeat(beat);
-        double futureBeat = timelineStructure.GetBeatAtSeconds(seconds + 4.0);
+        double seconds = timeline.GetPlaybackSecondsAtBeatLabel(beat);
+        double futureBeat = timeline.GetBeatLabelAtPlaybackSeconds(seconds + 4.0);
         return futureBeat - beat;
     }
 
-    private static double GetBeatsPerPixel(int coachCount, double beat, TimelineStructureDocument timelineStructure)
+    private static double GetBeatsPerPixel(int coachCount, double beat, TimelineEditorViewModel timeline)
     {
-        double duration = GetScrollDurationInBeats(beat, timelineStructure);
+        double duration = GetScrollDurationInBeats(beat, timeline);
         double scrollWidthPixels = GetScrollWidthInUaf2DCoords(coachCount) / 0.4;
         return duration / scrollWidthPixels;
     }

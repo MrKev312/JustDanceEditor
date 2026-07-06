@@ -148,22 +148,6 @@ public partial class TimelineTrackPanel
                 RenderingHelpers.OverlayStripes(context, rect, clip.RenderColor);
             }
 
-            // Create darker outline from clip color
-            if (drawDetails)
-            {
-                Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
-                double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
-                context.DrawRectangle(null, GetOrCreatePen(outlineColor, outlineThickness), rect);
-            }
-
-            // Selection visual
-            if (clip.IsSelected)
-            {
-                // Slight overlay and gold outline
-                context.FillRectangle(TimelineResources.SelectionOverlay, rect);
-                context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
-            }
-
             if (drawDetails && drawImages && width >= MinimumImageClipWidth && clip.ImagePath != null)
             {
                 if (ImageBitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
@@ -196,6 +180,22 @@ public partial class TimelineTrackPanel
                 if (textX < startX)
                     textX = startX;
                 context.DrawText(ft, new Point(textX, textY));
+            }
+
+            // Create darker outline from clip color
+            if (drawDetails)
+            {
+                Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
+                double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
+                context.DrawRectangle(null, GetOrCreatePen(outlineColor, outlineThickness), rect);
+            }
+
+            // Selection visual
+            if (clip.IsSelected)
+            {
+                // Slight overlay and gold outline
+                context.FillRectangle(TimelineResources.SelectionOverlay, rect);
+                context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
             }
         }
     }
@@ -253,7 +253,7 @@ public partial class TimelineTrackPanel
                 break;
 
             double startX = (clipStart - offset) * ppb;
-            double endX = startX + clip.DurationBeats * ppb;
+            double endX = startX + (clip.DurationBeats * ppb);
             if (endX < visiblePixelStart || startX > visiblePixelEnd)
                 continue;
 

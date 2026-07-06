@@ -126,15 +126,15 @@ internal static partial class UbiArtSoundSetTemplateResolver
     private static string? TryNormalizeFolder(string value)
     {
         string normalized = NormalizePath(value);
-        if (!normalized.Contains("/", StringComparison.Ordinal) || !normalized.EndsWith("/", StringComparison.Ordinal))
+        if (!normalized.Contains('/', StringComparison.Ordinal) || !normalized.EndsWith('/'))
             return null;
 
         return normalized;
     }
 
     private static bool HasDirectory(string path) =>
-        path.Contains("/", StringComparison.Ordinal) ||
-        path.Contains("\\", StringComparison.Ordinal);
+        path.Contains('/', StringComparison.Ordinal) ||
+        path.Contains('\\', StringComparison.Ordinal);
 
     private static string CombineRelative(string folder, string fileName)
     {

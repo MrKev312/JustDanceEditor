@@ -437,7 +437,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private string CreateDockableId(string title)
     {
-        string baseId = new(title.Where(char.IsLetterOrDigit).ToArray());
+        string baseId = new([.. title.Where(char.IsLetterOrDigit)]);
         if (string.IsNullOrWhiteSpace(baseId))
             baseId = "Tool";
 

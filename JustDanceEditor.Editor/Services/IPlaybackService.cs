@@ -4,6 +4,20 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 
+public enum PlaybackInteractionKind
+{
+    Pause,
+    Seek
+}
+
+public sealed class PlaybackInteractionBlockedEventArgs(
+    PlaybackInteractionKind kind,
+    TimeSpan? targetTime = null) : EventArgs
+{
+    public PlaybackInteractionKind Kind { get; } = kind;
+    public TimeSpan? TargetTime { get; } = targetTime;
+}
+
 public interface IPlaybackService : IDisposable
 {
     bool IsPlaying { get; }
@@ -13,6 +27,9 @@ public interface IPlaybackService : IDisposable
 
     event EventHandler TimeChanged;
     event EventHandler PlayStateChanged;
+    event EventHandler<PlaybackInteractionBlockedEventArgs> InteractionBlocked;
+
+    bool IsInteractionLocked { get; set; }
 
     /// <summary>
     /// Loads audio and initialises beat-mapping. Video sync is handled separately by VideoToolViewModel.

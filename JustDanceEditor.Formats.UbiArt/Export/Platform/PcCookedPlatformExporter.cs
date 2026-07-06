@@ -82,5 +82,4 @@ public class PcCookedPlatformExporter : IPlatformExporter
             RakiPcmAudioEncoder.Encode(waveStream, output, platform: "Win ", type: "pcm ");
         });
     }
-
 }

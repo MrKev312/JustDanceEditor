@@ -222,7 +222,7 @@ internal static class SkiaLyricRenderer
 
                 SKRect clip = syllable.PathBounds;
                 clip.Left = syllable.HitBounds.Left - 2;
-                clip.Right = syllable.HitBounds.Left + syllable.Width * progress;
+                clip.Right = syllable.HitBounds.Left + (syllable.Width * progress);
                 clip.Top -= layout.FontSize;
                 clip.Bottom += layout.FontSize;
 

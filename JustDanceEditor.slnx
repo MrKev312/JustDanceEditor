@@ -11,6 +11,7 @@
   <Project Path="JustDanceEditor.Conversion.Abstractions/JustDanceEditor.Conversion.Abstractions.csproj" />
   <Project Path="JustDanceEditor.Editor.Tests/JustDanceEditor.Editor.Tests.csproj" />
   <Project Path="JustDanceEditor.Editor/JustDanceEditor.Editor.csproj" />
+  <Project Path="JustDanceEditor.Generation/JustDanceEditor.Generation.csproj" />
   <Project Path="JustDanceEditor.Formats.JDI.Tests/JustDanceEditor.Formats.JDI.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.JDI/JustDanceEditor.Formats.JDI.csproj" />
   <Project Path="JustDanceEditor.Formats.JDNextPC.Tests/JustDanceEditor.Formats.JDNextPC.Tests.csproj" />
@@ -20,4 +21,5 @@
   <Project Path="JustDanceEditor.Formats.Unity.Tests/JustDanceEditor.Formats.Unity.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
   <Project Path="JustDanceEditor.GUI/JustDanceEditor.GUI.csproj" />
+  <Project Path="JustDanceEditor.Scoring/JustDanceEditor.Scoring.csproj" />
 </Solution>

@@ -90,7 +90,6 @@ public sealed class CinematicMaterialReaderTests
         Assert.Equal(CinematicTextureUsage.EntireTexture, layer1.TextureUsage);
     }
 
-
     [Fact]
     public void MaterialGraphicUvScroll_ForcesAnimatedUvTranslation()
     {
@@ -148,7 +147,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(-2.0, state.TranslationV);
     }
 
-
     [Fact]
     public void MaterialGraphicUvScroll_ClearsAfterClipExit()
     {
@@ -204,7 +202,6 @@ public sealed class CinematicMaterialReaderTests
         Assert.Null(overrides);
         AssertClose(0, state.TranslationU);
     }
-
 
     [Fact]
     public void MaterialGraphicUvScroll_PersistentMaterialStateSurvivesClipExit()
@@ -263,7 +260,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(1.0, state.TranslationU);
     }
 
-
     [Fact]
     public void MaterialReader_ReadsLegacyLayerWithAlphaThresholdBeforeAddressModes()
     {
@@ -294,7 +290,6 @@ public sealed class CinematicMaterialReaderTests
         CinematicUvModifierState state = Assert.Single(sampler.Modifiers);
         AssertClose(0.25f, state.TranslationU);
     }
-
 
     [Fact]
     public void MaterialReader_ReadsSourceSizedLayerWithoutAlphaThreshold()
@@ -335,7 +330,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(2, state.ScaleU);
     }
 
-
     [Fact]
     public void MaterialReader_ReadsMarkedUvModifierListsLargerThanLegacyDefault()
     {
@@ -369,7 +363,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(0.25f, sampler.Modifiers[0].ScaleU);
     }
 
-
     [Fact]
     public void MaterialReader_AllDisabledLegacyAddAlphaFallsBackToDiffuseTexture()
     {
@@ -400,7 +393,6 @@ public sealed class CinematicMaterialReaderTests
         Assert.True(sampler.Enabled);
         Assert.Equal(CinematicTextureUsage.EntireTexture, sampler.TextureUsage);
     }
-
 
     [Fact]
     public void MaterialReader_ReadsDiffuseColorInSourceSerializedOrder()
@@ -433,7 +425,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(1, sampler.DiffuseColor.Alpha);
     }
 
-
     [Theory]
     [InlineData("world/_common/matshader/AddAlpha.msh", 7)]
     [InlineData("world/_common/matshader/Default.msh", 2)]
@@ -447,7 +438,6 @@ public sealed class CinematicMaterialReaderTests
         Assert.Equal(expectedBlendMode, material.BlendMode);
         Assert.True(material.CreateLayer0Sampler(0).Enabled);
     }
-
 
     [Fact]
     public void MaterialReader_PleoAlphaFallbackUsesStackedAlphaSampler()
@@ -464,7 +454,6 @@ public sealed class CinematicMaterialReaderTests
         Assert.Equal(TextureAddressMode.Clamp, sampler.AddressModeU);
         Assert.Equal(TextureAddressMode.Clamp, sampler.AddressModeV);
     }
-
 
     [Fact]
     public void MaterialReader_ShadowMaskColorLayerUsesStaticShadowOpacity()
@@ -487,7 +476,6 @@ public sealed class CinematicMaterialReaderTests
         AssertClose(1, regular.Layers[1].DiffuseColor.GetValueOrDefault().Alpha);
     }
 
-
     [Fact]
     public void MaterialReader_DoesNotCreateShaderFallbackForNonShaderPaths()
     {
@@ -497,5 +485,4 @@ public sealed class CinematicMaterialReaderTests
 
         Assert.False(created);
     }
-
 }

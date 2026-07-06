@@ -13,14 +13,9 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 
-internal sealed class SharedVideoPreviewLease : IDisposable
+internal sealed class SharedVideoPreviewLease(SharedVideoPreviewSession session) : IDisposable
 {
-    private SharedVideoPreviewSession? _session;
-
-    public SharedVideoPreviewLease(SharedVideoPreviewSession session)
-    {
-        _session = session;
-    }
+    private SharedVideoPreviewSession? _session = session;
 
     public SharedVideoPreviewSession Session
         => _session ?? throw new ObjectDisposedException(nameof(SharedVideoPreviewLease));
@@ -41,8 +36,8 @@ internal static class SharedVideoPreviewSessions
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
 
-    private static readonly object Sync = new();
-    private static readonly Dictionary<string, SharedVideoPreviewSession> Sessions = new(PathComparer);
+    private static readonly Lock Sync = new();
+    private static readonly Dictionary<string, SharedVideoPreviewSession> Sessions = [with(PathComparer)];
 
     public static SharedVideoPreviewLease Acquire(string videoPath)
     {
@@ -83,8 +78,8 @@ internal sealed class SharedVideoPreviewSession : IDisposable
 
     private readonly FfmpegVideoFrameReader _frameReader = new();
     private readonly Stopwatch _streamClock = new();
-    private readonly object _stateLock = new();
-    private readonly object _referenceLock = new();
+    private readonly Lock _stateLock = new();
+    private readonly Lock _referenceLock = new();
 
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _streamCts;

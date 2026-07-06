@@ -210,7 +210,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Equal(expected, shouldReadEmbedded);
     }
 
-
     [Fact]
     public void SceneReader_ReadsRootTrailingActorsWhenJd2015CountIsLow()
     {
@@ -318,7 +317,6 @@ public sealed class CinematicSceneReaderTests
             WriteUInt(stream, unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
 
-
     [Fact]
     public void ActorBuilder_SkipsGameplayTimelineAndMenuArtActors()
     {
@@ -352,7 +350,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Equal(graphActor.Key, renderable.Actor.Key);
     }
 
-
     [Fact]
     public void ActorBuilder_PrefersRootVideoOutputOverMisnestedVideoOutput()
     {
@@ -371,7 +368,6 @@ public sealed class CinematicSceneReaderTests
         CinematicActor actor = Assert.Single(selected);
         Assert.Equal(rootVideo.Key, actor.Key);
     }
-
 
     [Fact]
     public void ActorBuilder_IncludesDynamicPleoTextureActorsWithRootVideoOutput()
@@ -401,7 +397,6 @@ public sealed class CinematicSceneReaderTests
             renderable.Plane == CinematicLayerPlane.Background);
     }
 
-
     [Fact]
     public void ActorBuilder_UsesDynamicPleoTextureActorsWhenNoRootVideoOutputExists()
     {
@@ -420,7 +415,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Equal(CinematicRenderKind.PleoVideo, renderable.RenderKind);
         Assert.Equal(CinematicLayerPlane.Background, renderable.Plane);
     }
-
 
     [Fact]
     public void ActorBuilder_MapsVideoTextureComponentMeshMaterialToPleoVideo()
@@ -458,7 +452,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Same(image, renderable.Image);
     }
 
-
     [Fact]
     public void ActorBuilder_PreservesDynamicPleoTextureMeshGeometry()
     {
@@ -488,7 +481,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Equal(CinematicGeometrySource.Mesh3D, renderable.Geometry.Source);
         Assert.Same(meshGeometry, renderable.Geometry);
     }
-
 
     [Fact]
     public void PleoRootVideoOutput_PreservesAuthoredActorPosition()
@@ -534,7 +526,6 @@ public sealed class CinematicSceneReaderTests
         AssertClose(1932, quad.Bounds.Width);
     }
 
-
     [Fact]
     public void FrameLoop_UsesHighestDepthClearColorComponentAsOpaqueCanvasClear()
     {
@@ -566,7 +557,6 @@ public sealed class CinematicSceneReaderTests
         Assert.Equal(255, clear.A);
     }
 
-
     [Fact]
     public void StringId_UsesSourceDobbsUppercaseHash()
     {
@@ -574,7 +564,6 @@ public sealed class CinematicSceneReaderTests
 
         Assert.Equal(LegacyBinarySerializer.GetTypeId<CinematicMaterialGraphicComponentBinary>(), materialGraphicComponentId);
     }
-
 
     [Fact]
     public void AtlasPath_UsesSourceDefaultTextureAtlasName()
@@ -603,5 +592,4 @@ public sealed class CinematicSceneReaderTests
             profile,
             NullLogger<JustDanceUbiArtFileSystem>.Instance);
     }
-
 }

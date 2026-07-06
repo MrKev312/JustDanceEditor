@@ -47,7 +47,6 @@ public sealed class MashupDataTests
         Assert.False(MashupTiming.IsConsecutiveBlock(null, consecutive));
     }
 
-
     [Fact]
     public void MashupVideoTimingUsesBlockflowBeatWithoutVideoOffset()
     {
@@ -62,7 +61,6 @@ public sealed class MashupDataTests
         AssertClose(2.0, MashupTiming.GetOutputSeconds(timeline, absoluteBeat: 2));
     }
 
-
     [Fact]
     public void MashupRenderTimelineDropsNegativePreroll()
     {
@@ -71,7 +69,7 @@ public sealed class MashupDataTests
             StartBeat = -9,
             EndBeat = 446,
             VideoStartOffset = -4.5,
-            Markers = Enumerable.Range(0, 447).Select(i => i * 24000).ToList()
+            Markers = [.. Enumerable.Range(0, 447).Select(i => i * 24000)]
         };
 
         TimelineStructureDocument renderTimeline = MashupTiming.CreateRenderTimeline(timeline);
@@ -83,7 +81,6 @@ public sealed class MashupDataTests
         AssertClose(1.5, MashupTiming.GetOutputSeconds(renderTimeline, absoluteBeat: 3));
         AssertClose(223.0, MashupTiming.GetOutputSeconds(renderTimeline, absoluteBeat: 446));
     }
-
 
     [Fact]
     public void MashupTransitionVisitsScheduleInitialAndPerCoachColorStates()
@@ -180,7 +177,6 @@ public sealed class MashupDataTests
         Assert.Contains("x_lines_2x5", fxVisits[3].TargetFilter!.ExcludeKeyContains);
     }
 
-
     [Fact]
     public void MashupTransitionVisitsSkipConsecutiveLegacyBlocks()
     {
@@ -255,7 +251,6 @@ public sealed class MashupDataTests
         Assert.Null(fxVisits[3].DurationFrames);
     }
 
-
     [Fact]
     public void MashupTransitionFxVisitsDoNotSynthesizeFinalCoachFlash()
     {
@@ -296,7 +291,6 @@ public sealed class MashupDataTests
         Assert.Contains("x_lines_2x5", fxVisits[0].TargetFilter!.IncludeKeyContains);
         Assert.Contains("x_lines_2x5", fxVisits[1].TargetFilter!.ExcludeKeyContains);
     }
-
 
     [Fact]
     public void MashupTransitionVisitsUseAuthoredColorTapeSequence()
@@ -351,7 +345,6 @@ public sealed class MashupDataTests
             colorTapeNames);
         Assert.DoesNotContain(colorTapeNames, name => string.Equals(name, "color_blue.tape", StringComparison.OrdinalIgnoreCase));
     }
-
 
     [Fact]
     public void MashupTransitionVisitsPreserveAuthoredAllColorTapeOrder()
@@ -412,7 +405,6 @@ public sealed class MashupDataTests
             colorTapeNames);
     }
 
-
     [Fact]
     public void MashupNumberedBlockNamesCanFallBackToBaseMapVideos()
     {
@@ -425,7 +417,6 @@ public sealed class MashupDataTests
         Assert.False(MashupSourceVideoResolver.TryGetNumericBlockBaseSongName("KissKiss", out _));
         Assert.False(MashupSourceVideoResolver.TryGetNumericBlockBaseSongName("Song_ALT", out _));
     }
-
 
     [Fact]
     public void MashupPleoUvOverrideMatchesLegacyOutputTargetModifier()
@@ -442,7 +433,7 @@ public sealed class MashupDataTests
         double inverseScale = 1.0 / scale;
         double renderQuadRatio = 16.0 / 9.0;
         double scaleOffsetU = 0.5 - (0.5 / renderQuadRatio);
-        double translationU = (-offsetX / renderQuadRatio) / scale;
+        double translationU = -offsetX / renderQuadRatio / scale;
         double translationV = -offsetY / scale;
 
         CinematicUvRect uv = MashupPleoTrackBuilder.CreateUvOverride(offsetX, offsetY, scale);
@@ -452,6 +443,4 @@ public sealed class MashupDataTests
         AssertClose(inverseScale + (scaleOffsetU * (1.0 - inverseScale)) + translationU, uv.Right);
         AssertClose(inverseScale + translationV, uv.Bottom);
     }
-
-
 }

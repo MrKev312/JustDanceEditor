@@ -99,7 +99,7 @@ public static class UbiArtPictoConverter
 
         logger.LogInformation("Processing {Count} pictograms...", pictoFiles.Length);
         ConcurrentDictionary<string, byte> writtenPictograms = new(StringComparer.OrdinalIgnoreCase);
-        CookedFile[] montageFiles = [.. pictoFiles.Where(file => IsMontage(file))];
+        CookedFile[] montageFiles = [.. pictoFiles.Where(IsMontage)];
         CookedFile[] individualFiles = [.. pictoFiles.Where(file => !IsMontage(file))];
 
         Parallel.For(0, individualFiles.Length, i =>

@@ -29,7 +29,7 @@ internal static class CinematicRenderBinaryTestSupport
         bool? includeAlphaThreshold = null)
     {
         CinematicMaterialColor color = diffuseColor ?? CinematicMaterialColor.White;
-        bool hasAlphaThreshold = includeAlphaThreshold ?? layerSize == 0x3C;
+        bool hasAlphaThreshold = includeAlphaThreshold ?? (layerSize == 0x3C);
         int fixedLayerBytes = hasAlphaThreshold ? 0x2C : 0x28;
         byte[] bytes = new byte[0x6C + fixedLayerBytes + (Math.Max(uvModifierCount, 0) * 0x34)];
         WriteInt32(bytes, 0, 1);
@@ -72,7 +72,6 @@ internal static class CinematicRenderBinaryTestSupport
 
         return bytes;
     }
-
 
     internal static byte[] CreateParticleTemplateBytes()
     {
@@ -222,7 +221,6 @@ internal static class CinematicRenderBinaryTestSupport
         return bytes;
     }
 
-
     internal static byte[] CreateAtlasContainerWithoutUvParametersBytes(
         string firstTexturePath,
         string secondTexturePath)
@@ -278,7 +276,6 @@ internal static class CinematicRenderBinaryTestSupport
             WriteUInt(unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
 
-
     internal static void WriteModifier(byte[] bytes, int offset, CinematicUvModifier modifier)
     {
         WriteSingle(bytes, offset, modifier.TranslationU);
@@ -294,7 +291,6 @@ internal static class CinematicRenderBinaryTestSupport
         WriteSingle(bytes, offset + 40, modifier.ScaleOffsetU);
         WriteSingle(bytes, offset + 44, modifier.ScaleOffsetV);
     }
-
 
     internal static CinematicActor CreateActor(params string[] path) =>
         new(
@@ -329,7 +325,6 @@ internal static class CinematicRenderBinaryTestSupport
             BaseAlpha: 1,
             ParentBind: null);
 
-
     internal static ResolvedActorState CreateState(float x = 0, float y = 0, float z = 0) =>
         new(
             x,
@@ -341,7 +336,6 @@ internal static class CinematicRenderBinaryTestSupport
             Alpha: 1,
             RgbTint.White,
             XFlipped: false);
-
 
     internal static byte[] CreateTargetDescriptorBytes(int tableSize, int segmentHeaderSize, params string[] segments)
     {
@@ -373,20 +367,16 @@ internal static class CinematicRenderBinaryTestSupport
         }
     }
 
-
     internal static void WriteInt32(byte[] bytes, int offset, int value) =>
         BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(offset, 4), value);
 
-
     internal static void WriteUInt32(byte[] bytes, int offset, uint value) =>
         BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(offset, 4), value);
-
 
     internal static void WriteSingle(byte[] bytes, int offset, float value) =>
         BinaryPrimitives.WriteUInt32BigEndian(
             bytes.AsSpan(offset, 4),
             unchecked((uint)BitConverter.SingleToInt32Bits(value)));
-
 
     internal static void AssertClose(double expected, double actual, double tolerance = 0.0001) =>
         Assert.True(Math.Abs(expected - actual) <= tolerance, $"Expected {expected:0.####}, got {actual:0.####}.");

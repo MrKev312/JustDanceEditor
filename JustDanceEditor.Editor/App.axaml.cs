@@ -3,8 +3,10 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.Services.Motion;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.Views;
+using JustDanceEditor.Formats.JDI.Recordings;
 
 using KevInc.Avalonia;
 
@@ -36,6 +38,12 @@ public partial class App : Application
         sc.AddSingleton<TimelineSettingsService>();
         sc.AddSingleton<ITimelineContextService, TimelineContextService>();
         sc.AddSingleton<IDialogService, AvaloniaDialogService>();
+        sc.AddSingleton<MotionRecordingScoreHudService>();
+        sc.AddSingleton<IMotionRecordingRepository, JsonMotionRecordingRepository>();
+        sc.AddTransient<IMotionInputClient, DsuMotionInputClient>();
+        sc.AddTransient<JdiMotionClassifierGenerator>();
+        sc.AddTransient<JdiMotionRecordingLiveScorer>();
+        sc.AddTransient<JdiMotionRecordingAnalyzer>();
 
         // MainWindowViewModel is transient so each app launch gets a fresh instance
         sc.AddTransient<MainWindowViewModel>();

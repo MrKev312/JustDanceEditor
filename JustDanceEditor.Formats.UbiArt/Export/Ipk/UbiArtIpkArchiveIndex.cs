@@ -65,7 +65,7 @@ internal sealed class UbiArtIpkArchiveIndex
         get
         {
             string name = NameWithoutExtension;
-            return name.StartsWith("bundle_", StringComparison.OrdinalIgnoreCase) && !IsNumberedBundle
+            return (name.StartsWith("bundle_", StringComparison.OrdinalIgnoreCase) && !IsNumberedBundle)
                 || name.Equals("bundle", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("bundlelogic", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("logicbundle", StringComparison.OrdinalIgnoreCase)

@@ -39,7 +39,6 @@ public sealed class CinematicParticleTemplateReaderTests
         Assert.Equal(24, template.Phases[1].AnimEnd);
     }
 
-
     [Fact]
     public void ParticleTemplateReader_RejectsNonParticleMaterialBytes()
     {

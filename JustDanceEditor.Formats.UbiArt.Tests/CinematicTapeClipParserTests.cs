@@ -50,7 +50,6 @@ public sealed class CinematicTapeClipParserTests
         }
     }
 
-
     [Fact]
     public void TapeReader_JD2015SoundSetPathStartsImmediatelyAfterClipHeader()
     {

@@ -26,6 +26,32 @@ public static class IntermediatePackageLayout
         public static string FullBodyCoachTimelineFile(int coachId) => $"timelines/coach_{coachId:D2}_fullBody.json";
     }
 
+    public static class Recordings
+    {
+        public const string Folder = "recordings";
+        public const string CoachFolderPattern = "coach_??";
+        public const string RecordingPattern = "*.json";
+
+        public static string CoachFolder(int coachId) => $"{Folder}/coach_{coachId:D2}";
+
+        public static string RecordingFile(int coachId, string fileName)
+        {
+            ValidateRecordingFileName(fileName);
+            return $"{CoachFolder(coachId)}/{fileName}";
+        }
+
+        private static void ValidateRecordingFileName(string fileName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+            if (fileName.Contains('/') || fileName.Contains('\\'))
+                throw new ArgumentException("Recording file names cannot contain path separators.", nameof(fileName));
+
+            if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Recording file names must end with .json.", nameof(fileName));
+        }
+    }
+
     /// <summary>
     /// Provides relative paths for asset files within an intermediate package.
     /// Use <see cref="Resolve(string, string)"/> to convert to absolute paths.

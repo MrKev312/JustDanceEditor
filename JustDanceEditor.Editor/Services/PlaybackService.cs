@@ -1,8 +1,7 @@
-﻿using Avalonia.Threading;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 
 using KevInc.Audio.NAudio.Providers;
 
@@ -69,6 +68,9 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public event EventHandler? TimeChanged;
     public event EventHandler? PlayStateChanged;
+    public event EventHandler<PlaybackInteractionBlockedEventArgs>? InteractionBlocked;
+
+    public bool IsInteractionLocked { get; set; }
 
     public PlaybackService()
         : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows())
@@ -90,7 +92,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         Func<double, double> beatToSeconds,
         Func<double, double> secondsToBeat)
     {
-        Pause();
+        PauseCore();
 
         _beatToSeconds = beatToSeconds;
         _secondsToBeat = secondsToBeat;
@@ -135,7 +137,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         if (CurrentTime >= Duration)
         {
-            Seek(TimeSpan.Zero);
+            SeekCore(TimeSpan.Zero, restorePlayback: false);
         }
 
         UpdateTimerInterval();
@@ -161,6 +163,14 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Pause()
     {
+        if (TryBlockInteraction(PlaybackInteractionKind.Pause))
+            return;
+
+        PauseCore();
+    }
+
+    private void PauseCore()
+    {
         if (!IsPlaying)
             return;
 
@@ -178,9 +188,17 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Seek(TimeSpan time)
     {
+        if (TryBlockInteraction(PlaybackInteractionKind.Seek, time))
+            return;
+
+        SeekCore(time, restorePlayback: true);
+    }
+
+    private void SeekCore(TimeSpan time, bool restorePlayback)
+    {
         bool wasPlaying = IsPlaying;
         if (wasPlaying)
-            Pause();
+            PauseCore();
 
         _baseTime = time;
         if (_baseTime < TimeSpan.Zero)
@@ -201,7 +219,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
-        if (wasPlaying)
+        if (wasPlaying && restorePlayback)
             Play();
     }
 
@@ -209,6 +227,15 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         double seconds = _beatToSeconds(beat);
         Seek(TimeSpan.FromSeconds(seconds));
+    }
+
+    private bool TryBlockInteraction(PlaybackInteractionKind kind, TimeSpan? targetTime = null)
+    {
+        if (!IsInteractionLocked)
+            return false;
+
+        InteractionBlocked?.Invoke(this, new PlaybackInteractionBlockedEventArgs(kind, targetTime));
+        return true;
     }
 
     private void CleanUpAudio()
@@ -420,8 +447,8 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         if (CurrentTime >= Duration)
         {
-            Pause();
-            Seek(Duration);
+            PauseCore();
+            SeekCore(Duration, restorePlayback: false);
             return;
         }
 

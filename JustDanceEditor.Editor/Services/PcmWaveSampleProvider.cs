@@ -22,7 +22,7 @@ internal sealed class PcmWaveSampleProvider(PcmWaveAudioData audio) : ISamplePro
     {
         int availableSamples = checked((int)Math.Min(
             count,
-            Math.Max(0, audio.Samples.LongLength - _positionFrames * audio.Channels)));
+            Math.Max(0, audio.Samples.LongLength - (_positionFrames * audio.Channels))));
 
         int sourceOffset = checked((int)(_positionFrames * audio.Channels));
         for (int i = 0; i < availableSamples; i++)

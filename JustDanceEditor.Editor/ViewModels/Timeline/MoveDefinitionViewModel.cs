@@ -22,7 +22,7 @@ public partial class MoveDefinitionViewModel : ObservableObject
     public partial double DefaultDuration { get; set; } = 24.0;
 
     /// <summary>
-    /// Whether the corresponding asset file exists on disk (MSM or .gesture).
+    /// Whether the corresponding motion classifier or gesture asset exists on disk.
     /// This is calculated by the timeline when the definition is registered.
     /// Library view and clip rendering use this flag to decorate missing moves.
     /// </summary>

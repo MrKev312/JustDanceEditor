@@ -142,7 +142,7 @@ internal static class CinematicSceneReader
         if (spawnClips.Count == 0)
             return scene;
 
-        List<CinematicActor> actors = new(scene.Actors);
+        List<CinematicActor> actors = [.. scene.Actors];
         HashSet<string> actorKeys = new(StringComparer.OrdinalIgnoreCase);
         foreach (CinematicActor actor in actors)
             actorKeys.Add(actor.Key);
@@ -660,7 +660,7 @@ internal static class CinematicSceneReader
             byte value = bytes[offset + i];
             if (value == 0)
                 continue;
-            if (value < 0x20 || value > 0x7E)
+            if (value is < 0x20 or > 0x7E)
                 return false;
         }
 

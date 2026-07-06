@@ -1,0 +1,271 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:motion="clr-namespace:JustDanceEditor.Editor.Services.Motion"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.RecordingsToolView"
+             x:DataType="vm:RecordingsToolViewModel">
+    <Border Background="{DynamicResource JdeSurfaceBrush}" Padding="10">
+        <Panel>
+            <Grid IsVisible="{Binding ShowBrowserPage}" RowDefinitions="Auto,*" RowSpacing="8">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                        <ComboBox ItemsSource="{Binding Recordings}"
+                                  SelectedItem="{Binding SelectedRecording}"
+                                  MinHeight="30"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RecordingListItem">
+                                    <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1" Content="New" Command="{Binding NewRecordingCommand}" MinWidth="62"/>
+                        <Button Grid.Column="2" Content="Delete" Command="{Binding DeleteRecordingCommand}" MinWidth="70"/>
+                        <Button Grid.Column="3" Content="Refresh" Command="{Binding RefreshRecordingsCommand}" MinWidth="76"/>
+                    </Grid>
+
+                    <ComboBox ItemsSource="{Binding ViewOptions}"
+                              SelectedItem="{Binding SelectedView}"
+                              MinHeight="30"
+                              HorizontalAlignment="Stretch"/>
+
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource JdeTextMutedBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Panel Grid.Row="1" ClipToBounds="True">
+                    <TextBlock Text="No active timeline"
+                               IsVisible="{Binding ShowNoTimeline}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+
+                    <TextBlock Text="No recordings"
+                               IsVisible="{Binding ShowNoRecordings}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+
+                    <TextBlock Text="Select a recording"
+                               IsVisible="{Binding ShowNoAnalysis}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+
+                    <ScrollViewer IsVisible="{Binding ShowSummary}"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding SummaryItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RecordingStatItemViewModel">
+                                    <Grid ColumnDefinitions="170,*" Margin="0,2">
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <dg:DataGrid ItemsSource="{Binding WorstIndividualMoves}"
+                                 IsVisible="{Binding ShowWorstMoves}"
+                                 IsReadOnly="True"
+                                 AutoGenerateColumns="False"
+                                 CanUserSortColumns="True"
+                                 CanUserResizeColumns="True"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 GridLinesVisibility="Horizontal"
+                                 SelectionMode="Single"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"
+                                 DoubleTapped="OnMoveGridDoubleTapped">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTextColumn Header="#" Binding="{Binding MoveIndex}" SortMemberPath="MoveIndex" Width="56"/>
+                            <dg:DataGridTextColumn Header="Move" Binding="{Binding MoveId}" SortMemberPath="MoveId" Width="260"/>
+                            <dg:DataGridTextColumn Header="Beat" Binding="{Binding BeatText}" SortMemberPath="StartBeat" Width="90"/>
+                            <dg:DataGridTextColumn Header="Accuracy" Binding="{Binding AccuracyText}" SortMemberPath="Accuracy" Width="100"/>
+                            <dg:DataGridTextColumn Header="Score" Binding="{Binding AddedScoreText}" SortMemberPath="AddedScore" Width="90"/>
+                            <dg:DataGridTextColumn Header="Feedback" Binding="{Binding Feedback}" SortMemberPath="Feedback" Width="120"/>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+
+                    <dg:DataGrid ItemsSource="{Binding WorstAverageMoves}"
+                                 IsVisible="{Binding ShowWorstAverages}"
+                                 IsReadOnly="True"
+                                 AutoGenerateColumns="False"
+                                 CanUserSortColumns="True"
+                                 CanUserResizeColumns="True"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 GridLinesVisibility="Horizontal"
+                                 SelectionMode="Single"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"
+                                 DoubleTapped="OnAggregateGridDoubleTapped">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTextColumn Header="Move" Binding="{Binding MoveId}" SortMemberPath="MoveId" Width="260"/>
+                            <dg:DataGridTextColumn Header="Count" Binding="{Binding Count}" SortMemberPath="Count" Width="80"/>
+                            <dg:DataGridTextColumn Header="Avg" Binding="{Binding AverageAccuracyText}" SortMemberPath="AverageAccuracy" Width="100"/>
+                            <dg:DataGridTextColumn Header="Worst" Binding="{Binding WorstAccuracyText}" SortMemberPath="WorstAccuracy" Width="100"/>
+                            <dg:DataGridTextColumn Header="Best" Binding="{Binding BestAccuracyText}" SortMemberPath="BestAccuracy" Width="100"/>
+                            <dg:DataGridTextColumn Header="Score" Binding="{Binding TotalAddedScoreText}" SortMemberPath="TotalAddedScore" Width="100"/>
+                            <dg:DataGridTextColumn Header="Worst #" Binding="{Binding WorstMoveIndex}" SortMemberPath="WorstMoveIndex" Width="100"/>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+
+                    <Grid IsVisible="{Binding ShowPointsGraph}" RowDefinitions="Auto,*" RowSpacing="6">
+                        <TextBlock Text="{Binding GraphTotalScoreText}"
+                                   HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource JdeTextPrimaryBrush}"
+                                   FontWeight="SemiBold"/>
+                        <local:RecordingLineGraphControl Grid.Row="1"
+                                                         Points="{Binding ScoreGraphPoints}"
+                                                         Markers="{Binding GraphMarkers}"
+                                                         MinBeat="{Binding GraphMinBeat}"
+                                                         MaxBeat="{Binding GraphMaxBeat}"
+                                                         MaxValue="13333"
+                                                         EmptyText="No score data"/>
+                    </Grid>
+
+                    <local:RecordingLineGraphControl IsVisible="{Binding ShowAccuracyGraph}"
+                                                     Points="{Binding AccuracyGraphPoints}"
+                                                     Markers="{Binding GraphMarkers}"
+                                                     MinBeat="{Binding GraphMinBeat}"
+                                                     MaxBeat="{Binding GraphMaxBeat}"
+                                                     MaxValue="100"
+                                                     EmptyText="No accuracy data"/>
+
+                    <dg:DataGrid ItemsSource="{Binding MoveDetails}"
+                                 IsVisible="{Binding ShowAllMoves}"
+                                 IsReadOnly="True"
+                                 AutoGenerateColumns="False"
+                                 CanUserSortColumns="True"
+                                 CanUserResizeColumns="True"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 GridLinesVisibility="Horizontal"
+                                 SelectionMode="Single"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"
+                                 DoubleTapped="OnMoveGridDoubleTapped">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTextColumn Header="#" Binding="{Binding MoveIndex}" SortMemberPath="MoveIndex" Width="56"/>
+                            <dg:DataGridTextColumn Header="Move" Binding="{Binding MoveId}" SortMemberPath="MoveId" Width="260"/>
+                            <dg:DataGridTextColumn Header="Beat" Binding="{Binding BeatText}" SortMemberPath="StartBeat" Width="90"/>
+                            <dg:DataGridTextColumn Header="Accuracy" Binding="{Binding AccuracyText}" SortMemberPath="Accuracy" Width="100"/>
+                            <dg:DataGridTextColumn Header="+Score" Binding="{Binding AddedScoreText}" SortMemberPath="AddedScore" Width="90"/>
+                            <dg:DataGridTextColumn Header="Total" Binding="{Binding TotalScoreText}" SortMemberPath="TotalScore" Width="90"/>
+                            <dg:DataGridTextColumn Header="Feedback" Binding="{Binding Feedback}" SortMemberPath="Feedback" Width="120"/>
+                            <dg:DataGridTextColumn Header="Issue" Binding="{Binding Issue}" SortMemberPath="Issue" Width="360"/>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+
+                    <dg:DataGrid ItemsSource="{Binding Issues}"
+                                 IsVisible="{Binding ShowIssues}"
+                                 IsReadOnly="True"
+                                 AutoGenerateColumns="False"
+                                 CanUserSortColumns="True"
+                                 CanUserResizeColumns="True"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 GridLinesVisibility="Horizontal"
+                                 SelectionMode="Single"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch"
+                                 DoubleTapped="OnIssueGridDoubleTapped">
+                        <dg:DataGrid.Columns>
+                            <dg:DataGridTextColumn Header="#" Binding="{Binding MoveIndexText}" SortMemberPath="MoveIndexSort" Width="70"/>
+                            <dg:DataGridTextColumn Header="Move" Binding="{Binding MoveId}" SortMemberPath="MoveId" Width="240"/>
+                            <dg:DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="520"/>
+                        </dg:DataGrid.Columns>
+                    </dg:DataGrid>
+                </Panel>
+            </Grid>
+
+            <Grid IsVisible="{Binding ShowRecordingPage}" RowDefinitions="Auto,*" RowSpacing="10">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Button Content="Back" Command="{Binding CloseNewRecordingCommand}" MinWidth="70"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding RecordingKinds}"
+                                  SelectedItem="{Binding SelectedRecordingKind}"
+                                  MinHeight="30"
+                                  HorizontalAlignment="Stretch"
+                                  IsEnabled="{Binding CanEditRecordingSetup}"/>
+                    </Grid>
+
+                    <StackPanel IsVisible="{Binding ShowMsmRecordingSetup}" Spacing="8">
+                        <CheckBox Content="Score existing MSM"
+                                  IsChecked="{Binding ScoreAgainstExistingClassifiers}"
+                                  IsEnabled="{Binding CanEditRecordingSetup}"/>
+
+                        <Grid ColumnDefinitions="*,136" ColumnSpacing="8">
+                            <TextBox Text="{Binding Host}" PlaceholderText="Host" MinHeight="28" IsEnabled="{Binding CanEditRecordingSetup}"/>
+                            <NumericUpDown Grid.Column="1"
+                                           Value="{Binding Port}"
+                                           Minimum="1"
+                                           Maximum="65535"
+                                           FormatString="{}{0:0}"
+                                           MinWidth="136"
+                                           MinHeight="28"
+                                           IsEnabled="{Binding CanEditRecordingSetup}"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Connect" Command="{Binding ConnectCommand}" MinWidth="78"/>
+                            <Button Content="Refresh" Command="{Binding RefreshDevicesCommand}" MinWidth="78"/>
+                            <Button Content="Disconnect" Command="{Binding DisconnectCommand}" MinWidth="88"/>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,112" ColumnSpacing="8">
+                            <ComboBox ItemsSource="{Binding Devices}"
+                                      SelectedItem="{Binding SelectedDevice}"
+                                      MinHeight="30"
+                                      HorizontalAlignment="Stretch"
+                                      IsEnabled="{Binding CanEditRecordingSetup}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="motion:MotionDeviceInfo">
+                                        <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding CoachIds}"
+                                      SelectedItem="{Binding SelectedCoachId}"
+                                      MinHeight="30"
+                                      IsEnabled="{Binding CanEditRecordingSetup}"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Record" Command="{Binding StartRecordingCommand}" MinWidth="78"/>
+                            <Button Content="Save" Command="{Binding StopAndSaveCommand}" MinWidth="78"/>
+                            <Button Content="Cancel" Command="{Binding CancelAttemptCommand}" MinWidth="78"/>
+                            <Button Content="Generate MSMs" Command="{Binding GenerateMsmsCommand}" MinWidth="116"/>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                            <TextBlock Text="Samples" Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SampleCount}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+
+                            <TextBlock Grid.Column="2" Text="Score" Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                            <TextBlock Grid.Column="3" Text="{Binding LiveTotalScore}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+
+                            <TextBlock Grid.Row="1" Text="Classifiers" Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GeneratedClassifierCount}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <TextBlock IsVisible="{Binding ShowGestureRecordingSetup}"
+                               Text="Gesture recording is not implemented yet"
+                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                               TextWrapping="Wrap"/>
+
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource JdeTextMutedBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </Panel>
+    </Border>
+</UserControl>

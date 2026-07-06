@@ -41,13 +41,11 @@ internal static class CinematicRenderTestSupport
             OffsetY: 0,
             Scale: 1);
 
-
     internal static MaterializedCinematicImage CreateSolidImage(string key, string texturePath, Bgra32 color)
     {
         Image<Bgra32> image = new(8, 8, color);
         return new MaterializedCinematicImage(key, texturePath, image);
     }
-
 
     internal static MaterializedCinematicImage CreateSolidImage(
         string key,
@@ -58,7 +56,6 @@ internal static class CinematicRenderTestSupport
         Image<Bgra32> image = new(8, 8, color);
         return new MaterializedCinematicImage(key, texturePath, image, RenderGeometry.NoAtlasQuad, material);
     }
-
 
     internal static void CreateStackedPleoSourceFrame(string path, Bgra32 color)
     {
@@ -74,7 +71,6 @@ internal static class CinematicRenderTestSupport
         });
         image.Save(path);
     }
-
 
     internal static PleoFrameSource CreateHalfMaskedPleoFrameSource()
     {
@@ -114,7 +110,6 @@ internal static class CinematicRenderTestSupport
             isCutout: false);
     }
 
-
     internal static PleoFrameSource CreateSoftAlphaPleoFrameSource()
     {
         Bgra32[] pixels = new Bgra32[8 * 12];
@@ -153,7 +148,6 @@ internal static class CinematicRenderTestSupport
             isCutout: false);
     }
 
-
     internal static CinematicRenderMaterial CreatePleoFullScreenCopyMaterial() =>
         new(
             CinematicFrameRenderer.GfxBlendCopy,
@@ -164,7 +158,6 @@ internal static class CinematicRenderTestSupport
                     AddressModeV = TextureAddressMode.Border
                 }
             ]);
-
 
     internal static CinematicRenderMaterial CreateStackedPleoAlphaMaterial() =>
         new(
@@ -216,7 +209,6 @@ internal static class CinematicRenderTestSupport
                     ]
                 }
             ]);
-
 
     internal static CinematicRenderMaterial CreatePleoAlphaMaskInsertMaterial() =>
         new(
@@ -274,7 +266,6 @@ internal static class CinematicRenderTestSupport
                 }
             ]);
 
-
     internal static ProjectedQuad CreateScreenQuad(int width, int height) =>
         new(
             new Vector2(0, 0),
@@ -282,7 +273,6 @@ internal static class CinematicRenderTestSupport
             new Vector2(width, height),
             new Vector2(0, height),
             new Rectangle(0, 0, width, height));
-
 
     internal static RenderGeometry CreateTestMeshGeometry() =>
         RenderGeometry.FromMesh(
@@ -295,7 +285,6 @@ internal static class CinematicRenderTestSupport
             [0, 1, 2, 0, 2, 3],
             CinematicGeometrySource.Mesh3D);
 
-
     internal static ResolvedActorState CreateResolvedState() =>
         new(
             PositionX: 0,
@@ -307,7 +296,6 @@ internal static class CinematicRenderTestSupport
             Alpha: 1,
             Tint: RgbTint.White,
             XFlipped: false);
-
 
     internal static Image<Bgra32> CreateSplitImage()
     {
@@ -326,7 +314,6 @@ internal static class CinematicRenderTestSupport
         return image;
     }
 
-
     internal static Image<Bgra32> CreateSplitWhiteBlackImage()
     {
         Image<Bgra32> image = new(8, 8);
@@ -344,10 +331,8 @@ internal static class CinematicRenderTestSupport
         return image;
     }
 
-
     internal static Bgra32 CreateColor(byte red, byte green, byte blue)
         => CreateColor(red, green, blue, alpha: 255);
-
 
     internal static Bgra32 CreateColor(byte red, byte green, byte blue, byte alpha)
     {
@@ -358,6 +343,4 @@ internal static class CinematicRenderTestSupport
         color.A = alpha;
         return color;
     }
-
-
 }

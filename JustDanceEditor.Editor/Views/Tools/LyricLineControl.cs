@@ -271,22 +271,14 @@ public class LyricLineControl : Control
         ClearRenderLayout();
     }
 
-    private sealed class SkiaLyricDrawOperation : ICustomDrawOperation
+    private sealed class SkiaLyricDrawOperation(Rect bounds, SkiaLyricLineLayout layout, double currentBeat, Color targetColor) : ICustomDrawOperation
     {
-        private readonly SkiaLyricLineLayout _layout;
-        private readonly double _currentBeat;
-        private readonly Color _targetColor;
+        private readonly SkiaLyricLineLayout _layout = layout.AddReference();
+        private readonly double _currentBeat = currentBeat;
+        private readonly Color _targetColor = targetColor;
         private bool _disposed;
 
-        public SkiaLyricDrawOperation(Rect bounds, SkiaLyricLineLayout layout, double currentBeat, Color targetColor)
-        {
-            Bounds = bounds;
-            _layout = layout.AddReference();
-            _currentBeat = currentBeat;
-            _targetColor = targetColor;
-        }
-
-        public Rect Bounds { get; }
+        public Rect Bounds { get; } = bounds;
 
         public bool HitTest(Point p) => false;
 

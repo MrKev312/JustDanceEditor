@@ -41,7 +41,7 @@ internal static class SkiaPictogramImageCache
         ArgumentNullException.ThrowIfNull(paths);
 
         List<(string Path, PendingLoad Pending)> scheduledLoads = [];
-        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
         foreach (string? path in paths)
         {
             if (string.IsNullOrWhiteSpace(path) || !seen.Add(path) || Cache.ContainsKey(path))
@@ -195,18 +195,13 @@ internal static class SkiaPictogramImageCache
         return new SkiaPictogramImage(surface.Snapshot(), size, size);
     }
 
-    private sealed class PendingLoad
+    private sealed class PendingLoad(int version)
     {
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private List<Action>? _callbacks;
         private int _isCanceled;
 
-        public PendingLoad(int version)
-        {
-            Version = version;
-        }
-
-        public int Version { get; }
+        public int Version { get; } = version;
 
         public bool IsCanceled => Volatile.Read(ref _isCanceled) != 0;
 

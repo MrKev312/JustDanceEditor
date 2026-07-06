@@ -288,7 +288,7 @@ internal static class UbiArtIpkArchiveMerger
         {
             get
             {
-                long size = sizeof(int) * 3 + sizeof(long) * 2;
+                long size = (sizeof(int) * 3) + (sizeof(long) * 2);
                 if (Dummy1 == 2)
                     size += sizeof(int) * 2;
 
