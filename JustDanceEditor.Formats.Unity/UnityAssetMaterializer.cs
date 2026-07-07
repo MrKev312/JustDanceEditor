@@ -16,6 +16,7 @@ namespace JustDanceEditor.Formats.Unity;
 
 public sealed class UnityAssetMaterializer(ILogger logger)
 {
+    private const string BlazePoseGestureFolder = "BlazePose";
     private readonly ILogger _logger = logger;
 
     private static readonly WebpEncoder LosslessWebpEncoder = new()
@@ -358,7 +359,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
+            ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
             name => name.EndsWith(".msm", StringComparison.OrdinalIgnoreCase),
             ".msm");
 
@@ -376,16 +377,17 @@ public sealed class UnityAssetMaterializer(ILogger logger)
     private void ExtractGestureFiles(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
+        string gestureFolder = IntermediatePackageLayout.Assets.GestureFolder(BlazePoseGestureFolder);
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder),
+            ResolvePackagePath(packageRoot, gestureFolder),
             name => name.EndsWith(".gesture", StringComparison.OrdinalIgnoreCase),
             ".gesture");
 
         if (exported == 0)
         {
             _logger.LogWarning("No gesture assets (*.gesture) were exported from the Unity map package.");
-            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder));
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, gestureFolder));
         }
         else
         {

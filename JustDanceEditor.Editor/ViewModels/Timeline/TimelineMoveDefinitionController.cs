@@ -173,14 +173,25 @@ internal sealed class TimelineMoveDefinitionController(
             if (string.IsNullOrEmpty(timeline.RootPath) || string.IsNullOrEmpty(moveId))
                 return false;
 
-            string folderRel = isFullBody
-                ? IntermediatePackageLayout.Assets.GesturesFolder
-                : IntermediatePackageLayout.Assets.MovesFolder;
+            if (isFullBody)
+            {
+                string gesturesFolderAbs = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.GesturesFolder);
+                if (!Directory.Exists(gesturesFolderAbs))
+                    return false;
 
-            string folderAbs = IntermediatePackageLayout.Resolve(timeline.RootPath, folderRel);
-            string ext = isFullBody ? ".gesture" : ".msm";
-            string candidate = Path.Combine(folderAbs, moveId + ext);
-            return File.Exists(candidate);
+                foreach (string folderAbs in Directory.GetDirectories(gesturesFolderAbs))
+                {
+                    string candidate = Path.Combine(folderAbs, moveId + ".gesture");
+                    if (File.Exists(candidate))
+                        return true;
+                }
+
+                return false;
+            }
+
+            string movesFolderAbs = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.MovesFolder);
+            string moveCandidate = Path.Combine(movesFolderAbs, moveId + ".msm");
+            return File.Exists(moveCandidate);
         }
         catch
         {

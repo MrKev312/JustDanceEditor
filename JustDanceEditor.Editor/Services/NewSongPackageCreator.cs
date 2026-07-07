@@ -214,8 +214,7 @@ public static class NewSongPackageCreator
             IntermediatePackageLayout.Assets.CoachesFolder,
             IntermediatePackageLayout.Assets.BackgroundsFolder,
             IntermediatePackageLayout.Assets.PictogramsFolder,
-            IntermediatePackageLayout.Assets.MovesFolder,
-            IntermediatePackageLayout.Assets.GesturesFolder
+            IntermediatePackageLayout.Assets.MovesFolder
         ];
 
         foreach (string dir in directories)

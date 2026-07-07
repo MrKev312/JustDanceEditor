@@ -116,6 +116,34 @@ public static class IntermediatePackageLayout
         public const string GesturesFolder = $"{Root}/gestures";
 
         /// <summary>
+        /// Gets the relative path for a gesture asset subfolder.
+        /// </summary>
+        /// <param name="subfolderName">Gesture subfolder name.</param>
+        public static string GestureFolder(string subfolderName)
+        {
+            ValidateGestureSubfolderName(subfolderName);
+            return $"{GesturesFolder}/{subfolderName}";
+        }
+
+        /// <summary>
+        /// Validates that a gesture subfolder name is a simple folder name, not a path.
+        /// </summary>
+        /// <param name="subfolderName">Gesture subfolder name.</param>
+        public static void ValidateGestureSubfolderName(string subfolderName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(subfolderName);
+
+            if (HasTraversalSegment(subfolderName))
+                throw new ArgumentException("Gesture subfolder names cannot contain traversal segments.", nameof(subfolderName));
+
+            if (Path.IsPathRooted(subfolderName) || HasWindowsDriveSpecifier(subfolderName))
+                throw new ArgumentException("Gesture subfolder names cannot be rooted paths.", nameof(subfolderName));
+
+            if (subfolderName.Contains('/') || subfolderName.Contains('\\'))
+                throw new ArgumentException("Gesture subfolder names cannot contain path separators.", nameof(subfolderName));
+        }
+
+        /// <summary>
         /// Gets the relative path for an individual coach image.
         /// </summary>
         /// <param name="coachIndex">1-based coach index.</param>

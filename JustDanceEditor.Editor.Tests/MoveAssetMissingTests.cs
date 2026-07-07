@@ -24,7 +24,7 @@ public class MoveAssetMissingTests
             Directory.CreateDirectory(tmp);
             string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesFolder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(movesDir);
-            string gesturesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.GesturesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string gesturesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.GestureFolder("TestGesture").Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(gesturesDir);
 
             // create one msm and one gesture file

@@ -336,24 +336,32 @@ internal static class IntermediateAssetWriter
     private static void AttachMotionAssets(ConversionContext context, string packageRoot, ILogger logger, IFileSystem io)
     {
         string movesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
-        string gesturesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder);
 
         foreach (string motionFolder in EnumerateMotionSearchFolders(context))
-        {
             CopyCookedFiles(context, motionFolder, "*.msm", movesFolder, io);
-            CopyCookedFiles(context, motionFolder, "*.gesture", gesturesFolder, io);
-        }
 
-        string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
-        CopyCookedFiles(context, gesturesRelative, "*.gesture", gesturesFolder, io);
+        foreach (UbiArtGestureFolderSource gestureFolder in EnumerateUbiArtGestureSearchFolders(context))
+            CopyCookedFiles(context, gestureFolder.SourceRelativeFolder, "*.gesture", ResolvePackagePath(packageRoot, gestureFolder.PackageRelativeFolder), io);
+
+        if (UbiArtGestureFolders.TryGetPlatformFolder(context.FileSystem.VersionProfile.Platform, out string? sourcePlatformGestureFolder) &&
+            sourcePlatformGestureFolder != null)
+        {
+            string gesturesRelative = context.FileSystem.InputFolders.TimelineFolder + "/gestures";
+            CopyCookedFiles(context, gesturesRelative, "*.gesture", ResolvePackagePath(packageRoot, UbiArtGestureFolders.PackageFolder(sourcePlatformGestureFolder)), io);
+        }
 
         foreach (MotionClip clip in context.SongData?.Clips.OfType<MotionClip>() ?? [])
         {
             string extension = Path.GetExtension(clip.ClassifierPath);
-            string destinationFolder = extension.Equals(".gesture", StringComparison.OrdinalIgnoreCase)
-                ? gesturesFolder
-                : movesFolder;
-            CopyReferencedCookedFile(context, clip.ClassifierPath, destinationFolder, io);
+            if (extension.Equals(".gesture", StringComparison.OrdinalIgnoreCase))
+            {
+                string? gesturePackageFolder = GetReferencedUbiArtGesturePackageFolder(context, clip.ClassifierPath);
+                if (gesturePackageFolder != null)
+                    CopyReferencedCookedFile(context, clip.ClassifierPath, ResolvePackagePath(packageRoot, gesturePackageFolder), io);
+                continue;
+            }
+
+            CopyReferencedCookedFile(context, clip.ClassifierPath, movesFolder, io);
         }
     }
 
@@ -377,6 +385,43 @@ internal static class IntermediateAssetWriter
         yield return Path.Combine(timelineMovesFolder, "wiiu");
     }
 
+    private static IEnumerable<UbiArtGestureFolderSource> EnumerateUbiArtGestureSearchFolders(ConversionContext context)
+    {
+        string timelineMovesFolder = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "moves");
+
+        foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
+            yield return new(Path.Combine(timelineMovesFolder, gestureFolder.PlatformFolder), gestureFolder.PackageRelativeFolder);
+    }
+
+    private static string? GetReferencedUbiArtGesturePackageFolder(ConversionContext context, string classifierPath)
+    {
+        if (TryGetUbiArtGesturePackageFolderFromPath(classifierPath, out string? packageFolder))
+            return packageFolder;
+
+        return UbiArtGestureFolders.TryGetPlatformFolder(context.FileSystem.VersionProfile.Platform, out string? platformFolder) &&
+            platformFolder != null
+            ? UbiArtGestureFolders.PackageFolder(platformFolder)
+            : null;
+    }
+
+    private static bool TryGetUbiArtGesturePackageFolderFromPath(string relativePath, out string? packageFolder)
+    {
+        packageFolder = null;
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return false;
+
+        string[] segments = relativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
+        {
+            if (segments.Any(segment => segment.Equals(gestureFolder.PlatformFolder, StringComparison.OrdinalIgnoreCase)))
+            {
+                packageFolder = gestureFolder.PackageRelativeFolder;
+                return true;
+            }
+        }
+
+        return false;
+    }
     private static string? CopyCookedFiles(ConversionContext context, string relativeFolder, string pattern, string destinationFolder, IFileSystem io)
     {
         CookedFile[] files;
@@ -909,6 +954,7 @@ internal static class IntermediateAssetWriter
     }
 
     private readonly record struct LegacyCutoutVideoLayout(int Width, int Height, int VisibleHeight, int AlphaHeight, int OutputWidth, int OutputHeight, double DurationSeconds);
+    private readonly record struct UbiArtGestureFolderSource(string SourceRelativeFolder, string PackageRelativeFolder);
 
     private static CookedFile[] GetVideoFiles(JustDanceUbiArtFileSystem fileSystem) =>
         UbiArtVideoFileSelector.FindPreferredVideoFiles(fileSystem);

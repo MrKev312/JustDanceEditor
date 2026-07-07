@@ -254,7 +254,7 @@ public class UbiArtLayoutTests
         try
         {
             string movesRoot = Path.Combine(materializedRoot, "assets", "moves");
-            string gesturesRoot = Path.Combine(materializedRoot, "assets", "gestures");
+            string gesturesRoot = IntermediatePackageLayout.Resolve(materializedRoot, UbiArtGestureFolders.PackageFolder(UbiArtGestureFolders.Orbis));
             Directory.CreateDirectory(movesRoot);
             Directory.CreateDirectory(gesturesRoot);
             await File.WriteAllBytesAsync(Path.Combine(movesRoot, "Move_A.msm"), [1, 2, 3, 4], TestContext.Current.CancellationToken);
