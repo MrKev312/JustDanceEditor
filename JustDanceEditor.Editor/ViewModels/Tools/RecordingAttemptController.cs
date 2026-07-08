@@ -143,6 +143,8 @@ internal sealed class RecordingAttemptController(
         double endSeconds = timeline.Playback.CurrentTime.TotalSeconds;
         await ScoreCompletedMovesAsync(endSeconds, waitForTurn: true);
         MotionRecordingDocument? recording = DetachCurrentRecording(timeline, endSeconds);
+        liveScoreDisplay.Clear(owner, clearTotal: recording == null || recording.Samples.Count == 0);
+        liveScoreDisplay.IsActive = false;
 
         await motionClient.StopStreamingAsync();
         timeline.Playback.Pause();
@@ -272,8 +274,9 @@ internal sealed class RecordingAttemptController(
             if (snapshot == null)
                 return;
 
+            double scoringTimeSeconds = GetLiveScoringEndSeconds(snapshot, currentTimeSeconds);
             IReadOnlyList<MotionRecordingLiveScore> scores = await Task.Run(
-                () => session.ScoreCompletedMoves(snapshot, currentTimeSeconds));
+                () => session.ScoreCompletedMoves(snapshot, scoringTimeSeconds));
 
             if (runId != _scoringRunId)
                 return;
@@ -295,6 +298,20 @@ internal sealed class RecordingAttemptController(
     {
         await _liveScoringSemaphore.WaitAsync();
         return true;
+    }
+
+    internal static double GetLiveScoringEndSeconds(MotionRecordingDocument recording, double playbackTimeSeconds)
+    {
+        if (recording.Samples.Count == 0)
+            return recording.TimelineStartSeconds;
+
+        double capturedThroughSeconds = double.NegativeInfinity;
+        foreach (RecordedMotionSample sample in recording.Samples)
+            capturedThroughSeconds = Math.Max(capturedThroughSeconds, sample.MapTime);
+        if (double.IsNaN(capturedThroughSeconds) || double.IsInfinity(capturedThroughSeconds))
+            return recording.TimelineStartSeconds;
+
+        return Math.Min(playbackTimeSeconds, Math.Max(recording.TimelineStartSeconds, capturedThroughSeconds));
     }
 
     private void MotionClient_SampleReceived(object? sender, MotionSensorSampleEventArgs e)
