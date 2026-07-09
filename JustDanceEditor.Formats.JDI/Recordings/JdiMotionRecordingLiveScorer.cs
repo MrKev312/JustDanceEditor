@@ -25,6 +25,7 @@ public sealed record MotionRecordingLiveScoringOptions
     public MotionRecordingClassifierSource ClassifierSource { get; init; } = MotionRecordingClassifierSource.CurrentAndPreviousRecordings;
     public MotionClassifierGenerationOptions GenerationOptions { get; init; } = new();
     public MoveScoringOptions MoveSpaceOptions { get; init; } = new();
+    public MotionRecordingScoringProfile ScoringProfile { get; init; } = MotionRecordingScoringProfile.Raw;
     public float SongScoreMaxScore { get; init; } = 13333.0f;
     public float GoldMoveValue { get; init; } = 3.5f;
 }
@@ -233,7 +234,6 @@ public sealed class MotionRecordingLiveScoreSession
             move.DurationSeconds);
 
         MoveSpaceScoreResult? moveSpace = null;
-        float percentageScore = 0.0f;
         string? issue = null;
 
         if (!_existingClassifiers.TryGetValue(move.MoveId, out byte[]? classifierBytes))
@@ -250,13 +250,14 @@ public sealed class MotionRecordingLiveScoreSession
                     ClassifierBytes = classifierBytes,
                     Duration = (float)move.DurationSeconds,
                     Samples = currentSamples,
-                    Options = _options.MoveSpaceOptions with
-                    {
-                        FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
-                    }
+                    Options = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+                        _options.MoveSpaceOptions,
+                        _options.ScoringProfile) with
+                        {
+                            FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
+                        }
                 });
 
-                percentageScore = JdiMotionRecordingScoreMath.NormalizePercentage(moveSpace.PercentageScore);
             }
             catch (Exception ex)
             {
@@ -264,8 +265,7 @@ public sealed class MotionRecordingLiveScoreSession
             }
         }
 
-        MotionRecordingMoveFeedback feedback = JdiMotionRecordingScoreMath.GetFeedback(move.IsGoldMove, percentageScore);
-        float addedScore = GetAddedScore(move.IsGoldMove, feedback, percentageScore);
+        MotionRecordingScoreEvaluation evaluation = EvaluateMove(move.IsGoldMove, moveSpace);
 
         return new MotionRecordingLiveScore(
             move.Index,
@@ -273,9 +273,9 @@ public sealed class MotionRecordingLiveScoreSession
             move.IsGoldMove,
             _options.ClassifierSource,
             0,
-            feedback,
-            percentageScore,
-            addedScore,
+            evaluation.Feedback,
+            evaluation.PercentageScore,
+            evaluation.AddedScore,
             TotalScore,
             moveSpace,
             issue);
@@ -327,7 +327,6 @@ public sealed class MotionRecordingLiveScoreSession
         }
 
         MoveSpaceScoreResult? moveSpace = null;
-        float percentageScore = 0.0f;
 
         if (classifierBytes != null)
         {
@@ -339,10 +338,10 @@ public sealed class MotionRecordingLiveScoreSession
                     ClassifierBytes = classifierBytes,
                     Duration = (float)move.DurationSeconds,
                     Samples = currentSamples,
-                    Options = _options.MoveSpaceOptions
+                    Options = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+                        _options.MoveSpaceOptions,
+                        _options.ScoringProfile)
                 });
-
-                percentageScore = JdiMotionRecordingScoreMath.NormalizePercentage(moveSpace.PercentageScore);
             }
             catch (Exception ex)
             {
@@ -350,8 +349,7 @@ public sealed class MotionRecordingLiveScoreSession
             }
         }
 
-        MotionRecordingMoveFeedback feedback = JdiMotionRecordingScoreMath.GetFeedback(move.IsGoldMove, percentageScore);
-        float addedScore = GetAddedScore(move.IsGoldMove, feedback, percentageScore);
+        MotionRecordingScoreEvaluation evaluation = EvaluateMove(move.IsGoldMove, moveSpace);
 
         return new MotionRecordingLiveScore(
             move.Index,
@@ -359,9 +357,9 @@ public sealed class MotionRecordingLiveScoreSession
             move.IsGoldMove,
             _options.ClassifierSource,
             exampleCount,
-            feedback,
-            percentageScore,
-            addedScore,
+            evaluation.Feedback,
+            evaluation.PercentageScore,
+            evaluation.AddedScore,
             TotalScore,
             moveSpace,
             issue);
@@ -377,11 +375,11 @@ public sealed class MotionRecordingLiveScoreSession
         return examples;
     }
 
-    private float GetAddedScore(bool isGoldMove, MotionRecordingMoveFeedback feedback, float percentageScore)
-        => JdiMotionRecordingScoreMath.GetAddedScore(
+    private MotionRecordingScoreEvaluation EvaluateMove(bool isGoldMove, MoveSpaceScoreResult? moveSpace)
+        => JdiMotionRecordingScoreMath.EvaluateMove(
             isGoldMove,
-            feedback,
-            percentageScore,
+            moveSpace,
             _goldScoreValue,
-            _moveScoreValue);
+            _moveScoreValue,
+            _options.ScoringProfile);
 }

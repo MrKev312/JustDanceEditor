@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Dialogs;assembly=JustDanceEditor.Editor"
+        x:Class="JustDanceEditor.Editor.Views.Dialogs.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Settings"
+        Width="520"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="16" RowDefinitions="Auto,Auto">
+    <TabControl Grid.Row="0">
+      <TabItem Header="Scoring">
+        <Grid Margin="12"
+              ColumnDefinitions="140,*"
+              RowDefinitions="Auto,Auto"
+              RowSpacing="12">
+          <TextBlock Grid.Column="0"
+                     Text="Profile"
+                     VerticalAlignment="Center"
+                     ToolTip.Tip="Selects the scoring rules used by recording analysis and live recording scores."/>
+          <ComboBox Grid.Column="1"
+                    MinWidth="260"
+                    ItemsSource="{Binding ScoringProfiles}"
+                    SelectedItem="{Binding SelectedScoringProfile, Mode=TwoWay}"
+                    ToolTip.Tip="{Binding SelectedScoringProfileTooltip}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ScoringProfileOption">
+                <TextBlock Text="{Binding DisplayName}"
+                           ToolTip.Tip="{Binding Tooltip}"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <TextBlock Grid.Row="1"
+                     Grid.Column="0"
+                     Text="Tuning UI"
+                     VerticalAlignment="Center"
+                     ToolTip.Tip="{Binding AdvancedScoringTuningTooltip}"/>
+          <CheckBox Grid.Row="1"
+                    Grid.Column="1"
+                    Content="Advanced raw MSM editor"
+                    IsChecked="{Binding UseAdvancedScoringTuning, Mode=TwoWay}"
+                    ToolTip.Tip="{Binding AdvancedScoringTuningTooltip}"/>
+        </Grid>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="0,16,0,0">
+      <Button Name="SaveBtn"
+              MinWidth="88"
+              IsDefault="True">Save</Button>
+      <Button Name="CancelBtn"
+              MinWidth="88"
+              IsCancel="True">Cancel</Button>
+    </StackPanel>
+  </Grid>
+</Window>

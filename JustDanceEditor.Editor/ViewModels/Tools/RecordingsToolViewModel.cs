@@ -2,11 +2,14 @@ using Avalonia;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.Services.Motion;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Recordings;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +30,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     private readonly IMotionInputClient _motionClient;
     private readonly IMotionRecordingRepository _recordingRepository;
     private readonly JdiMotionClassifierGenerator _classifierGenerator;
+    private readonly EditorSettingsService _editorSettings;
     private readonly RecordingLibraryService _recordingLibrary;
     private readonly RecordingLiveScoreDisplayController _liveScoreDisplay;
     private readonly RecordingBrowserController _recordingBrowser;
@@ -191,16 +195,21 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         _motionClient = services?.GetService<IMotionInputClient>() ?? new DsuMotionInputClient();
         _recordingRepository = services?.GetService<IMotionRecordingRepository>() ?? new JsonMotionRecordingRepository();
         JdiMotionRecordingAnalyzer analyzer = services?.GetService<JdiMotionRecordingAnalyzer>() ?? new JdiMotionRecordingAnalyzer();
+        _editorSettings = services?.GetService<EditorSettingsService>() ?? new EditorSettingsService();
         _classifierGenerator = services?.GetService<JdiMotionClassifierGenerator>() ?? new JdiMotionClassifierGenerator();
         JdiMotionRecordingLiveScorer liveScorer = services?.GetService<JdiMotionRecordingLiveScorer>() ?? new JdiMotionRecordingLiveScorer();
         MotionRecordingScoreHudService scoreHud = services?.GetService<MotionRecordingScoreHudService>() ?? new MotionRecordingScoreHudService();
         _recordingLibrary = new RecordingLibraryService(_recordingRepository);
         _liveScoreDisplay = new RecordingLiveScoreDisplayController(scoreHud);
-        _recordingBrowser = new RecordingBrowserController(this, _recordingLibrary, analyzer);
+        _recordingBrowser = new RecordingBrowserController(this, _recordingLibrary, analyzer, _editorSettings);
         _deviceConnection = new RecordingDeviceConnectionController(this, _motionClient);
-        _recordingAttempt = new RecordingAttemptController(this, _motionClient, _recordingRepository, _recordingLibrary, liveScorer, _liveScoreDisplay);
+        _recordingAttempt = new RecordingAttemptController(this, _motionClient, _recordingRepository, _recordingLibrary, liveScorer, _liveScoreDisplay, _editorSettings);
 
+        _editorSettings.PropertyChanged += EditorSettings_PropertyChanged;
         _deviceConnection.Attach();
+        WeakReferenceMessenger.Default.Register<RecordingsToolViewModel, ScoringAdjustmentMoveSelectedMessage>(
+            this,
+            static (recipient, message) => recipient.SelectRecordingMove(message.RecordingPath, message.MoveIndex));
         SelectedRecordingKind = RecordingKinds.First();
         SelectedView = ViewOptions.First();
     }
@@ -211,6 +220,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
             _recordingAttempt.AttachTimeline(timeline);
 
         RefreshCoachIds(timeline);
+        ApplyDefaultScoreModeFromExistingMsms();
         StartRecordingCommand.NotifyCanExecuteChanged();
         GenerateMsmsCommand.NotifyCanExecuteChanged();
         _ = _recordingBrowser.RefreshRecordingsAsync();
@@ -269,6 +279,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     {
         SelectedRecordingKind ??= RecordingKinds.FirstOrDefault(static kind => kind.Id == "msm") ?? RecordingKinds.FirstOrDefault();
         IsRecordingSetupVisible = true;
+        ApplyDefaultScoreModeFromExistingMsms();
         if (SelectedRecordingKind?.Id == "gesture")
         {
             StatusText = "Gesture recording is not implemented yet";
@@ -385,6 +396,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
                 selected.Select(static item => item.Recording).ToArray());
 
             timeline.RefreshMoveAssetStatus();
+            ApplyDefaultScoreModeFromExistingMsms();
 
             GeneratedClassifierCount = result.Classifiers.Count;
             StatusText = result.Issues.Count == 0
@@ -414,6 +426,23 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     public void FocusMove(int moveIndex)
     {
         _recordingBrowser.FocusMove(moveIndex);
+    }
+
+    private void EditorSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(EditorSettingsService.ScoringProfile) || IsRecording)
+            return;
+
+        _ = _recordingBrowser.AnalyzeSelectedRecordingAsync();
+    }
+
+    private void SelectRecordingMove(string recordingPath, int moveIndex)
+    {
+        RecordingListItem? recording = Recordings.FirstOrDefault(item => string.Equals(item.Path, recordingPath, StringComparison.OrdinalIgnoreCase));
+        if (recording != null)
+            SelectedRecording = recording;
+
+        FocusMove(moveIndex);
     }
 
     internal void NotifyViewStateChanged()
@@ -460,6 +489,19 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
             SelectedCoachId = CoachIds.FirstOrDefault();
     }
 
+    private void ApplyDefaultScoreModeFromExistingMsms()
+    {
+        if (IsRecording || ActiveTimeline == null)
+            return;
+
+        string movesFolder = IntermediatePackageLayout.Resolve(
+            ActiveTimeline.RootPath,
+            IntermediatePackageLayout.Assets.MovesFolder);
+        ScoreAgainstExistingClassifiers =
+            Directory.Exists(movesFolder)
+            && Directory.EnumerateFiles(movesFolder, "*.msm", SearchOption.TopDirectoryOnly).Any();
+    }
+
     private bool CanNewRecording() => !ShowRecordingPage && !IsRecording && ActiveTimeline != null;
     private bool CanConnect() => !IsConnected && !IsRecording && string.Equals(SelectedRecordingKind?.Id, "msm", StringComparison.Ordinal)
         && !string.IsNullOrWhiteSpace(Host) && Port is > 0 and <= 65535;
@@ -473,6 +515,8 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
 
     public async ValueTask DisposeAsync()
     {
+        _editorSettings.PropertyChanged -= EditorSettings_PropertyChanged;
+        WeakReferenceMessenger.Default.Unregister<ScoringAdjustmentMoveSelectedMessage>(this);
         await _recordingAttempt.DisposeAsync();
         _deviceConnection.Detach();
         await _motionClient.DisposeAsync();

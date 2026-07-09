@@ -19,7 +19,8 @@ internal sealed class RecordingAttemptController(
     IMotionRecordingRepository recordingRepository,
     RecordingLibraryService recordingLibrary,
     JdiMotionRecordingLiveScorer liveScorer,
-    RecordingLiveScoreDisplayController liveScoreDisplay)
+    RecordingLiveScoreDisplayController liveScoreDisplay,
+    EditorSettingsService settings)
 {
     private readonly RecordingSampleClock _sampleClock = new();
     private readonly Lock _recordingGate = new();
@@ -196,12 +197,17 @@ internal sealed class RecordingAttemptController(
     }
 
     private MotionRecordingLiveScoringOptions CreateLiveScoringOptions()
-        => new()
+    {
+        MotionRecordingScoringProfile profile = settings.ScoringProfile;
+        return new MotionRecordingLiveScoringOptions
         {
             ClassifierSource = owner.ScoreAgainstExistingClassifiers
                 ? MotionRecordingClassifierSource.ExistingFiles
-                : MotionRecordingClassifierSource.CurrentAndPreviousRecordings
+                : MotionRecordingClassifierSource.CurrentAndPreviousRecordings,
+            ScoringProfile = profile,
+            GoldMoveValue = JdiMotionRecordingScoreMath.GetDefaultGoldMoveValue(profile)
         };
+    }
 
     private string BuildRecordingStatus()
     {

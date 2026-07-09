@@ -204,10 +204,17 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasOptions))]
     [NotifyPropertyChangedFor(nameof(ShowTextBox))]
+    [NotifyPropertyChangedFor(nameof(ShowSlider))]
+    [NotifyPropertyChangedFor(nameof(ShowComboBox))]
     public partial System.Collections.IEnumerable? Options { get; set; }
 
     [ObservableProperty]
     public partial bool IsEditable { get; set; } = true;
+
+    public double Minimum { get; }
+    public double Maximum { get; } = 1.0;
+    public double TickFrequency { get; } = 0.1;
+    public bool HasSliderRange { get; }
 
     public PropertyItemViewModel(
         List<object> targets,
@@ -227,7 +234,14 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         _tracks = tracks;
         _timelineEditor = timelineEditor;
         Name = attribute.DisplayName;
-        IsReadOnly = attribute.IsReadOnly;
+        IsReadOnly = attribute.IsReadOnly || _propertyInfoTemplate.SetMethod == null;
+        if (attribute is NumericInspectableAttribute numeric)
+        {
+            Minimum = numeric.Minimum;
+            Maximum = numeric.Maximum;
+            TickFrequency = numeric.TickFrequency;
+            HasSliderRange = true;
+        }
 
         // Listen to external changes on the target objects via weak messaging to avoid leaking references
         // Register a single weak messenger handler to avoid multiple subscriptions when there are multiple targets
@@ -447,7 +461,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         }
         set
         {
-            if (value == null)
+            if (value == null || !CanWrite)
                 return; // Don't set nulls explicitly (e.g. from empty selection)
 
             List<object?> oldValues = [.. _targets.Select(GetValue)];
@@ -492,9 +506,17 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     }
 
     private object? GetValue(object target) => target.GetType().GetProperty(_propertyName)?.GetValue(target);
-    private void SetValue(object target, object? val) => target.GetType().GetProperty(_propertyName)?.SetValue(target, val);
+    private void SetValue(object target, object? val)
+    {
+        PropertyInfo? property = target.GetType().GetProperty(_propertyName);
+        if (property?.SetMethod == null)
+            return;
+
+        property.SetValue(target, val);
+    }
 
     public Type PropertyType => _propertyInfoTemplate?.PropertyType ?? throw new InvalidOperationException($"Property '{_propertyName}' is unavailable.");
+    public bool CanWrite => !IsReadOnly && _propertyInfoTemplate?.SetMethod != null;
 
     // Binding Helpers
     public bool IsColor => PropertyType == typeof(Color);
@@ -502,14 +524,19 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
     public bool IsStringOrNumber => PropertyType == typeof(string) || IsNumber;
     public bool IsNumber => PropertyType == typeof(double) || PropertyType == typeof(int) || PropertyType == typeof(float);
     public bool HasOptions => Options != null;
-    public bool ShowTextBox => IsStringOrNumber && !HasOptions;
+    public bool ShowSlider => IsNumber && !HasOptions && HasSliderRange && CanWrite;
+    public bool ShowReadOnlyText => IsReadOnly && !IsBool && !IsColor;
+    public bool ShowTextBox => IsStringOrNumber && !HasOptions && !ShowSlider && !ShowReadOnlyText;
+    public bool ShowComboBox => HasOptions && !ShowReadOnlyText;
+    public string SliderRangeText => $"{FormatNumber(Minimum)} to {FormatNumber(Maximum)}";
+    public string DisplayValue => FormatValue(Value);
 
     public string StringValue
     {
         get => Value?.ToString() ?? "";
         set
         {
-            if (IsBinding)
+            if (IsBinding || !CanWrite)
                 return;
             try
             {
@@ -530,16 +557,59 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         }
     }
 
+    public double NumericValue
+    {
+        get
+        {
+            object? value = Value;
+            return value switch
+            {
+                double d => d,
+                float f => f,
+                int i => i,
+                _ => 0.0
+            };
+        }
+        set
+        {
+            if (IsBinding || !CanWrite || !ShowSlider)
+                return;
+
+            try
+            {
+                IsBinding = true;
+                if (PropertyType == typeof(double))
+                    Value = value;
+                else if (PropertyType == typeof(float))
+                    Value = (float)value;
+                else if (PropertyType == typeof(int))
+                    Value = (int)Math.Round(value);
+            }
+            finally
+            {
+                IsBinding = false;
+            }
+        }
+    }
+
     public bool BoolValue
     {
         get => Value is bool b && b;
-        set => Value = value;
+        set
+        {
+            if (CanWrite)
+                Value = value;
+        }
     }
 
     public Color ColorValue
     {
         get => Value is Color c ? c : Colors.Transparent;
-        set => Value = value;
+        set
+        {
+            if (CanWrite)
+                Value = value;
+        }
     }
 
     public object? SelectedOption
@@ -561,6 +631,9 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         }
         set
         {
+            if (!CanWrite)
+                return;
+
             if (value is PictogramOptionViewModel p)
                 StringValue = p.Name;
             else if (value != null)
@@ -573,6 +646,9 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         get => Value is Color c ? $"#{c.R:X2}{c.G:X2}{c.B:X2}{c.A:X2}" : "";
         set
         {
+            if (!CanWrite)
+                return;
+
             // Try parsing as RGBA hex first (our format), then fall back to standard parsing
             if (!string.IsNullOrEmpty(value))
             {
@@ -629,10 +705,29 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         if (e.PropertyName == nameof(Value))
         {
             OnPropertyChanged(nameof(StringValue));
+            OnPropertyChanged(nameof(NumericValue));
+            OnPropertyChanged(nameof(DisplayValue));
             OnPropertyChanged(nameof(BoolValue));
             OnPropertyChanged(nameof(ColorValue));
             OnPropertyChanged(nameof(HexString));
             OnPropertyChanged(nameof(SelectedOption));
         }
     }
+
+    private static string FormatValue(object? value)
+        => value switch
+        {
+            null => string.Empty,
+            double d => FormatNumber(d),
+            float f => FormatNumber(f),
+            int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Color c => $"#{c.R:X2}{c.G:X2}{c.B:X2}{c.A:X2}",
+            _ => value.ToString() ?? string.Empty
+        };
+
+    private static string FormatNumber(double value)
+        => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string FormatNumber(float value)
+        => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 }

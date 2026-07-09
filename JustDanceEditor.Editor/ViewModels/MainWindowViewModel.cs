@@ -14,6 +14,7 @@ using Dock.Model.Mvvm.Controls;
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Docking;
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
@@ -36,6 +37,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly JustDanceDockFactory _factory;
     private readonly DockLayoutStorageService _layoutStorage;
     private readonly ITimelineContextService _timelineContext;
+    private readonly IDialogService _dialogService;
+    private readonly EditorSettingsService _editorSettings;
     private readonly List<IRelayCommand> _dynamicCommands = [];
 
     [ObservableProperty]
@@ -43,9 +46,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
 
-    public MainWindowViewModel(ITimelineContextService timelineContext)
+    public MainWindowViewModel(
+        ITimelineContextService timelineContext,
+        IDialogService? dialogService = null,
+        EditorSettingsService? editorSettings = null)
     {
         _timelineContext = timelineContext ?? throw new ArgumentNullException(nameof(timelineContext));
+        _dialogService = dialogService ?? new AvaloniaDialogService();
+        _editorSettings = editorSettings ?? new EditorSettingsService();
         _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
 
         _layoutStorage = new DockLayoutStorageService();
@@ -98,8 +106,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private void CreateFileMenu()
     {
         MenuItemViewModel fileMenu = new() { Header = "File" };
+        fileMenu.Items.Add(new MenuItemViewModel
+        {
+            Header = "Settings...",
+            Command = new AsyncRelayCommand(OpenSettingsAsync)
+        });
         ViewMenu.Add(fileMenu);
     }
+
+    private async Task OpenSettingsAsync()
+        => await _dialogService.ShowDialogAsync<bool>(new SettingsViewModel(_editorSettings));
 
     private void BuildDynamicMenu()
     {

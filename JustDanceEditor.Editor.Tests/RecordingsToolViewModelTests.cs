@@ -37,6 +37,35 @@ public sealed class RecordingsToolViewModelTests
         }
     }
 
+    [Fact]
+    public async Task ActiveTimeline_WithExistingMsmFiles_DefaultsToExistingMsmScoring()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(root);
+
+        TimelineEditorViewModel? timeline = null;
+        await using RecordingsToolViewModel tool = new();
+        try
+        {
+            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
+            Directory.CreateDirectory(movesFolder);
+            await File.WriteAllBytesAsync(Path.Combine(movesFolder, "move_a.msm"), [], TestContext.Current.CancellationToken);
+
+            IntermediateSongPackage package = new();
+            package.Metadata.CoachCount = 1;
+            timeline = new TimelineEditorViewModel(package, root, new PlaybackService(), new TimelineSettingsService());
+
+            tool.ActiveTimeline = timeline;
+
+            Assert.True(tool.ScoreAgainstExistingClassifiers);
+        }
+        finally
+        {
+            timeline?.Playback.Dispose();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [AvaloniaFact]
     public async Task StopAndSave_DeactivatesGameplayScoreHud()
     {
@@ -54,7 +83,8 @@ public sealed class RecordingsToolViewModelTests
             repository,
             new RecordingLibraryService(repository),
             new JdiMotionRecordingLiveScorer(),
-            new RecordingLiveScoreDisplayController(scoreHud));
+            new RecordingLiveScoreDisplayController(scoreHud),
+            new EditorSettingsService());
 
         try
         {

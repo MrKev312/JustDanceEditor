@@ -54,7 +54,7 @@ public sealed class MoveSpaceScorer
             runtime.DirectionImpactFactor);
     }
 
-    internal static float GetRatioScoreFromStatisticalDistance(float statisticalDistance, float lowThreshold, float highThreshold)
+    public static float GetRatioScoreFromStatisticalDistance(float statisticalDistance, float lowThreshold, float highThreshold)
     {
         if (lowThreshold == -1.0f
             || highThreshold == -1.0f

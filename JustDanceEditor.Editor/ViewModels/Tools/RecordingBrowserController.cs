@@ -1,3 +1,4 @@
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Recordings;
 
@@ -13,7 +14,8 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 internal sealed class RecordingBrowserController(
     RecordingsToolViewModel owner,
     RecordingLibraryService recordingLibrary,
-    JdiMotionRecordingAnalyzer analyzer)
+    JdiMotionRecordingAnalyzer analyzer,
+    EditorSettingsService settings)
 {
     private int _analysisVersion;
 
@@ -99,7 +101,8 @@ internal sealed class RecordingBrowserController(
             MotionRecordingAnalysisResult result = await analyzer.AnalyzeExistingClassifiersAsync(
                 timeline.RootPath,
                 timeline.Package,
-                selected.Recording);
+                selected.Recording,
+                CreateAnalysisOptions());
 
             if (version != _analysisVersion)
                 return;
@@ -122,6 +125,16 @@ internal sealed class RecordingBrowserController(
                 owner.NotifyViewStateChanged();
             }
         }
+    }
+
+    private MotionRecordingAnalysisOptions CreateAnalysisOptions()
+    {
+        MotionRecordingScoringProfile profile = settings.ScoringProfile;
+        return new MotionRecordingAnalysisOptions
+        {
+            ScoringProfile = profile,
+            GoldMoveValue = JdiMotionRecordingScoreMath.GetDefaultGoldMoveValue(profile)
+        };
     }
 
     public void FocusMove(int moveIndex)

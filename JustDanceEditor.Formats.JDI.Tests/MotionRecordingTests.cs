@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Scoring;
 
 using System.Buffers.Binary;
+using System.Text;
 
 using Xunit;
 
@@ -10,6 +11,67 @@ namespace JustDanceEditor.Formats.JDI.Tests;
 
 public class MotionRecordingTests
 {
+    [Fact]
+    public void JdiMotionRecordingScoreMath_AdjustedPercentageAppliesFinalModifiers()
+    {
+        MoveSpaceScoreResult clean = CreateMoveSpaceScoreResult(ratioScore: 0.8f, autoCorrelationTime: -1.0f, directionIgnored: false, directionImpact: 0.0f);
+        MoveSpaceScoreResult shaky = clean with { AutoCorrelationTime = 0.15f };
+        MoveSpaceScoreResult wrongDirection = clean with { DirectionTendencyImpactOnScoreRatio = -0.5f };
+        MoveSpaceScoreResult ignoredDirection = wrongDirection with { DirectionTendencyIgnored = true };
+
+        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(clean), 87.99f, 88.01f);
+        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(shaky), 39.99f, 40.01f);
+        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(wrongDirection), 62.99f, 63.01f);
+        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(ignoredDirection), 87.99f, 88.01f);
+    }
+
+    [Fact]
+    public void JdiMotionRecordingScoreMath_ProfileEvaluationUsesOfficialGoldAndThresholds()
+    {
+        MoveSpaceScoreResult clean = CreateMoveSpaceScoreResult(ratioScore: 0.88f, autoCorrelationTime: -1.0f, directionIgnored: false, directionImpact: 0.0f);
+        MoveSpaceScoreResult goldPass = clean with { RatioScore = 0.6f, PercentageScore = 60.0f };
+
+        MotionRecordingScoreEvaluation ubiArtClean = JdiMotionRecordingScoreMath.EvaluateMove(
+            isGoldMove: false,
+            clean,
+            goldScoreValue: 500.0f,
+            moveScoreValue: 100.0f,
+            MotionRecordingScoringProfile.UbiArt);
+        MotionRecordingScoreEvaluation ubiArtGold = JdiMotionRecordingScoreMath.EvaluateMove(
+            isGoldMove: true,
+            goldPass,
+            goldScoreValue: 500.0f,
+            moveScoreValue: 100.0f,
+            MotionRecordingScoringProfile.UbiArt);
+        MotionRecordingScoreEvaluation rawGold = JdiMotionRecordingScoreMath.EvaluateMove(
+            isGoldMove: true,
+            goldPass,
+            goldScoreValue: 500.0f,
+            moveScoreValue: 100.0f,
+            MotionRecordingScoringProfile.Raw);
+
+        Assert.Equal(MotionRecordingMoveFeedback.Perfect, ubiArtClean.Feedback);
+        Assert.InRange(ubiArtClean.PercentageScore, 90.63f, 90.65f);
+        Assert.Equal(MotionRecordingMoveFeedback.Yeah, ubiArtGold.Feedback);
+        Assert.Equal(500.0f, ubiArtGold.AddedScore);
+        Assert.Equal(MotionRecordingMoveFeedback.X, rawGold.Feedback);
+        Assert.Equal(0.0f, rawGold.AddedScore);
+    }
+
+    [Fact]
+    public void JdiMotionRecordingScoreMath_JDNextProfileUsesJDNextMoveSpaceDefaults()
+    {
+        MoveScoringOptions defaults = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+            new MoveScoringOptions(),
+            MotionRecordingScoringProfile.JDNext);
+
+        Assert.Equal(1.0f, defaults.DefaultLowThreshold);
+        Assert.Equal(3.5f, defaults.DefaultHighThreshold);
+        Assert.Equal(0.7f, defaults.DefaultAutoCorrelationThreshold);
+        Assert.Equal(1.0f, defaults.DefaultDirectionImpactFactor);
+        Assert.Equal(60.0f, defaults.SmoothingFrequency);
+    }
+
     [Fact]
     public async Task JsonMotionRecordingRepository_RoundTripsRecording()
     {
@@ -87,6 +149,77 @@ public class MotionRecordingTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task JdiMotionRecordingMoveScorer_ScoresSelectedMoveAgainstClassifierBytes()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            IntermediateSongPackage package = CreateOneMovePackage();
+            MotionRecordingDocument recording = CreateRecording(package.Metadata.SongID);
+
+            JdiMotionClassifierGenerator generator = new();
+            MotionClassifierGenerationResult generation = await generator.GenerateForCoachAsync(
+                root,
+                package,
+                coachId: 0,
+                [recording],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            GeneratedMotionClassifier classifier = Assert.Single(generation.Classifiers);
+            byte[] classifierBytes = await File.ReadAllBytesAsync(classifier.Path, TestContext.Current.CancellationToken);
+
+            JdiMotionRecordingMoveScorer scorer = new();
+            MotionRecordingMoveScorePreview preview = scorer.ScoreMove(
+                package,
+                "move_a",
+                [recording],
+                classifierBytes,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, preview.RecordingCount);
+            Assert.Equal(1, preview.MoveInstanceCount);
+            Assert.Equal(1, preview.ScoredMoveCount);
+            Assert.Equal(
+                preview.ScoredMoveCount,
+                preview.XCount + preview.OkCount + preview.GoodCount + preview.SuperCount + preview.PerfectCount + preview.YeahCount);
+            Assert.False(float.IsNaN(preview.AveragePercentageScore));
+            Assert.False(float.IsNaN(preview.AverageAddedScore));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void MotionClassifierHeaderEditor_PatchesBigEndianHeaderWithoutRewritingPayload()
+    {
+        byte[] source = CreateHeaderOnlyClassifier(isBigEndian: true);
+
+        byte[] patched = MotionClassifierHeaderEditor.UpdateHeader(source, new MotionClassifierHeaderUpdate
+        {
+            LowThreshold = 1.2f,
+            HighThreshold = 4.25f,
+            AutoCorrelationThreshold = 0.8f,
+            DirectionImpactFactor = 0.3f,
+            CustomizationBitField = 1
+        });
+
+        MotionClassifierHeader header = MotionClassifierHeaderEditor.ReadHeader(patched);
+        Assert.True(header.IsBigEndian);
+        Assert.Equal("move_a", header.MoveName);
+        Assert.Equal("testmap", header.SongName);
+        Assert.Equal(1.2f, header.LowThreshold);
+        Assert.Equal(4.25f, header.HighThreshold);
+        Assert.Equal(0.8f, header.AutoCorrelationThreshold);
+        Assert.Equal(0.3f, header.DirectionImpactFactor);
+        Assert.Equal(1U, header.CustomizationBitField);
+
+        Assert.NotEqual(source, patched);
+        Assert.Equal(source.AsSpan(HeaderOnlyClassifierPayloadOffset).ToArray(), patched.AsSpan(HeaderOnlyClassifierPayloadOffset).ToArray());
     }
 
     [Fact]
@@ -543,6 +676,82 @@ public class MotionRecordingTests
 
     private static void Reverse(byte[] data, int offset, int count)
         => Array.Reverse(data, offset, count);
+
+    private static MoveSpaceScoreResult CreateMoveSpaceScoreResult(
+        float ratioScore,
+        float autoCorrelationTime,
+        bool directionIgnored,
+        float directionImpact)
+        => new(
+            "move_a",
+            StatisticalDistance: 1.0f,
+            ratioScore,
+            PercentageScore: ratioScore * 100.0f,
+            EnergyAmount: 1.0f,
+            EnergyFactor: 1.0f,
+            autoCorrelationTime,
+            directionIgnored,
+            directionImpact,
+            LowThreshold: 1.0f,
+            HighThreshold: 3.0f,
+            AutoCorrelationThreshold: 0.7f,
+            DirectionImpactFactor: 1.0f);
+
+    private const int HeaderOnlyClassifierPayloadOffset = 240;
+
+    private static byte[] CreateHeaderOnlyClassifier(bool isBigEndian)
+    {
+        byte[] result = new byte[HeaderOnlyClassifierPayloadOffset + 4];
+        WriteUInt32(result, 0, 1, isBigEndian);
+        WriteUInt32(result, 4, 7, isBigEndian);
+        WriteFixedString(result, 8, "move_a");
+        WriteFixedString(result, 72, "testmap");
+        WriteFixedString(result, 136, "Acc_Dev_Dir_NP");
+        WriteSingle(result, 200, 0.75f, isBigEndian);
+        WriteSingle(result, 204, 1.0f, isBigEndian);
+        WriteSingle(result, 208, 3.0f, isBigEndian);
+        WriteSingle(result, 212, 1.0f, isBigEndian);
+        WriteSingle(result, 216, -1.0f, isBigEndian);
+        WriteUInt64(result, 220, 0x211C000000000000UL, isBigEndian);
+        WriteUInt32(result, 228, 2, isBigEndian);
+        WriteInt32(result, 232, 0, isBigEndian);
+        WriteUInt32(result, 236, 0, isBigEndian);
+        result[240] = 0xBA;
+        result[241] = 0xAD;
+        result[242] = 0xF0;
+        result[243] = 0x0D;
+        return result;
+    }
+
+    private static void WriteFixedString(byte[] data, int offset, string value)
+        => Encoding.UTF8.GetBytes(value, data.AsSpan(offset, 64));
+
+    private static void WriteSingle(byte[] data, int offset, float value, bool isBigEndian)
+        => WriteInt32(data, offset, BitConverter.SingleToInt32Bits(value), isBigEndian);
+
+    private static void WriteUInt32(byte[] data, int offset, uint value, bool isBigEndian)
+    {
+        if (isBigEndian)
+            BinaryPrimitives.WriteUInt32BigEndian(data.AsSpan(offset, sizeof(uint)), value);
+        else
+            BinaryPrimitives.WriteUInt32LittleEndian(data.AsSpan(offset, sizeof(uint)), value);
+    }
+
+    private static void WriteUInt64(byte[] data, int offset, ulong value, bool isBigEndian)
+    {
+        if (isBigEndian)
+            BinaryPrimitives.WriteUInt64BigEndian(data.AsSpan(offset, sizeof(ulong)), value);
+        else
+            BinaryPrimitives.WriteUInt64LittleEndian(data.AsSpan(offset, sizeof(ulong)), value);
+    }
+
+    private static void WriteInt32(byte[] data, int offset, int value, bool isBigEndian)
+    {
+        if (isBigEndian)
+            BinaryPrimitives.WriteInt32BigEndian(data.AsSpan(offset, sizeof(int)), value);
+        else
+            BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(offset, sizeof(int)), value);
+    }
 
     private static void AssertFinite(float value)
     {

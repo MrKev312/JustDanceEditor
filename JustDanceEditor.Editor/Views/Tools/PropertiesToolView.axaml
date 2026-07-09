@@ -20,28 +20,62 @@
 			<ItemsControl ItemsSource="{Binding Categories}">
 				<ItemsControl.ItemTemplate>
 					<DataTemplate>
-						<StackPanel>
-							<Border Background="{DynamicResource JdeSurfaceBrush}" Padding="5">
-								<TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+						<StackPanel Margin="0,0,0,8">
+							<Border Background="{DynamicResource JdeSurfaceBrush}" Padding="8,6">
+								<TextBlock Text="{Binding Name}"
+										   FontSize="12"
+										   FontWeight="SemiBold"
+										   Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
 							</Border>
 							<ItemsControl ItemsSource="{Binding Properties}">
 								<ItemsControl.ItemTemplate>
 									<DataTemplate>
-										<Grid ColumnDefinitions="140,*" Margin="5,2">
-											<TextBlock Text="{Binding Name}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+										<Grid ColumnDefinitions="132,*" Margin="8,5" ColumnSpacing="8">
+											<TextBlock Text="{Binding Name}"
+													   VerticalAlignment="Center"
+													   FontSize="12"
+													   Foreground="{DynamicResource JdeTextSecondaryBrush}"
+													   TextTrimming="CharacterEllipsis"/>
 
 											<Panel Grid.Column="1">
+												<TextBlock Text="{Binding DisplayValue}"
+														   IsVisible="{Binding ShowReadOnlyText}"
+														   VerticalAlignment="Center"
+														   Foreground="{DynamicResource JdeTextPrimaryBrush}"
+														   TextTrimming="CharacterEllipsis"/>
+
 												<!-- Text/Number -->
 												<TextBox Text="{Binding StringValue, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
 														 IsVisible="{Binding ShowTextBox}"
-														 IsReadOnly="{Binding IsReadOnly}"
 														 KeyDown="OnTextBoxKeyDown"
 														 Classes="propEntry"/>
+
+												<Grid IsVisible="{Binding ShowSlider}"
+													  RowDefinitions="Auto,Auto"
+													  RowSpacing="2">
+													<Grid ColumnDefinitions="*,78" ColumnSpacing="8">
+														<Slider Minimum="{Binding Minimum}"
+																Maximum="{Binding Maximum}"
+																Value="{Binding NumericValue, Mode=TwoWay}"
+																TickFrequency="{Binding TickFrequency}"
+																IsSnapToTickEnabled="False"
+																VerticalAlignment="Center"/>
+														<TextBox Grid.Column="1"
+																 Text="{Binding StringValue, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+																 HorizontalContentAlignment="Right"
+																 KeyDown="OnTextBoxKeyDown"
+																 Classes="propEntry numericEntry"/>
+													</Grid>
+													<TextBlock Grid.Row="1"
+															   Text="{Binding SliderRangeText}"
+															   FontSize="10"
+															   Foreground="{DynamicResource JdeTextMutedBrush}"/>
+												</Grid>
 
 												<!-- ComboBox for options -->
 												<ComboBox ItemsSource="{Binding Options}"
 														  SelectedItem="{Binding SelectedOption, Mode=TwoWay}"
-														  IsVisible="{Binding HasOptions}"
+														  IsVisible="{Binding ShowComboBox}"
 														  IsEditable="{Binding IsEditable}"
 														  HorizontalAlignment="Stretch"
 														  MaxDropDownHeight="300">
@@ -77,8 +111,8 @@
 														<TextBox Grid.Column="1"
 																 Text="{Binding HexString, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
 																 IsEnabled="{Binding !IsReadOnly}"
-																 KeyDown="OnTextBoxKeyDown"
-																 Classes="propEntry"/>
+															 KeyDown="OnTextBoxKeyDown"
+															 Classes="propEntry"/>
 													</Grid>
 												</Panel>
 											</Panel>
@@ -97,6 +131,9 @@
 		<Style Selector="TextBox.propEntry">
 			<Setter Property="MinHeight" Value="24"/>
 			<Setter Property="Padding" Value="4,2"/>
+		</Style>
+		<Style Selector="TextBox.numericEntry">
+			<Setter Property="MinWidth" Value="72"/>
 		</Style>
 	</UserControl.Styles>
 </UserControl>

@@ -1,6 +1,7 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
@@ -23,6 +24,15 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
     public ObservableCollection<LibraryItemViewModel> Pictograms { get; } = [];
     public ObservableCollection<LibraryItemViewModel> HandMoves { get; } = [];
     public ObservableCollection<LibraryItemViewModel> FullBodyMoves { get; } = [];
+
+    [ObservableProperty]
+    public partial LibraryItemViewModel? SelectedPictogram { get; set; }
+
+    [ObservableProperty]
+    public partial LibraryItemViewModel? SelectedHandMove { get; set; }
+
+    [ObservableProperty]
+    public partial LibraryItemViewModel? SelectedFullBodyMove { get; set; }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
@@ -51,6 +61,47 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         Pictograms.Clear();
         HandMoves.Clear();
         FullBodyMoves.Clear();
+        SelectedPictogram = null;
+        SelectedHandMove = null;
+        SelectedFullBodyMove = null;
+    }
+
+    partial void OnSelectedPictogramChanged(LibraryItemViewModel? value)
+    {
+        if (value == null)
+            return;
+
+        SelectedHandMove = null;
+        SelectedFullBodyMove = null;
+        PublishSelection(value);
+    }
+
+    partial void OnSelectedHandMoveChanged(LibraryItemViewModel? value)
+    {
+        if (value == null)
+            return;
+
+        SelectedPictogram = null;
+        SelectedFullBodyMove = null;
+        PublishSelection(value);
+    }
+
+    partial void OnSelectedFullBodyMoveChanged(LibraryItemViewModel? value)
+    {
+        if (value == null)
+            return;
+
+        SelectedPictogram = null;
+        SelectedHandMove = null;
+        PublishSelection(value);
+    }
+
+    private void PublishSelection(LibraryItemViewModel item)
+    {
+        if (TimelineContext == null || ActiveTimeline == null)
+            return;
+
+        TimelineContext.SelectedObjects = [item];
     }
 
     private void SubscribeToTimelineCollections(TimelineEditorViewModel? timeline)

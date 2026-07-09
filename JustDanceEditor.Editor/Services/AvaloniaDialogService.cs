@@ -23,6 +23,7 @@ public class AvaloniaDialogService : IDialogService
             HideHudCreationViewModel _ => new HideHudCreationWindow(),
             NewMoveDefinitionViewModel _ => new NewMoveDefinitionWindow(),
             PictogramScreenshotOptionsViewModel _ => new PictogramScreenshotOptionsWindow(),
+            SettingsViewModel _ => new SettingsWindow(),
             _ => throw new System.ArgumentException("Unsupported dialog viewmodel type")
         };
 

@@ -7,6 +7,7 @@ namespace JustDanceEditor.Formats.JDI.Recordings;
 public sealed record MotionRecordingAnalysisOptions
 {
     public MoveScoringOptions MoveSpaceOptions { get; init; } = new();
+    public MotionRecordingScoringProfile ScoringProfile { get; init; } = MotionRecordingScoringProfile.Raw;
     public float SongScoreMaxScore { get; init; } = 13333.0f;
     public float GoldMoveValue { get; init; } = 3.5f;
 }
@@ -85,13 +86,16 @@ public sealed class JdiMotionRecordingAnalyzer
         MotionRecordingLiveScoringOptions scoreOptions = new()
         {
             SongScoreMaxScore = options.SongScoreMaxScore,
-            GoldMoveValue = options.GoldMoveValue
+            GoldMoveValue = options.GoldMoveValue,
+            ScoringProfile = options.ScoringProfile
         };
         (float goldScoreValue, float moveScoreValue) = JdiMotionRecordingScoreMath.GetScoreValues(moveWindows, scoreOptions);
-        MoveScoringOptions moveSpaceOptions = options.MoveSpaceOptions with
-        {
-            FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
-        };
+        MoveScoringOptions moveSpaceOptions = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+            options.MoveSpaceOptions,
+            options.ScoringProfile) with
+            {
+                FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
+            };
 
         List<MotionRecordingAnalyzedMove> moves = [];
         float totalScore = 0.0f;
@@ -108,7 +112,6 @@ public sealed class JdiMotionRecordingAnalyzer
                 move.DurationSeconds);
 
             MoveSpaceScoreResult? moveSpace = null;
-            float percentageScore = 0.0f;
             string? issue = null;
 
             if (!classifiers.TryGetValue(move.MoveId, out byte[]? classifierBytes))
@@ -132,8 +135,6 @@ public sealed class JdiMotionRecordingAnalyzer
                         Samples = samples,
                         Options = moveSpaceOptions
                     });
-
-                    percentageScore = JdiMotionRecordingScoreMath.NormalizePercentage(moveSpace.PercentageScore);
                 }
                 catch (Exception ex)
                 {
@@ -144,14 +145,13 @@ public sealed class JdiMotionRecordingAnalyzer
             if (!string.IsNullOrWhiteSpace(issue))
                 issueCount++;
 
-            MotionRecordingMoveFeedback feedback = JdiMotionRecordingScoreMath.GetFeedback(move.IsGoldMove, percentageScore);
-            float addedScore = JdiMotionRecordingScoreMath.GetAddedScore(
+            MotionRecordingScoreEvaluation evaluation = JdiMotionRecordingScoreMath.EvaluateMove(
                 move.IsGoldMove,
-                feedback,
-                percentageScore,
+                moveSpace,
                 goldScoreValue,
-                moveScoreValue);
-            totalScore += addedScore;
+                moveScoreValue,
+                options.ScoringProfile);
+            totalScore += evaluation.AddedScore;
 
             moves.Add(new MotionRecordingAnalyzedMove(
                 move.Index,
@@ -161,9 +161,9 @@ public sealed class JdiMotionRecordingAnalyzer
                 move.EndBeatLabel,
                 move.StartSeconds,
                 move.EndSeconds,
-                feedback,
-                percentageScore,
-                addedScore,
+                evaluation.Feedback,
+                evaluation.PercentageScore,
+                evaluation.AddedScore,
                 totalScore,
                 moveSpace,
                 issue));

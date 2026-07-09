@@ -35,6 +35,7 @@ public partial class App : Application
     {
         ServiceCollection sc = new();
 
+        sc.AddSingleton<EditorSettingsService>();
         sc.AddSingleton<TimelineSettingsService>();
         sc.AddSingleton<ITimelineContextService, TimelineContextService>();
         sc.AddSingleton<IDialogService, AvaloniaDialogService>();

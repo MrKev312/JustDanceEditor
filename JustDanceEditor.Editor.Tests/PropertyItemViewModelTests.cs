@@ -96,4 +96,61 @@ public class PropertyItemViewModelTests
         Assert.Equal(Colors.Orange, d1.Color);
         Assert.Equal(Colors.Orange, d2.Color);
     }
+
+    [Fact]
+    public void NumericInspectable_UsesSliderBinding()
+    {
+        NumericTarget target = new() { Threshold = 0.5 };
+        PropertyItemViewModel propVm = new(
+            [target],
+            nameof(NumericTarget.Threshold),
+            new Attributes.NumericInspectableAttribute("Threshold", "MSM", -1.0, 1.4, 0.01),
+            new UndoService(),
+            new TimelineStructureDocument(),
+            [],
+            null);
+
+        Assert.True(propVm.ShowSlider);
+        Assert.False(propVm.ShowTextBox);
+        Assert.Equal(-1.0, propVm.Minimum);
+        Assert.Equal(1.4, propVm.Maximum);
+        Assert.Equal(0.01, propVm.TickFrequency);
+
+        propVm.NumericValue = 1.2;
+
+        Assert.Equal(1.2, target.Threshold);
+    }
+
+    [Fact]
+    public void GetterOnlyNumericProperty_IgnoresHiddenSliderWrite()
+    {
+        ReadOnlyNumericTarget target = new();
+        PropertyItemViewModel propVm = new(
+            [target],
+            nameof(ReadOnlyNumericTarget.Score),
+            new Attributes.InspectableAttribute("Score", "MSM"),
+            new UndoService(),
+            new TimelineStructureDocument(),
+            [],
+            null);
+
+        Assert.True(propVm.IsReadOnly);
+        Assert.False(propVm.ShowSlider);
+        Assert.True(propVm.ShowReadOnlyText);
+
+        propVm.NumericValue = 0;
+        propVm.Value = 0;
+
+        Assert.Equal(42, target.Score);
+    }
+
+    private sealed class NumericTarget
+    {
+        public double Threshold { get; set; }
+    }
+
+    private sealed class ReadOnlyNumericTarget
+    {
+        public int Score => 42;
+    }
 }
