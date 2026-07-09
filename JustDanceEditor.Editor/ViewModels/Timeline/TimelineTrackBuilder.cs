@@ -19,17 +19,11 @@ internal static class TimelineTrackBuilder
 
         Color lyricsDefinitionColor = new(255, lyricsColor.R, lyricsColor.G, lyricsColor.B);
 
-        try
-        {
-            foreach (KeyValuePair<string, CoachMoveDefinition> kv in timeline.Package.HandCoachMoves)
-                moveDefinitions[(kv.Key, false)] = CreateMoveDefinition(kv.Key, kv.Value, isFullBody: false);
+        foreach (KeyValuePair<string, CoachMoveDefinition> kv in timeline.Package.HandCoachMoves)
+            moveDefinitions[(kv.Key, false)] = CreateMoveDefinition(kv.Key, kv.Value, isFullBody: false);
 
-            foreach (KeyValuePair<string, CoachMoveDefinition> kv in timeline.Package.FullBodyCoachMoves)
-                moveDefinitions[(kv.Key, true)] = CreateMoveDefinition(kv.Key, kv.Value, isFullBody: true);
-        }
-        catch
-        {
-        }
+        foreach (KeyValuePair<string, CoachMoveDefinition> kv in timeline.Package.FullBodyCoachMoves)
+            moveDefinitions[(kv.Key, true)] = CreateMoveDefinition(kv.Key, kv.Value, isFullBody: true);
 
         AddTrack(timeline, "Video", 40, Colors.IndianRed, TrackType.Video, []);
         AddTrack(timeline, "Hide HUD", 30, Colors.MediumPurple, TrackType.HideHud, timeline.Package.HideUserInterface.Clips.Cast<TimelineClipBase>());

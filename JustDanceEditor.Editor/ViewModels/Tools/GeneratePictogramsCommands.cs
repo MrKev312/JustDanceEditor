@@ -38,11 +38,11 @@ public sealed class GeneratePictogramsFromVideoCommand : IRunCommand
 
     private static async Task RunAsync(TimelineEditorViewModel timeline)
     {
-        if (Avalonia.Application.Current is not App app)
+        if (timeline.Services.Dialogs == null)
             return;
 
         PictogramScreenshotOptionsViewModel vm = new();
-        PictogramScreenshotOptionsResult? result = await app.DialogService.ShowDialogAsync<PictogramScreenshotOptionsResult>(vm);
+        PictogramScreenshotOptionsResult? result = await timeline.Services.Dialogs.ShowDialogAsync<PictogramScreenshotOptionsResult>(vm);
         if (result == null)
             return;
 

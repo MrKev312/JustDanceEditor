@@ -34,7 +34,7 @@ using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public partial class TimelineEditorViewModel : Document
+public partial class TimelineEditorViewModel : Document, IDisposable
 {
     private readonly TimelineMediaController _media;
     private readonly TimelineClipboardController _clipboard;
@@ -46,8 +46,10 @@ public partial class TimelineEditorViewModel : Document
     private readonly TimelineSnapSettingsController _snapSettings;
     private readonly TimelineMetronomeController _metronome;
     private readonly TimelineCloseController _closeController;
+    private bool _disposed;
 
     public IntermediateSongPackage Package { get; }
+    public TimelineEditorServices Services { get; }
 
     public string RootPath { get; }
 
@@ -146,10 +148,12 @@ public partial class TimelineEditorViewModel : Document
         string rootPath,
         IPlaybackService playback,
         TimelineSettingsService settings,
-        ITimelinePictogramGenerator? pictogramGenerator = null)
+        ITimelinePictogramGenerator? pictogramGenerator = null,
+        TimelineEditorServices? services = null)
     {
         Package = package;
         RootPath = rootPath;
+        Services = services ?? TimelineEditorServices.Detached;
         _media = new TimelineMediaController(this);
         _clipboard = new TimelineClipboardController(this);
         _selection = new TimelineSelectionController(this);
@@ -168,7 +172,7 @@ public partial class TimelineEditorViewModel : Document
         HookUndoServiceStateChanged();
 
         Playback = playback;
-        Playback.TimeChanged += (s, e) => CurrentBeat = Playback.CurrentBeat;
+        Playback.TimeChanged += Playback_TimeChanged;
 
         BeatOffset = Package.TimelineStructure.StartBeat;
         MaxBeat = Package.TimelineStructure.EndBeat - Package.TimelineStructure.StartBeat;
@@ -371,28 +375,19 @@ public partial class TimelineEditorViewModel : Document
 
     private void HookUndoServiceStateChanged()
     {
-        UndoService?.StateChanged += (s, e) =>
-        {
-            // Update title with unsaved indicator
-            Title = UndoService.IsDirty ? $"{BaseTitle} *" : BaseTitle;
+        UndoService.StateChanged += UndoService_StateChanged;
+    }
 
-            // Notify bindings
-            OnPropertyChanged(nameof(CanUndo));
-            OnPropertyChanged(nameof(CanRedo));
+    private void Playback_TimeChanged(object? sender, EventArgs e)
+        => CurrentBeat = Playback.CurrentBeat;
 
-            // Notify generated commands to requery CanExecute
-            try
-            {
-                UndoCommand.NotifyCanExecuteChanged();
-            }
-            catch { }
-
-            try
-            {
-                RedoCommand.NotifyCanExecuteChanged();
-            }
-            catch { }
-        };
+    private void UndoService_StateChanged(object? sender, EventArgs e)
+    {
+        Title = UndoService.IsDirty ? $"{BaseTitle} *" : BaseTitle;
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -476,11 +471,9 @@ public partial class TimelineEditorViewModel : Document
         return _closeController.ShouldClose() && base.OnClose();
     }
 
-    internal Task<bool> TrySaveAndReportFailureAsync(Window? owner) => _closeController.TrySaveAndReportFailureAsync(owner);
+    internal Task<bool> TrySaveAndReportFailureAsync() => _closeController.TrySaveAndReportFailureAsync();
 
-    internal Task<bool> TrySaveAndCloseAfterPromptAsync(Window? owner) => _closeController.TrySaveAndCloseAfterPromptAsync(owner);
-
-    internal static Task ShowSaveErrorAsync(Window? owner, Exception exception) => TimelineCloseController.ShowSaveErrorAsync(owner, exception);
+    internal Task<bool> TrySaveAndCloseAfterPromptAsync() => _closeController.TrySaveAndCloseAfterPromptAsync();
 
     partial void OnSnapToGridChanged(bool value) => _snapSettings.SetSnapToGrid(value);
 
@@ -491,4 +484,24 @@ public partial class TimelineEditorViewModel : Document
     partial void OnSnapThresholdChanged(double value) => _snapSettings.SetSnapThreshold(value);
 
     partial void OnSnapToClipsChanged(bool value) => _snapSettings.SetSnapToClips(value);
+
+    internal void DisposeClips()
+    {
+        foreach (ClipViewModel clip in Tracks.SelectMany(static track => track.Clips).Distinct())
+            clip.Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        Playback.TimeChanged -= Playback_TimeChanged;
+        UndoService.StateChanged -= UndoService_StateChanged;
+        _snapSettings.Dispose();
+        DisposeClips();
+        Playback.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

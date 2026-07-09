@@ -13,7 +13,7 @@ public class PictogramCreationDialogTests
         Directory.CreateDirectory(assets);
 
         string picName = "foo";
-        string path = Path.Combine(assets, picName + ".png");
+        string path = Path.Combine(assets, picName + ".webp");
         // minimal PNG
         File.WriteAllBytes(path, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="));
 

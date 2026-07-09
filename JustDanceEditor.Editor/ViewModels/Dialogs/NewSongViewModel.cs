@@ -45,6 +45,12 @@ public class NewSongResult
 /// </summary>
 public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongResult>, ISongEditorViewModel, IDisposable
 {
+    private readonly IWindowService? windows;
+
+    public NewSongViewModel(IWindowService? windows = null)
+    {
+        this.windows = windows;
+    }
     // Step tracking
     public const int TotalSteps = 4;
 
@@ -255,9 +261,7 @@ public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongR
     [RelayCommand]
     private async Task BrowseAudioAsync()
     {
-        Window? topLevel = Avalonia.Application.Current?.ApplicationLifetime
-            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow : null;
+        Window? topLevel = windows?.MainWindow;
         if (topLevel == null)
             return;
 
@@ -283,9 +287,7 @@ public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongR
     [RelayCommand]
     private async Task BrowseOutputFolderAsync()
     {
-        Window? topLevel = Avalonia.Application.Current?.ApplicationLifetime
-            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow : null;
+        Window? topLevel = windows?.MainWindow;
         if (topLevel == null)
             return;
 
@@ -314,8 +316,9 @@ public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongR
             {
                 AudioDurationSeconds = await AudioConversionService.GetDurationAsync(audioPath);
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Fallback(ex, $"Read audio duration '{audioPath}'");
                 // Fallback: estimate from sample count (8kHz mono)
                 AudioDurationSeconds = samples.Length / 8000.0;
             }
@@ -346,8 +349,9 @@ public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongR
                         }
                     });
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, $"Load new-song waveform '{audioPath}'");
             WaveformSamples = [];
             AudioDurationSeconds = 0;
         }

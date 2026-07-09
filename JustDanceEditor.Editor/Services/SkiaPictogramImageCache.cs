@@ -118,8 +118,9 @@ internal static class SkiaPictogramImageCache
                 CacheOrDisposeLoadedImage(path, pendingLoad, image);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Fallback(ex, $"Load pictogram image '{path}'");
             SkiaPictogramImage missingImage = CreateMissingImage();
             CacheOrDisposeLoadedImage(path, pendingLoad, missingImage);
         }

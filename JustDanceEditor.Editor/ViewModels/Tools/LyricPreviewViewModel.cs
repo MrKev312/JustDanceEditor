@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -38,7 +39,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     // Coalesces rapid bursts of ClipDataChangedMessages into a single rebuild
     private bool _rebuildPending;
 
-    public LyricPreviewViewModel()
+    public LyricPreviewViewModel(ITimelineContextService? timelineContext = null)
+        : base(timelineContext)
     {
     }
 
@@ -54,11 +56,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
 
         // Ensure any previous registration is removed (idempotent) before registering our handler
-        try
-        {
-            WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
-        }
-        catch { }
+        WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
 
         // Register for per-clip data changes so we can react to edits in the property grid
         WeakReferenceMessenger.Default.Register<LyricPreviewViewModel, Messaging.ClipDataChangedMessage>(this, (r, m) =>
@@ -262,12 +260,4 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             }
         }
     }
-}
-
-public class LyricLineViewModel(List<ClipViewModel> clips)
-{
-    public List<ClipViewModel> Clips { get; } = clips;
-    public double StartBeat => Clips.FirstOrDefault()?.StartBeat ?? 0;
-    public double EndBeat => Clips.LastOrDefault() is ClipViewModel last ? last.StartBeat + last.DurationBeats : 0;
-    public string FullText => string.Join("", Clips.Select(c => (c as KaraokeClipViewModel)?.Lyrics ?? ""));
 }

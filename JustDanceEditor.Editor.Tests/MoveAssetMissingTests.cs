@@ -213,7 +213,7 @@ public class MoveAssetMissingTests
             timeline.Tracks.Add(track);
 
             PictogramClipViewModel clipVm = new(new PictogramClip { Duration = 24 }, tmp, timeline);
-            IEnumerable<object>? options = clipVm.GetDynamicOptions(nameof(PictogramClipViewModel.PictogramId), timeline);
+            IEnumerable<object> options = clipVm.GetAvailablePictograms(timeline);
             Assert.NotNull(options);
             // Just check that options can be enumerated - rendering may fail without Avalonia
             int count = 0;

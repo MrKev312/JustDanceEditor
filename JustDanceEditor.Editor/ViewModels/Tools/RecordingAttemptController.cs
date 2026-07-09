@@ -365,7 +365,7 @@ internal sealed class RecordingAttemptController(
         _discardPromptOpen = true;
         try
         {
-            bool discard = await RecordingsToolDialogs.ShowDiscardPromptAsync();
+            bool discard = await RecordingsToolDialogs.ShowDiscardPromptAsync(owner.DialogOwner);
             if (!discard || !owner.IsRecording)
                 return;
 

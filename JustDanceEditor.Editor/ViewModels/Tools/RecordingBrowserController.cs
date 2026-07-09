@@ -65,7 +65,7 @@ internal sealed class RecordingBrowserController(
         if (selected == null)
             return;
 
-        bool confirmed = await RecordingsToolDialogs.ShowDeleteConfirmationAsync(selected.DisplayName);
+        bool confirmed = await RecordingsToolDialogs.ShowDeleteConfirmationAsync(selected.DisplayName, owner.DialogOwner);
         if (!confirmed)
             return;
 

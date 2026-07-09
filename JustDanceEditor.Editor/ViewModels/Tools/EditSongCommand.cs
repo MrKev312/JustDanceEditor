@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
@@ -17,7 +16,7 @@ using System.Threading.Tasks;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Edit Song Properties...", "File", priority: 100)]
-public class EditSongCommand : IRunCommand
+public class EditSongCommand(IWindowService windows, IEditorPromptService prompts) : IRunCommand
 {
     public bool CanRun(ITimelineContextService? timelineContext) => timelineContext?.ActiveTimeline != null;
 
@@ -26,7 +25,7 @@ public class EditSongCommand : IRunCommand
         _ = RunAsync(timelineContext);
     }
 
-    private static async Task RunAsync(ITimelineContextService? timelineContext)
+    private async Task RunAsync(ITimelineContextService? timelineContext)
     {
         TimelineEditorViewModel? timeline = timelineContext?.ActiveTimeline;
         if (timeline == null)
@@ -34,30 +33,16 @@ public class EditSongCommand : IRunCommand
 
         try
         {
-            IClassicDesktopStyleApplicationLifetime? desktop =
-                Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            Window? mainWindow = desktop?.MainWindow;
+            Window? mainWindow = windows.MainWindow;
             if (mainWindow == null)
                 return;
 
             // Block if there are unsaved changes (dirty relative to last save)
             if (timeline.UndoService.IsDirty)
             {
-                Window warnWin = new()
-                {
-                    Title = "Unsaved Changes",
-                    Width = 420,
-                    Height = 180,
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Content = new TextBlock
-                    {
-                        Text = "You have unsaved changes. Please save your work before editing song properties.",
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        Margin = new Avalonia.Thickness(16),
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-                    }
-                };
-                await warnWin.ShowDialog(mainWindow);
+                await prompts.ShowMessageAsync(
+                    "Unsaved Changes",
+                    "You have unsaved changes. Please save your work before editing song properties.");
                 return;
             }
 
@@ -79,26 +64,10 @@ public class EditSongCommand : IRunCommand
         }
         catch (Exception ex)
         {
-            IClassicDesktopStyleApplicationLifetime? desktop2 =
-                Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            Window? mw = desktop2?.MainWindow;
-            if (mw != null)
-            {
-                Window errorWin = new()
-                {
-                    Title = "Error Editing Song",
-                    Width = 400,
-                    Height = 200,
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Content = new TextBlock
-                    {
-                        Text = $"Failed to apply song edits:\n{ex.Message}",
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        Margin = new Avalonia.Thickness(16)
-                    }
-                };
-                await errorWin.ShowDialog(mw);
-            }
+            await prompts.ShowErrorAsync(
+                "Error Editing Song",
+                $"Failed to apply song edits:\n{ex.Message}",
+                ex);
         }
     }
 

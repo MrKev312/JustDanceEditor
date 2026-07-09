@@ -478,7 +478,7 @@ internal sealed class SharedVideoPreviewSession : IDisposable
         {
             stillFrameCts?.Cancel();
         }
-        catch
+        catch (ObjectDisposedException)
         {
         }
 

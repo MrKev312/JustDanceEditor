@@ -168,8 +168,6 @@ public class SectionWaveformEditor : Control
     private static readonly SolidColorBrush _waveformFill = new(Colors.LightGray, 0.5);
     private static readonly Pen _beatPen = new(new SolidColorBrush(Colors.White, 0.25), 1);
     private static readonly Pen _measurePen = new(new SolidColorBrush(Colors.White, 0.45), 1);
-    private static readonly Pen _sectionBorderPen = new(new SolidColorBrush(Colors.White, 0.8), 2);
-    private static readonly Pen _selectedBorderPen = new(new SolidColorBrush(Colors.Yellow), 3);
     private static readonly Pen _playheadPen = new(new SolidColorBrush(Colors.Lime), 2);
     private static readonly Pen _startBeatPen = new(new SolidColorBrush(Colors.Cyan), 2) { DashStyle = DashStyle.Dash };
     private static readonly Pen _endBeatPen = new(new SolidColorBrush(Colors.Orange), 2) { DashStyle = DashStyle.Dash };
@@ -526,7 +524,9 @@ public class SectionWaveformEditor : Control
         WaveformRenderHelper.DrawMeasureBackgrounds(context, width, height, visibleStart, visibleDuration, ZeroBeatTime, Bpm, BeatsPerMeasure, sectionBeats, _measureEvenBrush, _measureOddBrush, _measureErrorBrush);
 
         // Draw section colored regions (behind waveform)
-        DrawSectionRegions(context, width, height, visibleStart, visibleEnd, visibleDuration);
+        SectionWaveformSectionRenderer.DrawRegions(
+            context, Sections, _sectionColors, Bpm, ZeroBeatTime, EndBeat, AudioDuration,
+            width, height, visibleStart, visibleEnd, visibleDuration);
 
         // Draw waveform envelope
         int pixelWidth = (int)width;
@@ -584,7 +584,9 @@ public class SectionWaveformEditor : Control
         }
 
         // Draw section boundary markers
-        DrawSectionBoundaries(context, width, height, visibleStart, visibleDuration);
+        SectionWaveformSectionRenderer.DrawBoundaries(
+            context, Sections, SelectedSection, _sectionColors, Bpm, ZeroBeatTime,
+            width, height, visibleStart, visibleDuration);
 
         // Draw start/end beat boundary lines
         if (Bpm > 0)
@@ -647,75 +649,4 @@ public class SectionWaveformEditor : Control
         WaveformRenderHelper.DrawScrollbar(context, width, totalHeight, waveformHeight, ScrollBarHeight, duration, ViewStart, GetVisibleEnd(), _scrollTrackBrush, _scrollbarDragging ? _scrollThumbHoverBrush : _scrollThumbBrush);
     }
 
-    private void DrawSectionRegions(DrawingContext context, double width, double height, double visibleStart, double visibleEnd, double visibleDuration)
-    {
-        ObservableCollection<SectionEntry>? sections = Sections;
-        if (sections == null || sections.Count == 0 || Bpm <= 0)
-            return;
-
-        double beatDuration = 60.0 / Bpm;
-
-        for (int i = 0; i < sections.Count; i++)
-        {
-            SectionEntry section = sections[i];
-            double startTime = ZeroBeatTime + (section.StartBeat * beatDuration);
-
-            // End time is either the next section's start or the end beat boundary (if set) or the audio
-            double endTime = i + 1 < sections.Count
-                ? ZeroBeatTime + (sections[i + 1].StartBeat * beatDuration)
-                : (EndBeat != 0 ? ZeroBeatTime + (EndBeat * beatDuration) : AudioDuration);
-
-            // Clip to visible range
-            double drawStart = Math.Max(startTime, visibleStart);
-            double drawEnd = Math.Min(endTime, visibleEnd);
-            if (drawStart >= drawEnd)
-                continue;
-
-            double x1 = (drawStart - visibleStart) / visibleDuration * width;
-            double x2 = (drawEnd - visibleStart) / visibleDuration * width;
-
-            Color c = _sectionColors.TryGetValue(section.SectionType, out Color color) ? color : Colors.Gray;
-            SolidColorBrush brush = new(c, 0.2);
-            context.FillRectangle(brush, new Rect(x1, 0, x2 - x1, height));
-        }
-    }
-
-    private void DrawSectionBoundaries(DrawingContext context, double width, double height, double visibleStart, double visibleDuration)
-    {
-        ObservableCollection<SectionEntry>? sections = Sections;
-        if (sections == null || Bpm <= 0)
-            return;
-
-        double beatDuration = 60.0 / Bpm;
-        SectionEntry? selected = SelectedSection;
-
-        foreach (SectionEntry section in sections)
-        {
-            double time = ZeroBeatTime + (section.StartBeat * beatDuration);
-            double x = (time - visibleStart) / visibleDuration * width;
-
-            if (x < -20 || x > width + 20)
-                continue;
-
-            bool isSelected = section == selected;
-
-            // Draw boundary line (yellow + thicker when selected)
-            Pen pen = isSelected ? _selectedBorderPen : _sectionBorderPen;
-            context.DrawLine(pen, new Point(x, 0), new Point(x, height));
-
-            // Draw section type label
-            Color c = _sectionColors.TryGetValue(section.SectionType, out Color color) ? color : Colors.Gray;
-            IBrush labelBrush = isSelected ? Brushes.Yellow : new SolidColorBrush(c);
-            FormattedText label = new(
-                section.SectionType.ToString(),
-                System.Globalization.CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface("Inter", FontStyle.Normal, FontWeight.Bold),
-                10,
-                labelBrush);
-
-            double labelX = Math.Max(x + 3, 2);
-            context.DrawText(label, new Point(labelX, 2));
-        }
-    }
 }

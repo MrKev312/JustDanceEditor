@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Services;
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,14 +18,21 @@ public partial class PictogramCreationResult
     public int Frames { get; set; }
 }
 
-public class PictogramItem
+public sealed class PictogramItem : IDisposable
 {
     public string Id { get; set; } = string.Empty;
     public string ImagePath { get; set; } = string.Empty;
     public IImage? Image { get; set; }
+
+    public void Dispose()
+    {
+        if (Image is IDisposable disposable)
+            disposable.Dispose();
+        Image = null;
+    }
 }
 
-public partial class PictogramCreationViewModel : ObservableObject, IDialogResult<PictogramCreationResult>
+public partial class PictogramCreationViewModel : ObservableObject, IDialogResult<PictogramCreationResult>, IDisposable
 {
     public IEnumerable<string> AvailablePictograms { get; } = [];
     public IEnumerable<PictogramItem> AvailablePictogramItems { get; } = [];
@@ -44,8 +52,9 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
                     if (!string.IsNullOrEmpty(p))
                         bmp = new Bitmap(p);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    EditorLog.Fallback(ex, $"Decode pictogram preview '{p}'");
                     bmp = null;
                 }
 
@@ -59,16 +68,8 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
         if (string.IsNullOrEmpty(rootPath))
             return string.Empty;
 
-        string dir = Path.Combine(rootPath, "assets", "pictograms");
-        string[] exts = [".png", ".webp", ".jpg", ".jpeg"];
-        foreach (string ext in exts)
-        {
-            string p = Path.Combine(dir, id + ext);
-            if (File.Exists(p))
-                return p;
-        }
-
-        return string.Empty;
+        string path = Path.Combine(rootPath, "assets", "pictograms", id + ".webp");
+        return File.Exists(path) ? path : string.Empty;
     }
 
     [ObservableProperty]
@@ -88,4 +89,11 @@ public partial class PictogramCreationViewModel : ObservableObject, IDialogResul
     }
 
     public void Cancel() => Result = null;
+
+    public void Dispose()
+    {
+        foreach (PictogramItem item in AvailablePictogramItems)
+            item.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

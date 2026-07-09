@@ -362,8 +362,9 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
             if (!stream.IsStopped)
                 stream.Stop();
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Fallback(ex, "Stop PortAudio stream");
         }
 
         stream.Dispose();

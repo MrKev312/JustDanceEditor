@@ -1,19 +1,17 @@
 using Avalonia.Media;
 
-using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
+public class KaraokeClipViewModel : ClipViewModel
 {
     private KaraokeClip KaraokeClip => (KaraokeClip)RawClip;
 
     public override bool IsResizable => true;
 
-    [Inspectable("Lyrics", "Karaoke")]
     public string Lyrics
     {
         get => KaraokeClip.Lyrics ?? string.Empty;
@@ -31,7 +29,6 @@ public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         }
     }
 
-    [Inspectable("End of Line", "Karaoke")]
     public bool IsEndOfLine
     {
         get => KaraokeClip.IsEndOfLine;
@@ -58,13 +55,7 @@ public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         // If we have a parent timeline, subscribe to timeline PropertyChanged so
         // we can refresh rendering when the lyrics definition color changes.
         if (_parentTimeline != null)
-        {
-            try
-            {
-                _parentTimeline.PropertyChanged += OnParentTimelinePropertyChanged;
-            }
-            catch { }
-        }
+            _parentTimeline.PropertyChanged += OnParentTimelinePropertyChanged;
     }
 
     protected override int GetDurationFrames() => KaraokeClip.Duration;
@@ -74,7 +65,6 @@ public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
     public override Color RenderColor => _parentTimeline != null ? NormalizeOpaque(_parentTimeline.LyricsDefinitionColor) : base.RenderColor;
 
     // Shadow BackgroundColor so Properties panel reads/writes the LyricsDefinition color
-    [Inspectable("Color", "Appearance")]
     public new Color BackgroundColor
     {
         get => _parentTimeline != null ? NormalizeOpaque(_parentTimeline.LyricsDefinitionColor) : base.BackgroundColor;
@@ -109,11 +99,10 @@ public class KaraokeClipViewModel : ClipViewModel, IHasSharedColorSource
         }
     }
 
-    // IHasSharedColorSource
-    public (object Target, string PropertyName)? GetColorEditTarget(string inspectedProperty, TimelineEditorViewModel timeline)
+    public override void Dispose()
     {
-        if (inspectedProperty != nameof(BackgroundColor))
-            return null;
-        return (timeline, nameof(TimelineEditorViewModel.LyricsDefinitionColor));
+        if (_parentTimeline != null)
+            _parentTimeline.PropertyChanged -= OnParentTimelinePropertyChanged;
+        base.Dispose();
     }
 }

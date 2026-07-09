@@ -238,7 +238,7 @@ public class TimelineEditorViewModelTests
             TimelineEditorViewModel vm = CreateSaveFailureTimeline(rootFile);
             vm.UndoService.Record(static () => { }, static () => { });
 
-            bool closed = await vm.TrySaveAndCloseAfterPromptAsync(owner: null);
+            bool closed = await vm.TrySaveAndCloseAfterPromptAsync();
 
             Assert.False(closed);
             Assert.True(vm.UndoService.IsDirty);

@@ -1,5 +1,6 @@
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Editor.Services;
 
 using System;
 using System.Collections.Generic;
@@ -22,9 +23,9 @@ internal sealed class RecordingLibraryService(IMotionRecordingRepository reposit
                 MotionRecordingDocument recording = await repository.LoadAsync(path);
                 result.Add(new RecordingListItem(path, recording));
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore malformed attempts in the selector; deleting the file manually remains possible.
+                EditorLog.Fallback(ex, $"Load recording attempt '{path}'");
             }
         }
 

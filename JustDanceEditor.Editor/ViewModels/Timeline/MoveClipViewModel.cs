@@ -1,6 +1,6 @@
 using Avalonia.Media;
 
-using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynamicOptions
+public class MoveClipViewModel : ClipViewModel
 {
     private readonly int _fallbackDurationFrames;
 
@@ -18,7 +18,6 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
 
     public override bool IsResizable => true;
 
-    [Inspectable("Move Id", "Move")]
     public string MoveId
     {
         get => MoveClip.MoveId;
@@ -62,7 +61,6 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
     /// </summary>
     public MoveDefinitionViewModel? Definition { get; private set; }
 
-    [Inspectable("Gold Move", "Move")]
     public bool IsGoldMove
     {
         get => MoveClip.IsGoldMove;
@@ -133,8 +131,9 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
             Definition = _parentTimeline.GetOrRegisterMove(moveId, IsFullBody);
             Definition.PropertyChanged += OnDefinitionPropertyChanged;
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, $"Attach move definition '{moveId}'");
             Definition = null;
         }
     }
@@ -171,7 +170,6 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
     /// </summary>
     public bool IsAssetMissing => Definition != null && !Definition.HasAsset;
 
-    [Inspectable("Color", "Appearance")]
     public override Color BackgroundColor
     {
         get => Definition != null ? NormalizeOpaque(Definition.Color) : base.BackgroundColor;
@@ -195,23 +193,15 @@ public class MoveClipViewModel : ClipViewModel, IHasSharedColorSource, IHasDynam
         }
     }
 
-    // IHasSharedColorSource
-    public (object Target, string PropertyName)? GetColorEditTarget(string inspectedProperty, TimelineEditorViewModel timeline)
-    {
-        if (inspectedProperty != nameof(BackgroundColor) || Definition == null)
-            return null;
-        return (Definition, nameof(MoveDefinitionViewModel.Color));
-    }
-
-    // IHasDynamicOptions
-    public IEnumerable<object>? GetDynamicOptions(string propertyName, TimelineEditorViewModel timeline)
-    {
-        if (propertyName != nameof(MoveId))
-            return null;
-        return IsFullBody
+    public IEnumerable<object> GetAvailableMoveIds(TimelineEditorViewModel timeline)
+        => IsFullBody
             ? timeline.AvailableFullBodyCoachMoves.Cast<object>()
             : timeline.AvailableHandCoachMoves.Cast<object>();
-    }
 
-    public bool IsDynamicPropertyEditable(string propertyName) => false;
+    public override void Dispose()
+    {
+        Definition?.PropertyChanged -= OnDefinitionPropertyChanged;
+        Definition = null;
+        base.Dispose();
+    }
 }

@@ -13,20 +13,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Globalization;
-
-using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
-public partial class TimelineTrackPanel : Control
+public class TimelineTrackPanel : Control
 {
-    private static readonly Comparison<ClipViewModel> CompareClipsByStartBeat =
-        static (left, right) => left.StartBeat.CompareTo(right.StartBeat);
-
-    private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
-        static (left, right) => left.Marker.CompareTo(right.Marker);
-
     // --- Dependency Properties ---
 
     public static readonly StyledProperty<double> PixelsPerBeatProperty =
@@ -92,34 +83,16 @@ public partial class TimelineTrackPanel : Control
         set => SetValue(BackgroundProperty, value);
     }
 
-    // --- Caches & Resources ---
-
-    // NOTE: Pens/Brushes moved to TimelineResources to centralize UI resources.
-    // Use TimelineResources.LinePen, TimelineResources.SelectionPen, etc.
-    private static readonly CultureInfo _culture = CultureInfo.CurrentCulture;
-
-    // Simple FormattedText cache to avoid recreating layouts repeatedly when rendering many clips
-    private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = [];
-    private readonly List<ClipViewModel> _sortedClipCache = [];
-    private readonly List<SignatureSegment> _sortedSignatureCache = [];
-    private readonly List<double> _sectionStartCache = [];
-    private bool _sortedClipCacheDirty = true;
-    private bool _signatureCacheDirty = true;
-    private bool _sectionCacheDirty = true;
-
     // Track per-clip handlers so external updates invalidate visuals
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
-
-    // Resize hit threshold (pixels)
-    private const double ResizeHitThreshold = 6.0;
-
-    // Track last explicitly selected clip for shift-range selection
-    private ClipViewModel? _lastSelectedClip;
 
     // --- Interaction Handlers ---
     private readonly ClipDragHandler? _dragHandler;
     private readonly ClipResizeHandler? _resizeHandler;
     private readonly BoxSelectionHandler? _boxSelectionHandler;
+    private readonly TimelineExternalDropController _externalDropController;
+    private readonly TimelineTrackRenderer _renderer;
+    private readonly TimelineTrackInputController _inputController;
 
     static TimelineTrackPanel()
     {
@@ -145,15 +118,18 @@ public partial class TimelineTrackPanel : Control
         _dragHandler = new ClipDragHandler(this);
         _resizeHandler = new ClipResizeHandler(this);
         _boxSelectionHandler = new BoxSelectionHandler(this);
+        _renderer = new(this);
+        _externalDropController = new(this, GetTimelineVM);
+        _inputController = new(this);
 
         // Allow external drag/drop (library -> timeline)
         DragDrop.SetAllowDrop(this, true);
 
         // Wire drag/drop handlers for external sources (e.g., Library tool)
-        AddHandler(DragDrop.DragEnterEvent, OnExternalDragEnter, handledEventsToo: false);
-        AddHandler(DragDrop.DragOverEvent, OnExternalDragOver, handledEventsToo: false);
-        AddHandler(DragDrop.DragLeaveEvent, OnExternalDragLeave, handledEventsToo: false);
-        AddHandler(DragDrop.DropEvent, OnExternalDrop, handledEventsToo: false);
+        AddHandler(DragDrop.DragEnterEvent, _externalDropController.OnDragEnter, handledEventsToo: false);
+        AddHandler(DragDrop.DragOverEvent, _externalDropController.OnDragOver, handledEventsToo: false);
+        AddHandler(DragDrop.DragLeaveEvent, _externalDropController.OnDragLeave, handledEventsToo: false);
+        AddHandler(DragDrop.DropEvent, _externalDropController.OnDrop, handledEventsToo: false);
     }
 
     // Track the subscribed parent VM so we can unsubscribe cleanly
@@ -214,8 +190,7 @@ public partial class TimelineTrackPanel : Control
     {
         if (e.PropertyName == nameof(TimelineEditorViewModel.TimelineStructure))
         {
-            _signatureCacheDirty = true;
-            _sectionCacheDirty = true;
+            _renderer.InvalidateTimelineStructure();
             InvalidateVisual();
         }
     }
@@ -226,24 +201,24 @@ public partial class TimelineTrackPanel : Control
         if (change.Property == PixelsPerBeatProperty)
         {
             // zoom changed -> cached text sizes invalid
-            _textCache.Clear();
+            _renderer.InvalidateText();
             InvalidateMeasure();
             InvalidateVisual();
         }
         else if (change.Property == SignaturesProperty)
         {
-            _signatureCacheDirty = true;
+            _renderer.InvalidateSignatures();
         }
         else if (change.Property == SectionsProperty)
         {
-            _sectionCacheDirty = true;
+            _renderer.InvalidateSections();
         }
     }
 
     /// <summary>
     /// Helper method to find the parent TimelineEditorViewModel for this panel.
     /// </summary>
-    private TimelineEditorViewModel? GetTimelineVM()
+    internal TimelineEditorViewModel? GetTimelineVM()
     {
         Visual? visualParent = this.GetVisualParent();
         while (visualParent != null)
@@ -286,8 +261,7 @@ public partial class TimelineTrackPanel : Control
         }
 
         // Clips changed -> clear cache
-        _textCache.Clear();
-        _sortedClipCacheDirty = true;
+        _renderer.InvalidateClips();
 
         InvalidateMeasure();
         InvalidateVisual();
@@ -316,8 +290,7 @@ public partial class TimelineTrackPanel : Control
         }
 
         // Items changed -> clear cache
-        _textCache.Clear();
-        _sortedClipCacheDirty = true;
+        _renderer.InvalidateClips();
 
         InvalidateMeasure();
         InvalidateVisual();
@@ -333,10 +306,10 @@ public partial class TimelineTrackPanel : Control
         void handler(object? s, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is nameof(ClipViewModel.StartBeat) or nameof(ClipViewModel.DurationBeats))
-                _sortedClipCacheDirty = true;
+                _renderer.InvalidateClipOrder();
 
             // clear text cache for this clip
-            _textCache.Remove((clip, 12));
+            _renderer.InvalidateText(clip);
 
             // Ensure arrange/render happens on UI thread
             Dispatcher.UIThread.Post(() =>
@@ -361,31 +334,6 @@ public partial class TimelineTrackPanel : Control
         }
     }
 
-    // Helper to get or create cached FormattedText
-    private FormattedText GetFormattedText(ClipViewModel clip, string text, double fontSize, double maxWidth, double maxHeight)
-    {
-        (ClipViewModel clip, double fontSize) key = (clip, fontSize);
-        if (_textCache.TryGetValue(key, out FormattedText? ft))
-            return ft;
-
-        ft = new FormattedText(
-            text,
-            _culture,
-            FlowDirection.LeftToRight,
-            TimelineResources.DefaultTypeface,
-            fontSize,
-            TimelineResources.ClipLabelBrush)
-        {
-            MaxTextWidth = maxWidth,
-            MaxTextHeight = maxHeight,
-            Trimming = TextTrimming.CharacterEllipsis
-        };
-
-        // store in cache
-        _textCache[key] = ft;
-        return ft;
-    }
-
     // --- Layout ---
 
     protected override Size MeasureOverride(Size availableSize)
@@ -405,11 +353,40 @@ public partial class TimelineTrackPanel : Control
         return new Size(Math.Max(0, width), availableSize.Height);
     }
 
-    // --- Rendering ---
+    public override void Render(DrawingContext context) => _renderer.Render(context);
 
-    // Render moved to partial class TimelineTrackPanel.Render.cs
+    public static ContextMenu? CurrentContextMenu { get; internal set; }
 
-    // --- Interaction ---
+    internal BoxSelectionHandler? BoxSelectionHandler => _boxSelectionHandler;
+    internal ScrollViewer? ParentScrollViewer => _parentScrollViewer;
+    internal ClipDragHandler? DragHandler => _dragHandler;
+    internal ClipResizeHandler? ResizeHandler => _resizeHandler;
+    internal TimelineExternalDropController ExternalDropController => _externalDropController;
 
-    // Interaction handlers moved to partial class TimelineTrackPanel.Input.cs
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        _inputController.OnPointerPressed(e);
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        _inputController.OnPointerMoved(e);
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        _inputController.OnPointerReleased(e);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        _inputController.OnPointerCaptureLost(e);
+    }
+
+    public void OpenAddClipMenu(PointerPressedEventArgs? e) => _inputController.OpenAddClipMenu(e);
+
 }

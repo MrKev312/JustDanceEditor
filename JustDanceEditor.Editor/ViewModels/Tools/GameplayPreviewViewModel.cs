@@ -9,8 +9,6 @@ using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -53,10 +51,12 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
     private int _lineIndex = -1;
     private bool _rebuildPending;
 
-    public GameplayPreviewViewModel()
+    public GameplayPreviewViewModel(
+        MotionRecordingScoreHudService? scoreHud = null,
+        ITimelineContextService? timelineContext = null)
+        : base(timelineContext)
     {
-        IServiceProvider? services = (Avalonia.Application.Current as App)?.Services;
-        ScoreHud = services?.GetService<MotionRecordingScoreHudService>() ?? new MotionRecordingScoreHudService();
+        ScoreHud = scoreHud ?? new MotionRecordingScoreHudService();
     }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)

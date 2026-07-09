@@ -79,6 +79,7 @@ internal sealed class TimelineMediaController(TimelineEditorViewModel timeline)
 
         timeline.NotifyRebuiltTimelineStructure();
 
+        timeline.DisposeClips();
         timeline.Tracks.Clear();
         timeline.ClearMoveDefinitions();
         timeline.BuildTimeline();

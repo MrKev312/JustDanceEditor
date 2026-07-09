@@ -178,11 +178,7 @@ public class LyricLineControl : Control
             _dragStartPointerX = pt.X;
             _dragOriginalStartBeat = found.StartBeat;
             _isDragging = true;
-            try
-            {
-                e.Pointer.Capture(this);
-            }
-            catch { }
+            e.Pointer.Capture(this);
 
             e.Handled = true;
         }
@@ -247,11 +243,7 @@ public class LyricLineControl : Control
         {
             _isDragging = false;
             _draggingClip = null;
-            try
-            {
-                e.Pointer.Capture(null);
-            }
-            catch { }
+            e.Pointer.Capture(null);
 
             e.Handled = true;
         }

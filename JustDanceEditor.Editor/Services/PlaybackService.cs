@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
 using KevInc.Audio.NAudio.Providers;
@@ -19,6 +18,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 {
     private readonly Func<IPcmPlaybackEngine> _pcmPlaybackEngineFactory;
     private readonly bool _useWindowsAudio;
+    private readonly IWindowService? _windows;
     private IWavePlayer? _outputDevice;
     private PcmWaveSampleProvider? _audioSource;
     private EndlessSampleProvider? _endless;
@@ -73,16 +73,30 @@ public class PlaybackService : IPlaybackService, IDisposable
     public bool IsInteractionLocked { get; set; }
 
     public PlaybackService()
-        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows())
+        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows(), null)
+    {
+    }
+
+    public PlaybackService(IWindowService windows)
+        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows(), windows)
     {
     }
 
     internal PlaybackService(Func<IPcmPlaybackEngine> pcmPlaybackEngineFactory, bool useWindowsAudio)
+        : this(pcmPlaybackEngineFactory, useWindowsAudio, null)
+    {
+    }
+
+    private PlaybackService(
+        Func<IPcmPlaybackEngine> pcmPlaybackEngineFactory,
+        bool useWindowsAudio,
+        IWindowService? windows)
     {
         _pcmPlaybackEngineFactory = pcmPlaybackEngineFactory;
         _useWindowsAudio = useWindowsAudio;
+        _windows = windows;
         _fallbackUpdateTimer = new DispatcherTimer(
-            DisplayRefreshRateProvider.GetRefreshInterval(),
+            DisplayRefreshRateProvider.GetRefreshInterval(windows?.MainWindow),
             DispatcherPriority.Render,
             (s, e) => OnPlaybackTick());
     }
@@ -339,14 +353,14 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private void DisablePcmPlayback(Exception ex)
     {
-        Debug.WriteLine($"PCM audio playback disabled: {ex}");
+        EditorLog.Unexpected(ex, "PCM audio playback");
         _pcmPlayer?.Dispose();
         _pcmPlayer = null;
     }
 
     private void DisableWaveOutPlayback(Exception ex)
     {
-        Debug.WriteLine($"Wave audio playback disabled: {ex}");
+        EditorLog.Unexpected(ex, "Wave audio playback");
         _outputDevice?.Dispose();
         _outputDevice = null;
     }
@@ -371,7 +385,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private void UpdateTimerInterval()
     {
-        _fallbackUpdateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval();
+        _fallbackUpdateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval(_windows?.MainWindow);
     }
 
     private void StartPlaybackUpdates()
@@ -407,7 +421,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         if (_animationFramePending)
             return true;
 
-        TopLevel? topLevel = GetAnimationTopLevel();
+        TopLevel? topLevel = _windows?.MainWindow;
         if (topLevel == null)
             return false;
 
@@ -415,14 +429,6 @@ public class PlaybackService : IPlaybackService, IDisposable
         int requestId = ++_animationFrameRequestId;
         topLevel.RequestAnimationFrame(_ => OnAnimationFrame(requestId));
         return true;
-    }
-
-    private static TopLevel? GetAnimationTopLevel()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            return desktop.MainWindow;
-
-        return null;
     }
 
     private void OnAnimationFrame(int requestId)

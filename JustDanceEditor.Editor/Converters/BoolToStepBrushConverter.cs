@@ -21,19 +21,3 @@ public class BoolToStepBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
-
-/// <summary>
-/// Converts a bool (has value) to foreground brush.
-/// True = white, False = dim gray.
-/// </summary>
-public class BoolToForegroundBrushConverter : IValueConverter
-{
-    private static readonly SolidColorBrush HasValueBrush = new(Colors.White);
-    private static readonly SolidColorBrush NoValueBrush = new(Color.FromRgb(100, 100, 100));
-
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? HasValueBrush : NoValueBrush;
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}

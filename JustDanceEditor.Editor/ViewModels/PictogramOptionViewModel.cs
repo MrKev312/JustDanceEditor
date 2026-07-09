@@ -2,11 +2,14 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
+using JustDanceEditor.Editor.Services;
+
+using System;
 using System.IO;
 
 namespace JustDanceEditor.Editor.ViewModels;
 
-public class PictogramOptionViewModel
+public sealed class PictogramOptionViewModel : IDisposable
 {
     // lazily-created red placeholder to avoid Avalonia initialization
     private static Bitmap? _redPlaceholder;
@@ -25,8 +28,9 @@ public class PictogramOptionViewModel
             {
                 PreviewImage = new Bitmap(path);
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Fallback(ex, $"Decode pictogram preview '{path}'");
                 PreviewImage = GetRedPlaceholder();
             }
         }
@@ -66,4 +70,11 @@ public class PictogramOptionViewModel
     }
 
     public override string ToString() => Name;
+
+    public void Dispose()
+    {
+        if (PreviewImage != null && !ReferenceEquals(PreviewImage, _redPlaceholder))
+            PreviewImage.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

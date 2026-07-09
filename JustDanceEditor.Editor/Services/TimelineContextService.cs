@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using CommunityToolkit.Mvvm.Messaging.Messages;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
@@ -51,6 +50,3 @@ public partial class TimelineContextService : ObservableObject, ITimelineContext
         WeakReferenceMessenger.Default.Send(new SelectionChangedMessage(value));
     }
 }
-
-public class ActiveTimelineChangedMessage(TimelineEditorViewModel? value) : ValueChangedMessage<TimelineEditorViewModel?>(value);
-public class SelectionChangedMessage(List<object> value) : ValueChangedMessage<List<object>>(value);

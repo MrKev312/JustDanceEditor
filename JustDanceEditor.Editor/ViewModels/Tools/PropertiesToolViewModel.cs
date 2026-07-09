@@ -1,174 +1,22 @@
 using Avalonia.Media;
 
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
 
-using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Reflection;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
-
-[RunCommand("Properties", "View/Tools")]
-public partial class PropertiesToolViewModel : TimelineToolViewModel
-{
-    [ObservableProperty]
-    public partial ObservableCollection<PropertyCategoryViewModel> Categories { get; set; } = [];
-
-    [ObservableProperty]
-    public partial object? SelectedObject { get; set; }
-
-    public PropertiesToolViewModel()
-    {
-        TimelineContext?.PropertyChanged += Context_PropertyChanged;
-    }
-
-    protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
-    {
-        RefreshProperties();
-    }
-
-    protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
-    {
-        // Dispose and clear properties when the timeline is detached
-        RefreshProperties();
-    }
-
-    private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ITimelineContextService.SelectedObjects))
-        {
-            RefreshProperties();
-        }
-    }
-
-    private void RefreshProperties()
-    {
-        // Dispose existing PropertyItemViewModels to unregister messenger handlers and avoid leaks
-        foreach (PropertyCategoryViewModel? cat in Categories.ToList())
-        {
-            foreach (PropertyItemViewModel? prop in cat.Properties.ToList())
-            {
-                if (prop is IDisposable d)
-                    d.Dispose();
-            }
-        }
-
-        Categories.Clear();
-        SelectedObject = null;
-
-        List<object>? selection = TimelineContext?.SelectedObjects;
-
-        if (selection != null && selection.Count > 0 && ActiveTimeline != null)
-        {
-            TimelineEditorViewModel timeline = ActiveTimeline;
-            SelectedObject = selection.Count == 1 ? selection[0] : null;
-
-            // 1. Identify common properties
-            object first = selection[0];
-            var templateProps = first.GetType().GetProperties()
-                .Select(p => new { Property = p, Attribute = p.GetCustomAttribute<InspectableAttribute>() })
-                .Where(x => x.Attribute is not null)
-                .Select(x => new { x.Property, Attribute = x.Attribute ?? throw new InvalidOperationException("Inspectable attribute lookup unexpectedly returned null.") })
-                .OrderBy(x => x.Attribute.Category);
-
-            var groups = templateProps.GroupBy(x => x.Attribute.Category);
-
-            foreach (var group in groups)
-            {
-                PropertyCategoryViewModel categoryVm = new(group.Key);
-                foreach (var item in group)
-                {
-                    // Verify this property exists and has the same attribute on all selected objects
-                    bool consistent = selection.All(o =>
-                    {
-                        PropertyInfo? p = o.GetType().GetProperty(item.Property.Name);
-                        return p != null && p.GetCustomAttribute<InspectableAttribute>() != null;
-                    });
-
-                    if (consistent)
-                    {
-                        PropertyItemViewModel propVm;
-                        if (item.Property.Name == "BackgroundColor" && first is IHasSharedColorSource colorSource)
-                        {
-                            // Gather redirect targets from all selected clips that implement the interface.
-                            List<object> redirectTargets = [.. selection
-                                .OfType<IHasSharedColorSource>()
-                                .Select(c => c.GetColorEditTarget("BackgroundColor", timeline))
-                                .Where(t => t.HasValue)
-                                .Select(t => t.GetValueOrDefault().Target)
-                                .Distinct()];
-                            if (redirectTargets.Count == 0)
-                                continue;
-
-                            string? redirectProp = colorSource.GetColorEditTarget("BackgroundColor", timeline)?.PropertyName;
-                            if (string.IsNullOrEmpty(redirectProp))
-                                continue;
-
-                            propVm = new([.. redirectTargets], redirectProp, item.Attribute, timeline.UndoService, timeline.TimelineStructure, timeline.Tracks, timeline);
-                        }
-                        else
-                        {
-                            // Skip BackgroundColor for clips that don't provide a shared color source —
-                            // they are not intended to expose per-clip color editing in the Properties pane.
-                            if (item.Property.Name is "BackgroundColor" or "Color" && first is ClipViewModel)
-                                continue;
-
-                            propVm = new(
-                                selection,
-                                item.Property.Name,
-                                item.Attribute,
-                                timeline.UndoService,
-                                timeline.TimelineStructure,
-                                timeline.Tracks,
-                                timeline);
-
-                            // Populate dynamic options via IHasDynamicOptions
-                            if (first is IHasDynamicOptions dynOpts)
-                            {
-                                IEnumerable<object>? options = dynOpts.GetDynamicOptions(item.Property.Name, timeline);
-                                if (options != null)
-                                {
-                                    propVm.Options = options.ToList();
-                                    propVm.IsEditable = dynOpts.IsDynamicPropertyEditable(item.Property.Name);
-                                }
-                            }
-                        }
-
-                        categoryVm.Properties.Add(propVm);
-                    }
-                }
-
-                if (categoryVm.Properties.Count > 0)
-                    Categories.Add(categoryVm);
-            }
-        }
-    }
-}
-
-public class PropertyCategoryViewModel(string name) : ObservableObject
-{
-    public string Name { get; } = name;
-    public ObservableCollection<PropertyItemViewModel> Properties { get; } = [];
-}
 
 public partial class PropertyItemViewModel : ObservableObject, IDisposable
 {
     private readonly List<object> _targets;
-    private readonly PropertyInfo? _propertyInfoTemplate;
-    private readonly string _propertyName;
+    private readonly IInspectablePropertyDescriptor _descriptor;
     private readonly IUndoService _undoService;
-    private readonly TimelineStructureDocument _timelineStructure;
-    private readonly ObservableCollection<TrackViewModel> _tracks;
-    private readonly TimelineEditorViewModel? _timelineEditor;
     private bool _isColorPickerActive = false;
     private object? _colorPickerInitialValue;
 
@@ -187,7 +35,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         if (_isBatchSetting)
             return;
 
-        if (e.PropertyName == _propertyName)
+        if (e.PropertyName == _descriptor.NotificationPropertyName)
         {
             // Refresh bound value when underlying property changed
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
@@ -218,24 +66,18 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
     public PropertyItemViewModel(
         List<object> targets,
-        string propertyName,
-        InspectableAttribute attribute,
-        IUndoService undoService,
-        TimelineStructureDocument timelineStructure,
-        ObservableCollection<TrackViewModel> tracks,
-        TimelineEditorViewModel? timelineEditor)
+        IInspectablePropertyDescriptor descriptor,
+        IUndoService undoService)
     {
+        if (targets.Count == 0)
+            throw new ArgumentException("At least one property target is required.", nameof(targets));
+
         _targets = targets;
-        _propertyName = propertyName;
-        _propertyInfoTemplate = targets[0].GetType().GetProperty(propertyName)
-            ?? throw new ArgumentException($"Property '{propertyName}' was not found on type '{targets[0].GetType().FullName}'.", nameof(propertyName));
+        _descriptor = descriptor;
         _undoService = undoService;
-        _timelineStructure = timelineStructure;
-        _tracks = tracks;
-        _timelineEditor = timelineEditor;
-        Name = attribute.DisplayName;
-        IsReadOnly = attribute.IsReadOnly || _propertyInfoTemplate.SetMethod == null;
-        if (attribute is NumericInspectableAttribute numeric)
+        Name = descriptor.DisplayName;
+        IsReadOnly = descriptor.IsReadOnly;
+        if (descriptor.NumericRange is { } numeric)
         {
             Minimum = numeric.Minimum;
             Maximum = numeric.Maximum;
@@ -243,32 +85,13 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             HasSliderRange = true;
         }
 
-        // Listen to external changes on the target objects via weak messaging to avoid leaking references
-        // Register a single weak messenger handler to avoid multiple subscriptions when there are multiple targets
-        if (_targets.Any(t => t is INotifyPropertyChanged))
+        foreach (object target in _targets)
         {
-            // Subscribe directly to PropertyChanged on targets to get immediate notifications
-            foreach (object t in _targets)
+            if (target is INotifyPropertyChanged inpc)
             {
-                if (t is INotifyPropertyChanged inpc)
-                {
-                    inpc.PropertyChanged += Target_PropertyChanged;
-                    _inpcSubscriptions.Add(inpc);
-                }
+                inpc.PropertyChanged += Target_PropertyChanged;
+                _inpcSubscriptions.Add(inpc);
             }
-
-            // Also listen for ClipDataChangedMessage on the default channel (no token) for clip-originated changes
-            WeakReferenceMessenger.Default.Register<PropertyItemViewModel, Messaging.ClipDataChangedMessage>(this, (r, m) =>
-            {
-                if (m.PropertyName == _propertyName && _targets.Any(t => ReferenceEquals(m.Source, t)))
-                {
-                    // Notify recipient to refresh bound Value
-                    r.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
-                }
-            });
-
-            // Ensure we unregister when this view model is disposed
-            // (Unregister and inpc unsubscriptions will be handled in Dispose())
         }
     }
 
@@ -280,7 +103,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         _isColorPickerActive = true;
         _colorPickerInitialValue = null;
 
-        // Redirect targets are MoveDefinitionViewModel objects (from IHasSharedColorSource)
+        // Shared move colors resolve to their canonical definition targets.
         if (_targets.Count > 0 && _targets[0] is MoveDefinitionViewModel)
         {
             List<(MoveDefinitionViewModel Def, Color Color)> list =
@@ -505,18 +328,11 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
         }
     }
 
-    private object? GetValue(object target) => target.GetType().GetProperty(_propertyName)?.GetValue(target);
-    private void SetValue(object target, object? val)
-    {
-        PropertyInfo? property = target.GetType().GetProperty(_propertyName);
-        if (property?.SetMethod == null)
-            return;
+    private object? GetValue(object target) => _descriptor.GetValue(target);
+    private void SetValue(object target, object? value) => _descriptor.SetValue(target, value);
 
-        property.SetValue(target, val);
-    }
-
-    public Type PropertyType => _propertyInfoTemplate?.PropertyType ?? throw new InvalidOperationException($"Property '{_propertyName}' is unavailable.");
-    public bool CanWrite => !IsReadOnly && _propertyInfoTemplate?.SetMethod != null;
+    public Type PropertyType => _descriptor.PropertyType;
+    public bool CanWrite => !IsReadOnly;
 
     // Binding Helpers
     public bool IsColor => PropertyType == typeof(Color);
@@ -652,10 +468,7 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
             // Try parsing as RGBA hex first (our format), then fall back to standard parsing
             if (!string.IsNullOrEmpty(value))
             {
-                // Check if the target is a KaraokeClip (for which we use RGBA format)
-                bool isLyricsClip = _targets.Count > 0 && _targets[0] is KaraokeClipViewModel;
-
-                if (isLyricsClip)
+                if (_descriptor.ColorEncoding == PropertyColorEncoding.Rgba)
                 {
                     // Use RGBA parsing for lyrics
                     ColorValue = ClipViewModel.ParseRgbaHex(value);
@@ -676,24 +489,18 @@ public partial class PropertyItemViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        // Unregister messenger handler for clip data changes
-        try
-        {
-            WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
-        }
-        catch { }
-
-        // Unsubscribe any direct PropertyChanged subscriptions
         foreach (INotifyPropertyChanged inpc in _inpcSubscriptions)
-        {
-            try
-            {
-                inpc.PropertyChanged -= Target_PropertyChanged;
-            }
-            catch { }
-        }
+            inpc.PropertyChanged -= Target_PropertyChanged;
 
         _inpcSubscriptions.Clear();
+        if (Options != null)
+        {
+            foreach (object? option in Options)
+            {
+                if (option is IDisposable disposable)
+                    disposable.Dispose();
+            }
+        }
 
         GC.SuppressFinalize(this);
     }

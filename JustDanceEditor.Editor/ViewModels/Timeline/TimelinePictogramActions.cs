@@ -35,8 +35,13 @@ internal sealed class TimelinePictogramActions(
         {
             batch = await generator.GenerateAsync(timeline, mode, frameLayoutMode, horizontalFocus, cancellationToken);
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            return;
+        }
+        catch (Exception ex)
+        {
+            EditorLog.Unexpected(ex, "Generate timeline pictograms");
             return;
         }
 
@@ -298,8 +303,7 @@ internal sealed class TimelinePictogramActions(
             return true;
         }
 
-        string ext = Path.GetExtension(currentPath);
-        string destPath = Path.Combine(pictogramDirectory, counterpartId + ext);
+        string destPath = Path.Combine(pictogramDirectory, counterpartId + ".webp");
         if (File.Exists(destPath))
             counterpartPath = destPath;
 
@@ -314,19 +318,13 @@ internal sealed class TimelinePictogramActions(
                     image.Mutate(x => x.Flip(FlipMode.Horizontal));
 
                     await using FileStream outFs = File.Create(destPath);
-                    if (string.Equals(ext, ".webp", StringComparison.OrdinalIgnoreCase))
-                        image.Save(outFs, WebpSettings.LosslessWebpEncoder);
-                    else if (string.Equals(ext, ".png", StringComparison.OrdinalIgnoreCase))
-                        image.Save(outFs, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-                    else if (string.Equals(ext, ".jpg", StringComparison.OrdinalIgnoreCase) || string.Equals(ext, ".jpeg", StringComparison.OrdinalIgnoreCase))
-                        image.Save(outFs, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder() { Quality = 90 });
-                    else
-                        image.Save(outFs, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+                    image.Save(outFs, WebpSettings.LosslessWebpEncoder);
 
                     created = File.Exists(destPath);
                 }
-                catch
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SixLabors.ImageSharp.UnknownImageFormatException)
                 {
+                    EditorLog.Unexpected(ex, $"Create flipped pictogram '{destPath}'");
                     created = false;
                 }
             }
@@ -361,7 +359,10 @@ internal sealed class TimelinePictogramActions(
                         if (File.Exists(destPath))
                             File.Delete(destPath);
                     }
-                    catch { }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        EditorLog.Unexpected(ex, $"Delete flipped pictogram '{destPath}' during undo");
+                    }
 
                     ImageBitmapCache.Invalidate(destPath);
                     ImageBitmapCache.Invalidate(currentPath);
@@ -372,15 +373,19 @@ internal sealed class TimelinePictogramActions(
 
             return true;
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
+            EditorLog.Unexpected(ex, $"Flip pictogram '{pictogramId}'");
             if (created && File.Exists(destPath))
             {
                 try
                 {
                     File.Delete(destPath);
                 }
-                catch { }
+                catch (Exception cleanupException) when (cleanupException is IOException or UnauthorizedAccessException)
+                {
+                    EditorLog.Unexpected(cleanupException, $"Clean up flipped pictogram '{destPath}'");
+                }
             }
 
             return false;
@@ -429,17 +434,8 @@ internal sealed class TimelinePictogramActions(
         if (string.IsNullOrWhiteSpace(pictogramId))
             return null;
 
-        string directory = Path.Combine(timeline.RootPath, "assets", "pictograms");
-        string[] preferred = [".webp", ".png", ".jpg", ".jpeg"];
-
-        foreach (string ext in preferred)
-        {
-            string candidate = Path.Combine(directory, pictogramId + ext);
-            if (File.Exists(candidate))
-                return candidate;
-        }
-
-        return null;
+        string path = Path.Combine(timeline.RootPath, "assets", "pictograms", pictogramId + ".webp");
+        return File.Exists(path) ? path : null;
     }
 
     private double GetVideoTimestampSecondsFromBeat(double beatLabel)
@@ -458,17 +454,7 @@ internal sealed class TimelinePictogramActions(
 
     private string ResolvePictogramPath(string pictogramId)
     {
-        string directory = Path.Combine(timeline.RootPath, "assets", "pictograms");
-        string[] preferred = [".webp", ".png", ".jpg", ".jpeg"];
-
-        foreach (string ext in preferred)
-        {
-            string candidate = Path.Combine(directory, pictogramId + ext);
-            if (File.Exists(candidate))
-                return candidate;
-        }
-
-        return Path.Combine(directory, pictogramId + ".webp");
+        return Path.Combine(timeline.RootPath, "assets", "pictograms", pictogramId + ".webp");
     }
 
     private static string EnsureUniquePictogramId(string baseId, ISet<string> usedIds)

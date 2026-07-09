@@ -6,6 +6,7 @@ using Dock.Model.Mvvm.Controls;
 using JustDanceEditor.Editor.ViewModels;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Views;
+using JustDanceEditor.Editor.Services;
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,10 @@ using DockWindow = Dock.Model.Mvvm.Core.DockWindow;
 
 namespace JustDanceEditor.Editor.Docking;
 
-public class JustDanceDockFactory(MainWindowViewModel context) : Factory
+public class JustDanceDockFactory(
+    MainWindowViewModel context,
+    IEditorObjectFactory objects,
+    ITimelineContextService timelineContext) : Factory
 {
     public const string MainDocumentDockId = "MainDocumentDock";
 
@@ -285,7 +289,7 @@ public class JustDanceDockFactory(MainWindowViewModel context) : Factory
     private IDockable? CreateTool(SavedDockNode node)
     {
         Type? toolType = ResolveToolType(node.ToolType);
-        if (toolType == null || Activator.CreateInstance(toolType) is not Tool tool)
+        if (toolType == null || objects.Create(toolType) is not Tool tool)
             return null;
 
         return ApplyCommon(node, tool);
@@ -417,9 +421,9 @@ public class JustDanceDockFactory(MainWindowViewModel context) : Factory
         where TEnum : struct
         => Enum.TryParse(value, ignoreCase: true, out TEnum parsed) ? parsed : fallback;
 
-    private static void UpdateContext(IDockable? dockable)
+    private void UpdateContext(IDockable? dockable)
     {
-        if (dockable is TimelineEditorViewModel timeline && Avalonia.Application.Current is App app)
-            app.TimelineContext.UpdateActiveTimeline(timeline);
+        if (dockable is TimelineEditorViewModel timeline)
+            timelineContext.UpdateActiveTimeline(timeline);
     }
 }

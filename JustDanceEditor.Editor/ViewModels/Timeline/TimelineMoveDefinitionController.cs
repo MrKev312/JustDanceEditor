@@ -1,5 +1,6 @@
 using Avalonia.Media;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
@@ -28,21 +29,15 @@ internal sealed class TimelineMoveDefinitionController(
 
         Color color = Colors.LightGray;
         double duration = 24.0;
-        try
+        if (timeline.Package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d)
+            || timeline.Package.FullBodyCoachMoves.TryGetValue(moveId, out d))
         {
-            if (timeline.Package.HandCoachMoves.TryGetValue(moveId, out CoachMoveDefinition? d)
-                || timeline.Package.FullBodyCoachMoves.TryGetValue(moveId, out d))
+            if (d != null)
             {
-                if (d != null)
-                {
-                    color = ClipViewModel.ParseRgbaHex(d.Color);
-                    if (d.Duration > 0)
-                        duration = d.Duration;
-                }
+                color = ClipViewModel.ParseRgbaHex(d.Color);
+                if (d.Duration > 0)
+                    duration = d.Duration;
             }
-        }
-        catch
-        {
         }
 
         def = new MoveDefinitionViewModel
@@ -193,8 +188,9 @@ internal sealed class TimelineMoveDefinitionController(
             string moveCandidate = Path.Combine(movesFolderAbs, moveId + ".msm");
             return File.Exists(moveCandidate);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            EditorLog.Unexpected(ex, $"Locate move asset '{moveId}'");
             return false;
         }
     }

@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.Services.Motion;
 using JustDanceEditor.Editor.ViewModels;
+using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Editor.Views;
 using JustDanceEditor.Formats.JDI.Recordings;
 
@@ -19,12 +20,6 @@ public partial class App : Application
 {
     public IServiceProvider? Services { get; private set; }
 
-    /// <summary>Convenience accessor for code-behind integration.</summary>
-    public ITimelineContextService TimelineContext => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<ITimelineContextService>();
-
-    /// <summary>Convenience accessor for dialog code-behind integration.</summary>
-    public IDialogService DialogService => (Services ?? throw new InvalidOperationException("Application services have not been initialized yet.")).GetRequiredService<IDialogService>();
-
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -35,10 +30,18 @@ public partial class App : Application
     {
         ServiceCollection sc = new();
 
+        sc.AddSingleton<IWindowService>(new AvaloniaWindowService(this));
+        sc.AddSingleton<IEditorObjectFactory, EditorObjectFactory>();
+        sc.AddSingleton<IPlaybackServiceFactory, PlaybackServiceFactory>();
         sc.AddSingleton<EditorSettingsService>();
         sc.AddSingleton<TimelineSettingsService>();
+        sc.AddSingleton<DockLayoutStorageService>();
+        sc.AddSingleton<ITimelinePictogramGenerator, TimelinePictogramGenerator>();
+        sc.AddSingleton<InspectablePropertyRegistry>();
+        sc.AddSingleton<TimelineLibraryCatalogBuilder>();
         sc.AddSingleton<ITimelineContextService, TimelineContextService>();
         sc.AddSingleton<IDialogService, AvaloniaDialogService>();
+        sc.AddSingleton<IEditorPromptService, AvaloniaEditorPromptService>();
         sc.AddSingleton<MotionRecordingScoreHudService>();
         sc.AddSingleton<IMotionRecordingRepository, JsonMotionRecordingRepository>();
         sc.AddTransient<IMotionInputClient, DsuMotionInputClient>();

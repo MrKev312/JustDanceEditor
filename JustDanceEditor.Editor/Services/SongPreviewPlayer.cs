@@ -253,7 +253,7 @@ public class SongPreviewPlayer : IDisposable
 
     private void DisablePlayback(Exception ex)
     {
-        Debug.WriteLine($"Song preview playback disabled: {ex}");
+        EditorLog.Unexpected(ex, "Song preview playback");
 
         if (_pcmPlayer != null)
             _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
@@ -263,8 +263,9 @@ public class SongPreviewPlayer : IDisposable
             _outputDevice?.Dispose();
             _pcmPlayer?.Dispose();
         }
-        catch
+        catch (Exception disposeException)
         {
+            EditorLog.Unexpected(disposeException, "Dispose disabled song preview playback");
         }
 
         _outputDevice = null;

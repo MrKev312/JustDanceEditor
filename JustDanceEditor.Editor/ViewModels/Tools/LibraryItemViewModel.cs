@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
 
+using System;
+
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 public enum ItemType
@@ -14,7 +16,7 @@ public enum ItemType
     FullBodyMove
 }
 
-public partial class LibraryItemViewModel : ObservableObject
+public partial class LibraryItemViewModel : ObservableObject, IDisposable
 {
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -101,4 +103,10 @@ public partial class LibraryItemViewModel : ObservableObject
     }
 
     public override string ToString() => Name;
+
+    public void Dispose()
+    {
+        Definition = null;
+        GC.SuppressFinalize(this);
+    }
 }

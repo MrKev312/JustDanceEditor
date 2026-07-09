@@ -138,8 +138,9 @@ public class AudioConversionService
                 if (!process.HasExited)
                     process.Kill(entireProcessTree: true);
             }
-            catch
+            catch (Exception killException)
             {
+                EditorLog.Unexpected(killException, "Terminate canceled FFmpeg audio decoder");
             }
 
             throw;

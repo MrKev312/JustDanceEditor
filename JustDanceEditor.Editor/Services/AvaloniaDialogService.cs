@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 
 using JustDanceEditor.Editor.ViewModels.Dialogs;
@@ -8,11 +7,11 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 
-public class AvaloniaDialogService : IDialogService
+public sealed class AvaloniaDialogService(IWindowService windows) : IDialogService
 {
     public async Task<TResult?> ShowDialogAsync<TResult>(object viewModel)
     {
-        Window? owner = Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw ? mw : null;
+        Window? owner = windows.MainWindow;
 
         Window? win = viewModel switch
         {
@@ -29,14 +28,21 @@ public class AvaloniaDialogService : IDialogService
 
         win.DataContext = viewModel;
 
-        if (owner != null)
+        if (owner == null)
+            throw new System.InvalidOperationException("The main window is not available.");
+
+        try
+        {
             await win.ShowDialog(owner);
-        else
-            await win.ShowDialog(win);
-
-        if (viewModel is IDialogResult<TResult> dr)
-            return dr.Result;
-
-        return default;
+            return viewModel is IDialogResult<TResult> resultProvider
+                ? resultProvider.Result
+                : default;
+        }
+        finally
+        {
+            win.DataContext = null;
+            if (viewModel is System.IDisposable disposable)
+                disposable.Dispose();
+        }
     }
 }

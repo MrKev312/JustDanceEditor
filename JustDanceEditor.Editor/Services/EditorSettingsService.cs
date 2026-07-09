@@ -63,8 +63,9 @@ public sealed partial class EditorSettingsService : ObservableObject
 
             UseAdvancedScoringTuning = state.UseAdvancedScoringTuning;
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+            EditorLog.Fallback(ex, "Load editor settings");
             ScoringProfile = MotionRecordingScoringProfile.JDNext;
             UseAdvancedScoringTuning = false;
         }

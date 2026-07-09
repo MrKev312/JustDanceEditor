@@ -30,6 +30,11 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     [ObservableProperty]
     public partial string VideoStatusText { get; set; } = "No active timeline";
 
+    public VideoToolViewModel(ITimelineContextService? timelineContext = null)
+        : base(timelineContext)
+    {
+    }
+
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
         SyncMedia();
@@ -148,7 +153,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
     private static StringComparison PathComparison
         => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    public void Dispose()
+    public override void Dispose()
     {
         if (_disposed)
             return;
@@ -159,6 +164,6 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
             ActiveTimeline = null;
 
         DetachSession("No active timeline");
-        GC.SuppressFinalize(this);
+        base.Dispose();
     }
 }

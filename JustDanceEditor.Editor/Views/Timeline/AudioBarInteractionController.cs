@@ -276,24 +276,8 @@ internal sealed class AudioBarInteractionController(AudioBarControl owner)
     }
 
     private static void TryCapture(IPointer pointer, IInputElement element)
-    {
-        try
-        {
-            pointer.Capture(element);
-        }
-        catch
-        {
-        }
-    }
+        => pointer.Capture(element);
 
     private static void TryReleaseCapture(IPointer pointer)
-    {
-        try
-        {
-            pointer.Capture(null);
-        }
-        catch
-        {
-        }
-    }
+        => pointer.Capture(null);
 }

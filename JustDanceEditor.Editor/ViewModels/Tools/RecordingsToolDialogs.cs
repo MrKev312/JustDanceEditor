@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -14,7 +13,7 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal static class RecordingsToolDialogs
 {
-    public static async Task<bool> ShowDiscardPromptAsync()
+    public static async Task<bool> ShowDiscardPromptAsync(Window? owner)
     {
         Window dialog = new()
         {
@@ -49,7 +48,6 @@ internal static class RecordingsToolDialogs
                 Children = { yesButton, noButton }
             });
 
-        Window? owner = GetMainWindow();
         if (owner != null)
             await dialog.ShowDialog(owner);
         else
@@ -59,7 +57,8 @@ internal static class RecordingsToolDialogs
     }
 
     public static async Task<IReadOnlyList<RecordingSelectionItem>?> ShowRecordingSelectionDialogAsync(
-        IReadOnlyList<RecordingSelectionItem> recordings)
+        IReadOnlyList<RecordingSelectionItem> recordings,
+        Window? owner)
     {
         Window dialog = new()
         {
@@ -139,7 +138,6 @@ internal static class RecordingsToolDialogs
                 Children = { generateButton, cancelButton }
             });
 
-        Window? owner = GetMainWindow();
         if (owner != null)
             await dialog.ShowDialog(owner);
         else
@@ -148,7 +146,7 @@ internal static class RecordingsToolDialogs
         return selected;
     }
 
-    public static async Task<bool> ShowDeleteConfirmationAsync(string displayName)
+    public static async Task<bool> ShowDeleteConfirmationAsync(string displayName, Window? owner)
     {
         Window dialog = new()
         {
@@ -183,7 +181,6 @@ internal static class RecordingsToolDialogs
                 Children = { deleteButton, cancelButton }
             });
 
-        Window? owner = GetMainWindow();
         if (owner != null)
             await dialog.ShowDialog(owner);
         else
@@ -220,9 +217,4 @@ internal static class RecordingsToolDialogs
 
         return new SolidColorBrush(Color.Parse(fallbackColor));
     }
-
-    private static Window? GetMainWindow()
-        => Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
 }

@@ -1,5 +1,3 @@
-using Avalonia.Threading;
-
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
@@ -15,7 +13,7 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 /// It automatically manages timeline subscriptions and provides virtual methods for timeline lifecycle.
 /// This is the "source of truth" for timeline subscription logic across all tool windows.
 /// </summary>
-public abstract partial class TimelineToolViewModel : Tool
+public abstract partial class TimelineToolViewModel : Tool, IDisposable
 {
     protected readonly ITimelineContextService? TimelineContext;
     private EventHandler? _playbackTimeChangedHandler;
@@ -43,15 +41,22 @@ public abstract partial class TimelineToolViewModel : Tool
         }
     }
 
-    protected TimelineToolViewModel()
+    protected TimelineToolViewModel(ITimelineContextService? timelineContext = null)
     {
-        // Initial state from global context
-        if (Avalonia.Application.Current is App app)
+        TimelineContext = timelineContext;
+        if (TimelineContext != null)
         {
-            TimelineContext = app.TimelineContext;
             TimelineContext.PropertyChanged += Context_PropertyChanged;
-            Dispatcher.UIThread.Post(SyncActiveTimelineFromContext);
+            SyncActiveTimelineFromContext();
         }
+    }
+
+    public virtual void Dispose()
+    {
+        if (TimelineContext != null)
+            TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        ActiveTimeline = null;
+        GC.SuppressFinalize(this);
     }
 
     private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)

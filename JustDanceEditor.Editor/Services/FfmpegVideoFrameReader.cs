@@ -185,8 +185,9 @@ internal sealed class FfmpegVideoFrameReader
             if (!process.HasExited)
                 process.Kill(entireProcessTree: true);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Terminate FFmpeg video frame reader");
         }
     }
 

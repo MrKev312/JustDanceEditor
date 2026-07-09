@@ -16,7 +16,7 @@ public class PictogramCreationViewModelTests
         Directory.CreateDirectory(assets);
 
         string picName = "foo";
-        string path = Path.Combine(assets, picName + ".png");
+        string path = Path.Combine(assets, picName + ".webp");
         File.WriteAllBytes(path, OneByOnePng);
 
         try

@@ -3,6 +3,7 @@ using Avalonia.Media;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
+using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using Moq;
@@ -12,6 +13,49 @@ namespace JustDanceEditor.Editor.Tests;
 public class PropertyItemViewModelTests
 {
     [Fact]
+    public void Registry_RedirectsMoveColorToTypedDefinitionTarget()
+    {
+        IntermediateSongPackage package = new();
+        package.HandCoachMoves["wave"] = new CoachMoveDefinition
+        {
+            Duration = 24,
+            Color = "#FF0000FF"
+        };
+        using TimelineEditorViewModel timeline = new(
+            package,
+            string.Empty,
+            new PlaybackService(),
+            new TimelineSettingsService());
+        MoveClipViewModel clip = new(new MoveClip { MoveId = "wave" }, parentTimeline: timeline);
+
+        ResolvedInspectableProperty color = new InspectablePropertyRegistry()
+            .Resolve([clip], timeline)
+            .Single(property => property.Descriptor.Key == nameof(MoveClipViewModel.BackgroundColor));
+
+        Assert.Same(clip.Definition, Assert.Single(color.Targets));
+        Assert.Equal(nameof(MoveDefinitionViewModel.Color), color.Descriptor.NotificationPropertyName);
+    }
+
+    [Fact]
+    public void Registry_MixedClipTypesExposeOnlyCommonTimingProperties()
+    {
+        using TimelineEditorViewModel timeline = new(
+            new IntermediateSongPackage(),
+            string.Empty,
+            new PlaybackService(),
+            new TimelineSettingsService());
+        MoveClipViewModel move = new(new MoveClip { MoveId = "wave" }, parentTimeline: timeline);
+        KaraokeClipViewModel lyric = new(new KaraokeClip { Lyrics = "Hello", Duration = 24 }, parentTimeline: timeline);
+
+        IReadOnlyList<ResolvedInspectableProperty> properties =
+            new InspectablePropertyRegistry().Resolve([move, lyric], timeline);
+
+        Assert.Equal(
+            [nameof(ClipViewModel.StartBeat), nameof(ClipViewModel.DurationBeats)],
+            properties.Select(static property => property.Descriptor.Key));
+    }
+
+    [Fact]
     public void SettingSameValue_DoesNotRecordUndo()
     {
         Mock<IUndoService> undoMock = new();
@@ -19,7 +63,11 @@ public class PropertyItemViewModelTests
         KaraokeClipViewModel clip = new(clipObj, null, null);
         List<object> targets = [clip];
 
-        PropertyItemViewModel propVm = new(targets, "Lyrics", new Attributes.InspectableAttribute("Lyrics", "Karaoke"), undoMock.Object, new TimelineStructureDocument(), [], null)
+        InspectablePropertyDescriptor<KaraokeClipViewModel, string> descriptor = new(
+            nameof(KaraokeClipViewModel.Lyrics), "Lyrics", "Karaoke",
+            static clip => clip.Lyrics,
+            static (clip, value) => clip.Lyrics = value);
+        PropertyItemViewModel propVm = new(targets, descriptor, undoMock.Object)
         {
             // initial same value
             StringValue = "Hello" // setting to same value
@@ -35,16 +83,18 @@ public class PropertyItemViewModelTests
     [Fact]
     public void MultiTarget_ColorPicker_AllTargetsReceiveColor_NoneBecomesTransparent()
     {
-        // Arrange: 3 MoveDefinitionViewModels as redirect targets (simulates IHasSharedColorSource redirect)
+        // Arrange: 3 canonical move-definition color targets.
         MoveDefinitionViewModel d1 = new() { Id = "a", Color = Colors.Red };
         MoveDefinitionViewModel d2 = new() { Id = "b", Color = Colors.Green };
         MoveDefinitionViewModel d3 = new() { Id = "c", Color = Colors.Blue };
 
         UndoService undoService = new();
         List<object> targets = [d1, d2, d3];
-        PropertyItemViewModel propVm = new(targets, "Color",
-            new Attributes.InspectableAttribute("Color", "Appearance"),
-            undoService, new TimelineStructureDocument(), [], null);
+        InspectablePropertyDescriptor<MoveDefinitionViewModel, Color> descriptor = new(
+            nameof(MoveDefinitionViewModel.Color), "Color", "Appearance",
+            static definition => definition.Color,
+            static (definition, value) => definition.Color = value);
+        PropertyItemViewModel propVm = new(targets, descriptor, undoService);
 
         // Act: simulate color picker flow
         propVm.OnColorPickerOpened();
@@ -84,9 +134,11 @@ public class PropertyItemViewModelTests
 
         UndoService undoService = new();
         List<object> targets = [d1, d2];
-        PropertyItemViewModel propVm = new(targets, "Color",
-            new Attributes.InspectableAttribute("Color", "Appearance"),
-            undoService, new TimelineStructureDocument(), [], null)
+        InspectablePropertyDescriptor<MoveDefinitionViewModel, Color> descriptor = new(
+            nameof(MoveDefinitionViewModel.Color), "Color", "Appearance",
+            static definition => definition.Color,
+            static (definition, value) => definition.Color = value);
+        PropertyItemViewModel propVm = new(targets, descriptor, undoService)
         {
             // Act: direct Value set (outside color picker)
             Value = Colors.Orange
@@ -101,14 +153,12 @@ public class PropertyItemViewModelTests
     public void NumericInspectable_UsesSliderBinding()
     {
         NumericTarget target = new() { Threshold = 0.5 };
-        PropertyItemViewModel propVm = new(
-            [target],
-            nameof(NumericTarget.Threshold),
-            new Attributes.NumericInspectableAttribute("Threshold", "MSM", -1.0, 1.4, 0.01),
-            new UndoService(),
-            new TimelineStructureDocument(),
-            [],
-            null);
+        InspectablePropertyDescriptor<NumericTarget, double> descriptor = new(
+            nameof(NumericTarget.Threshold), "Threshold", "MSM",
+            static item => item.Threshold,
+            static (item, value) => item.Threshold = value,
+            new NumericPropertyRange(-1.0, 1.4, 0.01));
+        PropertyItemViewModel propVm = new([target], descriptor, new UndoService());
 
         Assert.True(propVm.ShowSlider);
         Assert.False(propVm.ShowTextBox);
@@ -125,14 +175,10 @@ public class PropertyItemViewModelTests
     public void GetterOnlyNumericProperty_IgnoresHiddenSliderWrite()
     {
         ReadOnlyNumericTarget target = new();
-        PropertyItemViewModel propVm = new(
-            [target],
-            nameof(ReadOnlyNumericTarget.Score),
-            new Attributes.InspectableAttribute("Score", "MSM"),
-            new UndoService(),
-            new TimelineStructureDocument(),
-            [],
-            null);
+        InspectablePropertyDescriptor<ReadOnlyNumericTarget, int> descriptor = new(
+            nameof(ReadOnlyNumericTarget.Score), "Score", "MSM",
+            static item => item.Score);
+        PropertyItemViewModel propVm = new([target], descriptor, new UndoService());
 
         Assert.True(propVm.IsReadOnly);
         Assert.False(propVm.ShowSlider);

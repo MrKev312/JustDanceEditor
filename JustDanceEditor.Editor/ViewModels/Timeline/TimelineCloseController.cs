@@ -1,13 +1,10 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using Avalonia.Threading;
 
 using Dock.Model.Core;
 
+using JustDanceEditor.Editor.Services;
+
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
@@ -24,11 +21,11 @@ internal sealed class TimelineCloseController(TimelineEditorViewModel timeline, 
             return false;
         }
 
-        timeline.Playback.Dispose();
+        timeline.Dispose();
         return true;
     }
 
-    public async Task<bool> TrySaveAndReportFailureAsync(Window? owner)
+    public async Task<bool> TrySaveAndReportFailureAsync()
     {
         try
         {
@@ -37,44 +34,25 @@ internal sealed class TimelineCloseController(TimelineEditorViewModel timeline, 
         }
         catch (Exception ex)
         {
-            await ShowSaveErrorAsync(owner, ex);
+            EditorLog.Unexpected(ex, "Save map");
+            if (timeline.Services.Prompts != null)
+            {
+                await timeline.Services.Prompts.ShowErrorAsync(
+                    "Error Saving Map",
+                    $"Failed to save map:\n{ex.Message}",
+                    ex);
+            }
             return false;
         }
     }
 
-    public async Task<bool> TrySaveAndCloseAfterPromptAsync(Window? owner)
+    public async Task<bool> TrySaveAndCloseAfterPromptAsync()
     {
-        if (!await TrySaveAndReportFailureAsync(owner))
+        if (!await TrySaveAndReportFailureAsync())
             return false;
 
         CloseAfterConfirmedPrompt();
         return true;
-    }
-
-    public static async Task ShowSaveErrorAsync(Window? owner, Exception exception)
-    {
-        Debug.WriteLine($"Failed to save map: {exception}");
-
-        if (owner == null)
-            return;
-
-        Window errorWin = new()
-        {
-            Title = "Error Saving Map",
-            Width = 420,
-            Height = 200,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new TextBlock
-            {
-                Text = $"Failed to save map:\n{exception.Message}",
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(16),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            }
-        };
-
-        await errorWin.ShowDialog(owner);
     }
 
     private void CloseAfterConfirmedPrompt()
@@ -85,65 +63,18 @@ internal sealed class TimelineCloseController(TimelineEditorViewModel timeline, 
 
     private async Task PromptSaveOnCloseAsync()
     {
-        Window? mainWindow =
-            Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime al
-                ? al.MainWindow
-                : null;
-        if (mainWindow == null)
+        IEditorPromptService? prompts = timeline.Services.Prompts;
+        if (prompts == null)
             return;
 
-        Button saveBtn = new() { Content = "Save", Width = 96, Margin = new Thickness(6) };
-        Button discardBtn = new() { Content = "Don't Save", Width = 96, Margin = new Thickness(6) };
-        Button cancelBtn = new() { Content = "Cancel", Width = 96, Margin = new Thickness(6) };
-
-        StackPanel buttons = new()
+        UnsavedChangesChoice choice = await prompts.PromptUnsavedChangesAsync(getBaseTitle());
+        if (choice == UnsavedChangesChoice.Save)
         {
-            Orientation = Avalonia.Layout.Orientation.Horizontal,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
-        };
-        buttons.Children.AddRange([saveBtn, discardBtn, cancelBtn]);
-
-        StackPanel body = new() { Margin = new Thickness(20, 16, 20, 12) };
-        body.Children.Add(new TextBlock
-        {
-            Text = $"\"{getBaseTitle()}\" has unsaved changes. Do you want to save before closing?",
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 16)
-        });
-        body.Children.Add(buttons);
-
-        Window dialog = new()
-        {
-            Title = "Unsaved Changes",
-            Width = 440,
-            Height = 160,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = body
-        };
-
-        string choice = "cancel";
-        saveBtn.Click += (_, _) =>
-        {
-            choice = "save";
-            dialog.Close();
-        };
-        discardBtn.Click += (_, _) =>
-        {
-            choice = "discard";
-            dialog.Close();
-        };
-        cancelBtn.Click += (_, _) => dialog.Close();
-
-        await dialog.ShowDialog(mainWindow);
-
-        if (choice == "save")
-        {
-            await TrySaveAndCloseAfterPromptAsync(mainWindow);
+            await TrySaveAndCloseAfterPromptAsync();
             return;
         }
 
-        if (choice == "discard")
+        if (choice == UnsavedChangesChoice.Discard)
             CloseAfterConfirmedPrompt();
     }
 }

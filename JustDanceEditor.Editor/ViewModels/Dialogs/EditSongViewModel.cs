@@ -249,8 +249,9 @@ public partial class EditSongViewModel : ObservableObject, IDialogResult<EditSon
                     });
             }
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Fallback(ex, $"Load edit-song waveform '{_audioPath}'");
             AudioDurationSeconds = 0;
         }
     }

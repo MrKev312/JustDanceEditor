@@ -270,7 +270,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             playback.Process.Dispose();
 
             if (failure != null)
-                Debug.WriteLine($"ffplay audio pump failed: {failure}");
+                EditorLog.Unexpected(failure, "ffplay audio pump");
 
             if (shouldRaiseCompleted)
                 PlaybackCompleted?.Invoke(this, EventArgs.Empty);
@@ -446,8 +446,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         {
             process.StandardInput.Close();
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Close ffplay input");
         }
     }
 
@@ -458,8 +459,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             if (!process.HasExited)
                 process.Kill(entireProcessTree: true);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Terminate ffplay");
         }
     }
 
@@ -469,8 +471,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         {
             return process.HasExited && process.ExitCode == 0;
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Read ffplay exit code");
             return false;
         }
     }

@@ -5,7 +5,7 @@ using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-internal sealed class TimelineSnapSettingsController
+internal sealed class TimelineSnapSettingsController : IDisposable
 {
     private readonly TimelineEditorViewModel _timeline;
     private readonly TimelineSettingsService _settings;
@@ -93,4 +93,7 @@ internal sealed class TimelineSnapSettingsController
             _suppressBroadcast--;
         }
     }
+
+    public void Dispose()
+        => _settings.PropertyChanged -= Settings_PropertyChanged;
 }

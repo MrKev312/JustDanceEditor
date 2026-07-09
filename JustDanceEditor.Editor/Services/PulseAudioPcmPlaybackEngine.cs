@@ -217,7 +217,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             PulseNative.Free(playback.Stream);
 
             if (failure != null && !playback.StopRequested)
-                Debug.WriteLine($"PulseAudio playback failed: {failure}");
+                EditorLog.Unexpected(failure, "PulseAudio playback");
 
             if (shouldRaiseCompleted)
                 PlaybackCompleted?.Invoke(this, EventArgs.Empty);
@@ -387,8 +387,9 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             lock (_gate)
                 _latencyFrames = (long)Math.Round(latency.TotalSeconds * _sampleRate);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Fallback(ex, "Read PulseAudio latency");
         }
     }
 
@@ -502,8 +503,9 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             {
                 pa_simple_flush(stream, out int error);
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Fallback(ex, "Flush PulseAudio stream");
             }
         }
 
