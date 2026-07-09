@@ -12,38 +12,38 @@ namespace JustDanceEditor.Formats.JDI.Tests;
 public class MotionRecordingTests
 {
     [Fact]
-    public void JdiMotionRecordingScoreMath_AdjustedPercentageAppliesFinalModifiers()
+    public void MotionRecordingScoreMath_AdjustedPercentageAppliesFinalModifiers()
     {
         MoveSpaceScoreResult clean = CreateMoveSpaceScoreResult(ratioScore: 0.8f, autoCorrelationTime: -1.0f, directionIgnored: false, directionImpact: 0.0f);
         MoveSpaceScoreResult shaky = clean with { AutoCorrelationTime = 0.15f };
         MoveSpaceScoreResult wrongDirection = clean with { DirectionTendencyImpactOnScoreRatio = -0.5f };
         MoveSpaceScoreResult ignoredDirection = wrongDirection with { DirectionTendencyIgnored = true };
 
-        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(clean), 87.99f, 88.01f);
-        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(shaky), 39.99f, 40.01f);
-        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(wrongDirection), 62.99f, 63.01f);
-        Assert.InRange(JdiMotionRecordingScoreMath.GetAdjustedPercentage(ignoredDirection), 87.99f, 88.01f);
+        Assert.InRange(MotionRecordingScoreMath.GetAdjustedPercentage(clean), 87.99f, 88.01f);
+        Assert.InRange(MotionRecordingScoreMath.GetAdjustedPercentage(shaky), 39.99f, 40.01f);
+        Assert.InRange(MotionRecordingScoreMath.GetAdjustedPercentage(wrongDirection), 62.99f, 63.01f);
+        Assert.InRange(MotionRecordingScoreMath.GetAdjustedPercentage(ignoredDirection), 87.99f, 88.01f);
     }
 
     [Fact]
-    public void JdiMotionRecordingScoreMath_ProfileEvaluationUsesOfficialGoldAndThresholds()
+    public void MotionRecordingScoreMath_ProfileEvaluationUsesOfficialGoldAndThresholds()
     {
         MoveSpaceScoreResult clean = CreateMoveSpaceScoreResult(ratioScore: 0.88f, autoCorrelationTime: -1.0f, directionIgnored: false, directionImpact: 0.0f);
         MoveSpaceScoreResult goldPass = clean with { RatioScore = 0.6f, PercentageScore = 60.0f };
 
-        MotionRecordingScoreEvaluation ubiArtClean = JdiMotionRecordingScoreMath.EvaluateMove(
+        MotionRecordingScoreEvaluation ubiArtClean = MotionRecordingScoreMath.EvaluateMove(
             isGoldMove: false,
             clean,
             goldScoreValue: 500.0f,
             moveScoreValue: 100.0f,
             MotionRecordingScoringProfile.UbiArt);
-        MotionRecordingScoreEvaluation ubiArtGold = JdiMotionRecordingScoreMath.EvaluateMove(
+        MotionRecordingScoreEvaluation ubiArtGold = MotionRecordingScoreMath.EvaluateMove(
             isGoldMove: true,
             goldPass,
             goldScoreValue: 500.0f,
             moveScoreValue: 100.0f,
             MotionRecordingScoringProfile.UbiArt);
-        MotionRecordingScoreEvaluation rawGold = JdiMotionRecordingScoreMath.EvaluateMove(
+        MotionRecordingScoreEvaluation rawGold = MotionRecordingScoreMath.EvaluateMove(
             isGoldMove: true,
             goldPass,
             goldScoreValue: 500.0f,
@@ -59,9 +59,9 @@ public class MotionRecordingTests
     }
 
     [Fact]
-    public void JdiMotionRecordingScoreMath_JDNextProfileUsesJDNextMoveSpaceDefaults()
+    public void MotionRecordingScoreMath_JDNextProfileUsesJDNextMoveSpaceDefaults()
     {
-        MoveScoringOptions defaults = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+        MoveScoringOptions defaults = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
             new MoveScoringOptions(),
             MotionRecordingScoringProfile.JDNext);
 

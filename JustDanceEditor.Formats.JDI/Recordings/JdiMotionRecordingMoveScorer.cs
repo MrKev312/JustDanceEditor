@@ -1,6 +1,5 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Generation;
 using JustDanceEditor.Scoring;
 
 namespace JustDanceEditor.Formats.JDI.Recordings;
@@ -114,16 +113,15 @@ public sealed class JdiMotionRecordingMoveScorer
         foreach ((int coachId, List<JdiMotionMoveWindow> windows) in windowsByCoach)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            scoreValuesByCoach[coachId] = JdiMotionRecordingScoreMath.GetScoreValues(
-                windows,
-                new MotionRecordingLiveScoringOptions
-                {
-                    ScoringProfile = scoringProfile,
-                    GoldMoveValue = JdiMotionRecordingScoreMath.GetDefaultGoldMoveValue(scoringProfile)
-                });
+            int goldMoveCount = windows.Count(static move => move.IsGoldMove);
+            scoreValuesByCoach[coachId] = MotionRecordingScoreMath.GetScoreValues(
+                windows.Count - goldMoveCount,
+                goldMoveCount,
+                songScoreMaxScore: 13333.0f,
+                goldMoveValue: MotionRecordingScoreMath.GetDefaultGoldMoveValue(scoringProfile));
         }
 
-        MoveScoringOptions moveSpaceOptions = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+        MoveScoringOptions moveSpaceOptions = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
             options,
             scoringProfile) with
             {
@@ -169,8 +167,8 @@ public sealed class JdiMotionRecordingMoveScorer
                             Options = moveSpaceOptions
                         });
 
-                        percentage = JdiMotionRecordingScoreMath.NormalizePercentage(moveSpace.PercentageScore);
-                        adjustedPercentage = JdiMotionRecordingScoreMath.GetProfilePercentage(moveSpace, scoringProfile);
+                        percentage = MotionRecordingScoreMath.NormalizePercentage(moveSpace.PercentageScore);
+                        adjustedPercentage = MotionRecordingScoreMath.GetProfilePercentage(moveSpace, scoringProfile);
                     }
                     catch (Exception ex)
                     {
@@ -178,11 +176,11 @@ public sealed class JdiMotionRecordingMoveScorer
                     }
                 }
 
-                MotionRecordingMoveFeedback feedback = JdiMotionRecordingScoreMath.GetFeedback(
+                MotionRecordingMoveFeedback feedback = MotionRecordingScoreMath.GetFeedback(
                     window.IsGoldMove,
                     adjustedPercentage,
                     scoringProfile);
-                float addedScore = JdiMotionRecordingScoreMath.GetAddedScore(
+                float addedScore = MotionRecordingScoreMath.GetAddedScore(
                     window.IsGoldMove,
                     feedback,
                     adjustedPercentage,

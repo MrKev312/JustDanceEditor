@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System.Collections.ObjectModel;
 using System.Linq;

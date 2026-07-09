@@ -1,6 +1,7 @@
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System;
 using System.Collections.Generic;
@@ -133,7 +134,7 @@ internal sealed class RecordingBrowserController(
         return new MotionRecordingAnalysisOptions
         {
             ScoringProfile = profile,
-            GoldMoveValue = JdiMotionRecordingScoreMath.GetDefaultGoldMoveValue(profile)
+            GoldMoveValue = MotionRecordingScoreMath.GetDefaultGoldMoveValue(profile)
         };
     }
 

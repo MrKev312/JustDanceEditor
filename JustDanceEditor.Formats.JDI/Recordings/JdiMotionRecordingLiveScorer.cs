@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Generation;
 using JustDanceEditor.Scoring;
 
 namespace JustDanceEditor.Formats.JDI.Recordings;
@@ -8,16 +7,6 @@ public enum MotionRecordingClassifierSource
 {
     CurrentAndPreviousRecordings,
     ExistingFiles
-}
-
-public enum MotionRecordingMoveFeedback
-{
-    X,
-    Ok,
-    Good,
-    Super,
-    Perfect,
-    Yeah
 }
 
 public sealed record MotionRecordingLiveScoringOptions
@@ -160,7 +149,12 @@ public sealed class MotionRecordingLiveScoreSession
         _existingClassifiers = existingClassifiers;
         _songName = songName;
         _options = options;
-        (_goldScoreValue, _moveScoreValue) = JdiMotionRecordingScoreMath.GetScoreValues(moveWindows, options);
+        int goldMoveCount = moveWindows.Count(static move => move.IsGoldMove);
+        (_goldScoreValue, _moveScoreValue) = MotionRecordingScoreMath.GetScoreValues(
+            moveWindows.Count - goldMoveCount,
+            goldMoveCount,
+            options.SongScoreMaxScore,
+            options.GoldMoveValue);
         InitializationIssues = initializationIssues;
     }
 
@@ -250,7 +244,7 @@ public sealed class MotionRecordingLiveScoreSession
                     ClassifierBytes = classifierBytes,
                     Duration = (float)move.DurationSeconds,
                     Samples = currentSamples,
-                    Options = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+                    Options = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
                         _options.MoveSpaceOptions,
                         _options.ScoringProfile) with
                         {
@@ -338,7 +332,7 @@ public sealed class MotionRecordingLiveScoreSession
                     ClassifierBytes = classifierBytes,
                     Duration = (float)move.DurationSeconds,
                     Samples = currentSamples,
-                    Options = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+                    Options = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
                         _options.MoveSpaceOptions,
                         _options.ScoringProfile)
                 });
@@ -376,7 +370,7 @@ public sealed class MotionRecordingLiveScoreSession
     }
 
     private MotionRecordingScoreEvaluation EvaluateMove(bool isGoldMove, MoveSpaceScoreResult? moveSpace)
-        => JdiMotionRecordingScoreMath.EvaluateMove(
+        => MotionRecordingScoreMath.EvaluateMove(
             isGoldMove,
             moveSpace,
             _goldScoreValue,

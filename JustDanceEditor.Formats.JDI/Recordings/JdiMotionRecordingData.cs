@@ -1,5 +1,5 @@
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Generation;
+using JustDanceEditor.Scoring;
 
 namespace JustDanceEditor.Formats.JDI.Recordings;
 

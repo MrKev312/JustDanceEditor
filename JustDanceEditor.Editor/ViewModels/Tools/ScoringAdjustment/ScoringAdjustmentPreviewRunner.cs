@@ -2,6 +2,7 @@ using Avalonia.Threading;
 
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System;
 using System.Diagnostics;

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System;
 using System.IO;

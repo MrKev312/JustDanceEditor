@@ -1,9 +1,4 @@
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("JustDanceEditor.Scoring")]
-[assembly: InternalsVisibleTo("JustDanceEditor.Generation.Tests")]
-
-namespace JustDanceEditor.Generation;
+namespace JustDanceEditor.Scoring;
 
 public sealed record MotionClassifierGenerationOptions
 {

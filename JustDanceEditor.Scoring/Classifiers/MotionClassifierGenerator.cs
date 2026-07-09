@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Generation;
+namespace JustDanceEditor.Scoring;
 
 public sealed class MotionClassifierGenerator
 {

@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace JustDanceEditor.Generation;
+namespace JustDanceEditor.Scoring;
 
 internal static class MotionClassifierWriter
 {

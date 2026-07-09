@@ -4,8 +4,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\JustDanceEditor.Generation\JustDanceEditor.Generation.csproj" />
-  </ItemGroup>
 </Project>

@@ -6,7 +6,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
-		<ProjectReference Include="..\JustDanceEditor.Generation\JustDanceEditor.Generation.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Scoring\JustDanceEditor.Scoring.csproj" />
 	</ItemGroup>
 	<ItemGroup>

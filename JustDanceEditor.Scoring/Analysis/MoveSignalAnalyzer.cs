@@ -1,4 +1,4 @@
-namespace JustDanceEditor.Generation;
+namespace JustDanceEditor.Scoring;
 
 internal sealed class MoveSignalAnalyzer(float smoothingFrequency, uint classifierFormatVersion)
 {

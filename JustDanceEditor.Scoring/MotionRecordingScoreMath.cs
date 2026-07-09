@@ -1,6 +1,4 @@
-using JustDanceEditor.Scoring;
-
-namespace JustDanceEditor.Formats.JDI.Recordings;
+namespace JustDanceEditor.Scoring;
 
 public enum MotionRecordingScoringProfile
 {
@@ -10,12 +8,22 @@ public enum MotionRecordingScoringProfile
     JDNext
 }
 
+public enum MotionRecordingMoveFeedback
+{
+    X,
+    Ok,
+    Good,
+    Super,
+    Perfect,
+    Yeah
+}
+
 public readonly record struct MotionRecordingScoreEvaluation(
     float PercentageScore,
     MotionRecordingMoveFeedback Feedback,
     float AddedScore);
 
-public static class JdiMotionRecordingScoreMath
+public static class MotionRecordingScoreMath
 {
     private const float MoveScoreBadRatio = 0.0f;
     private const float MoveScoreCharityOkRatio = 0.1f;
@@ -245,26 +253,21 @@ public static class JdiMotionRecordingScoreMath
         return moveScoreValue * (percentageScore / 100.0f);
     }
 
-    internal static (float GoldScoreValue, float MoveScoreValue) GetScoreValues(
-        IReadOnlyList<JdiMotionMoveWindow> moveWindows,
-        MotionRecordingLiveScoringOptions options)
+    public static (float GoldScoreValue, float MoveScoreValue) GetScoreValues(
+        int standardMoveCount,
+        int goldMoveCount,
+        float songScoreMaxScore,
+        float goldMoveValue)
     {
-        int goldCount = 0;
-        int moveCount = 0;
-        foreach (JdiMotionMoveWindow move in moveWindows)
-        {
-            if (move.IsGoldMove)
-                goldCount++;
-            else
-                moveCount++;
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(standardMoveCount);
+        ArgumentOutOfRangeException.ThrowIfNegative(goldMoveCount);
 
-        float denominator = (options.GoldMoveValue * goldCount) + moveCount;
+        float denominator = (goldMoveValue * goldMoveCount) + standardMoveCount;
         if (denominator == 0.0f)
             return (0.0f, 0.0f);
 
-        float moveValue = options.SongScoreMaxScore / denominator;
-        return (moveValue * options.GoldMoveValue, moveValue);
+        float moveValue = songScoreMaxScore / denominator;
+        return (moveValue * goldMoveValue, moveValue);
     }
 
     private static float GetGameplayAdjustedPercentage(

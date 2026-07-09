@@ -1,5 +1,3 @@
-using JustDanceEditor.Generation;
-
 namespace JustDanceEditor.Scoring;
 
 public sealed class JustDanceSongScorer

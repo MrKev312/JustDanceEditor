@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Generation;
 using JustDanceEditor.Scoring;
 
 namespace JustDanceEditor.Formats.JDI.Recordings;
@@ -83,14 +82,13 @@ public sealed class JdiMotionRecordingAnalyzer
             initializationIssues,
             cancellationToken);
 
-        MotionRecordingLiveScoringOptions scoreOptions = new()
-        {
-            SongScoreMaxScore = options.SongScoreMaxScore,
-            GoldMoveValue = options.GoldMoveValue,
-            ScoringProfile = options.ScoringProfile
-        };
-        (float goldScoreValue, float moveScoreValue) = JdiMotionRecordingScoreMath.GetScoreValues(moveWindows, scoreOptions);
-        MoveScoringOptions moveSpaceOptions = JdiMotionRecordingScoreMath.ApplyScoringProfileDefaults(
+        int goldMoveCount = moveWindows.Count(static move => move.IsGoldMove);
+        (float goldScoreValue, float moveScoreValue) = MotionRecordingScoreMath.GetScoreValues(
+            moveWindows.Count - goldMoveCount,
+            goldMoveCount,
+            options.SongScoreMaxScore,
+            options.GoldMoveValue);
+        MoveScoringOptions moveSpaceOptions = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
             options.MoveSpaceOptions,
             options.ScoringProfile) with
             {
@@ -145,7 +143,7 @@ public sealed class JdiMotionRecordingAnalyzer
             if (!string.IsNullOrWhiteSpace(issue))
                 issueCount++;
 
-            MotionRecordingScoreEvaluation evaluation = JdiMotionRecordingScoreMath.EvaluateMove(
+            MotionRecordingScoreEvaluation evaluation = MotionRecordingScoreMath.EvaluateMove(
                 move.IsGoldMove,
                 moveSpace,
                 goldScoreValue,

@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System.Threading;
 using System.Threading.Tasks;

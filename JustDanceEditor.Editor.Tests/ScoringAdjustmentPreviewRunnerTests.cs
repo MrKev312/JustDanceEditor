@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using JustDanceEditor.Editor.ViewModels.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Scoring;
 
 using System.Threading;
 

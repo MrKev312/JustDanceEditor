@@ -86,7 +86,7 @@ internal sealed class ScoringAdjustmentPreviewAnalyzer : IScoringAdjustmentPrevi
                 MoveSpaceScoreResult projected = ProjectMoveSpace(sample.MoveSpace, low, high, draft);
                 builders[sample.Key].Points.Add(new(
                     candidate.Value,
-                    JdiMotionRecordingScoreMath.GetProfilePercentage(projected, scoringProfile),
+                    MotionRecordingScoreMath.GetProfilePercentage(projected, scoringProfile),
                     candidate.IsDefault));
             }
         }
@@ -380,7 +380,7 @@ internal sealed class ScoringAdjustmentPreviewAnalyzer : IScoringAdjustmentPrevi
 
     private static float PreviewAccuracy(MotionRecordingMoveScorePoint point)
         => string.IsNullOrWhiteSpace(point.Issue)
-            ? JdiMotionRecordingScoreMath.NormalizePercentage(point.AdjustedPercentageScore)
+            ? MotionRecordingScoreMath.NormalizePercentage(point.AdjustedPercentageScore)
             : 0.0f;
 
     private static string CreateLabel(MotionRecordingMoveScorePoint point)
