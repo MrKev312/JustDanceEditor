@@ -26,7 +26,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         public byte[] ByteBuffer { get; set; } = [];
     }
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly string _ffplayPath = ffplayPath;
 
     private PcmWaveAudioData? _audio;
@@ -270,7 +270,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             playback.Process.Dispose();
 
             if (failure != null)
-                Debug.WriteLine($"ffplay audio pump failed: {failure}");
+                EditorLog.Unexpected(failure, "ffplay audio pump");
 
             if (shouldRaiseCompleted)
                 PlaybackCompleted?.Invoke(this, EventArgs.Empty);
@@ -364,16 +364,16 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             double timeSeconds = (startFrame + frame) / (double)sampleRate;
             double beatPosition = (timeSeconds - _zeroBeatTimeSeconds) * beatsPerSecond;
             int beat = (int)Math.Floor(beatPosition + 1e-9);
-            double beatStartSeconds = _zeroBeatTimeSeconds + beat / beatsPerSecond;
+            double beatStartSeconds = _zeroBeatTimeSeconds + (beat / beatsPerSecond);
             double clickTime = timeSeconds - beatStartSeconds;
-            if (clickTime < 0 || clickTime >= ClickDurationSeconds)
+            if (clickTime is < 0 or >= ClickDurationSeconds)
                 continue;
 
             bool isSection = _sectionStartBeats.Contains(beat);
             bool isMeasure = Mod(beat, _beatsPerMeasure) == 0;
             double frequency = isSection ? 1800 : isMeasure ? 1400 : 1000;
             double gain = isSection ? 0.35 : isMeasure ? 0.28 : 0.20;
-            double envelope = 1.0 - clickTime / ClickDurationSeconds;
+            double envelope = 1.0 - (clickTime / ClickDurationSeconds);
             int click = (int)(Math.Sin(2 * Math.PI * frequency * clickTime) * short.MaxValue * gain * envelope);
 
             int sampleBase = frame * channels;
@@ -446,8 +446,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         {
             process.StandardInput.Close();
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Close ffplay input");
         }
     }
 
@@ -458,8 +459,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             if (!process.HasExited)
                 process.Kill(entireProcessTree: true);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Terminate ffplay");
         }
     }
 
@@ -469,8 +471,9 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
         {
             return process.HasExited && process.ExitCode == 0;
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Read ffplay exit code");
             return false;
         }
     }

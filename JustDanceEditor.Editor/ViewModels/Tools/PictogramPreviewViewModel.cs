@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
@@ -10,6 +11,11 @@ public partial class PictogramPreviewViewModel : TimelineToolViewModel
 {
     [ObservableProperty]
     public partial double CurrentBeat { get; set; }
+
+    public PictogramPreviewViewModel(ITimelineContextService? timelineContext = null)
+        : base(timelineContext)
+    {
+    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {

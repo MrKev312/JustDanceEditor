@@ -410,12 +410,11 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         string movesRoot = Path.Combine(inputRoot, "moves");
         string pictosRoot = Path.Combine(inputRoot, "pictos");
 
-        string jdiMovesRoot = IntermediatePackageLayout.Resolve(outputRoot, IntermediatePackageLayout.Assets.MovesFolder);
         string jdiPictosRoot = IntermediatePackageLayout.Resolve(outputRoot, IntermediatePackageLayout.Assets.PictogramsFolder);
         string jdiVideoRoot = IntermediatePackageLayout.Resolve(outputRoot, IntermediatePackageLayout.Assets.VideoFolder);
         string jdiAudioRoot = IntermediatePackageLayout.Resolve(outputRoot, IntermediatePackageLayout.Assets.AudioFolder);
 
-        Directory.CreateDirectory(jdiMovesRoot);
+        JdiMotionClassifierStorage.EnsureVersionFolders(outputRoot);
         Directory.CreateDirectory(jdiPictosRoot);
         Directory.CreateDirectory(jdiVideoRoot);
         Directory.CreateDirectory(jdiAudioRoot);
@@ -425,7 +424,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
         if (Directory.Exists(movesRoot))
         {
             foreach (string moveFile in Directory.EnumerateFiles(movesRoot, "*.msm", SearchOption.TopDirectoryOnly))
-                File.Copy(moveFile, Path.Combine(jdiMovesRoot, Path.GetFileName(moveFile)), true);
+                JdiMotionClassifierStorage.ImportClassifier(outputRoot, Path.GetFileName(moveFile), File.ReadAllBytes(moveFile));
         }
 
         _logger.LogInformation("Importing JDNext PC pictograms");
@@ -526,7 +525,7 @@ public sealed class JDNextPCJdiFormat(IMediaProcessor mediaProcessor, ITextureSe
                 .Select(clip => clip.MoveId),
             StringComparer.OrdinalIgnoreCase);
 
-        string sourceMovesRoot = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
+        string sourceMovesRoot = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MovesV7Folder);
         _logger.LogInformation("Exporting {MoveCount} JDNext PC move assets", moveIds.Count);
         foreach (string moveId in moveIds)
         {

@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Import Lyrics", "Timeline")]
-public class ImportLyricsCommand : IRunCommand
+public class ImportLyricsCommand(IWindowService windows) : IRunCommand
 {
     public bool CanRun(ITimelineContextService? timelineContext) => timelineContext?.ActiveTimeline != null;
 
@@ -29,11 +29,9 @@ public class ImportLyricsCommand : IRunCommand
         _ = ImportLyricsAsync(timeline);
     }
 
-    private static async Task ImportLyricsAsync(TimelineEditorViewModel timeline)
+    private async Task ImportLyricsAsync(TimelineEditorViewModel timeline)
     {
-        Window? topLevel = Avalonia.Application.Current?.ApplicationLifetime
-            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow : null;
+        Window? topLevel = windows.MainWindow;
         if (topLevel == null)
             return;
 

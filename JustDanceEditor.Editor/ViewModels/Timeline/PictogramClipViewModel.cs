@@ -1,6 +1,5 @@
 using Avalonia.Media;
 
-using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
@@ -10,13 +9,10 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
+public class PictogramClipViewModel : ClipViewModel
 {
-    private static readonly string[] PreferredImageExtensions = [".webp", ".png", ".jpg", ".jpeg"];
-
     private PictogramClip PictogramClip => (PictogramClip)RawClip;
 
-    [Inspectable("Pictogram Id", "Pictogram")]
     public string PictogramId
     {
         get => PictogramClip.PictogramId ?? string.Empty;
@@ -61,34 +57,18 @@ public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
             return;
         }
 
-        string dir = Path.Combine(_rootPath, "assets", "pictograms");
-        foreach (string extension in PreferredImageExtensions)
-        {
-            string candidate = Path.Combine(dir, pictogramId + extension);
-            if (File.Exists(candidate))
-            {
-                ImagePath = candidate;
-                return;
-            }
-        }
-
-        // Keep a stable fallback path for unresolved IDs.
-        ImagePath = Path.Combine(dir, $"{pictogramId}.webp");
+        ImagePath = Path.Combine(_rootPath, "assets", "pictograms", $"{pictogramId}.webp");
     }
 
-    // IHasDynamicOptions
-    public IEnumerable<object>? GetDynamicOptions(string propertyName, TimelineEditorViewModel timeline)
+    public IEnumerable<object> GetAvailablePictograms(TimelineEditorViewModel timeline)
     {
-        if (propertyName != nameof(PictogramId))
-            return null;
-
         List<PictogramOptionViewModel> list = [];
         string dir = Path.Combine(timeline.RootPath, "assets", "pictograms");
         HashSet<string> seen = [with(StringComparer.OrdinalIgnoreCase)];
 
         if (Directory.Exists(dir))
         {
-            foreach (string file in Directory.GetFiles(dir))
+            foreach (string file in Directory.GetFiles(dir, "*.webp", SearchOption.TopDirectoryOnly))
             {
                 string name = Path.GetFileNameWithoutExtension(file);
                 if (seen.Add(name))
@@ -118,6 +98,4 @@ public class PictogramClipViewModel : ClipViewModel, IHasDynamicOptions
 
         return list;
     }
-
-    public bool IsDynamicPropertyEditable(string propertyName) => true;
 }

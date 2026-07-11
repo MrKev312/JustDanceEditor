@@ -26,6 +26,32 @@ public static class IntermediatePackageLayout
         public static string FullBodyCoachTimelineFile(int coachId) => $"timelines/coach_{coachId:D2}_fullBody.json";
     }
 
+    public static class Recordings
+    {
+        public const string Folder = "recordings";
+        public const string CoachFolderPattern = "coach_??";
+        public const string RecordingPattern = "*.json";
+
+        public static string CoachFolder(int coachId) => $"{Folder}/coach_{coachId:D2}";
+
+        public static string RecordingFile(int coachId, string fileName)
+        {
+            ValidateRecordingFileName(fileName);
+            return $"{CoachFolder(coachId)}/{fileName}";
+        }
+
+        private static void ValidateRecordingFileName(string fileName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+            if (fileName.Contains('/') || fileName.Contains('\\'))
+                throw new ArgumentException("Recording file names cannot contain path separators.", nameof(fileName));
+
+            if (!fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Recording file names must end with .json.", nameof(fileName));
+        }
+    }
+
     /// <summary>
     /// Provides relative paths for asset files within an intermediate package.
     /// Use <see cref="Resolve(string, string)"/> to convert to absolute paths.
@@ -83,11 +109,51 @@ public static class IntermediatePackageLayout
         /// <summary>Pictograms folder.</summary>
         public const string PictogramsFolder = $"{Root}/pictograms";
 
-        /// <summary>Moves folder.</summary>
+        /// <summary>Root folder for MoveSpace classifiers.</summary>
         public const string MovesFolder = $"{Root}/moves";
+
+        /// <summary>Version 4 MoveSpace classifiers.</summary>
+        public const string MovesV4Folder = $"{MovesFolder}/v4";
+
+        /// <summary>Version 5 MoveSpace classifiers.</summary>
+        public const string MovesV5Folder = $"{MovesFolder}/v5";
+
+        /// <summary>Version 6 MoveSpace classifiers.</summary>
+        public const string MovesV6Folder = $"{MovesFolder}/v6";
+
+        /// <summary>Version 7 MoveSpace classifiers used by the editor and modern exports.</summary>
+        public const string MovesV7Folder = $"{MovesFolder}/v7";
 
         /// <summary>Gestures folder.</summary>
         public const string GesturesFolder = $"{Root}/gestures";
+
+        /// <summary>
+        /// Gets the relative path for a gesture asset subfolder.
+        /// </summary>
+        /// <param name="subfolderName">Gesture subfolder name.</param>
+        public static string GestureFolder(string subfolderName)
+        {
+            ValidateGestureSubfolderName(subfolderName);
+            return $"{GesturesFolder}/{subfolderName}";
+        }
+
+        /// <summary>
+        /// Validates that a gesture subfolder name is a simple folder name, not a path.
+        /// </summary>
+        /// <param name="subfolderName">Gesture subfolder name.</param>
+        public static void ValidateGestureSubfolderName(string subfolderName)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(subfolderName);
+
+            if (HasTraversalSegment(subfolderName))
+                throw new ArgumentException("Gesture subfolder names cannot contain traversal segments.", nameof(subfolderName));
+
+            if (Path.IsPathRooted(subfolderName) || HasWindowsDriveSpecifier(subfolderName))
+                throw new ArgumentException("Gesture subfolder names cannot be rooted paths.", nameof(subfolderName));
+
+            if (subfolderName.Contains('/') || subfolderName.Contains('\\'))
+                throw new ArgumentException("Gesture subfolder names cannot contain path separators.", nameof(subfolderName));
+        }
 
         /// <summary>
         /// Gets the relative path for an individual coach image.

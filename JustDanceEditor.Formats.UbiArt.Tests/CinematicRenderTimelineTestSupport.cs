@@ -34,7 +34,6 @@ internal static class CinematicRenderTimelineTestSupport
                 Alpha: new CinematicCurve([new CinematicKeyframe(0, alpha, 0, alpha, 0, alpha)]))),
             order);
 
-
     internal static PropertyClip CreateActorEnableClip(
         CinematicActor actor,
         int startFrame,
@@ -54,7 +53,6 @@ internal static class CinematicRenderTimelineTestSupport
                     Blue: null,
                 Alpha: new CinematicCurve([new CinematicKeyframe(0, enabled ? 1 : 0, 0, enabled ? 1 : 0, 0, enabled ? 1 : 0)]))),
             order);
-
 
     internal static PropertyClip CreatePropertyFxClip(
         CinematicActor actor,
@@ -76,7 +74,6 @@ internal static class CinematicRenderTimelineTestSupport
             killParticlesOnEnd,
             FxGenerationDurationFrames: durationFrames);
 
-
     internal static PropertyClip CreateAnimationClip(
         CinematicActor actor,
         int startFrame,
@@ -93,7 +90,6 @@ internal static class CinematicRenderTimelineTestSupport
                 Material: null,
                 Animation: new CinematicAnimationClip(animationName, Loop: true, PlayRate: 1.0f, StartFrame: 0)),
             order);
-
 
     internal static PropertyClip CreateSizeClip(
         CinematicActor actor,
@@ -118,10 +114,8 @@ internal static class CinematicRenderTimelineTestSupport
                 Material: null),
             order);
 
-
     internal static CinematicCurve CreateSingleKeyCurve(float value) =>
         new([new CinematicKeyframe(0, value, 0, value, 0, value)]);
-
 
     internal static PropertyClip CreatePivotClip(
         CinematicActor actor,
@@ -142,7 +136,6 @@ internal static class CinematicRenderTimelineTestSupport
                 Pivot: new CinematicPivotClip(anchor, pivotX, pivotY)),
             order);
 
-
     internal static TapeClip CreateFxClip(IReadOnlyList<string> targetPath, uint fxNameId) =>
         new(
             LegacyBinarySerializer.GetTypeId<CinematicFxClipBinary>(),
@@ -153,7 +146,6 @@ internal static class CinematicRenderTimelineTestSupport
             Curves: [],
             FxNameId: fxNameId);
 
-
     internal static TapeClip CreateProportionClip(IReadOnlyList<string> targetPath) =>
         new(
             LegacyBinarySerializer.GetTypeId<CinematicProportionClipBinary>(),
@@ -162,7 +154,6 @@ internal static class CinematicRenderTimelineTestSupport
             Path: null,
             Targets: [new ActorTargetPath(targetPath)],
             Curves: []);
-
 
     internal static CinematicFxTemplate CreateFxTemplate(
         uint controlNameId,
@@ -198,7 +189,6 @@ internal static class CinematicRenderTimelineTestSupport
             DefaultFxNameId: 0,
             TriggerFxNameId: 0);
     }
-
 
     internal static CinematicActor CreateActor(
         IReadOnlyList<string> path,
@@ -258,7 +248,6 @@ internal static class CinematicRenderTimelineTestSupport
             bind,
             MeshInitialScaleZ: meshInitialScaleZ);
 
-
     internal static CinematicActor CreateAnimLightActor(bool defaultEnabled = true)
     {
         const uint animationNameId = 0x6158A88A;
@@ -290,7 +279,6 @@ internal static class CinematicRenderTimelineTestSupport
         };
     }
 
-
     internal static CinematicAnimLightRig CreateAnimLightRig(
         CinematicAnimLightSkeleton skeleton,
         uint patchBankNameId,
@@ -299,6 +287,5 @@ internal static class CinematicRenderTimelineTestSupport
             skeleton,
             patchBank,
             new Dictionary<uint, CinematicAnimLightPatchBank> { [patchBankNameId] = patchBank });
-
 
 }

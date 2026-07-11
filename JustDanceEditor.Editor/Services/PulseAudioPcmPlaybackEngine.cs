@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -24,7 +23,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
         public byte[] ByteBuffer { get; set; } = [];
     }
 
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
 
     private PcmWaveAudioData? _audio;
     private PlaybackState? _playback;
@@ -217,7 +216,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             PulseNative.Free(playback.Stream);
 
             if (failure != null && !playback.StopRequested)
-                Debug.WriteLine($"PulseAudio playback failed: {failure}");
+                EditorLog.Unexpected(failure, "PulseAudio playback");
 
             if (shouldRaiseCompleted)
                 PlaybackCompleted?.Invoke(this, EventArgs.Empty);
@@ -307,16 +306,16 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             double timeSeconds = (startFrame + frame) / (double)sampleRate;
             double beatPosition = (timeSeconds - _zeroBeatTimeSeconds) * beatsPerSecond;
             int beat = (int)Math.Floor(beatPosition + 1e-9);
-            double beatStartSeconds = _zeroBeatTimeSeconds + beat / beatsPerSecond;
+            double beatStartSeconds = _zeroBeatTimeSeconds + (beat / beatsPerSecond);
             double clickTime = timeSeconds - beatStartSeconds;
-            if (clickTime < 0 || clickTime >= ClickDurationSeconds)
+            if (clickTime is < 0 or >= ClickDurationSeconds)
                 continue;
 
             bool isSection = _sectionStartBeats.Contains(beat);
             bool isMeasure = Mod(beat, _beatsPerMeasure) == 0;
             double frequency = isSection ? 1800 : isMeasure ? 1400 : 1000;
             double gain = isSection ? 0.35 : isMeasure ? 0.28 : 0.20;
-            double envelope = 1.0 - clickTime / ClickDurationSeconds;
+            double envelope = 1.0 - (clickTime / ClickDurationSeconds);
             int click = (int)(Math.Sin(2 * Math.PI * frequency * clickTime) * short.MaxValue * gain * envelope);
 
             int sampleBase = frame * channels;
@@ -387,8 +386,9 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             lock (_gate)
                 _latencyFrames = (long)Math.Round(latency.TotalSeconds * _sampleRate);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Fallback(ex, "Read PulseAudio latency");
         }
     }
 
@@ -456,7 +456,6 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
 
         public static IntPtr New(string applicationName, string streamName, SampleSpec sampleSpec, BufferAttr bufferAttr)
         {
-            int error;
             IntPtr stream = pa_simple_new(
                 null,
                 applicationName,
@@ -466,7 +465,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
                 ref sampleSpec,
                 IntPtr.Zero,
                 ref bufferAttr,
-                out error);
+                out int error);
 
             if (stream == IntPtr.Zero)
                 throw new AudioPlaybackUnavailableException($"PulseAudio stream could not be opened: {GetError(error)}");
@@ -476,24 +475,21 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
 
         public static void Write(IntPtr stream, byte[] bytes, int byteCount)
         {
-            int error;
-            int result = pa_simple_write(stream, bytes, (UIntPtr)byteCount, out error);
+            int result = pa_simple_write(stream, bytes, (UIntPtr)byteCount, out int error);
             if (result < 0)
                 throw new AudioPlaybackUnavailableException($"PulseAudio write failed: {GetError(error)}");
         }
 
         public static void Drain(IntPtr stream)
         {
-            int error;
-            int result = pa_simple_drain(stream, out error);
+            int result = pa_simple_drain(stream, out int error);
             if (result < 0)
                 throw new AudioPlaybackUnavailableException($"PulseAudio drain failed: {GetError(error)}");
         }
 
         public static TimeSpan GetLatency(IntPtr stream)
         {
-            int error;
-            ulong latencyUsec = pa_simple_get_latency(stream, out error);
+            ulong latencyUsec = pa_simple_get_latency(stream, out int error);
             if (latencyUsec == ulong.MaxValue)
                 throw new AudioPlaybackUnavailableException($"PulseAudio latency query failed: {GetError(error)}");
 
@@ -504,11 +500,11 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
         {
             try
             {
-                int error;
-                pa_simple_flush(stream, out error);
+                pa_simple_flush(stream, out int error);
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Fallback(ex, "Flush PulseAudio stream");
             }
         }
 

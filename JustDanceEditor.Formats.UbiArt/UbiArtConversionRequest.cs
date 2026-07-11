@@ -75,5 +75,4 @@ public class UbiArtConversionRequest(string inputPath, string outputPath, string
     /// Receives an array of available song names and should return the selected name, or null to cancel.
     /// </summary>
     public Func<string[], Task<string?>>? SelectSongAsync { get; set; }
-
 }

@@ -4,8 +4,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Editor.Attributes;
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -38,7 +38,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
     // Coalesces rapid bursts of ClipDataChangedMessages into a single rebuild
     private bool _rebuildPending;
 
-    public LyricPreviewViewModel()
+    public LyricPreviewViewModel(ITimelineContextService? timelineContext = null)
+        : base(timelineContext)
     {
     }
 
@@ -54,11 +55,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         }
 
         // Ensure any previous registration is removed (idempotent) before registering our handler
-        try
-        {
-            WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
-        }
-        catch { }
+        WeakReferenceMessenger.Default.Unregister<Messaging.ClipDataChangedMessage>(this);
 
         // Register for per-clip data changes so we can react to edits in the property grid
         WeakReferenceMessenger.Default.Register<LyricPreviewViewModel, Messaging.ClipDataChangedMessage>(this, (r, m) =>
@@ -197,16 +194,16 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         if (timeline == null)
             return;
 
-        TrackViewModel? pictoTrack = timeline.Tracks.FirstOrDefault(t => t.Title == "Lyrics");
-        if (pictoTrack == null)
+        TrackViewModel? lyricsTrack = timeline.Tracks.FirstOrDefault(t => t.TrackType == TrackType.Lyrics);
+        if (lyricsTrack == null)
             return;
 
         // Subscribe to changes on the lyrics track so we update when clips reorder
-        SubscribeLyricsTrack(pictoTrack);
+        SubscribeLyricsTrack(lyricsTrack);
 
         List<ClipViewModel> currentLineClips = [];
         // iterate clips sorted by StartBeat so BuildLines reflects current timing order
-        foreach (KaraokeClipViewModel clip in pictoTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
+        foreach (KaraokeClipViewModel clip in lyricsTrack.Clips.OfType<KaraokeClipViewModel>().OrderBy(c => c.StartBeat))
         {
             currentLineClips.Add(clip);
             if (clip.IsEndOfLine)
@@ -231,8 +228,8 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             return;
         }
 
-        TimelineStructureDocument ts = ActiveTimeline.TimelineStructure;
-        double currentSeconds = ts.GetSecondsAtBeat(CurrentBeat);
+        TimelineEditorViewModel timeline = ActiveTimeline;
+        double currentSeconds = timeline.GetPlaybackSecondsAtBeatLabel(CurrentBeat);
 
         // Find the index of the first line that hasn't finished yet
         int idx = _allLines.FindIndex(l => l.EndBeat > CurrentBeat);
@@ -245,7 +242,7 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
         else
         {
             LyricLineViewModel targetLine = _allLines[idx];
-            double startSeconds = ts.GetSecondsAtBeat(targetLine.StartBeat);
+            double startSeconds = timeline.GetPlaybackSecondsAtBeatLabel(targetLine.StartBeat);
 
             // If we are currently singing the line OR it starts within the next 2 seconds
             if (CurrentBeat >= targetLine.StartBeat || (startSeconds - currentSeconds) <= 2.0)
@@ -262,12 +259,4 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
             }
         }
     }
-}
-
-public class LyricLineViewModel(List<ClipViewModel> clips)
-{
-    public List<ClipViewModel> Clips { get; } = clips;
-    public double StartBeat => Clips.FirstOrDefault()?.StartBeat ?? 0;
-    public double EndBeat => Clips.LastOrDefault() is ClipViewModel last ? last.StartBeat + last.DurationBeats : 0;
-    public string FullText => string.Join("", Clips.Select(c => (c as KaraokeClipViewModel)?.Lyrics ?? ""));
 }

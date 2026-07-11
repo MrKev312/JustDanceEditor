@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Services;
 
+using System;
 using System.Collections.Generic;
 
 namespace JustDanceEditor.Editor.ViewModels.Dialogs;
@@ -13,7 +14,10 @@ public partial class MoveCreationResult
     public bool IsGold { get; set; }
 }
 
-public partial class MoveCreationViewModel(IEnumerable<string>? moves = null, bool isFullBody = false) : ObservableObject, IDialogResult<MoveCreationResult>
+public partial class MoveCreationViewModel(
+    IEnumerable<string>? moves = null,
+    bool isFullBody = false,
+    Func<string, int>? durationResolver = null) : ObservableObject, IDialogResult<MoveCreationResult>
 {
     public IEnumerable<string> AvailableMoves { get; } = moves ?? [];
     public bool IsFullBody { get; } = isFullBody;
@@ -30,6 +34,9 @@ public partial class MoveCreationViewModel(IEnumerable<string>? moves = null, bo
     public MoveCreationResult? Result { get; private set; }
 
     public void SetDurationDisplay(string v) => DurationDisplay = v;
+
+    public void AcceptSelectedMove()
+        => Accept(string.IsNullOrWhiteSpace(SelectedMove) ? 24 : durationResolver?.Invoke(SelectedMove) ?? 24);
 
     public void Accept(int frames)
     {

@@ -21,8 +21,9 @@ internal static class LinuxAudioEnvironment
             return File.Exists(path)
                 && File.ReadAllText(path).Contains("microsoft", StringComparison.OrdinalIgnoreCase);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            EditorLog.Fallback(ex, $"Inspect Linux environment marker '{path}'");
             return false;
         }
     }

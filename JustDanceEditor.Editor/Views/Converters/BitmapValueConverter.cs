@@ -3,6 +3,8 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
+using JustDanceEditor.Editor.Services;
+
 using System;
 using System.Globalization;
 using System.IO;
@@ -26,8 +28,9 @@ public class BitmapValueConverter : IValueConverter
                 {
                     return new Bitmap(path);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    EditorLog.Fallback(ex, $"Decode bitmap '{path}'");
                     return GetRedPlaceholder();
                 }
             }

@@ -2,6 +2,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Threading.Tasks;
@@ -29,9 +30,9 @@ public static class ImageBitmapCache
             {
                 bitmap?.Dispose();
             }
-            catch
+            catch (Exception ex)
             {
-                // best effort cleanup
+                EditorLog.Fallback(ex, $"Dispose cached bitmap '{path}'");
             }
         }
 
@@ -53,9 +54,9 @@ public static class ImageBitmapCache
 
             _redPlaceholder = rtb;
         }
-        catch
+        catch (System.InvalidOperationException ex)
         {
-            // Avalonia not initialized; return null
+            EditorLog.Fallback(ex, "Create missing-image placeholder");
             _redPlaceholder = null;
         }
 

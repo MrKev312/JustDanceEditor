@@ -84,13 +84,12 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Equal(536, fxVisits[3].TimeOffsetFrames);
     }
 
-
     [Fact]
     public void MashupTransitionVisitsUseJd2015PulseTapeWithoutFxOverlay()
     {
         TimelineStructureDocument timeline = new()
         {
-            Markers = Enumerable.Range(0, 80).Select(index => index * 24000).ToList()
+            Markers = [.. Enumerable.Range(0, 80).Select(index => index * 24000)]
         };
         LegacyMashupData mashup = new()
         {
@@ -128,13 +127,12 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Contains(visits, visit => visit.Path.EndsWith(Path.Combine("cinematics", "color_blue.tape"), StringComparison.OrdinalIgnoreCase));
     }
 
-
     [Fact]
     public void MashupTransitionVisitsScheduleJd2015UvScrollStates()
     {
         TimelineStructureDocument timeline = new()
         {
-            Markers = Enumerable.Range(0, 80).Select(index => index * 24000).ToList()
+            Markers = [.. Enumerable.Range(0, 80).Select(index => index * 24000)]
         };
         LegacyMashupData mashup = new()
         {
@@ -191,7 +189,6 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Equal(888, uvVisits[2].TimeOffsetFrames);
         Assert.Equal(384, uvVisits[2].DurationFrames);
     }
-
 
     [Fact]
     public void MashupTransitionOverlaySelectionUsesAllCookedFxTapeTargets()
@@ -254,7 +251,6 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Contains("_mashup_graph", error.Message);
         Assert.Contains("Refusing to render over the original map background", error.Message);
     }
-
 
     [Fact]
     public void MashupTransitionOverlayPlaneDrawsAfterRendererCompositedPleo()
@@ -327,7 +323,6 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Equal(0.0f, gpuItem.InjectedInverseDepth);
     }
 
-
     [Fact]
     public void MashupTransitionOverlayPlaneClassifiesAuthoredFlashWhenTapeTargetsMissIt()
     {
@@ -351,6 +346,4 @@ public sealed class MashupTransitionSchedulerTests
         Assert.Equal(CinematicLayerPlane.TransitionOverlay, mappedFlash.Plane);
         Assert.True(MashupSceneActorFilter.ShouldRenderSceneActor(flash, new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
     }
-
-
 }

@@ -25,4 +25,26 @@ public class IntermediatePackageLayoutTests
 
         Assert.Equal("pictogramId", exception.ParamName);
     }
+
+    [Fact]
+    public void GestureFolder_WithSimpleSubfolder_ReturnsPackageRelativePath()
+    {
+        Assert.Equal("assets/gestures/fullBody", IntermediatePackageLayout.Assets.GestureFolder("fullBody"));
+    }
+
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData(@"..\escape")]
+    [InlineData("..")]
+    [InlineData("/escape")]
+    [InlineData(@"C:\escape")]
+    [InlineData("nested/gesture")]
+    [InlineData(@"nested\gesture")]
+    public void GestureFolder_WithUnsafeSubfolder_ThrowsArgumentException(string subfolderName)
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            IntermediatePackageLayout.Assets.GestureFolder(subfolderName));
+
+        Assert.Equal("subfolderName", exception.ParamName);
+    }
 }

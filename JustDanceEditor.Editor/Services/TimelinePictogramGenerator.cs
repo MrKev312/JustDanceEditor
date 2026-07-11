@@ -192,8 +192,9 @@ public sealed class TimelinePictogramGenerator(IPictogramImageGenerator? imageGe
             {
                 throw;
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Fallback(ex, $"Generate pictogram image for move '{seed.MoveId}'");
                 string outputPath = GetOutputPath(seed);
                 if (!string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath))
                     MarkSuccessful(seed);
@@ -562,9 +563,9 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
             if (File.Exists(path))
                 File.Delete(path);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // best effort cleanup
+            EditorLog.Fallback(ex, $"Delete temporary pictogram file '{path}'");
         }
     }
 

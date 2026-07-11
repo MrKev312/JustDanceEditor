@@ -180,6 +180,7 @@ internal static class CinematicTemplateVisualResolver
                     orderedMaterialPaths.Count > 0 ? orderedMaterialPaths : materialPaths,
                     out fxTemplate);
             }
+
             CinematicAnimLightTemplate? animLightTemplate = null;
             if (hasAnimLightComponent)
                 CinematicAnimLightTemplateReader.TryRead(fileSystem, bytes, logger, out animLightTemplate);

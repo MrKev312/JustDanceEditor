@@ -14,10 +14,15 @@ namespace JustDanceEditor.Editor.Tests;
 
 public class TimelineEditorViewModelTests
 {
+    private static FieldInfo GetRequiredField(Type type, string name)
+    {
+        return type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(type.FullName, name);
+    }
+
     private static FieldInfo GetRequiredField(string name)
     {
-        return typeof(TimelineEditorViewModel).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingFieldException(typeof(TimelineEditorViewModel).FullName, name);
+        return GetRequiredField(typeof(TimelineEditorViewModel), name);
     }
 
     private static MethodInfo GetRequiredMethod(string name)
@@ -29,7 +34,7 @@ public class TimelineEditorViewModelTests
     /// <summary>
     /// Helper to create a timeline viewmodel without invoking media initialization.
     /// Uses <see cref="RuntimeHelpers.GetUninitializedObject"/> to avoid the constructor.
-    /// The private backing fields for Tracks, RootPath, and _package are then populated and
+    /// The private backing fields and controller fields required by BuildTimeline are populated and
     /// <see cref="TimelineEditorViewModel.BuildTimeline"/> is invoked via reflection.
     /// </summary>
     private static TimelineEditorViewModel CreateWithoutMedia(IntermediateSongPackage package)
@@ -48,8 +53,18 @@ public class TimelineEditorViewModelTests
         FieldInfo rootField = GetRequiredField("<RootPath>k__BackingField");
         rootField.SetValue(vm, string.Empty);
 
+        Dictionary<(string, bool), MoveDefinitionViewModel> moveDefinitions = [];
         FieldInfo movesField = GetRequiredField("_moveDefinitions");
-        movesField.SetValue(vm, new Dictionary<(string, bool), MoveDefinitionViewModel>());
+        movesField.SetValue(vm, moveDefinitions);
+
+        FieldInfo mediaField = GetRequiredField("_media");
+        mediaField.SetValue(vm, new TimelineMediaController(vm));
+
+        FieldInfo lyricsField = GetRequiredField("_lyrics");
+        lyricsField.SetValue(vm, new TimelineLyricsController(vm));
+
+        FieldInfo moveDefinitionControllerField = GetRequiredField("_moveDefinitionController");
+        moveDefinitionControllerField.SetValue(vm, new TimelineMoveDefinitionController(vm, moveDefinitions));
 
         // call BuildTimeline
         MethodInfo build = GetRequiredMethod("BuildTimeline");
@@ -223,12 +238,14 @@ public class TimelineEditorViewModelTests
             TimelineEditorViewModel vm = CreateSaveFailureTimeline(rootFile);
             vm.UndoService.Record(static () => { }, static () => { });
 
-            bool closed = await vm.TrySaveAndCloseAfterPromptAsync(owner: null);
+            bool closed = await vm.TrySaveAndCloseAfterPromptAsync();
 
             Assert.False(closed);
             Assert.True(vm.UndoService.IsDirty);
             Assert.Equal("Broken Save *", vm.Title);
-            Assert.False((bool)(GetRequiredField("_allowClose").GetValue(vm) ?? true));
+            object closeController = GetRequiredField("_closeController").GetValue(vm)
+                ?? throw new InvalidOperationException("Timeline close controller was not initialized.");
+            Assert.False((bool)(GetRequiredField(typeof(TimelineCloseController), "_allowClose").GetValue(closeController) ?? true));
         }
         finally
         {

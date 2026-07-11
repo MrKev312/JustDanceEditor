@@ -48,8 +48,8 @@ public sealed class VideoFrameControl : Control
         double scale = Math.Min(bounds.Width / sourceSize.Width, bounds.Height / sourceSize.Height);
         Size destinationSize = new(sourceSize.Width * scale, sourceSize.Height * scale);
         Point destinationPosition = new(
-            bounds.X + (bounds.Width - destinationSize.Width) / 2,
-            bounds.Y + (bounds.Height - destinationSize.Height) / 2);
+            bounds.X + ((bounds.Width - destinationSize.Width) / 2),
+            bounds.Y + ((bounds.Height - destinationSize.Height) / 2));
 
         context.DrawImage(source, new Rect(sourceSize), new Rect(destinationPosition, destinationSize));
     }

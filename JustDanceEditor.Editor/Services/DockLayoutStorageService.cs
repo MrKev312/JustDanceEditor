@@ -56,10 +56,8 @@ public sealed class DockLayoutStorageService
 
     public SavedDockLayout Load(string name)
     {
-        SavedDockLayout? layout = TryLoadFromFile(GetLayoutPath(name));
-        if (layout == null)
-            throw new FileNotFoundException($"Layout '{name}' could not be loaded.");
-
+        SavedDockLayout? layout = TryLoadFromFile(GetLayoutPath(name))
+            ?? throw new FileNotFoundException($"Layout '{name}' could not be loaded.");
         return layout;
     }
 
@@ -106,8 +104,9 @@ public sealed class DockLayoutStorageService
             DockLayoutState? state = JsonSerializer.Deserialize<DockLayoutState>(stream, JsonOptions);
             return string.IsNullOrWhiteSpace(state?.LastLayoutName) ? null : state.LastLayoutName.Trim();
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+            EditorLog.Fallback(ex, "Read last dock layout state");
             return null;
         }
     }
@@ -152,8 +151,9 @@ public sealed class DockLayoutStorageService
             using FileStream stream = File.OpenRead(path);
             return JsonSerializer.Deserialize<SavedDockLayout>(stream, JsonOptions);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+            EditorLog.Fallback(ex, $"Read dock layout '{path}'");
             return null;
         }
     }

@@ -20,4 +20,5 @@
   <Project Path="JustDanceEditor.Formats.Unity.Tests/JustDanceEditor.Formats.Unity.Tests.csproj" />
   <Project Path="JustDanceEditor.Formats.Unity/JustDanceEditor.Formats.Unity.csproj" />
   <Project Path="JustDanceEditor.GUI/JustDanceEditor.GUI.csproj" />
+  <Project Path="JustDanceEditor.Scoring/JustDanceEditor.Scoring.csproj" />
 </Solution>

@@ -38,7 +38,6 @@ public sealed class CinematicAtlasLoaderTests
         Assert.Equal(2, secondUvData.Uvs.Count);
     }
 
-
     [Fact]
     public void AtlasLoader_ReadsLooseTextAtlas()
     {

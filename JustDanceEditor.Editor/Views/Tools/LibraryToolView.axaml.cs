@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
@@ -201,11 +202,7 @@ public partial class LibraryToolView : UserControl
         };
         cancel.Click += (_, _) => win.Close();
 
-        Window ownerWindow = owner ??
-            (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime al && al.MainWindow is Window mw
-                ? mw
-                : null)
-            ?? throw new InvalidOperationException("No owner window available");
+        Window ownerWindow = owner ?? throw new InvalidOperationException("No owner window available");
 
         await win.ShowDialog(ownerWindow);
         return result;
@@ -239,9 +236,9 @@ public partial class LibraryToolView : UserControl
                 if (_pressEventArgs != null)
                     await DragDrop.DoDragDropAsync(_pressEventArgs, data, DragDropEffects.Copy);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // swallow exceptions from DoDragDrop
+                EditorLog.Unexpected(ex, "Start library drag-and-drop");
             }
             finally
             {
@@ -286,11 +283,11 @@ public partial class LibraryToolView : UserControl
         if (DataContext is not LibraryToolViewModel libVm || libVm.ActiveTimeline is not TimelineEditorViewModel timeline)
             return;
 
-        if (Avalonia.Application.Current is not App app)
+        if (libVm.Dialogs == null)
             return;
 
         NewMoveDefinitionViewModel dialogVm = new(isFullBody);
-        NewMoveDefinitionResult? result = await app.DialogService.ShowDialogAsync<NewMoveDefinitionResult>(dialogVm);
+        NewMoveDefinitionResult? result = await libVm.Dialogs.ShowDialogAsync<NewMoveDefinitionResult>(dialogVm);
 
         if (result == null || string.IsNullOrWhiteSpace(result.Name))
             return;

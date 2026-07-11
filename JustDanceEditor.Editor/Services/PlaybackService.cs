@@ -1,4 +1,5 @@
-﻿using Avalonia.Threading;
+﻿using Avalonia.Controls;
+using Avalonia.Threading;
 
 using KevInc.Audio.NAudio.Providers;
 
@@ -16,6 +17,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 {
     private readonly Func<IPcmPlaybackEngine> _pcmPlaybackEngineFactory;
     private readonly bool _useWindowsAudio;
+    private readonly IWindowService? _windows;
     private IWavePlayer? _outputDevice;
     private PcmWaveSampleProvider? _audioSource;
     private EndlessSampleProvider? _endless;
@@ -26,8 +28,11 @@ public class PlaybackService : IPlaybackService, IDisposable
     private Func<double, double> _secondsToBeat = s => s / 0.5;
 
     private TimeSpan _baseTime = TimeSpan.Zero;
-    private readonly DispatcherTimer _updateTimer;
+    private readonly DispatcherTimer _fallbackUpdateTimer;
     private readonly Stopwatch _stopwatch = new();
+    private int _animationFrameRequestId;
+    private bool _animationFramePending;
+    private bool _disposed;
 
     public bool IsPlaying { get; private set; }
 
@@ -62,32 +67,37 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public event EventHandler? TimeChanged;
     public event EventHandler? PlayStateChanged;
+    public event EventHandler<PlaybackInteractionBlockedEventArgs>? InteractionBlocked;
+
+    public bool IsInteractionLocked { get; set; }
 
     public PlaybackService()
-        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows())
+        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows(), null)
+    {
+    }
+
+    public PlaybackService(IWindowService windows)
+        : this(PcmPlaybackEngineFactory.Create, OperatingSystem.IsWindows(), windows)
     {
     }
 
     internal PlaybackService(Func<IPcmPlaybackEngine> pcmPlaybackEngineFactory, bool useWindowsAudio)
+        : this(pcmPlaybackEngineFactory, useWindowsAudio, null)
+    {
+    }
+
+    private PlaybackService(
+        Func<IPcmPlaybackEngine> pcmPlaybackEngineFactory,
+        bool useWindowsAudio,
+        IWindowService? windows)
     {
         _pcmPlaybackEngineFactory = pcmPlaybackEngineFactory;
         _useWindowsAudio = useWindowsAudio;
-        _updateTimer = new DispatcherTimer(
-            DisplayRefreshRateProvider.GetRefreshInterval(),
+        _windows = windows;
+        _fallbackUpdateTimer = new DispatcherTimer(
+            DisplayRefreshRateProvider.GetRefreshInterval(windows?.MainWindow),
             DispatcherPriority.Render,
-            (s, e) =>
-            {
-                if (IsPlaying)
-                {
-                    if (CurrentTime >= Duration)
-                    {
-                        Pause();
-                        Seek(Duration);
-                    }
-
-                    TimeChanged?.Invoke(this, EventArgs.Empty);
-                }
-            });
+            (s, e) => OnPlaybackTick());
     }
 
     public async Task LoadMediaAsync(
@@ -95,7 +105,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         Func<double, double> beatToSeconds,
         Func<double, double> secondsToBeat)
     {
-        Pause();
+        PauseCore();
 
         _beatToSeconds = beatToSeconds;
         _secondsToBeat = secondsToBeat;
@@ -129,7 +139,6 @@ public class PlaybackService : IPlaybackService, IDisposable
         _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
         UpdateTimerInterval();
-        _updateTimer.Start();
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -141,7 +150,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         if (CurrentTime >= Duration)
         {
-            Seek(TimeSpan.Zero);
+            SeekCore(TimeSpan.Zero, restorePlayback: false);
         }
 
         UpdateTimerInterval();
@@ -160,11 +169,20 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = true;
         _stopwatch.Restart();
         TryPlayOutputDevice();
+        StartPlaybackUpdates();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Pause()
+    {
+        if (TryBlockInteraction(PlaybackInteractionKind.Pause))
+            return;
+
+        PauseCore();
+    }
+
+    private void PauseCore()
     {
         if (!IsPlaying)
             return;
@@ -172,6 +190,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         _baseTime = CurrentTime;
         _stopwatch.Stop();
         IsPlaying = false;
+        StopPlaybackUpdates();
 
         TryPauseOutputDevice();
         TryPausePcm();
@@ -182,9 +201,17 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     public void Seek(TimeSpan time)
     {
+        if (TryBlockInteraction(PlaybackInteractionKind.Seek, time))
+            return;
+
+        SeekCore(time, restorePlayback: true);
+    }
+
+    private void SeekCore(TimeSpan time, bool restorePlayback)
+    {
         bool wasPlaying = IsPlaying;
         if (wasPlaying)
-            Pause();
+            PauseCore();
 
         _baseTime = time;
         if (_baseTime < TimeSpan.Zero)
@@ -205,7 +232,7 @@ public class PlaybackService : IPlaybackService, IDisposable
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
 
-        if (wasPlaying)
+        if (wasPlaying && restorePlayback)
             Play();
     }
 
@@ -213,6 +240,15 @@ public class PlaybackService : IPlaybackService, IDisposable
     {
         double seconds = _beatToSeconds(beat);
         Seek(TimeSpan.FromSeconds(seconds));
+    }
+
+    private bool TryBlockInteraction(PlaybackInteractionKind kind, TimeSpan? targetTime = null)
+    {
+        if (!IsInteractionLocked)
+            return false;
+
+        InteractionBlocked?.Invoke(this, new PlaybackInteractionBlockedEventArgs(kind, targetTime));
+        return true;
     }
 
     private void CleanUpAudio()
@@ -316,14 +352,14 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private void DisablePcmPlayback(Exception ex)
     {
-        Debug.WriteLine($"PCM audio playback disabled: {ex}");
+        EditorLog.Unexpected(ex, "PCM audio playback");
         _pcmPlayer?.Dispose();
         _pcmPlayer = null;
     }
 
     private void DisableWaveOutPlayback(Exception ex)
     {
-        Debug.WriteLine($"Wave audio playback disabled: {ex}");
+        EditorLog.Unexpected(ex, "Wave audio playback");
         _outputDevice?.Dispose();
         _outputDevice = null;
     }
@@ -348,12 +384,86 @@ public class PlaybackService : IPlaybackService, IDisposable
 
     private void UpdateTimerInterval()
     {
-        _updateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval();
+        _fallbackUpdateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval(_windows?.MainWindow);
+    }
+
+    private void StartPlaybackUpdates()
+    {
+        if (_disposed || !IsPlaying)
+            return;
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(StartPlaybackUpdates, DispatcherPriority.Render);
+            return;
+        }
+
+        if (TryRequestAnimationFrame())
+        {
+            _fallbackUpdateTimer.Stop();
+            return;
+        }
+
+        UpdateTimerInterval();
+        _fallbackUpdateTimer.Start();
+    }
+
+    private void StopPlaybackUpdates()
+    {
+        _fallbackUpdateTimer.Stop();
+        _animationFramePending = false;
+        _animationFrameRequestId++;
+    }
+
+    private bool TryRequestAnimationFrame()
+    {
+        if (_animationFramePending)
+            return true;
+
+        TopLevel? topLevel = _windows?.MainWindow;
+        if (topLevel == null)
+            return false;
+
+        _animationFramePending = true;
+        int requestId = ++_animationFrameRequestId;
+        topLevel.RequestAnimationFrame(_ => OnAnimationFrame(requestId));
+        return true;
+    }
+
+    private void OnAnimationFrame(int requestId)
+    {
+        if (requestId != _animationFrameRequestId)
+            return;
+
+        _animationFramePending = false;
+        if (_disposed || !IsPlaying)
+            return;
+
+        OnPlaybackTick();
+
+        if (IsPlaying)
+            StartPlaybackUpdates();
+    }
+
+    private void OnPlaybackTick()
+    {
+        if (_disposed || !IsPlaying)
+            return;
+
+        if (CurrentTime >= Duration)
+        {
+            PauseCore();
+            SeekCore(Duration, restorePlayback: false);
+            return;
+        }
+
+        TimeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()
     {
-        _updateTimer.Stop();
+        _disposed = true;
+        StopPlaybackUpdates();
         _stopwatch.Stop();
 
         CleanUpAudio();

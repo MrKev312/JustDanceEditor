@@ -1,5 +1,3 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
@@ -15,24 +13,59 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 /// It automatically manages timeline subscriptions and provides virtual methods for timeline lifecycle.
 /// This is the "source of truth" for timeline subscription logic across all tool windows.
 /// </summary>
-public abstract partial class TimelineToolViewModel : Tool
+public abstract partial class TimelineToolViewModel : Tool, IDisposable
 {
     protected readonly ITimelineContextService? TimelineContext;
     private EventHandler? _playbackTimeChangedHandler;
     private PropertyChangedEventHandler? _timelinePropertyChangedHandler;
 
-    [ObservableProperty]
-    public partial TimelineEditorViewModel? ActiveTimeline { get; set; }
-
-    protected TimelineToolViewModel()
+    public TimelineEditorViewModel? ActiveTimeline
     {
-        // Initial state from global context
-        if (Avalonia.Application.Current is App app)
+        get;
+        set
         {
-            TimelineContext = app.TimelineContext;
-            TimelineContext.PropertyChanged += Context_PropertyChanged;
-            ActiveTimeline = TimelineContext.ActiveTimeline;
+            if (ReferenceEquals(field, value))
+                return;
+
+            TimelineEditorViewModel? oldValue = field;
+            if (oldValue != null)
+                UnsubscribeFromTimeline(oldValue);
+
+            field = value;
+            OnPropertyChanged(nameof(ActiveTimeline));
+
+            if (value != null)
+                SubscribeToTimeline(value);
+
+            OnTimelineAttached(value);
         }
+    }
+
+    protected TimelineToolViewModel(
+        ITimelineContextService? timelineContext = null,
+        bool deferInitialTimelineAttachment = false)
+    {
+        TimelineContext = timelineContext;
+        if (!deferInitialTimelineAttachment)
+            InitializeTimelineContext();
+    }
+
+    protected void InitializeTimelineContext()
+    {
+        if (TimelineContext == null)
+            return;
+
+        TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        TimelineContext.PropertyChanged += Context_PropertyChanged;
+        SyncActiveTimelineFromContext();
+    }
+
+    public virtual void Dispose()
+    {
+        if (TimelineContext != null)
+            TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        ActiveTimeline = null;
+        GC.SuppressFinalize(this);
     }
 
     private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -43,24 +76,9 @@ public abstract partial class TimelineToolViewModel : Tool
         }
     }
 
-    partial void OnActiveTimelineChanging(TimelineEditorViewModel? oldValue, TimelineEditorViewModel? newValue)
+    private void SyncActiveTimelineFromContext()
     {
-        // Detach from previous timeline (do this before the property changes)
-        if (oldValue != null)
-        {
-            UnsubscribeFromTimeline(oldValue);
-        }
-    }
-
-    partial void OnActiveTimelineChanged(TimelineEditorViewModel? value)
-    {
-        // Attach to new timeline (property has been updated, ActiveTimeline == value)
-        if (value != null)
-        {
-            SubscribeToTimeline(value);
-        }
-
-        OnTimelineAttached(value);
+        ActiveTimeline = TimelineContext?.ActiveTimeline;
     }
 
     /// <summary>

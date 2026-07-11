@@ -119,15 +119,15 @@ internal static class MashupSceneActorFilter
     internal static bool ShouldRenderSceneActor(
         CinematicActor actor,
         IReadOnlySet<string> transitionFxActorKeys) =>
-        (IsBackgroundActorKey(actor.Key) ||
+        IsBackgroundActorKey(actor.Key) ||
             transitionFxActorKeys.Contains(actor.Key) ||
-            IsAuthoredTransitionFxActor(actor));
+            IsAuthoredTransitionFxActor(actor);
 
     internal static bool ShouldRenderSceneActor(
         RenderableCinematicActor actor,
         IReadOnlySet<string> transitionFxActorKeys) =>
-        (IsBackgroundActor(actor, transitionFxActorKeys) ||
-            IsTransitionOverlayActor(actor, transitionFxActorKeys));
+        IsBackgroundActor(actor, transitionFxActorKeys) ||
+            IsTransitionOverlayActor(actor, transitionFxActorKeys);
 
     internal static RenderableCinematicActor ApplyTransitionOverlayPlane(
         RenderableCinematicActor actor,
@@ -198,8 +198,8 @@ internal static class MashupSceneActorFilter
     private static bool IsTransitionOverlayActor(
         RenderableCinematicActor actor,
         IReadOnlySet<string> transitionFxActorKeys) =>
-        (transitionFxActorKeys.Contains(actor.Actor.Key) ||
-            IsAuthoredTransitionFxActor(actor.Actor));
+        transitionFxActorKeys.Contains(actor.Actor.Key) ||
+            IsAuthoredTransitionFxActor(actor.Actor);
 
     private static bool IsCoachFlashEmitterName(string? emitterName) =>
         !string.IsNullOrWhiteSpace(emitterName) &&

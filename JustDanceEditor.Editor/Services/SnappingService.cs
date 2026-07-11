@@ -59,36 +59,30 @@ public static class SnappingService
         // 3) Clips
         if (vm.SnapToClips)
         {
-            try
+            foreach (ClipViewModel clip in vm.Tracks.SelectMany(static track => track.Clips).ToArray())
             {
-                foreach (ClipViewModel? clip in vm.Tracks.SelectMany(t => t.Clips))
+                if (excluded != null && excluded.Contains(clip))
+                    continue;
+
+                double s = clip.StartBeat;
+                double e = clip.StartBeat + clip.DurationBeats;
+
+                double ds = Math.Abs(s - targetBeat);
+                if (ds + EPS < bestDist || (Math.Abs(ds - bestDist) <= EPS && 2 < bestPriority))
                 {
-                    if (clip == null)
-                        continue;
-                    if (excluded != null && excluded.Contains(clip))
-                        continue;
+                    bestDist = ds;
+                    best = s;
+                    bestPriority = 2;
+                }
 
-                    double s = clip.StartBeat;
-                    double e = clip.StartBeat + clip.DurationBeats;
-
-                    double ds = Math.Abs(s - targetBeat);
-                    if (ds + EPS < bestDist || (Math.Abs(ds - bestDist) <= EPS && 2 < bestPriority))
-                    {
-                        bestDist = ds;
-                        best = s;
-                        bestPriority = 2;
-                    }
-
-                    double de = Math.Abs(e - targetBeat);
-                    if (de + EPS < bestDist || (Math.Abs(de - bestDist) <= EPS && 2 < bestPriority))
-                    {
-                        bestDist = de;
-                        best = e;
-                        bestPriority = 2;
-                    }
+                double de = Math.Abs(e - targetBeat);
+                if (de + EPS < bestDist || (Math.Abs(de - bestDist) <= EPS && 2 < bestPriority))
+                {
+                    bestDist = de;
+                    best = e;
+                    bestPriority = 2;
                 }
             }
-            catch { }
         }
 
         if (bestDist < thresholdBeats + EPS)

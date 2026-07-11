@@ -1,13 +1,16 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
+using JustDanceEditor.Editor.Views.Timeline.Interactions;
 using JustDanceEditor.Formats.JDI.Timelines;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
 using TimelineRenderHelper = KevInc.Avalonia.Timeline.TimelineRenderHelper;
@@ -15,7 +18,7 @@ using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
-public partial class TimelineTrackPanel
+internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
 {
     private const double ViewportRenderPadding = 64;
     private const double MergeClipsBelowPixelsPerBeat = 8;
@@ -26,10 +29,49 @@ public partial class TimelineTrackPanel
     private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
     private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
+    private static readonly Comparison<ClipViewModel> CompareClipsByStartBeat =
+        static (left, right) => left.StartBeat.CompareTo(right.StartBeat);
+    private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
+        static (left, right) => left.Marker.CompareTo(right.Marker);
 
-    // Cache clip-specific brushes to avoid recreating them frequently
     private readonly Dictionary<Color, SolidColorBrush> _brushCache = [];
     private readonly Dictionary<(Color color, double thickness), Pen> _penCache = [];
+    private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = [];
+    private readonly List<ClipViewModel> _sortedClipCache = [];
+    private readonly List<SignatureSegment> _sortedSignatureCache = [];
+    private readonly List<double> _sectionStartCache = [];
+    private bool _sortedClipCacheDirty = true;
+    private bool _signatureCacheDirty = true;
+    private bool _sectionCacheDirty = true;
+
+    private Rect Bounds => owner.Bounds;
+    private double PixelsPerBeat => owner.PixelsPerBeat;
+    private int BeatOffset => owner.BeatOffset;
+    private double MaxBeat => owner.MaxBeat;
+    private IBrush? Background => owner.Background;
+    private IEnumerable<ClipViewModel> Clips => owner.Clips;
+    private IEnumerable<SignatureSegment> Signatures => owner.Signatures;
+    private IEnumerable<SectionSegment> Sections => owner.Sections;
+    private BoxSelectionHandler? BoxSelection => owner.BoxSelectionHandler;
+    private ScrollViewer? ParentScrollViewer => owner.ParentScrollViewer;
+
+    public void InvalidateClips()
+    {
+        _textCache.Clear();
+        _sortedClipCacheDirty = true;
+    }
+
+    public void InvalidateClipOrder() => _sortedClipCacheDirty = true;
+    public void InvalidateText() => _textCache.Clear();
+    public void InvalidateText(ClipViewModel clip) => _textCache.Remove((clip, 12));
+    public void InvalidateSignatures() => _signatureCacheDirty = true;
+    public void InvalidateSections() => _sectionCacheDirty = true;
+
+    public void InvalidateTimelineStructure()
+    {
+        InvalidateSignatures();
+        InvalidateSections();
+    }
 
     private SolidColorBrush GetOrCreateBrush(Color color)
     {
@@ -55,7 +97,34 @@ public partial class TimelineTrackPanel
         return pen;
     }
 
-    public override void Render(DrawingContext context)
+    private FormattedText GetFormattedText(
+        ClipViewModel clip,
+        string text,
+        double fontSize,
+        double maxWidth,
+        double maxHeight)
+    {
+        (ClipViewModel clip, double fontSize) key = (clip, fontSize);
+        if (_textCache.TryGetValue(key, out FormattedText? formattedText))
+            return formattedText;
+
+        formattedText = new FormattedText(
+            text,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            TimelineResources.DefaultTypeface,
+            fontSize,
+            TimelineResources.ClipLabelBrush)
+        {
+            MaxTextWidth = maxWidth,
+            MaxTextHeight = maxHeight,
+            Trimming = TextTrimming.CharacterEllipsis
+        };
+        _textCache[key] = formattedText;
+        return formattedText;
+    }
+
+    public void Render(DrawingContext context)
     {
         Rect bounds = Bounds;
         double ppb = PixelsPerBeat;
@@ -93,12 +162,12 @@ public partial class TimelineTrackPanel
         DrawGridLines(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd);
 
         // Draw box selection if active even when Clips is null
-        if (_boxSelectionHandler?.IsActive == true)
+        if (BoxSelection?.IsActive == true)
         {
-            double x = Math.Min(_boxSelectionHandler.StartPoint.X, _boxSelectionHandler.CurrentPoint.X);
-            double y = Math.Min(_boxSelectionHandler.StartPoint.Y, _boxSelectionHandler.CurrentPoint.Y);
-            double w = Math.Abs(_boxSelectionHandler.CurrentPoint.X - _boxSelectionHandler.StartPoint.X);
-            double h = Math.Abs(_boxSelectionHandler.CurrentPoint.Y - _boxSelectionHandler.StartPoint.Y);
+            double x = Math.Min(BoxSelection.StartPoint.X, BoxSelection.CurrentPoint.X);
+            double y = Math.Min(BoxSelection.StartPoint.Y, BoxSelection.CurrentPoint.Y);
+            double w = Math.Abs(BoxSelection.CurrentPoint.X - BoxSelection.StartPoint.X);
+            double h = Math.Abs(BoxSelection.CurrentPoint.Y - BoxSelection.StartPoint.Y);
 
             Rect rect = new(x, y, w, h);
             context.FillRectangle(TimelineResources.BoxSelectionFill, rect);
@@ -148,22 +217,6 @@ public partial class TimelineTrackPanel
                 RenderingHelpers.OverlayStripes(context, rect, clip.RenderColor);
             }
 
-            // Create darker outline from clip color
-            if (drawDetails)
-            {
-                Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
-                double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
-                context.DrawRectangle(null, GetOrCreatePen(outlineColor, outlineThickness), rect);
-            }
-
-            // Selection visual
-            if (clip.IsSelected)
-            {
-                // Slight overlay and gold outline
-                context.FillRectangle(TimelineResources.SelectionOverlay, rect);
-                context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
-            }
-
             if (drawDetails && drawImages && width >= MinimumImageClipWidth && clip.ImagePath != null)
             {
                 if (ImageBitmapCache.TryGet(clip.ImagePath, out Bitmap? bmp) && bmp != null)
@@ -185,7 +238,7 @@ public partial class TimelineTrackPanel
                 }
                 else
                 {
-                    ImageBitmapCache.ScheduleLoad(clip.ImagePath, InvalidateVisual);
+                    ImageBitmapCache.ScheduleLoad(clip.ImagePath, owner.InvalidateVisual);
                 }
             }
             else if (drawText && width >= MinimumTextClipWidth && !string.IsNullOrEmpty(clip.Name))
@@ -196,6 +249,22 @@ public partial class TimelineTrackPanel
                 if (textX < startX)
                     textX = startX;
                 context.DrawText(ft, new Point(textX, textY));
+            }
+
+            // Create darker outline from clip color
+            if (drawDetails)
+            {
+                Color outlineColor = DarkenColor(clip.RenderColor, 0.6);
+                double outlineThickness = Math.Max(1.0, rect.Height * 0.05);
+                context.DrawRectangle(null, GetOrCreatePen(outlineColor, outlineThickness), rect);
+            }
+
+            // Selection visual
+            if (clip.IsSelected)
+            {
+                // Slight overlay and gold outline
+                context.FillRectangle(TimelineResources.SelectionOverlay, rect);
+                context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
             }
         }
     }
@@ -214,10 +283,10 @@ public partial class TimelineTrackPanel
         double start = 0;
         double end = totalWidth;
 
-        if (_parentScrollViewer != null && _parentScrollViewer.Viewport.Width > 0)
+        if (ParentScrollViewer != null && ParentScrollViewer.Viewport.Width > 0)
         {
-            start = Math.Max(0, _parentScrollViewer.Offset.X - ViewportRenderPadding);
-            end = Math.Min(totalWidth, _parentScrollViewer.Offset.X + _parentScrollViewer.Viewport.Width + ViewportRenderPadding);
+            start = Math.Max(0, ParentScrollViewer.Offset.X - ViewportRenderPadding);
+            end = Math.Min(totalWidth, ParentScrollViewer.Offset.X + ParentScrollViewer.Viewport.Width + ViewportRenderPadding);
         }
 
         return (start, Math.Max(start, end));
@@ -253,7 +322,7 @@ public partial class TimelineTrackPanel
                 break;
 
             double startX = (clipStart - offset) * ppb;
-            double endX = startX + clip.DurationBeats * ppb;
+            double endX = startX + (clip.DurationBeats * ppb);
             if (endX < visiblePixelStart || startX > visiblePixelEnd)
                 continue;
 

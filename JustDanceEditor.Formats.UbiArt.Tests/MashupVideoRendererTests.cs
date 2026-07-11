@@ -47,7 +47,6 @@ public sealed class MashupVideoRendererTests
         Assert.True(MashupSceneActorFilter.ShouldRenderSceneActor(flashCoach, transitionKeys));
     }
 
-
     [Fact]
     public void MashupStackedAlphaDetectorDoesNotSplitFullHdPleoSource()
     {
@@ -55,7 +54,6 @@ public sealed class MashupVideoRendererTests
         Assert.True(MashupSegmentBuilder.IsLikelyStackedAlphaVideo(1280, 1080));
         Assert.False(MashupSegmentBuilder.IsLikelyStackedAlphaVideo(1920, 720));
     }
-
 
     [Fact]
     public void MashupCoachPlacementUsesCookedCenterCoachDepthWithoutHidingCarouselActors()
@@ -88,7 +86,6 @@ public sealed class MashupVideoRendererTests
         Assert.True(MashupSceneActorFilter.ShouldRenderSceneActor(centerCoach, new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
         Assert.True(MashupSceneActorFilter.ShouldRenderSceneActor(unrelatedCenter, new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
     }
-
 
     [Fact]
     public void MashupSourceSegmentSelectionUsesAlternativeBlockScenesOnly()
@@ -134,13 +131,12 @@ public sealed class MashupVideoRendererTests
         Assert.False(MashupSegmentBuilder.ShouldRenderSourceSegment(emptyBlock));
     }
 
-
     [Fact]
     public void MashupVideoFadePolicyMatchesJd2014VideoFadeBrickWindows()
     {
         TimelineStructureDocument timeline = new()
         {
-            Markers = Enumerable.Range(0, 32).Select(index => index * 48000).ToList()
+            Markers = [.. Enumerable.Range(0, 32).Select(index => index * 48000)]
         };
         LegacyMashupData mashup = new()
         {
@@ -187,7 +183,6 @@ public sealed class MashupVideoRendererTests
         AssertClose(0, faded[1].FadeOutDurationSeconds);
     }
 
-
     [Fact]
     public void MashupVideoFadeAlphaUsesPleoOutputTargetFadeWindows()
     {
@@ -198,7 +193,6 @@ public sealed class MashupVideoRendererTests
         AssertClose(0, CinematicExternalPleoTrack.ComputeFadeAlpha(4.0, 4.0, 0.25, 0.25));
     }
 
-
     [Fact]
     public void MashupVideoFadeAlphaSupportsExplicitFadeInDelay()
     {
@@ -207,7 +201,6 @@ public sealed class MashupVideoRendererTests
         AssertClose(0.5, CinematicExternalPleoTrack.ComputeFadeAlpha(0.375, 4.0, 0.25, 0.0, fadeInDelaySeconds: 0.25));
         AssertClose(1, CinematicExternalPleoTrack.ComputeFadeAlpha(0.5, 4.0, 0.25, 0.0, fadeInDelaySeconds: 0.25));
     }
-
 
     [Fact]
     public void MashupCoachRevealDelayUsesGodrayScreenAlphaClipEnd()
@@ -232,7 +225,6 @@ public sealed class MashupVideoRendererTests
         Assert.Equal(31, MashupTransitionFxScheduler.GetCoachRevealDelayFrames([godrayAlpha]));
     }
 
-
     [Fact]
     public void MashupTransitionFxVisitUsesAuthoredFxTapeLeadAtBlockStart()
     {
@@ -254,5 +246,4 @@ public sealed class MashupVideoRendererTests
 
         Assert.Equal(6, MashupTransitionFxScheduler.GetCoachFadeActiveFrames());
     }
-
 }

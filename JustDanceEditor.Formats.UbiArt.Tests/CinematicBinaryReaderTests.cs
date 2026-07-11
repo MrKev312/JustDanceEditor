@@ -37,7 +37,6 @@ public sealed class CinematicBinaryReaderTests
         Assert.Equal(bytes.Length, reader.Offset);
     }
 
-
     [Fact]
     public void BinaryReader_JD2015TargetDescriptorReadsSegments()
     {
@@ -49,7 +48,6 @@ public sealed class CinematicBinaryReaderTests
         Assert.Equal(["Speedy_GRAPH", "x_smoketray"], target.Segments);
         Assert.Equal(bytes.Length, reader.Offset);
     }
-
 
     [Fact]
     public void BinaryReader_JD2015CompactObjectPathTargetReadsCameraSceneAndObject()
@@ -83,7 +81,6 @@ public sealed class CinematicBinaryReaderTests
             stream.Write(buffer);
         }
     }
-
 
     [Fact]
     public void BinaryReader_JD2015CompactObjectPathTargetReadsInterleavedSegmentHeaders()
@@ -124,7 +121,6 @@ public sealed class CinematicBinaryReaderTests
         }
     }
 
-
     [Fact]
     public void BinaryReader_MashupPaddedCompactObjectPathTargetReadsScopedFxActor()
     {
@@ -163,7 +159,6 @@ public sealed class CinematicBinaryReaderTests
             stream.Write(buffer);
         }
     }
-
 
     [Fact]
     public void BinaryReader_JD2014ParentBindReadsComponentContainerAfterFourFlags()
@@ -236,7 +231,6 @@ public sealed class CinematicBinaryReaderTests
             WriteUInt(unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
 
-
     [Fact]
     public void BinaryReader_JD2015ParentBindConsumesRemoveWithParentBeforeComponents()
     {
@@ -308,7 +302,6 @@ public sealed class CinematicBinaryReaderTests
             WriteUInt(unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
 
-
     [Fact]
     public void BinaryReader_JD2015CurvePrefixReadsBezierCurve()
     {
@@ -350,7 +343,6 @@ public sealed class CinematicBinaryReaderTests
         void WriteFloat(float value) =>
             WriteUInt(unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
-
 
     [Fact]
     public void BinaryReader_JD2015FactoryCurvesReadEmptyConstantAndLinear()
@@ -409,5 +401,4 @@ public sealed class CinematicBinaryReaderTests
         void WriteFloat(float value) =>
             WriteUInt(unchecked((uint)BitConverter.SingleToInt32Bits(value)));
     }
-
 }

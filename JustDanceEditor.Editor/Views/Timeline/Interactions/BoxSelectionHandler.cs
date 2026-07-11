@@ -32,11 +32,7 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
         CurrentPoint = startPoint;
 
         Capture(e);
-        try
-        {
-            _panel.Focus();
-        }
-        catch { }
+        _panel.Focus();
 
         _panel.Cursor = new Cursor(StandardCursorType.Cross);
         _panel.InvalidateVisual();
@@ -222,9 +218,9 @@ public class BoxSelectionHandler(TimelineTrackPanel panel) : TimelineInteraction
 
     private static void UpdateGlobalSelection(TimelineEditorViewModel? vm)
     {
-        if (vm == null || Application.Current is not App app)
+        if (vm?.Services.TimelineContext == null)
             return;
-        app.TimelineContext.SelectedObjects = [.. vm.Tracks.SelectMany(t => t.Clips)
+        vm.Services.TimelineContext.SelectedObjects = [.. vm.Tracks.SelectMany(t => t.Clips)
             .Where(c => c.IsSelected)
             .Cast<object>()];
     }

@@ -4,16 +4,15 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 
-using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System;
 using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
-public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null) : ViewModelBase
+public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgroundColor, string name, string? rootPath = null, TimelineEditorViewModel? parentTimeline = null) : ViewModelBase, IDisposable
 {
-    [Inspectable("Start Beat", "Timing")]
     public double StartBeat
     {
         get => GetStartFrames() / 24d;
@@ -31,7 +30,6 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgro
         }
     }
 
-    [Inspectable("Duration", "Timing")]
     public double DurationBeats
     {
         get => GetDurationFrames() / 24d;
@@ -62,7 +60,6 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgro
         }
     }
 
-    [Inspectable("Color", "Appearance")]
     public virtual Color BackgroundColor
     {
         get => backgroundColor;
@@ -135,6 +132,9 @@ public abstract partial class ClipViewModel(TimelineClipBase clip, Color backgro
 
     internal void FlushDataChangedNotification(string? propertyName)
         => WeakReferenceMessenger.Default.Send(new Messaging.ClipDataChangedMessage(this, propertyName));
+
+    public virtual void Dispose()
+        => GC.SuppressFinalize(this);
 
     protected static Color NormalizeOpaque(Color color) => new(255, color.R, color.G, color.B);
 

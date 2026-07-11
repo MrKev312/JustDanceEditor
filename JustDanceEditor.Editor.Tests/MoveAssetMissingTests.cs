@@ -22,9 +22,9 @@ public class MoveAssetMissingTests
         try
         {
             Directory.CreateDirectory(tmp);
-            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesV7Folder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(movesDir);
-            string gesturesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.GesturesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string gesturesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.GestureFolder("TestGesture").Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(gesturesDir);
 
             // create one msm and one gesture file
@@ -82,7 +82,7 @@ public class MoveAssetMissingTests
         try
         {
             Directory.CreateDirectory(tmp);
-            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesV7Folder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(movesDir);
             // create one file for "exists"
             File.WriteAllText(Path.Combine(movesDir, "exists.msm"), "x");
@@ -213,7 +213,7 @@ public class MoveAssetMissingTests
             timeline.Tracks.Add(track);
 
             PictogramClipViewModel clipVm = new(new PictogramClip { Duration = 24 }, tmp, timeline);
-            IEnumerable<object>? options = clipVm.GetDynamicOptions(nameof(PictogramClipViewModel.PictogramId), timeline);
+            IEnumerable<object> options = clipVm.GetAvailablePictograms(timeline);
             Assert.NotNull(options);
             // Just check that options can be enumerated - rendering may fail without Avalonia
             int count = 0;

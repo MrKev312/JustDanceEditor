@@ -16,7 +16,7 @@
             <local:LyricLineControl Height="40" 
                                   Opacity="0.5"
                                   Line="{Binding NextLine}" 
-                                  CurrentBeat="{Binding CurrentBeat}"
+                                  CurrentBeat="-1"
                                   TargetColor="White"/>
         </StackPanel>
 

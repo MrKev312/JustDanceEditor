@@ -17,7 +17,7 @@
 
         <TabControl IsVisible="{Binding ActiveTimeline, Converter={StaticResource IsNotNull}}">
             <TabItem Header="Pictos" HeaderTemplate="{StaticResource CenteredTabHeader}">
-                <dg:DataGrid x:Name="ItemsListPictograms" ItemsSource="{Binding Pictograms}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                <dg:DataGrid x:Name="ItemsListPictograms" ItemsSource="{Binding Pictograms}" SelectedItem="{Binding SelectedPictogram, Mode=TwoWay}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
                     <dg:DataGrid.Columns>
                         <dg:DataGridTemplateColumn Header="" Width="60">
                             <dg:DataGridTemplateColumn.CellTemplate>
@@ -51,7 +51,7 @@
                             Click="AddHandMoveDefinition_Click">
                         + Add Definition
                     </Button>
-                    <dg:DataGrid x:Name="ItemsListHandMoves" ItemsSource="{Binding HandMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                    <dg:DataGrid x:Name="ItemsListHandMoves" ItemsSource="{Binding HandMoves}" SelectedItem="{Binding SelectedHandMove, Mode=TwoWay}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
                         <dg:DataGrid.Columns>
                             <dg:DataGridTemplateColumn Header="" Width="48">
                                 <dg:DataGridTemplateColumn.CellTemplate>
@@ -86,7 +86,7 @@
                             Click="AddFullBodyMoveDefinition_Click">
                         + Add Definition
                     </Button>
-                    <dg:DataGrid x:Name="ItemsListFullBody" ItemsSource="{Binding FullBodyMoves}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
+                    <dg:DataGrid x:Name="ItemsListFullBody" ItemsSource="{Binding FullBodyMoves}" SelectedItem="{Binding SelectedFullBodyMove, Mode=TwoWay}" IsReadOnly="True" CanUserResizeColumns="True" CanUserSortColumns="True" BorderThickness="0" AutoGenerateColumns="False" SelectionMode="Single">
                         <dg:DataGrid.Columns>
                             <dg:DataGridTemplateColumn Header="" Width="48">
                                 <dg:DataGridTemplateColumn.CellTemplate>

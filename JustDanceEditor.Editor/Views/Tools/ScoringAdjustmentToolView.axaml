@@ -1,0 +1,599 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.ScoringAdjustmentToolView"
+             x:DataType="vm:ScoringAdjustmentToolViewModel">
+
+    <Grid RowDefinitions="Auto,*" Background="Transparent">
+        <Border Padding="10,8"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource JdeBorderBrush}">
+            <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="10">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding SelectedMoveId}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding AssetKindText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                </StackPanel>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding PointCountText}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           ToolTip.Tip="{Binding PointCountToolTip}"
+                           Foreground="{DynamicResource JdeTextMutedBrush}"
+                           IsVisible="{Binding ShowMsmEditor}"/>
+
+                <StackPanel Grid.Column="2"
+                             Orientation="Horizontal"
+                             HorizontalAlignment="Right"
+                             Spacing="6"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding ShowMsmEditor}">
+                    <Button Content="Reset"
+                            Command="{Binding ResetCommand}"
+                            MinWidth="72"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="Discard draft changes and return sliders to the saved MSM header."/>
+                    <Button Content="Save"
+                            Command="{Binding SaveCommand}"
+                            MinWidth="72"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            ToolTip.Tip="Write the current draft settings back to the selected MSM file."/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <TextBlock Text="Select a hand MSM move in Library or on the timeline."
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource JdeTextMutedBrush}"
+                       IsVisible="{Binding ShowNoSelection}"/>
+
+            <Border Margin="12"
+                    Padding="12"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource JdeBorderBrush}"
+                    Background="{DynamicResource JdeSurfaceBrush}"
+                    IsVisible="{Binding ShowGestureInfo}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Full-body gesture selected"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                    <TextBlock Text="Gesture assets use the full-body gesture pipeline. This panel adjusts hand MSM scoring headers only."
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <Border Margin="12"
+                    Padding="12"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource JdeBorderBrush}"
+                    Background="{DynamicResource JdeSurfaceBrush}"
+                    IsVisible="{Binding ShowMissingAsset}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Missing scoring asset"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer IsVisible="{Binding ShowMsmEditor}">
+                <Grid Margin="10"
+                      RowDefinitions="Auto,Auto"
+                      ColumnDefinitions="*,*"
+                      RowSpacing="10"
+                      ColumnSpacing="10">
+                    <StackPanel Grid.Row="{Binding SettingsRow}"
+                                Grid.Column="{Binding SettingsColumn}"
+                                Grid.RowSpan="{Binding SettingsRowSpan}"
+                                Grid.ColumnSpan="{Binding SettingsColumnSpan}"
+                                Spacing="10">
+                        <Border Padding="10"
+                                BorderThickness="1"
+                                BorderBrush="{DynamicResource JdeBorderBrush}"
+                                Background="{DynamicResource JdeSurfaceBrush}">
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                                  RowSpacing="10">
+                                <TextBlock Text="Recommended tuning"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+
+                                <Grid Grid.Row="1"
+                                      ColumnDefinitions="*,*,Auto"
+                                      ColumnSpacing="16">
+                                    <StackPanel Spacing="4"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding RecommendedPerfectDistanceText}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding RecommendedFailDistanceText}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="4"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding RecommendedShakeSensitivityText}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                        <TextBlock Text="{Binding RecommendedDirectionSensitivityText}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="2"
+                                            Content="Use recommended values"
+                                            Command="{Binding ApplyAutoTuneCommand}"
+                                            MinWidth="150"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="Set all four controls to the recommended values. Save writes them to the MSM."/>
+                                </Grid>
+
+                                <Grid Grid.Row="2"
+                                      ColumnDefinitions="128,60,*,52"
+                                      ColumnSpacing="8"
+                                      Margin="1,0">
+                                    <TextBlock Grid.Column="1"
+                                               Text="Default"
+                                               HorizontalAlignment="Stretch"
+                                               TextAlignment="Center"
+                                               TextWrapping="NoWrap"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                                </Grid>
+
+                                <Border Grid.Row="3"
+                                        Classes="parameterRow"
+                                        Classes.active="{Binding IsLowThresholdSelected}">
+                                  <Grid ColumnDefinitions="128,60,*,52"
+                                        ColumnSpacing="8"
+                                        ToolTip.Tip="{Binding LowThresholdToolTip}">
+                                    <TextBlock Name="LowThresholdLabel"
+                                               Text="Perfect distance"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Cursor="Hand"
+                                               PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="LowThresholdDefaultGuidedCheckBox"
+                                               Grid.Column="1"
+                                               IsChecked="{Binding LowThresholdDefault, Mode=TwoWay}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="LowThresholdGuidedSlider"
+                                            Grid.Column="2"
+                                            Minimum="0.4"
+                                            Maximum="1.4"
+                                            TickFrequency="0.01"
+                                            Value="{Binding LowThreshold, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsLowThresholdCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="LowThresholdGuidedTextBox"
+                                             Grid.Column="3"
+                                             Text="{Binding LowThreshold, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Center"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsLowThresholdCustom}"
+                                             ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                  </Grid>
+                                </Border>
+
+                                <Border Grid.Row="4"
+                                        Classes="parameterRow"
+                                        Classes.active="{Binding IsHighThresholdSelected}">
+                                  <Grid ColumnDefinitions="128,60,*,52"
+                                        ColumnSpacing="8"
+                                        ToolTip.Tip="{Binding HighThresholdToolTip}">
+                                    <TextBlock Name="HighThresholdLabel"
+                                               Text="Fail distance"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Cursor="Hand"
+                                               PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="HighThresholdDefaultGuidedCheckBox"
+                                               Grid.Column="1"
+                                               IsChecked="{Binding HighThresholdDefault, Mode=TwoWay}"
+                                               HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="HighThresholdGuidedSlider"
+                                            Grid.Column="2"
+                                            Minimum="1.5"
+                                            Maximum="6"
+                                            TickFrequency="0.01"
+                                            Value="{Binding HighThreshold, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsHighThresholdCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="HighThresholdGuidedTextBox"
+                                             Grid.Column="3"
+                                             Text="{Binding HighThreshold, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Center"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsHighThresholdCustom}"
+                                             ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                  </Grid>
+                                </Border>
+
+                                <Border Grid.Row="5"
+                                        Classes="parameterRow"
+                                        Classes.active="{Binding IsShakeSensitivitySelected}">
+                                  <Grid ColumnDefinitions="128,60,*,52"
+                                        ColumnSpacing="8"
+                                        ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}">
+                                    <TextBlock Name="AutoCorrelationThresholdLabel"
+                                               Text="Shake sensitivity"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Cursor="Hand"
+                                               PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="AutoCorrelationThresholdDefaultGuidedCheckBox"
+                                               Grid.Column="1"
+                                              IsChecked="{Binding AutoCorrelationThresholdDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="AutoCorrelationThresholdGuidedSensitivitySlider"
+                                            Grid.Column="2"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            TickFrequency="1"
+                                            Value="{Binding AutoCorrelationSensitivityPercent, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsAutoCorrelationSensitivityCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="AutoCorrelationThresholdGuidedSensitivityTextBox"
+                                             Grid.Column="3"
+                                             Text="{Binding AutoCorrelationSensitivityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0}'}"
+                                             HorizontalContentAlignment="Center"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsAutoCorrelationSensitivityCustom}"
+                                             ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                  </Grid>
+                                </Border>
+
+                                <Border Grid.Row="6"
+                                        Classes="parameterRow"
+                                        Classes.active="{Binding IsDirectionSensitivitySelected}">
+                                  <Grid ColumnDefinitions="128,60,*,52"
+                                        ColumnSpacing="8"
+                                        ToolTip.Tip="{Binding DirectionImpactFactorToolTip}">
+                                    <TextBlock Name="DirectionImpactFactorLabel"
+                                               Text="Direction sensitivity"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Cursor="Hand"
+                                               PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="DirectionImpactFactorDefaultGuidedCheckBox"
+                                               Grid.Column="1"
+                                              IsChecked="{Binding DirectionImpactFactorDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="DirectionImpactFactorGuidedSensitivitySlider"
+                                            Grid.Column="2"
+                                            Minimum="0"
+                                            Maximum="100"
+                                            TickFrequency="1"
+                                            Value="{Binding DirectionSensitivityPercent, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsDirectionSensitivityCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="DirectionImpactFactorGuidedSensitivityTextBox"
+                                             Grid.Column="3"
+                                             Text="{Binding DirectionSensitivityPercent, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0}'}"
+                                             HorizontalContentAlignment="Center"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsDirectionSensitivityCustom}"
+                                             ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                  </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <Border Padding="10"
+                                BorderThickness="1"
+                                BorderBrush="{DynamicResource JdeBorderBrush}"
+                                Background="{DynamicResource JdeSurfaceBrush}"
+                                IsVisible="False">
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                  RowSpacing="9">
+                                <TextBlock Text="Advanced raw MSM settings"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+
+                                <Grid Grid.Row="1"
+                                      ColumnDefinitions="136,54,62,*,82"
+                                      ColumnSpacing="8">
+                                    <TextBlock Grid.Column="1"
+                                               Text="Ignore"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                                               FontSize="11"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="Default"
+                                               HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                                               FontSize="11"/>
+                                </Grid>
+
+                                <Grid Grid.Row="2"
+                                      ColumnDefinitions="136,54,62,*,82"
+                                      ColumnSpacing="8"
+                                      ToolTip.Tip="{Binding LowThresholdToolTip}">
+                                    <TextBlock Text="Perfect distance"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    <CheckBox Name="LowThresholdDefaultCheckBox"
+                                              Grid.Column="2"
+                                              IsChecked="{Binding LowThresholdDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="LowThresholdSlider"
+                                            Grid.Column="3"
+                                            Minimum="0.4"
+                                            Maximum="1.4"
+                                            TickFrequency="0.01"
+                                            Value="{Binding LowThreshold, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsLowThresholdCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="LowThresholdTextBox"
+                                             Grid.Column="4"
+                                             Text="{Binding LowThreshold, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Right"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsLowThresholdCustom}"
+                                             ToolTip.Tip="{Binding LowThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                </Grid>
+
+                                <Grid Grid.Row="3"
+                                      ColumnDefinitions="136,54,62,*,82"
+                                      ColumnSpacing="8"
+                                      ToolTip.Tip="{Binding HighThresholdToolTip}">
+                                    <TextBlock Text="Fail distance"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    <CheckBox Name="HighThresholdDefaultCheckBox"
+                                              Grid.Column="2"
+                                              IsChecked="{Binding HighThresholdDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="HighThresholdSlider"
+                                            Grid.Column="3"
+                                            Minimum="1.5"
+                                            Maximum="6"
+                                            TickFrequency="0.01"
+                                            Value="{Binding HighThreshold, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsHighThresholdCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="HighThresholdTextBox"
+                                             Grid.Column="4"
+                                             Text="{Binding HighThreshold, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Right"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsHighThresholdCustom}"
+                                             ToolTip.Tip="{Binding HighThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                </Grid>
+
+                                <Grid Grid.Row="4"
+                                      ColumnDefinitions="136,54,62,*,82"
+                                      ColumnSpacing="8"
+                                      ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}">
+                                    <TextBlock Text="Shake sensitivity"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    <CheckBox Name="AutoCorrelationThresholdIgnoreCheckBox"
+                                              Grid.Column="1"
+                                              IsChecked="{Binding IgnoreAutocorrelation, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding IgnoreAutocorrelationToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="AutoCorrelationThresholdDefaultCheckBox"
+                                              Grid.Column="2"
+                                              IsChecked="{Binding AutoCorrelationThresholdDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              IsEnabled="{Binding !IgnoreAutocorrelation}"
+                                              ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="AutoCorrelationThresholdSlider"
+                                            Grid.Column="3"
+                                            Minimum="0.5"
+                                            Maximum="1.3"
+                                            TickFrequency="0.01"
+                                            Value="{Binding AutoCorrelationThreshold, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsAutoCorrelationThresholdCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="AutoCorrelationThresholdTextBox"
+                                             Grid.Column="4"
+                                             Text="{Binding AutoCorrelationThreshold, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Right"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsAutoCorrelationThresholdCustom}"
+                                             ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                </Grid>
+
+                                <Grid Grid.Row="5"
+                                      ColumnDefinitions="136,54,62,*,82"
+                                      ColumnSpacing="8"
+                                      ToolTip.Tip="{Binding DirectionImpactFactorToolTip}">
+                                    <TextBlock Text="Direction sensitivity"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                    <CheckBox Name="DirectionImpactFactorIgnoreCheckBox"
+                                              Grid.Column="1"
+                                              IsChecked="{Binding IgnoreDirection, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding IgnoreDirectionToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <CheckBox Name="DirectionImpactFactorDefaultCheckBox"
+                                              Grid.Column="2"
+                                              IsChecked="{Binding DirectionImpactFactorDefault, Mode=TwoWay}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              IsEnabled="{Binding !IgnoreDirection}"
+                                              ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                              GotFocus="OnParameterControlGotFocus"
+                                              PointerPressed="OnParameterControlPointerPressed"/>
+                                    <Slider Name="DirectionImpactFactorSlider"
+                                            Grid.Column="3"
+                                            Minimum="0"
+                                            Maximum="1"
+                                            TickFrequency="0.01"
+                                            Value="{Binding DirectionImpactFactor, Mode=TwoWay}"
+                                            IsEnabled="{Binding IsDirectionImpactFactorCustom}"
+                                            IsSnapToTickEnabled="False"
+                                            ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                            GotFocus="OnParameterControlGotFocus"
+                                            PointerPressed="OnParameterControlPointerPressed"/>
+                                    <TextBox Name="DirectionImpactFactorTextBox"
+                                             Grid.Column="4"
+                                             Text="{Binding DirectionImpactFactor, Mode=TwoWay, UpdateSourceTrigger=LostFocus, StringFormat='{}{0:0.###}'}"
+                                             HorizontalContentAlignment="Right"
+                                             Classes="numericEntry"
+                                             IsEnabled="{Binding IsDirectionImpactFactorCustom}"
+                                             ToolTip.Tip="{Binding DirectionImpactFactorToolTip}"
+                                             GotFocus="OnParameterControlGotFocus"
+                                             PointerPressed="OnParameterControlPointerPressed"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <Border Grid.Row="{Binding GraphRow}"
+                            Grid.Column="{Binding GraphColumn}"
+                            Grid.RowSpan="{Binding GraphRowSpan}"
+                            Grid.ColumnSpan="{Binding GraphColumnSpan}"
+                            Padding="10"
+                            MinHeight="320"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource JdeBorderBrush}"
+                            Background="{DynamicResource JdeSurfaceBrush}">
+                        <Grid RowDefinitions="Auto,220,Auto,220"
+                              RowSpacing="8">
+                            <StackPanel>
+                                <TextBlock Text="Scoring curve"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                            </StackPanel>
+
+                            <local:ScoringAdjustmentCurveControl Grid.Row="1"
+                                                                 Curve="{Binding AdjustmentCurve}"
+                                                                 EmptyText="No scoring curve yet"
+                                                                 ToolTip.Tip="{Binding AdjustmentCurveToolTip}"/>
+
+                            <StackPanel Grid.Row="2">
+                                <TextBlock Text="{Binding SelectedParameterTitle}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding SelectedParameterGuidanceText}"
+                                           Margin="0,4,0,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+
+                            <local:ScoringAdjustmentGraphControl Grid.Row="3"
+                                                                 Series="{Binding SweepSeries}"
+                                                                 CurrentValue="{Binding CurrentParameterValue}"
+                                                                 CurrentIsDefault="{Binding CurrentParameterIsDefault}"
+                                                                 SavedValue="{Binding SavedParameterValue}"
+                                                                 SavedIsDefault="{Binding SavedParameterIsDefault}"
+                                                                 AxisValueSuffix="{Binding SweepAxisValueSuffix}"
+                                                                 EmptyText="{Binding SweepGraphEmptyText}"
+                                                                 ToolTip.Tip="{Binding SelectedParameterGuidanceText}"/>
+
+                        </Grid>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+
+    <UserControl.Styles>
+        <Style Selector="TextBox.numericEntry">
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Border.parameterRow">
+            <Setter Property="Padding" Value="0,3"/>
+            <Setter Property="Margin" Value="0,-3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Border.parameterRow.active">
+            <Setter Property="BorderBrush" Value="#669560FA"/>
+            <Setter Property="Background" Value="#1F9560FA"/>
+        </Style>
+    </UserControl.Styles>
+</UserControl>

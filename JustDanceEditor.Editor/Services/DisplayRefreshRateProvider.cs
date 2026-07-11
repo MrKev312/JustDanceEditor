@@ -1,5 +1,4 @@
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.Rendering;
 
@@ -15,12 +14,12 @@ internal static class DisplayRefreshRateProvider
     private const int MinimumRefreshRateHz = 24;
     private const int MaximumRefreshRateHz = 500;
 
-    public static TimeSpan GetRefreshInterval()
-        => TimeSpan.FromSeconds(1d / GetRefreshRateHz());
+    public static TimeSpan GetRefreshInterval(Window? mainWindow = null)
+        => TimeSpan.FromSeconds(1d / GetRefreshRateHz(mainWindow));
 
-    private static int GetRefreshRateHz()
+    private static int GetRefreshRateHz(Window? mainWindow)
     {
-        if (OperatingSystem.IsWindows() && TryGetWindowsRefreshRate(out int windowsRefreshRate))
+        if (OperatingSystem.IsWindows() && TryGetWindowsRefreshRate(mainWindow, out int windowsRefreshRate))
             return windowsRefreshRate;
 
         if (TryGetAvaloniaRenderTimerRefreshRate(out int renderTimerRefreshRate))
@@ -46,18 +45,19 @@ internal static class DisplayRefreshRateProvider
             object? value = framesPerSecondProperty?.GetValue(renderTimer);
             return TryNormalizeRefreshRate(value, out refreshRate);
         }
-        catch
+        catch (Exception ex) when (ex is InvalidOperationException or TargetInvocationException or MemberAccessException)
         {
+            EditorLog.Fallback(ex, "Read Avalonia render timer refresh rate");
             return false;
         }
     }
 
-    private static bool TryGetWindowsRefreshRate(out int refreshRate)
+    private static bool TryGetWindowsRefreshRate(Window? mainWindow, out int refreshRate)
     {
         refreshRate = 0;
 
         nint monitor = nint.Zero;
-        nint windowHandle = GetMainWindowHandle();
+        nint windowHandle = GetMainWindowHandle(mainWindow);
         if (windowHandle != nint.Zero)
             monitor = MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
 
@@ -79,12 +79,9 @@ internal static class DisplayRefreshRateProvider
         return TryGetWindowsDeviceRefreshRate(null, out refreshRate);
     }
 
-    private static nint GetMainWindowHandle()
+    private static nint GetMainWindowHandle(Window? mainWindow)
     {
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
-            return nint.Zero;
-
-        IPlatformHandle? platformHandle = desktop.MainWindow?.TryGetPlatformHandle();
+        IPlatformHandle? platformHandle = mainWindow?.TryGetPlatformHandle();
         return platformHandle != null && string.Equals(platformHandle.HandleDescriptor, "HWND", StringComparison.OrdinalIgnoreCase)
             ? platformHandle.Handle
             : nint.Zero;

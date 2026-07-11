@@ -88,7 +88,7 @@ internal static class MashupPleoTrackBuilder
         double renderQuadRatio = MashupVideoOutput.Width / (double)MashupVideoOutput.Height;
         double scaleOffsetU = 0.5 - (0.5 / renderQuadRatio);
         double scaleOffsetV = 0.0;
-        double translationU = (-offsetX / renderQuadRatio) / safeScale;
+        double translationU = -offsetX / renderQuadRatio / safeScale;
         double translationV = -offsetY / safeScale;
         double left = (scaleOffsetU * (1.0 - inverseScale)) + translationU;
         double top = (scaleOffsetV * (1.0 - inverseScale)) + translationV;

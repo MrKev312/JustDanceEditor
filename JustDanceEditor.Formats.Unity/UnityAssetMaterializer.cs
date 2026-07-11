@@ -16,6 +16,7 @@ namespace JustDanceEditor.Formats.Unity;
 
 public sealed class UnityAssetMaterializer(ILogger logger)
 {
+    private const string BlazePoseGestureFolder = "BlazePose";
     private readonly ILogger _logger = logger;
 
     private static readonly WebpEncoder LosslessWebpEncoder = new()
@@ -358,9 +359,10 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
+            ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
             name => name.EndsWith(".msm", StringComparison.OrdinalIgnoreCase),
-            ".msm");
+            ".msm",
+            (name, data) => JdiMotionClassifierStorage.ImportClassifier(packageRoot, name, data));
 
         if (exported == 0)
         {
@@ -376,16 +378,17 @@ public sealed class UnityAssetMaterializer(ILogger logger)
     private void ExtractGestureFiles(string unityRoot, string packageRoot)
     {
         string mapPackageFolder = UnityServerLayout.GetBundleFolder(unityRoot, "MapPackage");
+        string gestureFolder = IntermediatePackageLayout.Assets.GestureFolder(BlazePoseGestureFolder);
         int exported = ExtractTextAssetsFromMapPackage(
             mapPackageFolder,
-            EnsureFolder(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder),
+            ResolvePackagePath(packageRoot, gestureFolder),
             name => name.EndsWith(".gesture", StringComparison.OrdinalIgnoreCase),
             ".gesture");
 
         if (exported == 0)
         {
             _logger.LogWarning("No gesture assets (*.gesture) were exported from the Unity map package.");
-            TryDeleteDirectory(ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.GesturesFolder));
+            TryDeleteDirectory(ResolvePackagePath(packageRoot, gestureFolder));
         }
         else
         {
@@ -524,7 +527,8 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         string mapPackageFolder,
         string destinationFolder,
         Func<string, bool> filter,
-        string defaultExtension)
+        string defaultExtension,
+        Action<string, byte[]>? assetWriter = null)
     {
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
         if (bundlePath == null)
@@ -552,14 +556,21 @@ public sealed class UnityAssetMaterializer(ILogger logger)
                 if (data.Length == 0)
                     continue;
 
-                Directory.CreateDirectory(destinationFolder);
                 string safeName = SanitizeFileName(assetName);
                 if (string.IsNullOrEmpty(Path.GetExtension(safeName)) && !string.IsNullOrEmpty(defaultExtension))
                     safeName += defaultExtension;
 
                 safeName = EnsureUniqueFileName(safeName, exportedNames);
-                string destination = Path.Combine(destinationFolder, safeName);
-                File.WriteAllBytes(destination, data);
+                if (assetWriter == null)
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                    string destination = Path.Combine(destinationFolder, safeName);
+                    File.WriteAllBytes(destination, data);
+                }
+                else
+                {
+                    assetWriter(safeName, data);
+                }
                 exported++;
             }
         }

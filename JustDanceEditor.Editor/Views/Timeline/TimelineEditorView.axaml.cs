@@ -33,10 +33,8 @@ public partial class TimelineEditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (DataContext is TimelineEditorViewModel vm && Application.Current is App app)
-        {
-            app.TimelineContext.DetachTimeline(vm);
-        }
+        if (DataContext is TimelineEditorViewModel vm)
+            vm.Services.TimelineContext?.DetachTimeline(vm);
 
         // Clean up behavior
         ScrollViewer? scrollViewer = this.FindControl<ScrollViewer>("TimelineScroll");

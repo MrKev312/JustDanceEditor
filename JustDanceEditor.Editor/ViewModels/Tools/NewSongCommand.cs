@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
@@ -13,7 +12,7 @@ using System.Threading.Tasks;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("New Song...", "File", priority: 110)]
-public class NewSongCommand : IRunCommand
+public class NewSongCommand(IWindowService windows, IEditorPromptService prompts) : IRunCommand
 {
     public bool CanRun(ITimelineContextService? timelineContext) => true;
 
@@ -22,18 +21,16 @@ public class NewSongCommand : IRunCommand
         _ = RunAsync(timelineContext);
     }
 
-    private static async Task RunAsync(ITimelineContextService? timelineContext)
+    private async Task RunAsync(ITimelineContextService? timelineContext)
     {
         try
         {
-            IClassicDesktopStyleApplicationLifetime? desktop =
-                Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            Window? mainWindow = desktop?.MainWindow;
+            Window? mainWindow = windows.MainWindow;
             if (mainWindow == null)
                 return;
 
             // Show the new song dialog
-            NewSongViewModel vm = new();
+            NewSongViewModel vm = new(windows);
             NewSongWindow dialog = new() { DataContext = vm };
 
             await dialog.ShowDialog(mainWindow);
@@ -54,27 +51,10 @@ public class NewSongCommand : IRunCommand
         }
         catch (Exception ex)
         {
-            // Show error to user via simple dialog
-            IClassicDesktopStyleApplicationLifetime? desktop2 =
-                Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            Window? mw = desktop2?.MainWindow;
-            if (mw != null)
-            {
-                Window errorWin = new()
-                {
-                    Title = "Error Creating Song",
-                    Width = 400,
-                    Height = 200,
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                    Content = new TextBlock
-                    {
-                        Text = $"Failed to create song package:\n{ex.Message}",
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                        Margin = new Avalonia.Thickness(16)
-                    }
-                };
-                await errorWin.ShowDialog(mw);
-            }
+            await prompts.ShowErrorAsync(
+                "Error Creating Song",
+                $"Failed to create song package:\n{ex.Message}",
+                ex);
         }
     }
 }

@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:tools="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.GameplayPreviewView"
+             x:DataType="vm:GameplayPreviewViewModel">
+    <Grid Background="#000000"
+          ClipToBounds="True">
+        <Viewbox Stretch="Uniform">
+            <Grid Width="1920"
+                  Height="1080"
+                  Background="#000000"
+                  ClipToBounds="True">
+                <tools:VideoToolView />
+
+                <tools:SkiaGameplayHudControl IsHitTestVisible="False"
+                                              IsVisible="{Binding IsHudVisible}"
+                                              ActiveTimeline="{Binding ActiveTimeline}"
+                                              CurrentBeat="{Binding CurrentBeat}"
+                                              CurrentLine="{Binding CurrentLine}"
+                                              NextLine="{Binding NextLine}"
+                                              TargetColor="{Binding TargetColor}"
+                                              HudOpacity="{Binding HudOpacity}" />
+
+                <StackPanel HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="48,42,0,0"
+                            IsHitTestVisible="False"
+                            IsVisible="{Binding ScoreHud.IsActive}">
+                    <TextBlock Text="{Binding ScoreHud.TotalScore}"
+                               FontSize="64"
+                               FontWeight="SemiBold"
+                               Foreground="White"/>
+                    <StackPanel MinHeight="88"
+                                Opacity="{Binding ScoreHud.FeedbackOpacity}">
+                        <TextBlock Text="{Binding ScoreHud.FeedbackText}"
+                                   FontSize="36"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFE66D"/>
+                        <TextBlock Text="{Binding ScoreHud.MoveScoreText}"
+                                   FontSize="22"
+                                   Foreground="#E8FFFFFF"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Viewbox>
+    </Grid>
+</UserControl>

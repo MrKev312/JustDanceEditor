@@ -112,7 +112,7 @@ public class TimelineNavigationBehavior : AvaloniaObject
             // Horizontal scrolling (DAW style): scroll by mouse delta
             double scrollAmount = e.Delta.Y * -50.0;
             double newOffset = scrollViewer.Offset.X + scrollAmount;
-            scrollViewer.Offset = new Vector(Math.Max(0, newOffset), scrollViewer.Offset.Y);
+            SetHorizontalOffset(scrollViewer, vm, newOffset);
             e.Handled = true;
         }
     }
@@ -159,7 +159,7 @@ public class TimelineNavigationBehavior : AvaloniaObject
             // New offset to keep centerBeat at the center
             double newOffset = (centerBeat * newPpb) - (viewportWidth / 2.0);
 
-            scrollViewer.Offset = new Vector(Math.Max(0, newOffset), scrollViewer.Offset.Y);
+            SetHorizontalOffset(scrollViewer, vm, newOffset);
         }
         else if (e.PropertyName == nameof(TimelineEditorViewModel.CurrentBeat))
         {
@@ -181,9 +181,35 @@ public class TimelineNavigationBehavior : AvaloniaObject
                 if (x < currentOffset + margin || x > currentOffset + viewportWidth - margin)
                 {
                     double targetOffset = x - (viewportWidth / 2.0);
-                    scrollViewer.Offset = new Vector(Math.Max(0, targetOffset), scrollViewer.Offset.Y);
+                    SetHorizontalOffset(scrollViewer, vm, targetOffset);
                 }
             }
         }
+        else if (e.PropertyName == nameof(TimelineEditorViewModel.ScrollOffsetX))
+        {
+            if (Math.Abs(scrollViewer.Offset.X - vm.ScrollOffsetX) > 0.1)
+                scrollViewer.Offset = new Vector(Math.Max(0, vm.ScrollOffsetX), scrollViewer.Offset.Y);
+        }
+        else if (e.PropertyName == nameof(TimelineEditorViewModel.CenterBeatRequestVersion))
+        {
+            CenterBeat(scrollViewer, vm, vm.RequestedCenterBeat);
+        }
+    }
+
+    private static void CenterBeat(ScrollViewer scrollViewer, TimelineEditorViewModel vm, double beat)
+    {
+        if (!double.IsFinite(beat))
+            return;
+
+        double x = (beat - vm.BeatOffset) * vm.PixelsPerBeat;
+        double targetOffset = x - (scrollViewer.Viewport.Width / 2.0);
+        SetHorizontalOffset(scrollViewer, vm, targetOffset);
+    }
+
+    private static void SetHorizontalOffset(ScrollViewer scrollViewer, TimelineEditorViewModel vm, double offset)
+    {
+        scrollViewer.Offset = new Vector(Math.Max(0, offset), scrollViewer.Offset.Y);
+        if (Math.Abs(vm.ScrollOffsetX - scrollViewer.Offset.X) > 0.1)
+            vm.ScrollOffsetX = scrollViewer.Offset.X;
     }
 }

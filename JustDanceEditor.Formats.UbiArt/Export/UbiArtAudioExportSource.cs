@@ -84,7 +84,7 @@ public sealed record UbiArtAudioExportSource(
             for (int frame = 0; frame < framesRead; frame++)
             {
                 int sourceIndex = frame * sourceChannels;
-                int targetIndex = offset + frame * TargetChannels;
+                int targetIndex = offset + (frame * TargetChannels);
                 buffer[targetIndex] = _sourceBuffer[sourceIndex];
                 buffer[targetIndex + 1] = _sourceBuffer[sourceIndex + 1];
             }

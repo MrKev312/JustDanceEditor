@@ -10,10 +10,8 @@ public sealed record PcmWaveAudioData(int SampleRate, int Channels, short[] Samp
 
     public static PcmWaveAudioData FromS16Le(int sampleRate, int channels, ReadOnlySpan<byte> bytes)
     {
-        if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate));
-        if (channels <= 0)
-            throw new ArgumentOutOfRangeException(nameof(channels));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channels);
 
         int sampleCount = bytes.Length / sizeof(short);
         sampleCount -= sampleCount % channels;

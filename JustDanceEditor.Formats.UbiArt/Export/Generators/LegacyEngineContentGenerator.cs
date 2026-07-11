@@ -615,5 +615,5 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
     }
 
     private static uint ToLegacyTrackId(long trackId, uint fallback) =>
-        trackId > 0 && trackId <= uint.MaxValue ? (uint)trackId : fallback;
+        trackId is > 0 and <= uint.MaxValue ? (uint)trackId : fallback;
 }

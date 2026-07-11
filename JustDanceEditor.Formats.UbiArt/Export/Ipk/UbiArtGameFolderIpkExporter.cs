@@ -58,7 +58,7 @@ internal sealed class UbiArtGameFolderIpkExporter
             return false;
 
         string platformFolder = platform.GetCookedFolderName();
-        List<string> archivePaths = EnumeratePlatformArchives(archiveFolder, platformFolder).ToList();
+        List<string> archivePaths = [.. EnumeratePlatformArchives(archiveFolder, platformFolder)];
         if (archivePaths.Count == 0)
             return false;
 
@@ -98,11 +98,10 @@ internal sealed class UbiArtGameFolderIpkExporter
         AddOrUpdateSkuSceneEntries(stagingFolder, mapName, mapNameLower);
         AddOrUpdateCarouselRulesEntries(stagingFolder, package, engineVersion);
 
-        List<StagedFile> stagedFiles = Directory
+        List<StagedFile> stagedFiles = [.. Directory
             .EnumerateFiles(stagingFolder, "*", SearchOption.AllDirectories)
             .Select(file => new StagedFile(file, UbiArtIpkArchiveIndex.NormalizePath(System.IO.Path.GetRelativePath(stagingFolder, file))))
-            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(file => file.RelativePath, StringComparer.OrdinalIgnoreCase)];
 
         if (stagedFiles.Count == 0)
         {
@@ -183,10 +182,9 @@ internal sealed class UbiArtGameFolderIpkExporter
         string pattern = UbiArtIpkArchiveIndex.ToSongPattern(normalized, mapNameLower);
         if (_patternOwners.TryGetValue(pattern, out List<UbiArtIpkArchiveIndex>? patternOwners))
         {
-            List<UbiArtIpkArchiveIndex> sharedOwners = patternOwners
+            List<UbiArtIpkArchiveIndex> sharedOwners = [.. patternOwners
                 .Where(archive => archive.IsSharedBundle)
-                .DistinctBy(archive => archive.Path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                .DistinctBy(archive => archive.Path, StringComparer.OrdinalIgnoreCase)];
 
             if (_hasPerSongArchiveStyle && isCurrentMapAsset && !ShouldUseSharedMapArchiveForPerSongGame(normalized, mapNameLower))
                 return [ResolveSongContentArchivePath(mapNameLower)];
@@ -230,8 +228,8 @@ internal sealed class UbiArtGameFolderIpkExporter
         return fileName.StartsWith($"{mapNameLower}_cover_generic.", StringComparison.OrdinalIgnoreCase) ||
             fileName.StartsWith($"{mapNameLower}_cover_online.", StringComparison.OrdinalIgnoreCase) ||
             fileName.StartsWith($"{mapNameLower}_cover_phone.", StringComparison.OrdinalIgnoreCase) ||
-            fileName.StartsWith($"{mapNameLower}_coach_", StringComparison.OrdinalIgnoreCase) &&
-            fileName.EndsWith("_phone.png", StringComparison.OrdinalIgnoreCase);
+            (fileName.StartsWith($"{mapNameLower}_coach_", StringComparison.OrdinalIgnoreCase) &&
+            fileName.EndsWith("_phone.png", StringComparison.OrdinalIgnoreCase));
     }
 
     private static IEnumerable<UbiArtIpkArchiveIndex> SelectEffectiveExactOwners(
@@ -239,13 +237,9 @@ internal sealed class UbiArtGameFolderIpkExporter
         string normalizedPath,
         string mapNameLower)
     {
-        List<UbiArtIpkArchiveIndex> owners = exactOwners
-            .DistinctBy(archive => archive.Path, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        List<UbiArtIpkArchiveIndex> owners = [.. exactOwners.DistinctBy(archive => archive.Path, StringComparer.OrdinalIgnoreCase)];
 
-        List<UbiArtIpkArchiveIndex> patchOwners = owners
-            .Where(archive => archive.IsPatch)
-            .ToList();
+        List<UbiArtIpkArchiveIndex> patchOwners = [.. owners.Where(archive => archive.IsPatch)];
 
         if (patchOwners.Count > 0 || owners.Count <= 1)
             return patchOwners.Count > 0 ? patchOwners : owners;
@@ -481,13 +475,12 @@ internal sealed class UbiArtGameFolderIpkExporter
     }
 
     private List<(UbiArtIpkArchiveIndex Archive, string Entry)> FindEffectiveOwnedEntries(Func<string, bool> entryPredicate)
-        => _archives
+        => [.. _archives
             .SelectMany(archive => archive.Entries
                 .Where(entryPredicate)
                 .Select(entry => (Archive: archive, Entry: entry)))
             .GroupBy(pair => pair.Entry, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.FirstOrDefault(pair => pair.Archive.IsPatch, group.First()))
-            .ToList();
+            .Select(group => group.FirstOrDefault(pair => pair.Archive.IsPatch, group.First()))];
 
     private static void StagePatchedEntry(string stagingFolder, string relativePath, byte[] bytes)
     {

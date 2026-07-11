@@ -6,6 +6,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
+		<ProjectReference Include="..\JustDanceEditor.Scoring\JustDanceEditor.Scoring.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />

@@ -224,7 +224,7 @@ internal static class UnitySyntheticBundleFactory
                 TargetPlatform = targetPlatform,
                 TypeTreeEnabled = true,
                 TypeTreeTypes = [],
-                AssetInfos = new List<AssetFileInfo>(),
+                AssetInfos = [],
                 ScriptTypes = [],
                 Externals = [],
                 RefTypes = [],

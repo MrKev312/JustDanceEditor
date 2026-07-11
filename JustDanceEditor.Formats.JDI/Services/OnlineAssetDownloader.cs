@@ -127,9 +127,7 @@ public class OnlineAssetDownloader(ILogger? logger = null)
             songName);
 
         availability ??= await GetAvailabilityAsync(songName, requestedAssets, cancellationToken);
-        Task<OnlineAssetDownloadResult>[] downloadTasks = requestedAssets
-            .Select(asset => DownloadAssetIfAvailableAsync(packageRoot, asset, availability, iofs, mapRelativeAssetPath, cancellationToken))
-            .ToArray();
+        Task<OnlineAssetDownloadResult>[] downloadTasks = [.. requestedAssets.Select(asset => DownloadAssetIfAvailableAsync(packageRoot, asset, availability, iofs, mapRelativeAssetPath, cancellationToken))];
 
         OnlineAssetDownloadResult[] results = await Task.WhenAll(downloadTasks);
         int downloadedCount = results.Count(result => result.Downloaded);
@@ -150,9 +148,7 @@ public class OnlineAssetDownloader(ILogger? logger = null)
         OnlineAssetDefinition[] requestedAssets = [.. assets.DistinctBy(asset => asset.Key)];
         Lazy<Task<string?>> codenameLookup = new(() => ResolveCodenameAsync(mapName, cancellationToken));
 
-        Task<OnlineAssetAvailabilityEntry>[] probes = requestedAssets
-            .Select(asset => ProbeAssetAsync(mapName, asset, codenameLookup, cancellationToken))
-            .ToArray();
+        Task<OnlineAssetAvailabilityEntry>[] probes = [.. requestedAssets.Select(asset => ProbeAssetAsync(mapName, asset, codenameLookup, cancellationToken))];
 
         return new OnlineAssetAvailability(await Task.WhenAll(probes));
     }

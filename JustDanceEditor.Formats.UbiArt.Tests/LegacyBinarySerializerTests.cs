@@ -118,13 +118,13 @@ public sealed class LegacyBinarySerializerTests
         WriteSingle(stream, 206.008163f);
         WriteUInt32(stream, 6);
         WriteString(stream, "GoldMove");
-        stream.Write(new byte[]
-        {
+        stream.Write(
+        [
             0x00, 0x00, 0xFF, 0xFF,
             0x00, 0x00, 0x00, 0x01,
             0x49, 0x69, 0x58, 0x69,
             0x00, 0x00, 0x00, 0x18
-        });
+        ]);
         WriteString(stream, "GoldMove");
 
         LegacyJd2014TimelineEvent timelineEvent = LegacyBinarySerializer.Deserialize<LegacyJd2014TimelineEvent>(

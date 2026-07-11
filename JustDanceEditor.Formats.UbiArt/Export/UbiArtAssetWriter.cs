@@ -548,17 +548,24 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
     private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform)
     {
-        string movesSource = ctx.IO.Combine(materializedRoot, "assets", "moves");
+        string movesVersionFolder = ctx.EngineVersion == UbiArtEngineVersion.JD2014
+            ? IntermediatePackageLayout.Assets.MovesV5Folder
+            : IntermediatePackageLayout.Assets.MovesV7Folder;
+        string movesSource = ResolveMaterializedPath(ctx, materializedRoot, movesVersionFolder);
         if (ctx.IO.DirectoryExists(movesSource))
         {
             string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", GetHandMovePlatformFolder(platform));
             CopyRawFiles(ctx, movesSource, "*.msm", movesFolder);
         }
 
-        string gesturesSource = ctx.IO.Combine(materializedRoot, "assets", "gestures");
+        if (!UbiArtGestureFolders.TryGetPlatformFolder(platform, out string? gesturePlatformFolder) ||
+            gesturePlatformFolder == null)
+            return;
+
+        string gesturesSource = ResolveMaterializedPath(ctx, materializedRoot, UbiArtGestureFolders.PackageFolder(gesturePlatformFolder));
         if (ctx.IO.DirectoryExists(gesturesSource))
         {
-            string gesturesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", GetFullBodyMovePlatformFolder(platform));
+            string gesturesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", gesturePlatformFolder);
             CopyRawFiles(ctx, gesturesSource, "*.gesture", gesturesFolder);
         }
     }
@@ -585,13 +592,8 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         _ => "wiiu"
     };
 
-    private static string GetFullBodyMovePlatformFolder(UbiArtPlatform platform) => platform switch
-    {
-        UbiArtPlatform.Durango => "durango",
-        UbiArtPlatform.Orbis => "orbis",
-        UbiArtPlatform.Xenon => "x360",
-        _ => GetHandMovePlatformFolder(platform)
-    };
+    private static string ResolveMaterializedPath(ExportContext ctx, string materializedRoot, string relativePath) =>
+        ctx.IO.Combine([materializedRoot, .. relativePath.Split('/')]);
 
     private static async Task WriteUncookedTrkFileAsync(IntermediateSongPackage package, ExportContext ctx, string trkPath)
     {

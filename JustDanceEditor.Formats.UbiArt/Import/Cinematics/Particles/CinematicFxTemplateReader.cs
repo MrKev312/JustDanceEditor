@@ -413,7 +413,7 @@ internal static class CinematicFxTemplateReader
             return false;
 
         int recordSizeOrFrameCount = ReadInt32(bytes, offset);
-        if (recordSizeOrFrameCount < 0 || recordSizeOrFrameCount > 0x400)
+        if (recordSizeOrFrameCount is < 0 or > 0x400)
             return false;
 
         uint nameId = ReadUInt32(bytes, offset + 4);

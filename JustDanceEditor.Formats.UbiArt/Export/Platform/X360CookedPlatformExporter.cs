@@ -94,5 +94,4 @@ public class X360CookedPlatformExporter : IPlatformExporter
         byte first = data.FirstOrDefault(b => b != 0 && !char.IsWhiteSpace((char)b));
         return first is (byte)'{' or (byte)'[' or (byte)'<';
     }
-
 }

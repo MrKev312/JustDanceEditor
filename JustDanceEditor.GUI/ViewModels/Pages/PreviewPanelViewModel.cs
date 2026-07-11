@@ -4,7 +4,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Conversion.Abstractions;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.GUI.ViewModels;
 
 namespace JustDanceEditor.GUI.ViewModels.Pages;
 

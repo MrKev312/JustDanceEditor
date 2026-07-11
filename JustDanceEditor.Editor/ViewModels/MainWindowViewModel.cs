@@ -1,7 +1,3 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -14,13 +10,10 @@ using Dock.Model.Mvvm.Controls;
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Docking;
 using JustDanceEditor.Editor.Services;
+using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Serialization;
-
-using KevInc.Avalonia;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using System;
 using System.Collections.Generic;
@@ -31,25 +24,52 @@ using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels;
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly JustDanceDockFactory _factory;
     private readonly DockLayoutStorageService _layoutStorage;
     private readonly ITimelineContextService _timelineContext;
+    private readonly IDialogService _dialogService;
+    private readonly IEditorPromptService _prompts;
+    private readonly EditorSettingsService _editorSettings;
+    private readonly TimelineSettingsService _timelineSettings;
+    private readonly IWindowService _windows;
+    private readonly IEditorObjectFactory _objects;
+    private readonly IPlaybackServiceFactory _playbackFactory;
+    private readonly ITimelinePictogramGenerator _pictogramGenerator;
     private readonly List<IRelayCommand> _dynamicCommands = [];
+    private bool _disposed;
 
     [ObservableProperty]
     public partial IRootDock? Layout { get; set; }
 
     public ObservableCollection<MenuItemViewModel> ViewMenu { get; } = [];
 
-    public MainWindowViewModel(ITimelineContextService timelineContext)
+    public MainWindowViewModel(
+        ITimelineContextService timelineContext,
+        IDialogService dialogService,
+        IEditorPromptService prompts,
+        EditorSettingsService editorSettings,
+        TimelineSettingsService timelineSettings,
+        IWindowService windows,
+        IEditorObjectFactory objects,
+        IPlaybackServiceFactory playbackFactory,
+        ITimelinePictogramGenerator pictogramGenerator,
+        DockLayoutStorageService layoutStorage)
     {
         _timelineContext = timelineContext ?? throw new ArgumentNullException(nameof(timelineContext));
+        _dialogService = dialogService;
+        _prompts = prompts;
+        _editorSettings = editorSettings;
+        _timelineSettings = timelineSettings;
+        _windows = windows;
+        _objects = objects;
+        _playbackFactory = playbackFactory;
+        _pictogramGenerator = pictogramGenerator;
         _timelineContext.PropertyChanged += TimelineContext_PropertyChanged;
 
-        _layoutStorage = new DockLayoutStorageService();
-        _factory = new JustDanceDockFactory(this);
+        _layoutStorage = layoutStorage;
+        _factory = new JustDanceDockFactory(this, objects, timelineContext);
 
         Layout = CreateStartupLayout();
         _factory.InitLayout(Layout);
@@ -66,8 +86,9 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 return _factory.CreateLayout(_layoutStorage.Load(lastLayoutName));
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Unexpected(ex, $"Load dock layout '{lastLayoutName}'");
                 _layoutStorage.SetLastLayoutName(null);
             }
         }
@@ -78,8 +99,9 @@ public partial class MainWindowViewModel : ViewModelBase
             if (defaultLayout != null)
                 return _factory.CreateLayout(defaultLayout);
         }
-        catch
+        catch (Exception ex)
         {
+            EditorLog.Unexpected(ex, "Load default dock layout");
         }
 
         return _factory.CreateLayout();
@@ -98,8 +120,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private void CreateFileMenu()
     {
         MenuItemViewModel fileMenu = new() { Header = "File" };
+        fileMenu.Items.Add(new MenuItemViewModel
+        {
+            Header = "Settings...",
+            Command = new AsyncRelayCommand(OpenSettingsAsync)
+        });
         ViewMenu.Add(fileMenu);
     }
+
+    private async Task OpenSettingsAsync()
+        => await _dialogService.ShowDialogAsync<bool>(new SettingsViewModel(_editorSettings));
 
     private void BuildDynamicMenu()
     {
@@ -180,11 +210,12 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (typeof(Tool).IsAssignableFrom(toolType))
                     return true;
 
-                if (Activator.CreateInstance(toolType) is IRunCommand rc)
+                if (_objects.Create(toolType) is IRunCommand rc)
                     return rc.CanRun(_timelineContext);
             }
-            catch
+            catch (Exception ex)
             {
+                EditorLog.Unexpected(ex, $"Evaluate command availability for {toolType.FullName}");
             }
 
             return false;
@@ -204,7 +235,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (Layout == null)
             return;
-        if (Activator.CreateInstance(toolType) is not Tool tool)
+        if (_objects.Create(toolType) is not Tool tool)
             return;
 
         tool.Id = CreateDockableId(title);
@@ -229,7 +260,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        if (Activator.CreateInstance(type) is IRunCommand cmd)
+        if (_objects.Create(type) is IRunCommand cmd)
             cmd.Run(_timelineContext);
     }
 
@@ -242,11 +273,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public async Task OpenMap()
     {
-        Window? topLevel = GetMainWindow();
-        if (topLevel == null)
+        IStorageProvider? storage = _windows.StorageProvider;
+        if (storage == null)
             return;
 
-        IReadOnlyList<IStorageFolder> folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
             Title = "Open Map Folder",
             AllowMultiple = false
@@ -260,20 +291,27 @@ public partial class MainWindowViewModel : ViewModelBase
                 IntermediateSongPackage package = IntermediatePackageSerializer.LoadFromFolder(path);
                 await OpenPackage(package, path);
             }
-            catch
+            catch (Exception ex)
             {
+                await _prompts.ShowErrorAsync(
+                    "Error Opening Map",
+                    $"Failed to open the selected map:\n{ex.Message}",
+                    ex);
             }
         }
     }
 
     public async Task OpenPackage(IntermediateSongPackage package, string rootPath)
     {
-        IPlaybackService playback = new PlaybackService();
-        App app = Avalonia.Application.Current as App ?? throw new InvalidOperationException("Application is not initialized.");
-        TimelineSettingsService settings = (app.Services ?? throw new InvalidOperationException("Application services have not been initialized."))
-            .GetRequiredService<TimelineSettingsService>();
-
-        TimelineEditorViewModel editorVm = new(package, rootPath, playback, settings);
+        IPlaybackService playback = _playbackFactory.Create();
+        TimelineEditorServices services = new(_timelineContext, _dialogService, _windows, _prompts);
+        TimelineEditorViewModel editorVm = new(
+            package,
+            rootPath,
+            playback,
+            _timelineSettings,
+            _pictogramGenerator,
+            services);
         await editorVm.InitializeAsync();
 
         if (Layout != null && _factory.FindMainDocumentDock(Layout) is IDock mainDock)
@@ -291,13 +329,13 @@ public partial class MainWindowViewModel : ViewModelBase
         if (Layout == null)
             return;
 
-        string? name = await ShowTextPromptAsync("Save Layout", "Name", "");
+        string? name = await _prompts.PromptTextAsync("Save Layout", "Name");
         if (string.IsNullOrWhiteSpace(name))
             return;
 
         if (_layoutStorage.Exists(name))
         {
-            bool overwrite = await ShowConfirmationAsync("Save Layout", $"Replace layout '{name}'?");
+            bool overwrite = await _prompts.ConfirmAsync("Save Layout", $"Replace layout '{name}'?");
             if (!overwrite)
                 return;
         }
@@ -316,13 +354,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task RenameLayoutAsync(string oldName)
     {
-        string? newName = await ShowTextPromptAsync("Rename Layout", "Name", oldName);
+        string? newName = await _prompts.PromptTextAsync("Rename Layout", "Name", oldName);
         if (string.IsNullOrWhiteSpace(newName) || string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
             return;
 
         if (_layoutStorage.Exists(newName))
         {
-            bool overwrite = await ShowConfirmationAsync("Rename Layout", $"Replace layout '{newName}'?");
+            bool overwrite = await _prompts.ConfirmAsync("Rename Layout", $"Replace layout '{newName}'?");
             if (!overwrite)
                 return;
         }
@@ -333,7 +371,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task DeleteLayoutAsync(string name)
     {
-        bool delete = await ShowConfirmationAsync("Delete Layout", $"Delete layout '{name}'?");
+        bool delete = await _prompts.ConfirmAsync("Delete Layout", $"Delete layout '{name}'?");
         if (!delete)
             return;
 
@@ -437,7 +475,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private string CreateDockableId(string title)
     {
-        string baseId = new(title.Where(char.IsLetterOrDigit).ToArray());
+        string baseId = new([.. title.Where(char.IsLetterOrDigit)]);
         if (string.IsNullOrWhiteSpace(baseId))
             baseId = "Tool";
 
@@ -452,131 +490,15 @@ public partial class MainWindowViewModel : ViewModelBase
         return candidate;
     }
 
-    private static async Task<string?> ShowTextPromptAsync(string title, string label, string initialValue)
+    public void Dispose()
     {
-        Window dialog = new()
-        {
-            Title = title,
-            Width = 360,
-            Height = 150,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-        PlatformTheme.ApplyFloatingWindowChrome(dialog);
+        if (_disposed)
+            return;
 
-        TextBox textBox = new()
-        {
-            Text = initialValue,
-            MinWidth = 260
-        };
-
-        string? result = null;
-        Button okButton = new() { Content = "OK", IsDefault = true, MinWidth = 80 };
-        Button cancelButton = new() { Content = "Cancel", IsCancel = true, MinWidth = 80 };
-        okButton.Click += (_, _) =>
-        {
-            result = textBox.Text?.Trim();
-            dialog.Close();
-        };
-        cancelButton.Click += (_, _) => dialog.Close();
-
-        dialog.Content = CreateDialogSurface(dialog, 12,
-            new TextBlock { Text = label },
-            textBox,
-            new StackPanel
-            {
-                Orientation = Avalonia.Layout.Orientation.Horizontal,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Spacing = 8,
-                Children = { okButton, cancelButton }
-            });
-
-        Window? owner = GetMainWindow();
-        if (owner != null)
-            await dialog.ShowDialog(owner);
-        else
-            dialog.Show();
-
-        return string.IsNullOrWhiteSpace(result) ? null : result;
+        _disposed = true;
+        _timelineContext.PropertyChanged -= TimelineContext_PropertyChanged;
+        DisposeLayout(Layout);
+        Layout = null;
+        GC.SuppressFinalize(this);
     }
-
-    private static async Task<bool> ShowConfirmationAsync(string title, string message)
-    {
-        Window dialog = new()
-        {
-            Title = title,
-            Width = 380,
-            Height = 145,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-        PlatformTheme.ApplyFloatingWindowChrome(dialog);
-
-        bool result = false;
-        Button yesButton = new() { Content = "Yes", IsDefault = true, MinWidth = 80 };
-        Button noButton = new() { Content = "No", IsCancel = true, MinWidth = 80 };
-        yesButton.Click += (_, _) =>
-        {
-            result = true;
-            dialog.Close();
-        };
-        noButton.Click += (_, _) => dialog.Close();
-
-        dialog.Content = CreateDialogSurface(dialog, 16,
-            new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-            new StackPanel
-            {
-                Orientation = Avalonia.Layout.Orientation.Horizontal,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Spacing = 8,
-                Children = { yesButton, noButton }
-            });
-
-        Window? owner = GetMainWindow();
-        if (owner != null)
-            await dialog.ShowDialog(owner);
-        else
-            dialog.Show();
-
-        return result;
-    }
-
-    private static Border CreateDialogSurface(Control owner, double spacing, params Control[] children)
-    {
-        StackPanel panel = new()
-        {
-            Spacing = spacing
-        };
-
-        foreach (Control child in children)
-            panel.Children.Add(child);
-
-        return new Border
-        {
-            Background = FindBrush(owner, "JdeWindowBackgroundBrush", "#D820242A"),
-            BorderBrush = FindBrush(owner, "JdeSurfaceBorderBrush", "#66FFFFFF"),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(16),
-            Child = panel
-        };
-    }
-
-    private static IBrush FindBrush(Control owner, string resourceKey, string fallbackColor)
-    {
-        if (owner.TryFindResource(resourceKey, null, out object? resource) && resource is IBrush brush)
-            return brush;
-
-        return new SolidColorBrush(Color.Parse(fallbackColor));
-    }
-
-    private static Window? GetMainWindow()
-        => Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
-            ? desktop.MainWindow
-            : null;
-}
-
-public class MenuItemViewModel
-{
-    public string Header { get; set; } = string.Empty;
-    public ObservableCollection<MenuItemViewModel> Items { get; } = [];
-    public System.Windows.Input.ICommand? Command { get; set; }
 }
