@@ -7,7 +7,9 @@ using JustDanceEditor.Editor.ViewModels.Tools;
 using SkiaSharp;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace JustDanceEditor.Editor.Views.Tools;
@@ -56,31 +58,30 @@ internal sealed class SkiaLyricLineLayout : IDisposable
             return new SkiaLyricLineLayout(line, bounds, isTextLeftAligned, 0, []);
 
         float baseFontSize = (float)(height * 0.8);
-        using SKFont measureFont = CreateFont(baseFontSize);
         using SKPaint measurePaint = CreateMeasurePaint();
 
         float totalWidth = 0;
-        List<(ClipViewModel Clip, string Text, float BaseWidth)> measured = [];
+        List<(ClipViewModel Clip, IReadOnlyList<SkiaLyricTextRun> Runs, float BaseWidth)> measured = [];
         foreach (ClipViewModel clip in line.Clips)
         {
             string text = (clip as KaraokeClipViewModel)?.Lyrics ?? string.Empty;
-            float syllableWidth = measureFont.MeasureText(text, measurePaint);
-            measured.Add((clip, text, syllableWidth));
+            IReadOnlyList<SkiaLyricTextRun> runs = SkiaLyricRenderer.CreateTextRuns(text);
+            float syllableWidth = MeasureText(runs, baseFontSize, measurePaint);
+            measured.Add((clip, runs, syllableWidth));
             totalWidth += syllableWidth;
         }
 
         double availableWidth = Math.Max(1, width - 40);
         float fontSize = baseFontSize * (float)Math.Min(1.0, availableWidth / Math.Max(1, totalWidth));
-        using SKFont textFont = CreateFont(fontSize);
-        SKFontMetrics metrics = textFont.Metrics;
-        float baseline = (float)bounds.Y + (float)((height - metrics.Descent - metrics.Ascent) / 2.0);
+        (float ascent, float descent) = GetFontMetrics(measured, fontSize);
+        float baseline = (float)bounds.Y + (float)((height - descent - ascent) / 2.0);
 
         float scaledWidth = 0;
-        List<(ClipViewModel Clip, string Text, float Width)> syllableWidths = [];
-        foreach ((ClipViewModel clip, string text, float _) in measured)
+        List<(ClipViewModel Clip, IReadOnlyList<SkiaLyricTextRun> Runs, float Width)> syllableWidths = [];
+        foreach ((ClipViewModel clip, IReadOnlyList<SkiaLyricTextRun> runs, float _) in measured)
         {
-            float syllableWidth = textFont.MeasureText(text, measurePaint);
-            syllableWidths.Add((clip, text, syllableWidth));
+            float syllableWidth = MeasureText(runs, fontSize, measurePaint);
+            syllableWidths.Add((clip, runs, syllableWidth));
             scaledWidth += syllableWidth;
         }
 
@@ -89,13 +90,13 @@ internal sealed class SkiaLyricLineLayout : IDisposable
             : (float)(bounds.X + ((width - scaledWidth) / 2.0));
 
         List<SkiaLyricSyllable> syllables = [];
-        foreach ((ClipViewModel clip, string text, float syllableWidth) in syllableWidths)
+        foreach ((ClipViewModel clip, IReadOnlyList<SkiaLyricTextRun> runs, float syllableWidth) in syllableWidths)
         {
-            SKPath? path = string.IsNullOrEmpty(text)
+            SKPath? path = runs.Count == 0
                 ? null
-                : textFont.GetTextPath(text, new SKPoint(x, baseline));
-            SKRect pathBounds = path?.Bounds ?? new SKRect(x, baseline + metrics.Ascent, x + syllableWidth, baseline + metrics.Descent);
-            SKRect hitBounds = new(x, baseline + metrics.Ascent, x + syllableWidth, baseline + metrics.Descent);
+                : CreateTextPath(runs, fontSize, measurePaint, x, baseline);
+            SKRect pathBounds = path?.Bounds ?? new SKRect(x, baseline + ascent, x + syllableWidth, baseline + descent);
+            SKRect hitBounds = new(x, baseline + ascent, x + syllableWidth, baseline + descent);
             syllables.Add(new SkiaLyricSyllable(clip, path, pathBounds, hitBounds, syllableWidth));
             x += syllableWidth;
         }
@@ -122,14 +123,73 @@ internal sealed class SkiaLyricLineLayout : IDisposable
         Syllables.Clear();
     }
 
-    private static SKFont CreateFont(float fontSize)
+    private static SKFont CreateFont(SKTypeface typeface, float fontSize)
         => new()
         {
-            Typeface = SkiaLyricRenderer.Typeface,
+            Typeface = typeface,
             Size = fontSize,
             Subpixel = true,
             Edging = SKFontEdging.SubpixelAntialias
         };
+
+    private static float MeasureText(IReadOnlyList<SkiaLyricTextRun> runs, float fontSize, SKPaint paint)
+    {
+        float width = 0;
+        foreach (SkiaLyricTextRun run in runs)
+        {
+            using SKFont font = CreateFont(run.Typeface, fontSize);
+            width += font.MeasureText(run.Text, paint);
+        }
+
+        return width;
+    }
+
+    private static (float Ascent, float Descent) GetFontMetrics(
+        IReadOnlyList<(ClipViewModel Clip, IReadOnlyList<SkiaLyricTextRun> Runs, float BaseWidth)> measured,
+        float fontSize)
+    {
+        float ascent = 0;
+        float descent = 0;
+        foreach ((_, IReadOnlyList<SkiaLyricTextRun> runs, _) in measured)
+        {
+            foreach (SkiaLyricTextRun run in runs)
+            {
+                using SKFont font = CreateFont(run.Typeface, fontSize);
+                SKFontMetrics metrics = font.Metrics;
+                ascent = Math.Min(ascent, metrics.Ascent);
+                descent = Math.Max(descent, metrics.Descent);
+            }
+        }
+
+        if (ascent == 0 && descent == 0)
+        {
+            using SKFont font = CreateFont(SkiaLyricRenderer.PrimaryTypeface, fontSize);
+            SKFontMetrics metrics = font.Metrics;
+            return (metrics.Ascent, metrics.Descent);
+        }
+
+        return (ascent, descent);
+    }
+
+    private static SKPath CreateTextPath(
+        IReadOnlyList<SkiaLyricTextRun> runs,
+        float fontSize,
+        SKPaint paint,
+        float x,
+        float baseline)
+    {
+        SKPath path = new();
+        foreach (SkiaLyricTextRun run in runs)
+        {
+            using SKFont font = CreateFont(run.Typeface, fontSize);
+            using SKPath? runPath = font.GetTextPath(run.Text, new SKPoint(x, baseline));
+            if (runPath != null)
+                path.AddPath(runPath);
+            x += font.MeasureText(run.Text, paint);
+        }
+
+        return path;
+    }
 
     private static SKPaint CreateMeasurePaint()
         => new()
@@ -157,11 +217,61 @@ internal sealed class SkiaLyricSyllable(ClipViewModel clip, SKPath? path, SKRect
     public void Dispose() => Path?.Dispose();
 }
 
+internal readonly record struct SkiaLyricTextRun(string Text, SKTypeface Typeface);
+
 internal static class SkiaLyricRenderer
 {
-    internal static readonly SKTypeface Typeface =
+    private static readonly ConcurrentDictionary<int, SKTypeface> TypefacesByCodePoint = new();
+    private static readonly string[] FallbackLanguageTags = ["ja", "zh-Hans", "zh-Hant", "ko"];
+
+    internal static readonly SKTypeface PrimaryTypeface =
         SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
         ?? SKTypeface.Default;
+
+    internal static IReadOnlyList<SkiaLyricTextRun> CreateTextRuns(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return [];
+
+        List<SkiaLyricTextRun> runs = [];
+        StringBuilder currentText = new();
+        SKTypeface? currentTypeface = null;
+        foreach (Rune rune in text.EnumerateRunes())
+        {
+            SKTypeface typeface = ResolveTypeface(rune);
+            if (currentTypeface != null &&
+                !string.Equals(currentTypeface.FamilyName, typeface.FamilyName, StringComparison.Ordinal))
+            {
+                runs.Add(new SkiaLyricTextRun(currentText.ToString(), currentTypeface));
+                currentText.Clear();
+            }
+
+            currentTypeface = typeface;
+            currentText.Append(rune.ToString());
+        }
+
+        if (currentTypeface != null)
+            runs.Add(new SkiaLyricTextRun(currentText.ToString(), currentTypeface));
+
+        return runs;
+    }
+
+    private static SKTypeface ResolveTypeface(Rune rune) =>
+        TypefacesByCodePoint.GetOrAdd(rune.Value, static codePoint =>
+        {
+            using SKFont primaryFont = new(PrimaryTypeface, 16);
+            if (primaryFont.ContainsGlyph(codePoint))
+                return PrimaryTypeface;
+
+            return SKFontManager.Default.MatchCharacter(
+                    PrimaryTypeface.FamilyName,
+                    SKFontStyleWeight.Bold,
+                    SKFontStyleWidth.Normal,
+                    SKFontStyleSlant.Upright,
+                    FallbackLanguageTags,
+                    codePoint)
+                ?? PrimaryTypeface;
+        });
 
     public static void Render(SKCanvas canvas, SkiaLyricLineLayout? layout, double currentBeat, Color targetColor, double opacity)
     {
