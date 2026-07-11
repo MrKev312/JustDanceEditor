@@ -6,6 +6,7 @@ using JustDanceEditor.Formats.UbiArt.Export.Generators;
 using JustDanceEditor.Formats.UbiArt.Export.Ipk;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
+using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using KevInc.UbiArt.FileSystem;
 
@@ -13,9 +14,6 @@ using Microsoft.Extensions.Logging;
 
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-
-using System.Globalization;
-using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Export;
 
@@ -65,6 +63,18 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string mapWorldRelative = layout.GetMapWorldFolder("", mapNameLower, platform, engineVersion);
         string mapWorldBase = Path.Combine(platformRoot, mapWorldRelative);
         string rawMapWorldBase = layout.GetMapWorldFolder("", mapNameLower, platform, engineVersion);
+
+        if (platform == UbiArtPlatform.Uncooked &&
+            engineGenerator is UncookedEngineContentGenerator uncookedGenerator &&
+            !string.IsNullOrWhiteSpace(materializedRoot))
+        {
+            string videoSourceDir = iofs.Combine(materializedRoot, "assets", "video");
+            string? rawVideo = iofs.DirectoryExists(videoSourceDir)
+                ? FindRawVideoSource(iofs, videoSourceDir, mapNameLower)
+                : null;
+            if (rawVideo != null)
+                uncookedGenerator.VideoFileName = $"{mapNameLower}{Path.GetExtension(rawVideo).ToLowerInvariant()}";
+        }
 
         logger.LogInformation("Exporting {MapName} ({Platform}, {Version})...", mapName, platform, engineVersion);
 
@@ -137,7 +147,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         // Check if using legacy binary format.
         bool isLegacyFormat = generator is LegacyEngineContentGenerator;
         bool useLegacyConvertedData = isLegacyFormat && version >= UbiArtEngineVersion.JD2016;
-        bool writeAutodanceResources = ShouldWriteAutodanceResources(platform, isLegacyFormat);
+        bool writeAutodanceResources = platform != UbiArtPlatform.Uncooked && ShouldWriteAutodanceResources(platform, isLegacyFormat);
         bool writeSoundSequence = version != UbiArtEngineVersion.JD2014 && ShouldWriteSoundSequence(package);
 
         List<Task> writeTasks = [];
@@ -186,10 +196,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         else
         {
             // Uncooked platform needs musictrack.tpl, .trk file, and AMB files
-            writeTasks.Add(exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapName}_musictrack.tpl"), generator.GenerateMusicTrack(package)));
+            writeTasks.Add(exporter.WriteEngineResourceAsync(ctx, Path.Combine(audioFolder, $"{mapNameLower}_musictrack.tpl"), generator.GenerateMusicTrack(package)));
 
             // Write .trk file with structure data
-            writeTasks.Add(WriteUncookedTrkFileAsync(package, ctx, Path.Combine(audioFolder, $"{mapName}.trk")));
+            writeTasks.Add(WriteUncookedTrkFileAsync(package, ctx, Path.Combine(audioFolder, $"{mapNameLower}.trk")));
 
             // Write AMB files if there's a negative start beat
             if (package.TimelineStructure.StartBeat < 0)
@@ -255,6 +265,11 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             if (writeAutodanceResources)
                 writeTasks.Add(exporter.WriteBinaryFileAsync(ctx, Path.Combine(autodanceFolder, $"{mapNameLower}_autodance.act"), generator.GenerateAutodanceActor(mapName)));
         }
+        else
+        {
+            writeTasks.Add(exporter.WriteEngineResourceAsync(ctx, Path.Combine(videosFolder, $"{mapNameLower}_video.isc"), generator.GenerateVideoScene(mapName)));
+            writeTasks.Add(exporter.WriteEngineResourceAsync(ctx, Path.Combine(videosFolder, "video_player_main.act"), generator.GenerateVideoPlayerActor(mapName, false)));
+        }
 
         await Task.WhenAll(writeTasks);
     }
@@ -313,6 +328,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         string menuRel = Path.Combine(mapWorldBase, "menuart", "textures");
         string actorsRel = Path.Combine(mapWorldBase, "menuart", "actors");
         bool isLegacyFormat = generator is LegacyEngineContentGenerator;
+        bool isUncooked = platform == UbiArtPlatform.Uncooked;
 
         // Create image service to access images at requested resolutions
         IntermediateImageService imageService = new(materializedRoot, package, ctx.IO);
@@ -335,32 +351,51 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         {
             using Image<Bgra32> coach = await imageService.GetCoachAsync(coachIndex, width: 1024, height: 1024, useFadeEffect: true, cancellationToken: cancellationToken);
             await WriteMenuArtTextureAsync($"{mapNameLower}_coach_{coachIndex}", coach, menuRel, actorsRel, ctx, exporter, generator, package, platform);
+
+            if (isUncooked)
+            {
+                using Image<Bgra32> phoneCoach = await imageService.GetCoachAsync(coachIndex, width: 256, height: 256, useFadeEffect: true, cancellationToken: cancellationToken);
+                await exporter.WriteTextureAsync(ctx, Path.Combine(menuRel, $"{mapNameLower}_coach_{coachIndex}_phone.png"), phoneCoach);
+            }
         });
 
         // 3. Cover Textures - all derived from square cover at different sizes
-        if (ShouldWriteMenuArtTexture($"{mapNameLower}_cover_generic", platform, version, isLegacyFormat))
+        if (isUncooked || ShouldWriteMenuArtTexture($"{mapNameLower}_cover_generic", platform, version, isLegacyFormat))
         {
-            using Image<Bgra32> coverGeneric = await imageService.GetSquareCoverAsync(width: 512, height: 512);
+            int coverSize = isUncooked ? 1024 : 512;
+            using Image<Bgra32> coverGeneric = await imageService.GetSquareCoverAsync(width: coverSize, height: coverSize);
             await WriteMenuArtTextureAsync($"{mapNameLower}_cover_generic", coverGeneric, menuRel, actorsRel, ctx, exporter, generator, package, platform);
         }
 
-        if (ShouldWriteMenuArtTexture($"{mapNameLower}_cover_online", platform, version, isLegacyFormat))
+        if (isUncooked || ShouldWriteMenuArtTexture($"{mapNameLower}_cover_online", platform, version, isLegacyFormat))
         {
             using Image<Bgra32> coverOnline = await imageService.GetSquareCoverAsync(width: 256, height: 256);
             await WriteMenuArtTextureAsync($"{mapNameLower}_cover_online", coverOnline, menuRel, actorsRel, ctx, exporter, generator, package, platform);
         }
 
-        if (ShouldWriteMenuArtTexture($"{mapNameLower}_cover_online_kids", platform, version, isLegacyFormat))
+        if (isUncooked || ShouldWriteMenuArtTexture($"{mapNameLower}_cover_online_kids", platform, version, isLegacyFormat))
         {
             using Image<Bgra32> coverKids = await imageService.GetSquareCoverAsync(width: 256, height: 256);
             await WriteMenuArtTextureAsync($"{mapNameLower}_cover_online_kids", coverKids, menuRel, actorsRel, ctx, exporter, generator, package, platform);
         }
 
+        if (isUncooked)
+        {
+            using Image<Bgra32> phoneCover = await imageService.GetSquareCoverAsync(width: 256, height: 256);
+            await exporter.WriteTextureAsync(ctx, Path.Combine(menuRel, $"{mapNameLower}_cover_phone.png"), phoneCover);
+        }
+
         // 4. Map Background (2048x1024)
-        if (ShouldWriteMenuArtTexture($"{mapNameLower}_map_bkg", platform, version, isLegacyFormat))
+        if (isUncooked || ShouldWriteMenuArtTexture($"{mapNameLower}_map_bkg", platform, version, isLegacyFormat))
         {
             using Image<Bgra32> mapBkg = await imageService.GetMapBackgroundAsync(width: 2048, height: 1024);
             await WriteMenuArtTextureAsync($"{mapNameLower}_map_bkg", mapBkg, menuRel, actorsRel, ctx, exporter, generator, package, platform);
+
+            if (isUncooked)
+            {
+                string graphTemplatePath = Path.Combine(platformRoot, "world", "_common", "graphic_component_templates", "graph", "textures", "background.png");
+                await exporter.WriteTextureAsync(ctx, graphTemplatePath, mapBkg);
+            }
         }
 
         // 5. Album Background (256x256 center-cropped square)
@@ -370,7 +405,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         }
 
         // 6. Banner (1024x512)
-        if (ShouldWriteMenuArtTexture($"{mapNameLower}_banner_bkg", platform, version, isLegacyFormat))
+        if (isUncooked || ShouldWriteMenuArtTexture($"{mapNameLower}_banner_bkg", platform, version, isLegacyFormat))
         {
             using Image<Bgra32> banner = await imageService.GetBannerAsync(width: 1024, height: 512);
             await WriteMenuArtTextureAsync($"{mapNameLower}_banner_bkg", banner, menuRel, actorsRel, ctx, exporter, generator, package, platform);
@@ -395,11 +430,11 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         // Write texture
         await exporter.WriteTextureAsync(ctx, Path.Combine(menuRel, $"{textureName}.tga"), image);
 
-        // Write actor (only for Cooked platforms)
-        if (platform != UbiArtPlatform.Uncooked)
-        {
-            await exporter.WriteBinaryFileAsync(ctx, Path.Combine(actorsRel, $"{textureName}.act"), generator.GenerateMenuArtActor(textureName, package.Metadata.MapName));
-        }
+        object actor = generator.GenerateMenuArtActor(textureName, package.Metadata.MapName);
+        if (platform == UbiArtPlatform.Uncooked)
+            await exporter.WriteEngineResourceAsync(ctx, Path.Combine(actorsRel, $"{textureName}.act"), actor);
+        else
+            await exporter.WriteBinaryFileAsync(ctx, Path.Combine(actorsRel, $"{textureName}.act"), actor);
     }
 
     private async Task GenerateColorsAsync(IntermediateSongPackage package, string materializedRoot, IFileSystem io)
@@ -483,10 +518,22 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         if (ctx.IO.DirectoryExists(videoSourceDir))
         {
             string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-            string destFileName = GetUbiArtVideoFileName(mapNameLower, platform, version);
-            JdiVideoEncodeRequest request = BuildUbiArtVideoRequest(materializedRoot, destFileName, platform, version);
+            string? sourceFile;
+            string destFileName;
 
-            string? sourceFile = await JdiVideoConverter.GetOrCreateVideoAsync(request, logger);
+            if (platform == UbiArtPlatform.Uncooked)
+            {
+                sourceFile = FindRawVideoSource(ctx.IO, videoSourceDir, mapNameLower);
+                destFileName = sourceFile == null
+                    ? $"{mapNameLower}.webm"
+                    : $"{mapNameLower}{Path.GetExtension(sourceFile).ToLowerInvariant()}";
+            }
+            else
+            {
+                destFileName = GetUbiArtVideoFileName(mapNameLower, platform, version);
+                JdiVideoEncodeRequest request = BuildUbiArtVideoRequest(materializedRoot, destFileName, platform, version);
+                sourceFile = await JdiVideoConverter.GetOrCreateVideoAsync(request, logger);
+            }
 
             if (sourceFile != null && ctx.IO.FileExists(sourceFile))
             {
@@ -497,11 +544,26 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
                 ctx.IO.CreateDirectory(Path.GetDirectoryName(fullDest) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullDest}'."));
                 ctx.IO.Copy(sourceFile, fullDest, true);
 
-                logger.LogInformation("Video exported to {Path} (Input: {Input})", destFileName, Path.GetFileName(sourceFile));
+                logger.LogInformation(
+                    platform == UbiArtPlatform.Uncooked
+                        ? "Video copied unchanged to {Path} (Input: {Input})"
+                        : "Video exported to {Path} (Input: {Input})",
+                    destFileName,
+                    Path.GetFileName(sourceFile));
             }
         }
 
-        CopyRawMoveAssets(materializedRoot, rawMapWorldBase, ctx, platform);
+        CopyRawMoveAssets(materializedRoot, rawMapWorldBase, ctx, platform, version);
+    }
+
+    private static string? FindRawVideoSource(IFileSystem io, string videoSourceDir, string mapNameLower)
+    {
+        string[] supportedExtensions = [".webm", ".mp4", ".mkv", ".avi", ".mov"];
+        return io.GetFiles(videoSourceDir)
+            .Where(file => supportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+            .OrderByDescending(file => Path.GetFileNameWithoutExtension(file).Equals(mapNameLower, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
     }
 
     private static JdiVideoEncodeRequest BuildUbiArtVideoRequest(string materializedRoot, string destFileName, UbiArtPlatform platform, UbiArtEngineVersion version)
@@ -546,11 +608,14 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             _ => $"{mapNameLower}.webm"
         };
 
-    private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform)
+    private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform, UbiArtEngineVersion version)
     {
-        string movesVersionFolder = ctx.EngineVersion == UbiArtEngineVersion.JD2014
-            ? IntermediatePackageLayout.Assets.MovesV5Folder
-            : IntermediatePackageLayout.Assets.MovesV7Folder;
+        string movesVersionFolder = version switch
+        {
+            UbiArtEngineVersion.JD2014 => IntermediatePackageLayout.Assets.MovesV5Folder,
+            UbiArtEngineVersion.JD2015 when platform == UbiArtPlatform.Uncooked => IntermediatePackageLayout.Assets.MovesV6Folder,
+            _ => IntermediatePackageLayout.Assets.MovesV7Folder
+        };
         string movesSource = ResolveMaterializedPath(ctx, materializedRoot, movesVersionFolder);
         if (ctx.IO.DirectoryExists(movesSource))
         {
@@ -558,13 +623,28 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
             CopyRawFiles(ctx, movesSource, "*.msm", movesFolder);
         }
 
-        if (!UbiArtGestureFolders.TryGetPlatformFolder(platform, out string? gesturePlatformFolder) ||
-            gesturePlatformFolder == null)
+        string gesturesRoot = ResolveMaterializedPath(ctx, materializedRoot, IntermediatePackageLayout.Assets.GesturesFolder);
+        if (!ctx.IO.DirectoryExists(gesturesRoot))
             return;
 
-        string gesturesSource = ResolveMaterializedPath(ctx, materializedRoot, UbiArtGestureFolders.PackageFolder(gesturePlatformFolder));
-        if (ctx.IO.DirectoryExists(gesturesSource))
+        if (platform != UbiArtPlatform.Uncooked)
         {
+            if (UbiArtGestureFolders.TryGetPlatformFolder(platform, out string? platformFolder) && platformFolder != null)
+            {
+                string platformSource = ResolveMaterializedPath(ctx, materializedRoot, UbiArtGestureFolders.PackageFolder(platformFolder));
+                if (ctx.IO.DirectoryExists(platformSource))
+                    CopyRawFiles(ctx, platformSource, "*.gesture", Path.Combine(rawMapWorldBase, "timeline", "moves", platformFolder));
+            }
+
+            return;
+        }
+
+        foreach (string gesturesSource in ctx.IO.GetDirectories(gesturesRoot))
+        {
+            string gesturePlatformFolder = Path.GetFileName(gesturesSource.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(gesturePlatformFolder))
+                continue;
+
             string gesturesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", gesturePlatformFolder);
             CopyRawFiles(ctx, gesturesSource, "*.gesture", gesturesFolder);
         }
@@ -597,129 +677,89 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
     private static async Task WriteUncookedTrkFileAsync(IntermediateSongPackage package, ExportContext ctx, string trkPath)
     {
-        StringBuilder trkBuilder = new();
-        trkBuilder.AppendLine("structure = { MusicTrackStructure = {");
-
-        // markers
-        trkBuilder.AppendLine("markers = {");
-        foreach (int m in package.TimelineStructure.Markers)
+        object structure = new
         {
-            trkBuilder.AppendLine($"    {{ VAL = {m} }},");
-        }
-
-        trkBuilder.AppendLine("},");
-
-        // signatures
-        trkBuilder.AppendLine("signatures = {");
-        foreach (SignatureSegment s in package.TimelineStructure.Signatures)
-        {
-            string comment = EscapeLuaString(s.Comment ?? string.Empty);
-            string markerStr = s.Marker.ToString(CultureInfo.InvariantCulture);
-            trkBuilder.AppendLine($"    {{ MusicSignature = {{ beats = {s.Beats}, marker = {markerStr}, comment = \"{comment}\" }} }},");
-        }
-
-        trkBuilder.AppendLine("},");
-
-        // sections
-        trkBuilder.AppendLine("sections = {");
-        foreach (SectionSegment sec in package.TimelineStructure.Sections)
-        {
-            string comment = EscapeLuaString(sec.Comment ?? string.Empty);
-            string markerStr = sec.StartBeat.ToString(CultureInfo.InvariantCulture);
-            trkBuilder.AppendLine($"    {{ MusicSection = {{ sectionType = {(int)sec.SectionType}, marker = {markerStr}, comment = \"{comment}\" }} }},");
-        }
-
-        trkBuilder.AppendLine("},");
-
-        // comments
-        trkBuilder.AppendLine("comments = {},");
-
-        // basic fields
-        trkBuilder.AppendLine($"startBeat = {package.TimelineStructure.StartBeat},");
-        trkBuilder.AppendLine($"endBeat = {package.TimelineStructure.EndBeat},");
-        trkBuilder.AppendLine($"videoStartTime = {package.TimelineStructure.VideoStartOffset.ToString(CultureInfo.InvariantCulture)},");
-        trkBuilder.AppendLine($"previewEntry = {package.TimelineStructure.PreviewEntryBeat},");
-        trkBuilder.AppendLine($"previewLoopStart = {package.TimelineStructure.PreviewLoopStartBeat},");
-        trkBuilder.AppendLine($"previewLoopEnd = {package.TimelineStructure.PreviewLoopEndBeat},");
-        trkBuilder.AppendLine($"previewDuration = {package.TimelineStructure.PreviewDuration},");
-
-        trkBuilder.AppendLine("} } ");
+            MusicTrackStructure = new
+            {
+                markers = package.TimelineStructure.Markers.Select(marker => new { VAL = marker }).ToArray(),
+                signatures = package.TimelineStructure.Signatures.Select(signature => new
+                {
+                    MusicSignature = new { beats = signature.Beats, marker = signature.Marker, comment = signature.Comment ?? string.Empty }
+                }).ToArray(),
+                sections = package.TimelineStructure.Sections.Select(section => new
+                {
+                    MusicSection = new { sectionType = (int)section.SectionType, marker = section.StartBeat, comment = section.Comment ?? string.Empty }
+                }).ToArray(),
+                comments = Array.Empty<object>(),
+                startBeat = package.TimelineStructure.StartBeat,
+                endBeat = package.TimelineStructure.EndBeat,
+                videoStartTime = package.TimelineStructure.VideoStartOffset,
+                previewEntry = package.TimelineStructure.PreviewEntryBeat,
+                previewLoopStart = package.TimelineStructure.PreviewLoopStartBeat,
+                previewLoopEnd = package.TimelineStructure.PreviewLoopEndBeat,
+                previewDuration = package.TimelineStructure.PreviewDuration
+            }
+        };
 
         string fullPath = ctx.IO.Combine(ctx.OutputFolder, trkPath);
         ctx.IO.CreateDirectory(Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullPath}'."));
-        await File.WriteAllTextAsync(fullPath, trkBuilder.ToString());
+        await File.WriteAllTextAsync(fullPath, LuaDocumentWriter.Write(structure, assignment: "structure"));
     }
 
     private static async Task WriteUncookedAmbFilesAsync(IntermediateSongPackage package, ExportContext ctx, string ambFolder, string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        string audioWorldPath = $"world/maps/{mapNameLower}/audio/amb/amb_{mapName}_intro.wav";
-
-        // Write .ilu file
-        string iluContent = $@"DESCRIPTOR = 
-{{
-    {{
-		SoundDescriptor_Template=
-		{{
-			name=""amb_{mapName}_intro"",  
-			volume=-50,
-			category=""AMB"",
-			limitMode=LimiterMode.RejectNew,
-			params=
-			{{SoundParams={{
-				numChannels=2,
-				loop=0, 
-				playMode=PlayMode.Random,
-				randomVolMin=0.0,
-				randomVolMax=0.0,
-				randomPitchMin=1.0,
-				randomPitchMax=1.0,
-				fadeInTime=0.0,
-				fadeOutTime=0.0,
-			}}}},
-			files=
-			{{
-				{{
-					VAL=""{audioWorldPath}"",
-				}},
-			}},
-		}}
-	}},
-}}
-
-appendTable(component.SoundComponent_Template.soundList,DESCRIPTOR)";
+        string mapRoot = ctx.Layout.GetMapWorldFolder("", mapNameLower, UbiArtPlatform.Uncooked, ctx.EngineVersion).Replace('\\', '/');
+        string audioWorldPath = $"{mapRoot}/audio/amb/amb_{mapNameLower}_intro.wav";
+        object descriptor = new[]
+        {
+            new
+            {
+                SoundDescriptor_Template = new
+                {
+                    name = $"amb_{mapNameLower}_intro",
+                    volume = -50,
+                    category = "AMB",
+                    limitMode = new LuaExpression("LimiterMode.RejectNew"),
+                    @params = new
+                    {
+                        SoundParams = new
+                        {
+                            numChannels = 2,
+                            loop = 0,
+                            playMode = new LuaExpression("PlayMode.Random"),
+                            randomVolMin = 0.0,
+                            randomVolMax = 0.0,
+                            randomPitchMin = 1.0,
+                            randomPitchMax = 1.0,
+                            fadeInTime = 0.0,
+                            fadeOutTime = 0.0
+                        }
+                    },
+                    files = new[] { new { VAL = audioWorldPath } }
+                }
+            }
+        };
+        string iluContent = LuaDocumentWriter.Write(
+            descriptor,
+            assignment: "DESCRIPTOR",
+            trailingStatements: ["appendTable(component.SoundComponent_Template.soundList, DESCRIPTOR)"]);
 
         string iluPath = Path.Combine(ambFolder, $"AMB_{mapName}_Intro.ilu");
         string fullIluPath = ctx.IO.Combine(ctx.OutputFolder, iluPath);
         ctx.IO.CreateDirectory(Path.GetDirectoryName(fullIluPath) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullIluPath}'."));
         await File.WriteAllTextAsync(fullIluPath, iluContent);
 
-        // Write .tpl file
-        string tplContent = $@"params=
-{{
-	NAME=""Actor_Template"",
-	Actor_Template=
-	{{
-		COMPONENTS=
-		{{
-		}}
-	}}
-}}
-includeReference(""world/maps/{mapNameLower}/audio/amb/amb_{mapName}_intro.wav"")
-";
+        object template = new
+        {
+            NAME = "Actor_Template",
+            Actor_Template = new { COMPONENTS = Array.Empty<object>() }
+        };
+        string tplContent = LuaDocumentWriter.Write(template, includes: [audioWorldPath]);
 
         string tplPath = Path.Combine(ambFolder, $"AMB_{mapName}_Intro.tpl");
         string fullTplPath = ctx.IO.Combine(ctx.OutputFolder, tplPath);
         await File.WriteAllTextAsync(fullTplPath, tplContent);
     }
 
-    private static string EscapeLuaString(string value)
-    {
-        return value
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "\\r")
-            .Replace("\t", "\\t");
-    }
 }

@@ -439,8 +439,29 @@ internal static class IntermediateAssetWriter
     {
         string timelineMovesFolder = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "moves");
 
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        string[] directories;
+        try
+        {
+            directories = context.FileSystem.GetDirectories(timelineMovesFolder);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            directories = [];
+        }
+
+        foreach (string directory in directories)
+        {
+            string platformFolder = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(platformFolder) && seen.Add(platformFolder))
+                yield return new(Path.Combine(timelineMovesFolder, platformFolder), UbiArtGestureFolders.PackageFolder(platformFolder));
+        }
+
         foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
-            yield return new(Path.Combine(timelineMovesFolder, gestureFolder.PlatformFolder), gestureFolder.PackageRelativeFolder);
+        {
+            if (seen.Add(gestureFolder.PlatformFolder))
+                yield return new(Path.Combine(timelineMovesFolder, gestureFolder.PlatformFolder), gestureFolder.PackageRelativeFolder);
+        }
     }
 
     private static string? GetReferencedUbiArtGesturePackageFolder(ConversionContext context, string classifierPath)
@@ -461,6 +482,13 @@ internal static class IntermediateAssetWriter
             return false;
 
         string[] segments = relativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        int movesIndex = Array.FindIndex(segments, segment => segment.Equals("moves", StringComparison.OrdinalIgnoreCase));
+        if (movesIndex >= 0 && movesIndex + 1 < segments.Length)
+        {
+            packageFolder = UbiArtGestureFolders.PackageFolder(segments[movesIndex + 1]);
+            return true;
+        }
+
         foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
         {
             if (segments.Any(segment => segment.Equals(gestureFolder.PlatformFolder, StringComparison.OrdinalIgnoreCase)))
@@ -829,44 +857,7 @@ internal static class IntermediateAssetWriter
         GetMusicTrackSecondsAtBeat(timelineStructure.Markers, beat) - timelineStructure.VideoStartOffset;
 
     private static double GetMusicTrackSecondsAtBeat(IReadOnlyList<int> markers, double beat)
-    {
-        if (markers.Count < 2)
-            throw new NotSupportedException("At least two markers are required for beat to seconds conversion.");
-
-        int previousWholeBeat = (int)Math.Floor(beat);
-        int firstMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat);
-        int secondMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat + 1);
-        double beatFractionalPart = beat - previousWholeBeat;
-        double sampleOffset = firstMarkerPosition + (beatFractionalPart * (secondMarkerPosition - firstMarkerPosition));
-        return sampleOffset / 48000.0;
-    }
-
-    private static int GetMusicTrackBeatSamplePosition(IReadOnlyList<int> markers, int beat)
-    {
-        if (beat < 0)
-        {
-            int averageBeatLength = ComputeAverageMarkerSpacing(markers, 0, Math.Min(4, markers.Count - 1));
-            return beat * averageBeatLength;
-        }
-
-        if (beat >= markers.Count)
-        {
-            int endMarker = markers.Count - 1;
-            int startMarker = Math.Max(0, endMarker - 4);
-            int averageBeatLength = ComputeAverageMarkerSpacing(markers, startMarker, endMarker);
-            return markers[endMarker] + ((beat - markers.Count + 1) * averageBeatLength);
-        }
-
-        return markers[beat];
-    }
-
-    private static int ComputeAverageMarkerSpacing(IReadOnlyList<int> markers, int startMarker, int endMarker)
-    {
-        if (endMarker <= startMarker)
-            return markers.Count >= 2 ? markers[1] - markers[0] : 24000;
-
-        return (markers[endMarker] - markers[startMarker]) / (endMarker - startMarker);
-    }
+        => MusicTrackTiming.GetSecondsAtBeat(markers, beat);
 
     private static int GetEffectiveEndBeat(TimelineStructureDocument timelineStructure)
     {

@@ -192,6 +192,7 @@ public class JustDanceUbiArtFileSystem : IDisposable
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath) => _fileSystem.GetFilePath(relativeFilePath, out filePath);
     public CookedFile GetFilePath(string relativeFilePath) => _fileSystem.GetFilePath(relativeFilePath);
     public CookedFile[] GetAllFiles(string relativeFolderPath, string pattern = "*") => _fileSystem.GetAllFiles(relativeFolderPath, pattern);
+    public string[] GetDirectories(string relativeFolderPath) => _fileSystem.GetInputDirectories(relativeFolderPath);
     public Stream GetFileStream(CookedFile cookedFile) => _fileSystem.GetFileStream(cookedFile);
     public bool GetFolderPath(string relativeFolderPath, [MaybeNullWhen(false)] out string folderPath) => _fileSystem.GetFolderPath(relativeFolderPath, out folderPath);
     public string GetFolderPath(string relativeFolderPath) => _fileSystem.GetFolderPath(relativeFolderPath);

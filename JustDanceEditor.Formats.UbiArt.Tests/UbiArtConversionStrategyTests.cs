@@ -1,5 +1,6 @@
 using JustDanceEditor.Conversion.Abstractions;
 
+using System;
 using System.Linq;
 
 using Xunit;
@@ -8,6 +9,19 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class UbiArtConversionStrategyTests
 {
+    [Fact]
+    public void GetExportTargets_ExposesThreeVersionedUncookedTargets()
+    {
+        UbiArtConversionStrategy strategy = new();
+
+        string[] targets = [.. strategy.GetExportTargets()
+            .Select(target => target.TargetCode)
+            .Where(code => code.StartsWith("uncooked-", StringComparison.Ordinal))
+            .OrderBy(code => code, StringComparer.Ordinal)];
+
+        Assert.Equal(["uncooked-2014", "uncooked-2015", "uncooked-modern"], targets);
+    }
+
     [Theory]
     [InlineData("wii-2020", ConversionSupportStatus.Stable)]
     [InlineData("ps3-2014", ConversionSupportStatus.Stable)]

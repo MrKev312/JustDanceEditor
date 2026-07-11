@@ -385,7 +385,7 @@ public static class UbiArtAudioConverter
         List<ISampleProvider> sampleProviders = [];
 
         // Add main song with offset
-        float mainSongOffset = request.SongData.GetSongStartTime();
+        float mainSongOffset = request.SongData.GetAudioStartOffset();
         ISampleProvider mainSongProvider = mainSongStream.ToSampleProvider();
         WaveFormat mixFormat = mainSongProvider.WaveFormat;
         sampleProviders.Add(ApplyOffset(mainSongProvider, mainSongOffset));
@@ -498,7 +498,7 @@ public static class UbiArtAudioConverter
         if (markerIndex < 0)
             offset *= -1;
 
-        offset += request.SongData.GetSongStartTime();
+        offset += request.SongData.GetAudioStartOffset();
         return offset;
     }
 

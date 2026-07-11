@@ -27,10 +27,10 @@ public class UbiArtExporterFactory : IUbiArtExporterFactory
 
     public IEngineContentGenerator GetEngineContentGenerator(UbiArtEngineVersion version, UbiArtPlatform platform)
     {
-        // Uncooked platform always uses Lua format, regardless of engine version
+        // Uncooked exports use Lua, but paths and resource details still vary by engine version.
         if (platform == UbiArtPlatform.Uncooked)
         {
-            return new UncookedEngineContentGenerator();
+            return new UncookedEngineContentGenerator(version);
         }
 
         // JD2014/JD2015 cooked builds use binary engine resources on every cooked platform.

@@ -6,7 +6,6 @@ using KevInc.UbiArt.FileSystem;
 using NLua;
 
 using System.Collections;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -16,6 +15,16 @@ namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
 public static partial class LuaTableSerializer
 {
+    private static readonly JsonSerializerOptions SongDescJsonOptions = CreateSongDescJsonOptions();
+
+    private static JsonSerializerOptions CreateSongDescJsonOptions()
+    {
+        JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new ArgbFloatArrayJsonConverter());
+        options.Converters.Add(new ArgbIntArrayJsonConverter());
+        return options;
+    }
+
     private static void InitializeLua(Lua lua)
     {
         lua.DoString("function includeReference(path) end");
@@ -88,6 +97,38 @@ public static partial class LuaTableSerializer
 
         return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
+    }
+
+    internal static IReadOnlyList<string> DeserializeTapeEntryPaths(string luaContent)
+    {
+        JsonElement root = Deserialize<JsonElement>(luaContent);
+        List<string> paths = [];
+        CollectTapeEntryPaths(root, paths, insideTapeEntry: false);
+        return paths;
+    }
+
+    private static void CollectTapeEntryPaths(JsonElement element, List<string> paths, bool insideTapeEntry)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+                CollectTapeEntryPaths(item, paths, insideTapeEntry);
+            return;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (insideTapeEntry &&
+            element.TryGetProperty("Path", out JsonElement pathElement) &&
+            pathElement.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(pathElement.GetString()))
+        {
+            paths.Add(pathElement.GetString()!);
+        }
+
+        foreach (JsonProperty property in element.EnumerateObject())
+            CollectTapeEntryPaths(property.Value, paths, property.NameEquals("TapeEntry"));
     }
 
     public static T Deserialize<T>(string luaContent, JustDanceUbiArtFileSystem fileSystem) where T : new()
@@ -192,55 +233,10 @@ public static partial class LuaTableSerializer
                     {
                         if (prop.NameEquals("JD_SongDescTemplate"))
                         {
-                            // Create a copy of the component object without DefaultColors to avoid deserialization error
-                            Dictionary<string, object> dict = [];
-                            foreach (JsonProperty componentProp in prop.Value.EnumerateObject())
-                            {
-                                if (!componentProp.NameEquals("DefaultColors"))
-                                {
-                                    dict[componentProp.Name] = componentProp.Value;
-                                }
-                            }
-
-                            string sanitizedJson = JsonSerializer.Serialize(dict);
-                            InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                            JsonNode normalizedComponent = LuaEntryTableJsonNormalizer.Normalize(prop.Value)
+                                ?? throw new JsonException("SongDesc component was null.");
+                            InfoComponent info = normalizedComponent.Deserialize<InfoComponent>(SongDescJsonOptions)
                                 ?? throw new JsonException("Failed to deserialize InfoComponent from Lua content.");
-
-                            // Manually map DefaultColors if it was an array
-                            if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
-                            {
-                                foreach (JsonElement item in colors.EnumerateArray())
-                                {
-                                    if (item.TryGetProperty("KEY", out JsonElement key) && item.TryGetProperty("VAL", out JsonElement val))
-                                    {
-                                        string keyStr = key.GetString() ?? "";
-                                        string colorStr = val.GetString() ?? "";
-                                        if (colorStr.StartsWith("0x"))
-                                            colorStr = colorStr[2..];
-                                        if (colorStr.Length == 8)
-                                        {
-                                            float a = Convert.ToInt32(colorStr[..2], 16) / 255.0f;
-                                            float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
-                                            float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
-                                            float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
-                                            float[] rgba = [a, r, g, b];
-
-                                            if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.Lyrics = rgba;
-                                            else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.Theme = Array.ConvertAll(rgba, v => (int)(v * 255));
-                                            else if (keyStr.Equals("songcolor_1a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor1a = rgba;
-                                            else if (keyStr.Equals("songcolor_1b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor1b = rgba;
-                                            else if (keyStr.Equals("songcolor_2a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor2a = rgba;
-                                            else if (keyStr.Equals("songcolor_2b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor2b = rgba;
-                                        }
-                                    }
-                                }
-                            }
 
                             return new SongDesc { Components = [info] };
                         }
@@ -397,88 +393,7 @@ public static partial class LuaTableSerializer
         throw new InvalidDataException("Could not extract MusicTrack from Actor_Template structure.");
     }
 
-    public static string Serialize<T>(T obj)
-    {
-        // For now, let's implement a basic LUA table generator
-        // This is complex for general objects, but we can handle our specific types
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        SerializeObject(sb, obj, 0);
-        return sb.ToString();
-    }
-
-    private static void SerializeObject(StringBuilder sb, object? obj, int indent)
-    {
-        if (obj == null)
-        {
-            sb.Append("nil");
-            return;
-        }
-
-        string indentation = new(' ', indent * 2);
-
-        if (obj is IDictionary dict)
-        {
-            sb.AppendLine("{");
-            foreach (DictionaryEntry entry in dict)
-            {
-                sb.Append(indentation + "  ");
-                sb.Append(entry.Key + " = ");
-                SerializeObject(sb, entry.Value, indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else if (obj is IEnumerable list and not string)
-        {
-            sb.AppendLine("{");
-            foreach (object? item in list)
-            {
-                sb.Append(indentation + "  ");
-                SerializeObject(sb, item, indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else if (obj is string s)
-        {
-            sb.Append($"\"{s}\"");
-        }
-        else if (obj is bool b)
-        {
-            sb.Append(b ? "true" : "false");
-        }
-        else if (obj.GetType().IsPrimitive || obj is decimal || obj is float || obj is double)
-        {
-            // Use CultureInfo.InvariantCulture to ensure dot as decimal separator
-            if (obj is IConvertible conv)
-                sb.Append(conv.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            else
-                sb.Append(obj.ToString());
-        }
-        else if (obj.GetType().IsClass || obj.GetType().IsValueType)
-        {
-            // Handle anonymous types or classes
-            sb.AppendLine("{");
-            foreach (PropertyInfo prop in obj.GetType().GetProperties())
-            {
-                if (prop.GetIndexParameters().Length > 0)
-                    continue; // Skip indexed properties
-                sb.Append(indentation + "  ");
-                sb.Append(prop.Name + " = ");
-                SerializeObject(sb, prop.GetValue(obj), indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else
-        {
-            sb.Append(obj.ToString());
-        }
-    }
+    public static string Serialize<T>(T obj) => LuaDocumentWriter.Write(obj);
 
     private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
     {

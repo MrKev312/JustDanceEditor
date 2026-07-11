@@ -11,6 +11,8 @@ using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
+using NLua.Exceptions;
+
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
@@ -181,23 +183,57 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             // Prefer file type based on platform rather than file existence heuristics
             if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked)
             {
-                // In Uncooked layout prefer .tpl first, then fallback to .dtape
+                CookedFile? resolvedDanceTape = null;
+                string resolvedDanceTapePath = danceTapeRelativePath;
+
                 if (fileSystem.GetFilePath(danceTplRelativePath, out CookedFile? danceTplPathCooked))
                 {
-                    _logger.LogInformation("Loading DanceTape from .tpl (Uncooked format)");
-                    using Stream danceTapeStream = fileSystem.GetFileStream(danceTplPathCooked);
-                    danceTape = DeserializeDanceTapeOrSkip(danceTapeStream, danceTplRelativePath);
+                    try
+                    {
+                        using Stream templateStream = fileSystem.GetFileStream(danceTplPathCooked);
+                        using StreamReader templateReader = new(templateStream, Encoding.UTF8);
+                        string templateContent = templateReader.ReadToEnd().TrimEnd('\0');
+                        string? referencedPath = LuaTableSerializer.DeserializeTapeEntryPaths(templateContent)
+                            .FirstOrDefault(path => Path.GetExtension(path).Equals(".dtape", StringComparison.OrdinalIgnoreCase));
+
+                        if (!string.IsNullOrWhiteSpace(referencedPath) &&
+                            fileSystem.GetFilePath(referencedPath, out CookedFile? referencedDanceTape))
+                        {
+                            resolvedDanceTape = referencedDanceTape;
+                            resolvedDanceTapePath = referencedPath;
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Dance TapeCase '{TemplatePath}' did not resolve an existing .dtape; falling back to '{FallbackPath}'.",
+                                danceTplRelativePath,
+                                danceTapeRelativePath);
+                        }
+                    }
+                    catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException or LuaScriptException)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Could not resolve DanceTape from TapeCase '{TemplatePath}'; falling back to '{FallbackPath}'.",
+                            danceTplRelativePath,
+                            danceTapeRelativePath);
+                    }
                 }
-                else if (fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? danceDtapePathCooked))
+
+                if (resolvedDanceTape is null &&
+                    fileSystem.GetFilePath(danceTapeRelativePath, out CookedFile? fallbackDanceTape))
                 {
-                    _logger.LogInformation("DanceTape .tpl not found, falling back to .dtape");
-                    using Stream danceTapeStream = fileSystem.GetFileStream(danceDtapePathCooked);
-                    danceTape = DeserializeDanceTapeOrSkip(danceTapeStream, danceTapeRelativePath);
+                    resolvedDanceTape = fallbackDanceTape;
                 }
-                else
+
+                if (resolvedDanceTape is null)
                 {
                     throw new FileNotFoundException($"Dance tape not found at {danceTplRelativePath} or {danceTapeRelativePath}");
                 }
+
+                _logger.LogInformation("Loading DanceTape from '{DanceTapePath}' resolved through the uncooked TapeCase", resolvedDanceTapePath);
+                using Stream danceTapeStream = fileSystem.GetFileStream(resolvedDanceTape);
+                danceTape = DeserializeDanceTapeOrSkip(danceTapeStream, resolvedDanceTapePath);
             }
             else
             {

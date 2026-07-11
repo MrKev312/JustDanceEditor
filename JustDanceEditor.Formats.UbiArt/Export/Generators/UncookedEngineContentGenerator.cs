@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using System.Reflection;
@@ -11,149 +12,118 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 /// Engine content generator that produces Lua-formatted output for Uncooked UbiArt packages.
 /// Uncooked packages are raw, human-readable project files used during development and modding.
 /// </summary>
-public class UncookedEngineContentGenerator : IEngineContentGenerator
+public class UncookedEngineContentGenerator(UbiArtEngineVersion version = UbiArtEngineVersion.JD2022) : IEngineContentGenerator
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
     private static byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
 
+    public string? VideoFileName { get; set; }
+
     #region Lua Content Generators
 
     public object GenerateSongDesc(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
-        string artist = EscapeLuaString(package.Metadata.Artist);
-        string title = EscapeLuaString(package.Metadata.Title);
-        string numCoach = package.Metadata.CoachCount switch
+        string mapNameLower = mapName.ToLowerInvariant();
+        string mapRoot = GetMapRoot(mapNameLower);
+        List<object> phoneImages = [new { KEY = "cover", VAL = $"{mapRoot}/menuart/textures/{mapNameLower}_cover_phone.png" }];
+        phoneImages.AddRange(Enumerable.Range(1, package.Metadata.CoachCount)
+            .Select(index => (object)new { KEY = $"coach{index}", VAL = $"{mapRoot}/menuart/textures/{mapNameLower}_coach_{index}_phone.png" }));
+
+        List<object> defaultColors =
+        [
+            new { KEY = "lyrics", VAL = ToUbiArtColor(package.Metadata.LyricsColor) },
+            new { KEY = "theme", VAL = "0xffffffff" }
+        ];
+        AddSongColor(defaultColors, package, "songcolor_1a", "songColor_1A");
+        AddSongColor(defaultColors, package, "songcolor_1b", "songColor_1B");
+        AddSongColor(defaultColors, package, "songcolor_2a", "songColor_2A");
+        AddSongColor(defaultColors, package, "songcolor_2b", "songColor_2B");
+
+        object songInfo = new
         {
-            1 => "NumCoach.Solo",
-            2 => "NumCoach.Duo",
-            3 => "NumCoach.Trio",
-            _ => "NumCoach.Quatuor"
-        };
-        string difficulty = package.Metadata.Difficulty switch
-        {
-            1 => "SongDifficulty.Easy",
-            2 => "SongDifficulty.Normal",
-            3 => "SongDifficulty.Hard",
-            _ => "SongDifficulty.Extreme"
+            MapName = mapName,
+            JDVersion = (int)version,
+            package.Metadata.OriginalJDVersion,
+            RelatedAlbums = Array.Empty<object>(),
+            package.Metadata.Artist,
+            package.Metadata.Title,
+            package.Metadata.Credits,
+            PhoneImages = phoneImages,
+            NumCoach = package.Metadata.CoachCount,
+            MainCoach = -1,
+            package.Metadata.Difficulty,
+            package.Metadata.SweatDifficulty,
+            Tags = package.Metadata.Tags.Select(tag => new { VAL = tag }).ToArray(),
+            package.Metadata.Status,
+            package.Metadata.MojoValue,
+            package.Metadata.CountInProgression,
+            GameModes = new[]
+            {
+                new
+                {
+                    NAME = "GameModeDesc",
+                    GameModeDesc = new
+                    {
+                        mode = new LuaExpression("GameMode.Classic"),
+                        flags = new LuaExpression("GameModeFlags.None"),
+                        status = new LuaExpression("GameModeStatus.Available")
+                    }
+                }
+            },
+            DefaultColors = defaultColors,
+            AudioPreviewFadeTime = 0.5,
+            AudioPreviews = new object[]
+            {
+                new { NAME = "AudioPreview", AudioPreview = new { name = "coverflow", startbeat = package.TimelineStructure.PreviewEntryBeat } },
+                new { NAME = "AudioPreview", AudioPreview = new { name = "prelobby", startbeat = package.TimelineStructure.PreviewLoopStartBeat, endbeat = package.TimelineStructure.PreviewLoopEndBeat } }
+            }
         };
 
-        StringBuilder sb = new();
-        sb.AppendLine("includeReference(\"EngineData/Helpers/SongDatabase.ilu\")");
-        sb.AppendLine();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("\tTAGS =");
-        sb.AppendLine("\t{");
-        sb.AppendLine("\t\t{");
-        sb.AppendLine("\t\t\tVAL = \"songdescmain\",");
-        sb.AppendLine("\t\t},");
-        sb.AppendLine("\t},");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME=\"JD_SongDescTemplate\",");
-        sb.AppendLine("        JD_SongDescTemplate =");
-        sb.AppendLine("        {");
-        sb.AppendLine($"\t\t\tMapName\t\t\t\t\t\t=\t\t\"{mapName}\",");
-        sb.AppendLine($"\t\t\tJDVersion\t\t\t\t\t=\t\t{package.Metadata.OriginalJDVersion},");
-        sb.AppendLine("\t\t\tRelatedAlbums\t\t\t\t=\t\t");
-        sb.AppendLine("\t\t\t{");
-        sb.AppendLine("\t\t\t},");
-        sb.AppendLine($"\t\t\tArtist\t\t\t\t\t\t=\t\t\"{artist}\",");
-        sb.AppendLine($"\t\t\tTitle\t\t\t\t\t\t=\t\t\"{title}\",");
-        sb.AppendLine($"\t\t\tNumCoach\t\t\t\t\t=\t\t{numCoach},");
-        sb.AppendLine($"\t\t\tDifficulty\t\t\t\t\t=\t\t{difficulty},");
-        sb.AppendLine("\t\t\t");
-        sb.AppendLine("\t\t\t-- Game Modes");
-        sb.AppendLine("\t\t\tGameModes = ");
-        sb.AppendLine("\t\t\t{");
-        sb.AppendLine("\t\t\t\t{");
-        sb.AppendLine("\t\t\t\t\tNAME = \"GameModeDesc\",");
-        sb.AppendLine("\t\t\t\t\tGameModeDesc = ");
-        sb.AppendLine("\t\t\t\t\t{");
-        sb.AppendLine("\t\t\t\t\t\tmode \t\t=\tGameMode.Classic,");
-        sb.AppendLine("\t\t\t\t\t\tflags\t\t=\tGameModeFlags.None,");
-        sb.AppendLine("\t\t\t\t\t\tstatus\t\t=\tGameModeStatus.Available,");
-        sb.AppendLine("\t\t\t\t\t},");
-        sb.AppendLine("\t\t\t\t},");
-        sb.AppendLine("\t\t\t},");
-        sb.AppendLine("\t\t\t");
-        sb.AppendLine("\t\t\t-- Default Colors");
-        sb.AppendLine("\t\t\tDefaultColors = ");
-        sb.AppendLine("\t\t\t{");
-        sb.AppendLine($"\t\t\t\t{{ KEY = \"lyrics\", VAL = \"{package.Metadata.LyricsColor}\" }},");
-        sb.AppendLine("\t\t\t\t{ KEY = \"theme\", VAL = \"0xffffffff\" },");
-        sb.AppendLine("\t\t\t},");
-        sb.AppendLine("\t\t\t");
-        sb.AppendLine("\t\t\t-- Audio Previews\t\t\t");
-        sb.AppendLine("\t\t\tAudioPreviewFadeTime\t    =\t\t0.5,");
-        sb.AppendLine("\t\t\tAudioPreviews = ");
-        sb.AppendLine("\t\t\t{");
-        sb.AppendLine("\t\t\t\t{ ");
-        sb.AppendLine("\t\t\t\t\tNAME = \"AudioPreview\",");
-        sb.AppendLine("\t\t\t\t\tAudioPreview =");
-        sb.AppendLine("\t\t\t\t\t{ ");
-        sb.AppendLine("\t\t\t\t\t\tname \t\t= \t\"coverflow\",");
-        sb.AppendLine($"\t\t\t\t\t\tstartbeat\t=\t{package.TimelineStructure.PreviewEntryBeat}, ");
-        sb.AppendLine("\t\t\t\t\t\t-- endbeat\t=\t50,");
-        sb.AppendLine("\t\t\t\t\t},");
-        sb.AppendLine("\t\t\t\t},\t\t\t\t\t");
-        sb.AppendLine("\t\t\t\t");
-        sb.AppendLine("\t\t\t\t{ ");
-        sb.AppendLine("\t\t\t\t\tNAME = \"AudioPreview\",");
-        sb.AppendLine("\t\t\t\t\tAudioPreview =");
-        sb.AppendLine("\t\t\t\t\t{ ");
-        sb.AppendLine("\t\t\t\t\t\tname \t\t= \t\"prelobby\",");
-        sb.AppendLine($"\t\t\t\t\t\tstartbeat\t=\t{package.TimelineStructure.PreviewLoopStartBeat}, ");
-        sb.AppendLine($"\t\t\t\t\t\tendbeat\t=\t{package.TimelineStructure.PreviewLoopEndBeat},");
-        sb.AppendLine("\t\t\t\t\t},");
-        sb.AppendLine("\t\t\t\t},\t\t\t\t\t");
-        sb.AppendLine("\t\t\t},");
-        sb.AppendLine("\t\t\t");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-        sb.AppendLine();
-
-        return sb.ToString();
+        object document = new
+        {
+            NAME = "Actor_Template",
+            Actor_Template = new
+            {
+                TAGS = new[] { new { VAL = "songdescmain" } },
+                COMPONENTS = new[] { new { NAME = "JD_SongDescTemplate", JD_SongDescTemplate = songInfo } }
+            }
+        };
+        return LuaDocumentWriter.Write(document, includes: ["EngineData/Helpers/SongDatabase.ilu"]);
     }
 
     public object GenerateMusicTrack(IntermediateSongPackage package)
     {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-
-        // Build a MusicTrack template that includes an external .trk and references WAV
-        StringBuilder sb = new();
-        sb.AppendLine($"includeReference(\"world/maps/{mapNameLower}/audio/{mapName}.trk\")");
-        sb.AppendLine();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("\tNAME = \"Actor_Template\",");
-        sb.AppendLine("\tActor_Template =");
-        sb.AppendLine("\t{");
-        sb.AppendLine("\t\tCOMPONENTS =");
-        sb.AppendLine("\t\t{");
-        sb.AppendLine("\t\t\t{");
-        sb.AppendLine("\t\t\t\tNAME = \"MusicTrackComponent_Template\",");
-        sb.AppendLine("\t\t\t\tMusicTrackComponent_Template =");
-        sb.AppendLine("\t\t\t\t{");
-        sb.AppendLine("\t\t\t\t\ttrackData = { MusicTrackData = { path = \"world/maps/" + mapNameLower + "/audio/" + mapName + ".wav\", structure = structure, volume = 0 } },");
-        sb.AppendLine("\t\t\t\t}");
-        sb.AppendLine("\t\t\t},");
-        sb.AppendLine("\t\t}");
-        sb.AppendLine("\t}");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
+        object document = new
+        {
+            NAME = "Actor_Template",
+            Actor_Template = new
+            {
+                COMPONENTS = new[]
+                {
+                    new
+                    {
+                        NAME = "MusicTrackComponent_Template",
+                        MusicTrackComponent_Template = new
+                        {
+                            trackData = new
+                            {
+                                MusicTrackData = new
+                                {
+                                    path = $"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}.wav",
+                                    structure = new LuaExpression("structure"),
+                                    volume = 0
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        return Lua(document, includes: [$"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}.trk"]);
     }
 
     public object GenerateDanceTape(IntermediateSongPackage package)
@@ -161,6 +131,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> allClips = [];
         List<object> tracks = [];
+        HashSet<long> moveTrackIds = [];
 
         // Add MotionClips for each coach
         foreach (MoveTimeline timeline in package.CoachTimelines)
@@ -177,26 +148,71 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     {
                         clip.Id,
                         timeline.TrackId,
+                        IsActive = 1,
                         clip.StartTime,
                         move.Duration,
-                        ClassifierPath = $"world/maps/{mapNameLower}/timeline/moves/{clip.MoveId}.msm",
+                        ClassifierPath = $"{GetMapRoot(mapNameLower)}/timeline/moves/{clip.MoveId}.msm",
                         GoldMove = clip.IsGoldMove ? 1 : 0,
                         timeline.CoachId,
+                        MoveType = 0,
                         Color = ParseColorToHex(move.Color)
                     }
                 });
             }
 
             // Add track for this coach
-            tracks.Add(new
+            if (moveTrackIds.Add(timeline.TrackId))
             {
-                NAME = "MoveTrack",
-                MoveTrack = new
+                tracks.Add(new
                 {
-                    Id = timeline.TrackId,
-                    Name = $"Coach{timeline.CoachId}"
-                }
-            });
+                    NAME = "MoveTrack",
+                    MoveTrack = new
+                    {
+                        Id = timeline.TrackId,
+                        Name = $"Coach{timeline.CoachId}"
+                    }
+                });
+            }
+        }
+
+        foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
+        {
+            foreach (MoveClip clip in timeline.Clips)
+            {
+                if (!package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move))
+                    continue;
+
+                allClips.Add(new
+                {
+                    NAME = "MotionClip",
+                    MotionClip = new
+                    {
+                        clip.Id,
+                        timeline.TrackId,
+                        IsActive = 1,
+                        clip.StartTime,
+                        move.Duration,
+                        ClassifierPath = $"{GetMapRoot(mapNameLower)}/timeline/moves/{clip.MoveId}.gesture",
+                        GoldMove = clip.IsGoldMove ? 1 : 0,
+                        timeline.CoachId,
+                        MoveType = 1,
+                        Color = ParseColorToHex(move.Color)
+                    }
+                });
+            }
+
+            if (moveTrackIds.Add(timeline.TrackId))
+            {
+                tracks.Add(new
+                {
+                    NAME = "MoveTrack",
+                    MoveTrack = new
+                    {
+                        Id = timeline.TrackId,
+                        Name = $"Coach{timeline.CoachId}"
+                    }
+                });
+            }
         }
 
         // Add PictogramClips
@@ -211,7 +227,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     TrackId = PictoTrackId,
                     pictoClip.StartTime,
                     pictoClip.Duration,
-                    PictoPath = $"world/maps/{mapNameLower}/timeline/pictos/{pictoClip.PictogramId}.png",
+                    PictoPath = $"{GetMapRoot(mapNameLower)}/timeline/pictos/{pictoClip.PictogramId}{(version == UbiArtEngineVersion.JD2014 ? ".tga" : ".png")}",
                 }
             });
         }
@@ -267,7 +283,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
             }
         };
 
-        return ToBytes(LuaTableSerializer.Serialize(danceTape));
+        return Lua(danceTape);
     }
 
     public object GenerateKaraokeTape(IntermediateSongPackage package)
@@ -300,7 +316,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
             }
         };
 
-        return ToBytes(LuaTableSerializer.Serialize(karaokeTape));
+        return Lua(karaokeTape);
     }
 
     public object GenerateTapeCaseTpl(string mapName, string tapeType)
@@ -308,66 +324,23 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapNameLower = mapName.ToLowerInvariant();
         string extension = tapeType == "dance" ? "dtape" : "ktape";
 
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"TapeCase_Template\",");
-        sb.AppendLine("        TapeCase_Template =");
-        sb.AppendLine("        {");
-        sb.AppendLine("          TapesRack =");
-        sb.AppendLine("          {");
-        sb.AppendLine("            {");
-        sb.AppendLine("              TapeGroup =");
-        sb.AppendLine("              {");
-        sb.AppendLine("                Entries =");
-        sb.AppendLine("                {");
-        sb.AppendLine("                  {");
-        sb.AppendLine("                    TapeEntry =");
-        sb.AppendLine("                    {");
-        sb.AppendLine($"                      Label = \"{tapeType}\",");
-        sb.AppendLine($"                      Path = \"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_{tapeType}.{extension}\",");
-        sb.AppendLine("                    },");
-        sb.AppendLine("                  },");
-        sb.AppendLine("                },");
-        sb.AppendLine("              },");
-        sb.AppendLine("            },");
-        sb.AppendLine("          },");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        object entry = new
+        {
+            TapeEntry = new
+            {
+                Label = tapeType,
+                Path = $"{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_{tapeType}.{extension}"
+            }
+        };
+        return Lua(ActorTemplate("TapeCase_Template", new
+        {
+            TapesRack = new[] { new { TapeGroup = new { Entries = new[] { entry } } } }
+        }));
     }
 
     public object GenerateSequenceTpl()
     {
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"TapeCase_Template\",");
-        sb.AppendLine("        TapeCase_Template =");
-        sb.AppendLine("        {");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        return Lua(ActorTemplate("TapeCase_Template", new Dictionary<string, object?>()));
     }
 
     public object GenerateSoundTape(string mapName)
@@ -383,177 +356,74 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
             }
         };
 
-        return ToBytes(LuaTableSerializer.Serialize(stape));
+        return Lua(stape);
     }
 
     public object GenerateAmbTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"SoundComponent_Template\",");
-        sb.AppendLine("        SoundComponent_Template =");
-        sb.AppendLine("        {");
-        sb.AppendLine("          soundList =");
-        sb.AppendLine("          {");
-        sb.AppendLine("            {");
-        sb.AppendLine("              SoundDescriptor_Template =");
-        sb.AppendLine("              {");
-        sb.AppendLine($"                name = \"amb_{mapNameLower}_intro\",");
-        sb.AppendLine("                volume = 6,");
-        sb.AppendLine("                category = \"amb\",");
-        sb.AppendLine("                limitMode = 0,");
-        sb.AppendLine("                params =");
-        sb.AppendLine("                {");
-        sb.AppendLine("                  SoundParams =");
-        sb.AppendLine("                  {");
-        sb.AppendLine("                    loop = 0,");
-        sb.AppendLine("                    playMode = 1,");
-        sb.AppendLine("                  },");
-        sb.AppendLine("                },");
-        sb.AppendLine("                files =");
-        sb.AppendLine("                {");
-        sb.AppendLine($"                  \"world/maps/{mapNameLower}/audio/amb/amb_{mapNameLower}_intro.wav\",");
-        sb.AppendLine("                },");
-        sb.AppendLine("              },");
-        sb.AppendLine("            },");
-        sb.AppendLine("          },");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        object descriptor = new
+        {
+            SoundDescriptor_Template = new
+            {
+                name = $"amb_{mapNameLower}_intro",
+                volume = 6,
+                category = "amb",
+                limitMode = 0,
+                @params = new { SoundParams = new { loop = 0, playMode = 1 } },
+                files = new[] { $"{GetMapRoot(mapNameLower)}/audio/amb/amb_{mapNameLower}_intro.wav" }
+            }
+        };
+        return Lua(ActorTemplate("SoundComponent_Template", new { soundList = new[] { descriptor } }));
     }
 
     public object GenerateMainSequenceTpl(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
 
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"MasterTape_Template\",");
-        sb.AppendLine("        MasterTape_Template =");
-        sb.AppendLine("        {");
-        sb.AppendLine("          TapesRack =");
-        sb.AppendLine("          {");
-        sb.AppendLine("            {");
-        sb.AppendLine("              TapeGroup =");
-        sb.AppendLine("              {");
-        sb.AppendLine("                Entries =");
-        sb.AppendLine("                {");
-        sb.AppendLine("                  {");
-        sb.AppendLine("                    TapeEntry =");
-        sb.AppendLine("                    {");
-        sb.AppendLine("                      Label = \"Master\",");
-        sb.AppendLine($"                      Path = \"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tape\",");
-        sb.AppendLine("                    },");
-        sb.AppendLine("                  },");
-        sb.AppendLine("                },");
-        sb.AppendLine("              },");
-        sb.AppendLine("            },");
-        sb.AppendLine("          },");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        object entry = new
+        {
+            TapeEntry = new
+            {
+                Label = "Master",
+                Path = $"{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.tape"
+            }
+        };
+        return Lua(ActorTemplate("MasterTape_Template", new
+        {
+            TapesRack = new[] { new { TapeGroup = new { Entries = new[] { entry } } } }
+        }));
     }
 
     public object GenerateSgs()
     {
-        StringBuilder sb = new();
-        sb.AppendLine("settings =");
-        sb.AppendLine("{");
-        sb.AppendLine("  JD_MapSceneConfig =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    Pause_Level = 6,");
-        sb.AppendLine("    name = \"\",");
-        sb.AppendLine("    type = 1,");
-        sb.AppendLine("    musicscore = 2,");
-        sb.AppendLine("    soundContext = \"\",");
-        sb.AppendLine("    hud = 0,");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        return Lua(new
+        {
+            JD_MapSceneConfig = new { Pause_Level = 6, name = "", type = 1, musicscore = 2, soundContext = "", hud = 0 }
+        }, assignment: "settings");
     }
 
     public object GenerateGenericActor(string className, string luaPath)
     {
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor\",");
-        sb.AppendLine("  Actor =");
-        sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"{luaPath}\",");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine($"        NAME = \"{className}\",");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        return Lua(Actor(luaPath, new Dictionary<string, object?> { ["NAME"] = className }));
     }
 
     public object GenerateAutodanceTape(IntermediateSongPackage package)
     {
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor_Template\",");
-        sb.AppendLine("  Actor_Template =");
-        sb.AppendLine("  {");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"JD_AutodanceComponent_Template\",");
-        sb.AppendLine("        JD_AutodanceComponent_Template =");
-        sb.AppendLine("        {");
-        sb.AppendLine($"          song = \"{package.Metadata.MapName}\",");
-        sb.AppendLine("          autodanceData =");
-        sb.AppendLine("          {");
-        sb.AppendLine("            JD_AutodanceData =");
-        sb.AppendLine("            {");
-        sb.AppendLine("              recording_structure =");
-        sb.AppendLine("              {");
-        sb.AppendLine("                JD_AutodanceRecordingStructure =");
-        sb.AppendLine("                {");
-        sb.AppendLine("                  records = {},");
-        sb.AppendLine("                },");
-        sb.AppendLine("              },");
-        sb.AppendLine("              playback_events = {},");
-        sb.AppendLine("            },");
-        sb.AppendLine("          },");
-        sb.AppendLine("        },");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-
-        return ToBytes(sb.ToString());
+        object data = new
+        {
+            song = package.Metadata.MapName,
+            autodanceData = new
+            {
+                JD_AutodanceData = new
+                {
+                    recording_structure = new { JD_AutodanceRecordingStructure = new { records = Array.Empty<object>() } },
+                    playback_events = Array.Empty<object>()
+                }
+            }
+        };
+        return Lua(ActorTemplate("JD_AutodanceComponent_Template", data));
     }
 
     public object GenerateMainSequenceTape(IntermediateSongPackage package)
@@ -580,7 +450,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     IsActive = 1,
                     StartTime = startTime,
                     Duration = duration,
-                    SoundSetPath = $"world/maps/{mapNameLower}/audio/amb/amb_{mapNameLower}_intro.tpl"
+                    SoundSetPath = $"{GetMapRoot(mapNameLower)}/audio/amb/amb_{mapNameLower}_intro.tpl"
                 }
             });
 
@@ -606,7 +476,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
             }
         };
 
-        return ToBytes(LuaTableSerializer.Serialize(tape));
+        return Lua(tape);
     }
 
     #endregion
@@ -618,69 +488,22 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
 
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName} : SongDesc"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/songdesc.tpl"">
-				<COMPONENTS NAME=""JD_SongDescComponent"">
-					<JD_SongDescComponent />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"">
-				<sceneConfigs NAME=""JD_MapSceneConfig"">
-					<JD_MapSceneConfig name="""" soundContext="""" hud=""0"">
-						<ENUM NAME=""Pause_Level"" SEL=""6"" />
-						<ENUM NAME=""type"" SEL=""1"" />
-						<ENUM NAME=""musicscore"" SEL=""2"" />
-					</JD_MapSceneConfig>
-				</sceneConfigs>
-			</SceneConfigs>
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene([
+            SubSceneActor($"{mapName}_AUDIO", $"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}_audio.isc"),
+            SubSceneActor($"{mapName}_CINE", $"{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_cine.isc"),
+            SubSceneActor($"{mapName}_TML", $"{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml.isc"),
+            SimpleSceneActor($"{mapName} : SongDesc", $"{GetMapRoot(mapNameLower)}/songdesc.tpl", "JD_SongDescComponent")
+        ], sceneConfig: MapSceneConfig());
     }
 
     public object GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""MusicTrack"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/audio/{mapNameLower}_musictrack.tpl"">
-				<COMPONENTS NAME=""MusicTrackComponent"">
-					<MusicTrackComponent />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene(
+            SimpleSceneActor(
+                "MusicTrack",
+                $"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}_musictrack.tpl",
+                "MusicTrackComponent"));
     }
 
     public object GenerateTimelineScene(IntermediateSongPackage package)
@@ -688,30 +511,17 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
 
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_dance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_dance.act"" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl"">
-				<COMPONENTS NAME=""TapeCase_Component"">
-					<TapeCase_Component />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_karaoke"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_karaoke.act"" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl"">
-				<COMPONENTS NAME=""TapeCase_Component"">
-					<TapeCase_Component />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene(
+            SimpleSceneActor(
+                $"{mapName}_tml_dance",
+                $"{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_dance.tpl",
+                "TapeCase_Component",
+                $"{mapNameLower}_tml_dance.act"),
+            SimpleSceneActor(
+                $"{mapName}_tml_karaoke",
+                $"{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_karaoke.tpl",
+                "TapeCase_Component",
+                $"{mapNameLower}_tml_karaoke.act"));
     }
 
     public object GenerateCinematicsScene(IntermediateSongPackage package)
@@ -719,23 +529,16 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
 
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_MainSequence"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.act"" LUA=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl"">
-				<COMPONENTS NAME=""MasterTape"">
-					<MasterTape bankState=""4294967295"" />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        UbiArtXmlNode masterTape = UbiArtXmlDocumentWriter.Component(
+            "MasterTape",
+            UbiArtXmlDocumentWriter.Node("MasterTape", new { bankState = 4294967295u }));
+        return Scene(UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            UbiArtXmlDocumentWriter.StandardActorAttributes(
+                $"{mapName}_MainSequence",
+                $"{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.tpl",
+                $"{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.act"),
+            masterTape));
     }
 
     public object GenerateMenuArtScene(IntermediateSongPackage package)
@@ -743,61 +546,23 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
 
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""1"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""0.3 0.3"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_cover_generic"" POS2D=""100.0 100.0"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl"">
-				<COMPONENTS NAME=""MaterialGraphicComponent"">
-					<MaterialGraphicComponent>
-						<material>
-							<GFXMaterialSerializable>
-								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_generic.tga"" />
-								</textureSet>
-							</GFXMaterialSerializable>
-						</material>
-					</MaterialGraphicComponent>
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""0.3 0.3"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_coach_1"" POS2D=""400.0 100.0"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl"">
-				<COMPONENTS NAME=""MaterialGraphicComponent"">
-					<MaterialGraphicComponent>
-						<material>
-							<GFXMaterialSerializable>
-								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_coach_1.tga"" />
-								</textureSet>
-							</GFXMaterialSerializable>
-						</material>
-					</MaterialGraphicComponent>
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""0.5 0.25"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_map_bkg"" POS2D=""700.0 100.0"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl"">
-				<COMPONENTS NAME=""MaterialGraphicComponent"">
-					<MaterialGraphicComponent>
-						<material>
-							<GFXMaterialSerializable>
-								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_map_bkg.tga"" />
-								</textureSet>
-							</GFXMaterialSerializable>
-						</material>
-					</MaterialGraphicComponent>
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene([
+            MaterialSceneActor(
+                $"{mapName}_cover_generic",
+                $"{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_cover_generic.tga",
+                "0.3 0.3",
+                "100.0 100.0"),
+            MaterialSceneActor(
+                $"{mapName}_coach_1",
+                $"{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_coach_1.tga",
+                "0.3 0.3",
+                "400.0 100.0"),
+            MaterialSceneActor(
+                $"{mapName}_map_bkg",
+                $"{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_map_bkg.tga",
+                "0.5 0.25",
+                "700.0 100.0")
+        ], viewFamily: true);
     }
 
     public object GenerateAutodanceScene(IntermediateSongPackage package)
@@ -805,57 +570,22 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
 
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_Autodance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl"">
-				<COMPONENTS NAME=""JD_AutodanceComponent"">
-					<JD_AutodanceComponent />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene(SimpleSceneActor(
+            $"{mapName}_Autodance",
+            $"{GetMapRoot(mapNameLower)}/autodance/{mapNameLower}_autodance.tpl",
+            "JD_AutodanceComponent"));
     }
 
     public object GenerateGraphScene(string mapName)
     {
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene();
     }
 
     public object GenerateVideoScene(string mapName)
     {
-        string mapNameLower = mapName.ToLowerInvariant();
-
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_video"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""video_player_main.act"">
-			</Actor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"" />
-		</sceneConfigs>
-	</Scene>
-</root>
-";
-        return ToBytes(content);
+        return Scene(UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            UbiArtXmlDocumentWriter.StandardActorAttributes($"{mapName}_video", "", "video_player_main.act")));
     }
 
     public object GenerateVideoMapPreviewScene(string mapName)
@@ -870,21 +600,11 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 
     public object GenerateVideoPlayerActor(string mapName, bool isPreview)
     {
-        // Not typically needed for Uncooked - return empty actor
         string mapNameLower = mapName.ToLowerInvariant();
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor\",");
-        sb.AppendLine("  Actor =");
-        sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.tpl\",");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-        return ToBytes(sb.ToString());
+        string videoFileName = string.IsNullOrWhiteSpace(VideoFileName) ? $"{mapNameLower}.webm" : VideoFileName;
+        return Lua(Actor(
+            "world/_common/videoscreen/video_player_main.tpl",
+            new { NAME = "PleoComponent", PleoComponent = new { Video = $"{GetMapRoot(mapNameLower)}/videoscoach/{videoFileName}" } }));
     }
 
     public object GenerateMpd()
@@ -896,68 +616,179 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
     public object GenerateAutodanceActor(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor\",");
-        sb.AppendLine("  Actor =");
-        sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl\",");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"JD_AutodanceComponent\",");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-        return ToBytes(sb.ToString());
+        return Lua(Actor(
+            $"{GetMapRoot(mapNameLower)}/autodance/{mapNameLower}_autodance.tpl",
+            new Dictionary<string, object?> { ["NAME"] = "JD_AutodanceComponent" }));
     }
 
     public object GenerateMenuArtActor(string textureName, string mapName)
     {
-        // Menu art actors are not typically needed for uncooked
         string mapNameLower = mapName.ToLowerInvariant();
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        sb.AppendLine("{");
-        sb.AppendLine("  NAME = \"Actor\",");
-        sb.AppendLine("  Actor =");
-        sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/menuart/actors/{textureName}.tpl\",");
-        sb.AppendLine("    COMPONENTS =");
-        sb.AppendLine("    {");
-        sb.AppendLine("      {");
-        sb.AppendLine("        NAME = \"MaterialGraphicComponent\",");
-        sb.AppendLine("      },");
-        sb.AppendLine("    },");
-        sb.AppendLine("  },");
-        sb.AppendLine("}");
-        return sb.ToString();
+        object component = new
+        {
+            NAME = "MaterialGraphicComponent",
+            MaterialGraphicComponent = new
+            {
+                material = new
+                {
+                    GFXMaterialSerializable = new
+                    {
+                        textureSet = new
+                        {
+                            GFXMaterialTexturePathSet = new
+                            {
+                                diffuse = $"{GetMapRoot(mapNameLower)}/menuart/textures/{textureName}.tga"
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        return LuaDocumentWriter.Write(Actor("enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl", component));
     }
 
     #endregion
 
     #region Helper Methods
 
-    private static string EscapeLuaString(string value)
+    private string GetMapRoot(string mapNameLower) => version switch
     {
-        return value
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("\n", "\\n")
-            .Replace("\r", "\\r")
-            .Replace("\t", "\\t");
-    }
+        UbiArtEngineVersion.JD2014 => $"world/maps/jd5/{mapNameLower}",
+        UbiArtEngineVersion.JD2015 => $"world/maps/jd2015/{mapNameLower}",
+        _ => $"world/maps/{mapNameLower}"
+    };
 
     private static string ParseColorToHex(string hexColor)
     {
-        if (string.IsNullOrEmpty(hexColor) || hexColor.Length < 7)
-            return "0xFFFF8080";
+        return ToUbiArtColor(hexColor);
+    }
 
-        // Strip leading '#' and prepend with '0xFF'
-        string hex = hexColor.TrimStart('#');
-        return $"0xFF{hex}";
+    private static void AddSongColor(List<object> colors, IntermediateSongPackage package, string metadataKey, string ubiArtKey)
+    {
+        if (package.Metadata.AdditionalMetadata.TryGetValue(metadataKey, out string? color) && !string.IsNullOrWhiteSpace(color))
+            colors.Add(new { KEY = ubiArtKey, VAL = ToUbiArtColor(color) });
+    }
+
+    private static byte[] Lua(object value, string assignment = "params", IEnumerable<string>? includes = null) =>
+        ToBytes(LuaDocumentWriter.Write(value, assignment, includes));
+
+    private static object ActorTemplate(string componentName, object componentValue)
+    {
+        Dictionary<string, object?> component = new(StringComparer.Ordinal)
+        {
+            ["NAME"] = componentName,
+            [componentName] = componentValue
+        };
+        return new
+        {
+            NAME = "Actor_Template",
+            Actor_Template = new { COMPONENTS = new object[] { component } }
+        };
+    }
+
+    private static object Actor(string luaPath, params object[] components) => new
+    {
+        NAME = "Actor",
+        Actor = new { LUA = luaPath, COMPONENTS = components }
+    };
+
+    private static byte[] Scene(params UbiArtXmlNode[] actors) => Scene((IEnumerable<UbiArtXmlNode>)actors);
+
+    private static byte[] Scene(
+        IEnumerable<UbiArtXmlNode> actors,
+        bool viewFamily = false,
+        UbiArtXmlNode? sceneConfig = null)
+    {
+        List<UbiArtXmlNode> children = [.. actors];
+        children.Add(sceneConfig ?? UbiArtXmlDocumentWriter.DefaultSceneConfig());
+        return UbiArtXmlDocumentWriter.Write(UbiArtXmlDocumentWriter.Scene(children, viewFamily));
+    }
+
+    private static UbiArtXmlNode SimpleSceneActor(
+        string userFriendly,
+        string luaPath,
+        string componentName,
+        string instanceDataFile = "") =>
+        UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            UbiArtXmlDocumentWriter.StandardActorAttributes(userFriendly, luaPath, instanceDataFile),
+            UbiArtXmlDocumentWriter.Component(componentName));
+
+    private static UbiArtXmlNode SubSceneActor(string userFriendly, string relativePath) =>
+        UbiArtXmlDocumentWriter.Actor(
+            "SubSceneActor",
+            new
+            {
+                RELATIVEZ = "0.000000",
+                SCALE = "1.000000 1.000000",
+                xFLIPPED = 0,
+                USERFRIENDLY = userFriendly,
+                MARKER = "",
+                DEFAULTENABLE = 1,
+                POS2D = "0.000000 0.000000",
+                ANGLE = "0.000000",
+                INSTANCEDATAFILE = "enginedata/actortemplates/subscene.tpl",
+                LUA = "enginedata/actortemplates/subscene.tpl",
+                RELATIVEPATH = relativePath,
+                EMBED_SCENE = 0,
+                IS_SINGLE_PIECE = 0,
+                ZFORCED = 1,
+                DIRECT_PICKING = 1
+            },
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "viewType", SEL = 2 }));
+
+    private static UbiArtXmlNode MaterialSceneActor(
+        string userFriendly,
+        string texturePath,
+        string scale,
+        string position)
+    {
+        UbiArtXmlNode material = UbiArtXmlDocumentWriter.Node(
+            "material",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "GFXMaterialSerializable",
+                null,
+                UbiArtXmlDocumentWriter.Node(
+                    "textureSet",
+                    null,
+                    UbiArtXmlDocumentWriter.Node("GFXMaterialTexturePathSet", new { diffuse = texturePath }))));
+        return UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            UbiArtXmlDocumentWriter.StandardActorAttributes(
+                userFriendly,
+                "enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl",
+                scale: scale,
+                position: position),
+            UbiArtXmlDocumentWriter.Component("MaterialGraphicComponent", material));
+    }
+
+    private static UbiArtXmlNode MapSceneConfig()
+    {
+        UbiArtXmlNode config = UbiArtXmlDocumentWriter.Node(
+            "JD_MapSceneConfig",
+            new { name = "", soundContext = "", hud = 0 },
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "Pause_Level", SEL = 6 }),
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "type", SEL = 1 }),
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "musicscore", SEL = 2 }));
+        return UbiArtXmlDocumentWriter.Node(
+            "sceneConfigs",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "SceneConfigs",
+                new { activeSceneConfig = 0 },
+                UbiArtXmlDocumentWriter.Node("sceneConfigs", new { NAME = "JD_MapSceneConfig" }, config)));
+    }
+
+    private static string ToUbiArtColor(string color)
+    {
+        string hex = color.Trim().TrimStart('#');
+        return hex.Length switch
+        {
+            8 => $"0x{hex[6..8]}{hex[..6]}",
+            6 => $"0xFF{hex}",
+            _ => "0xFFFF8080"
+        };
     }
 
     private static int GetStartTime(object clip)
