@@ -6,7 +6,6 @@ using KevInc.UbiArt.FileSystem;
 using NLua;
 
 using System.Collections;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -394,88 +393,7 @@ public static partial class LuaTableSerializer
         throw new InvalidDataException("Could not extract MusicTrack from Actor_Template structure.");
     }
 
-    public static string Serialize<T>(T obj)
-    {
-        // For now, let's implement a basic LUA table generator
-        // This is complex for general objects, but we can handle our specific types
-        StringBuilder sb = new();
-        sb.AppendLine("params =");
-        SerializeObject(sb, obj, 0);
-        return sb.ToString();
-    }
-
-    private static void SerializeObject(StringBuilder sb, object? obj, int indent)
-    {
-        if (obj == null)
-        {
-            sb.Append("nil");
-            return;
-        }
-
-        string indentation = new(' ', indent * 2);
-
-        if (obj is IDictionary dict)
-        {
-            sb.AppendLine("{");
-            foreach (DictionaryEntry entry in dict)
-            {
-                sb.Append(indentation + "  ");
-                sb.Append(entry.Key + " = ");
-                SerializeObject(sb, entry.Value, indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else if (obj is IEnumerable list and not string)
-        {
-            sb.AppendLine("{");
-            foreach (object? item in list)
-            {
-                sb.Append(indentation + "  ");
-                SerializeObject(sb, item, indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else if (obj is string s)
-        {
-            sb.Append($"\"{s}\"");
-        }
-        else if (obj is bool b)
-        {
-            sb.Append(b ? "true" : "false");
-        }
-        else if (obj.GetType().IsPrimitive || obj is decimal || obj is float || obj is double)
-        {
-            // Use CultureInfo.InvariantCulture to ensure dot as decimal separator
-            if (obj is IConvertible conv)
-                sb.Append(conv.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            else
-                sb.Append(obj.ToString());
-        }
-        else if (obj.GetType().IsClass || obj.GetType().IsValueType)
-        {
-            // Handle anonymous types or classes
-            sb.AppendLine("{");
-            foreach (PropertyInfo prop in obj.GetType().GetProperties())
-            {
-                if (prop.GetIndexParameters().Length > 0)
-                    continue; // Skip indexed properties
-                sb.Append(indentation + "  ");
-                sb.Append(prop.Name + " = ");
-                SerializeObject(sb, prop.GetValue(obj), indent + 1);
-                sb.AppendLine(",");
-            }
-
-            sb.Append(indentation + "}");
-        }
-        else
-        {
-            sb.Append(obj.ToString());
-        }
-    }
+    public static string Serialize<T>(T obj) => LuaDocumentWriter.Write(obj);
 
     private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
     {

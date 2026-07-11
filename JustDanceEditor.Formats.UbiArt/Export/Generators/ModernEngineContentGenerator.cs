@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Model;
+using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using System.Globalization;
 using System.Text;
@@ -18,7 +19,6 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     };
 
     private byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
-    private static string ToText(object content) => Encoding.UTF8.GetString(UbiArtEngineContentSerializer.Serialize(content));
 
     #region JSON/Lua Generators
 
@@ -594,207 +594,148 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-	<Scene ENGINE_VERSION=""326704"" GRIDUNIT=""2.000000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-		<PLATFORM_FILTER>
-			<TargetFilterList platform=""WII"">
-				<objects VAL=""{mapName}_AUTODANCE"" />
-			</TargetFilterList>
-		</PLATFORM_FILTER>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateAudioScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateCinematicsScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_GRAPH"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/graph/{mapNameLower}_graph.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateGraphScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateTimelineScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_VIDEO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateVideoScene(mapName)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName} : SongDesc"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-3.531976 -1.485322"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/songdesc.tpl"">
-				<COMPONENTS NAME=""JD_SongDescComponent"">
-					<JD_SongDescComponent />
-				</COMPONENTS>
-			</Actor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_menuart"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/menuart/{mapNameLower}_menuart.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""3"" />
-				<SCENE>
-					{ToText(GenerateMenuArtScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUTODANCE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -0.033823"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.isc"" EMBED_SCENE=""1"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"" IGNORE_SAVE=""0"">
-				<ENUM NAME=""viewType"" SEL=""2"" />
-				<SCENE>
-					{ToText(GenerateAutodanceScene(package)).Replace("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\r\n<root>\r\n", "").Replace("</root>\r\n", "")}
-				</SCENE>
-			</SubSceneActor>
-		</ACTORS>
-		<sceneConfigs>
-			<SceneConfigs activeSceneConfig=""0"">
-				<sceneConfigs NAME=""JD_MapSceneConfig"">
-					<JD_MapSceneConfig name="""" soundContext="""" hud=""0"">
-						<ENUM NAME=""Pause_Level"" SEL=""6"" />
-						<ENUM NAME=""type"" SEL=""1"" />
-						<ENUM NAME=""musicscore"" SEL=""2"" />
-					</JD_MapSceneConfig>
-				</sceneConfigs>
-			</SceneConfigs>
-		</sceneConfigs>
-	</Scene>
-</root>";
-        return ToBytes(content);
+        List<UbiArtXmlNode> children =
+        [
+            PlatformFilter("WII", $"{mapName}_AUTODANCE"),
+            EmbeddedSubScene($"{mapName}_AUDIO", $"world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc", GenerateAudioScene(package)),
+            EmbeddedSubScene($"{mapName}_CINE", $"world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc", GenerateCinematicsScene(package)),
+            EmbeddedSubScene($"{mapName}_GRAPH", $"world/maps/{mapNameLower}/graph/{mapNameLower}_graph.isc", GenerateGraphScene(mapName)),
+            EmbeddedSubScene($"{mapName}_TML", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc", GenerateTimelineScene(package)),
+            EmbeddedSubScene($"{mapName}_VIDEO", $"world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.isc", GenerateVideoScene(mapName)),
+            ModernActor(
+                $"{mapName} : SongDesc",
+                $"world/maps/{mapNameLower}/songdesc.tpl",
+                "JD_SongDescComponent",
+                position: "-3.531976 -1.485322"),
+            EmbeddedSubScene(
+                $"{mapName}_menuart",
+                $"world/maps/{mapNameLower}/menuart/{mapNameLower}_menuart.isc",
+                GenerateMenuArtScene(package),
+                viewType: 3),
+            EmbeddedSubScene(
+                $"{mapName}_AUTODANCE",
+                $"world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.isc",
+                GenerateAutodanceScene(package),
+                position: "0.000000 -0.033823"),
+            ModernMapSceneConfig()
+        ];
+        UbiArtSceneSettings settings = new("326704", "2.000000", ViewFamily: 0, IsPopup: 0);
+        return UbiArtXmlDocumentWriter.Write(UbiArtXmlDocumentWriter.Scene(children, settings));
     }
-
     public object GenerateAudioScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""MusicTrack"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""1.125962 -0.418641"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/audio/{mapNameLower}_musictrack.tpl""><COMPONENTS NAME=""MusicTrackComponent""><MusicTrackComponent /></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000001"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_sequence"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-0.006158 -0.006158"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/audio/{mapNameLower}_sequence.tpl""><COMPONENTS NAME=""TapeCase_Component""><TapeCase_Component /></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        return ModernScene(
+            ModernActor("MusicTrack", $"world/maps/{mapNameLower}/audio/{mapNameLower}_musictrack.tpl", "MusicTrackComponent", position: "1.125962 -0.418641"),
+            ModernActor($"{package.Metadata.MapName}_sequence", $"world/maps/{mapNameLower}/audio/{mapNameLower}_sequence.tpl", "TapeCase_Component", relativeZ: "0.000001", position: "-0.006158 -0.006158"));
     }
 
     public object GenerateTimelineScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000001"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_tml_dance"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-1.157740 0.006158"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl""><COMPONENTS NAME=""TapeCase_Component""><TapeCase_Component /></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000001"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_tml_karaoke"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-1.157740 0.006158"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl""><COMPONENTS NAME=""TapeCase_Component""><TapeCase_Component /></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        return ModernScene(
+            ModernActor($"{package.Metadata.MapName}_tml_dance", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl", "TapeCase_Component", relativeZ: "0.000001", position: "-1.157740 0.006158"),
+            ModernActor($"{package.Metadata.MapName}_tml_karaoke", $"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl", "TapeCase_Component", relativeZ: "0.000001", position: "-1.157740 0.006158"));
     }
 
     public object GenerateCinematicsScene(IntermediateSongPackage package)
     {
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{package.Metadata.MapName}_MainSequence"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl""><COMPONENTS NAME=""MasterTape""><MasterTape /></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        return ModernScene(ModernActor(
+            $"{package.Metadata.MapName}_MainSequence",
+            $"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl",
+            "MasterTape"));
     }
 
     public object GenerateMenuArtScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""1"" isPopup=""0"">
-        <PLATFORM_FILTER><TargetFilterList platform=""WIIU""><objects VAL=""{mapName}_cover_generic"" /><objects VAL=""{mapName}_cover_albumbkg"" /></TargetFilterList></PLATFORM_FILTER>
-        <PLATFORM_FILTER><TargetFilterList platform=""ORBIS""><objects VAL=""{mapName}_cover_generic"" /><objects VAL=""{mapName}_cover_albumbkg"" /></TargetFilterList></PLATFORM_FILTER>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""0.300000 0.300000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_cover_generic"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""266.087555 197.629959"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_generic.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""0.300000 0.300000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_cover_online"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""-150.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_online.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""0.300000 0.300000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_cover_albumcoach"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""738.106323 359.612030"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_albumcoach.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""0.300000 0.300000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_cover_albumbkg"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""1067.972168 201.986328"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_albumbkg.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""256.000000 128.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_banner_bkg"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""1487.410156 -32.732918"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_banner_bkg.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""0.290211 0.290211"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_coach_1"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""212.784500 663.680176"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_coach_1.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""256.000000 128.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_map_bkg"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""1487.410034 350.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl""><COMPONENTS NAME=""MaterialGraphicComponent""><MaterialGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_map_bkg.tga"" /></textureSet></GFXMaterialSerializable></material></MaterialGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        string textureRoot = $"world/maps/{mapNameLower}/menuart/textures";
+        List<UbiArtXmlNode> children =
+        [
+            PlatformFilter("WIIU", $"{mapName}_cover_generic", $"{mapName}_cover_albumbkg"),
+            PlatformFilter("ORBIS", $"{mapName}_cover_generic", $"{mapName}_cover_albumbkg"),
+            ModernMaterialActor($"{mapName}_cover_generic", $"{textureRoot}/{mapNameLower}_cover_generic.tga", "0.300000 0.300000", "266.087555 197.629959"),
+            ModernMaterialActor($"{mapName}_cover_online", $"{textureRoot}/{mapNameLower}_cover_online.tga", "0.300000 0.300000", "-150.000000 0.000000"),
+            ModernMaterialActor($"{mapName}_cover_albumcoach", $"{textureRoot}/{mapNameLower}_cover_albumcoach.tga", "0.300000 0.300000", "738.106323 359.612030"),
+            ModernMaterialActor($"{mapName}_cover_albumbkg", $"{textureRoot}/{mapNameLower}_cover_albumbkg.tga", "0.300000 0.300000", "1067.972168 201.986328"),
+            ModernMaterialActor($"{mapName}_banner_bkg", $"{textureRoot}/{mapNameLower}_banner_bkg.tga", "256.000000 128.000000", "1487.410156 -32.732918"),
+            ModernMaterialActor($"{mapName}_coach_1", $"{textureRoot}/{mapNameLower}_coach_1.tga", "0.290211 0.290211", "212.784500 663.680176"),
+            ModernMaterialActor($"{mapName}_map_bkg", $"{textureRoot}/{mapNameLower}_map_bkg.tga", "256.000000 128.000000", "1487.410034 350.000000"),
+            UbiArtXmlDocumentWriter.DefaultSceneConfig()
+        ];
+        UbiArtSceneSettings settings = new("326704", "0.500000", ViewFamily: 1, IsPopup: 0);
+        return UbiArtXmlDocumentWriter.Write(UbiArtXmlDocumentWriter.Scene(children, settings));
     }
-
     public object GenerateAutodanceScene(IntermediateSongPackage package)
     {
         string mapName = package.Metadata.MapName;
         string mapNameLower = mapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_Autodance"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl""><COMPONENTS NAME=""JD_AutodanceComponent""><JD_AutodanceComponent /></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        return ModernScene(ModernActor(
+            $"{mapName}_Autodance",
+            $"world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl",
+            "JD_AutodanceComponent"));
     }
 
     public object GenerateGraphScene(string mapName)
     {
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""10.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""Camera_JD_Dummy"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/tpl_emptyactor.tpl"" LUA=""enginedata/actortemplates/tpl_emptyactor.tpl"" /></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        return ModernScene(UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            ModernActorAttributes(
+                "Camera_JD_Dummy",
+                "enginedata/actortemplates/tpl_emptyactor.tpl",
+                instanceDataFile: "enginedata/actortemplates/tpl_emptyactor.tpl",
+                relativeZ: "10.000000")));
     }
 
     public object GenerateVideoScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""-1.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""VideoScreen"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -4.500000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/_common/videoscreen/video_player_main.tpl""><COMPONENTS NAME=""PleoComponent""><PleoComponent video=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm"" dashMPD=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd"" /></COMPONENTS></Actor></ACTORS>
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""0.000000"" SCALE=""3.941238 2.220000"" xFLIPPED=""0"" USERFRIENDLY=""VideoOutput"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/_common/videoscreen/video_output_main.tpl""><COMPONENTS NAME=""PleoTextureGraphicComponent""><PleoTextureGraphicComponent><material><GFXMaterialSerializable><textureSet><GFXMaterialTexturePathSet /></textureSet></GFXMaterialSerializable></material></PleoTextureGraphicComponent></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        UbiArtXmlNode pleo = UbiArtXmlDocumentWriter.Component(
+            "PleoComponent",
+            UbiArtXmlDocumentWriter.Node("PleoComponent", new
+            {
+                video = $"world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm",
+                dashMPD = $"world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd"
+            }));
+        UbiArtXmlNode material = UbiArtXmlDocumentWriter.Node(
+            "material",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "GFXMaterialSerializable",
+                null,
+                UbiArtXmlDocumentWriter.Node(
+                    "textureSet",
+                    null,
+                    UbiArtXmlDocumentWriter.Node("GFXMaterialTexturePathSet"))));
+        UbiArtXmlNode output = UbiArtXmlDocumentWriter.Component("PleoTextureGraphicComponent", material);
+        return ModernScene(
+            UbiArtXmlDocumentWriter.Actor(
+                "Actor",
+                ModernActorAttributes("VideoScreen", "world/_common/videoscreen/video_player_main.tpl", relativeZ: "-1.000000", position: "0.000000 -4.500000"),
+                pleo),
+            UbiArtXmlDocumentWriter.Actor(
+                "Actor",
+                ModernActorAttributes("VideoOutput", "world/_common/videoscreen/video_output_main.tpl", scale: "3.941238 2.220000"),
+                output));
     }
 
     public object GenerateVideoMapPreviewScene(string mapName)
     {
         string mapNameLower = mapName.ToLowerInvariant();
-        string content = $@"<?xml version=""1.0"" encoding=""ISO-8859-1""?>
-<root>
-    <Scene ENGINE_VERSION=""326704"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" viewFamily=""0"" isPopup=""0"">
-        <ACTORS NAME=""Actor""><Actor RELATIVEZ=""-1.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""VideoScreen"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 -4.500000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/_common/videoscreen/video_player_map_preview.tpl""><COMPONENTS NAME=""PleoComponent""><PleoComponent video=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm"" dashMPD=""world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd"" channelID=""{mapName}"" /></COMPONENTS></Actor></ACTORS>
-        <sceneConfigs><SceneConfigs activeSceneConfig=""0"" /></sceneConfigs>
-    </Scene>
-</root>";
-        return ToBytes(content);
+        UbiArtXmlNode pleo = UbiArtXmlDocumentWriter.Component(
+            "PleoComponent",
+            UbiArtXmlDocumentWriter.Node("PleoComponent", new
+            {
+                video = $"world/maps/{mapNameLower}/videoscoach/{mapNameLower}.webm",
+                dashMPD = $"world/maps/{mapNameLower}/videoscoach/{mapNameLower}.mpd",
+                channelID = mapName
+            }));
+        return ModernScene(UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            ModernActorAttributes("VideoScreen", "world/_common/videoscreen/video_player_map_preview.tpl", relativeZ: "-1.000000", position: "0.000000 -4.500000"),
+            pleo));
     }
 
     #endregion
@@ -819,6 +760,130 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
     public virtual object GenerateMenuArtActor(string textureName, string mapName)
     {
         return new UbiArtMenuArtActorFile(textureName, mapName, UbiArtMenuArtActorVersion.Modern);
+    }
+
+    private static byte[] ModernScene(params UbiArtXmlNode[] actors)
+    {
+        List<UbiArtXmlNode> children = [.. actors, UbiArtXmlDocumentWriter.DefaultSceneConfig()];
+        UbiArtSceneSettings settings = new("326704", "0.500000", ViewFamily: 0, IsPopup: 0);
+        return UbiArtXmlDocumentWriter.Write(UbiArtXmlDocumentWriter.Scene(children, settings));
+    }
+
+    private static UbiArtXmlNode ModernActor(
+        string userFriendly,
+        string lua,
+        string componentName,
+        string relativeZ = "0.000000",
+        string position = "0.000000 0.000000") =>
+        UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            ModernActorAttributes(userFriendly, lua, relativeZ: relativeZ, position: position),
+            UbiArtXmlDocumentWriter.Component(componentName));
+
+    private static object ModernActorAttributes(
+        string userFriendly,
+        string lua,
+        string instanceDataFile = "",
+        string relativeZ = "0.000000",
+        string scale = "1.000000 1.000000",
+        string position = "0.000000 0.000000") => new
+    {
+        RELATIVEZ = relativeZ,
+        SCALE = scale,
+        xFLIPPED = 0,
+        USERFRIENDLY = userFriendly,
+        MARKER = "",
+        DEFAULTENABLE = 1,
+        POS2D = position,
+        ANGLE = "0.000000",
+        INSTANCEDATAFILE = instanceDataFile,
+        LUA = lua
+    };
+
+    private static UbiArtXmlNode PlatformFilter(string platform, params string[] objects) =>
+        UbiArtXmlDocumentWriter.Node(
+            "PLATFORM_FILTER",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "TargetFilterList",
+                new { platform },
+                [.. objects.Select(value => UbiArtXmlDocumentWriter.Node("objects", new { VAL = value }))]));
+
+    private static UbiArtXmlNode EmbeddedSubScene(
+        string userFriendly,
+        string relativePath,
+        object sceneContent,
+        int viewType = 2,
+        string position = "0.000000 0.000000")
+    {
+        UbiArtXmlNode root = UbiArtXmlDocumentWriter.Read(UbiArtEngineContentSerializer.Serialize(sceneContent));
+        UbiArtXmlNode scene = root.Children.Single(child => child.Name == "Scene");
+        return UbiArtXmlDocumentWriter.Actor(
+            "SubSceneActor",
+            new
+            {
+                RELATIVEZ = "0.000000",
+                SCALE = "1.000000 1.000000",
+                xFLIPPED = 0,
+                USERFRIENDLY = userFriendly,
+                MARKER = "",
+                DEFAULTENABLE = 1,
+                POS2D = position,
+                ANGLE = "0.000000",
+                INSTANCEDATAFILE = "enginedata/actortemplates/subscene.tpl",
+                LUA = "enginedata/actortemplates/subscene.tpl",
+                RELATIVEPATH = relativePath,
+                EMBED_SCENE = 1,
+                IS_SINGLE_PIECE = 0,
+                ZFORCED = 1,
+                DIRECT_PICKING = 1,
+                IGNORE_SAVE = 0
+            },
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "viewType", SEL = viewType }),
+            UbiArtXmlDocumentWriter.Node("SCENE", null, scene));
+    }
+
+    private static UbiArtXmlNode ModernMaterialActor(
+        string userFriendly,
+        string texturePath,
+        string scale,
+        string position)
+    {
+        UbiArtXmlNode material = UbiArtXmlDocumentWriter.Node(
+            "material",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "GFXMaterialSerializable",
+                null,
+                UbiArtXmlDocumentWriter.Node(
+                    "textureSet",
+                    null,
+                    UbiArtXmlDocumentWriter.Node("GFXMaterialTexturePathSet", new { diffuse = texturePath }))));
+        return UbiArtXmlDocumentWriter.Actor(
+            "Actor",
+            ModernActorAttributes(
+                userFriendly,
+                "enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl",
+                scale: scale,
+                position: position),
+            UbiArtXmlDocumentWriter.Component("MaterialGraphicComponent", material));
+    }
+
+    private static UbiArtXmlNode ModernMapSceneConfig()
+    {
+        UbiArtXmlNode mapConfig = UbiArtXmlDocumentWriter.Node(
+            "JD_MapSceneConfig",
+            new { name = "", soundContext = "", hud = 0 },
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "Pause_Level", SEL = 6 }),
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "type", SEL = 1 }),
+            UbiArtXmlDocumentWriter.Node("ENUM", new { NAME = "musicscore", SEL = 2 }));
+        return UbiArtXmlDocumentWriter.Node(
+            "sceneConfigs",
+            null,
+            UbiArtXmlDocumentWriter.Node(
+                "SceneConfigs",
+                new { activeSceneConfig = 0 },
+                UbiArtXmlDocumentWriter.Node("sceneConfigs", new { NAME = "JD_MapSceneConfig" }, mapConfig)));
     }
 
     private static float[] ConvertColorToArray(string hexColor)

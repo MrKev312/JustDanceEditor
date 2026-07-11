@@ -96,12 +96,14 @@ public class SongDataLoaderTests
         File.WriteAllText(Path.Combine(mapsFolder, "cinematics", "song_mainsequence.tape"), "{ \"Clips\": [] }");
         Directory.CreateDirectory(Path.Combine(mapsFolder, "timeline"));
         File.WriteAllText(Path.Combine(mapsFolder, "timeline", "song_tml_dance.dtape"), "{ \"Clips\": [] }");
+        File.WriteAllText(Path.Combine(mapsFolder, "timeline", "song_tml_karaoke.ktape"), "{ \"Clips\": [] }");
         File.WriteAllText(Path.Combine(mapsFolder, "timeline", "song_tml.isc"), "<Timeline><Actor USERFRIENDLY=\"song_tml_karaoke\" LUA=\"karaoke_actor.tpl\" /></Timeline>");
 
         Directory.CreateDirectory(Path.Combine(flatSongFolder, "cinematics"));
         File.WriteAllText(Path.Combine(flatSongFolder, "cinematics", "song_mainsequence.tape"), "{ \"Clips\": [] }");
         Directory.CreateDirectory(Path.Combine(flatSongFolder, "timeline"));
         File.WriteAllText(Path.Combine(flatSongFolder, "timeline", "song_tml_dance.dtape"), "{ \"Clips\": [] }");
+        File.WriteAllText(Path.Combine(flatSongFolder, "timeline", "song_tml_karaoke.ktape"), "{ \"Clips\": [] }");
         File.WriteAllText(Path.Combine(flatSongFolder, "timeline", "song_tml.isc"), "<Timeline><Actor USERFRIENDLY=\"song_tml_karaoke\" LUA=\"karaoke_actor.tpl\" /></Timeline>");
 
         // Create karaoke actor and tape referenced by it
