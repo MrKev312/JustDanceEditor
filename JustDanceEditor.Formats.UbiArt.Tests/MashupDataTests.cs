@@ -123,12 +123,7 @@ public sealed class MashupDataTests
             Path.Combine("world", "jd5", "_mashup", "cinematics"),
             mashup,
             timeline,
-            UbiArtEngineVersion.JD2014,
-            transitionTapeLeadFrames: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["coach_move_1.tape"] = 10,
-                ["coach_move_2.tape"] = 10
-            });
+            UbiArtEngineVersion.JD2014);
 
         Assert.Equal(6, visits.Count);
         Assert.EndsWith(Path.Combine("cinematics", "init.tape"), visits[0].Path);
@@ -142,37 +137,37 @@ public sealed class MashupDataTests
         Assert.Equal(168, visits[2].TimeOffsetFrames);
         Assert.Equal(384, visits[2].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "coach_move_1.tape"), visits[3].Path);
-        Assert.Equal(158, visits[3].TimeOffsetFrames);
+        Assert.Equal(144, visits[3].TimeOffsetFrames);
         Assert.Null(visits[3].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "color_blue.tape"), visits[4].Path);
         Assert.Equal(552, visits[4].TimeOffsetFrames);
         Assert.Equal(504, visits[4].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "coach_move_2.tape"), visits[5].Path);
-        Assert.Equal(542, visits[5].TimeOffsetFrames);
+        Assert.Equal(528, visits[5].TimeOffsetFrames);
         Assert.Null(visits[5].DurationFrames);
 
         IReadOnlyList<TapeVisit> fxVisits = MashupTransitionFxScheduler.BuildTransitionFxTapeVisits(
             Path.Combine("world", "jd5", "_mashup", "cinematics"),
             mashup,
             timeline,
-            UbiArtEngineVersion.JD2014,
-            fxTapeLeadFrames: 10);
+            UbiArtEngineVersion.JD2014);
 
         Assert.Equal(4, fxVisits.Count);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[0].Path);
-        Assert.Equal(152, fxVisits[0].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[0].TimeOffsetFrames);
         Assert.Null(fxVisits[0].DurationFrames);
         Assert.Contains("x_lines_2x5", fxVisits[0].TargetFilter!.IncludeKeyContains);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[1].Path);
-        Assert.Equal(152, fxVisits[1].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[1].TimeOffsetFrames);
         Assert.Null(fxVisits[1].DurationFrames);
         Assert.Contains("x_lines_2x5", fxVisits[1].TargetFilter!.ExcludeKeyContains);
+        Assert.Contains("x_mashup_godrayscreen", fxVisits[1].TargetFilter.ExcludeKeyContains);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[2].Path);
-        Assert.Equal(536, fxVisits[2].TimeOffsetFrames);
+        Assert.Equal(528, fxVisits[2].TimeOffsetFrames);
         Assert.Null(fxVisits[2].DurationFrames);
         Assert.Contains("x_lines_2x5", fxVisits[2].TargetFilter!.IncludeKeyContains);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[3].Path);
-        Assert.Equal(536, fxVisits[3].TimeOffsetFrames);
+        Assert.Equal(528, fxVisits[3].TimeOffsetFrames);
         Assert.Null(fxVisits[3].DurationFrames);
         Assert.Contains("x_lines_2x5", fxVisits[3].TargetFilter!.ExcludeKeyContains);
     }
@@ -214,18 +209,12 @@ public sealed class MashupDataTests
             Path.Combine("world", "jd5", "_mashup", "cinematics"),
             mashup,
             timeline,
-            UbiArtEngineVersion.JD2014,
-            transitionTapeLeadFrames: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["coach_move_1.tape"] = 10,
-                ["coach_move_2.tape"] = 10
-            });
+            UbiArtEngineVersion.JD2014);
         IReadOnlyList<TapeVisit> fxVisits = MashupTransitionFxScheduler.BuildTransitionFxTapeVisits(
             Path.Combine("world", "jd5", "_mashup", "cinematics"),
             mashup,
             timeline,
-            UbiArtEngineVersion.JD2014,
-            fxTapeLeadFrames: 10);
+            UbiArtEngineVersion.JD2014);
 
         int[] coachMoveOffsets =
         [
@@ -233,21 +222,21 @@ public sealed class MashupDataTests
                 .Where(visit => Path.GetFileName(visit.Path).StartsWith("coach_move_", StringComparison.OrdinalIgnoreCase))
                 .Select(visit => visit.TimeOffsetFrames)
         ];
-        Assert.Equal(new[] { 158, 926 }, coachMoveOffsets);
-        Assert.DoesNotContain(visits, visit => visit.TimeOffsetFrames == 542);
+        Assert.Equal(new[] { 144, 912 }, coachMoveOffsets);
+        Assert.DoesNotContain(visits, visit => visit.TimeOffsetFrames == 528);
 
         Assert.Equal(4, fxVisits.Count);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[0].Path);
-        Assert.Equal(152, fxVisits[0].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[0].TimeOffsetFrames);
         Assert.Null(fxVisits[0].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[1].Path);
-        Assert.Equal(152, fxVisits[1].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[1].TimeOffsetFrames);
         Assert.Null(fxVisits[1].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[2].Path);
-        Assert.Equal(920, fxVisits[2].TimeOffsetFrames);
+        Assert.Equal(912, fxVisits[2].TimeOffsetFrames);
         Assert.Null(fxVisits[2].DurationFrames);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[3].Path);
-        Assert.Equal(920, fxVisits[3].TimeOffsetFrames);
+        Assert.Equal(912, fxVisits[3].TimeOffsetFrames);
         Assert.Null(fxVisits[3].DurationFrames);
     }
 
@@ -282,12 +271,11 @@ public sealed class MashupDataTests
             Path.Combine("world", "jd5", "_mashup", "cinematics"),
             mashup,
             timeline,
-            UbiArtEngineVersion.JD2014,
-            fxTapeLeadFrames: 10);
+            UbiArtEngineVersion.JD2014);
 
         Assert.Equal(2, fxVisits.Count);
-        Assert.Equal(80, fxVisits[0].TimeOffsetFrames);
-        Assert.Equal(80, fxVisits[1].TimeOffsetFrames);
+        Assert.Equal(72, fxVisits[0].TimeOffsetFrames);
+        Assert.Equal(72, fxVisits[1].TimeOffsetFrames);
         Assert.Contains("x_lines_2x5", fxVisits[0].TargetFilter!.IncludeKeyContains);
         Assert.Contains("x_lines_2x5", fxVisits[1].TargetFilter!.ExcludeKeyContains);
     }

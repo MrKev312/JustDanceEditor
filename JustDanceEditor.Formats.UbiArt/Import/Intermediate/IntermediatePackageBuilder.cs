@@ -76,7 +76,9 @@ internal static class IntermediatePackageBuilder
         {
             SongID = Guid.NewGuid(),
             MapName = info.MapName,
-            ParentMapName = info.MapName,
+            ParentMapName = context.FileSystem.IsLegacyMashupSelection
+                ? context.FileSystem.LegacyMashupBaseSongName ?? info.MapName
+                : info.MapName,
             Title = info.Title,
             Artist = info.Artist,
             Credits = info.Credits,

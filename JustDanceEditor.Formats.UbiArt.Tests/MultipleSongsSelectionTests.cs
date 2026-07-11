@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import;
+using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
@@ -19,6 +20,123 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class MultipleSongsSelectionTests
 {
+    [Theory]
+    [InlineData(UbiArtPlatform.Revolution, "WII")]
+    [InlineData(UbiArtPlatform.Cafe, "WIIU")]
+    [InlineData(UbiArtPlatform.Cell, "PS3")]
+    [InlineData(UbiArtPlatform.Xenon, "X360")]
+    public void GetFilePath_LegacySongInput_ResolvesSiblingBlockFlowsPackage(UbiArtPlatform platform, string platformName)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "jde_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string inputBundle = Path.Combine(root, $"Song_{platformName}");
+            string blockFlows = Path.Combine(root, $"BlockFlows_{platformName}");
+            string sourceTimeline = Path.Combine(
+                blockFlows,
+                "cache",
+                "itf_cooked",
+                platform.GetCookedFolderName(),
+                "world",
+                "jdblocks",
+                "source_1",
+                "timeline");
+            Directory.CreateDirectory(inputBundle);
+            Directory.CreateDirectory(sourceTimeline);
+            File.WriteAllText(Path.Combine(sourceTimeline, "source_1_tml_dance.dtape.ckd"), "source timeline");
+            string sourceVideoFolder = Path.Combine(Path.GetDirectoryName(sourceTimeline)!, "videoscoach");
+            Directory.CreateDirectory(sourceVideoFolder);
+            File.WriteAllText(Path.Combine(sourceVideoFolder, $"source_1.{platform.GetCookedFolderName()}.webm"), "source video");
+
+            UbiArtConversionRequest request = new(inputBundle, Path.Combine(root, "out"), null)
+            {
+                Type = CookedType.Cooked
+            };
+            UbiArtVersionProfile profile = new(
+                platform,
+                UbiArtEngineVersion.JD2015,
+                new JD2015LayoutResolver(),
+                new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015));
+            using JustDanceUbiArtFileSystem fileSystem = new(request, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+            fileSystem.Initialize();
+
+            bool found = fileSystem.GetFilePath(
+                Path.Combine("world", "jdblocks", "source_1", "timeline", "source_1_tml_dance.dtape"),
+                out CookedFile? sourceFile);
+            LegacyMashupData mashup = new() { MapName = "testMU", BaseSongName = "test" };
+            LegacyMashupBlock block = new()
+            {
+                UsesAlternativeBlock = true,
+                SourceBlock = new LegacyMashupBlockDescriptor { SongName = "source_1", FirstBeat = 0, LastBeat = 16 }
+            };
+            bool foundVideo = MashupSourceVideoResolver.TryFindSourceVideo(fileSystem, mashup, block, out MashupSourceVideo sourceVideo);
+
+            Assert.True(found);
+            Assert.NotNull(sourceFile);
+            Assert.True(foundVideo);
+            Assert.EndsWith($"source_1.{platform.GetCookedFolderName()}.webm", sourceVideo.File.RelativePath, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public void GetAvailableSongs_DoesNotTreatEmptyLegacyMashupMarkerAsMashup()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "jde_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            string inputBundle = Path.Combine(root, "Bundle_4_WII");
+            string songFolder = Path.Combine(
+                inputBundle,
+                "cache",
+                "itf_cooked",
+                "wii",
+                "world",
+                "jd2015",
+                "happyalt");
+            string timelineFolder = Path.Combine(songFolder, "timeline");
+            Directory.CreateDirectory(timelineFolder);
+            File.WriteAllText(Path.Combine(songFolder, "songdesc.tpl.ckd"), "song desc");
+            File.WriteAllBytes(
+                Path.Combine(timelineFolder, "happyaltmu.tpl.ckd"),
+                Convert.FromHexString(
+                    "00000001000000981B857BCE0000006C00000000000000000000000000000000000000000000000000000000000000015B648E4400000028000000010000000000000000"));
+
+            UbiArtConversionRequest request = new(inputBundle, Path.Combine(root, "out"), null)
+            {
+                Type = CookedType.Cooked
+            };
+            UbiArtVersionProfile profile = new(
+                UbiArtPlatform.Revolution,
+                UbiArtEngineVersion.JD2015,
+                new JD2015LayoutResolver(),
+                new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015));
+            using JustDanceUbiArtFileSystem fileSystem = new(request, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+            fileSystem.Initialize();
+
+            (string SongName, string SongDescPath)[] songs = fileSystem.GetAvailableSongs();
+
+            Assert.Equal(["happyalt"], songs.Select(song => song.SongName));
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch { }
+        }
+    }
+
     [Fact]
     public void GetFilePath_NumberedLegacyBundle_ResolvesSharedSiblingBundleScene()
     {

@@ -2,6 +2,7 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Timeline;
 using JustDanceEditor.Formats.UbiArt.Model;
 
+using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Timeline;
 
 using Microsoft.Extensions.Logging;
@@ -14,6 +15,9 @@ internal sealed record MashupTransitionTapeTimingData(
 
 internal static class MashupTransitionTapeTiming
 {
+    internal static int Jd2014TransitionLeadFrames { get; } =
+        (int)Math.Round(CinematicConstants.TapeFramesPerBeat);
+
     internal static MashupTransitionTapeTimingData Build(
         JustDanceUbiArtFileSystem fileSystem,
         LegacyMashupData mashup,
