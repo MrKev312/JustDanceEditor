@@ -41,8 +41,7 @@ internal static class MashupTransitionTapeScheduler
         MashupTransitionTapeTimingData timing = MashupTransitionTapeTiming.Build(fileSystem, mashup, resolvedLogger);
         MashupTransitionColorTapeSequence colorTapeSequence = MashupTransitionTapeDiscovery.ResolveColorTapeSequence(
             fileSystem,
-            resolvedLogger,
-            mashup.MapName);
+            resolvedLogger);
         IReadOnlyList<string> uvScrollTapeNames = MashupTransitionTapeDiscovery.ResolveUvScrollTapeSequence(
             fileSystem,
             resolvedLogger);
