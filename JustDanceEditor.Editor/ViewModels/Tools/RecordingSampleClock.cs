@@ -1,8 +1,6 @@
 using JustDanceEditor.Editor.Services.Motion;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 
-using System;
-
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal sealed class RecordingSampleClock

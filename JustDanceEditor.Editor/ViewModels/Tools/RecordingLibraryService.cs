@@ -1,6 +1,6 @@
+using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Recordings;
-using JustDanceEditor.Editor.Services;
 
 using System;
 using System.Collections.Generic;

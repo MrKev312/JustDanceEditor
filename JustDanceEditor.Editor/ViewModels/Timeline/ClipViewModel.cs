@@ -6,9 +6,8 @@ using CommunityToolkit.Mvvm.Messaging;
 
 using JustDanceEditor.Formats.JDI.Timelines;
 
-using System.ComponentModel;
-
 using System;
+using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 

@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Editor.Services;
-using JustDanceEditor.Formats.JDI.Recordings;
 using JustDanceEditor.Scoring;
 
 using System.Collections.ObjectModel;
@@ -44,12 +43,6 @@ public partial class SettingsViewModel : ObservableObject, IDialogResult<bool>
 
     public string SelectedScoringProfileTooltip => SelectedScoringProfile?.Tooltip ?? string.Empty;
 
-    [ObservableProperty]
-    public partial bool UseAdvancedScoringTuning { get; set; }
-
-    public string AdvancedScoringTuningTooltip =>
-        "Shows the raw MSM header editor in Scoring Adjustment. Leave this off for the simpler guided tuning panel.";
-
     public bool Result { get; private set; }
 
     public SettingsViewModel(EditorSettingsService settings)
@@ -57,7 +50,6 @@ public partial class SettingsViewModel : ObservableObject, IDialogResult<bool>
         _settings = settings;
         SelectedScoringProfile = ScoringProfiles.FirstOrDefault(option => option.Profile == settings.ScoringProfile)
             ?? ScoringProfiles.First();
-        UseAdvancedScoringTuning = settings.UseAdvancedScoringTuning;
     }
 
     public void Accept()
@@ -65,7 +57,6 @@ public partial class SettingsViewModel : ObservableObject, IDialogResult<bool>
         if (SelectedScoringProfile != null)
             _settings.ScoringProfile = SelectedScoringProfile.Profile;
 
-        _settings.UseAdvancedScoringTuning = UseAdvancedScoringTuning;
         _settings.Save();
         Result = true;
     }

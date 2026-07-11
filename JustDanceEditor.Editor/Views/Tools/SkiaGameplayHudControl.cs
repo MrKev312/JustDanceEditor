@@ -7,7 +7,6 @@ using Avalonia.Skia;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using SkiaSharp;
 

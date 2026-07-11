@@ -144,6 +144,13 @@ public class MotionRecordingTests
             Assert.True(File.Exists(classifier.Path));
             Assert.True(new FileInfo(classifier.Path).Length > 0);
             Assert.Equal(1, classifier.ExampleCount);
+
+            foreach (MotionClassifierFormatVersion version in JdiMotionClassifierStorage.StoredVersions)
+            {
+                string variantPath = JdiMotionClassifierStorage.GetVersionPath(root, "move_a.msm", version);
+                Assert.True(File.Exists(variantPath));
+                Assert.Equal(version, MotionClassifierHeaderEditor.ReadHeader(File.ReadAllBytes(variantPath)).FormatVersion);
+            }
         }
         finally
         {
@@ -220,6 +227,207 @@ public class MotionRecordingTests
 
         Assert.NotEqual(source, patched);
         Assert.Equal(source.AsSpan(HeaderOnlyClassifierPayloadOffset).ToArray(), patched.AsSpan(HeaderOnlyClassifierPayloadOffset).ToArray());
+    }
+
+    [Theory]
+    [InlineData(MotionClassifierFormatVersion.Version4)]
+    [InlineData(MotionClassifierFormatVersion.Version5)]
+    [InlineData(MotionClassifierFormatVersion.Version6)]
+    [InlineData(MotionClassifierFormatVersion.Version7)]
+    public void MotionClassifierGenerator_WritesNativeVersion4ThroughVersion7(MotionClassifierFormatVersion version)
+    {
+        const float duration = 0.938f;
+
+        byte[] classifier = CreateGeneratedClassifier(version, duration);
+        MotionClassifierHeader header = MotionClassifierHeaderEditor.ReadHeader(classifier);
+
+        bool fixedTenParts = version is MotionClassifierFormatVersion.Version4 or MotionClassifierFormatVersion.Version5;
+        int expectedParts = fixedTenParts ? 10 : (int)(duration * 30.0f / 2.49f);
+        int expectedHeaderSize = version switch
+        {
+            MotionClassifierFormatVersion.Version4 => 232,
+            MotionClassifierFormatVersion.Version5 or MotionClassifierFormatVersion.Version6 => 236,
+            MotionClassifierFormatVersion.Version7 => 244,
+            _ => throw new ArgumentOutOfRangeException(nameof(version))
+        };
+        int expectedLength = expectedHeaderSize + (expectedParts * 5 * sizeof(float) * 2) + (2 * sizeof(float));
+
+        Assert.Equal(version, header.FormatVersion);
+        Assert.Equal(fixedTenParts ? MotionClassifierGenerator.TenPartMeasureSetName : MotionClassifierGenerator.MeasureSetName, header.MeasureSetName);
+        Assert.Equal(expectedParts * 5, header.ScoringAlgorithmType);
+        Assert.Equal(2U, header.EnergyMeansCount);
+        Assert.Equal(version == MotionClassifierFormatVersion.Version4 ? 0U : 1U, header.CustomizationBitField);
+        Assert.Equal(version == MotionClassifierFormatVersion.Version7 ? 1.0f : -1.0f, header.AutoCorrelationThreshold);
+        Assert.Equal(-1.0f, header.DirectionImpactFactor);
+        Assert.Equal(expectedLength, classifier.Length);
+    }
+
+    [Theory]
+    [InlineData(MotionClassifierFormatVersion.Version4)]
+    [InlineData(MotionClassifierFormatVersion.Version5)]
+    [InlineData(MotionClassifierFormatVersion.Version6)]
+    [InlineData(MotionClassifierFormatVersion.Version7)]
+    public void MoveSpaceScorer_ScoresNativeVersion4ThroughVersion7(MotionClassifierFormatVersion version)
+    {
+        const float duration = 0.938f;
+        IReadOnlyList<MotionSample> samples = CreateMotionSamples(duration);
+        byte[] classifier = CreateGeneratedClassifier(version, duration);
+
+        MoveSpaceScoreResult result = new MoveSpaceScorer().ScoreMove(new MoveScoreRequest
+        {
+            MoveName = "move_a",
+            ClassifierBytes = classifier,
+            Duration = duration,
+            Samples = samples
+        });
+
+        Assert.True(float.IsFinite(result.StatisticalDistance));
+        Assert.InRange(result.StatisticalDistance, 0.0f, 0.0001f);
+        Assert.InRange(result.RatioScore, 0.9999f, 1.0f);
+    }
+
+    [Theory]
+    [InlineData(MotionClassifierFormatVersion.Version4)]
+    [InlineData(MotionClassifierFormatVersion.Version5)]
+    [InlineData(MotionClassifierFormatVersion.Version6)]
+    [InlineData(MotionClassifierFormatVersion.Version7)]
+    public void MotionClassifierHeaderEditor_UpdatesNativeVersion4ThroughVersion7(MotionClassifierFormatVersion version)
+    {
+        byte[] classifier = CreateGeneratedClassifier(version, duration: 0.938f);
+
+        byte[] updated = MotionClassifierHeaderEditor.UpdateHeader(classifier, new MotionClassifierHeaderUpdate
+        {
+            LowThreshold = 0.9f,
+            HighThreshold = 3.2f,
+            AutoCorrelationThreshold = 0.8f,
+            DirectionImpactFactor = 0.4f,
+            CustomizationBitField = 3
+        });
+        MotionClassifierHeader header = MotionClassifierHeaderEditor.ReadHeader(updated);
+
+        Assert.Equal(classifier.Length, updated.Length);
+        Assert.Equal(0.9f, header.LowThreshold);
+        Assert.Equal(3.2f, header.HighThreshold);
+        Assert.Equal(version == MotionClassifierFormatVersion.Version4 ? 0U : 3U, header.CustomizationBitField);
+        Assert.Equal(version == MotionClassifierFormatVersion.Version7 ? 0.8f : -1.0f, header.AutoCorrelationThreshold);
+        Assert.Equal(version == MotionClassifierFormatVersion.Version7 ? 0.4f : -1.0f, header.DirectionImpactFactor);
+    }
+
+    [Fact]
+    public void MotionClassifierGenerator_RejectsVersion8Generation()
+    {
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => CreateGeneratedClassifier(MotionClassifierFormatVersion.Version8, duration: 0.938f));
+
+        Assert.Contains("versions 4 through 7", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MoveSpaceScorer_RejectsVersion8Scoring()
+    {
+        byte[] classifier = CreateGeneratedClassifier(MotionClassifierFormatVersion.Version7, duration: 0.938f);
+        BinaryPrimitives.WriteUInt32LittleEndian(classifier.AsSpan(sizeof(uint), sizeof(uint)), (uint)MotionClassifierFormatVersion.Version8);
+
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(() => new MoveSpaceScorer().ScoreMove(new MoveScoreRequest
+        {
+            MoveName = "move_a",
+            ClassifierBytes = classifier,
+            Duration = 0.938f,
+            Samples = CreateMotionSamples(0.938f)
+        }));
+
+        Assert.Contains("versions 4 through 7", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MotionClassifierConverter_Version5RoundTripIsByteIdentical()
+    {
+        byte[] version5 = CreateGeneratedClassifier(MotionClassifierConverter.Version5, duration: 0.938f);
+
+        byte[] version7 = MotionClassifierConverter.ConvertToVersion7(version5);
+        MotionClassifierHeader version7Header = MotionClassifierHeaderEditor.ReadHeader(version7);
+        Assert.Equal(MotionClassifierConverter.Version7, version7Header.FormatVersion);
+        Assert.Equal(MotionClassifierGenerator.MeasureSetName, version7Header.MeasureSetName);
+        Assert.Equal(MotionClassifierConverter.DynamicTenPartDuration, version7Header.Duration);
+        Assert.Equal(-1.0f, version7Header.AutoCorrelationThreshold);
+        Assert.Equal(-1.0f, version7Header.DirectionImpactFactor);
+
+        byte[] roundTripped = MotionClassifierConverter.ConvertToVersion5(version7, 0.938f);
+        Assert.Equal(version5, roundTripped);
+    }
+
+    [Fact]
+    public void MotionClassifierConverter_BigEndianVersion5RoundTripIsByteIdentical()
+    {
+        byte[] version5 = ConvertVersion5ToBigEndian(CreateGeneratedClassifier(MotionClassifierConverter.Version5, duration: 0.938f));
+
+        byte[] version7 = MotionClassifierConverter.ConvertToVersion7(version5);
+        Assert.True(MotionClassifierHeaderEditor.ReadHeader(version7).IsBigEndian);
+
+        byte[] roundTripped = MotionClassifierConverter.ConvertToVersion5(version7, 0.938f);
+        Assert.Equal(version5, roundTripped);
+    }
+
+    [Fact]
+    public void MotionClassifierConverter_Version7ToVersion5ResamplesToTenParts()
+    {
+        byte[] version7 = CreateGeneratedClassifier(MotionClassifierConverter.Version7, duration: 1.2f);
+
+        byte[] version5 = MotionClassifierConverter.ConvertToVersion5(version7, 0.95f);
+        MotionClassifierHeader header = MotionClassifierHeaderEditor.ReadHeader(version5);
+
+        Assert.Equal(MotionClassifierConverter.Version5, header.FormatVersion);
+        Assert.Equal(MotionClassifierGenerator.TenPartMeasureSetName, header.MeasureSetName);
+        Assert.Equal(0.95f, header.Duration);
+        Assert.Equal(50, header.ScoringAlgorithmType);
+        Assert.Equal(644, version5.Length);
+    }
+
+    [Fact]
+    public void MotionClassifierConverter_Version4UpgradesLegacyHeaderToVersion7()
+    {
+        byte[] version5 = CreateGeneratedClassifier(MotionClassifierConverter.Version5, duration: 0.938f);
+        byte[] version4 = new byte[version5.Length - sizeof(uint)];
+        version5.AsSpan(0, 220).CopyTo(version4);
+        version5.AsSpan(224).CopyTo(version4.AsSpan(220));
+        BinaryPrimitives.WriteUInt32LittleEndian(version4.AsSpan(4, sizeof(uint)), 4U);
+
+        byte[] version7 = MotionClassifierConverter.ConvertToVersion7(version4);
+        MotionClassifierHeader header = MotionClassifierHeaderEditor.ReadHeader(version7);
+
+        Assert.Equal(MotionClassifierConverter.Version7, header.FormatVersion);
+        Assert.Equal(MotionClassifierGenerator.MeasureSetName, header.MeasureSetName);
+        Assert.Equal(MotionClassifierConverter.DynamicTenPartDuration, header.Duration);
+        Assert.Equal(0U, header.CustomizationBitField);
+        Assert.Equal(50, header.ScoringAlgorithmType);
+    }
+
+    [Theory]
+    [InlineData(MotionClassifierFormatVersion.Version4)]
+    [InlineData(MotionClassifierFormatVersion.Version5)]
+    [InlineData(MotionClassifierFormatVersion.Version6)]
+    [InlineData(MotionClassifierFormatVersion.Version7)]
+    public void JdiMotionClassifierStorage_ImportsEveryVersionIntoTheCompleteRange(MotionClassifierFormatVersion sourceVersion)
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            byte[] source = CreateGeneratedClassifier(sourceVersion, duration: 0.938f);
+
+            JdiMotionClassifierStorage.ImportClassifier(root, "move_a.msm", source);
+
+            foreach (MotionClassifierFormatVersion storedVersion in JdiMotionClassifierStorage.StoredVersions)
+            {
+                byte[] stored = File.ReadAllBytes(JdiMotionClassifierStorage.GetVersionPath(root, "move_a.msm", storedVersion));
+                Assert.Equal(storedVersion, MotionClassifierHeaderEditor.ReadHeader(stored).FormatVersion);
+                if (storedVersion == sourceVersion)
+                    Assert.Equal(source, stored);
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -698,6 +906,48 @@ public class MotionRecordingTests
             DirectionImpactFactor: 1.0f);
 
     private const int HeaderOnlyClassifierPayloadOffset = 240;
+
+    private static byte[] CreateGeneratedClassifier(MotionClassifierFormatVersion version, float duration)
+    {
+        IReadOnlyList<MotionSample> samples = CreateMotionSamples(duration);
+
+        return new MotionClassifierGenerator().BuildClassifier(new MotionClassifierBuildRequest
+        {
+            SongName = "testmap",
+            MoveName = "move_a",
+            Examples = [new MotionExample(duration, samples)],
+            Options = new MotionClassifierGenerationOptions
+            {
+                ClassifierFormatVersion = version,
+                LowThreshold = 1.2f,
+                HighThreshold = 2.5f,
+                CustomizationBitField = 1
+            }
+        });
+    }
+
+    private static IReadOnlyList<MotionSample> CreateMotionSamples(float duration)
+    {
+        List<MotionSample> samples = [];
+        for (int i = 0; i <= 60; i++)
+        {
+            float time = duration * i / 60.0f;
+            samples.Add(new MotionSample(time, MathF.Sin(time * 4.0f), MathF.Cos(time * 3.0f), 0.25f + time));
+        }
+
+        return samples;
+    }
+
+    private static byte[] ConvertVersion5ToBigEndian(byte[] source)
+    {
+        byte[] result = [.. source];
+        foreach (int offset in new[] { 0, 4, 200, 204, 208, 220, 224, 228, 232 })
+            result.AsSpan(offset, sizeof(uint)).Reverse();
+        result.AsSpan(212, sizeof(ulong)).Reverse();
+        for (int offset = 236; offset < result.Length; offset += sizeof(float))
+            result.AsSpan(offset, sizeof(float)).Reverse();
+        return result;
+    }
 
     private static byte[] CreateHeaderOnlyClassifier(bool isBigEndian)
     {

@@ -211,7 +211,7 @@ public sealed class JdiMotionRecordingAnalyzer
         CancellationToken cancellationToken)
     {
         Dictionary<string, byte[]> result = new(StringComparer.OrdinalIgnoreCase);
-        string movesFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
+        string movesFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MovesV7Folder);
 
         foreach (string moveId in moveWindows.Select(static move => move.MoveId).Distinct(StringComparer.OrdinalIgnoreCase))
         {

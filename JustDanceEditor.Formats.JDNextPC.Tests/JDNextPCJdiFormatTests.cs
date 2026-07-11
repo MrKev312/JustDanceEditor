@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.JDI.Video;
+using JustDanceEditor.Scoring;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -92,6 +93,8 @@ public class JDNextPCJdiFormatTests
             Assert.Contains("synthetic_move", result.Package.HandCoachMoves.Keys);
             string materializedRoot = result.MaterializedRoot ?? throw new InvalidOperationException("Expected a materialized root for the import result.");
             Assert.True(File.Exists(Path.Combine(materializedRoot, "metadata.json")));
+            foreach (MotionClassifierFormatVersion version in JdiMotionClassifierStorage.StoredVersions)
+                Assert.True(File.Exists(JdiMotionClassifierStorage.GetVersionPath(materializedRoot, "synthetic_move.msm", version)));
             Assert.True(File.Exists(Path.Combine(materializedRoot, "assets", "coverAssets", "cover.webp")));
         }
         finally
@@ -468,7 +471,9 @@ public class JDNextPCJdiFormatTests
         WriteBytes(Path.Combine(packageRoot, "assets", "backgrounds", "mapBackground.webp"), "BKG"u8.ToArray());
         WriteBytes(Path.Combine(packageRoot, "assets", "pictograms", "picto_a.webp"), "P1"u8.ToArray());
         WriteBytes(Path.Combine(packageRoot, "assets", "pictograms", "picto_b.webp"), "P2"u8.ToArray());
-        WriteBytes(Path.Combine(packageRoot, "assets", "moves", "makeba_tui.msm"), "MOVE"u8.ToArray());
+        WriteBytes(
+            IntermediatePackageLayout.Resolve(packageRoot, $"{IntermediatePackageLayout.Assets.MovesV7Folder}/makeba_tui.msm"),
+            CreateVersion7Classifier("makeba_tui"));
 
         for (int coachIndex = 1; coachIndex <= coachCount; coachIndex++)
             WriteBytes(Path.Combine(packageRoot, "assets", "coaches", $"coach_{coachIndex:D2}.webp"), [(byte)coachIndex]);
@@ -518,7 +523,7 @@ public class JDNextPCJdiFormatTests
         WriteBytes(Path.Combine(jdNextRoot, "media", "small.webm"), CreatePseudoWebmBytes(16, isVp8: true));
         WriteBytes(Path.Combine(jdNextRoot, "media", "large.webm"), CreatePseudoWebmBytes(48, isVp8: true));
         WriteBytes(Path.Combine(jdNextRoot, "media", "song.ogg"), "OGGDATA"u8.ToArray());
-        WriteBytes(Path.Combine(jdNextRoot, "moves", "synthetic_move.msm"), "MOVE"u8.ToArray());
+        WriteBytes(Path.Combine(jdNextRoot, "moves", "synthetic_move.msm"), CreateVersion7Classifier("synthetic_move"));
         WriteBytes(Path.Combine(jdNextRoot, "pictos", "picto_a.png"), "PA"u8.ToArray());
         WriteBytes(Path.Combine(jdNextRoot, "pictos", "picto_b.png"), "PB"u8.ToArray());
         WriteBytes(Path.Combine(jdNextRoot, "menuart", "cover.png"), "COVER"u8.ToArray());
@@ -532,6 +537,24 @@ public class JDNextPCJdiFormatTests
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException($"Could not determine the directory for '{path}'."));
         File.WriteAllBytes(path, bytes);
+    }
+
+    private static byte[] CreateVersion7Classifier(string moveName)
+    {
+        const float duration = 1.0f;
+        List<MotionSample> samples = [];
+        for (int i = 0; i <= 60; i++)
+        {
+            float time = i / 60.0f;
+            samples.Add(new MotionSample(time, MathF.Sin(time), MathF.Cos(time), time));
+        }
+
+        return new MotionClassifierGenerator().BuildClassifier(new MotionClassifierBuildRequest
+        {
+            SongName = "synthetic",
+            MoveName = moveName,
+            Examples = [new MotionExample(duration, samples)]
+        });
     }
 
     private static void WriteJson(string path, string json)

@@ -20,6 +20,9 @@ public sealed class MoveSpaceScorer
     public MoveSpaceScoreResult ScoreMove(MoveScoreRequest request)
     {
         MotionClassifier classifier = MotionClassifierReader.Read(request.ClassifierBytes);
+        if (!MotionClassifierFormatRules.IsNativelySupported(classifier.FormatVersion))
+            throw new NotSupportedException("Native motion classifier scoring supports MSM versions 4 through 7.");
+
         MoveScoringOptions options = request.Options;
         MoveRuntimeSettings runtime = ResolveRuntimeSettings(classifier, options);
         MotionAnalysisResult analysis = Analyze(request, classifier, options);

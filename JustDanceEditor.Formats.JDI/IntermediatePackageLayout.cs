@@ -109,8 +109,20 @@ public static class IntermediatePackageLayout
         /// <summary>Pictograms folder.</summary>
         public const string PictogramsFolder = $"{Root}/pictograms";
 
-        /// <summary>Moves folder.</summary>
+        /// <summary>Root folder for MoveSpace classifiers.</summary>
         public const string MovesFolder = $"{Root}/moves";
+
+        /// <summary>Version 4 MoveSpace classifiers.</summary>
+        public const string MovesV4Folder = $"{MovesFolder}/v4";
+
+        /// <summary>Version 5 MoveSpace classifiers.</summary>
+        public const string MovesV5Folder = $"{MovesFolder}/v5";
+
+        /// <summary>Version 6 MoveSpace classifiers.</summary>
+        public const string MovesV6Folder = $"{MovesFolder}/v6";
+
+        /// <summary>Version 7 MoveSpace classifiers used by the editor and modern exports.</summary>
+        public const string MovesV7Folder = $"{MovesFolder}/v7";
 
         /// <summary>Gestures folder.</summary>
         public const string GesturesFolder = $"{Root}/gestures";

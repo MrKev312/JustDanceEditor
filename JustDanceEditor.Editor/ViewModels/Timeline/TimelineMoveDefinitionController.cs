@@ -184,7 +184,7 @@ internal sealed class TimelineMoveDefinitionController(
                 return false;
             }
 
-            string movesFolderAbs = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.MovesFolder);
+            string movesFolderAbs = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.MovesV7Folder);
             string moveCandidate = Path.Combine(movesFolderAbs, moveId + ".msm");
             return File.Exists(moveCandidate);
         }

@@ -48,10 +48,11 @@ public class DurangoExportTests
 
         try
         {
-            Directory.CreateDirectory(Path.Combine(materializedRoot, "assets", "moves"));
+            string movesRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.MovesV7Folder);
+            Directory.CreateDirectory(movesRoot);
             string gesturesRoot = IntermediatePackageLayout.Resolve(materializedRoot, UbiArtGestureFolders.PackageFolder(UbiArtGestureFolders.Durango));
             Directory.CreateDirectory(gesturesRoot);
-            File.WriteAllText(Path.Combine(materializedRoot, "assets", "moves", "hand_move.msm"), "MSM");
+            File.WriteAllText(Path.Combine(movesRoot, "hand_move.msm"), "MSM");
             File.WriteAllText(Path.Combine(gesturesRoot, "full_move.gesture"), "GESTURE");
 
             UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);

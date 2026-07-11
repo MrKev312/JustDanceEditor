@@ -7,7 +7,7 @@ public sealed record MotionClassifierGenerationOptions
     public float AutoCorrelationThreshold { get; init; } = 1.0f;
     public float DirectionImpactFactor { get; init; } = -1.0f;
     public uint CustomizationBitField { get; init; } = 2;
-    public uint ClassifierFormatVersion { get; init; } = 7;
+    public MotionClassifierFormatVersion ClassifierFormatVersion { get; init; } = MotionClassifierFormatVersion.Version7;
     public float AccelSaturationValue { get; init; } = 3.4f;
     public float SmoothingFrequency { get; init; } = 60.0f;
 }

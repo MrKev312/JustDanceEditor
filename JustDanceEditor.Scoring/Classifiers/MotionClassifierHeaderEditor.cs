@@ -16,7 +16,7 @@ public sealed record MotionClassifierHeader(
     uint CustomizationBitField,
     int ScoringAlgorithmType,
     uint EnergyMeansCount,
-    uint FormatVersion,
+    MotionClassifierFormatVersion FormatVersion,
     bool IsBigEndian);
 
 public sealed record MotionClassifierHeaderUpdate
@@ -46,7 +46,7 @@ public static class MotionClassifierHeaderEditor
         if (endianness != 1U)
             throw new NotSupportedException("Only motion classifier files with an endianness marker of 1 are supported.");
 
-        uint version = reader.ReadUInt32();
+        MotionClassifierFormatVersion version = MotionClassifierFormatRules.Parse(reader.ReadUInt32());
         string moveName = ReadFixedString(ref reader, FixedStringLength);
         string songName = ReadFixedString(ref reader, FixedStringLength);
         string measureSetName = ReadFixedString(ref reader, FixedStringLength);
@@ -56,14 +56,14 @@ public static class MotionClassifierHeaderEditor
 
         float autoCorrelationThreshold = -1.0f;
         float directionImpactFactor = -1.0f;
-        if (version >= 7)
+        if (MotionClassifierFormatRules.HasAutoCorrelationAndDirectionFields(version))
         {
             autoCorrelationThreshold = reader.ReadSingle();
             directionImpactFactor = reader.ReadSingle();
         }
 
         ulong measureSetBitfield = reader.ReadUInt64();
-        uint customizationBitField = reader.ReadUInt32();
+        uint customizationBitField = MotionClassifierFormatRules.HasCustomizationBitField(version) ? reader.ReadUInt32() : 0U;
         int scoringAlgorithmType = reader.ReadInt32();
         uint energyMeansCount = reader.ReadUInt32();
 
@@ -94,7 +94,7 @@ public static class MotionClassifierHeaderEditor
         if (update.HighThreshold.HasValue)
             WriteSingle(result, HighThresholdOffset, update.HighThreshold.Value, header.IsBigEndian);
 
-        if (header.FormatVersion >= 7)
+        if (MotionClassifierFormatRules.HasAutoCorrelationAndDirectionFields(header.FormatVersion))
         {
             if (update.AutoCorrelationThreshold.HasValue)
                 WriteSingle(result, AutoCorrelationThresholdOffset, update.AutoCorrelationThreshold.Value, header.IsBigEndian);
@@ -102,9 +102,9 @@ public static class MotionClassifierHeaderEditor
                 WriteSingle(result, DirectionImpactFactorOffset, update.DirectionImpactFactor.Value, header.IsBigEndian);
         }
 
-        if (update.CustomizationBitField.HasValue)
+        if (MotionClassifierFormatRules.HasCustomizationBitField(header.FormatVersion) && update.CustomizationBitField.HasValue)
         {
-            int customizationOffset = header.FormatVersion >= 7
+            int customizationOffset = MotionClassifierFormatRules.HasAutoCorrelationAndDirectionFields(header.FormatVersion)
                 ? VersionSevenBitfieldOffset + sizeof(ulong)
                 : VersionSixBitfieldOffset + sizeof(ulong);
             WriteUInt32(result, customizationOffset, update.CustomizationBitField.Value, header.IsBigEndian);

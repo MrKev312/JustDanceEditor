@@ -136,4 +136,6 @@ internal sealed record MotionClassifier(
     float[] Means,
     float[] InvertedCovariances,
     float[] EnergyMeans,
-    uint FormatVersion);
+    MotionClassifierFormatVersion FormatVersion,
+    uint SubClassifiersCount,
+    bool IsBigEndian);

@@ -5,7 +5,6 @@ using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Recordings;
 using JustDanceEditor.Scoring;
 
 using System;
@@ -32,8 +31,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
 
     [ObservableProperty] public partial string SelectedMoveId { get; set; } = string.Empty;
     [ObservableProperty] public partial string AssetKindText { get; set; } = "No move selected";
-    [ObservableProperty] public partial string AssetPathText { get; set; } = string.Empty;
-    [ObservableProperty] public partial string StatusText { get; set; } = "Select a hand MSM move in Library or on the timeline.";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowNoSelection))]
@@ -101,48 +98,53 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     [ObservableProperty] public partial bool SavedLowThresholdIsDefault { get; set; }
     [ObservableProperty] public partial bool SavedHighThresholdIsDefault { get; set; }
     [ObservableProperty] public partial bool IsWideLayout { get; set; }
-    [ObservableProperty] public partial string AverageAccuracyText { get; set; } = "-";
-    [ObservableProperty] public partial string AverageDeltaText { get; set; } = "-";
-    [ObservableProperty] public partial string PointCountText { get; set; } = "-";
-    [ObservableProperty] public partial string SelectedParameterGuidanceText { get; set; } = "Select a slider to see how the loaded recordings react across its full range.";
+    [ObservableProperty] public partial string PointCountText { get; set; } = string.Empty;
+    [ObservableProperty] public partial string SelectedParameterGuidanceText { get; set; } = "Select a setting to inspect its sweep.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowGuidedTuningPanel))]
-    [NotifyPropertyChangedFor(nameof(ShowAdvancedTuningPanel))]
-    public partial bool UseAdvancedScoringTuning { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AutoCorrelationSensitivityText))]
     [NotifyPropertyChangedFor(nameof(IsAutoCorrelationSensitivityCustom))]
     public partial double AutoCorrelationSensitivity { get; set; } = ScoringAdjustmentDraftMapper.SensitivityFromAutoCorrelation(
         ScoringAdjustmentDraftMapper.DefaultValue(ScoringAdjustmentParameter.AutoCorrelationThreshold));
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DirectionSensitivityText))]
     [NotifyPropertyChangedFor(nameof(IsDirectionSensitivityCustom))]
     public partial double DirectionSensitivity { get; set; } = ScoringAdjustmentDraftMapper.DefaultValue(ScoringAdjustmentParameter.DirectionImpactFactor);
 
-    [ObservableProperty] public partial string AutoTuneSummaryText { get; set; } = "Load recordings to get guided shake and direction recommendations.";
-    [ObservableProperty] public partial string AutoTuneShakeRecommendationText { get; set; } = "Shake recommendation: waiting for analysis.";
-    [ObservableProperty] public partial string AutoTuneDirectionRecommendationText { get; set; } = "Direction recommendation: waiting for analysis.";
-    [ObservableProperty] public partial string AutoTuneDistanceRecommendationText { get; set; } = "Distance recommendation: waiting for analysis.";
+    [ObservableProperty] public partial string RecommendedPerfectDistanceText { get; set; } = "Perfect distance: —";
+    [ObservableProperty] public partial string RecommendedFailDistanceText { get; set; } = "Fail distance: —";
+    [ObservableProperty] public partial string RecommendedShakeSensitivityText { get; set; } = "Shake sensitivity: —";
+    [ObservableProperty] public partial string RecommendedDirectionSensitivityText { get; set; } = "Direction sensitivity: —";
 
     public bool ShowNoSelection => !HasSelection;
     public bool ShowMsmEditor => HasSelection && IsMsmAvailable;
     public bool ShowGestureInfo => HasSelection && IsGestureSelection;
     public bool ShowMissingAsset => HasSelection && IsMissingAsset;
-    public bool ShowGuidedTuningPanel => !UseAdvancedScoringTuning;
-    public bool ShowAdvancedTuningPanel => UseAdvancedScoringTuning;
     public bool IsLowThresholdCustom => !LowThresholdDefault;
     public bool IsHighThresholdCustom => !HighThresholdDefault;
     public bool IsAutoCorrelationThresholdCustom => !AutoCorrelationThresholdDefault && !IgnoreAutocorrelation;
     public bool IsDirectionImpactFactorCustom => !DirectionImpactFactorDefault && !IgnoreDirection;
     public bool IsAutoCorrelationSensitivityCustom => !AutoCorrelationThresholdDefault;
     public bool IsDirectionSensitivityCustom => !DirectionImpactFactorDefault;
-    public string AutoCorrelationSensitivityText => ScoringAdjustmentPresentation.Percent(AutoCorrelationSensitivity);
-    public string DirectionSensitivityText => ScoringAdjustmentPresentation.Percent(DirectionSensitivity);
+    public double AutoCorrelationSensitivityPercent
+    {
+        get => AutoCorrelationSensitivity * 100.0;
+        set => AutoCorrelationSensitivity = ScoringAdjustmentDraftMapper.ClampUnit(value / 100.0);
+    }
+
+    public double DirectionSensitivityPercent
+    {
+        get => DirectionSensitivity * 100.0;
+        set => DirectionSensitivity = ScoringAdjustmentDraftMapper.ClampUnit(value / 100.0);
+    }
+
     public string SelectedParameterTitle => ScoringAdjustmentPresentation.ParameterTitle(SelectedParameter);
-    public string SelectedParameterRangeText => ScoringAdjustmentPresentation.ParameterRange(SelectedParameter);
+    public string SweepAxisValueSuffix => SelectedParameter is ScoringAdjustmentParameter.AutoCorrelationThreshold or ScoringAdjustmentParameter.DirectionImpactFactor
+        ? "%"
+        : string.Empty;
+    public bool IsLowThresholdSelected => SelectedParameter == ScoringAdjustmentParameter.LowThreshold;
+    public bool IsHighThresholdSelected => SelectedParameter == ScoringAdjustmentParameter.HighThreshold;
+    public bool IsShakeSensitivitySelected => SelectedParameter == ScoringAdjustmentParameter.AutoCorrelationThreshold;
+    public bool IsDirectionSensitivitySelected => SelectedParameter == ScoringAdjustmentParameter.DirectionImpactFactor;
 
     public bool IsDirty => IsMsmAvailable && savedHeader != null
         && !ScoringAdjustmentDraftMapper.IsEquivalent(CaptureDraft(), ScoringAdjustmentDraftMapper.FromHeader(savedHeader));
@@ -154,17 +156,14 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     public int GraphColumn => IsWideLayout ? 1 : 0;
     public int GraphRowSpan => IsWideLayout ? 2 : 1;
     public int GraphColumnSpan => IsWideLayout ? 1 : 2;
-    public string LowThresholdToolTip => "Raw distance at or below this value becomes the top distance score. Raise it to make near-correct takes reach Perfect more easily.";
-    public string HighThresholdToolTip => "Raw distance at or above this value falls to X before final modifiers. Raise it to forgive rough takes.";
-    public string AutoCorrelationThresholdToolTip => "Shake detector threshold. Lower values flag repeated shake-like motion more easily; higher values are more forgiving.";
-    public string DirectionImpactFactorToolTip => "Direction tendency multiplier. Zero bypasses direction; one applies the full tendency.";
+    public string LowThresholdToolTip => ScoringAdjustmentPresentation.ParameterGuidance(ScoringAdjustmentParameter.LowThreshold);
+    public string HighThresholdToolTip => ScoringAdjustmentPresentation.ParameterGuidance(ScoringAdjustmentParameter.HighThreshold);
+    public string AutoCorrelationThresholdToolTip => ScoringAdjustmentPresentation.ParameterGuidance(ScoringAdjustmentParameter.AutoCorrelationThreshold);
+    public string DirectionImpactFactorToolTip => ScoringAdjustmentPresentation.ParameterGuidance(ScoringAdjustmentParameter.DirectionImpactFactor);
     public string IgnoreDirectionToolTip => "Bypasses direction tendency for this MSM.";
     public string IgnoreAutocorrelationToolTip => "Bypasses the shake detector for this MSM.";
-    public string AverageAccuracyToolTip => "Average final score percentage for the current draft across the scored recording instances.";
-    public string AverageDeltaToolTip => "Current final score average minus the saved MSM final score average.";
     public string PointCountToolTip => "Number of sampled values, scored move instances, and loaded recordings in the diagram.";
     public string AdjustmentCurveToolTip => "X is MoveSpace statistical distance. Y is the score from the current low/high thresholds.";
-    public string SweepGraphToolTip => "Each colored line is one scored move instance across the selected slider range.";
     public string SweepGraphEmptyText => IsBusy
         ? "Calculating " + SelectedParameterTitle.ToLowerInvariant()
         : "No " + SelectedParameterTitle.ToLowerInvariant() + " data yet";
@@ -186,7 +185,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     {
         previewRunner = new(previewAnalyzer);
         this.editorSettings = editorSettings;
-        UseAdvancedScoringTuning = editorSettings?.UseAdvancedScoringTuning ?? false;
         if (editorSettings != null)
             editorSettings.PropertyChanged += EditorSettings_PropertyChanged;
         if (TimelineContext != null)
@@ -227,11 +225,15 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
         if (assetPath == null || savedBytes == null)
             return;
 
-        byte[] updated = ScoringAdjustmentDraftMapper.Write(savedBytes, CaptureDraft());
-        File.WriteAllBytes(assetPath, updated);
+        string fileName = Path.GetFileName(assetPath);
+        JdiMotionClassifierStorage.UpdateHeaders(
+            ActiveTimeline!.RootPath,
+            fileName,
+            ScoringAdjustmentDraftMapper.CreateHeaderUpdate(CaptureDraft()));
+        assetPath = JdiMotionClassifierStorage.GetVersion7Path(ActiveTimeline.RootPath, fileName);
+        byte[] updated = File.ReadAllBytes(assetPath);
         savedBytes = updated;
         savedHeader = MotionClassifierHeaderEditor.ReadHeader(updated);
-        StatusText = "Saved MSM settings.";
         NotifyDraftStateChanged(queuePreview: true);
     }
 
@@ -243,7 +245,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
         if (savedHeader == null)
             return;
         ApplyDraft(ScoringAdjustmentDraftMapper.FromHeader(savedHeader));
-        StatusText = "Draft reset to saved MSM settings.";
         NotifyDraftStateChanged(queuePreview: true);
     }
 
@@ -269,7 +270,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             IgnoreAutocorrelation = recommendation.AutoCorrelationSensitivity <= 0.000001,
             IgnoreDirection = recommendation.DirectionSensitivity <= 0.000001
         });
-        StatusText = "Applied tuning recommendations as a draft.";
         NotifyDraftStateChanged(queuePreview: true);
     }
 
@@ -297,14 +297,12 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     private void LoadMsm(string moveId)
     {
         TimelineEditorViewModel timeline = ActiveTimeline!;
-        string folder = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.MovesFolder);
+        string folder = IntermediatePackageLayout.Resolve(timeline.RootPath, IntermediatePackageLayout.Assets.MovesV7Folder);
         string path = Path.Combine(folder, moveId + ".msm");
         AssetKindText = "Hand MSM";
-        AssetPathText = path;
         if (!File.Exists(path))
         {
             IsMissingAsset = true;
-            StatusText = "No MSM file exists for this hand move.";
             return;
         }
 
@@ -315,7 +313,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             savedHeader = MotionClassifierHeaderEditor.ReadHeader(savedBytes);
             IsMsmAvailable = true;
             ApplyDraft(ScoringAdjustmentDraftMapper.FromHeader(savedHeader));
-            StatusText = string.Empty;
             NotifyDraftStateChanged(queuePreview: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
@@ -324,7 +321,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             savedBytes = null;
             savedHeader = null;
             IsMissingAsset = true;
-            StatusText = "Could not read the MSM: " + ex.Message;
         }
     }
 
@@ -338,12 +334,8 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
                 .FirstOrDefault(File.Exists)
             : null;
         AssetKindText = "Full-body gesture";
-        AssetPathText = path ?? Path.Combine(folder, "*", moveId + ".gesture");
         IsGestureSelection = true;
         IsMissingAsset = path == null;
-        StatusText = path == null
-            ? "No gesture file exists for this full-body move. MSM settings do not apply."
-            : "This is a full-body gesture asset, not a hand MSM. MSM thresholds do not apply.";
     }
 
     private void ResetSelectionState(string nextKey, string moveId)
@@ -374,8 +366,6 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
         assetPath = null;
         SelectedMoveId = string.Empty;
         AssetKindText = "No move selected";
-        AssetPathText = string.Empty;
-        StatusText = "Select a hand MSM move in Library or on the timeline.";
         HasSelection = false;
         IsMsmAvailable = false;
         IsGestureSelection = false;
@@ -502,7 +492,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             return;
 
         IsBusy = true;
-        UpdateRecommendationText();
+        UpdateRecommendedValues();
         _ = previewRunner.Run(
             ActiveTimeline.Package,
             ActiveTimeline.RootPath,
@@ -515,15 +505,10 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             {
                 preview = result;
                 IsBusy = false;
-                StatusText = result.ScoredMoveCount == 0 ? "No loaded recording contains this move." : string.Empty;
                 UpdatePreviewPresentation();
-                UpdateRecommendationText();
+                UpdateRecommendedValues();
             },
-            error =>
-            {
-                IsBusy = false;
-                StatusText = error.Message;
-            });
+            _ => IsBusy = false);
     }
 
     private void UpdatePreviewPresentation()
@@ -536,24 +521,17 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             preview?.RecordingCount ?? 0,
             preview?.MoveInstanceCount ?? 0);
 
-        IReadOnlyList<ScoringAdjustmentSweepSeries>? series = null;
+        IReadOnlyList<ScoringAdjustmentSweepSeries>? rawSeries = null;
         if (preview != null)
         {
-            series = SelectedParameter is ScoringAdjustmentParameter.LowThreshold or ScoringAdjustmentParameter.HighThreshold
+            rawSeries = SelectedParameter is ScoringAdjustmentParameter.LowThreshold or ScoringAdjustmentParameter.HighThreshold
                 ? ScoringAdjustmentPreviewAnalyzer.ProjectThresholdSweep(preview.Samples, draft, SelectedParameter, PreviewScoringProfile)
                 : preview.Sweeps.GetValueOrDefault(SelectedParameter);
         }
-        SweepSeries = series ?? [];
-        bool ignored = SelectedParameter == ScoringAdjustmentParameter.AutoCorrelationThreshold
-            ? IgnoreAutocorrelation
-            : SelectedParameter == ScoringAdjustmentParameter.DirectionImpactFactor && IgnoreDirection;
-        SelectedParameterGuidanceText = ScoringAdjustmentPresentation.ParameterGuidance(SelectedParameter, series, ignored);
-        (AverageAccuracyText, AverageDeltaText) = ScoringAdjustmentPresentation.Statistics(
-            SweepSeries,
-            ScoringAdjustmentDraftMapper.GetValue(draft, SelectedParameter),
-            ScoringAdjustmentDraftMapper.UsesDefault(draft, SelectedParameter));
+        SweepSeries = ProjectSweepForDisplay(SelectedParameter, rawSeries ?? []);
+        SelectedParameterGuidanceText = ScoringAdjustmentPresentation.ParameterGuidance(SelectedParameter);
         PointCountText = preview == null
-            ? "-"
+            ? string.Empty
             : string.Format(
                 CultureInfo.InvariantCulture,
                 "{0} sampled values, {1}/{2} scored move instance(s), {3} recording(s)",
@@ -563,24 +541,48 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
                 preview.RecordingCount);
     }
 
-    private void UpdateRecommendationText()
+    internal static IReadOnlyList<ScoringAdjustmentSweepSeries> ProjectSweepForDisplay(
+        ScoringAdjustmentParameter parameter,
+        IReadOnlyList<ScoringAdjustmentSweepSeries> series)
+    {
+        if (parameter is ScoringAdjustmentParameter.LowThreshold or ScoringAdjustmentParameter.HighThreshold)
+            return series;
+
+        return [.. series.Select(item => item with
+        {
+            Points = [.. item.Points.Select(point => point with
+            {
+                Value = ToSweepDisplayValue(parameter, point.Value)
+            })]
+        })];
+    }
+
+    internal static double ToSweepDisplayValue(ScoringAdjustmentParameter parameter, double rawValue)
+        => parameter switch
+        {
+            ScoringAdjustmentParameter.AutoCorrelationThreshold =>
+                ScoringAdjustmentDraftMapper.SensitivityFromAutoCorrelation(rawValue) * 100.0,
+            ScoringAdjustmentParameter.DirectionImpactFactor =>
+                ScoringAdjustmentDraftMapper.ClampUnit(rawValue) * 100.0,
+            _ => rawValue
+        };
+
+    private void UpdateRecommendedValues()
     {
         ScoringAdjustmentRecommendation? recommendation = preview?.Recommendation;
         if (recommendation == null)
         {
-            AutoTuneSummaryText = preview?.ScoredMoveCount == 0
-                ? "No scored recording samples for this move yet."
-                : IsBusy ? "Analyzing loaded recordings for guided recommendations." : "Load recordings to get guided recommendations.";
-            AutoTuneShakeRecommendationText = "Shake recommendation: waiting for analysis.";
-            AutoTuneDirectionRecommendationText = "Direction recommendation: waiting for analysis.";
-            AutoTuneDistanceRecommendationText = "Distance recommendation: waiting for analysis.";
+            RecommendedPerfectDistanceText = "Perfect distance: —";
+            RecommendedFailDistanceText = "Fail distance: —";
+            RecommendedShakeSensitivityText = "Shake sensitivity: —";
+            RecommendedDirectionSensitivityText = "Direction sensitivity: —";
         }
         else
         {
-            AutoTuneSummaryText = $"Guided tuning ready from {recommendation.SampleCount} scored sample(s).";
-            AutoTuneDistanceRecommendationText = $"Distance recommendation: Perfect {recommendation.LowThreshold:0.###}, fail {recommendation.HighThreshold:0.###} from sample distances {recommendation.DistanceMin:0.###}/{recommendation.DistanceMedian:0.###}/{recommendation.DistanceMax:0.###}.";
-            AutoTuneShakeRecommendationText = $"Shake sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.AutoCorrelationSensitivity)} (threshold {recommendation.AutoCorrelationThreshold:0.###}, {recommendation.AutoCorrelationOccurrenceCount}/{recommendation.SampleCount} trips).";
-            AutoTuneDirectionRecommendationText = $"Direction sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.DirectionSensitivity)} (negative direction sum {recommendation.DirectionNegativeImpactSum:0.###}).";
+            RecommendedPerfectDistanceText = $"Perfect distance: {recommendation.LowThreshold:0.###}";
+            RecommendedFailDistanceText = $"Fail distance: {recommendation.HighThreshold:0.###}";
+            RecommendedShakeSensitivityText = $"Shake sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.AutoCorrelationSensitivity)}";
+            RecommendedDirectionSensitivityText = $"Direction sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.DirectionSensitivity)}";
         }
         ApplyAutoTuneCommand.NotifyCanExecuteChanged();
     }
@@ -588,7 +590,9 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     private void UpdateMarkers()
     {
         ScoringAdjustmentDraft draft = CaptureDraft();
-        CurrentParameterValue = ScoringAdjustmentDraftMapper.GetValue(draft, SelectedParameter);
+        CurrentParameterValue = ToSweepDisplayValue(
+            SelectedParameter,
+            ScoringAdjustmentDraftMapper.GetValue(draft, SelectedParameter));
         CurrentParameterIsDefault = ScoringAdjustmentDraftMapper.UsesDefault(draft, SelectedParameter);
         if (savedHeader == null)
         {
@@ -603,9 +607,10 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
 
         float savedValue = ScoringAdjustmentDraftMapper.HeaderValue(savedHeader, SelectedParameter);
         SavedParameterIsDefault = ScoringAdjustmentDraftMapper.IsDefault(savedValue);
-        SavedParameterValue = SavedParameterIsDefault
+        double savedRawValue = SavedParameterIsDefault
             ? ScoringAdjustmentDraftMapper.DefaultValue(SelectedParameter)
             : ScoringAdjustmentDraftMapper.Clamp(SelectedParameter, savedValue);
+        SavedParameterValue = ToSweepDisplayValue(SelectedParameter, savedRawValue);
         SavedLowThresholdIsDefault = ScoringAdjustmentDraftMapper.IsDefault(savedHeader.LowThreshold);
         SavedHighThresholdIsDefault = ScoringAdjustmentDraftMapper.IsDefault(savedHeader.HighThreshold);
         SavedLowThresholdValue = ScoringAdjustmentDraftMapper.SliderValue(savedHeader.LowThreshold, ScoringAdjustmentParameter.LowThreshold);
@@ -616,11 +621,9 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     {
         SweepSeries = [];
         AdjustmentCurve = null;
-        AverageAccuracyText = "-";
-        AverageDeltaText = "-";
-        PointCountText = "-";
-        SelectedParameterGuidanceText = ScoringAdjustmentPresentation.ParameterGuidance(SelectedParameter, null, false);
-        UpdateRecommendationText();
+        PointCountText = string.Empty;
+        SelectedParameterGuidanceText = ScoringAdjustmentPresentation.ParameterGuidance(SelectedParameter);
+        UpdateRecommendedValues();
     }
 
     private void SetParameterValue(ScoringAdjustmentParameter parameter, double value)
@@ -636,9 +639,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
 
     private void EditorSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(EditorSettingsService.UseAdvancedScoringTuning))
-            UseAdvancedScoringTuning = editorSettings?.UseAdvancedScoringTuning ?? false;
-        else if (e.PropertyName == nameof(EditorSettingsService.ScoringProfile))
+        if (e.PropertyName == nameof(EditorSettingsService.ScoringProfile))
             QueuePreview(TimeSpan.Zero);
     }
 
@@ -658,14 +659,27 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     partial void OnDirectionImpactFactorDefaultChanged(bool value) => NotifyDraftStateChanged(queuePreview: true);
     partial void OnIgnoreDirectionChanged(bool value) => NotifyDraftStateChanged(queuePreview: true);
     partial void OnIgnoreAutocorrelationChanged(bool value) => NotifyDraftStateChanged(queuePreview: true);
-    partial void OnAutoCorrelationSensitivityChanged(double value) => ApplyGuidedAutoCorrelation(value);
-    partial void OnDirectionSensitivityChanged(double value) => ApplyGuidedDirection(value);
+    partial void OnAutoCorrelationSensitivityChanged(double value)
+    {
+        OnPropertyChanged(nameof(AutoCorrelationSensitivityPercent));
+        ApplyGuidedAutoCorrelation(value);
+    }
+
+    partial void OnDirectionSensitivityChanged(double value)
+    {
+        OnPropertyChanged(nameof(DirectionSensitivityPercent));
+        ApplyGuidedDirection(value);
+    }
 
     partial void OnSelectedParameterChanged(ScoringAdjustmentParameter value)
     {
         OnPropertyChanged(nameof(SelectedParameterTitle));
-        OnPropertyChanged(nameof(SelectedParameterRangeText));
+        OnPropertyChanged(nameof(SweepAxisValueSuffix));
         OnPropertyChanged(nameof(SweepGraphEmptyText));
+        OnPropertyChanged(nameof(IsLowThresholdSelected));
+        OnPropertyChanged(nameof(IsHighThresholdSelected));
+        OnPropertyChanged(nameof(IsShakeSensitivitySelected));
+        OnPropertyChanged(nameof(IsDirectionSensitivitySelected));
         UpdateMarkers();
         UpdatePreviewPresentation();
     }

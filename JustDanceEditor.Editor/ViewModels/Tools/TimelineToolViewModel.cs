@@ -41,14 +41,23 @@ public abstract partial class TimelineToolViewModel : Tool, IDisposable
         }
     }
 
-    protected TimelineToolViewModel(ITimelineContextService? timelineContext = null)
+    protected TimelineToolViewModel(
+        ITimelineContextService? timelineContext = null,
+        bool deferInitialTimelineAttachment = false)
     {
         TimelineContext = timelineContext;
-        if (TimelineContext != null)
-        {
-            TimelineContext.PropertyChanged += Context_PropertyChanged;
-            SyncActiveTimelineFromContext();
-        }
+        if (!deferInitialTimelineAttachment)
+            InitializeTimelineContext();
+    }
+
+    protected void InitializeTimelineContext()
+    {
+        if (TimelineContext == null)
+            return;
+
+        TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        TimelineContext.PropertyChanged += Context_PropertyChanged;
+        SyncActiveTimelineFromContext();
     }
 
     public virtual void Dispose()

@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 using JustDanceEditor.GUI.Services;
-using JustDanceEditor.GUI.ViewModels;
 
 using System.Collections.ObjectModel;
 

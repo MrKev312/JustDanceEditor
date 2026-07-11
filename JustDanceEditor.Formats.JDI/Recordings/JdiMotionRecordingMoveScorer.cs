@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Scoring;
 

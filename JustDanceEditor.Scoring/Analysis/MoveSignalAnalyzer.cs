@@ -1,13 +1,13 @@
 namespace JustDanceEditor.Scoring;
 
-internal sealed class MoveSignalAnalyzer(float smoothingFrequency, uint classifierFormatVersion)
+internal sealed class MoveSignalAnalyzer(float smoothingFrequency, MotionClassifierFormatVersion classifierFormatVersion)
 {
     private const float AccelSamplesMinCountPerPartAt30Fps = 2.49f;
     private const float SafetyDelayAtMoveStartAndEndInRatio = 0.01667f;
     private const float UsablePartDurationInRatio = 1.0f - (2.0f * SafetyDelayAtMoveStartAndEndInRatio);
 
     private readonly float _smoothingFrequency = smoothingFrequency;
-    private readonly uint _classifierFormatVersion = classifierFormatVersion;
+    private readonly MotionClassifierFormatVersion _classifierFormatVersion = classifierFormatVersion;
 
     public (List<float> Measures, List<float> EnergyMeasures) Analyze(
         IReadOnlyList<MotionSample> samples,
@@ -66,10 +66,14 @@ internal sealed class MoveSignalAnalyzer(float smoothingFrequency, uint classifi
 
     private byte GetMoveAnalysisPartsCount(float moveDuration)
     {
-        if (_classifierFormatVersion == 5)
+        if (MotionClassifierFormatRules.UsesFixedTenParts(_classifierFormatVersion))
             return 10;
 
-        return (byte)(moveDuration * 30.0f / AccelSamplesMinCountPerPartAt30Fps);
+        float calculatedParts = moveDuration * 30.0f / AccelSamplesMinCountPerPartAt30Fps;
+        if (!float.IsFinite(calculatedParts) || calculatedParts < 1.0f || calculatedParts >= byte.MaxValue + 1.0f)
+            throw new InvalidDataException($"The classifier duration {moveDuration} does not produce a valid MSM part count.");
+
+        return (byte)calculatedParts;
     }
 
     private static float Clamp(float value, float min, float max)
@@ -250,8 +254,8 @@ internal sealed class MoveSignalAnalyzer(float smoothingFrequency, uint classifi
 
         private void AddSplitMeasures(byte measureId, AverageSignal sourceSignal, byte partsCount)
         {
-            for (byte part = 1; part <= partsCount; part++)
-                _measures.Add(new MeasureValueInPart(measureId, sourceSignal, _progressRatio, part, partsCount));
+            for (int part = 1; part <= partsCount; part++)
+                _measures.Add(new MeasureValueInPart(measureId, sourceSignal, _progressRatio, checked((byte)part), partsCount));
         }
 
         private void UpdateSignalsAndMeasures(float progressRatio, float accelX, float accelY, float accelZ)

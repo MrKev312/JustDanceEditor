@@ -13,7 +13,7 @@ internal static class MotionClassifierReader
         if (endianness != 1U)
             throw new NotSupportedException("Only motion classifier files with an endianness marker of 1 are supported.");
 
-        uint version = reader.ReadUInt32();
+        MotionClassifierFormatVersion version = MotionClassifierFormatRules.Parse(reader.ReadUInt32());
         string moveName = ReadFixedString(ref reader, 64);
         string songName = ReadFixedString(ref reader, 64);
         string measureSetName = ReadFixedString(ref reader, 64);
@@ -23,19 +23,21 @@ internal static class MotionClassifierReader
 
         float autoCorrelationThreshold = -1.0f;
         float directionImpactFactor = -1.0f;
-        if (version >= 7)
+        if (MotionClassifierFormatRules.HasAutoCorrelationAndDirectionFields(version))
         {
             autoCorrelationThreshold = reader.ReadSingle();
             directionImpactFactor = reader.ReadSingle();
         }
 
         ulong measureSetBitfield = reader.ReadUInt64();
-        uint customizationBitField = reader.ReadUInt32();
+        uint customizationBitField = MotionClassifierFormatRules.HasCustomizationBitField(version) ? reader.ReadUInt32() : 0U;
         int scoringAlgorithmType = reader.ReadInt32();
         uint energyMeansCount = reader.ReadUInt32();
-        _ = reader.ReadUInt32();
+        uint subClassifiersCount = reader.ReadUInt32();
 
-        int measureCount = Math.Abs(scoringAlgorithmType);
+        int measureCount = scoringAlgorithmType == int.MinValue
+            ? throw new InvalidDataException("The motion classifier measure count is invalid.")
+            : Math.Abs(scoringAlgorithmType);
         int covarianceCount = scoringAlgorithmType > 0
             ? measureCount
             : measureCount * (measureCount + 1) / 2;
@@ -59,7 +61,9 @@ internal static class MotionClassifierReader
             means,
             invertedCovariances,
             energyMeans,
-            version);
+            version,
+            subClassifiersCount,
+            reader.IsBigEndian);
     }
 
     private static EndianSpanReader CreateReader(ReadOnlySpan<byte> data)
@@ -96,20 +100,21 @@ internal static class MotionClassifierReader
     private ref struct EndianSpanReader
     {
         private readonly ReadOnlySpan<byte> _data;
-        private readonly bool _isBigEndian;
         private int _offset;
 
         public EndianSpanReader(ReadOnlySpan<byte> data, bool isBigEndian)
         {
             _data = data;
-            _isBigEndian = isBigEndian;
+            IsBigEndian = isBigEndian;
             _offset = 0;
         }
+
+        public bool IsBigEndian { get; }
 
         public uint ReadUInt32()
         {
             ReadOnlySpan<byte> bytes = ReadBytes(sizeof(uint));
-            return _isBigEndian
+            return IsBigEndian
                 ? BinaryPrimitives.ReadUInt32BigEndian(bytes)
                 : BinaryPrimitives.ReadUInt32LittleEndian(bytes);
         }
@@ -117,7 +122,7 @@ internal static class MotionClassifierReader
         public int ReadInt32()
         {
             ReadOnlySpan<byte> bytes = ReadBytes(sizeof(int));
-            return _isBigEndian
+            return IsBigEndian
                 ? BinaryPrimitives.ReadInt32BigEndian(bytes)
                 : BinaryPrimitives.ReadInt32LittleEndian(bytes);
         }
@@ -125,7 +130,7 @@ internal static class MotionClassifierReader
         public ulong ReadUInt64()
         {
             ReadOnlySpan<byte> bytes = ReadBytes(sizeof(ulong));
-            return _isBigEndian
+            return IsBigEndian
                 ? BinaryPrimitives.ReadUInt64BigEndian(bytes)
                 : BinaryPrimitives.ReadUInt64LittleEndian(bytes);
         }

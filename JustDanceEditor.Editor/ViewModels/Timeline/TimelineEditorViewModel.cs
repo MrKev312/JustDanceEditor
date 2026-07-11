@@ -1,36 +1,22 @@
 // File: .\ViewModels\Timeline\TimelineEditorViewModel.cs
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
-using Avalonia.Threading;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-using Dock.Model.Core;
 using Dock.Model.Mvvm.Controls;
 
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Serialization;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.JDI.Utilities;
-using JustDanceEditor.Formats.JDI.Video;
-
-using SixLabors.ImageSharp.Processing;
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Xabe.FFmpeg;
 
 namespace JustDanceEditor.Editor.ViewModels.Timeline;
 

@@ -31,6 +31,9 @@ public sealed class ScoringAdjustmentGraphControl : Control
     public static readonly StyledProperty<string> EmptyTextProperty =
         AvaloniaProperty.Register<ScoringAdjustmentGraphControl, string>(nameof(EmptyText), "No scoring preview yet");
 
+    public static readonly StyledProperty<string> AxisValueSuffixProperty =
+        AvaloniaProperty.Register<ScoringAdjustmentGraphControl, string>(nameof(AxisValueSuffix), string.Empty);
+
     private static readonly Color[] SeriesColors =
     [
         Color.FromRgb(88, 204, 255),
@@ -67,6 +70,7 @@ public sealed class ScoringAdjustmentGraphControl : Control
             CurrentIsDefaultProperty,
             SavedValueProperty,
             SavedIsDefaultProperty,
+            AxisValueSuffixProperty,
             EmptyTextProperty);
     }
 
@@ -106,6 +110,12 @@ public sealed class ScoringAdjustmentGraphControl : Control
         set => SetValue(EmptyTextProperty, value);
     }
 
+    public string AxisValueSuffix
+    {
+        get => GetValue(AxisValueSuffixProperty);
+        set => SetValue(AxisValueSuffixProperty, value);
+    }
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -133,7 +143,7 @@ public sealed class ScoringAdjustmentGraphControl : Control
         DrawDefaultStrip(context, defaultStrip, series);
         DrawRangeLines(context, rangePlot, series);
         DrawAverageRangeLine(context, rangePlot, series);
-        DrawAxisLabels(context, plot, defaultStrip, rangePlot, series);
+        DrawAxisLabels(context, plot, defaultStrip, rangePlot, series, AxisValueSuffix);
         DrawMarkers(context, plot, defaultStrip, rangePlot, series);
     }
 
@@ -269,7 +279,8 @@ public sealed class ScoringAdjustmentGraphControl : Control
         Rect plot,
         Rect defaultStrip,
         Rect rangePlot,
-        IReadOnlyList<ScoringAdjustmentSweepSeries> series)
+        IReadOnlyList<ScoringAdjustmentSweepSeries> series,
+        string valueSuffix)
     {
         DrawText(context, "Default", 10, MutedTextBrush, new Point(defaultStrip.Left - 2, plot.Bottom + 5));
 
@@ -279,7 +290,8 @@ public sealed class ScoringAdjustmentGraphControl : Control
             double ratio = i / 4.0;
             double value = min + ((max - min) * ratio);
             double x = rangePlot.Left + (rangePlot.Width * ratio);
-            DrawText(context, value.ToString("0.###", CultureInfo.InvariantCulture), 10, MutedTextBrush, new Point(x - 10, plot.Bottom + 5));
+            string label = value.ToString("0.###", CultureInfo.InvariantCulture) + valueSuffix;
+            DrawText(context, label, 10, MutedTextBrush, new Point(x - 10, plot.Bottom + 5));
         }
     }
 

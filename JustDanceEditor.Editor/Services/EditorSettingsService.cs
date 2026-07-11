@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-using JustDanceEditor.Formats.JDI.Recordings;
 using JustDanceEditor.Scoring;
 
 using System;
@@ -23,9 +22,6 @@ public sealed partial class EditorSettingsService : ObservableObject
     [ObservableProperty]
     public partial MotionRecordingScoringProfile ScoringProfile { get; set; } = MotionRecordingScoringProfile.JDNext;
 
-    [ObservableProperty]
-    public partial bool UseAdvancedScoringTuning { get; set; }
-
     public EditorSettingsService()
     {
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -42,8 +38,7 @@ public sealed partial class EditorSettingsService : ObservableObject
         using FileStream stream = File.Create(_settingsPath);
         JsonSerializer.Serialize(stream, new EditorSettingsState
         {
-            ScoringProfile = ScoringProfile,
-            UseAdvancedScoringTuning = UseAdvancedScoringTuning
+            ScoringProfile = ScoringProfile
         }, JsonOptions);
     }
 
@@ -62,19 +57,16 @@ public sealed partial class EditorSettingsService : ObservableObject
             if (Enum.IsDefined(state.ScoringProfile))
                 ScoringProfile = state.ScoringProfile;
 
-            UseAdvancedScoringTuning = state.UseAdvancedScoringTuning;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             EditorLog.Fallback(ex, "Load editor settings");
             ScoringProfile = MotionRecordingScoringProfile.JDNext;
-            UseAdvancedScoringTuning = false;
         }
     }
 
     private sealed class EditorSettingsState
     {
         public MotionRecordingScoringProfile ScoringProfile { get; set; } = MotionRecordingScoringProfile.JDNext;
-        public bool UseAdvancedScoringTuning { get; set; }
     }
 }

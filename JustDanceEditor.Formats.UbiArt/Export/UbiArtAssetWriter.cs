@@ -548,7 +548,10 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
 
     private static void CopyRawMoveAssets(string materializedRoot, string rawMapWorldBase, ExportContext ctx, UbiArtPlatform platform)
     {
-        string movesSource = ResolveMaterializedPath(ctx, materializedRoot, IntermediatePackageLayout.Assets.MovesFolder);
+        string movesVersionFolder = ctx.EngineVersion == UbiArtEngineVersion.JD2014
+            ? IntermediatePackageLayout.Assets.MovesV5Folder
+            : IntermediatePackageLayout.Assets.MovesV7Folder;
+        string movesSource = ResolveMaterializedPath(ctx, materializedRoot, movesVersionFolder);
         if (ctx.IO.DirectoryExists(movesSource))
         {
             string movesFolder = Path.Combine(rawMapWorldBase, "timeline", "moves", GetHandMovePlatformFolder(platform));

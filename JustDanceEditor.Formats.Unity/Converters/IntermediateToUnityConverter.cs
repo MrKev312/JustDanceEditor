@@ -743,7 +743,7 @@ internal sealed class IntermediateToUnityConverter
 
     private string? ResolveMovesFolder()
     {
-        string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.MovesFolder);
+        string? folder = GetAssetFolder(IntermediatePackageLayout.Assets.MovesV7Folder);
         if (folder == null)
             _logger.LogWarning("Intermediate package missing moves folder; MSM scripts will be omitted.");
         return folder;

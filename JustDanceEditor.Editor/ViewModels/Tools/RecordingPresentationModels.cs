@@ -2,7 +2,6 @@ using JustDanceEditor.Formats.JDI.Recordings;
 
 using System;
 using System.Globalization;
-using System.IO;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

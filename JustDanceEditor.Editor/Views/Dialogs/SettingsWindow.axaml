@@ -13,7 +13,7 @@
       <TabItem Header="Scoring">
         <Grid Margin="12"
               ColumnDefinitions="140,*"
-              RowDefinitions="Auto,Auto"
+              RowDefinitions="Auto"
               RowSpacing="12">
           <TextBlock Grid.Column="0"
                      Text="Profile"
@@ -32,16 +32,6 @@
             </ComboBox.ItemTemplate>
           </ComboBox>
 
-          <TextBlock Grid.Row="1"
-                     Grid.Column="0"
-                     Text="Tuning UI"
-                     VerticalAlignment="Center"
-                     ToolTip.Tip="{Binding AdvancedScoringTuningTooltip}"/>
-          <CheckBox Grid.Row="1"
-                    Grid.Column="1"
-                    Content="Advanced raw MSM editor"
-                    IsChecked="{Binding UseAdvancedScoringTuning, Mode=TwoWay}"
-                    ToolTip.Tip="{Binding AdvancedScoringTuningTooltip}"/>
         </Grid>
       </TabItem>
     </TabControl>

@@ -335,10 +335,8 @@ internal static class IntermediateAssetWriter
 
     private static void AttachMotionAssets(ConversionContext context, string packageRoot, ILogger logger, IFileSystem io)
     {
-        string movesFolder = ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
-
         foreach (string motionFolder in EnumerateMotionSearchFolders(context))
-            CopyCookedFiles(context, motionFolder, "*.msm", movesFolder, io);
+            ImportMotionClassifiers(context, motionFolder, packageRoot);
 
         foreach (UbiArtGestureFolderSource gestureFolder in EnumerateUbiArtGestureSearchFolders(context))
             CopyCookedFiles(context, gestureFolder.SourceRelativeFolder, "*.gesture", ResolvePackagePath(packageRoot, gestureFolder.PackageRelativeFolder), io);
@@ -361,7 +359,59 @@ internal static class IntermediateAssetWriter
                 continue;
             }
 
-            CopyReferencedCookedFile(context, clip.ClassifierPath, movesFolder, io);
+            ImportReferencedMotionClassifier(context, clip.ClassifierPath, packageRoot);
+        }
+    }
+
+    private static void ImportMotionClassifiers(ConversionContext context, string relativeFolder, string packageRoot)
+    {
+        CookedFile[] files;
+        try
+        {
+            files = context.FileSystem.GetAllFiles(relativeFolder, "*.msm");
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return;
+        }
+
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        (CookedFile File, string Name)[] uniqueFiles = [.. files
+            .Select(file => (File: file, Name: $"{file.Name}{file.Extension}"))
+            .Where(item => seen.Add(item.Name))];
+
+        Parallel.ForEach(uniqueFiles, item =>
+        {
+            try
+            {
+                using Stream sourceStream = context.FileSystem.GetFileStream(item.File);
+                using MemoryStream buffer = new();
+                sourceStream.CopyTo(buffer);
+                JdiMotionClassifierStorage.ImportClassifier(packageRoot, item.Name, buffer.GetBuffer().AsSpan(0, checked((int)buffer.Length)));
+            }
+            catch (FileNotFoundException)
+            {
+            }
+        });
+    }
+
+    private static void ImportReferencedMotionClassifier(ConversionContext context, string relativePath, string packageRoot)
+    {
+        if (!TryResolveReferencedCookedFile(context.FileSystem, relativePath, out CookedFile? file) || file == null)
+            return;
+
+        try
+        {
+            using Stream sourceStream = context.FileSystem.GetFileStream(file);
+            using MemoryStream buffer = new();
+            sourceStream.CopyTo(buffer);
+            JdiMotionClassifierStorage.ImportClassifier(
+                packageRoot,
+                $"{file.Name}{file.Extension}",
+                buffer.GetBuffer().AsSpan(0, checked((int)buffer.Length)));
+        }
+        catch (FileNotFoundException)
+        {
         }
     }
 

@@ -13,13 +13,13 @@ namespace JustDanceEditor.Editor.Views.Tools;
 
 public sealed class ScoringAdjustmentCurveControl : Control
 {
-    private const double DefaultMaxDistance = 5.0;
+    internal const double MaxDistance = ScoringAdjustmentPreviewAnalyzer.CurveMaxDistance;
 
     public static readonly StyledProperty<ScoringAdjustmentCurve?> CurveProperty =
         AvaloniaProperty.Register<ScoringAdjustmentCurveControl, ScoringAdjustmentCurve?>(nameof(Curve));
 
     public static readonly StyledProperty<string> EmptyTextProperty =
-        AvaloniaProperty.Register<ScoringAdjustmentCurveControl, string>(nameof(EmptyText), "No adjustment curve yet");
+        AvaloniaProperty.Register<ScoringAdjustmentCurveControl, string>(nameof(EmptyText), "No scoring curve yet");
 
     private static readonly Color[] SeriesColors =
     [
@@ -73,9 +73,8 @@ public sealed class ScoringAdjustmentCurveControl : Control
             return;
 
         ScoringAdjustmentCurve? curve = Curve;
-        double maxDistance = ResolveMaxDistance(curve);
         Rect plot = GetPlotBounds(bounds);
-        DrawGridAndAxes(context, plot, maxDistance);
+        DrawGridAndAxes(context, plot, MaxDistance);
 
         if (curve == null || (curve.Points.Count == 0 && curve.Samples.Count == 0))
         {
@@ -83,8 +82,8 @@ public sealed class ScoringAdjustmentCurveControl : Control
             return;
         }
 
-        DrawCurve(context, plot, curve.Points, maxDistance);
-        DrawCurrentSamples(context, plot, curve.Samples, maxDistance);
+        DrawCurve(context, plot, curve.Points, MaxDistance);
+        DrawCurrentSamples(context, plot, curve.Samples, MaxDistance);
     }
 
     private static void DrawGridAndAxes(DrawingContext context, Rect plot, double maxDistance)
@@ -182,16 +181,6 @@ public sealed class ScoringAdjustmentCurveControl : Control
         int index = Math.Abs(seriesIndex) % SeriesColors.Length;
         Color color = SeriesColors[index];
         return Color.FromArgb(alpha, color.R, color.G, color.B);
-    }
-
-    private static double ResolveMaxDistance(ScoringAdjustmentCurve? curve)
-    {
-        double maxDistance = curve?.Points.Count > 0
-            ? curve.Points.Max(static point => point.StatisticalDistance)
-            : DefaultMaxDistance;
-        if (double.IsNaN(maxDistance) || double.IsInfinity(maxDistance) || maxDistance <= 0.0)
-            return DefaultMaxDistance;
-        return maxDistance;
     }
 
     private static string FormatDistanceLabel(double value)

@@ -25,14 +25,17 @@ internal static class ScoringAdjustmentDraftMapper
             (header.CustomizationBitField & IgnoreAutoCorrelationFlag) != 0);
 
     public static byte[] Write(byte[] source, ScoringAdjustmentDraft draft)
-        => MotionClassifierHeaderEditor.UpdateHeader(source, new MotionClassifierHeaderUpdate
+        => MotionClassifierHeaderEditor.UpdateHeader(source, CreateHeaderUpdate(draft));
+
+    public static MotionClassifierHeaderUpdate CreateHeaderUpdate(ScoringAdjustmentDraft draft)
+        => new()
         {
             LowThreshold = HeaderValue(draft, ScoringAdjustmentParameter.LowThreshold),
             HighThreshold = HeaderValue(draft, ScoringAdjustmentParameter.HighThreshold),
             AutoCorrelationThreshold = HeaderValue(draft, ScoringAdjustmentParameter.AutoCorrelationThreshold),
             DirectionImpactFactor = HeaderValue(draft, ScoringAdjustmentParameter.DirectionImpactFactor),
             CustomizationBitField = BuildCustomizationBitField(draft)
-        });
+        };
 
     public static ScoringAdjustmentDraft WithCandidate(
         ScoringAdjustmentDraft draft,

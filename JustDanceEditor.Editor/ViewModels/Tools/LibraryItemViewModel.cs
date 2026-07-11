@@ -3,9 +3,9 @@ using Avalonia.Media.Imaging;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
-using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
-
 using System;
+
+using RenderingHelpers = KevInc.Avalonia.Rendering.RenderingHelpers;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 

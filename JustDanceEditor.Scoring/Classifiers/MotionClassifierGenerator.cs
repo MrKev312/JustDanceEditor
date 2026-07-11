@@ -3,6 +3,7 @@ namespace JustDanceEditor.Scoring;
 public sealed class MotionClassifierGenerator
 {
     public const string MeasureSetName = "Acc_Dev_Dir_NP";
+    public const string TenPartMeasureSetName = "Acc_Dev_Dir_10P";
     private const double VarianceFloor = 1.0e-6;
 
     private const ulong AccDevDirNpBitfield =
@@ -18,6 +19,9 @@ public sealed class MotionClassifierGenerator
             throw new InvalidOperationException($"No examples were supplied for {request.MoveName}.");
 
         MotionClassifierGenerationOptions settings = request.Options;
+        if (!MotionClassifierFormatRules.IsNativelySupported(settings.ClassifierFormatVersion))
+            throw new NotSupportedException("Motion classifier generation supports MSM versions 4 through 7.");
+
         float classifierDuration = request.Examples.Min(static example => example.Duration);
         MoveSignalAnalyzer analyzer = new(settings.SmoothingFrequency, settings.ClassifierFormatVersion);
         List<MotionObservation> observations = [];
@@ -36,7 +40,10 @@ public sealed class MotionClassifierGenerator
             observations.Add(new MotionObservation(measures, energyMeasures));
         }
 
-        MotionModelData model = new(request.SongName, request.MoveName, MeasureSetName, classifierDuration, observations);
+        string measureSetName = MotionClassifierFormatRules.UsesFixedTenParts(settings.ClassifierFormatVersion)
+            ? TenPartMeasureSetName
+            : MeasureSetName;
+        MotionModelData model = new(request.SongName, request.MoveName, measureSetName, classifierDuration, observations);
         MotionClassifierData classifier = ComputeClassifier(model);
         return MotionClassifierWriter.Write(classifier, AccDevDirNpBitfield, settings);
     }
@@ -47,6 +54,20 @@ public sealed class MotionClassifierGenerator
             static request => request.MoveName,
             BuildClassifier,
             StringComparer.OrdinalIgnoreCase);
+    }
+
+    public IReadOnlyDictionary<MotionClassifierFormatVersion, byte[]> BuildAllVersions(MotionClassifierBuildRequest request)
+    {
+        Dictionary<MotionClassifierFormatVersion, byte[]> result = [];
+        foreach (MotionClassifierFormatVersion version in MotionClassifierFormats.NativeVersions)
+        {
+            result.Add(version, BuildClassifier(request with
+            {
+                Options = request.Options with { ClassifierFormatVersion = version }
+            }));
+        }
+
+        return result;
     }
 
     private static MotionClassifierData ComputeClassifier(MotionModelData model)

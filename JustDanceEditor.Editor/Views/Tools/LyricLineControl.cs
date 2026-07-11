@@ -13,7 +13,6 @@ using JustDanceEditor.Editor.ViewModels.Tools;
 
 using SkiaSharp;
 
-using System;
 using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.Views.Tools;

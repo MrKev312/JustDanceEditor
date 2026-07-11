@@ -1,7 +1,6 @@
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
-using JustDanceEditor.Formats.JDI.Utilities;
 using JustDanceEditor.Formats.JDI.Video;
 
 using System;

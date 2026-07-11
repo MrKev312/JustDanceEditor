@@ -1,5 +1,4 @@
 using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Export;
 using JustDanceEditor.Formats.UbiArt.Export.Generators;
@@ -11,7 +10,6 @@ using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 using KevInc.UbiArt.FileSystem;
 
 using System;
-using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
 using System.Text;

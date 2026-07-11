@@ -12,6 +12,32 @@ namespace JustDanceEditor.Editor.Tests;
 public sealed class RecordingsToolViewModelTests
 {
     [Fact]
+    public async Task Constructor_WithActiveTimelineContext_AttachesAfterInitialization()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(root);
+
+        IntermediateSongPackage package = new();
+        package.Metadata.CoachCount = 1;
+        using PlaybackService playback = new();
+        TimelineEditorViewModel timeline = new(package, root, playback, new TimelineSettingsService());
+        TimelineContextService timelineContext = new();
+        timelineContext.UpdateActiveTimeline(timeline);
+
+        try
+        {
+            await using RecordingsToolViewModel tool = new(timelineContext);
+
+            Assert.Same(timeline, tool.ActiveTimeline);
+            Assert.Contains(0, tool.CoachIds);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ActiveTimeline_SetAfterConstruction_AttachesWithoutCrash()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -47,7 +73,7 @@ public sealed class RecordingsToolViewModelTests
         await using RecordingsToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
+            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesV7Folder);
             Directory.CreateDirectory(movesFolder);
             await File.WriteAllBytesAsync(Path.Combine(movesFolder, "move_a.msm"), [], TestContext.Current.CancellationToken);
 

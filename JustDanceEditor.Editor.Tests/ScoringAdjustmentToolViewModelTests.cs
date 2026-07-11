@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.ViewModels.Tools;
+using JustDanceEditor.Editor.Views.Tools;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Scoring;
@@ -14,6 +15,10 @@ namespace JustDanceEditor.Editor.Tests;
 
 public sealed class ScoringAdjustmentToolViewModelTests
 {
+    [Fact]
+    public void ScoringCurve_UsesFixedSixUnitDistanceAxis()
+        => Assert.Equal(6.0, ScoringAdjustmentCurveControl.MaxDistance);
+
     [AvaloniaFact]
     public void DraftChanges_DoNotWriteMsmUntilSave()
     {
@@ -24,10 +29,7 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
-            Directory.CreateDirectory(movesFolder);
-            string path = Path.Combine(movesFolder, "move_a.msm");
-            File.WriteAllBytes(path, CreateHeaderOnlyClassifier());
+            string path = WriteCompleteClassifierSet(root, "move_a.msm");
 
             IntermediateSongPackage package = new();
             package.Metadata.CoachCount = 1;
@@ -47,6 +49,12 @@ public sealed class ScoringAdjustmentToolViewModelTests
             MotionClassifierHeader saved = MotionClassifierHeaderEditor.ReadHeader(File.ReadAllBytes(path));
             Assert.Equal(1.2f, saved.LowThreshold);
             Assert.False(tool.IsDirty);
+            foreach (MotionClassifierFormatVersion version in JdiMotionClassifierStorage.StoredVersions)
+            {
+                MotionClassifierHeader variant = MotionClassifierHeaderEditor.ReadHeader(
+                    File.ReadAllBytes(JdiMotionClassifierStorage.GetVersionPath(root, "move_a.msm", version)));
+                Assert.Equal(1.2f, variant.LowThreshold);
+            }
         }
         finally
         {
@@ -66,10 +74,7 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
-            Directory.CreateDirectory(movesFolder);
-            string path = Path.Combine(movesFolder, "move_a.msm");
-            File.WriteAllBytes(path, CreateHeaderOnlyClassifier());
+            string path = WriteCompleteClassifierSet(root, "move_a.msm");
 
             IntermediateSongPackage package = new();
             package.Metadata.CoachCount = 1;
@@ -98,6 +103,13 @@ public sealed class ScoringAdjustmentToolViewModelTests
             Assert.Equal(-1.0f, saved.LowThreshold);
             Assert.Equal(3U, saved.CustomizationBitField);
             Assert.False(tool.IsDirty);
+            foreach (MotionClassifierFormatVersion version in JdiMotionClassifierStorage.StoredVersions)
+            {
+                MotionClassifierHeader variant = MotionClassifierHeaderEditor.ReadHeader(
+                    File.ReadAllBytes(JdiMotionClassifierStorage.GetVersionPath(root, "move_a.msm", version)));
+                Assert.Equal(-1.0f, variant.LowThreshold);
+                Assert.Equal(version == MotionClassifierFormatVersion.Version4 ? 0U : 3U, variant.CustomizationBitField);
+            }
         }
         finally
         {
@@ -117,7 +129,7 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
+            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesV7Folder);
             Directory.CreateDirectory(movesFolder);
             File.WriteAllBytes(Path.Combine(movesFolder, "move_a.msm"), CreateHeaderOnlyClassifier());
 
@@ -131,21 +143,21 @@ public sealed class ScoringAdjustmentToolViewModelTests
 
             ScoringAdjustmentCurve? initial = tool.AdjustmentCurve;
             Assert.NotNull(initial);
-            Assert.Equal(3, initial.Points.Count);
+            Assert.Equal(4, initial.Points.Count);
             Assert.Equal(0.0f, initial.Points[0].StatisticalDistance, precision: 3);
             Assert.Equal(100.0f, initial.Points[0].PercentageScore, precision: 3);
             Assert.Equal(1.0f, initial.Points[1].StatisticalDistance, precision: 3);
             Assert.Equal(100.0f, initial.Points[1].PercentageScore, precision: 3);
             Assert.Equal(3.0f, initial.Points[2].StatisticalDistance, precision: 3);
             Assert.Equal(0.0f, initial.Points[2].PercentageScore, precision: 3);
-            Assert.Equal(3.0f, initial.Points[^1].StatisticalDistance, precision: 3);
+            Assert.Equal(6.0f, initial.Points[^1].StatisticalDistance, precision: 3);
             Assert.Equal(0.0f, initial.Points[^1].PercentageScore, precision: 3);
 
             tool.LowThreshold = 1.2;
 
             ScoringAdjustmentCurve? adjusted = tool.AdjustmentCurve;
             Assert.NotNull(adjusted);
-            Assert.Equal(3, adjusted.Points.Count);
+            Assert.Equal(4, adjusted.Points.Count);
             Assert.Equal(1.2f, adjusted.Points[1].StatisticalDistance, precision: 3);
             Assert.Equal(100.0f, adjusted.Points[1].PercentageScore, precision: 3);
             Assert.Equal(3.0f, adjusted.Points[2].StatisticalDistance, precision: 3);
@@ -169,7 +181,7 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
+            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesV7Folder);
             Directory.CreateDirectory(movesFolder);
             File.WriteAllBytes(Path.Combine(movesFolder, "move_a.msm"), CreateHeaderOnlyClassifier(lowThreshold: 0.8f, highThreshold: 4.0f));
 
@@ -183,14 +195,14 @@ public sealed class ScoringAdjustmentToolViewModelTests
 
             ScoringAdjustmentCurve? curve = tool.AdjustmentCurve;
             Assert.NotNull(curve);
-            Assert.Equal(3, curve.Points.Count);
+            Assert.Equal(4, curve.Points.Count);
             Assert.Equal(0.0f, curve.Points[0].StatisticalDistance, precision: 3);
             Assert.Equal(100.0f, curve.Points[0].PercentageScore, precision: 3);
             Assert.Equal(0.8f, curve.Points[1].StatisticalDistance, precision: 3);
             Assert.Equal(100.0f, curve.Points[1].PercentageScore, precision: 3);
             Assert.Equal(4.0f, curve.Points[2].StatisticalDistance, precision: 3);
             Assert.Equal(0.0f, curve.Points[2].PercentageScore, precision: 3);
-            Assert.Equal(4.0f, curve.Points[^1].StatisticalDistance, precision: 3);
+            Assert.Equal(6.0f, curve.Points[^1].StatisticalDistance, precision: 3);
             Assert.Equal(0.0f, curve.Points[^1].PercentageScore, precision: 3);
         }
         finally
@@ -229,39 +241,57 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            tool.UseAdvancedScoringTuning = false;
-            Assert.True(tool.ShowGuidedTuningPanel);
-            Assert.False(tool.ShowAdvancedTuningPanel);
+            Assert.Equal("Perfect distance sweep", tool.SelectedParameterTitle);
+            Assert.True(tool.IsLowThresholdSelected);
+
+            tool.SelectParameter(nameof(ScoringAdjustmentParameter.HighThreshold));
+            Assert.Equal("Fail distance sweep", tool.SelectedParameterTitle);
+            Assert.True(tool.IsHighThresholdSelected);
 
             tool.AutoCorrelationSensitivity = 0.0;
 
             Assert.True(tool.IgnoreAutocorrelation);
             Assert.False(tool.AutoCorrelationThresholdDefault);
             Assert.Equal(1.3, tool.AutoCorrelationThreshold, precision: 3);
-            Assert.Equal("0%", tool.AutoCorrelationSensitivityText);
+            Assert.Equal(0.0, tool.AutoCorrelationSensitivityPercent, precision: 3);
 
             tool.AutoCorrelationSensitivity = 1.0;
 
             Assert.False(tool.IgnoreAutocorrelation);
             Assert.Equal(0.5, tool.AutoCorrelationThreshold, precision: 3);
-            Assert.Equal("100%", tool.AutoCorrelationSensitivityText);
+            Assert.Equal(100.0, tool.AutoCorrelationSensitivityPercent, precision: 3);
 
             tool.DirectionSensitivity = 0.0;
 
             Assert.True(tool.IgnoreDirection);
             Assert.False(tool.DirectionImpactFactorDefault);
             Assert.Equal(0.0, tool.DirectionImpactFactor, precision: 3);
-            Assert.Equal("0%", tool.DirectionSensitivityText);
+            Assert.Equal(0.0, tool.DirectionSensitivityPercent, precision: 3);
 
             tool.DirectionSensitivity = 0.35;
 
             Assert.False(tool.IgnoreDirection);
             Assert.Equal(0.35, tool.DirectionImpactFactor, precision: 3);
-            Assert.Equal("35%", tool.DirectionSensitivityText);
+            Assert.Equal(35.0, tool.DirectionSensitivityPercent, precision: 3);
 
-            tool.UseAdvancedScoringTuning = true;
-            Assert.False(tool.ShowGuidedTuningPanel);
-            Assert.True(tool.ShowAdvancedTuningPanel);
+            tool.SelectParameter(nameof(ScoringAdjustmentParameter.AutoCorrelationThreshold));
+            Assert.Equal("Shake sensitivity sweep", tool.SelectedParameterTitle);
+            Assert.True(tool.IsShakeSensitivitySelected);
+            Assert.Equal("%", tool.SweepAxisValueSuffix);
+            Assert.Equal(100.0, ScoringAdjustmentToolViewModel.ToSweepDisplayValue(
+                ScoringAdjustmentParameter.AutoCorrelationThreshold,
+                rawValue: 0.5), precision: 3);
+
+            tool.AutoCorrelationSensitivityPercent = 75.0;
+            Assert.Equal(0.75, tool.AutoCorrelationSensitivity, precision: 3);
+            Assert.Equal(75.0, tool.AutoCorrelationSensitivityPercent, precision: 3);
+
+            tool.SelectParameter(nameof(ScoringAdjustmentParameter.DirectionImpactFactor));
+            Assert.Equal("Direction sensitivity sweep", tool.SelectedParameterTitle);
+            Assert.True(tool.IsDirectionSensitivitySelected);
+            Assert.Equal(35.0, ScoringAdjustmentToolViewModel.ToSweepDisplayValue(
+                ScoringAdjustmentParameter.DirectionImpactFactor,
+                rawValue: 0.35), precision: 3);
         }
         finally
         {
@@ -279,7 +309,7 @@ public sealed class ScoringAdjustmentToolViewModelTests
         ScoringAdjustmentToolViewModel tool = new();
         try
         {
-            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesFolder);
+            string movesFolder = IntermediatePackageLayout.Resolve(root, IntermediatePackageLayout.Assets.MovesV7Folder);
             Directory.CreateDirectory(movesFolder);
             File.WriteAllBytes(Path.Combine(movesFolder, "shared_id.msm"), CreateHeaderOnlyClassifier());
 
@@ -330,6 +360,32 @@ public sealed class ScoringAdjustmentToolViewModelTests
 
     private static void WriteFixedString(byte[] data, int offset, string value)
         => Encoding.UTF8.GetBytes(value, data.AsSpan(offset, 64));
+
+    private static string WriteCompleteClassifierSet(string root, string fileName)
+    {
+        const float duration = 0.938f;
+        List<MotionSample> samples = [];
+        for (int index = 0; index <= 60; index++)
+        {
+            float time = duration * index / 60.0f;
+            samples.Add(new MotionSample(time, MathF.Sin(time), MathF.Cos(time), time));
+        }
+
+        MotionClassifierGenerator generator = new();
+        foreach (MotionClassifierFormatVersion version in JdiMotionClassifierStorage.StoredVersions)
+        {
+            byte[] classifier = generator.BuildClassifier(new MotionClassifierBuildRequest
+            {
+                SongName = "testmap",
+                MoveName = "move_a",
+                Examples = [new MotionExample(duration, samples)],
+                Options = new MotionClassifierGenerationOptions { ClassifierFormatVersion = version }
+            });
+            JdiMotionClassifierStorage.WriteClassifier(root, fileName, version, classifier);
+        }
+
+        return JdiMotionClassifierStorage.GetVersion7Path(root, fileName);
+    }
 
     private static void WriteSingle(byte[] data, int offset, float value)
         => BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(offset, sizeof(int)), BitConverter.SingleToInt32Bits(value));

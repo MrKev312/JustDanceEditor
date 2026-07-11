@@ -1,5 +1,3 @@
-using Avalonia.Controls;
-
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 

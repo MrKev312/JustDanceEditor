@@ -361,7 +361,8 @@ public sealed class UnityAssetMaterializer(ILogger logger)
             mapPackageFolder,
             ResolvePackagePath(packageRoot, IntermediatePackageLayout.Assets.MovesFolder),
             name => name.EndsWith(".msm", StringComparison.OrdinalIgnoreCase),
-            ".msm");
+            ".msm",
+            (name, data) => JdiMotionClassifierStorage.ImportClassifier(packageRoot, name, data));
 
         if (exported == 0)
         {
@@ -526,7 +527,8 @@ public sealed class UnityAssetMaterializer(ILogger logger)
         string mapPackageFolder,
         string destinationFolder,
         Func<string, bool> filter,
-        string defaultExtension)
+        string defaultExtension,
+        Action<string, byte[]>? assetWriter = null)
     {
         string? bundlePath = LocateFirstBundle(mapPackageFolder);
         if (bundlePath == null)
@@ -554,14 +556,21 @@ public sealed class UnityAssetMaterializer(ILogger logger)
                 if (data.Length == 0)
                     continue;
 
-                Directory.CreateDirectory(destinationFolder);
                 string safeName = SanitizeFileName(assetName);
                 if (string.IsNullOrEmpty(Path.GetExtension(safeName)) && !string.IsNullOrEmpty(defaultExtension))
                     safeName += defaultExtension;
 
                 safeName = EnsureUniqueFileName(safeName, exportedNames);
-                string destination = Path.Combine(destinationFolder, safeName);
-                File.WriteAllBytes(destination, data);
+                if (assetWriter == null)
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                    string destination = Path.Combine(destinationFolder, safeName);
+                    File.WriteAllBytes(destination, data);
+                }
+                else
+                {
+                    assetWriter(safeName, data);
+                }
                 exported++;
             }
         }

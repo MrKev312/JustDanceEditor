@@ -1,22 +1,16 @@
-using JustDanceEditor.Formats.JDI;
-using JustDanceEditor.Formats.JDI.Metadata;
 using JustDanceEditor.Formats.UbiArt.Export.Ipk;
 using JustDanceEditor.Formats.UbiArt.Import;
-using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using KevInc.UbiArt.FileSystem;
-using KevInc.UbiArt.Ipk;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Hashing;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 using Xunit;

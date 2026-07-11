@@ -37,14 +37,14 @@ public sealed class JdiMotionClassifierGenerator
         Dictionary<string, List<MotionExample>> examplesByMove = JdiMotionRecordingData.BuildExamplesByMove(recordings, moveWindows, coachId);
         List<MotionClassifierGenerationIssue> issues = [];
 
-        string movesFolder = IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.MovesFolder);
-        Directory.CreateDirectory(movesFolder);
+        JdiMotionClassifierStorage.EnsureVersionFolders(packageRoot);
 
         string songName = string.IsNullOrWhiteSpace(package.Metadata.MapName)
             ? package.Metadata.SongID.ToString("N")
             : package.Metadata.MapName;
 
         MotionClassifierGenerator generator = new();
+        MotionClassifierGenerationOptions generationOptions = options ?? new MotionClassifierGenerationOptions();
         List<GeneratedMotionClassifier> generated = [];
 
         foreach ((string moveId, List<MotionExample> examples) in examplesByMove.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
@@ -57,15 +57,15 @@ public sealed class JdiMotionClassifierGenerator
                 continue;
             }
 
-            byte[] classifierBytes;
+            IReadOnlyDictionary<MotionClassifierFormatVersion, byte[]> variants;
             try
             {
-                classifierBytes = generator.BuildClassifier(new MotionClassifierBuildRequest
+                variants = generator.BuildAllVersions(new MotionClassifierBuildRequest
                 {
                     SongName = songName,
                     MoveName = moveId,
                     Examples = examples,
-                    Options = options ?? new MotionClassifierGenerationOptions()
+                    Options = generationOptions
                 });
             }
             catch (Exception ex)
@@ -74,9 +74,17 @@ public sealed class JdiMotionClassifierGenerator
                 continue;
             }
 
-            string path = Path.Combine(movesFolder, moveId + ".msm");
-            await File.WriteAllBytesAsync(path, classifierBytes, cancellationToken);
-            generated.Add(new GeneratedMotionClassifier(moveId, path, examples.Count));
+            string fileName = moveId + ".msm";
+            foreach ((MotionClassifierFormatVersion version, byte[] classifier) in variants)
+            {
+                string variantPath = JdiMotionClassifierStorage.GetVersionPath(packageRoot, fileName, version);
+                await File.WriteAllBytesAsync(variantPath, classifier, cancellationToken);
+            }
+
+            generated.Add(new GeneratedMotionClassifier(
+                moveId,
+                JdiMotionClassifierStorage.GetVersion7Path(packageRoot, fileName),
+                examples.Count));
         }
 
         foreach (JdiMotionMoveWindow move in moveWindows)

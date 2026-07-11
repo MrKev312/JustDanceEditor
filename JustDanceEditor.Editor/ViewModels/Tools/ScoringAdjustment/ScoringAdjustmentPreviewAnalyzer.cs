@@ -13,6 +13,7 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal sealed class ScoringAdjustmentPreviewAnalyzer : IScoringAdjustmentPreviewAnalyzer
 {
+    internal const float CurveMaxDistance = 6.0f;
     private const int CandidateCount = 26;
     private readonly JsonMotionRecordingRepository recordingRepository = new();
     private readonly JdiMotionRecordingMoveScorer scorer = new();
@@ -41,11 +42,13 @@ internal sealed class ScoringAdjustmentPreviewAnalyzer : IScoringAdjustmentPrevi
         double low = ScoringAdjustmentDraftMapper.EffectiveValue(draft, ScoringAdjustmentParameter.LowThreshold);
         double high = ScoringAdjustmentDraftMapper.EffectiveValue(draft, ScoringAdjustmentParameter.HighThreshold);
         List<ScoringAdjustmentCurvePoint> points =
-        [
-            new(0.0f, ProjectDistancePercentage(0.0f, low, high)),
-            new((float)low, ProjectDistancePercentage((float)low, low, high)),
-            new((float)high, ProjectDistancePercentage((float)high, low, high))
-        ];
+        [.. new[] { 0.0f, (float)low, (float)high, CurveMaxDistance }
+            .Where(static distance => float.IsFinite(distance) && distance >= 0.0f && distance <= CurveMaxDistance)
+            .Distinct()
+            .Order()
+            .Select(distance => new ScoringAdjustmentCurvePoint(
+                distance,
+                ProjectDistancePercentage(distance, low, high)))];
 
         List<ScoringAdjustmentCurveSample> curveSamples = [];
         int seriesIndex = 0;

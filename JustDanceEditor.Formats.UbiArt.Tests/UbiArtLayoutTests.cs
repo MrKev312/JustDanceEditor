@@ -225,7 +225,7 @@ public class UbiArtLayoutTests
 
         try
         {
-            string movesRoot = Path.Combine(materializedRoot, "assets", "moves");
+            string movesRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.MovesV7Folder);
             Directory.CreateDirectory(movesRoot);
             await File.WriteAllBytesAsync(Path.Combine(movesRoot, "Move_A.msm"), [1, 2, 3, 4], TestContext.Current.CancellationToken);
 
@@ -253,7 +253,7 @@ public class UbiArtLayoutTests
 
         try
         {
-            string movesRoot = Path.Combine(materializedRoot, "assets", "moves");
+            string movesRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.MovesV7Folder);
             string gesturesRoot = IntermediatePackageLayout.Resolve(materializedRoot, UbiArtGestureFolders.PackageFolder(UbiArtGestureFolders.Orbis));
             Directory.CreateDirectory(movesRoot);
             Directory.CreateDirectory(gesturesRoot);
@@ -267,6 +267,32 @@ public class UbiArtLayoutTests
             string rawMovesRoot = Path.Combine(outputRoot, "world", "maps", "song", "timeline", "moves");
             Assert.True(File.Exists(Path.Combine(rawMovesRoot, "wiiu", "move_a.msm")));
             Assert.True(File.Exists(Path.Combine(rawMovesRoot, "orbis", "move_a.gesture")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task JD2014Export_UsesStoredVersion5Classifier()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string materializedRoot = Path.Combine(root, "jdi");
+        string outputRoot = Path.Combine(root, "out");
+
+        try
+        {
+            string version5Folder = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.MovesV5Folder);
+            Directory.CreateDirectory(version5Folder);
+            await File.WriteAllBytesAsync(Path.Combine(version5Folder, "Move_A.msm"), "stored version 5"u8.ToArray(), TestContext.Current.CancellationToken);
+
+            UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
+            await writer.ExportAsync(CreatePackage(), materializedRoot, outputRoot, UbiArtPlatform.Revolution, UbiArtEngineVersion.JD2014);
+
+            string exported = Path.Combine(outputRoot, "world", "jd5", "song", "timeline", "moves", "wii", "move_a.msm");
+            Assert.Equal("stored version 5"u8.ToArray(), File.ReadAllBytes(exported));
         }
         finally
         {

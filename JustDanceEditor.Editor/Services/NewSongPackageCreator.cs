@@ -213,8 +213,7 @@ public static class NewSongPackageCreator
             IntermediatePackageLayout.Assets.CoverAssetsFolder,
             IntermediatePackageLayout.Assets.CoachesFolder,
             IntermediatePackageLayout.Assets.BackgroundsFolder,
-            IntermediatePackageLayout.Assets.PictogramsFolder,
-            IntermediatePackageLayout.Assets.MovesFolder
+            IntermediatePackageLayout.Assets.PictogramsFolder
         ];
 
         foreach (string dir in directories)
@@ -222,6 +221,7 @@ public static class NewSongPackageCreator
             string fullPath = Path.Combine(rootPath, dir.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(fullPath);
         }
+        JdiMotionClassifierStorage.EnsureVersionFolders(rootPath);
 
         // Create simple placeholder WebP images using a minimal 1x1 magenta WebP
         // This ensures the image service can later generate proper placeholders

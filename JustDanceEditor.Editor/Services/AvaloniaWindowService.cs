@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
-using Avalonia.VisualTree;
 
 namespace JustDanceEditor.Editor.Services;
 

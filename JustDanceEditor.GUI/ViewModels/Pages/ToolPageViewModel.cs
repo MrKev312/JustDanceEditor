@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.GUI.Services;
-using JustDanceEditor.GUI.ViewModels;
 using JustDanceEditor.GUI.ViewModels.Prompts;
 
 using System.Collections.ObjectModel;

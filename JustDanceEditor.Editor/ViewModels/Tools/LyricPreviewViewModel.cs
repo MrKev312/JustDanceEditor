@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
-using JustDanceEditor.Formats.JDI.Timelines;
 
 using System.Collections.Generic;
 using System.Collections.Specialized;

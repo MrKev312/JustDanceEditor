@@ -1,4 +1,3 @@
-using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Generators.Legacy;

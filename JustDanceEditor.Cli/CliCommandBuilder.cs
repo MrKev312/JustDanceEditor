@@ -1,4 +1,3 @@
-using JustDanceEditor.AppHost;
 using JustDanceEditor.Cli.Interactive;
 using JustDanceEditor.Conversion.Abstractions.Prompts;
 using JustDanceEditor.Conversion.Abstractions.Tools;

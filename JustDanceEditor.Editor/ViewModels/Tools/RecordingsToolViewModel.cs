@@ -1,5 +1,3 @@
-using Avalonia;
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -17,7 +15,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
@@ -200,7 +197,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         JdiMotionRecordingLiveScorer? liveScorer = null,
         MotionRecordingScoreHudService? scoreHud = null,
         IWindowService? windows = null)
-        : base(timelineContext)
+        : base(timelineContext, deferInitialTimelineAttachment: true)
     {
         _motionClient = motionClient ?? new DsuMotionInputClient();
         _recordingRepository = recordingRepository ?? new JsonMotionRecordingRepository();
@@ -223,6 +220,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
             static (recipient, message) => recipient.SelectRecordingMove(message.RecordingPath, message.MoveIndex));
         SelectedRecordingKind = RecordingKinds.First();
         SelectedView = ViewOptions.First();
+        InitializeTimelineContext();
     }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
@@ -507,7 +505,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
 
         string movesFolder = IntermediatePackageLayout.Resolve(
             ActiveTimeline.RootPath,
-            IntermediatePackageLayout.Assets.MovesFolder);
+            IntermediatePackageLayout.Assets.MovesV7Folder);
         ScoreAgainstExistingClassifiers =
             Directory.Exists(movesFolder)
             && Directory.EnumerateFiles(movesFolder, "*.msm", SearchOption.TopDirectoryOnly).Any();

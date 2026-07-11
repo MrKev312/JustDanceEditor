@@ -22,7 +22,7 @@ public class MoveAssetMissingTests
         try
         {
             Directory.CreateDirectory(tmp);
-            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesV7Folder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(movesDir);
             string gesturesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.GestureFolder("TestGesture").Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(gesturesDir);
@@ -82,7 +82,7 @@ public class MoveAssetMissingTests
         try
         {
             Directory.CreateDirectory(tmp);
-            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesFolder.Replace('/', Path.DirectorySeparatorChar));
+            string movesDir = Path.Combine(tmp, IntermediatePackageLayout.Assets.MovesV7Folder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(movesDir);
             // create one file for "exists"
             File.WriteAllText(Path.Combine(movesDir, "exists.msm"), "x");
