@@ -16,8 +16,6 @@ public class JDUbiArtSong
     public float GetSongStartTime()
     {
         Structure structure = MusicTrack.Components[0].TrackData.Structure;
-        if (Math.Abs(structure.VideoStartTime) > 0.000001f)
-            return -structure.VideoStartTime;
 
         int beat = structure.StartBeat;
         int marker = Math.Abs(beat);
