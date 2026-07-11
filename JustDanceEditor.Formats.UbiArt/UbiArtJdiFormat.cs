@@ -166,7 +166,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         string songName = importResult.Package.Metadata.MapName ?? importResult.Package.Metadata.Title ?? "song";
         string platformName = ubiRequest.ExportPlatform == UbiArtPlatform.Uncooked
-            ? "uncooked"
+            ? $"uncooked_{(int)ubiRequest.ExportEngineVersion}"
             : ubiRequest.ExportPlatform.GetCookedFolderName();
         string folderName = $"{songName.ToLowerInvariant()}_{platformName}";
         bool exportIntoGameFolder = UbiArtGameFolderIpkExporter.LooksLikeGameFolder(ubiRequest.OutputPath, ubiRequest.ExportPlatform);

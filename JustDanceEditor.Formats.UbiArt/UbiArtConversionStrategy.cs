@@ -73,19 +73,9 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
 
     private static IEnumerable<UbiArtTargetDefinition> BuildTargets()
     {
-        yield return new UbiArtTargetDefinition(
-            new ConversionTargetDefinition(
-                FormatCode: "ubiart",
-                FormatName: "UbiArt",
-                TargetCode: "uncooked",
-                Platform: new PlatformDescriptor("pc", "PC"),
-                Version: new TargetVersionDescriptor.Custom("uncooked", "Uncooked", 10),
-                DisplayName: "Uncooked (UbiArt)",
-                ExportPrompts: [OutputFolderPrompt()],
-                Priority: 10),
-            UbiArtPlatform.Uncooked,
-            UbiArtEngineVersion.JD2022,
-            CookedType.Uncooked);
+        yield return CreateUncookedTarget("uncooked-2014", "JD2014 Uncooked", UbiArtEngineVersion.JD2014, 2014);
+        yield return CreateUncookedTarget("uncooked-2015", "JD2015 Uncooked", UbiArtEngineVersion.JD2015, 2015);
+        yield return CreateUncookedTarget("uncooked-modern", "Modern Uncooked", UbiArtEngineVersion.JD2022, 2022);
 
         foreach (int year in new[] { 2014, 2015, 2016, 2017, 2018, 2019, 2020 })
             yield return CreateVersionedTarget($"wii-{year}", "wii", "Revolution (Wii)", UbiArtPlatform.Revolution, ToEngineVersion(year), year);
@@ -127,6 +117,23 @@ public sealed class UbiArtConversionStrategy : IFormatConversionStrategy
             platform,
             engineVersion,
             CookedType.Cooked);
+    }
+
+    private static UbiArtTargetDefinition CreateUncookedTarget(string targetCode, string displayName, UbiArtEngineVersion engineVersion, int year)
+    {
+        return new UbiArtTargetDefinition(
+            new ConversionTargetDefinition(
+                FormatCode: "ubiart",
+                FormatName: "UbiArt",
+                TargetCode: targetCode,
+                Platform: new PlatformDescriptor("pc", "PC"),
+                Version: new TargetVersionDescriptor.Custom(year.ToString(), $"JD{year}", year),
+                DisplayName: displayName,
+                ExportPrompts: [OutputFolderPrompt()],
+                Priority: 10),
+            UbiArtPlatform.Uncooked,
+            engineVersion,
+            CookedType.Uncooked);
     }
 
     private static ConversionPrompt OutputFolderPrompt() =>

@@ -1,8 +1,10 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Timelines;
+using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using System.Reflection;
+using System.Globalization;
 using System.Text;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
@@ -11,12 +13,14 @@ namespace JustDanceEditor.Formats.UbiArt.Export.Generators;
 /// Engine content generator that produces Lua-formatted output for Uncooked UbiArt packages.
 /// Uncooked packages are raw, human-readable project files used during development and modding.
 /// </summary>
-public class UncookedEngineContentGenerator : IEngineContentGenerator
+public class UncookedEngineContentGenerator(UbiArtEngineVersion version = UbiArtEngineVersion.JD2022) : IEngineContentGenerator
 {
     private const long PictoTrackId = 1272115770L;
     private const long GoldEffectTrackId = 628418524L;
 
     private static byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
+
+    public string? VideoFileName { get; set; }
 
     #region Lua Content Generators
 
@@ -25,20 +29,8 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapName = package.Metadata.MapName;
         string artist = EscapeLuaString(package.Metadata.Artist);
         string title = EscapeLuaString(package.Metadata.Title);
-        string numCoach = package.Metadata.CoachCount switch
-        {
-            1 => "NumCoach.Solo",
-            2 => "NumCoach.Duo",
-            3 => "NumCoach.Trio",
-            _ => "NumCoach.Quatuor"
-        };
-        string difficulty = package.Metadata.Difficulty switch
-        {
-            1 => "SongDifficulty.Easy",
-            2 => "SongDifficulty.Normal",
-            3 => "SongDifficulty.Hard",
-            _ => "SongDifficulty.Extreme"
-        };
+        string mapNameLower = mapName.ToLowerInvariant();
+        string mapRoot = GetMapRoot(mapNameLower);
 
         StringBuilder sb = new();
         sb.AppendLine("includeReference(\"EngineData/Helpers/SongDatabase.ilu\")");
@@ -61,14 +53,32 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("        JD_SongDescTemplate =");
         sb.AppendLine("        {");
         sb.AppendLine($"\t\t\tMapName\t\t\t\t\t\t=\t\t\"{mapName}\",");
-        sb.AppendLine($"\t\t\tJDVersion\t\t\t\t\t=\t\t{package.Metadata.OriginalJDVersion},");
+        sb.AppendLine($"\t\t\tJDVersion\t\t\t\t\t=\t\t{(int)version},");
+        sb.AppendLine($"\t\t\tOriginalJDVersion\t\t\t=\t\t{package.Metadata.OriginalJDVersion},");
         sb.AppendLine("\t\t\tRelatedAlbums\t\t\t\t=\t\t");
         sb.AppendLine("\t\t\t{");
         sb.AppendLine("\t\t\t},");
         sb.AppendLine($"\t\t\tArtist\t\t\t\t\t\t=\t\t\"{artist}\",");
         sb.AppendLine($"\t\t\tTitle\t\t\t\t\t\t=\t\t\"{title}\",");
-        sb.AppendLine($"\t\t\tNumCoach\t\t\t\t\t=\t\t{numCoach},");
-        sb.AppendLine($"\t\t\tDifficulty\t\t\t\t\t=\t\t{difficulty},");
+        sb.AppendLine($"\t\t\tCredits\t\t\t\t\t\t=\t\t\"{EscapeLuaString(package.Metadata.Credits)}\",");
+        sb.AppendLine("\t\t\tPhoneImages =");
+        sb.AppendLine("\t\t\t{");
+        sb.AppendLine($"\t\t\t\t{{ KEY = \"cover\", VAL = \"{mapRoot}/menuart/textures/{mapNameLower}_cover_phone.png\" }},");
+        for (int coachIndex = 1; coachIndex <= package.Metadata.CoachCount; coachIndex++)
+            sb.AppendLine($"\t\t\t\t{{ KEY = \"coach{coachIndex}\", VAL = \"{mapRoot}/menuart/textures/{mapNameLower}_coach_{coachIndex}_phone.png\" }},");
+        sb.AppendLine("\t\t\t},");
+        sb.AppendLine($"\t\t\tNumCoach\t\t\t\t\t=\t\t{package.Metadata.CoachCount},");
+        sb.AppendLine("\t\t\tMainCoach\t\t\t\t\t=\t\t-1,");
+        sb.AppendLine($"\t\t\tDifficulty\t\t\t\t\t=\t\t{package.Metadata.Difficulty},");
+        sb.AppendLine($"\t\t\tSweatDifficulty\t\t\t\t=\t\t{package.Metadata.SweatDifficulty},");
+        sb.AppendLine("\t\t\tTags =");
+        sb.AppendLine("\t\t\t{");
+        foreach (string tag in package.Metadata.Tags)
+            sb.AppendLine($"\t\t\t\t{{ VAL = \"{EscapeLuaString(tag)}\" }},");
+        sb.AppendLine("\t\t\t},");
+        sb.AppendLine($"\t\t\tStatus\t\t\t\t\t\t=\t\t{package.Metadata.Status.ToString(CultureInfo.InvariantCulture)},");
+        sb.AppendLine($"\t\t\tMojoValue\t\t\t\t\t=\t\t{package.Metadata.MojoValue},");
+        sb.AppendLine($"\t\t\tCountInProgression\t\t\t=\t\t{package.Metadata.CountInProgression},");
         sb.AppendLine("\t\t\t");
         sb.AppendLine("\t\t\t-- Game Modes");
         sb.AppendLine("\t\t\tGameModes = ");
@@ -87,8 +97,12 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("\t\t\t-- Default Colors");
         sb.AppendLine("\t\t\tDefaultColors = ");
         sb.AppendLine("\t\t\t{");
-        sb.AppendLine($"\t\t\t\t{{ KEY = \"lyrics\", VAL = \"{package.Metadata.LyricsColor}\" }},");
+        sb.AppendLine($"\t\t\t\t{{ KEY = \"lyrics\", VAL = \"{ToUbiArtColor(package.Metadata.LyricsColor)}\" }},");
         sb.AppendLine("\t\t\t\t{ KEY = \"theme\", VAL = \"0xffffffff\" },");
+        AppendSongColor(sb, package, "songcolor_1a", "songColor_1A");
+        AppendSongColor(sb, package, "songcolor_1b", "songColor_1B");
+        AppendSongColor(sb, package, "songcolor_2a", "songColor_2A");
+        AppendSongColor(sb, package, "songcolor_2b", "songColor_2B");
         sb.AppendLine("\t\t\t},");
         sb.AppendLine("\t\t\t");
         sb.AppendLine("\t\t\t-- Audio Previews\t\t\t");
@@ -133,7 +147,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 
         // Build a MusicTrack template that includes an external .trk and references WAV
         StringBuilder sb = new();
-        sb.AppendLine($"includeReference(\"world/maps/{mapNameLower}/audio/{mapName}.trk\")");
+        sb.AppendLine($"includeReference(\"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}.trk\")");
         sb.AppendLine();
         sb.AppendLine("params =");
         sb.AppendLine("{");
@@ -146,7 +160,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("\t\t\t\tNAME = \"MusicTrackComponent_Template\",");
         sb.AppendLine("\t\t\t\tMusicTrackComponent_Template =");
         sb.AppendLine("\t\t\t\t{");
-        sb.AppendLine("\t\t\t\t\ttrackData = { MusicTrackData = { path = \"world/maps/" + mapNameLower + "/audio/" + mapName + ".wav\", structure = structure, volume = 0 } },");
+        sb.AppendLine($"\t\t\t\t\ttrackData = {{ MusicTrackData = {{ path = \"{GetMapRoot(mapNameLower)}/audio/{mapNameLower}.wav\", structure = structure, volume = 0 }} }},");
         sb.AppendLine("\t\t\t\t}");
         sb.AppendLine("\t\t\t},");
         sb.AppendLine("\t\t}");
@@ -161,6 +175,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         string mapNameLower = package.Metadata.MapName.ToLowerInvariant();
         List<object> allClips = [];
         List<object> tracks = [];
+        HashSet<long> moveTrackIds = [];
 
         // Add MotionClips for each coach
         foreach (MoveTimeline timeline in package.CoachTimelines)
@@ -177,26 +192,71 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     {
                         clip.Id,
                         timeline.TrackId,
+                        IsActive = 1,
                         clip.StartTime,
                         move.Duration,
-                        ClassifierPath = $"world/maps/{mapNameLower}/timeline/moves/{clip.MoveId}.msm",
+                        ClassifierPath = $"{GetMapRoot(mapNameLower)}/timeline/moves/{clip.MoveId}.msm",
                         GoldMove = clip.IsGoldMove ? 1 : 0,
                         timeline.CoachId,
+                        MoveType = 0,
                         Color = ParseColorToHex(move.Color)
                     }
                 });
             }
 
             // Add track for this coach
-            tracks.Add(new
+            if (moveTrackIds.Add(timeline.TrackId))
             {
-                NAME = "MoveTrack",
-                MoveTrack = new
+                tracks.Add(new
                 {
-                    Id = timeline.TrackId,
-                    Name = $"Coach{timeline.CoachId}"
-                }
-            });
+                    NAME = "MoveTrack",
+                    MoveTrack = new
+                    {
+                        Id = timeline.TrackId,
+                        Name = $"Coach{timeline.CoachId}"
+                    }
+                });
+            }
+        }
+
+        foreach (MoveTimeline timeline in package.FullBodyCoachTimelines)
+        {
+            foreach (MoveClip clip in timeline.Clips)
+            {
+                if (!package.FullBodyCoachMoves.TryGetValue(clip.MoveId, out CoachMoveDefinition? move))
+                    continue;
+
+                allClips.Add(new
+                {
+                    NAME = "MotionClip",
+                    MotionClip = new
+                    {
+                        clip.Id,
+                        timeline.TrackId,
+                        IsActive = 1,
+                        clip.StartTime,
+                        move.Duration,
+                        ClassifierPath = $"{GetMapRoot(mapNameLower)}/timeline/moves/{clip.MoveId}.gesture",
+                        GoldMove = clip.IsGoldMove ? 1 : 0,
+                        timeline.CoachId,
+                        MoveType = 1,
+                        Color = ParseColorToHex(move.Color)
+                    }
+                });
+            }
+
+            if (moveTrackIds.Add(timeline.TrackId))
+            {
+                tracks.Add(new
+                {
+                    NAME = "MoveTrack",
+                    MoveTrack = new
+                    {
+                        Id = timeline.TrackId,
+                        Name = $"Coach{timeline.CoachId}"
+                    }
+                });
+            }
         }
 
         // Add PictogramClips
@@ -211,7 +271,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     TrackId = PictoTrackId,
                     pictoClip.StartTime,
                     pictoClip.Duration,
-                    PictoPath = $"world/maps/{mapNameLower}/timeline/pictos/{pictoClip.PictogramId}.png",
+                    PictoPath = $"{GetMapRoot(mapNameLower)}/timeline/pictos/{pictoClip.PictogramId}{(version == UbiArtEngineVersion.JD2014 ? ".tga" : ".png")}",
                 }
             });
         }
@@ -331,7 +391,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("                    TapeEntry =");
         sb.AppendLine("                    {");
         sb.AppendLine($"                      Label = \"{tapeType}\",");
-        sb.AppendLine($"                      Path = \"world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_{tapeType}.{extension}\",");
+        sb.AppendLine($"                      Path = \"{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_{tapeType}.{extension}\",");
         sb.AppendLine("                    },");
         sb.AppendLine("                  },");
         sb.AppendLine("                },");
@@ -421,7 +481,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("                },");
         sb.AppendLine("                files =");
         sb.AppendLine("                {");
-        sb.AppendLine($"                  \"world/maps/{mapNameLower}/audio/amb/amb_{mapNameLower}_intro.wav\",");
+        sb.AppendLine($"                  \"{GetMapRoot(mapNameLower)}/audio/amb/amb_{mapNameLower}_intro.wav\",");
         sb.AppendLine("                },");
         sb.AppendLine("              },");
         sb.AppendLine("            },");
@@ -462,7 +522,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("                    TapeEntry =");
         sb.AppendLine("                    {");
         sb.AppendLine("                      Label = \"Master\",");
-        sb.AppendLine($"                      Path = \"world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tape\",");
+        sb.AppendLine($"                      Path = \"{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.tape\",");
         sb.AppendLine("                    },");
         sb.AppendLine("                  },");
         sb.AppendLine("                },");
@@ -580,7 +640,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
                     IsActive = 1,
                     StartTime = startTime,
                     Duration = duration,
-                    SoundSetPath = $"world/maps/{mapNameLower}/audio/amb/amb_{mapNameLower}_intro.tpl"
+                    SoundSetPath = $"{GetMapRoot(mapNameLower)}/audio/amb/amb_{mapNameLower}_intro.tpl"
                 }
             });
 
@@ -622,22 +682,22 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
+			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_AUDIO"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""{GetMapRoot(mapNameLower)}/audio/{mapNameLower}_audio.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 			</SubSceneActor>
 		</ACTORS>
 		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
+			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_CINE"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_cine.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 			</SubSceneActor>
 		</ACTORS>
 		<ACTORS NAME=""SubSceneActor"">
-			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
+			<SubSceneActor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_TML"" MARKER="""" DEFAULTENABLE=""1"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""enginedata/actortemplates/subscene.tpl"" LUA=""enginedata/actortemplates/subscene.tpl"" RELATIVEPATH=""{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml.isc"" EMBED_SCENE=""0"" IS_SINGLE_PIECE=""0"" ZFORCED=""1"" DIRECT_PICKING=""1"">
 				<ENUM NAME=""viewType"" SEL=""2"" />
 			</SubSceneActor>
 		</ACTORS>
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName} : SongDesc"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/songdesc.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName} : SongDesc"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""{GetMapRoot(mapNameLower)}/songdesc.tpl"">
 				<COMPONENTS NAME=""JD_SongDescComponent"">
 					<JD_SongDescComponent />
 				</COMPONENTS>
@@ -668,7 +728,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""MusicTrack"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/audio/{mapNameLower}_musictrack.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""MusicTrack"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""{GetMapRoot(mapNameLower)}/audio/{mapNameLower}_musictrack.tpl"">
 				<COMPONENTS NAME=""MusicTrackComponent"">
 					<MusicTrackComponent />
 				</COMPONENTS>
@@ -692,14 +752,14 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_dance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_dance.act"" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_dance.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_dance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_dance.act"" LUA=""{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_dance.tpl"">
 				<COMPONENTS NAME=""TapeCase_Component"">
 					<TapeCase_Component />
 				</COMPONENTS>
 			</Actor>
 		</ACTORS>
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_karaoke"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_karaoke.act"" LUA=""world/maps/{mapNameLower}/timeline/{mapNameLower}_tml_karaoke.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_tml_karaoke"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{mapNameLower}_tml_karaoke.act"" LUA=""{GetMapRoot(mapNameLower)}/timeline/{mapNameLower}_tml_karaoke.tpl"">
 				<COMPONENTS NAME=""TapeCase_Component"">
 					<TapeCase_Component />
 				</COMPONENTS>
@@ -723,7 +783,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_MainSequence"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.act"" LUA=""world/maps/{mapNameLower}/cinematics/{mapNameLower}_mainsequence.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_MainSequence"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE=""{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.act"" LUA=""{GetMapRoot(mapNameLower)}/cinematics/{mapNameLower}_mainsequence.tpl"">
 				<COMPONENTS NAME=""MasterTape"">
 					<MasterTape bankState=""4294967295"" />
 				</COMPONENTS>
@@ -753,7 +813,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 						<material>
 							<GFXMaterialSerializable>
 								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_cover_generic.tga"" />
+									<GFXMaterialTexturePathSet diffuse=""{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_cover_generic.tga"" />
 								</textureSet>
 							</GFXMaterialSerializable>
 						</material>
@@ -768,7 +828,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 						<material>
 							<GFXMaterialSerializable>
 								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_coach_1.tga"" />
+									<GFXMaterialTexturePathSet diffuse=""{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_coach_1.tga"" />
 								</textureSet>
 							</GFXMaterialSerializable>
 						</material>
@@ -783,7 +843,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 						<material>
 							<GFXMaterialSerializable>
 								<textureSet>
-									<GFXMaterialTexturePathSet diffuse=""world/maps/{mapNameLower}/menuart/textures/{mapNameLower}_map_bkg.tga"" />
+									<GFXMaterialTexturePathSet diffuse=""{GetMapRoot(mapNameLower)}/menuart/textures/{mapNameLower}_map_bkg.tga"" />
 								</textureSet>
 							</GFXMaterialSerializable>
 						</material>
@@ -809,7 +869,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
 <root>
 	<Scene ENGINE_VERSION=""55299"" GRIDUNIT=""0.500000"" DEPTH_SEPARATOR=""0"" NEAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"" FAR_SEPARATOR=""1.000000 0.000000 0.000000 0.000000, 0.000000 1.000000 0.000000 0.000000, 0.000000 0.000000 1.000000 0.000000, 0.000000 0.000000 0.000000 1.000000"">
 		<ACTORS NAME=""Actor"">
-			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_Autodance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl"">
+			<Actor RELATIVEZ=""0.000000"" SCALE=""1.000000 1.000000"" xFLIPPED=""0"" USERFRIENDLY=""{mapName}_Autodance"" POS2D=""0.000000 0.000000"" ANGLE=""0.000000"" INSTANCEDATAFILE="""" LUA=""{GetMapRoot(mapNameLower)}/autodance/{mapNameLower}_autodance.tpl"">
 				<COMPONENTS NAME=""JD_AutodanceComponent"">
 					<JD_AutodanceComponent />
 				</COMPONENTS>
@@ -878,9 +938,17 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("  NAME = \"Actor\",");
         sb.AppendLine("  Actor =");
         sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/videoscoach/{mapNameLower}_video.tpl\",");
+        sb.AppendLine("    LUA = \"world/_common/videoscreen/video_player_main.tpl\",");
         sb.AppendLine("    COMPONENTS =");
         sb.AppendLine("    {");
+        sb.AppendLine("      {");
+        sb.AppendLine("        NAME = \"PleoComponent\",");
+        sb.AppendLine("        PleoComponent =");
+        sb.AppendLine("        {");
+        string videoFileName = string.IsNullOrWhiteSpace(VideoFileName) ? $"{mapNameLower}.webm" : VideoFileName;
+        sb.AppendLine($"          Video = \"{GetMapRoot(mapNameLower)}/videoscoach/{videoFileName}\",");
+        sb.AppendLine("        },");
+        sb.AppendLine("      },");
         sb.AppendLine("    },");
         sb.AppendLine("  },");
         sb.AppendLine("}");
@@ -902,7 +970,7 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("  NAME = \"Actor\",");
         sb.AppendLine("  Actor =");
         sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/autodance/{mapNameLower}_autodance.tpl\",");
+        sb.AppendLine($"    LUA = \"{GetMapRoot(mapNameLower)}/autodance/{mapNameLower}_autodance.tpl\",");
         sb.AppendLine("    COMPONENTS =");
         sb.AppendLine("    {");
         sb.AppendLine("      {");
@@ -924,11 +992,27 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
         sb.AppendLine("  NAME = \"Actor\",");
         sb.AppendLine("  Actor =");
         sb.AppendLine("  {");
-        sb.AppendLine($"    LUA = \"world/maps/{mapNameLower}/menuart/actors/{textureName}.tpl\",");
+        sb.AppendLine("    LUA = \"enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl\",");
         sb.AppendLine("    COMPONENTS =");
         sb.AppendLine("    {");
         sb.AppendLine("      {");
         sb.AppendLine("        NAME = \"MaterialGraphicComponent\",");
+        sb.AppendLine("        MaterialGraphicComponent =");
+        sb.AppendLine("        {");
+        sb.AppendLine("          material =");
+        sb.AppendLine("          {");
+        sb.AppendLine("            GFXMaterialSerializable =");
+        sb.AppendLine("            {");
+        sb.AppendLine("              textureSet =");
+        sb.AppendLine("              {");
+        sb.AppendLine("                GFXMaterialTexturePathSet =");
+        sb.AppendLine("                {");
+        sb.AppendLine($"                  diffuse = \"{GetMapRoot(mapNameLower)}/menuart/textures/{textureName}.tga\",");
+        sb.AppendLine("                },");
+        sb.AppendLine("              },");
+        sb.AppendLine("            },");
+        sb.AppendLine("          },");
+        sb.AppendLine("        },");
         sb.AppendLine("      },");
         sb.AppendLine("    },");
         sb.AppendLine("  },");
@@ -950,14 +1034,33 @@ public class UncookedEngineContentGenerator : IEngineContentGenerator
             .Replace("\t", "\\t");
     }
 
+    private string GetMapRoot(string mapNameLower) => version switch
+    {
+        UbiArtEngineVersion.JD2014 => $"world/maps/jd5/{mapNameLower}",
+        UbiArtEngineVersion.JD2015 => $"world/maps/jd2015/{mapNameLower}",
+        _ => $"world/maps/{mapNameLower}"
+    };
+
     private static string ParseColorToHex(string hexColor)
     {
-        if (string.IsNullOrEmpty(hexColor) || hexColor.Length < 7)
-            return "0xFFFF8080";
+        return ToUbiArtColor(hexColor);
+    }
 
-        // Strip leading '#' and prepend with '0xFF'
-        string hex = hexColor.TrimStart('#');
-        return $"0xFF{hex}";
+    private static void AppendSongColor(StringBuilder builder, IntermediateSongPackage package, string metadataKey, string ubiArtKey)
+    {
+        if (package.Metadata.AdditionalMetadata.TryGetValue(metadataKey, out string? color) && !string.IsNullOrWhiteSpace(color))
+            builder.AppendLine($"\t\t\t\t{{ KEY = \"{ubiArtKey}\", VAL = \"{ToUbiArtColor(color)}\" }},");
+    }
+
+    private static string ToUbiArtColor(string color)
+    {
+        string hex = color.Trim().TrimStart('#');
+        return hex.Length switch
+        {
+            8 => $"0x{hex[6..8]}{hex[..6]}",
+            6 => $"0xFF{hex}",
+            _ => "0xFFFF8080"
+        };
     }
 
     private static int GetStartTime(object clip)

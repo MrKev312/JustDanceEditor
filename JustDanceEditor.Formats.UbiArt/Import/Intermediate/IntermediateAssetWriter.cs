@@ -439,8 +439,29 @@ internal static class IntermediateAssetWriter
     {
         string timelineMovesFolder = Path.Combine(context.FileSystem.InputFolders.TimelineFolder, "moves");
 
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        string[] directories;
+        try
+        {
+            directories = context.FileSystem.GetDirectories(timelineMovesFolder);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            directories = [];
+        }
+
+        foreach (string directory in directories)
+        {
+            string platformFolder = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(platformFolder) && seen.Add(platformFolder))
+                yield return new(Path.Combine(timelineMovesFolder, platformFolder), UbiArtGestureFolders.PackageFolder(platformFolder));
+        }
+
         foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
-            yield return new(Path.Combine(timelineMovesFolder, gestureFolder.PlatformFolder), gestureFolder.PackageRelativeFolder);
+        {
+            if (seen.Add(gestureFolder.PlatformFolder))
+                yield return new(Path.Combine(timelineMovesFolder, gestureFolder.PlatformFolder), gestureFolder.PackageRelativeFolder);
+        }
     }
 
     private static string? GetReferencedUbiArtGesturePackageFolder(ConversionContext context, string classifierPath)
@@ -461,6 +482,13 @@ internal static class IntermediateAssetWriter
             return false;
 
         string[] segments = relativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        int movesIndex = Array.FindIndex(segments, segment => segment.Equals("moves", StringComparison.OrdinalIgnoreCase));
+        if (movesIndex >= 0 && movesIndex + 1 < segments.Length)
+        {
+            packageFolder = UbiArtGestureFolders.PackageFolder(segments[movesIndex + 1]);
+            return true;
+        }
+
         foreach (UbiArtGestureFolder gestureFolder in UbiArtGestureFolders.All)
         {
             if (segments.Any(segment => segment.Equals(gestureFolder.PlatformFolder, StringComparison.OrdinalIgnoreCase)))

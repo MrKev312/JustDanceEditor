@@ -757,7 +757,9 @@ public class LegacyEngineContentGeneratorTests
         byte[] bytes = UbiArtEngineContentSerializer.Serialize(generated);
 
         Assert.IsType<string>(generated);
-        Assert.Contains("world/maps/testmap/menuart/actors/testmap_cover_generic.tpl", Encoding.UTF8.GetString(bytes));
+        string text = Encoding.UTF8.GetString(bytes);
+        Assert.Contains("enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl", text);
+        Assert.Contains("world/maps/testmap/menuart/textures/testmap_cover_generic.tga", text);
     }
 
     [Fact]

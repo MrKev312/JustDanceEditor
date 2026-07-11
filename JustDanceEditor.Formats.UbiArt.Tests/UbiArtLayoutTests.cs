@@ -276,6 +276,50 @@ public class UbiArtLayoutTests
     }
 
     [Fact]
+    public async Task JD2015UncookedExport_PreservesRawVideoAndEveryGestureFolder()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string materializedRoot = Path.Combine(root, "jdi");
+        string outputRoot = Path.Combine(root, "out");
+        byte[] videoBytes = [0, 1, 2, 3, 0xFE, 0xFF];
+
+        try
+        {
+            string videoRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.VideoFolder);
+            string movesRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.MovesV6Folder);
+            Directory.CreateDirectory(videoRoot);
+            Directory.CreateDirectory(movesRoot);
+            await File.WriteAllBytesAsync(Path.Combine(videoRoot, "song.mp4"), videoBytes, TestContext.Current.CancellationToken);
+            await File.WriteAllBytesAsync(Path.Combine(movesRoot, "Move_A.msm"), [4, 5, 6], TestContext.Current.CancellationToken);
+
+            foreach (string platformFolder in new[] { "durango", "orbis", "wii" })
+            {
+                string gesturesRoot = IntermediatePackageLayout.Resolve(materializedRoot, IntermediatePackageLayout.Assets.GestureFolder(platformFolder));
+                Directory.CreateDirectory(gesturesRoot);
+                await File.WriteAllTextAsync(Path.Combine(gesturesRoot, $"{platformFolder}_move.gesture"), platformFolder, TestContext.Current.CancellationToken);
+            }
+
+            UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
+            await writer.ExportAsync(CreatePackage(), materializedRoot, outputRoot, UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015);
+
+            string mapRoot = Path.Combine(outputRoot, "world", "maps", "jd2015", "song");
+            Assert.Equal(videoBytes, File.ReadAllBytes(Path.Combine(mapRoot, "videoscoach", "song.mp4")));
+            Assert.Contains("song.mp4", await File.ReadAllTextAsync(Path.Combine(mapRoot, "videoscoach", "video_player_main.act"), TestContext.Current.CancellationToken));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "timeline", "moves", "wiiu", "move_a.msm")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "timeline", "moves", "durango", "durango_move.gesture")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "timeline", "moves", "orbis", "orbis_move.gesture")));
+            Assert.True(File.Exists(Path.Combine(mapRoot, "timeline", "moves", "wii", "wii_move.gesture")));
+            Assert.False(Directory.Exists(Path.Combine(mapRoot, "autodance")));
+            Assert.True(File.Exists(Path.Combine(outputRoot, "world", "_common", "graphic_component_templates", "graph", "textures", "background.png")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task JD2014Export_UsesStoredVersion5Classifier()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

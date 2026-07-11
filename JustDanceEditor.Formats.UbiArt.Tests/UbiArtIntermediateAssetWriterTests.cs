@@ -33,6 +33,7 @@ public sealed class UbiArtIntermediateAssetWriterTests
     [InlineData(UbiArtPlatform.Durango, UbiArtGestureFolders.Durango)]
     [InlineData(UbiArtPlatform.Orbis, UbiArtGestureFolders.Orbis)]
     [InlineData(UbiArtPlatform.Xenon, UbiArtGestureFolders.X360)]
+    [InlineData(UbiArtPlatform.Uncooked, "wii")]
     public async Task PopulateFromUbiArtAsync_CopiesGesturesToSourcePlatformFolder(UbiArtPlatform platform, string sourcePlatformFolder)
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
