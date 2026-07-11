@@ -15,19 +15,14 @@ namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 
 internal static class MashupTransitionFxScheduler
 {
-    // The active fade window starts after the delay and lasts for the remaining duration.
-    private const double MashupVideoFadeBrickDurationBeats = 1.0;
-    private const double MashupVideoFadeOffsetBeats = 0.75;
-    private const double MashupVideoFadeActiveBeats = MashupVideoFadeBrickDurationBeats - MashupVideoFadeOffsetBeats;
-    private const int FlashFxEmitterLeadFrames = 8;
     private const string LineActorKeyMarker = "x_lines_2x5";
-    private const string FlashActorKeyMarker = "x_flashcoach";
+    private const string FullScreenGodrayActorKeyMarker = "x_mashup_godrayscreen";
     private static readonly TapeVisitTargetFilter LineFxFilter = new(
         IncludeKeyContains: [LineActorKeyMarker],
         ExcludeKeyContains: []);
     private static readonly TapeVisitTargetFilter LateFxFilter = new(
         IncludeKeyContains: [],
-        ExcludeKeyContains: [LineActorKeyMarker]);
+        ExcludeKeyContains: [LineActorKeyMarker, FullScreenGodrayActorKeyMarker]);
 
     internal static IReadOnlyList<TapeClip> ReadTransitionFxTapeClips(
         JustDanceUbiArtFileSystem fileSystem,
@@ -54,16 +49,12 @@ internal static class MashupTransitionFxScheduler
             fileSystem,
             logger ?? NullLogger.Instance);
         int fxTapeDurationFrames = MashupTransitionTapeTiming.GetLocalDurationFrames(localFxClips);
-        int fxTapeLeadFrames = MashupTransitionTapeTiming.GetLocalLeadFrames(localFxClips);
-        int fxTapeFlashLeadFrames = MashupTransitionTapeTiming.GetLocalLeadFrames(localFxClips, TargetsTransitionFlashFx);
         return BuildTransitionFxTapeVisits(
             Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics"),
             mashup,
             timelineStructure,
             fileSystem.VersionProfile.EngineVersion,
-            fxTapeDurationFrames > 0 ? fxTapeDurationFrames : null,
-            fxTapeLeadFrames,
-            fxTapeFlashLeadFrames);
+            fxTapeDurationFrames > 0 ? fxTapeDurationFrames : null);
     }
 
     internal static IReadOnlyList<TapeVisit> BuildTransitionFxTapeVisits(
@@ -71,9 +62,7 @@ internal static class MashupTransitionFxScheduler
         LegacyMashupData mashup,
         TimelineStructureDocument timelineStructure,
         UbiArtEngineVersion engineVersion = UbiArtEngineVersion.JD2014,
-        int? fxTapeDurationFrames = null,
-        int fxTapeLeadFrames = 0,
-        int fxTapeFlashLeadFrames = 0)
+        int? fxTapeDurationFrames = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cinematicsFolder);
         ArgumentNullException.ThrowIfNull(mashup);
@@ -86,55 +75,16 @@ internal static class MashupTransitionFxScheduler
         string fxTapePath = Path.Combine(cinematicsFolder, "fx.tape");
         foreach (LegacyMashupBlock block in MashupSegmentBuilder.BuildTransitionBlocks(mashup))
         {
-            int visitOffsetFromBlock = GetVisitOffsetFromBlock(
-                fxTapeLeadFrames,
-                fxTapeFlashLeadFrames);
             AddVisitPair(
                 visits,
                 fxTapePath,
-                MashupTiming.GetLocalTapeFrame(timelineStructure, block.AbsoluteStartBeat) + visitOffsetFromBlock,
+                MashupTiming.GetLocalTapeFrame(timelineStructure, block.AbsoluteStartBeat) -
+                    MashupTransitionTapeTiming.Jd2014TransitionLeadFrames,
                 fxTapeDurationFrames);
         }
 
         return visits;
     }
-
-    internal static int GetCoachRevealDelayFrames(IReadOnlyList<TapeClip> localFxClips)
-    {
-        ArgumentNullException.ThrowIfNull(localFxClips);
-
-        uint alphaTypeId = LegacyBinarySerializer.GetTypeId<CinematicAlphaClipBinary>();
-        double revealFrame = double.NaN;
-        foreach (TapeClip clip in localFxClips)
-        {
-            if (clip.TypeId != alphaTypeId ||
-                clip.DurationFrames <= 0 ||
-                !clip.Targets.Any(target => target.Key.Contains("x_mashup_godrayscreen", StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            double candidate = clip.StartFrame + Math.Max(0, clip.DurationFrames);
-            if (!double.IsFinite(revealFrame) || candidate < revealFrame)
-                revealFrame = candidate;
-        }
-
-        return double.IsFinite(revealFrame) && revealFrame > 0.0
-            ? Math.Max(0, (int)Math.Round(revealFrame))
-            : 0;
-    }
-
-    internal static int GetVisitOffsetFromBlock(
-        int fxTapeLeadFrames,
-        int fxTapeFlashLeadFrames = 0)
-    {
-        int anchorLeadFrames = fxTapeFlashLeadFrames > 0 ? fxTapeFlashLeadFrames : fxTapeLeadFrames;
-        int emitterLeadFrames = fxTapeFlashLeadFrames > 0 ? FlashFxEmitterLeadFrames : 0;
-        return -Math.Max(0, anchorLeadFrames) - GetCoachFadeActiveFrames() - emitterLeadFrames;
-    }
-
-    internal static int GetCoachFadeActiveFrames() =>
-        Math.Max(1, (int)Math.Round(MashupVideoFadeActiveBeats * CinematicConstants.TapeFramesPerBeat));
 
     internal static IReadOnlySet<string> BuildTransitionFxActorKeys(IReadOnlyList<TapeClip> localFxClips)
     {
@@ -189,7 +139,4 @@ internal static class MashupTransitionFxScheduler
             fxTapeDurationFrames,
             TargetFilter: LateFxFilter));
     }
-
-    private static bool TargetsTransitionFlashFx(TapeClip clip) =>
-        clip.Targets.Any(target => target.Key.Contains(FlashActorKeyMarker, StringComparison.OrdinalIgnoreCase));
 }

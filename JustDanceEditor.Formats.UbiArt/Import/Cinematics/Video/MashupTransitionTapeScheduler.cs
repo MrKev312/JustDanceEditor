@@ -135,7 +135,7 @@ internal static class MashupTransitionTapeScheduler
             {
                 int coachMoveIndex = (transitionIndex % 18) + 1;
                 string coachMoveTape = $"coach_move_{coachMoveIndex}.tape";
-                int transitionStartFrames = timeOffsetFrames - MashupTransitionTapeTiming.GetLead(transitionTapeLeadFrames, coachMoveTape);
+                int transitionStartFrames = timeOffsetFrames - MashupTransitionTapeTiming.Jd2014TransitionLeadFrames;
                 visits.Add(new TapeVisit(
                     Path.Combine(cinematicsFolder, coachMoveTape),
                     transitionStartFrames,

@@ -35,7 +35,7 @@
     <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
 
     <KevIncUbiArtRoot Condition="'$(KevIncUbiArtRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.UbiArt'))</KevIncUbiArtRoot>
-    <KevIncUbiArtPackageVersion>0.2.3</KevIncUbiArtPackageVersion>
+    <KevIncUbiArtPackageVersion>0.2.4</KevIncUbiArtPackageVersion>
     <KevIncUbiArtIpkProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Ipk\KevInc.UbiArt.Ipk.csproj</KevIncUbiArtIpkProject>
     <KevIncUbiArtFileSystemProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.FileSystem\KevInc.UbiArt.FileSystem.csproj</KevIncUbiArtFileSystemProject>
     <KevIncUbiArtRakiProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Raki\KevInc.UbiArt.Raki.csproj</KevIncUbiArtRakiProject>

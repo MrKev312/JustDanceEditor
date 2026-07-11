@@ -203,47 +203,8 @@ public sealed class MashupVideoRendererTests
     }
 
     [Fact]
-    public void MashupCoachRevealDelayUsesGodrayScreenAlphaClipEnd()
+    public void MashupJd2014TransitionLeadMatchesWiiGameplayScheduling()
     {
-        uint alphaTypeId = LegacyBinarySerializer.GetTypeId<CinematicAlphaClipBinary>();
-        TapeClip godrayAlpha = new(
-            alphaTypeId,
-            StartFrame: 10,
-            DurationFrames: 21,
-            Path: null,
-            Targets: [new ActorTargetPath(["_mashup_graph", "fx", "x_speedlines_00", "x_mashup_godrayscreen"])],
-            Curves:
-            [
-                new CinematicCurve(
-                [
-                    new CinematicKeyframe(0, 0, 0, 0, 0, 0),
-                    new CinematicKeyframe(5, 1, 5, 1, 5, 1),
-                    new CinematicKeyframe(21, 0, 21, 0, 21, 0)
-                ])
-            ]);
-
-        Assert.Equal(31, MashupTransitionFxScheduler.GetCoachRevealDelayFrames([godrayAlpha]));
-    }
-
-    [Fact]
-    public void MashupTransitionFxVisitUsesAuthoredFxTapeLeadAtBlockStart()
-    {
-        Assert.Equal(
-            -16,
-            MashupTransitionFxScheduler.GetVisitOffsetFromBlock(
-                fxTapeLeadFrames: 10));
-
-        Assert.Equal(
-            -16,
-            MashupTransitionFxScheduler.GetVisitOffsetFromBlock(
-                fxTapeLeadFrames: 10));
-
-        Assert.Equal(
-            -32,
-            MashupTransitionFxScheduler.GetVisitOffsetFromBlock(
-                fxTapeLeadFrames: 10,
-                fxTapeFlashLeadFrames: 18));
-
-        Assert.Equal(6, MashupTransitionFxScheduler.GetCoachFadeActiveFrames());
+        Assert.Equal(24, MashupTransitionTapeTiming.Jd2014TransitionLeadFrames);
     }
 }

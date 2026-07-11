@@ -1,6 +1,8 @@
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import;
 using JustDanceEditor.Formats.UbiArt.Import.Assets;
+using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
+using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
 using KevInc.UbiArt.FileSystem;
 
@@ -207,6 +209,39 @@ public class JustDanceUbiArtFileSystem : IDisposable
     {
         templatePath = null;
 
+        if (VersionProfile.EngineVersion is not (UbiArtEngineVersion.JD2014 or UbiArtEngineVersion.JD2015) ||
+            VersionProfile.Serializer is not BinaryUbiArtSerializer ||
+            !TryGetLegacyMashupTemplateCandidatePath(songName, out CookedFile? candidate))
+        {
+            return false;
+        }
+
+        try
+        {
+            using Stream stream = GetFileStream(candidate);
+            LegacyBlockFlow blockFlow = VersionProfile.Serializer.Deserialize<LegacyBlockFlow>(stream);
+            if (blockFlow.ComponentCount == 0 ||
+                blockFlow.Component is null ||
+                blockFlow.Component.IsMashUp == 0 ||
+                blockFlow.Component.BlockDescriptorVector.Length == 0)
+            {
+                return false;
+            }
+
+            templatePath = candidate;
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException or IOException or NotSupportedException)
+        {
+            _logger.LogDebug(ex, "Ignoring invalid legacy mashup template '{TemplatePath}'.", candidate.RelativePath);
+            return false;
+        }
+    }
+
+    private bool TryGetLegacyMashupTemplateCandidatePath(string songName, [MaybeNullWhen(false)] out CookedFile templatePath)
+    {
+        templatePath = null;
+
         if (!TryGetLegacyMashupBaseSongName(songName, out string? baseSongName))
             return false;
 
@@ -289,6 +324,8 @@ public class JustDanceUbiArtFileSystem : IDisposable
         List<string> roots = [];
         AddPackageSearchRoot(roots, io, packageParent, $"Bundle_{upperPlatformName}");
         AddPackageSearchRoot(roots, io, packageParent, $"bundle_{platformName}");
+        AddPackageSearchRoot(roots, io, packageParent, $"BlockFlows_{upperPlatformName}");
+        AddPackageSearchRoot(roots, io, packageParent, $"blockflows_{platformName}");
         AddPackageSearchRoot(roots, io, packageParent, $"patch_{upperPlatformName}");
         AddPackageSearchRoot(roots, io, packageParent, $"Patch_{upperPlatformName}");
         return

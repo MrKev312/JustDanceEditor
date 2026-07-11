@@ -87,9 +87,16 @@ public sealed class UbiArtSongPreviewProvider(
         InfoComponent info = songDesc.Components.FirstOrDefault()
             ?? throw new InvalidDataException("SongDesc did not contain an InfoComponent.");
 
+        IntermediateMetadata metadata = BuildMetadata(info, profile, _logger);
+        if (fileSystem.IsLegacyMashupSelection)
+        {
+            metadata.MapName = fileSystem.SongName;
+            metadata.ParentMapName = fileSystem.LegacyMashupBaseSongName ?? info.MapName;
+        }
+
         IntermediateSongPackage package = new()
         {
-            Metadata = BuildMetadata(info, profile, _logger)
+            Metadata = metadata
         };
 
         string packageRoot = Path.Combine(request.WorkingRoot, package.Metadata.MapName);

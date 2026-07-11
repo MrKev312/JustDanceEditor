@@ -124,12 +124,15 @@ internal static class MashupSourceVideoResolver
         JustDanceUbiArtFileSystem fileSystem,
         LegacyMashupBlockDescriptor source)
     {
+        string platformName = fileSystem.VersionProfile.Platform.GetCookedFolderName();
         if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 &&
             source.DatabaseGameId is { } databaseGameId)
         {
+            yield return Path.Combine("world", "database", $"jd{databaseGameId}", source.SongName, "videoscoach", $"{source.SongName}.{platformName}.webm");
             yield return Path.Combine("world", "database", $"jd{databaseGameId}", source.SongName, "videoscoach", $"{source.SongName}.webm");
         }
 
+        yield return Path.Combine("world", "jdblocks", source.SongName, "videoscoach", $"{source.SongName}.{platformName}.webm");
         yield return Path.Combine("world", "jdblocks", source.SongName, "videoscoach", $"{source.SongName}.webm");
     }
 
@@ -150,9 +153,12 @@ internal static class MashupSourceVideoResolver
             fileSystem.VersionProfile.Platform,
             fileSystem.VersionProfile.EngineVersion)
             ?? Path.Combine(mapWorldFolder, "media");
+        string platformName = fileSystem.VersionProfile.Platform.GetCookedFolderName();
 
         yield return Path.Combine(mapWorldFolder, "videoscoach", $"{songName}_alpha.webm");
+        yield return Path.Combine(mapWorldFolder, "videoscoach", $"{songName}.{platformName}.webm");
         yield return Path.Combine(mapWorldFolder, "videoscoach", $"{songName}.webm");
+        yield return Path.Combine(mediaFolder, $"{songName}.{platformName}.webm");
         yield return Path.Combine(mediaFolder, $"{songName}.webm");
     }
 

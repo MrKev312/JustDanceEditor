@@ -69,19 +69,19 @@ public sealed class MashupTransitionSchedulerTests
             mashup,
             timeline,
             UbiArtEngineVersion.JD2014,
-            fxTapeDurationFrames: 72,
-            fxTapeLeadFrames: 10);
+            fxTapeDurationFrames: 72);
 
         TapeVisit coachMoveVisit = Assert.Single(
             visits,
             visit => visit.Path.EndsWith("coach_move_1.tape", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(144, coachMoveVisit.TimeOffsetFrames);
         Assert.Equal(96, coachMoveVisit.DurationFrames);
         Assert.Equal(4, fxVisits.Count);
         Assert.All(fxVisits, visit => Assert.Equal(72, visit.DurationFrames));
-        Assert.Equal(152, fxVisits[0].TimeOffsetFrames);
-        Assert.Equal(152, fxVisits[1].TimeOffsetFrames);
-        Assert.Equal(536, fxVisits[2].TimeOffsetFrames);
-        Assert.Equal(536, fxVisits[3].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[0].TimeOffsetFrames);
+        Assert.Equal(144, fxVisits[1].TimeOffsetFrames);
+        Assert.Equal(528, fxVisits[2].TimeOffsetFrames);
+        Assert.Equal(528, fxVisits[3].TimeOffsetFrames);
     }
 
     [Fact]
