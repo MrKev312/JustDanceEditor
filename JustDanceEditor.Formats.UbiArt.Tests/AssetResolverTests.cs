@@ -101,6 +101,32 @@ public class AssetResolverTests
     }
 
     [Fact]
+    public void GetCoachTextures_Ignores_Uncooked_Atlas_Metadata()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string menuArtFolder = Path.Combine(root, "world", "maps", "song", "menuart", "textures");
+        Directory.CreateDirectory(menuArtFolder);
+
+        File.WriteAllText(Path.Combine(menuArtFolder, "song_coach_1.atl"), "ATLAS");
+        File.WriteAllText(Path.Combine(menuArtFolder, "song_coach_1.tga"), "TGA");
+        File.WriteAllText(Path.Combine(menuArtFolder, "song_coach_1.tga.tfi"), "TFI");
+        File.WriteAllText(Path.Combine(menuArtFolder, "song_coach_1_phone.png"), "PNG");
+        File.WriteAllText(Path.Combine(menuArtFolder, "song_coach.ignore"), "IGNORE");
+
+        UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2021, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        UbiArtConversionRequest req = new(root, Path.GetTempPath(), "song") { Type = CookedType.Uncooked };
+        JustDanceUbiArtFileSystem fs = new(req, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance);
+        fs.Initialize();
+
+        FileSystemAssetResolver resolver = new(fs.VersionProfile.Layout ?? throw new System.InvalidOperationException("Version profile layout was not initialized."), fs);
+        CookedFile file = Assert.Single(resolver.GetCoachTextures());
+
+        Assert.EndsWith("song_coach_1.tga", file.RelativePath, System.StringComparison.OrdinalIgnoreCase);
+
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void VideoSelector_Prefers_ExactSongVideo_OverAlphaVariant()
     {
         CookedFile selected = UbiArtVideoFileSelector.ChoosePreferredVideoFile(

@@ -16,6 +16,16 @@ namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
 public static partial class LuaTableSerializer
 {
+    private static readonly JsonSerializerOptions SongDescJsonOptions = CreateSongDescJsonOptions();
+
+    private static JsonSerializerOptions CreateSongDescJsonOptions()
+    {
+        JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new ArgbFloatArrayJsonConverter());
+        options.Converters.Add(new ArgbIntArrayJsonConverter());
+        return options;
+    }
+
     private static void InitializeLua(Lua lua)
     {
         lua.DoString("function includeReference(path) end");
@@ -88,6 +98,38 @@ public static partial class LuaTableSerializer
 
         return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
+    }
+
+    internal static IReadOnlyList<string> DeserializeTapeEntryPaths(string luaContent)
+    {
+        JsonElement root = Deserialize<JsonElement>(luaContent);
+        List<string> paths = [];
+        CollectTapeEntryPaths(root, paths, insideTapeEntry: false);
+        return paths;
+    }
+
+    private static void CollectTapeEntryPaths(JsonElement element, List<string> paths, bool insideTapeEntry)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+                CollectTapeEntryPaths(item, paths, insideTapeEntry);
+            return;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (insideTapeEntry &&
+            element.TryGetProperty("Path", out JsonElement pathElement) &&
+            pathElement.ValueKind == JsonValueKind.String &&
+            !string.IsNullOrWhiteSpace(pathElement.GetString()))
+        {
+            paths.Add(pathElement.GetString()!);
+        }
+
+        foreach (JsonProperty property in element.EnumerateObject())
+            CollectTapeEntryPaths(property.Value, paths, property.NameEquals("TapeEntry"));
     }
 
     public static T Deserialize<T>(string luaContent, JustDanceUbiArtFileSystem fileSystem) where T : new()
@@ -192,55 +234,10 @@ public static partial class LuaTableSerializer
                     {
                         if (prop.NameEquals("JD_SongDescTemplate"))
                         {
-                            // Create a copy of the component object without DefaultColors to avoid deserialization error
-                            Dictionary<string, object> dict = [];
-                            foreach (JsonProperty componentProp in prop.Value.EnumerateObject())
-                            {
-                                if (!componentProp.NameEquals("DefaultColors"))
-                                {
-                                    dict[componentProp.Name] = componentProp.Value;
-                                }
-                            }
-
-                            string sanitizedJson = JsonSerializer.Serialize(dict);
-                            InfoComponent info = JsonSerializer.Deserialize<InfoComponent>(sanitizedJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                            JsonNode normalizedComponent = LuaEntryTableJsonNormalizer.Normalize(prop.Value)
+                                ?? throw new JsonException("SongDesc component was null.");
+                            InfoComponent info = normalizedComponent.Deserialize<InfoComponent>(SongDescJsonOptions)
                                 ?? throw new JsonException("Failed to deserialize InfoComponent from Lua content.");
-
-                            // Manually map DefaultColors if it was an array
-                            if (prop.Value.TryGetProperty("DefaultColors", out JsonElement colors) && colors.ValueKind == JsonValueKind.Array)
-                            {
-                                foreach (JsonElement item in colors.EnumerateArray())
-                                {
-                                    if (item.TryGetProperty("KEY", out JsonElement key) && item.TryGetProperty("VAL", out JsonElement val))
-                                    {
-                                        string keyStr = key.GetString() ?? "";
-                                        string colorStr = val.GetString() ?? "";
-                                        if (colorStr.StartsWith("0x"))
-                                            colorStr = colorStr[2..];
-                                        if (colorStr.Length == 8)
-                                        {
-                                            float a = Convert.ToInt32(colorStr[..2], 16) / 255.0f;
-                                            float r = Convert.ToInt32(colorStr.Substring(2, 2), 16) / 255.0f;
-                                            float g = Convert.ToInt32(colorStr.Substring(4, 2), 16) / 255.0f;
-                                            float b = Convert.ToInt32(colorStr.Substring(6, 2), 16) / 255.0f;
-                                            float[] rgba = [a, r, g, b];
-
-                                            if (keyStr.Equals("lyrics", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.Lyrics = rgba;
-                                            else if (keyStr.Equals("theme", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.Theme = Array.ConvertAll(rgba, v => (int)(v * 255));
-                                            else if (keyStr.Equals("songcolor_1a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor1a = rgba;
-                                            else if (keyStr.Equals("songcolor_1b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor1b = rgba;
-                                            else if (keyStr.Equals("songcolor_2a", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor2a = rgba;
-                                            else if (keyStr.Equals("songcolor_2b", StringComparison.OrdinalIgnoreCase))
-                                                info.DefaultColors.SongColor2b = rgba;
-                                        }
-                                    }
-                                }
-                            }
 
                             return new SongDesc { Components = [info] };
                         }

@@ -300,10 +300,18 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
     {
         string logicalName = GetLogicalMenuArtName(file);
 
-        return logicalName.Contains("_coach", StringComparison.OrdinalIgnoreCase) &&
+        return IsTextureExtension(file.Extension) &&
+            logicalName.Contains("_coach", StringComparison.OrdinalIgnoreCase) &&
             !logicalName.Contains("albumcoach", StringComparison.OrdinalIgnoreCase) &&
             !logicalName.Contains("phone", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool IsTextureExtension(string extension) =>
+        extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".tga", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".dds", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+        extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
 
     private static string GetLogicalMenuArtName(CookedFile file)
     {
