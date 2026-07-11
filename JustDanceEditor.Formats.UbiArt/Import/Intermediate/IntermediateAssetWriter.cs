@@ -857,44 +857,7 @@ internal static class IntermediateAssetWriter
         GetMusicTrackSecondsAtBeat(timelineStructure.Markers, beat) - timelineStructure.VideoStartOffset;
 
     private static double GetMusicTrackSecondsAtBeat(IReadOnlyList<int> markers, double beat)
-    {
-        if (markers.Count < 2)
-            throw new NotSupportedException("At least two markers are required for beat to seconds conversion.");
-
-        int previousWholeBeat = (int)Math.Floor(beat);
-        int firstMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat);
-        int secondMarkerPosition = GetMusicTrackBeatSamplePosition(markers, previousWholeBeat + 1);
-        double beatFractionalPart = beat - previousWholeBeat;
-        double sampleOffset = firstMarkerPosition + (beatFractionalPart * (secondMarkerPosition - firstMarkerPosition));
-        return sampleOffset / 48000.0;
-    }
-
-    private static int GetMusicTrackBeatSamplePosition(IReadOnlyList<int> markers, int beat)
-    {
-        if (beat < 0)
-        {
-            int averageBeatLength = ComputeAverageMarkerSpacing(markers, 0, Math.Min(4, markers.Count - 1));
-            return beat * averageBeatLength;
-        }
-
-        if (beat >= markers.Count)
-        {
-            int endMarker = markers.Count - 1;
-            int startMarker = Math.Max(0, endMarker - 4);
-            int averageBeatLength = ComputeAverageMarkerSpacing(markers, startMarker, endMarker);
-            return markers[endMarker] + ((beat - markers.Count + 1) * averageBeatLength);
-        }
-
-        return markers[beat];
-    }
-
-    private static int ComputeAverageMarkerSpacing(IReadOnlyList<int> markers, int startMarker, int endMarker)
-    {
-        if (endMarker <= startMarker)
-            return markers.Count >= 2 ? markers[1] - markers[0] : 24000;
-
-        return (markers[endMarker] - markers[startMarker]) / (endMarker - startMarker);
-    }
+        => MusicTrackTiming.GetSecondsAtBeat(markers, beat);
 
     private static int GetEffectiveEndBeat(TimelineStructureDocument timelineStructure)
     {

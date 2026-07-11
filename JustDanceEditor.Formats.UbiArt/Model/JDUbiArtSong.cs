@@ -13,17 +13,10 @@ public class JDUbiArtSong
     public LegacyMashupData? LegacyMashup { get; set; }
     public bool IsLegacyMashup => LegacyMashup != null;
 
-    public float GetSongStartTime()
+    public float GetAudioStartOffset()
     {
         Structure structure = MusicTrack.Components[0].TrackData.Structure;
-
-        int beat = structure.StartBeat;
-        int marker = Math.Abs(beat);
-        float time = structure.Markers[marker] / 48f / 1000f;
-
-        if (beat > 0)
-            time = -time;
-
-        return time;
+        int samplePosition = MusicTrackTiming.GetBeatSamplePosition(structure.Markers, structure.StartBeat);
+        return -samplePosition / (float)MusicTrackTiming.SampleRate;
     }
 }
