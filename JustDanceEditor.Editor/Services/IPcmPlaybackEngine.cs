@@ -16,7 +16,13 @@ internal interface IPcmPlaybackEngine : IDisposable
     void Pause();
     void Stop();
     void Seek(TimeSpan position);
-    void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null);
+    void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null,
+        Func<double, double>? beatToSeconds = null,
+        Func<double, double>? secondsToBeat = null);
 }
 
 internal interface IAudioClockPlaybackEngine

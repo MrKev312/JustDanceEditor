@@ -188,6 +188,7 @@ public class AudioBarControl : Control
             Samples = Samples,
             AudioStartBeat = AudioStartBeat,
             AudioEndBeat = AudioEndBeat,
+            TimelineStructure = _subscribedVm?.TimelineStructure,
             VisiblePixelStart = visiblePixelStart,
             VisiblePixelEnd = visiblePixelEnd,
             SortedSections = _timelineCache.GetSortedSections(Sections),
@@ -225,6 +226,7 @@ public class AudioBarControl : Control
 
         _timelineCache.MarkSectionsDirty();
         _timelineCache.MarkSignaturesDirty();
+        _renderer.InvalidateTimelineStructure();
         InvalidateVisual();
     }
 

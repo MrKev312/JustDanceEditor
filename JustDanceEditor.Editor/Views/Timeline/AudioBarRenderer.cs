@@ -35,6 +35,13 @@ internal sealed class AudioBarRenderer
     private double _envelopeCacheAudioEndBeat = double.NaN;
     private double _envelopeCacheBeatOffset = double.NaN;
     private double _envelopeCachePpb = double.NaN;
+    private TimelineStructureDocument? _envelopeCacheTimelineStructure;
+
+    public void InvalidateTimelineStructure()
+    {
+        _envelopeCacheTimelineStructure = null;
+        _envelopeCacheSamples = null;
+    }
 
     static AudioBarRenderer()
     {
@@ -121,7 +128,16 @@ internal sealed class AudioBarRenderer
         double drawStartX = Math.Max(0, audioStartX);
         double drawEndX = Math.Min(totalWidth, audioEndX);
 
-        RebuildEnvelopeIfNeeded(samples, totalWidth, audioStartBeat, audioEndBeat, offset, ppb, audioStartX, audioEndX);
+        RebuildEnvelopeIfNeeded(
+            samples,
+            totalWidth,
+            audioStartBeat,
+            audioEndBeat,
+            offset,
+            ppb,
+            audioStartX,
+            audioEndX,
+            request.TimelineStructure);
 
         int visibleStartX = Math.Max(0, (int)visiblePixelStart);
         int visibleEndX = Math.Min(totalWidth, (int)Math.Ceiling(visiblePixelEnd));
@@ -166,14 +182,16 @@ internal sealed class AudioBarRenderer
         double offset,
         double ppb,
         double audioStartX,
-        double audioEndX)
+        double audioEndX,
+        TimelineStructureDocument? timelineStructure)
     {
         bool cacheStale = _envelopeCacheSamples != samples
             || _envelopeCacheWidth != totalWidth
             || Math.Abs(_envelopeCacheAudioStartBeat - audioStartBeat) > 0.001
             || Math.Abs(_envelopeCacheAudioEndBeat - audioEndBeat) > 0.001
             || Math.Abs(_envelopeCacheBeatOffset - offset) > 0.001
-            || Math.Abs(_envelopeCachePpb - ppb) > 0.001;
+            || Math.Abs(_envelopeCachePpb - ppb) > 0.001
+            || !ReferenceEquals(_envelopeCacheTimelineStructure, timelineStructure);
         if (!cacheStale)
             return;
 
@@ -183,19 +201,42 @@ internal sealed class AudioBarRenderer
         _envelopeCacheAudioEndBeat = audioEndBeat;
         _envelopeCacheBeatOffset = offset;
         _envelopeCachePpb = ppb;
+        _envelopeCacheTimelineStructure = timelineStructure;
         _envelopeMax = new float[totalWidth];
         _envelopeMin = new float[totalWidth];
 
         double audioPixelWidth = audioEndX - audioStartX;
+        double audioDurationSeconds = timelineStructure is { Markers.Count: >= 2 }
+            ? timelineStructure.GetPlaybackSecondsAtBeat(audioEndBeat)
+            : 0;
         for (int x = 0; x < totalWidth; x++)
         {
-            double t = audioPixelWidth > 0 ? (x - audioStartX) / audioPixelWidth : -1;
-            if (t is < 0 or >= 1)
-                continue;
+            int startIndex;
+            int endIndex;
+            if (timelineStructure is { Markers.Count: >= 2 } && audioDurationSeconds > 0)
+            {
+                double beatStart = offset + (x / ppb);
+                double beatEnd = offset + ((x + 1.0) / ppb);
+                (startIndex, endIndex) = GetWaveformSampleRange(
+                    timelineStructure,
+                    beatStart,
+                    beatEnd,
+                    audioDurationSeconds,
+                    samples.Length);
+            }
+            else
+            {
+                double t = audioPixelWidth > 0 ? (x - audioStartX) / audioPixelWidth : -1;
+                if (t is < 0 or >= 1)
+                    continue;
 
-            int startIndex = (int)(t * samples.Length);
-            int endIndex = (int)((t + (1.0 / audioPixelWidth)) * samples.Length);
-            endIndex = Math.Min(samples.Length, Math.Max(endIndex, startIndex + 1));
+                startIndex = (int)(t * samples.Length);
+                endIndex = (int)((t + (1.0 / audioPixelWidth)) * samples.Length);
+                endIndex = Math.Min(samples.Length, Math.Max(endIndex, startIndex + 1));
+            }
+
+            if (startIndex >= samples.Length || endIndex <= 0 || endIndex <= startIndex)
+                continue;
 
             float maxV = 0;
             float minV = 0;
@@ -211,6 +252,27 @@ internal sealed class AudioBarRenderer
             _envelopeMax[x] = maxV;
             _envelopeMin[x] = minV;
         }
+    }
+
+    internal static (int Start, int End) GetWaveformSampleRange(
+        TimelineStructureDocument timelineStructure,
+        double beatStart,
+        double beatEnd,
+        double audioDurationSeconds,
+        int sampleCount)
+    {
+        if (audioDurationSeconds <= 0 || sampleCount <= 0)
+            return (0, 0);
+
+        double startSeconds = timelineStructure.GetPlaybackSecondsAtBeat(beatStart);
+        double endSeconds = timelineStructure.GetPlaybackSecondsAtBeat(beatEnd);
+        int start = (int)Math.Floor(startSeconds / audioDurationSeconds * sampleCount);
+        int end = (int)Math.Ceiling(endSeconds / audioDurationSeconds * sampleCount);
+        start = Math.Clamp(start, 0, sampleCount);
+        end = Math.Clamp(end, 0, sampleCount);
+        if (end <= start && start < sampleCount)
+            end = start + 1;
+        return (start, end);
     }
 
     private void DrawLabelsAndTooltip(AudioBarRenderRequest request, double visiblePixelStart, double visiblePixelEnd)
@@ -461,6 +523,7 @@ internal sealed class AudioBarRenderRequest
     public required float[]? Samples { get; init; }
     public required double AudioStartBeat { get; init; }
     public required double AudioEndBeat { get; init; }
+    public required TimelineStructureDocument? TimelineStructure { get; init; }
     public required double VisiblePixelStart { get; init; }
     public required double VisiblePixelEnd { get; init; }
     public required IReadOnlyList<SectionSegment> SortedSections { get; init; }

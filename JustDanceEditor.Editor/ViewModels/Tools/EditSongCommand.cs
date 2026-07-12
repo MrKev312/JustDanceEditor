@@ -87,8 +87,7 @@ public class EditSongCommand(IWindowService windows, IEditorPromptService prompt
         int startBeat = result.StartBeat;
         int endBeat = result.EndBeat;
         int markerCount = endBeat - startBeat + 1;
-
-        List<int> markers = SongStructureBuilder.BuildMarkers(result.Bpm, startBeat, endBeat);
+        List<int> markers = SongStructureBuilder.BuildMarkers(result.Bpm, endBeat);
         List<SectionSegment> sections = SongStructureBuilder.BuildSections(result.Sections);
         List<SignatureSegment> signatures = SongStructureBuilder.BuildDefaultSignatures(result.BeatsPerMeasure);
 

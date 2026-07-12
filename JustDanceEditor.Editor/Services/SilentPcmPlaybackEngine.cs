@@ -36,7 +36,13 @@ internal sealed class SilentPcmPlaybackEngine : IPcmPlaybackEngine
     {
     }
 
-    public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
+    public void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null,
+        Func<double, double>? beatToSeconds = null,
+        Func<double, double>? secondsToBeat = null)
     {
     }
 

@@ -120,7 +120,7 @@ internal static class JdiMotionRecordingData
     }
 
     private static double GetSecondsAtBeatLabel(TimelineStructureDocument structure, double beatLabel)
-        => structure.GetSecondsAtBeat(structure.GetIndexFromBeatLabel(beatLabel));
+        => structure.GetPlaybackSecondsAtBeat(beatLabel);
 
     private static void FlushGroup(
         List<MotionSample> result,

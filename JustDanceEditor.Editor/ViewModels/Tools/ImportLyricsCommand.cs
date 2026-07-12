@@ -81,13 +81,13 @@ public class ImportLyricsCommand(IWindowService windows) : IRunCommand
         List<KaraokeClipViewModel> newClips = [];
         foreach (LyricLine line in lines)
         {
-            double beatLabel = ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(line.StartSeconds));
+            double beatLabel = ts.GetBeatAtPlaybackSeconds(line.StartSeconds);
             int startTicks = (int)Math.Round(beatLabel * 24.0);
 
             int durationTicks;
             if (line.EndSeconds > line.StartSeconds)
             {
-                double endBeatLabel = ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(line.EndSeconds));
+                double endBeatLabel = ts.GetBeatAtPlaybackSeconds(line.EndSeconds);
                 durationTicks = Math.Max(1, (int)Math.Round((endBeatLabel - beatLabel) * 24.0));
             }
             else

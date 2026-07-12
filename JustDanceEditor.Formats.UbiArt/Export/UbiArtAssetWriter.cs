@@ -290,7 +290,7 @@ public sealed partial class UbiArtAssetWriter(ILogger<UbiArtAssetWriter> logger,
         double cutSeconds = 0;
         if (startBeat < 0 && package.TimelineStructure.Markers.Count > 1)
         {
-            cutSeconds = package.TimelineStructure.Markers[(int)Math.Abs(startBeat)] / 48000.0;
+            cutSeconds = -package.TimelineStructure.GetSongStartOffset();
         }
 
         List<Task> audioTasks = [];

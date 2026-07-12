@@ -27,9 +27,7 @@ internal sealed class TimelineMetronomeController(TimelineEditorViewModel timeli
             if (beatDurationSeconds > 0)
                 bpm = 60.0 / beatDurationSeconds;
 
-            int zeroBeatIndex = -structure.StartBeat;
-            if (zeroBeatIndex >= 0 && zeroBeatIndex < structure.Markers.Count)
-                zeroBeatTime = structure.Markers[zeroBeatIndex] / 48000.0;
+            zeroBeatTime = structure.GetPlaybackSecondsAtBeat(0);
         }
 
         if (structure.Signatures.Count > 0)

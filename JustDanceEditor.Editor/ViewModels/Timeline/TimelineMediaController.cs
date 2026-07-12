@@ -91,17 +91,17 @@ internal sealed class TimelineMediaController(TimelineEditorViewModel timeline)
     public double GetPlaybackSecondsAtBeatLabel(double beatLabel)
     {
         if (timeline.TimelineStructure.Markers.Count < 2)
-            return timeline.TimelineStructure.GetIndexFromBeatLabel(beatLabel);
+            return beatLabel - timeline.TimelineStructure.StartBeat;
 
-        return timeline.TimelineStructure.GetSecondsAtBeat(timeline.TimelineStructure.GetIndexFromBeatLabel(beatLabel));
+        return timeline.TimelineStructure.GetPlaybackSecondsAtBeat(beatLabel);
     }
 
     public double GetBeatLabelAtPlaybackSeconds(double seconds)
     {
         if (timeline.TimelineStructure.Markers.Count < 2)
-            return timeline.TimelineStructure.GetBeatLabelFromIndex(seconds);
+            return seconds + timeline.TimelineStructure.StartBeat;
 
-        return timeline.TimelineStructure.GetBeatLabelFromIndex(timeline.TimelineStructure.GetBeatAtSeconds(seconds));
+        return timeline.TimelineStructure.GetBeatAtPlaybackSeconds(seconds);
     }
 
     public void SetVideoOffsetFromClipStartBeat(double startBeat)
@@ -161,18 +161,18 @@ internal sealed class TimelineMediaController(TimelineEditorViewModel timeline)
 
         await timeline.Playback.LoadMediaAsync(
             timeline.PreparedAudio,
-            b => ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(b)),
-            s => ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(s)));
+            ts.GetPlaybackSecondsAtBeat,
+            ts.GetBeatAtPlaybackSeconds);
 
         timeline.UpdateMetronomeTiming();
 
         timeline.AudioStartBeat = ts.StartBeat;
         double durationSeconds = timeline.Playback.Duration.TotalSeconds;
         timeline.AudioEndBeat = durationSeconds > 0 && ts.Markers.Count >= 2
-            ? ts.GetBeatLabelFromIndex(ts.GetBeatAtSeconds(durationSeconds))
+            ? ts.GetBeatAtPlaybackSeconds(durationSeconds)
             : ts.EndBeat;
 
-        double endSeconds = ts.GetSecondsAtBeat(ts.GetIndexFromBeatLabel(ts.EndBeat));
+        double endSeconds = ts.GetPlaybackSecondsAtBeat(ts.EndBeat);
         timeline.Playback.SetExtendedEnd(TimeSpan.FromSeconds(endSeconds));
 
         if (refreshWaveform)

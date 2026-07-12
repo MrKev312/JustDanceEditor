@@ -46,6 +46,8 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
     private IEnumerable<double>? _sectionStarts;
+    private Func<double, double>? _beatToSeconds;
+    private Func<double, double>? _secondsToBeat;
 
     public event EventHandler? PlaybackCompleted
     {
@@ -133,13 +135,21 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
         _active.Seek(position);
     }
 
-    public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
+    public void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null,
+        Func<double, double>? beatToSeconds = null,
+        Func<double, double>? secondsToBeat = null)
     {
         _zeroBeatTimeSeconds = zeroBeatTimeSeconds;
         _bpm = bpm;
         _beatsPerMeasure = beatsPerMeasure;
         _sectionStarts = sectionStarts;
-        _active.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
+        _beatToSeconds = beatToSeconds;
+        _secondsToBeat = secondsToBeat;
+        _active.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts, beatToSeconds, secondsToBeat);
     }
 
     private void SwitchToFallback(Exception cause)
@@ -162,7 +172,7 @@ internal sealed class ResilientPcmPlaybackEngine(IPcmPlaybackEngine primary, IPc
     private void ApplyState(IPcmPlaybackEngine engine)
     {
         engine.IsMetronomeEnabled = IsMetronomeEnabled;
-        engine.UpdateMetronome(_zeroBeatTimeSeconds, _bpm, _beatsPerMeasure, _sectionStarts);
+        engine.UpdateMetronome(_zeroBeatTimeSeconds, _bpm, _beatsPerMeasure, _sectionStarts, _beatToSeconds, _secondsToBeat);
     }
 
     private void ThrowIfDisposed()

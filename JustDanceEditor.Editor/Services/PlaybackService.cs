@@ -21,7 +21,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     private IWavePlayer? _outputDevice;
     private PcmWaveSampleProvider? _audioSource;
     private EndlessSampleProvider? _endless;
-    private MetronomeSampleProvider? _metronome;
+    private VariableMetronomeSampleProvider? _metronome;
     private IPcmPlaybackEngine? _pcmPlayer;
 
     private Func<double, double> _beatToSeconds = b => b * 0.5;
@@ -120,7 +120,7 @@ public class PlaybackService : IPlaybackService, IDisposable
                 {
                     _audioSource = new PcmWaveSampleProvider(audio);
                     _endless = new EndlessSampleProvider(_audioSource, _audioSource.TotalTime);
-                    _metronome = new MetronomeSampleProvider(_endless);
+                    _metronome = new VariableMetronomeSampleProvider(_endless);
                     _outputDevice = new WasapiOut(AudioClientShareMode.Shared, 10);
                     _outputDevice.Init(_metronome);
                 });
@@ -281,10 +281,14 @@ public class PlaybackService : IPlaybackService, IDisposable
         }
     }
 
-    public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
+    public void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null)
     {
-        _metronome?.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
-        _pcmPlayer?.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts);
+        _metronome?.UpdateTiming(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts, _beatToSeconds, _secondsToBeat);
+        _pcmPlayer?.UpdateMetronome(zeroBeatTimeSeconds, bpm, beatsPerMeasure, sectionStarts, _beatToSeconds, _secondsToBeat);
     }
 
     private void TryPlayPcm(TimeSpan startTime)

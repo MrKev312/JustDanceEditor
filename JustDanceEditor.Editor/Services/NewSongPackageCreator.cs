@@ -47,7 +47,7 @@ public static class NewSongPackageCreator
         int endBeat = result.EndBeat;      // e.g. 400 (user-provided)
 
         int markerCount = endBeat - startBeat + 1;
-        List<int> markers = SongStructureBuilder.BuildMarkers(result.Bpm, startBeat, endBeat);
+        List<int> markers = SongStructureBuilder.BuildMarkers(result.Bpm, endBeat);
 
         List<SectionSegment> sections = SongStructureBuilder.BuildSections(result.Sections);
 

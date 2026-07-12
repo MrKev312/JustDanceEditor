@@ -196,9 +196,7 @@ public partial class EditSongViewModel : ObservableObject, IDialogResult<EditSon
 
         // Derive ZeroBeatTime from markers
         // markers[0] corresponds to beat StartBeat; beat 0 is at index -StartBeat
-        int zeroBeatIndex = -ts.StartBeat;
-        if (zeroBeatIndex >= 0 && zeroBeatIndex < ts.Markers.Count)
-            ZeroBeatTimeSeconds = ts.Markers[zeroBeatIndex] / 48000.0;
+        ZeroBeatTimeSeconds = Math.Max(0, ts.GetPlaybackSecondsAtBeat(0));
 
         StartBeat = ts.StartBeat;
         EndBeat = ts.EndBeat;

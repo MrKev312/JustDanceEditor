@@ -2,6 +2,10 @@ namespace JustDanceEditor.Formats.JDI.Timelines;
 
 public class TimelineStructureDocument
 {
+    /// <summary>
+    /// Source-wave sample positions indexed by musical beat. Markers[i] is beat i;
+    /// negative StartBeat values are extrapolated before marker zero.
+    /// </summary>
     public List<int> Markers { get; set; } = [];
     public List<SignatureSegment> Signatures { get; set; } = [];
     public List<SectionSegment> Sections { get; set; } = [];
@@ -26,11 +30,12 @@ public class TimelineStructureDocument
         if (count < 2)
             throw new NotSupportedException("At least two markers are required for beat to seconds conversion.");
 
-        // Linear extrapolation for negative beats
+        // UbiArt extrapolates out-of-range beats from the average of the first
+        // or last four marker intervals, rather than assuming a global BPM.
         if (beat < 0)
         {
-            // (M0 + beat * (M1 - M0)) / 48000
-            return (Markers[0] + (beat * (Markers[1] - Markers[0]))) * InvSampleRate;
+            double beatLength = GetAverageMarkerSpacing(0, Math.Min(4, count - 1));
+            return (Markers[0] + (beat * beatLength)) * InvSampleRate;
         }
 
         int i = (int)beat; // Faster than Math.Floor for positive numbers
@@ -40,8 +45,9 @@ public class TimelineStructureDocument
             // Linear extrapolation for beats after the last marker
             // Formula: M_last + (beat - (count - 1)) * (M_last - M_prev)
             double lastMarker = Markers[count - 1];
-            double prevMarker = Markers[count - 2];
-            return (lastMarker + ((beat - (count - 1)) * (lastMarker - prevMarker))) * InvSampleRate;
+            int firstAverageMarker = Math.Max(0, count - 5);
+            double beatLength = GetAverageMarkerSpacing(firstAverageMarker, count - 1);
+            return (lastMarker + ((beat - (count - 1)) * beatLength)) * InvSampleRate;
         }
 
         // Interpolate on raw marker values first, then divide once.
@@ -68,8 +74,8 @@ public class TimelineStructureDocument
         {
             if (count >= 2)
             {
-                // (Target - First) / (M1 - M0)
-                return (targetSample - firstSample) / (double)(Markers[1] - firstSample);
+                double beatLength = GetAverageMarkerSpacing(0, Math.Min(4, count - 1));
+                return (targetSample - firstSample) / beatLength;
             }
             // Fallback for single marker: scale 0.5s to samples (24000)
             return (targetSample - firstSample) / 24000.0;
@@ -95,8 +101,9 @@ public class TimelineStructureDocument
             double lastSample = Markers[count - 1];
             if (count >= 2)
             {
-                double prevSample = Markers[count - 2];
-                return count - 1 + ((targetSample - lastSample) / (lastSample - prevSample));
+                int firstAverageMarker = Math.Max(0, count - 5);
+                double beatLength = GetAverageMarkerSpacing(firstAverageMarker, count - 1);
+                return count - 1 + ((targetSample - lastSample) / beatLength);
             }
 
             return count - 1 + ((targetSample - lastSample) / 24000.0);
@@ -139,34 +146,38 @@ public class TimelineStructureDocument
         if (Markers.Count < 2)
             return 0;
 
-        double previewLoopStartIndex = GetIndexFromBeatLabel(PreviewLoopStartBeat);
-        return Math.Max(0, GetSecondsAtBeat(previewLoopStartIndex));
+        return Math.Max(0, GetPlaybackSecondsAtBeat(PreviewLoopStartBeat));
     }
 
     private TimeSpan GetPreviewDuration() => TimeSpan.FromSeconds(30);
 
-    public double GetBeatLabelFromIndex(double index) => index + StartBeat;
-    public double GetIndexFromBeatLabel(double beatLabel) => beatLabel - StartBeat;
+    /// <summary>
+    /// Converts a timeline beat into seconds in the materialized JDI master audio.
+    /// The master begins at StartBeat, while marker zero remains musical beat zero.
+    /// </summary>
+    public double GetPlaybackSecondsAtBeat(double beat) =>
+        GetSecondsAtBeat(beat) - GetSongStartOffset();
 
     /// <summary>
-    /// Calculates the song offset in seconds based on StartBeat index.
-    /// (abs index into the array, convert to ms then set the sign to the input sign)
+    /// Converts seconds in the materialized JDI master audio into a timeline beat.
+    /// </summary>
+    public double GetBeatAtPlaybackSeconds(double seconds) =>
+        GetBeatAtSeconds(seconds + GetSongStartOffset());
+
+    /// <summary>
+    /// Gets the source-wave time represented by StartBeat. This is negative when
+    /// the timeline begins before the wave and positive when its beginning is trimmed.
     /// </summary>
     public double GetSongStartOffset()
     {
-        if (Markers.Count == 0)
+        if (Markers.Count < 2)
             return 0;
 
-        int beatIndex = Math.Abs(StartBeat);
-        if (beatIndex >= Markers.Count)
-            return 0;
-
-        double timeMs = Markers[beatIndex] / 48.0;
-
-        // "set the sign to the input sign"
-        double offsetSeconds = timeMs / 1000.0;
-        return StartBeat < 0 ? -offsetSeconds : offsetSeconds;
+        return GetSecondsAtBeat(StartBeat);
     }
+
+    private double GetAverageMarkerSpacing(int startMarker, int endMarker) =>
+        (Markers[endMarker] - Markers[startMarker]) / (double)(endMarker - startMarker);
 }
 
 public class TempoSegment

@@ -1,6 +1,7 @@
 using JustDanceEditor.Editor.ViewModels.Dialogs;
 using JustDanceEditor.Formats.JDI.Timelines;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,13 +16,14 @@ public static class SongStructureBuilder
     private const int SampleRate = 48000;
 
     /// <summary>
-    /// Builds the marker array from BPM and beat range.
-    /// Markers[i] = sample position of beat (startBeat + i).
+    /// Builds the source-wave marker array from BPM.
+    /// Markers[i] is the sample position of musical beat i; StartBeat is stored
+    /// separately and may refer to an extrapolated beat before the wave.
     /// </summary>
-    public static List<int> BuildMarkers(double bpm, int startBeat, int endBeat)
+    public static List<int> BuildMarkers(double bpm, int endBeat)
     {
         double beatDurationSeconds = 60.0 / bpm;
-        int count = endBeat - startBeat + 1;
+        int count = Math.Max(2, endBeat + 1);
         List<int> markers = [with(count)];
         for (int i = 0; i < count; i++)
             markers.Add((int)(i * beatDurationSeconds * SampleRate));

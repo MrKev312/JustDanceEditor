@@ -13,7 +13,7 @@ public class TimelineStructureDocumentPreviewTimingTests
 
         (TimeSpan start, TimeSpan duration) = structure.GetAudioPreviewTiming();
 
-        Assert.Equal(7, start.TotalSeconds);
+        Assert.Equal(5.5, start.TotalSeconds);
         Assert.Equal(30, duration.TotalSeconds);
     }
 
@@ -24,8 +24,27 @@ public class TimelineStructureDocumentPreviewTimingTests
 
         (TimeSpan start, TimeSpan duration) = structure.GetVideoPreviewTiming();
 
-        Assert.Equal(4.75, start.TotalSeconds);
+        Assert.Equal(1.75, start.TotalSeconds);
         Assert.Equal(30, duration.TotalSeconds);
+    }
+
+    [Fact]
+    public void PlaybackConversions_PreserveTempoChangesAndStartBeatOffset()
+    {
+        TimelineStructureDocument structure = CreateStructure();
+
+        Assert.Equal(5.5, structure.GetPlaybackSecondsAtBeat(2), precision: 6);
+        Assert.Equal(7.5, structure.GetPlaybackSecondsAtBeat(3), precision: 6);
+        Assert.Equal(2.0, structure.GetBeatAtPlaybackSeconds(5.5), precision: 6);
+        Assert.Equal(3.0, structure.GetBeatAtPlaybackSeconds(7.5), precision: 6);
+    }
+
+    [Fact]
+    public void NegativeBeatTiming_UsesSameFourMarkerAverageAsUbiArt()
+    {
+        TimelineStructureDocument structure = CreateStructure();
+
+        Assert.Equal(-3.5, structure.GetSongStartOffset(), precision: 6);
     }
 
     private static TimelineStructureDocument CreateStructure() => new()

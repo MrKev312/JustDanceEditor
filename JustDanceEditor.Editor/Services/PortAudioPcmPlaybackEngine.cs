@@ -32,6 +32,8 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
     private double _bpm = 120;
     private int _beatsPerMeasure = 4;
     private HashSet<int> _sectionStartBeats = [];
+    private Func<double, double> _beatToSeconds = static beat => beat * 0.5;
+    private Func<double, double> _secondsToBeat = static seconds => seconds * 2;
 
     public PortAudioPcmPlaybackEngine()
     {
@@ -125,13 +127,22 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
         }
     }
 
-    public void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null)
+    public void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null,
+        Func<double, double>? beatToSeconds = null,
+        Func<double, double>? secondsToBeat = null)
     {
         lock (_gate)
         {
             _zeroBeatTimeSeconds = zeroBeatTimeSeconds;
             _bpm = bpm > 0 ? bpm : 120;
             _beatsPerMeasure = Math.Max(1, beatsPerMeasure);
+            double secondsPerBeat = 60.0 / _bpm;
+            _beatToSeconds = beatToSeconds ?? (beat => _zeroBeatTimeSeconds + (beat * secondsPerBeat));
+            _secondsToBeat = secondsToBeat ?? (seconds => (seconds - _zeroBeatTimeSeconds) / secondsPerBeat);
             _sectionStartBeats = sectionStarts?
                 .Select(v => (int)Math.Round(v))
                 .ToHashSet()
@@ -302,16 +313,12 @@ internal sealed class PortAudioPcmPlaybackEngine : IPcmPlaybackEngine
 
     private void MixMetronome(short[] buffer, long startFrame, int frameCount, int channels, int sampleRate)
     {
-        double beatsPerSecond = _bpm / 60.0;
-        if (beatsPerSecond <= 0)
-            return;
-
         for (int frame = 0; frame < frameCount; frame++)
         {
             double timeSeconds = (startFrame + frame) / (double)sampleRate;
-            double beatPosition = (timeSeconds - _zeroBeatTimeSeconds) * beatsPerSecond;
+            double beatPosition = _secondsToBeat(timeSeconds);
             int beat = (int)Math.Floor(beatPosition + 1e-9);
-            double beatStartSeconds = _zeroBeatTimeSeconds + (beat / beatsPerSecond);
+            double beatStartSeconds = _beatToSeconds(beat);
             double clickTime = timeSeconds - beatStartSeconds;
             if (clickTime is < 0 or >= ClickDurationSeconds)
                 continue;

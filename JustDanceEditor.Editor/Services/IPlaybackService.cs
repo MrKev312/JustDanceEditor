@@ -51,7 +51,11 @@ public interface IPlaybackService : IDisposable
     /// <summary>
     /// Updates the metronome timing parameters. Safe to call at any time.
     /// </summary>
-    void UpdateMetronome(double zeroBeatTimeSeconds, double bpm, int beatsPerMeasure, IEnumerable<double>? sectionStarts = null);
+    void UpdateMetronome(
+        double zeroBeatTimeSeconds,
+        double bpm,
+        int beatsPerMeasure,
+        IEnumerable<double>? sectionStarts = null);
 
     /// <summary>
     /// Extends the effective duration beyond the audio file end by padding with silence.

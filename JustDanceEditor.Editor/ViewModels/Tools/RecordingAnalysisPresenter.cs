@@ -91,7 +91,7 @@ internal static class RecordingAnalysisPresenter
         List<RecordingGraphMarker> markers = [];
         for (int i = 0; i < structure.Markers.Count; i++)
         {
-            double beatLabel = structure.GetBeatLabelFromIndex(i);
+            double beatLabel = i;
             if (beatLabel < 0.0 || beatLabel > structure.EndBeat)
                 continue;
 
