@@ -30,6 +30,12 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
     {
         bool hasCooked = fs.DirectoryExists(fs.Combine(basePath, "cache", "itf_cooked"));
 
+        // Development data can contain both the editable project and a cooked cache.
+        // Prefer the project files so import preserves the richer uncooked source.
+        UbiArtVersionProfile? uncookedProfile = DetectExplicitUncookedProfile(basePath, fs);
+        if (uncookedProfile != null)
+            return uncookedProfile;
+
         // Default platform when unknown (legacy behaviour)
         UbiArtPlatform detectedPlatform = UbiArtPlatform.Cafe;
 
@@ -76,39 +82,6 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
             }
         }
 
-        // Uncooked detection: check latest to oldest, as newer versions may have both jd2015 and jd5 folders
-        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
-        {
-            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015, new JD2015LayoutResolver(), new LuaUbiArtSerializer());
-            TryPeekSongDescForJDVersion(basePath, prof, fs);
-            return prof;
-        }
-
-        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
-        {
-            UbiArtVersionProfile prof = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new LuaUbiArtSerializer());
-            TryPeekSongDescForJDVersion(basePath, prof, fs);
-            return prof;
-        }
-
-        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")))
-        {
-            UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            // Try to peek into songdesc to extract JDVersion numeric if present
-            TryPeekSongDescForJDVersion(basePath, profile, fs);
-            return profile;
-        }
-
-        // Flat/uncooked markers: Audio/, Cinematics/, or *.tpl at root
-        if (fs.DirectoryExists(fs.Combine(basePath, "Audio")) ||
-            fs.DirectoryExists(fs.Combine(basePath, "Cinematics")) ||
-            fs.GetFiles(basePath, "*.tpl").Length != 0)
-        {
-            UbiArtVersionProfile profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
-            TryPeekSongDescForJDVersion(basePath, profile, fs);
-            return profile;
-        }
-
         // If no cooked marker and no other markers, assume uncooked as fallback
         if (!hasCooked)
         {
@@ -121,6 +94,35 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         UbiArtVersionProfile fallbackProfile = CreateModernCookedProfile(detectedPlatform, basePath, fs, sourcePath);
         TryPeekSongDescForJDVersion(basePath, fallbackProfile, fs);
         return fallbackProfile;
+    }
+
+    private UbiArtVersionProfile? DetectExplicitUncookedProfile(string basePath, IUbiArtFileSystem fs)
+    {
+        // Check latest to oldest, as newer projects may retain older map roots.
+        UbiArtVersionProfile profile;
+        if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd2015")))
+        {
+            profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015, new JD2015LayoutResolver(), new LuaUbiArtSerializer());
+        }
+        else if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps", "jd5")))
+        {
+            profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2014, new JD2014LayoutResolver(), new LuaUbiArtSerializer());
+        }
+        else if (fs.DirectoryExists(fs.Combine(basePath, "world", "maps")) ||
+                 fs.DirectoryExists(fs.Combine(basePath, "Audio")) ||
+                 fs.DirectoryExists(fs.Combine(basePath, "Cinematics")) ||
+                 fs.GetFiles(basePath, "*.tpl").Length != 0)
+        {
+            profile = new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        }
+        else
+        {
+            return null;
+        }
+
+        TryPeekSongDescForJDVersion(basePath, profile, fs);
+
+        return profile;
     }
 
     private UbiArtVersionProfile CreateModernCookedProfile(UbiArtPlatform platform, string basePath, IUbiArtFileSystem fs, string? sourcePath)

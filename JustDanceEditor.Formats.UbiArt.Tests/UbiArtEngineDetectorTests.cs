@@ -15,6 +15,27 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public class UbiArtEngineDetectorTests
 {
     [Fact]
+    public void Detect_PrefersUncookedProject_WhenCookedCacheAlsoExists()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "world", "maps", "song"));
+            Directory.CreateDirectory(Path.Combine(root, "cache", "itf_cooked", "nx", "world", "maps", "song"));
+
+            UbiArtVersionProfile profile = new UbiArtEngineDetector().Detect(root);
+
+            Assert.Equal(UbiArtPlatform.Uncooked, profile.Platform);
+            Assert.IsType<UbiArtLayoutResolver>(profile.Layout);
+            Assert.IsType<LuaUbiArtSerializer>(profile.Serializer);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void Detect_ModernCooked_Should_Peek_JDVersion_From_SongDesc()
     {
         string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
