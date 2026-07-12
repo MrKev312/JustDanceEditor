@@ -56,7 +56,8 @@ public sealed class SkiaPictogramPreviewControl : Control
     private TrackViewModel? _pictogramTrack;
     private TimelineEditorViewModel? _subscribedTimeline;
     private ClipViewModel? _draggingClip;
-    private double _dragOffsetX;
+    private double _dragStartPointerX;
+    private double _dragOriginalStartBeat;
     private double _lastScrollDuration;
     private bool _pictogramCacheDirty = true;
 
@@ -68,6 +69,7 @@ public sealed class SkiaPictogramPreviewControl : Control
 
     private void OnActiveTimelineChanged()
     {
+        CancelDrag();
         EnsureTimelineSubscription();
         InvalidateVisual();
     }
@@ -282,6 +284,7 @@ public sealed class SkiaPictogramPreviewControl : Control
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
+        CancelDrag();
         UnsubscribeTrack();
         _subscribedTimeline = null;
     }
@@ -302,7 +305,8 @@ public sealed class SkiaPictogramPreviewControl : Control
                 continue;
 
             _draggingClip = item.Clip;
-            _dragOffsetX = point.X - item.Bounds.X;
+            _dragStartPointerX = point.X;
+            _dragOriginalStartBeat = item.Clip.StartBeat;
             e.Pointer.Capture(this);
             e.Handled = true;
             break;
@@ -317,13 +321,11 @@ public sealed class SkiaPictogramPreviewControl : Control
             return;
 
         Point point = e.GetCurrentPoint(this).Position;
-        double newDrawX = Math.Clamp(point.X - _dragOffsetX, 0, Bounds.Width);
-        double newStart = CurrentBeat + (newDrawX / Bounds.Width * _lastScrollDuration);
-        if (newStart < 0)
-            newStart = 0;
+        double pointerDeltaX = point.X - _dragStartPointerX;
+        double newStart = _dragOriginalStartBeat + (pointerDeltaX / Bounds.Width * _lastScrollDuration);
 
         newStart = SnappingService.FindSnapBeat(newStart, ActiveTimeline, [_draggingClip]);
-        _draggingClip.StartBeat = newStart;
+        _draggingClip.StartBeat = ClampClipStartBeat(newStart, _draggingClip, ActiveTimeline);
 
         InvalidateVisual();
         e.Handled = true;
@@ -332,21 +334,62 @@ public sealed class SkiaPictogramPreviewControl : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        ClearDrag(e.Pointer);
-        e.Handled = true;
+        if (CompleteDrag(e.Pointer))
+            e.Handled = true;
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
-        ClearDrag(null);
+        CancelDrag();
     }
 
-    private void ClearDrag(IPointer? pointer)
+    private bool CompleteDrag(IPointer? pointer)
+    {
+        ClipViewModel? clip = _draggingClip;
+        TimelineEditorViewModel? timeline = ActiveTimeline;
+        double originalStartBeat = _dragOriginalStartBeat;
+        double finalStartBeat = clip?.StartBeat ?? originalStartBeat;
+
+        ResetDrag();
+        pointer?.Capture(null);
+
+        if (clip == null || timeline == null)
+            return false;
+
+        if (Math.Abs(finalStartBeat - originalStartBeat) > 0.001)
+        {
+            timeline.PushUndo(
+                undo: () => clip.StartBeat = originalStartBeat,
+                redo: () => clip.StartBeat = finalStartBeat);
+        }
+
+        return true;
+    }
+
+    private void CancelDrag()
+    {
+        if (_draggingClip != null)
+            _draggingClip.StartBeat = _dragOriginalStartBeat;
+
+        ResetDrag();
+    }
+
+    private void ResetDrag()
     {
         _draggingClip = null;
-        _dragOffsetX = 0;
-        pointer?.Capture(null);
+        _dragStartPointerX = 0;
+        _dragOriginalStartBeat = 0;
+    }
+
+    internal static double ClampClipStartBeat(
+        double startBeat,
+        ClipViewModel clip,
+        TimelineEditorViewModel timeline)
+    {
+        double timelineStart = timeline.TimelineStructure.StartBeat;
+        double latestStart = Math.Max(timelineStart, timeline.TimelineStructure.EndBeat - clip.DurationBeats);
+        return Math.Clamp(startBeat, timelineStart, latestStart);
     }
 
     private static double GetScrollDurationInBeats(double beat, TimelineEditorViewModel timeline)
