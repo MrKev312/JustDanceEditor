@@ -21,26 +21,28 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
 {
     private const double ViewportRenderPadding = 64;
-    private const double MergeClipsBelowPixelsPerBeat = 8;
-    private const double MergeGapTolerancePixels = 1.5;
     private const double MinimumDetailedClipWidth = 6;
     private const double MinimumImageClipWidth = 28;
     private const double MinimumTextClipWidth = 40;
     private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
     private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
-    private static readonly Comparison<ClipViewModel> CompareClipsByStartBeat =
-        static (left, right) => left.StartBeat.CompareTo(right.StartBeat);
+    private static readonly Comparison<IndexedClip> CompareClipsByStartBeat =
+        static (left, right) => left.Clip.StartBeat.CompareTo(right.Clip.StartBeat);
+    private static readonly Comparison<IndexedClip> CompareClipsByRenderOrder =
+        static (left, right) => left.RenderOrder.CompareTo(right.RenderOrder);
     private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
         static (left, right) => left.Marker.CompareTo(right.Marker);
 
     private readonly Dictionary<Color, SolidColorBrush> _brushCache = [];
     private readonly Dictionary<(Color color, double thickness), Pen> _penCache = [];
     private readonly Dictionary<(ClipViewModel clip, double fontSize), FormattedText> _textCache = [];
-    private readonly List<ClipViewModel> _sortedClipCache = [];
+    private readonly List<IndexedClip> _sortedClipCache = [];
+    private readonly List<IndexedClip> _visibleClipCache = [];
     private readonly List<SignatureSegment> _sortedSignatureCache = [];
     private readonly List<double> _sectionStartCache = [];
     private bool _sortedClipCacheDirty = true;
+    private double _maximumClipDuration;
     private bool _signatureCacheDirty = true;
     private bool _sectionCacheDirty = true;
 
@@ -179,14 +181,10 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
 
         bool drawText = ppb > 10;
         bool drawImages = ppb > 8;
-        if (ppb < MergeClipsBelowPixelsPerBeat)
-        {
-            DrawMergedClipBlocks(context, bounds, ppb, offset, visibleStartBeat, visibleEndBeat, visiblePixelStart, visiblePixelEnd);
-            return;
-        }
 
-        foreach (ClipViewModel clip in Clips)
+        foreach (IndexedClip indexedClip in GetVisibleClips(visibleStartBeat, visibleEndBeat))
         {
+            ClipViewModel clip = indexedClip.Clip;
             double clipStart = clip.StartBeat;
             double clipEnd = clip.StartBeat + clip.DurationBeats;
 
@@ -292,101 +290,21 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
         return (start, Math.Max(start, end));
     }
 
-    private void DrawMergedClipBlocks(
-        DrawingContext context,
-        Rect bounds,
-        double ppb,
-        int offset,
-        double visibleStartBeat,
-        double visibleEndBeat,
-        double visiblePixelStart,
-        double visiblePixelEnd)
-    {
-        if (Clips == null)
-            return;
-
-        bool hasGroup = false;
-        double groupStartX = 0;
-        double groupEndX = 0;
-        Color groupColor = Colors.Transparent;
-        bool groupSelected = false;
-
-        foreach (ClipViewModel clip in GetSortedClips())
-        {
-            double clipStart = clip.StartBeat;
-            double clipEnd = clipStart + clip.DurationBeats;
-
-            if (clipEnd < visibleStartBeat)
-                continue;
-            if (clipStart > visibleEndBeat)
-                break;
-
-            double startX = (clipStart - offset) * ppb;
-            double endX = startX + (clip.DurationBeats * ppb);
-            if (endX < visiblePixelStart || startX > visiblePixelEnd)
-                continue;
-
-            if (!hasGroup)
-            {
-                StartGroup(startX, endX, clip.RenderColor, clip.IsSelected);
-                continue;
-            }
-
-            bool touchesGroup = startX <= groupEndX + MergeGapTolerancePixels;
-            bool compatibleSelection = clip.IsSelected == groupSelected;
-            if (!touchesGroup || !compatibleSelection)
-            {
-                FlushGroup();
-                StartGroup(startX, endX, clip.RenderColor, clip.IsSelected);
-                continue;
-            }
-
-            groupEndX = Math.Max(groupEndX, endX);
-        }
-
-        FlushGroup();
-
-        void StartGroup(double startX, double endX, Color color, bool selected)
-        {
-            hasGroup = true;
-            groupStartX = startX;
-            groupEndX = endX;
-            groupColor = color;
-            groupSelected = selected;
-        }
-
-        void FlushGroup()
-        {
-            if (!hasGroup)
-                return;
-
-            double clippedStart = Math.Max(groupStartX, visiblePixelStart);
-            double clippedEnd = Math.Min(groupEndX, visiblePixelEnd);
-            if (clippedEnd > clippedStart)
-            {
-                Rect rect = new(clippedStart, 2, clippedEnd - clippedStart, Math.Max(1, bounds.Height - 4));
-                context.FillRectangle(GetOrCreateBrush(groupColor), rect);
-                if (groupSelected)
-                {
-                    context.FillRectangle(TimelineResources.SelectionOverlay, rect);
-                    context.DrawRectangle(null, TimelineResources.SelectionPen, rect.Deflate(1));
-                }
-            }
-
-            hasGroup = false;
-        }
-    }
-
-    private IReadOnlyList<ClipViewModel> GetSortedClips()
+    private IReadOnlyList<IndexedClip> GetSortedClips()
     {
         if (!_sortedClipCacheDirty)
             return _sortedClipCache;
 
         _sortedClipCache.Clear();
+        _maximumClipDuration = 0;
         if (Clips != null)
         {
+            int renderOrder = 0;
             foreach (ClipViewModel clip in Clips)
-                _sortedClipCache.Add(clip);
+            {
+                _sortedClipCache.Add(new IndexedClip(clip, renderOrder++));
+                _maximumClipDuration = Math.Max(_maximumClipDuration, Math.Max(0, clip.DurationBeats));
+            }
 
             _sortedClipCache.Sort(CompareClipsByStartBeat);
         }
@@ -394,6 +312,41 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
         _sortedClipCacheDirty = false;
         return _sortedClipCache;
     }
+
+    private IReadOnlyList<IndexedClip> GetVisibleClips(double visibleStartBeat, double visibleEndBeat)
+    {
+        IReadOnlyList<IndexedClip> sortedClips = GetSortedClips();
+        _visibleClipCache.Clear();
+
+        double earliestCandidate = visibleStartBeat - _maximumClipDuration;
+        int low = 0;
+        int high = sortedClips.Count;
+        while (low < high)
+        {
+            int middle = low + ((high - low) / 2);
+            if (sortedClips[middle].Clip.StartBeat < earliestCandidate)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+
+        for (int i = low; i < sortedClips.Count; i++)
+        {
+            IndexedClip indexedClip = sortedClips[i];
+            ClipViewModel clip = indexedClip.Clip;
+            if (clip.StartBeat > visibleEndBeat)
+                break;
+            if (clip.StartBeat + clip.DurationBeats >= visibleStartBeat)
+                _visibleClipCache.Add(indexedClip);
+        }
+
+        // Preserve the collection's original paint order for overlapping clips.
+        _visibleClipCache.Sort(CompareClipsByRenderOrder);
+        TimelineRenderDiagnostics.RecordCount("track.visible-clips", _visibleClipCache.Count);
+        return _visibleClipCache;
+    }
+
+    private readonly record struct IndexedClip(ClipViewModel Clip, int RenderOrder);
 
     private void DrawMeasureBackgrounds(
         DrawingContext context,

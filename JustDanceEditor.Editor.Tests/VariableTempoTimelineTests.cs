@@ -24,6 +24,16 @@ public sealed class VariableTempoTimelineTests
     }
 
     [Fact]
+    public void WaveformEnvelopeTiles_CoverOnlyVisiblePixelRange()
+    {
+        (int firstTile, int lastTile) = AudioBarRenderer.GetEnvelopeTileRange(1600, 3000);
+
+        Assert.Equal(3, firstTile);
+        Assert.Equal(5, lastTile);
+        Assert.Equal(3, lastTile - firstTile + 1);
+    }
+
+    [Fact]
     public void MetronomeClicks_FollowMarkerTimingAcrossTempoChange()
     {
         TimelineStructureDocument structure = CreateStructure();

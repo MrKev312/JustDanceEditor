@@ -187,121 +187,129 @@ public class TimeRulerControl : Control
 
     public override void Render(DrawingContext context)
     {
-        Rect bounds = Bounds;
-        double ppb = PixelsPerBeat;
-        int offset = BeatOffset;
-        double max = MaxBeat;
-        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(bounds.Width);
-        double visibleStartBeat = offset + (visiblePixelStart / Math.Max(1.0, ppb));
-        double visibleEndBeat = offset + (visiblePixelEnd / Math.Max(1.0, ppb));
-
-        // 0. Catch all pointer events by drawing a transparent background
-        context.FillRectangle(Brushes.Transparent, bounds);
-
-        // 1. Draw Alternating Measure Backgrounds
-        IReadOnlyList<SignatureSegment> sortedSigs = GetSortedSignatures();
-        List<double> sectionStarts = GetSectionStarts();
-
+        long renderStart = TimelineRenderDiagnostics.Start();
+        try
         {
-            double rangeStart = Math.Max(offset, visibleStartBeat - 1);
-            double rangeEnd = Math.Min(offset + max, visibleEndBeat + 1);
+            Rect bounds = Bounds;
+            double ppb = PixelsPerBeat;
+            int offset = BeatOffset;
+            double max = MaxBeat;
+            (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(bounds.Width);
+            double visibleStartBeat = offset + (visiblePixelStart / Math.Max(1.0, ppb));
+            double visibleEndBeat = offset + (visiblePixelEnd / Math.Max(1.0, ppb));
 
-            int colorIndex = 0;
-            if (sectionStarts.Count == 0)
+            // 0. Catch all pointer events by drawing a transparent background
+            context.FillRectangle(Brushes.Transparent, bounds);
+
+            // 1. Draw Alternating Measure Backgrounds
+            IReadOnlyList<SignatureSegment> sortedSigs = GetSortedSignatures();
+            List<double> sectionStarts = GetSectionStarts();
+
             {
-                DrawSection(rangeStart, rangeEnd, isLastSection: true, ref colorIndex);
-            }
-            else
-            {
-                for (int i = 0; i < sectionStarts.Count; i++)
+                double rangeStart = Math.Max(offset, visibleStartBeat - 1);
+                double rangeEnd = Math.Min(offset + max, visibleEndBeat + 1);
+
+                int colorIndex = 0;
+                if (sectionStarts.Count == 0)
                 {
-                    double sStart = sectionStarts[i];
-                    double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
-                    DrawSection(sStart, sEnd, i == sectionStarts.Count - 1, ref colorIndex);
+                    DrawSection(rangeStart, rangeEnd, isLastSection: true, ref colorIndex);
                 }
-            }
-
-            void DrawSection(double sStart, double sEnd, bool isLastSection, ref int colorIndex)
-            {
-                if (sEnd <= rangeStart)
+                else
                 {
-                    colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
-                    return;
-                }
-
-                if (sStart >= rangeEnd)
-                    return;
-
-                int sectionColor = colorIndex;
-                int groupInSection = 0;
-                double pos = sStart;
-
-                while (pos < sEnd - 0.01 && pos < rangeEnd)
-                {
-                    int blockSize = TimelineRenderHelper.GetActiveBlockSize(pos, sortedSigs);
-                    double gEnd = pos + blockSize;
-
-                    bool isPartialSectionEnd = gEnd > sEnd + 0.01;
-                    if (isPartialSectionEnd)
-                        gEnd = sEnd;
-
-                    double nextSig = TimelineRenderHelper.GetNextSigChange(pos, sortedSigs);
-                    bool isPartialSigChange = false;
-                    if (!isPartialSectionEnd && nextSig < gEnd - 0.01)
+                    for (int i = 0; i < sectionStarts.Count; i++)
                     {
-                        gEnd = nextSig;
-                        isPartialSigChange = true;
+                        double sStart = sectionStarts[i];
+                        double sEnd = (i + 1 < sectionStarts.Count) ? sectionStarts[i + 1] : rangeEnd;
+                        DrawSection(sStart, sEnd, i == sectionStarts.Count - 1, ref colorIndex);
+                    }
+                }
+
+                void DrawSection(double sStart, double sEnd, bool isLastSection, ref int colorIndex)
+                {
+                    if (sEnd <= rangeStart)
+                    {
+                        colorIndex += TimelineRenderHelper.CountAllGroups(sStart, sEnd, sortedSigs);
+                        return;
                     }
 
-                    bool isPartial = isPartialSigChange || (isPartialSectionEnd && !isLastSection);
+                    if (sStart >= rangeEnd)
+                        return;
 
-                    double xStart = (pos - offset) * ppb;
-                    double xEnd = (gEnd - offset) * ppb;
-                    if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
+                    int sectionColor = colorIndex;
+                    int groupInSection = 0;
+                    double pos = sStart;
+
+                    while (pos < sEnd - 0.01 && pos < rangeEnd)
                     {
-                        SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
-                        double clippedStart = Math.Max(xStart, visiblePixelStart);
-                        double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
-                        context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
+                        int blockSize = TimelineRenderHelper.GetActiveBlockSize(pos, sortedSigs);
+                        double gEnd = pos + blockSize;
+
+                        bool isPartialSectionEnd = gEnd > sEnd + 0.01;
+                        if (isPartialSectionEnd)
+                            gEnd = sEnd;
+
+                        double nextSig = TimelineRenderHelper.GetNextSigChange(pos, sortedSigs);
+                        bool isPartialSigChange = false;
+                        if (!isPartialSectionEnd && nextSig < gEnd - 0.01)
+                        {
+                            gEnd = nextSig;
+                            isPartialSigChange = true;
+                        }
+
+                        bool isPartial = isPartialSigChange || (isPartialSectionEnd && !isLastSection);
+
+                        double xStart = (pos - offset) * ppb;
+                        double xEnd = (gEnd - offset) * ppb;
+                        if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
+                        {
+                            SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                            double clippedStart = Math.Max(xStart, visiblePixelStart);
+                            double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
+                            context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
+                        }
+
+                        groupInSection++;
+                        pos = gEnd;
                     }
 
-                    groupInSection++;
-                    pos = gEnd;
+                    colorIndex += groupInSection;
                 }
+            }
 
-                colorIndex += groupInSection;
+            // 2. Draw Ticks and Labels
+            Pen mainPen = TimelineResources.MainPen;
+            Pen tickPen = TimelineResources.TickPen;
+            IImmutableSolidColorBrush labelBrush = (IImmutableSolidColorBrush)TimelineResources.LabelBrush;
+
+            context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
+
+            int firstBeat = Math.Max(0, (int)Math.Floor(visiblePixelStart / Math.Max(1.0, ppb)) - 1);
+            int lastBeat = Math.Min((int)Math.Ceiling(max), (int)Math.Ceiling(visiblePixelEnd / Math.Max(1.0, ppb)) + 1);
+            int labelGroupInterval = GetLabelGroupInterval(ppb);
+
+            for (int i = firstBeat; i <= lastBeat; i++)
+            {
+                double x = i * ppb;
+                if (x < visiblePixelStart)
+                    continue;
+                if (x > visiblePixelEnd)
+                    break;
+
+                bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(i + offset, sectionStarts);
+                double tickHeight = isMajor ? 12 : 6;
+
+                context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
+
+                if (isMajor && ShouldDrawBeatLabel(i + offset, sectionStarts, labelGroupInterval))
+                {
+                    FormattedText text = GetBeatLabelText(i + offset, labelBrush);
+                    context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
+                }
             }
         }
-
-        // 2. Draw Ticks and Labels
-        Pen mainPen = TimelineResources.MainPen;
-        Pen tickPen = TimelineResources.TickPen;
-        IImmutableSolidColorBrush labelBrush = (IImmutableSolidColorBrush)TimelineResources.LabelBrush;
-
-        context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
-
-        int firstBeat = Math.Max(0, (int)Math.Floor(visiblePixelStart / Math.Max(1.0, ppb)) - 1);
-        int lastBeat = Math.Min((int)Math.Ceiling(max), (int)Math.Ceiling(visiblePixelEnd / Math.Max(1.0, ppb)) + 1);
-        int labelGroupInterval = GetLabelGroupInterval(ppb);
-
-        for (int i = firstBeat; i <= lastBeat; i++)
+        finally
         {
-            double x = i * ppb;
-            if (x < visiblePixelStart)
-                continue;
-            if (x > visiblePixelEnd)
-                break;
-
-            bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(i + offset, sectionStarts);
-            double tickHeight = isMajor ? 12 : 6;
-
-            context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
-
-            if (isMajor && ShouldDrawBeatLabel(i + offset, sectionStarts, labelGroupInterval))
-            {
-                FormattedText text = GetBeatLabelText(i + offset, labelBrush);
-                context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
-            }
+            TimelineRenderDiagnostics.RecordDuration("ruler.render", renderStart);
         }
     }
 

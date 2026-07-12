@@ -93,6 +93,8 @@ public class TimelineTrackPanel : Control
     private readonly TimelineExternalDropController _externalDropController;
     private readonly TimelineTrackRenderer _renderer;
     private readonly TimelineTrackInputController _inputController;
+    private bool _visualInvalidationPending;
+    private bool _measureInvalidationPending;
 
     static TimelineTrackPanel()
     {
@@ -305,22 +307,39 @@ public class TimelineTrackPanel : Control
 
         void handler(object? s, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName is nameof(ClipViewModel.StartBeat) or nameof(ClipViewModel.DurationBeats))
+            bool affectsLayout = e.PropertyName is nameof(ClipViewModel.StartBeat) or nameof(ClipViewModel.DurationBeats);
+            if (affectsLayout)
                 _renderer.InvalidateClipOrder();
 
-            // clear text cache for this clip
-            _renderer.InvalidateText(clip);
+            if (e.PropertyName is nameof(ClipViewModel.Name) or nameof(ClipViewModel.DurationBeats))
+                _renderer.InvalidateText(clip);
 
-            // Ensure arrange/render happens on UI thread
-            Dispatcher.UIThread.Post(() =>
-            {
-                InvalidateMeasure();
-                InvalidateVisual();
-            });
+            QueueInvalidation(affectsLayout);
         }
 
         clip.PropertyChanged += handler;
         _clipHandlers[clip] = handler;
+    }
+
+    private void QueueInvalidation(bool measure)
+    {
+        TimelineRenderDiagnostics.RecordCount("track.invalidate-request");
+        _measureInvalidationPending |= measure;
+        if (_visualInvalidationPending)
+            return;
+
+        _visualInvalidationPending = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            bool invalidateMeasure = _measureInvalidationPending;
+            _measureInvalidationPending = false;
+            _visualInvalidationPending = false;
+
+            if (invalidateMeasure)
+                InvalidateMeasure();
+            InvalidateVisual();
+            TimelineRenderDiagnostics.RecordCount("track.invalidate-flush");
+        }, DispatcherPriority.Render);
     }
 
     private void RemoveClipHandler(ClipViewModel clip)
@@ -338,22 +357,38 @@ public class TimelineTrackPanel : Control
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        long measureStart = TimelineRenderDiagnostics.Start();
         double width = MaxBeat * PixelsPerBeat;
+        int clipCount = 0;
 
         if (Clips != null)
         {
             foreach (ClipViewModel clip in Clips)
             {
+                clipCount++;
                 double endX = (clip.StartBeat - BeatOffset + clip.DurationBeats) * PixelsPerBeat;
                 if (endX > width)
                     width = endX;
             }
         }
 
-        return new Size(Math.Max(0, width), availableSize.Height);
+        Size measured = new(Math.Max(0, width), availableSize.Height);
+        TimelineRenderDiagnostics.RecordDuration("track.measure", measureStart, clipCount);
+        return measured;
     }
 
-    public override void Render(DrawingContext context) => _renderer.Render(context);
+    public override void Render(DrawingContext context)
+    {
+        long renderStart = TimelineRenderDiagnostics.Start();
+        try
+        {
+            _renderer.Render(context);
+        }
+        finally
+        {
+            TimelineRenderDiagnostics.RecordDuration("track.render", renderStart);
+        }
+    }
 
     public static ContextMenu? CurrentContextMenu { get; internal set; }
 

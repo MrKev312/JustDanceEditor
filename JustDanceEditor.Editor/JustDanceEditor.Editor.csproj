@@ -19,12 +19,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="12.0.3" />
-		<PackageReference Include="Avalonia.Controls.ColorPicker" Version="12.0.3" />
-		<PackageReference Include="Avalonia.Desktop" Version="12.0.3" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.3" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.3" />
-		<PackageReference Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
+		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Controls.ColorPicker" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 
 		<!-- Dock Packages -->
@@ -41,10 +41,10 @@
 		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
 		<PackageReference Include="NAudio" Version="2.3.0" />
 		<PackageReference Include="PortAudioSharp2" Version="1.0.6" />
-		<PackageReference Include="SkiaSharp" Version="3.119.4-preview.1.1" />
-		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4-preview.1.1" />
-		<PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4-preview.1.1" />
-		<PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4-preview.1.1" />
+		<PackageReference Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="$(SkiaSharpVersion)" />
+		<PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="$(SkiaSharpVersion)" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="$(SkiaSharpVersion)" />
 		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
 		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
 	</ItemGroup>

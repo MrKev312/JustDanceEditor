@@ -102,9 +102,9 @@ public class TimelineNavigationBehavior : AvaloniaObject
 
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
-            // Zooming: multiply pixels per beat
+            // Zoom is relative to the whole-song fit, where 100% is fully zoomed out.
             double zoomFactor = e.Delta.Y > 0 ? 1.1 : 0.9;
-            vm.PixelsPerBeat *= zoomFactor;
+            vm.ZoomPercentage *= zoomFactor;
             e.Handled = true;
         }
         else
@@ -126,12 +126,11 @@ public class TimelineNavigationBehavior : AvaloniaObject
         double viewportWidth = scrollViewer.Viewport.Width;
         if (viewportWidth > 0 && vm.MaxBeat > 0)
         {
-            double fitPpb = viewportWidth / vm.MaxBeat;
-            vm.MinZoomPercentage = fitPpb;
+            vm.UpdateViewportWidth(viewportWidth);
 
             if (_isInitialFitNeeded)
             {
-                vm.ZoomPercentage = fitPpb;
+                vm.ZoomPercentage = 100;
                 _isInitialFitNeeded = false;
             }
         }

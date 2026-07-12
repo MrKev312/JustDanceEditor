@@ -26,6 +26,12 @@
 	</UserControl.KeyBindings>
 
 	<UserControl.Styles>
+		<Style Selector="StackPanel.timeline-overview-cache">
+			<Setter Property="CacheMode">
+				<BitmapCache RenderAtScale="1" SnapsToDevicePixels="True" EnableClearType="True"/>
+			</Setter>
+		</Style>
+
 		<!-- Styles for the individual clips inside the tracks -->
 		<Style Selector="local|ClipControl">
 			<Setter Property="Template">
@@ -70,13 +76,18 @@
 <Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" MinHeight="24" MinWidth="56" Padding="6,2" />
 					<Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" MinHeight="24" MinWidth="56" Padding="6,2" />
 				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}" FontSize="12"/>
-				<NumericUpDown Value="{Binding ZoomPercentage}" 
-						   Minimum="{Binding MinZoomPercentage}" 
-						   Maximum="{Binding MaxZoomPercentage}" 
-						   Width="120" 
-						   Height="28"
-						   FormatString="{}{0:N2}%"
-						   VerticalAlignment="Center"/>
+				<ButtonSpinner Width="178" Height="28" Spin="ZoomSpinner_OnSpin">
+					<NumericUpDown Value="{Binding ZoomPercentage}"
+							   Minimum="{Binding MinZoomPercentage}"
+							   Maximum="{Binding MaxZoomPercentage}"
+							   AllowSpin="False"
+							   ShowButtonSpinner="False"
+							   TextAlignment="Right"
+							   Background="Transparent"
+							   BorderThickness="0"
+							   FormatString="{}{0:N2}%"
+							   VerticalAlignment="Stretch"/>
+				</ButtonSpinner>
 			</StackPanel>
 			
 			<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,4">
@@ -129,7 +140,10 @@
 					      HorizontalScrollBarVisibility="Auto" 
 					      VerticalScrollBarVisibility="Disabled">
 			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
-				    <StackPanel Name="TracksStack" Background="{DynamicResource JdeWindowBackgroundBrush}" HorizontalAlignment="Stretch">
+				    <StackPanel Name="TracksStack"
+					    Background="{DynamicResource JdeWindowBackgroundBrush}"
+					    HorizontalAlignment="Stretch"
+					    Classes.timeline-overview-cache="{Binding UseTimelineBitmapCache}">
 
 						    <!-- Time Ruler -->
 						    <local:TimeRulerControl Height="30"

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Headless;
 
 [assembly: AvaloniaTestApplication(typeof(JustDanceEditor.Editor.Tests.AvaloniaTestApp))]
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace JustDanceEditor.Editor.Tests;
 

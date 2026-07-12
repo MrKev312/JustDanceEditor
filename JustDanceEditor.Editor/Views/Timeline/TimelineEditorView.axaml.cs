@@ -62,4 +62,14 @@ public partial class TimelineEditorView : UserControl
         base.OnPointerPressed(e);
         Focus();
     }
+
+    private void ZoomSpinner_OnSpin(object? sender, SpinEventArgs e)
+    {
+        if (DataContext is not TimelineEditorViewModel vm)
+            return;
+
+        vm.ZoomPercentage = e.Direction == SpinDirection.Increase
+            ? Math.Min(vm.MaxZoomPercentage, vm.ZoomPercentage + 1)
+            : Math.Max(vm.MinZoomPercentage, vm.ZoomPercentage - 1);
+    }
 }

@@ -178,30 +178,38 @@ public class AudioBarControl : Control
 
     public override void Render(DrawingContext context)
     {
-        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(Bounds.Width);
-        _renderer.Render(new AudioBarRenderRequest
+        long renderStart = TimelineRenderDiagnostics.Start();
+        try
         {
-            Context = context,
-            Bounds = Bounds,
-            PixelsPerBeat = PixelsPerBeat,
-            BeatOffset = BeatOffset,
-            Samples = Samples,
-            AudioStartBeat = AudioStartBeat,
-            AudioEndBeat = AudioEndBeat,
-            TimelineStructure = _subscribedVm?.TimelineStructure,
-            VisiblePixelStart = visiblePixelStart,
-            VisiblePixelEnd = visiblePixelEnd,
-            SortedSections = _timelineCache.GetSortedSections(Sections),
-            SortedSignatures = _timelineCache.GetSortedSignatures(Signatures),
-            SectionStarts = _timelineCache.GetSectionStarts(Sections),
-            SectionLabelRects = SectionLabelRects,
-            SignatureLabelRects = SignatureLabelRects,
-            HoveredSection = _interaction.HoveredSection,
-            TooltipText = _interaction.TooltipText,
-            TooltipPosition = _interaction.TooltipPosition,
-            IsDragging = _interaction.IsDragging,
-            IsScrubbing = _interaction.IsScrubbing
-        });
+            (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(Bounds.Width);
+            _renderer.Render(new AudioBarRenderRequest
+            {
+                Context = context,
+                Bounds = Bounds,
+                PixelsPerBeat = PixelsPerBeat,
+                BeatOffset = BeatOffset,
+                Samples = Samples,
+                AudioStartBeat = AudioStartBeat,
+                AudioEndBeat = AudioEndBeat,
+                TimelineStructure = _subscribedVm?.TimelineStructure,
+                VisiblePixelStart = visiblePixelStart,
+                VisiblePixelEnd = visiblePixelEnd,
+                SortedSections = _timelineCache.GetSortedSections(Sections),
+                SortedSignatures = _timelineCache.GetSortedSignatures(Signatures),
+                SectionStarts = _timelineCache.GetSectionStarts(Sections),
+                SectionLabelRects = SectionLabelRects,
+                SignatureLabelRects = SignatureLabelRects,
+                HoveredSection = _interaction.HoveredSection,
+                TooltipText = _interaction.TooltipText,
+                TooltipPosition = _interaction.TooltipPosition,
+                IsDragging = _interaction.IsDragging,
+                IsScrubbing = _interaction.IsScrubbing
+            });
+        }
+        finally
+        {
+            TimelineRenderDiagnostics.RecordDuration("audio.render", renderStart);
+        }
     }
 
     private void SubscribeToViewModel()

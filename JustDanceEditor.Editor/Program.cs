@@ -20,6 +20,7 @@ internal sealed class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new Avalonia.SkiaOptions { MaxGpuResourceSizeBytes = 256 * 1024 * 1024 })
             .WithInterFont()
             .LogToTrace();
 }

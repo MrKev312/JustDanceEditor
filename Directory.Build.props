@@ -4,9 +4,11 @@
     <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
     <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
     <KevIncLocalTargetFramework Condition="'$(KevIncLocalTargetFramework)' == ''">net10.0</KevIncLocalTargetFramework>
+    <AvaloniaVersion>12.1.0</AvaloniaVersion>
+    <SkiaSharpVersion>3.119.4</SkiaSharpVersion>
 
     <KevIncAvaloniaRoot Condition="'$(KevIncAvaloniaRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Avalonia'))</KevIncAvaloniaRoot>
-    <KevIncAvaloniaPackageVersion>0.2.4</KevIncAvaloniaPackageVersion>
+    <KevIncAvaloniaPackageVersion>0.2.5</KevIncAvaloniaPackageVersion>
     <KevIncAvaloniaProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia\KevInc.Avalonia.csproj</KevIncAvaloniaProject>
     <KevIncAvaloniaDockProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Dock\KevInc.Avalonia.Dock.csproj</KevIncAvaloniaDockProject>
     <KevIncAvaloniaTimelineProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Timeline\KevInc.Avalonia.Timeline.csproj</KevIncAvaloniaTimelineProject>

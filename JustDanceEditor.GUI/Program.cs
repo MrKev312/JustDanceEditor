@@ -41,6 +41,7 @@ internal static class Program
     private static AppBuilder BuildAvaloniaApp(IServiceProvider services) =>
         AppBuilder.Configure(() => new App(services))
             .UsePlatformDetect()
+            .With(new Avalonia.SkiaOptions { MaxGpuResourceSizeBytes = 256 * 1024 * 1024 })
             .WithInterFont()
             .LogToTrace();
 }

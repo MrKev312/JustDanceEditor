@@ -28,7 +28,6 @@ public class PlaybackService : IPlaybackService, IDisposable
     private Func<double, double> _secondsToBeat = s => s / 0.5;
 
     private TimeSpan _baseTime = TimeSpan.Zero;
-    private readonly DispatcherTimer _fallbackUpdateTimer;
     private readonly Stopwatch _stopwatch = new();
     private int _animationFrameRequestId;
     private bool _animationFramePending;
@@ -94,10 +93,6 @@ public class PlaybackService : IPlaybackService, IDisposable
         _pcmPlaybackEngineFactory = pcmPlaybackEngineFactory;
         _useWindowsAudio = useWindowsAudio;
         _windows = windows;
-        _fallbackUpdateTimer = new DispatcherTimer(
-            DisplayRefreshRateProvider.GetRefreshInterval(windows?.MainWindow),
-            DispatcherPriority.Render,
-            (s, e) => OnPlaybackTick());
     }
 
     public async Task LoadMediaAsync(
@@ -138,7 +133,6 @@ public class PlaybackService : IPlaybackService, IDisposable
         // Reset timing
         _baseTime = TimeSpan.Zero;
         _stopwatch.Reset();
-        UpdateTimerInterval();
 
         TimeChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -153,7 +147,6 @@ public class PlaybackService : IPlaybackService, IDisposable
             SeekCore(TimeSpan.Zero, restorePlayback: false);
         }
 
-        UpdateTimerInterval();
         TimeSpan startTime = CurrentTime;
 
         if (_audioSource != null)
@@ -169,7 +162,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         IsPlaying = true;
         _stopwatch.Restart();
         TryPlayOutputDevice();
-        StartPlaybackUpdates();
+        RequestPlaybackFrame();
 
         PlayStateChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -386,52 +379,33 @@ public class PlaybackService : IPlaybackService, IDisposable
         return duration > TimeSpan.Zero && time > duration ? duration : time;
     }
 
-    private void UpdateTimerInterval()
-    {
-        _fallbackUpdateTimer.Interval = DisplayRefreshRateProvider.GetRefreshInterval(_windows?.MainWindow);
-    }
-
-    private void StartPlaybackUpdates()
+    private void RequestPlaybackFrame()
     {
         if (_disposed || !IsPlaying)
             return;
 
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(StartPlaybackUpdates, DispatcherPriority.Render);
+            Dispatcher.UIThread.Post(RequestPlaybackFrame, DispatcherPriority.Render);
             return;
         }
 
-        if (TryRequestAnimationFrame())
-        {
-            _fallbackUpdateTimer.Stop();
-            return;
-        }
-
-        UpdateTimerInterval();
-        _fallbackUpdateTimer.Start();
-    }
-
-    private void StopPlaybackUpdates()
-    {
-        _fallbackUpdateTimer.Stop();
-        _animationFramePending = false;
-        _animationFrameRequestId++;
-    }
-
-    private bool TryRequestAnimationFrame()
-    {
         if (_animationFramePending)
-            return true;
+            return;
 
         TopLevel? topLevel = _windows?.MainWindow;
         if (topLevel == null)
-            return false;
+            return;
 
         _animationFramePending = true;
         int requestId = ++_animationFrameRequestId;
         topLevel.RequestAnimationFrame(_ => OnAnimationFrame(requestId));
-        return true;
+    }
+
+    private void StopPlaybackUpdates()
+    {
+        _animationFramePending = false;
+        _animationFrameRequestId++;
     }
 
     private void OnAnimationFrame(int requestId)
@@ -446,7 +420,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         OnPlaybackTick();
 
         if (IsPlaying)
-            StartPlaybackUpdates();
+            RequestPlaybackFrame();
     }
 
     private void OnPlaybackTick()

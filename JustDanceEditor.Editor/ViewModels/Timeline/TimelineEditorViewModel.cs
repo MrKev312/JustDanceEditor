@@ -22,6 +22,9 @@ namespace JustDanceEditor.Editor.ViewModels.Timeline;
 
 public partial class TimelineEditorViewModel : Document, IDisposable
 {
+    private const double MaximumCachedTimelineWidth = 8192;
+    private const double MaximumCachedTimelineZoomPercentage = 200;
+
     private readonly TimelineMediaController _media;
     private readonly TimelineClipboardController _clipboard;
     private readonly TimelineSelectionController _selection;
@@ -33,6 +36,7 @@ public partial class TimelineEditorViewModel : Document, IDisposable
     private readonly TimelineMetronomeController _metronome;
     private readonly TimelineCloseController _closeController;
     private bool _disposed;
+    private double _viewportWidth;
 
     public IntermediateSongPackage Package { get; }
     public TimelineEditorServices Services { get; }
@@ -48,7 +52,7 @@ public partial class TimelineEditorViewModel : Document, IDisposable
     public partial double ZoomPercentage { get; set; } = 100.0;
 
     [ObservableProperty]
-    public partial double MinZoomPercentage { get; set; } = 10.0;
+    public partial double MinZoomPercentage { get; set; } = 100.0;
 
     [ObservableProperty]
     public partial double MaxZoomPercentage { get; set; } = 10000.0;
@@ -73,6 +77,9 @@ public partial class TimelineEditorViewModel : Document, IDisposable
 
     [ObservableProperty]
     public partial double TimelineWidth { get; set; } = 0.0;
+
+    [ObservableProperty]
+    public partial bool UseTimelineBitmapCache { get; private set; }
 
     [ObservableProperty]
     public partial float[] WaveformSamples { get; set; } = [];
@@ -274,22 +281,33 @@ public partial class TimelineEditorViewModel : Document, IDisposable
     internal void UpdateTimelineWidth()
     {
         TimelineWidth = MaxBeat * PixelsPerBeat;
+        UseTimelineBitmapCache = TimelineWidth is > 0 and <= MaximumCachedTimelineWidth
+            && ZoomPercentage <= MaximumCachedTimelineZoomPercentage;
     }
 
     partial void OnPixelsPerBeatChanged(double value)
     {
         UpdateTimelineWidth();
-        ZoomPercentage = value;
-        OnPropertyChanged(nameof(ZoomPercentage));
+    }
+
+    partial void OnMaxBeatChanged(double value)
+    {
+        if (_viewportWidth > 0)
+            UpdatePixelsPerBeat();
+        else
+            UpdateTimelineWidth();
     }
 
     partial void OnZoomPercentageChanged(double value)
     {
-        if (value < MinZoomPercentage)
-            value = MinZoomPercentage;
-        if (value > MaxZoomPercentage)
-            value = MaxZoomPercentage;
-        PixelsPerBeat = value;
+        double clamped = Math.Clamp(value, MinZoomPercentage, MaxZoomPercentage);
+        if (Math.Abs(value - clamped) > 0.001)
+        {
+            ZoomPercentage = clamped;
+            return;
+        }
+
+        UpdatePixelsPerBeat();
     }
 
     partial void OnMinZoomPercentageChanged(double value)
@@ -300,15 +318,27 @@ public partial class TimelineEditorViewModel : Document, IDisposable
         }
     }
 
-    public void FitToView(double viewportWidth)
+    public void UpdateViewportWidth(double viewportWidth)
     {
-        if (MaxBeat <= 0)
+        if (viewportWidth <= 0 || MaxBeat <= 0)
             return;
 
-        // Calculate the zoom level that fits the whole song
-        double fitPpb = viewportWidth / MaxBeat;
-        MinZoomPercentage = fitPpb;
-        ZoomPercentage = fitPpb;
+        _viewportWidth = viewportWidth;
+        UpdatePixelsPerBeat();
+    }
+
+    public void FitToView(double viewportWidth)
+    {
+        UpdateViewportWidth(viewportWidth);
+        ZoomPercentage = 100;
+    }
+
+    private void UpdatePixelsPerBeat()
+    {
+        if (_viewportWidth <= 0 || MaxBeat <= 0)
+            return;
+
+        PixelsPerBeat = (_viewportWidth / MaxBeat) * (ZoomPercentage / 100.0);
     }
 
     [RelayCommand]

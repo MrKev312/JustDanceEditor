@@ -312,7 +312,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
 
             await using (FileStream stream = File.Create(tempPngPath))
             {
-                bitmap.Save(stream);
+                bitmap.Save(stream, PngBitmapEncoderOptions.Default);
                 await stream.FlushAsync(cancellationToken);
             }
 
@@ -364,7 +364,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
 
             await using (FileStream stream = File.Create(tempComposedPath))
             {
-                target.Save(stream);
+                target.Save(stream, PngBitmapEncoderOptions.Default);
                 await stream.FlushAsync(cancellationToken);
             }
 

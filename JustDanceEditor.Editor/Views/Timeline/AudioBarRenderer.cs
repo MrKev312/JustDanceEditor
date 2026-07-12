@@ -15,6 +15,7 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 
 internal sealed class AudioBarRenderer
 {
+    internal const int EnvelopeTileWidth = 512;
     private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
     private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
@@ -27,8 +28,7 @@ internal sealed class AudioBarRenderer
     private readonly Dictionary<int, FormattedText> _signatureTextCache = [];
     private double _lastPixelsPerBeat = -1;
     private Size _lastBounds = default;
-    private float[]? _envelopeMax;
-    private float[]? _envelopeMin;
+    private readonly Dictionary<int, EnvelopeTile> _envelopeTiles = [];
     private int _envelopeCacheWidth;
     private float[]? _envelopeCacheSamples;
     private double _envelopeCacheAudioStartBeat = double.NaN;
@@ -41,6 +41,7 @@ internal sealed class AudioBarRenderer
     {
         _envelopeCacheTimelineStructure = null;
         _envelopeCacheSamples = null;
+        _envelopeTiles.Clear();
     }
 
     static AudioBarRenderer()
@@ -128,7 +129,7 @@ internal sealed class AudioBarRenderer
         double drawStartX = Math.Max(0, audioStartX);
         double drawEndX = Math.Min(totalWidth, audioEndX);
 
-        RebuildEnvelopeIfNeeded(
+        PrepareEnvelopeCache(
             samples,
             totalWidth,
             audioStartBeat,
@@ -150,31 +151,52 @@ internal sealed class AudioBarRenderer
 
         int waveStart = Math.Max(renderStartX, (int)drawStartX);
         int waveEnd = Math.Min(renderEndX, (int)drawEndX);
-        if (_envelopeMax == null || _envelopeMin == null)
+        if (waveEnd <= waveStart)
             return;
 
-        for (int x = waveStart; x < waveEnd; x++)
+        double audioDurationSeconds = request.TimelineStructure is { Markers.Count: >= 2 }
+            ? request.TimelineStructure.GetPlaybackSecondsAtBeat(audioEndBeat)
+            : 0;
+        (int firstTile, int lastTile) = GetEnvelopeTileRange(waveStart, waveEnd);
+        for (int tileIndex = firstTile; tileIndex <= lastTile; tileIndex++)
         {
-            float maxV = _envelopeMax[x];
-            float minV = _envelopeMin[x];
-            double topY = centerY - (maxV * centerY * 0.8);
-            double botY = centerY - (minV * centerY * 0.8);
-            double height = botY - topY;
+            EnvelopeTile tile = GetOrBuildEnvelopeTile(
+                tileIndex,
+                samples,
+                totalWidth,
+                offset,
+                ppb,
+                audioStartX,
+                audioEndX,
+                audioDurationSeconds,
+                request.TimelineStructure);
+            int tileRenderStart = Math.Max(waveStart, tile.StartX);
+            int tileRenderEnd = Math.Min(waveEnd, tile.StartX + tile.Max.Length);
 
-            if (height < 0.5)
-                continue;
+            for (int x = tileRenderStart; x < tileRenderEnd; x++)
+            {
+                int tileOffset = x - tile.StartX;
+                float maxV = tile.Max[tileOffset];
+                float minV = tile.Min[tileOffset];
+                double topY = centerY - (maxV * centerY * 0.8);
+                double botY = centerY - (minV * centerY * 0.8);
+                double height = botY - topY;
 
-            Rect columnRect = new(x, topY, 1, height);
-            context.FillRectangle(TimelineResources.WaveformFill, columnRect);
-            context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, topY), new Point(x + 1, topY));
-            context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, botY), new Point(x + 1, botY));
+                if (height < 0.5)
+                    continue;
+
+                Rect columnRect = new(x, topY, 1, height);
+                context.FillRectangle(TimelineResources.WaveformFill, columnRect);
+                context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, topY), new Point(x + 1, topY));
+                context.DrawLine(TimelineResources.WaveformEdgePen, new Point(x, botY), new Point(x + 1, botY));
+            }
         }
 
         if (boundsKnown && drawEndX < renderEndX)
             DrawNoAudioStripes(context, new Rect(drawEndX, 0, renderEndX - drawEndX, bounds.Height));
     }
 
-    private void RebuildEnvelopeIfNeeded(
+    private void PrepareEnvelopeCache(
         float[] samples,
         int totalWidth,
         double audioStartBeat,
@@ -185,12 +207,12 @@ internal sealed class AudioBarRenderer
         double audioEndX,
         TimelineStructureDocument? timelineStructure)
     {
-        bool cacheStale = _envelopeCacheSamples != samples
+        bool cacheStale = !ReferenceEquals(_envelopeCacheSamples, samples)
             || _envelopeCacheWidth != totalWidth
-            || Math.Abs(_envelopeCacheAudioStartBeat - audioStartBeat) > 0.001
-            || Math.Abs(_envelopeCacheAudioEndBeat - audioEndBeat) > 0.001
-            || Math.Abs(_envelopeCacheBeatOffset - offset) > 0.001
-            || Math.Abs(_envelopeCachePpb - ppb) > 0.001
+            || CacheValueChanged(_envelopeCacheAudioStartBeat, audioStartBeat)
+            || CacheValueChanged(_envelopeCacheAudioEndBeat, audioEndBeat)
+            || CacheValueChanged(_envelopeCacheBeatOffset, offset)
+            || CacheValueChanged(_envelopeCachePpb, ppb)
             || !ReferenceEquals(_envelopeCacheTimelineStructure, timelineStructure);
         if (!cacheStale)
             return;
@@ -202,14 +224,31 @@ internal sealed class AudioBarRenderer
         _envelopeCacheBeatOffset = offset;
         _envelopeCachePpb = ppb;
         _envelopeCacheTimelineStructure = timelineStructure;
-        _envelopeMax = new float[totalWidth];
-        _envelopeMin = new float[totalWidth];
+        _envelopeTiles.Clear();
+    }
+
+    private EnvelopeTile GetOrBuildEnvelopeTile(
+        int tileIndex,
+        float[] samples,
+        int totalWidth,
+        double offset,
+        double ppb,
+        double audioStartX,
+        double audioEndX,
+        double audioDurationSeconds,
+        TimelineStructureDocument? timelineStructure)
+    {
+        if (_envelopeTiles.TryGetValue(tileIndex, out EnvelopeTile? cached))
+            return cached;
+
+        long buildStart = TimelineRenderDiagnostics.Start();
+        int tileStart = tileIndex * EnvelopeTileWidth;
+        int tileEnd = Math.Min(totalWidth, tileStart + EnvelopeTileWidth);
+        float[] maximums = new float[Math.Max(0, tileEnd - tileStart)];
+        float[] minimums = new float[maximums.Length];
 
         double audioPixelWidth = audioEndX - audioStartX;
-        double audioDurationSeconds = timelineStructure is { Markers.Count: >= 2 }
-            ? timelineStructure.GetPlaybackSecondsAtBeat(audioEndBeat)
-            : 0;
-        for (int x = 0; x < totalWidth; x++)
+        for (int x = tileStart; x < tileEnd; x++)
         {
             int startIndex;
             int endIndex;
@@ -249,10 +288,32 @@ internal sealed class AudioBarRenderer
                     minV = value;
             }
 
-            _envelopeMax[x] = maxV;
-            _envelopeMin[x] = minV;
+            int tileOffset = x - tileStart;
+            maximums[tileOffset] = maxV;
+            minimums[tileOffset] = minV;
         }
+
+        EnvelopeTile tile = new(tileStart, maximums, minimums);
+        _envelopeTiles[tileIndex] = tile;
+        TimelineRenderDiagnostics.RecordDuration("waveform.tile", buildStart, maximums.Length);
+        return tile;
     }
+
+    internal static (int FirstTile, int LastTile) GetEnvelopeTileRange(int startX, int endX) =>
+        endX <= startX
+            ? (0, -1)
+            : (Math.Max(0, startX) / EnvelopeTileWidth, Math.Max(0, endX - 1) / EnvelopeTileWidth);
+
+    private static bool CacheValueChanged(double cached, double value)
+    {
+        if (cached.Equals(value))
+            return false;
+        if (!double.IsFinite(cached) || !double.IsFinite(value))
+            return true;
+        return Math.Abs(cached - value) > 0.001;
+    }
+
+    private sealed record EnvelopeTile(int StartX, float[] Max, float[] Min);
 
     internal static (int Start, int End) GetWaveformSampleRange(
         TimelineStructureDocument timelineStructure,
