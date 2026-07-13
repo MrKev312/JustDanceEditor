@@ -1,8 +1,8 @@
+using Avalonia.Platform.Storage;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-
-using Avalonia.Platform.Storage;
 
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Messaging;
@@ -428,8 +428,8 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
             StatusText = (imported, failed) switch
             {
                 (0, > 0) => $"Failed to import {failed} REC file(s)",
-                (> 0, > 0) => $"Imported {imported} recording(s); {failed} file(s) failed",
-                (> 0, 0) => $"Imported {imported} recording(s)",
+                ( > 0, > 0) => $"Imported {imported} recording(s); {failed} file(s) failed",
+                ( > 0, 0) => $"Imported {imported} recording(s)",
                 _ => "No recordings imported"
             };
         }

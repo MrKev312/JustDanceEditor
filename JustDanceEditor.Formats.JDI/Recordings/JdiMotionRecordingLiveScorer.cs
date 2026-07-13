@@ -247,9 +247,9 @@ public sealed class MotionRecordingLiveScoreSession
                     Options = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
                         _options.MoveSpaceOptions,
                         _options.ScoringProfile) with
-                        {
-                            FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
-                        }
+                    {
+                        FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
+                    }
                 });
 
             }

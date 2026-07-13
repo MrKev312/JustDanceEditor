@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Views.Timeline.Interactions;
 using JustDanceEditor.Formats.JDI.Timelines;
+
 using KevInc.Avalonia.Timeline;
 
 using System;
@@ -88,10 +89,6 @@ public class TimelineTrackPanel : ThemedTimelineControl
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _clipHandlers = [];
 
     // --- Interaction Handlers ---
-    private readonly ClipDragHandler? _dragHandler;
-    private readonly ClipResizeHandler? _resizeHandler;
-    private readonly BoxSelectionHandler? _boxSelectionHandler;
-    private readonly TimelineExternalDropController _externalDropController;
     private readonly TimelineTrackRenderer _renderer;
     private readonly TimelineTrackInputController _inputController;
     private bool _visualInvalidationPending;
@@ -118,26 +115,25 @@ public class TimelineTrackPanel : ThemedTimelineControl
     public TimelineTrackPanel()
     {
         // Initialize interaction handlers
-        _dragHandler = new ClipDragHandler(this);
-        _resizeHandler = new ClipResizeHandler(this);
-        _boxSelectionHandler = new BoxSelectionHandler(this);
+        DragHandler = new ClipDragHandler(this);
+        ResizeHandler = new ClipResizeHandler(this);
+        BoxSelectionHandler = new BoxSelectionHandler(this);
         _renderer = new(this);
-        _externalDropController = new(this, GetTimelineVM);
+        ExternalDropController = new(this, GetTimelineVM);
         _inputController = new(this);
 
         // Allow external drag/drop (library -> timeline)
         DragDrop.SetAllowDrop(this, true);
 
         // Wire drag/drop handlers for external sources (e.g., Library tool)
-        AddHandler(DragDrop.DragEnterEvent, _externalDropController.OnDragEnter, handledEventsToo: false);
-        AddHandler(DragDrop.DragOverEvent, _externalDropController.OnDragOver, handledEventsToo: false);
-        AddHandler(DragDrop.DragLeaveEvent, _externalDropController.OnDragLeave, handledEventsToo: false);
-        AddHandler(DragDrop.DropEvent, _externalDropController.OnDrop, handledEventsToo: false);
+        AddHandler(DragDrop.DragEnterEvent, ExternalDropController.OnDragEnter, handledEventsToo: false);
+        AddHandler(DragDrop.DragOverEvent, ExternalDropController.OnDragOver, handledEventsToo: false);
+        AddHandler(DragDrop.DragLeaveEvent, ExternalDropController.OnDragLeave, handledEventsToo: false);
+        AddHandler(DragDrop.DropEvent, ExternalDropController.OnDrop, handledEventsToo: false);
     }
 
     // Track the subscribed parent VM so we can unsubscribe cleanly
     private TimelineEditorViewModel? _subscribedTimelineVm;
-    private ScrollViewer? _parentScrollViewer;
     private EventHandler<ScrollChangedEventArgs>? _scrollChangedHandler;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -156,20 +152,20 @@ public class TimelineTrackPanel : ThemedTimelineControl
 
     private void SubscribeToScrollViewer()
     {
-        _parentScrollViewer = this.FindAncestorOfType<ScrollViewer>();
-        if (_parentScrollViewer == null)
+        ParentScrollViewer = this.FindAncestorOfType<ScrollViewer>();
+        if (ParentScrollViewer == null)
             return;
 
         _scrollChangedHandler = (_, _) => InvalidateVisual();
-        _parentScrollViewer.ScrollChanged += _scrollChangedHandler;
+        ParentScrollViewer.ScrollChanged += _scrollChangedHandler;
     }
 
     private void UnsubscribeFromScrollViewer()
     {
-        if (_parentScrollViewer != null && _scrollChangedHandler != null)
-            _parentScrollViewer.ScrollChanged -= _scrollChangedHandler;
+        if (ParentScrollViewer != null && _scrollChangedHandler != null)
+            ParentScrollViewer.ScrollChanged -= _scrollChangedHandler;
 
-        _parentScrollViewer = null;
+        ParentScrollViewer = null;
         _scrollChangedHandler = null;
     }
 
@@ -378,11 +374,11 @@ public class TimelineTrackPanel : ThemedTimelineControl
 
     public static ContextMenu? CurrentContextMenu { get; internal set; }
 
-    internal BoxSelectionHandler? BoxSelectionHandler => _boxSelectionHandler;
-    internal ScrollViewer? ParentScrollViewer => _parentScrollViewer;
-    internal ClipDragHandler? DragHandler => _dragHandler;
-    internal ClipResizeHandler? ResizeHandler => _resizeHandler;
-    internal TimelineExternalDropController ExternalDropController => _externalDropController;
+    internal BoxSelectionHandler? BoxSelectionHandler { get; }
+    internal ScrollViewer? ParentScrollViewer { get; private set; }
+    internal ClipDragHandler? DragHandler { get; }
+    internal ClipResizeHandler? ResizeHandler { get; }
+    internal TimelineExternalDropController ExternalDropController { get; }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {

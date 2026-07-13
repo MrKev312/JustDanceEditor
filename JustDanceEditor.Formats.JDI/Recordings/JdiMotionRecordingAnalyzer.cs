@@ -91,9 +91,9 @@ public sealed class JdiMotionRecordingAnalyzer
         MoveScoringOptions moveSpaceOptions = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
             options.MoveSpaceOptions,
             options.ScoringProfile) with
-            {
-                FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
-            };
+        {
+            FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
+        };
 
         List<MotionRecordingAnalyzedMove> moves = [];
         float totalScore = 0.0f;

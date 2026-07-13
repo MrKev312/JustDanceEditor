@@ -787,18 +787,18 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         string relativeZ = "0.000000",
         string scale = "1.000000 1.000000",
         string position = "0.000000 0.000000") => new
-    {
-        RELATIVEZ = relativeZ,
-        SCALE = scale,
-        xFLIPPED = 0,
-        USERFRIENDLY = userFriendly,
-        MARKER = "",
-        DEFAULTENABLE = 1,
-        POS2D = position,
-        ANGLE = "0.000000",
-        INSTANCEDATAFILE = instanceDataFile,
-        LUA = lua
-    };
+        {
+            RELATIVEZ = relativeZ,
+            SCALE = scale,
+            xFLIPPED = 0,
+            USERFRIENDLY = userFriendly,
+            MARKER = "",
+            DEFAULTENABLE = 1,
+            POS2D = position,
+            ANGLE = "0.000000",
+            INSTANCEDATAFILE = instanceDataFile,
+            LUA = lua
+        };
 
     private static UbiArtXmlNode PlatformFilter(string platform, params string[] objects) =>
         UbiArtXmlDocumentWriter.Node(

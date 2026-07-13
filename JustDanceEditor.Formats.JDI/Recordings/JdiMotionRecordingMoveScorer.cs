@@ -123,9 +123,9 @@ public sealed class JdiMotionRecordingMoveScorer
         MoveScoringOptions moveSpaceOptions = MotionRecordingScoreMath.ApplyScoringProfileDefaults(
             options,
             scoringProfile) with
-            {
-                FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
-            };
+        {
+            FeedMode = MotionSampleFeedMode.LegacyToolInterpolation
+        };
 
         List<MotionRecordingMoveScorePoint> points = [];
         for (int recordingIndex = 0; recordingIndex < recordings.Count; recordingIndex++)
