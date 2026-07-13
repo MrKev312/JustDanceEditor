@@ -239,7 +239,6 @@ internal sealed class AudioBarRenderer
         if (_envelopeTiles.TryGetValue(tileIndex, out EnvelopeTile? cached))
             return cached;
 
-        long buildStart = TimelineRenderDiagnostics.Start();
         int tileStart = tileIndex * EnvelopeTileWidth;
         int tileEnd = Math.Min(totalWidth, tileStart + EnvelopeTileWidth);
         float[] maximums = new float[Math.Max(0, tileEnd - tileStart)];
@@ -293,7 +292,6 @@ internal sealed class AudioBarRenderer
 
         EnvelopeTile tile = new(tileStart, maximums, minimums);
         _envelopeTiles[tileIndex] = tile;
-        TimelineRenderDiagnostics.RecordDuration("waveform.tile", buildStart, maximums.Length);
         return tile;
     }
 

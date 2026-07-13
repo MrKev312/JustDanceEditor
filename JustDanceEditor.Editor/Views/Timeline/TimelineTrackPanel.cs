@@ -324,7 +324,6 @@ public class TimelineTrackPanel : ThemedTimelineControl
 
     private void QueueInvalidation(bool measure)
     {
-        TimelineRenderDiagnostics.RecordCount("track.invalidate-request");
         _measureInvalidationPending |= measure;
         if (_visualInvalidationPending)
             return;
@@ -339,7 +338,6 @@ public class TimelineTrackPanel : ThemedTimelineControl
             if (invalidateMeasure)
                 InvalidateMeasure();
             InvalidateVisual();
-            TimelineRenderDiagnostics.RecordCount("track.invalidate-flush");
         }, DispatcherPriority.Render);
     }
 
@@ -358,37 +356,24 @@ public class TimelineTrackPanel : ThemedTimelineControl
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        long measureStart = TimelineRenderDiagnostics.Start();
         double width = MaxBeat * PixelsPerBeat;
-        int clipCount = 0;
 
         if (Clips != null)
         {
             foreach (ClipViewModel clip in Clips)
             {
-                clipCount++;
                 double endX = (clip.StartBeat - BeatOffset + clip.DurationBeats) * PixelsPerBeat;
                 if (endX > width)
                     width = endX;
             }
         }
 
-        Size measured = new(Math.Max(0, width), availableSize.Height);
-        TimelineRenderDiagnostics.RecordDuration("track.measure", measureStart, clipCount);
-        return measured;
+        return new Size(Math.Max(0, width), availableSize.Height);
     }
 
     public override void Render(DrawingContext context)
     {
-        long renderStart = TimelineRenderDiagnostics.Start();
-        try
-        {
-            _renderer.Render(context);
-        }
-        finally
-        {
-            TimelineRenderDiagnostics.RecordDuration("track.render", renderStart);
-        }
+        _renderer.Render(context);
     }
 
     public static ContextMenu? CurrentContextMenu { get; internal set; }

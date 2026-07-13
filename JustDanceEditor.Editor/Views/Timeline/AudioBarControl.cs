@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+
 using KevInc.Avalonia.Timeline;
 
 using System;
@@ -179,38 +180,30 @@ public class AudioBarControl : ThemedTimelineControl
 
     public override void Render(DrawingContext context)
     {
-        long renderStart = TimelineRenderDiagnostics.Start();
-        try
+        (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(Bounds.Width);
+        _renderer.Render(new AudioBarRenderRequest
         {
-            (double visiblePixelStart, double visiblePixelEnd) = GetVisiblePixelRange(Bounds.Width);
-            _renderer.Render(new AudioBarRenderRequest
-            {
-                Context = context,
-                Bounds = Bounds,
-                PixelsPerBeat = PixelsPerBeat,
-                BeatOffset = BeatOffset,
-                Samples = Samples,
-                AudioStartBeat = AudioStartBeat,
-                AudioEndBeat = AudioEndBeat,
-                TimelineStructure = _subscribedVm?.TimelineStructure,
-                VisiblePixelStart = visiblePixelStart,
-                VisiblePixelEnd = visiblePixelEnd,
-                SortedSections = _timelineCache.GetSortedSections(Sections),
-                SortedSignatures = _timelineCache.GetSortedSignatures(Signatures),
-                SectionStarts = _timelineCache.GetSectionStarts(Sections),
-                SectionLabelRects = SectionLabelRects,
-                SignatureLabelRects = SignatureLabelRects,
-                HoveredSection = _interaction.HoveredSection,
-                TooltipText = _interaction.TooltipText,
-                TooltipPosition = _interaction.TooltipPosition,
-                IsDragging = _interaction.IsDragging,
-                IsScrubbing = _interaction.IsScrubbing
-            });
-        }
-        finally
-        {
-            TimelineRenderDiagnostics.RecordDuration("audio.render", renderStart);
-        }
+            Context = context,
+            Bounds = Bounds,
+            PixelsPerBeat = PixelsPerBeat,
+            BeatOffset = BeatOffset,
+            Samples = Samples,
+            AudioStartBeat = AudioStartBeat,
+            AudioEndBeat = AudioEndBeat,
+            TimelineStructure = _subscribedVm?.TimelineStructure,
+            VisiblePixelStart = visiblePixelStart,
+            VisiblePixelEnd = visiblePixelEnd,
+            SortedSections = _timelineCache.GetSortedSections(Sections),
+            SortedSignatures = _timelineCache.GetSortedSignatures(Signatures),
+            SectionStarts = _timelineCache.GetSectionStarts(Sections),
+            SectionLabelRects = SectionLabelRects,
+            SignatureLabelRects = SignatureLabelRects,
+            HoveredSection = _interaction.HoveredSection,
+            TooltipText = _interaction.TooltipText,
+            TooltipPosition = _interaction.TooltipPosition,
+            IsDragging = _interaction.IsDragging,
+            IsScrubbing = _interaction.IsScrubbing
+        });
     }
 
     private void SubscribeToViewModel()

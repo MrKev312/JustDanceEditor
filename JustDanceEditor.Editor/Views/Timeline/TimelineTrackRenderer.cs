@@ -340,7 +340,6 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
 
         // Preserve the collection's original paint order for overlapping clips.
         _visibleClipCache.Sort(CompareClipsByRenderOrder);
-        TimelineRenderDiagnostics.RecordCount("track.visible-clips", _visibleClipCache.Count);
         return _visibleClipCache;
     }
 
