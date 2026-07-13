@@ -73,6 +73,8 @@ internal sealed class RecordingBrowserController(
         try
         {
             File.Delete(selected.Path);
+            if (owner.ActiveTimeline is { } timeline)
+                await recordingLibrary.RemoveTrainingSelectionsAsync(timeline, selected.Recording.RecordingId);
             owner.StatusText = $"Deleted {selected.DisplayName}";
             await RefreshRecordingsAsync();
         }

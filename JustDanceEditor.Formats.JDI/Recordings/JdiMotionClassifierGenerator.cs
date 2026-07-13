@@ -34,7 +34,13 @@ public sealed class JdiMotionClassifierGenerator
             return new MotionClassifierGenerationResult(recordings.Count, 0, [], [new("", $"No hand-motion timeline exists for coach {coachId}.")]);
 
         List<JdiMotionMoveWindow> moveWindows = JdiMotionRecordingData.BuildMoveWindows(package, timeline);
-        Dictionary<string, List<MotionExample>> examplesByMove = JdiMotionRecordingData.BuildExamplesByMove(recordings, moveWindows, coachId);
+        MotionTrainingSelectionDocument trainingSelection = await new JsonMotionTrainingSelectionRepository()
+            .LoadAsync(packageRoot, cancellationToken);
+        Dictionary<string, List<MotionExample>> examplesByMove = JdiMotionRecordingData.BuildExamplesByMove(
+            recordings,
+            moveWindows,
+            coachId,
+            trainingSelection);
         List<MotionClassifierGenerationIssue> issues = [];
 
         JdiMotionClassifierStorage.EnsureVersionFolders(packageRoot);

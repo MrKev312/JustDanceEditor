@@ -9,6 +9,7 @@ internal static class RecordingAttemptDocuments
         MotionRecordingDocument snapshot = new()
         {
             FormatVersion = recording.FormatVersion,
+            RecordingId = recording.RecordingId,
             CoachId = recording.CoachId,
             DeviceId = recording.DeviceId,
             DeviceName = recording.DeviceName,

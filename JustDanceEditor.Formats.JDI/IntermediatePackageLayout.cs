@@ -29,6 +29,7 @@ public static class IntermediatePackageLayout
     public static class Recordings
     {
         public const string Folder = "recordings";
+        public const string MsmTrainingFile = "recordings/msm_training.json";
         public const string CoachFolderPattern = "coach_??";
         public const string RecordingPattern = "*.json";
 

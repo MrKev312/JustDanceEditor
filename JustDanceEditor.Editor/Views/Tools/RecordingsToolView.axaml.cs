@@ -42,4 +42,5 @@ public partial class RecordingsToolView : UserControl
             e.Handled = true;
         }
     }
+
 }

@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:JustDanceEditor.Editor.ViewModels.Tools"
+             xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             x:Class="JustDanceEditor.Editor.Views.Tools.MsmTrainingToolView"
+             x:DataType="vm:MsmTrainingToolViewModel">
+    <Border Background="{DynamicResource JdeSurfaceBrush}" Padding="10">
+        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                <TextBlock Text="Coach" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding CoachIds}"
+                          SelectedItem="{Binding SelectedCoachId}"
+                          MinWidth="96"
+                          MinHeight="30"/>
+                <CheckBox Content="Compare to existing MSMs"
+                          IsChecked="{Binding CompareToExistingMsms}"
+                          VerticalAlignment="Center"/>
+                <Button Content="Generate MSMs" Command="{Binding GenerateMsmsCommand}" MinWidth="116"/>
+                <Button Content="Refresh" Command="{Binding RefreshTrainingMatrixCommand}" MinWidth="78"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="1"
+                       Text="{Binding ComparisonDescription}"
+                       Foreground="{DynamicResource JdeTextMutedBrush}"
+                       TextWrapping="Wrap"/>
+
+            <Panel Grid.Row="2" ClipToBounds="True">
+                <TextBlock Text="Open a song to inspect its recording samples."
+                           IsVisible="{Binding ShowNoTimeline}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                <TextBlock Text="Analyzing recording samples..."
+                           IsVisible="{Binding IsTrainingMatrixBusy}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                <TextBlock Text="No recording samples are available for this coach."
+                           IsVisible="{Binding ShowEmptyTrainingMatrix}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              IsVisible="{Binding HasTrainingMatrix}">
+                    <local:RecordingTrainingMatrixControl Matrix="{Binding TrainingMatrix}"
+                                                          Width="{Binding TrainingMatrix.Width}"
+                                                          Height="{Binding TrainingMatrix.Height}"
+                                                          HorizontalAlignment="Left"
+                                                          VerticalAlignment="Top"
+                                                          CellClicked="OnTrainingCellClicked"/>
+                </ScrollViewer>
+            </Panel>
+
+        </Grid>
+    </Border>
+</UserControl>

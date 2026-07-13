@@ -5,6 +5,7 @@ namespace JustDanceEditor.Formats.JDI.Recordings;
 public sealed class MotionRecordingDocument
 {
     public int FormatVersion { get; set; } = 1;
+    public Guid RecordingId { get; set; }
     public int CoachId { get; set; }
     public string? DeviceId { get; set; }
     public string? DeviceName { get; set; }

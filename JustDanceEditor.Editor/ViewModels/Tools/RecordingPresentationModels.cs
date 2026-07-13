@@ -1,7 +1,9 @@
 using JustDanceEditor.Formats.JDI.Recordings;
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
@@ -82,4 +84,53 @@ public sealed class RecordingIssueViewModel(string moveId, string message, int? 
     public string MoveIndexText { get; } = moveIndex.HasValue ? moveIndex.Value.ToString(CultureInfo.InvariantCulture) : "-";
     public string MoveId { get; } = string.IsNullOrWhiteSpace(moveId) ? "-" : moveId;
     public string Message { get; } = message;
+}
+
+public sealed record RecordingTrainingColumnViewModel(
+    int ColumnIndex,
+    int MoveIndex,
+    long TimelineClipId,
+    string MoveId,
+    int MoveOccurrence,
+    double StartBeat);
+
+public sealed record RecordingTrainingCellViewModel(
+    int RowIndex,
+    int ColumnIndex,
+    float? PercentageScore,
+    float DifferenceFromConsensus,
+    bool IsExcluded,
+    string? Issue);
+
+public sealed record RecordingTrainingRowViewModel(
+    int RowIndex,
+    Guid RecordingId,
+    string DisplayName,
+    IReadOnlyList<RecordingTrainingCellViewModel> Cells);
+
+public sealed record RecordingTrainingMatrixViewModel(
+    IReadOnlyList<RecordingTrainingColumnViewModel> Columns,
+    IReadOnlyList<RecordingTrainingRowViewModel> Rows)
+{
+    public double Width => 256 + (Columns.Count * 30);
+    public double Height => 116 + (Rows.Count * 28);
+
+    public RecordingTrainingMatrixViewModel WithExclusion(int rowIndex, int columnIndex, bool isExcluded)
+        => this with
+        {
+            Rows =
+            [
+                .. Rows.Select(row => row.RowIndex != rowIndex
+                    ? row
+                    : row with
+                    {
+                        Cells =
+                        [
+                            .. row.Cells.Select(cell => cell.ColumnIndex == columnIndex
+                                ? cell with { IsExcluded = isExcluded }
+                                : cell)
+                        ]
+                    })
+            ]
+        };
 }

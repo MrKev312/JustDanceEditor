@@ -13,6 +13,64 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal static class RecordingsToolDialogs
 {
+    public static async Task<int?> ShowCoachSelectionDialogAsync(
+        string recordingFileName,
+        IReadOnlyList<int> coachIds,
+        int selectedCoachId,
+        Window? owner)
+    {
+        if (coachIds.Count == 0)
+            return null;
+
+        Window dialog = new()
+        {
+            Title = "Assign Recording Coach",
+            Width = 420,
+            Height = 190,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        PlatformTheme.ApplyFloatingWindowChrome(dialog);
+
+        ComboBox coachPicker = new()
+        {
+            ItemsSource = coachIds,
+            SelectedItem = coachIds.Contains(selectedCoachId) ? selectedCoachId : coachIds[0],
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinHeight = 30
+        };
+        int? result = null;
+        Button importButton = new() { Content = "Import", IsDefault = true, MinWidth = 88 };
+        Button cancelButton = new() { Content = "Cancel", IsCancel = true, MinWidth = 88 };
+        importButton.Click += (_, _) =>
+        {
+            result = coachPicker.SelectedItem is int coachId ? coachId : null;
+            dialog.Close();
+        };
+        cancelButton.Click += (_, _) => dialog.Close();
+
+        dialog.Content = CreateDialogSurface(dialog,
+            new TextBlock
+            {
+                Text = $"The coach could not be inferred from {recordingFileName}. Choose its first coach:",
+                TextWrapping = TextWrapping.Wrap
+            },
+            coachPicker,
+            new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 8,
+                Children = { importButton, cancelButton }
+            });
+
+        if (owner != null)
+            await dialog.ShowDialog(owner);
+        else
+            dialog.Show();
+
+        return result;
+    }
+
     public static async Task<bool> ShowDiscardPromptAsync(Window? owner)
     {
         Window dialog = new()

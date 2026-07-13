@@ -8,6 +8,7 @@ using JustDanceEditor.Formats.UbiArt.Import.Assets;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
+using JustDanceEditor.Formats.UbiArt.Import.Recordings;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
@@ -61,8 +62,9 @@ internal static class IntermediateAssetWriter
         }, audioConverter, logger);
         Task videoTask = CopyMasterVideoAsync(context.FileSystem, songData, package, videoFolder, logger, textureService, iofs, context.Request.RenderVideoSpeedTest);
         Task assetTask = CopyAssetsToPackageAsync(context, packageRoot, logger, textureService, iofs);
+        Task recordingTask = UbiArtRecordingImporter.ImportAsync(context, packageRoot, logger);
 
-        await Task.WhenAll(pictoTask, audioTask, videoTask, assetTask);
+        await Task.WhenAll(pictoTask, audioTask, videoTask, assetTask, recordingTask);
     }
 
     private static async Task ConvertPictogramsAsync(ConversionContext context, string packageRoot, ILogger logger, ITextureService textureService, IFileSystem io)

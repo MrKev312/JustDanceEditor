@@ -10,8 +10,15 @@
         <Panel>
             <Grid IsVisible="{Binding ShowBrowserPage}" RowDefinitions="Auto,*" RowSpacing="8">
                 <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                        <ComboBox ItemsSource="{Binding Recordings}"
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left">
+                            <Button Content="New" Command="{Binding NewRecordingCommand}"/>
+                            <Button Content="Import" Command="{Binding ImportRecordingCommand}"/>
+                            <Button Content="Delete" Command="{Binding DeleteRecordingCommand}"/>
+                            <Button Content="Refresh" Command="{Binding RefreshRecordingsCommand}"/>
+                        </StackPanel>
+                        <ComboBox Grid.Row="1"
+                                  ItemsSource="{Binding Recordings}"
                                   SelectedItem="{Binding SelectedRecording}"
                                   MinHeight="30"
                                   HorizontalAlignment="Stretch">
@@ -21,9 +28,6 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="1" Content="New" Command="{Binding NewRecordingCommand}" MinWidth="62"/>
-                        <Button Grid.Column="2" Content="Delete" Command="{Binding DeleteRecordingCommand}" MinWidth="70"/>
-                        <Button Grid.Column="3" Content="Refresh" Command="{Binding RefreshRecordingsCommand}" MinWidth="76"/>
                     </Grid>
 
                     <ComboBox ItemsSource="{Binding ViewOptions}"
@@ -243,7 +247,6 @@
                             <Button Content="Record" Command="{Binding StartRecordingCommand}" MinWidth="78"/>
                             <Button Content="Save" Command="{Binding StopAndSaveCommand}" MinWidth="78"/>
                             <Button Content="Cancel" Command="{Binding CancelAttemptCommand}" MinWidth="78"/>
-                            <Button Content="Generate MSMs" Command="{Binding GenerateMsmsCommand}" MinWidth="116"/>
                         </StackPanel>
 
                         <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">

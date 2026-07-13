@@ -1,6 +1,7 @@
 using JustDanceEditor.Editor.Services;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Formats.UbiArt.Recordings;
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,27 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal sealed class RecordingLibraryService(IMotionRecordingRepository repository)
 {
+    public async Task<IReadOnlyList<string>> ImportRecAsync(
+        TimelineEditorViewModel timeline,
+        Stream stream,
+        string fileName,
+        int firstCoachId)
+    {
+        IReadOnlyList<MotionRecordingDocument> recordings = UbiArtMotionRecordingConverter.Import(
+            stream,
+            firstCoachId,
+            fileName,
+            timeline.Package.Metadata.SongID.ToString("D"));
+        List<string> paths = [];
+        foreach (MotionRecordingDocument recording in recordings)
+        {
+            if (string.IsNullOrWhiteSpace(recording.MapName))
+                recording.MapName = timeline.Package.Metadata.MapName;
+            paths.Add(await repository.SaveAsync(timeline.RootPath, recording));
+        }
+        return paths;
+    }
+
     public async Task<IReadOnlyList<RecordingListItem>> LoadRecordingsAsync(TimelineEditorViewModel timeline)
     {
         List<RecordingListItem> result = [];
@@ -54,5 +76,14 @@ internal sealed class RecordingLibraryService(IMotionRecordingRepository reposit
         }
 
         return result;
+    }
+
+    public async Task RemoveTrainingSelectionsAsync(TimelineEditorViewModel timeline, Guid recordingId)
+    {
+        JsonMotionTrainingSelectionRepository selectionRepository = new();
+        MotionTrainingSelectionDocument selection = await selectionRepository.LoadAsync(timeline.RootPath);
+        int removed = selection.Exclusions.RemoveAll(exclusion => exclusion.RecordingId == recordingId);
+        if (removed > 0)
+            await selectionRepository.SaveAsync(timeline.RootPath, selection);
     }
 }

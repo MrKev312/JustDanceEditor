@@ -113,6 +113,8 @@ public class MotionRecordingTests
             Assert.Equal("DSU Slot 1", loaded.DeviceName);
             Assert.Single(loaded.Samples);
             Assert.Equal(0.2f, loaded.Samples[0].AccY);
+            Assert.NotEqual(Guid.Empty, loaded.RecordingId);
+            Assert.Equal(recording.RecordingId, loaded.RecordingId);
             string listedPath = Assert.Single(repository.ListRecordingFiles(root, 0));
             Assert.Equal(path, listedPath);
         }
@@ -120,6 +122,119 @@ public class MotionRecordingTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task JsonMotionRecordingRepository_AssignsStableIdToLegacyRecording()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            string path = Path.Combine(root, "legacy.json");
+            await File.WriteAllTextAsync(
+                path,
+                "{\"formatVersion\":1,\"coachId\":0,\"samples\":[]}",
+                TestContext.Current.CancellationToken);
+
+            JsonMotionRecordingRepository repository = new();
+            MotionRecordingDocument first = await repository.LoadAsync(path, TestContext.Current.CancellationToken);
+            MotionRecordingDocument second = await repository.LoadAsync(path, TestContext.Current.CancellationToken);
+
+            Assert.NotEqual(Guid.Empty, first.RecordingId);
+            Assert.Equal(first.RecordingId, second.RecordingId);
+            Assert.Contains(first.RecordingId.ToString(), await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task MotionTrainingSelections_AreStoredSeparatelyAndFollowTimelineClipIdentity()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            IntermediateSongPackage package = CreateOneMovePackage();
+            MoveClip clip = Assert.Single(package.CoachTimelines.Single().Clips);
+            MotionRecordingDocument included = CreateRecording(package.Metadata.SongID, endSeconds: 2.0);
+            MotionRecordingDocument excluded = CreateRecording(package.Metadata.SongID, endSeconds: 2.0);
+
+            MotionTrainingSelectionDocument selection = new();
+            selection.SetExcluded(
+                excluded.RecordingId,
+                coachId: 0,
+                clip.Id,
+                clip.MoveId,
+                moveOccurrence: 0,
+                isExcluded: true);
+            JsonMotionTrainingSelectionRepository selectionRepository = new();
+            await selectionRepository.SaveAsync(root, selection, TestContext.Current.CancellationToken);
+
+            clip.StartTime = 24;
+            JdiMotionClassifierGenerator generator = new();
+            MotionClassifierGenerationResult result = await generator.GenerateForCoachAsync(
+                root,
+                package,
+                coachId: 0,
+                [included, excluded],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, Assert.Single(result.Classifiers).ExampleCount);
+            MotionTrainingSelectionDocument reloaded = await selectionRepository.LoadAsync(root, TestContext.Current.CancellationToken);
+            Assert.True(reloaded.IsExcluded(excluded.RecordingId, 0, clip.Id, clip.MoveId, 0));
+            Assert.False(reloaded.IsExcluded(included.RecordingId, 0, clip.Id, clip.MoveId, 0));
+            string recordingJson = System.Text.Json.JsonSerializer.Serialize(excluded);
+            Assert.DoesNotContain("exclusion", recordingJson, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task MotionTrainingMatrix_CanCompareSamplesToExistingMsms()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            IntermediateSongPackage package = CreateOneMovePackage();
+            MotionRecordingDocument recording = CreateRecording(package.Metadata.SongID);
+            await new JdiMotionClassifierGenerator().GenerateForCoachAsync(
+                root,
+                package,
+                coachId: 0,
+                [recording],
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            MotionTrainingMatrixResult result = new JdiMotionTrainingMatrixAnalyzer().Analyze(
+                root,
+                package,
+                coachId: 0,
+                [recording],
+                new MotionTrainingSelectionDocument(),
+                compareToExistingMsms: true,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            MotionTrainingMatrixCell cell = Assert.Single(Assert.Single(result.Rows).Cells);
+            Assert.NotNull(cell.PercentageScore);
+            Assert.Null(cell.Issue);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(new float[] { 100, 100, 0 }, 100)]
+    [InlineData(new float[] { 90, 100, 0 }, 90)]
+    [InlineData(new float[] { 80, 100 }, 90)]
+    public void MotionTrainingMatrix_UsesMedianAsRecordingConsensus(float[] scores, float expected)
+    {
+        Assert.Equal(expected, JdiMotionTrainingMatrixAnalyzer.GetConsensusScore(scores));
     }
 
     [Fact]
@@ -757,6 +872,7 @@ public class MotionRecordingTests
             {
                 new MoveClip
                 {
+                    Id = 101,
                     MoveId = "move_a",
                     StartTime = 0
                 }
@@ -780,16 +896,19 @@ public class MotionRecordingTests
         timeline.Clips.Clear();
         timeline.Clips.Add(new MoveClip
         {
+            Id = 101,
             MoveId = "move_a",
             StartTime = 0
         });
         timeline.Clips.Add(new MoveClip
         {
+            Id = 102,
             MoveId = "move_b",
             StartTime = 24
         });
         timeline.Clips.Add(new MoveClip
         {
+            Id = 103,
             MoveId = "move_a",
             StartTime = 48
         });
@@ -801,6 +920,7 @@ public class MotionRecordingTests
     {
         MotionRecordingDocument recording = new()
         {
+            RecordingId = Guid.NewGuid(),
             CoachId = 0,
             SongId = songId.ToString("D"),
             MapName = "testmap",

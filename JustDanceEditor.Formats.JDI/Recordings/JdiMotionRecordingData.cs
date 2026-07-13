@@ -5,7 +5,9 @@ namespace JustDanceEditor.Formats.JDI.Recordings;
 
 internal sealed record JdiMotionMoveWindow(
     int Index,
+    long TimelineClipId,
     string MoveId,
+    int MoveOccurrence,
     bool IsGoldMove,
     double StartBeatLabel,
     double EndBeatLabel,
@@ -24,12 +26,16 @@ internal static class JdiMotionRecordingData
     {
         TimelineStructureDocument structure = package.TimelineStructure;
         List<JdiMotionMoveWindow> result = [];
+        Dictionary<string, int> occurrences = new(StringComparer.OrdinalIgnoreCase);
         int index = 0;
 
         foreach (MoveClip clip in timeline.Clips.OrderBy(c => c.StartTime))
         {
             if (string.IsNullOrWhiteSpace(clip.MoveId))
                 continue;
+
+            int occurrence = occurrences.GetValueOrDefault(clip.MoveId);
+            occurrences[clip.MoveId] = occurrence + 1;
 
             int durationFrames = ResolveDurationFrames(package, clip.MoveId);
             double startBeatLabel = clip.StartTime / 24.0;
@@ -40,7 +46,7 @@ internal static class JdiMotionRecordingData
             if (durationSeconds <= 0)
                 continue;
 
-            result.Add(new JdiMotionMoveWindow(index++, clip.MoveId, clip.IsGoldMove, startBeatLabel, endBeatLabel, startSeconds, durationSeconds));
+            result.Add(new JdiMotionMoveWindow(index++, clip.Id, clip.MoveId, occurrence, clip.IsGoldMove, startBeatLabel, endBeatLabel, startSeconds, durationSeconds));
         }
 
         return result;
@@ -49,7 +55,8 @@ internal static class JdiMotionRecordingData
     public static Dictionary<string, List<MotionExample>> BuildExamplesByMove(
         IReadOnlyList<MotionRecordingDocument> recordings,
         IReadOnlyList<JdiMotionMoveWindow> moveWindows,
-        int coachId)
+        int coachId,
+        MotionTrainingSelectionDocument? trainingSelection = null)
     {
         Dictionary<string, List<MotionExample>> examplesByMove = new(StringComparer.OrdinalIgnoreCase);
 
@@ -60,6 +67,14 @@ internal static class JdiMotionRecordingData
 
             foreach (JdiMotionMoveWindow move in moveWindows)
             {
+                if (trainingSelection?.IsExcluded(
+                        recording.RecordingId,
+                        coachId,
+                        move.TimelineClipId,
+                        move.MoveId,
+                        move.MoveOccurrence) == true)
+                    continue;
+
                 List<MotionSample> samples = BuildSmoothedSamples(recording.Samples, move.StartSeconds, move.DurationSeconds);
                 if (samples.Count == 0)
                     continue;

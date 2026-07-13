@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 
+using Avalonia.Platform.Storage;
+
 using JustDanceEditor.Editor.Attributes;
 using JustDanceEditor.Editor.Messaging;
 using JustDanceEditor.Editor.Services;
@@ -9,6 +11,7 @@ using JustDanceEditor.Editor.Services.Motion;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Recordings;
+using JustDanceEditor.Formats.UbiArt.Recordings;
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +27,6 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
 {
     private readonly IMotionInputClient _motionClient;
     private readonly IMotionRecordingRepository _recordingRepository;
-    private readonly JdiMotionClassifierGenerator _classifierGenerator;
     private readonly EditorSettingsService _editorSettings;
     private readonly RecordingLibraryService _recordingLibrary;
     private readonly RecordingLiveScoreDisplayController _liveScoreDisplay;
@@ -85,7 +87,6 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand))]
-    [NotifyCanExecuteChangedFor(nameof(GenerateMsmsCommand))]
     public partial int SelectedCoachId { get; set; }
 
     [ObservableProperty]
@@ -102,9 +103,9 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopAndSaveCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelAttemptCommand))]
-    [NotifyCanExecuteChangedFor(nameof(GenerateMsmsCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteRecordingCommand))]
     [NotifyCanExecuteChangedFor(nameof(NewRecordingCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportRecordingCommand))]
     [NotifyPropertyChangedFor(nameof(CanEditRecordingSetup))]
     [NotifyPropertyChangedFor(nameof(ShowBrowserPage))]
     [NotifyPropertyChangedFor(nameof(ShowRecordingPage))]
@@ -145,6 +146,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     public partial string StatusText { get; set; } = "No active timeline";
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImportRecordingCommand))]
     public partial bool IsBusy { get; set; }
 
     [ObservableProperty]
@@ -193,7 +195,6 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         IMotionRecordingRepository? recordingRepository = null,
         JdiMotionRecordingAnalyzer? analyzer = null,
         EditorSettingsService? editorSettings = null,
-        JdiMotionClassifierGenerator? classifierGenerator = null,
         JdiMotionRecordingLiveScorer? liveScorer = null,
         MotionRecordingScoreHudService? scoreHud = null,
         IWindowService? windows = null)
@@ -203,7 +204,6 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         _recordingRepository = recordingRepository ?? new JsonMotionRecordingRepository();
         analyzer ??= new JdiMotionRecordingAnalyzer();
         _editorSettings = editorSettings ?? new EditorSettingsService();
-        _classifierGenerator = classifierGenerator ?? new JdiMotionClassifierGenerator();
         liveScorer ??= new JdiMotionRecordingLiveScorer();
         scoreHud ??= new MotionRecordingScoreHudService();
         _windows = windows;
@@ -231,7 +231,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         RefreshCoachIds(timeline);
         ApplyDefaultScoreModeFromExistingMsms();
         StartRecordingCommand.NotifyCanExecuteChanged();
-        GenerateMsmsCommand.NotifyCanExecuteChanged();
+        ImportRecordingCommand.NotifyCanExecuteChanged();
         _ = _recordingBrowser.RefreshRecordingsAsync();
     }
 
@@ -250,7 +250,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         _recordingBrowser.ClearAll();
         StatusText = "No active timeline";
         StartRecordingCommand.NotifyCanExecuteChanged();
-        GenerateMsmsCommand.NotifyCanExecuteChanged();
+        ImportRecordingCommand.NotifyCanExecuteChanged();
     }
 
     protected override void OnTimeChanged()
@@ -369,59 +369,78 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         NotifyViewStateChanged();
     }
 
-    [RelayCommand(CanExecute = nameof(CanGenerateMsms))]
-    private async Task GenerateMsmsAsync()
-    {
-        TimelineEditorViewModel timeline = ActiveTimeline ?? throw new InvalidOperationException("No active timeline.");
-
-        try
-        {
-            StatusText = "Loading recordings...";
-            List<RecordingSelectionItem> recordings = await _recordingLibrary.LoadCoachRecordingSelectionItemsAsync(timeline, SelectedCoachId);
-            if (recordings.Count == 0)
-            {
-                StatusText = $"No recordings found for coach {SelectedCoachId}";
-                return;
-            }
-
-            IReadOnlyList<RecordingSelectionItem>? selected = await RecordingsToolDialogs.ShowRecordingSelectionDialogAsync(recordings, _windows?.MainWindow);
-            if (selected == null)
-            {
-                StatusText = "MSM generation cancelled";
-                return;
-            }
-
-            if (selected.Count == 0)
-            {
-                StatusText = "No recordings selected";
-                return;
-            }
-
-            StatusText = "Generating MSMs...";
-            MotionClassifierGenerationResult result = await _classifierGenerator.GenerateForCoachAsync(
-                timeline.RootPath,
-                timeline.Package,
-                SelectedCoachId,
-                selected.Select(static item => item.Recording).ToArray());
-
-            timeline.RefreshMoveAssetStatus();
-            ApplyDefaultScoreModeFromExistingMsms();
-
-            GeneratedClassifierCount = result.Classifiers.Count;
-            StatusText = result.Issues.Count == 0
-                ? $"Generated {result.Classifiers.Count} MSM(s) from {selected.Count} recording(s)"
-                : $"Generated {result.Classifiers.Count} MSM(s), {result.Issues.Count} issue(s)";
-        }
-        catch (Exception ex)
-        {
-            StatusText = ex.Message;
-        }
-    }
-
     [RelayCommand]
     private async Task RefreshRecordingsAsync()
     {
         await _recordingBrowser.RefreshRecordingsAsync();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanImportRecording))]
+    private async Task ImportRecordingAsync()
+    {
+        TimelineEditorViewModel? timeline = ActiveTimeline;
+        if (timeline == null || _windows?.MainWindow is not { } window)
+            return;
+
+        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import REC Recordings",
+            AllowMultiple = true,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Just Dance recordings") { Patterns = ["*.rec"] },
+                new FilePickerFileType("All files") { Patterns = ["*.*"] }
+            ]
+        });
+        if (files.Count == 0)
+            return;
+
+        IsBusy = true;
+        NotifyViewStateChanged();
+        int imported = 0;
+        int failed = 0;
+        string? lastPath = null;
+        try
+        {
+            foreach (IStorageFile file in files)
+            {
+                try
+                {
+                    int? inferredCoach = UbiArtMotionRecordingConverter.InferCoachId(file.Name);
+                    int? coachId = inferredCoach.HasValue && CoachIds.Contains(inferredCoach.Value)
+                        ? inferredCoach
+                        : await RecordingsToolDialogs.ShowCoachSelectionDialogAsync(file.Name, CoachIds, SelectedCoachId, window);
+                    if (!coachId.HasValue)
+                        continue;
+
+                    await using Stream stream = await file.OpenReadAsync();
+                    IReadOnlyList<string> importedPaths = await _recordingLibrary.ImportRecAsync(timeline, stream, file.Name, coachId.Value);
+                    imported += importedPaths.Count;
+                    lastPath = importedPaths.LastOrDefault() ?? lastPath;
+                }
+                catch (Exception ex) when (ex is InvalidDataException or IOException or OverflowException or ArgumentException)
+                {
+                    failed++;
+                    EditorLog.Fallback(ex, $"Import REC recording '{file.Name}'");
+                }
+            }
+
+            StatusText = (imported, failed) switch
+            {
+                (0, > 0) => $"Failed to import {failed} REC file(s)",
+                (> 0, > 0) => $"Imported {imported} recording(s); {failed} file(s) failed",
+                (> 0, 0) => $"Imported {imported} recording(s)",
+                _ => "No recordings imported"
+            };
+        }
+        finally
+        {
+            IsBusy = false;
+            NotifyViewStateChanged();
+        }
+
+        if (imported > 0)
+            await _recordingBrowser.RefreshRecordingsAsync(lastPath);
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteRecording))]
@@ -431,6 +450,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
     }
 
     private bool CanDeleteRecording() => SelectedRecording != null && !IsBusy && !IsRecording;
+    private bool CanImportRecording() => ActiveTimeline != null && !IsBusy && !IsRecording;
 
     public void FocusMove(int moveIndex)
     {
@@ -520,8 +540,6 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         && string.Equals(SelectedRecordingKind?.Id, "msm", StringComparison.Ordinal)
         && SelectedDevice is { IsConnected: true } && SelectedCoachId >= 0;
     private bool CanStopRecording() => IsRecording;
-    private bool CanGenerateMsms() => !IsRecording && ActiveTimeline != null && SelectedCoachId >= 0;
-
     public async ValueTask DisposeAsync()
     {
         if (_disposed)

@@ -46,6 +46,7 @@ public partial class App : Application
         sc.AddSingleton<IMotionRecordingRepository, JsonMotionRecordingRepository>();
         sc.AddTransient<IMotionInputClient, DsuMotionInputClient>();
         sc.AddTransient<JdiMotionClassifierGenerator>();
+        sc.AddTransient<JdiMotionTrainingMatrixAnalyzer>();
         sc.AddTransient<JdiMotionRecordingLiveScorer>();
         sc.AddTransient<JdiMotionRecordingAnalyzer>();
 
