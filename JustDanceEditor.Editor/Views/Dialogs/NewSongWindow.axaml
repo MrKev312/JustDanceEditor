@@ -32,7 +32,7 @@
         </StackPanel>
 
         <!-- Step content area -->
-        <Border Grid.Row="1" BorderBrush="{DynamicResource JdeSurfaceBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
+        <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
             <Panel>
 
                 <!-- STEP 0: Metadata -->
@@ -72,13 +72,13 @@
                                    Minimum="1" Maximum="16" FormatString="0" Width="120" HorizontalAlignment="Left" Margin="0,4"/>
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="Import an audio file to continue. Supported formats: MP3, WAV, OGG, OPUS, FLAC, M4A"
-                               Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
                 </Grid>
 
                 <!-- STEP 2: Beat Alignment -->
                 <Grid IsVisible="{Binding IsStep2}" RowDefinitions="Auto,*,Auto,Auto,Auto">
                     <TextBlock Grid.Row="0" Text="Click on the waveform to set where beat 0 is. Scroll to zoom. Ctrl+click to set the playhead position."
-                               Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                     <local:WaveformBeatSelector Grid.Row="1"
                         Samples="{Binding WaveformSamples}"
@@ -114,7 +114,7 @@
                 <Grid IsVisible="{Binding IsStep3}" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="120,*" VerticalAlignment="Top">
                     <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                                Text="Choose a folder to save the new song package. A subfolder with the map name will be created."
-                               Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center" Margin="0,6"/>
                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,4">
@@ -125,7 +125,7 @@
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                                Text="The package will include: metadata.json, timeline JSONs, processed audio (opus), and placeholder images."
-                               Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,16,0,0"/>
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,16,0,0"/>
                 </Grid>
             </Panel>
         </Border>
@@ -138,7 +138,7 @@
             <Button Content="⏹" Command="{Binding StopPreviewCommand}"
                     FontSize="16" MinWidth="40" HorizontalContentAlignment="Center"/>
             <TextBlock Text="Playback with beat clicks (measure + section beeps)"
-                       FontSize="11" Foreground="{DynamicResource JdeTextMutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
         </StackPanel>
 
         <!-- Navigation buttons -->

@@ -16,8 +16,6 @@ namespace JustDanceEditor.Editor.Views.Timeline;
 internal sealed class AudioBarRenderer
 {
     internal const int EnvelopeTileWidth = 512;
-    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
-    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
     private static readonly SolidColorBrush TooltipBackgroundBrush = new(Color.FromArgb(220, 30, 30, 30));
     private static readonly Pen TooltipBorderPen = new(new SolidColorBrush(Colors.White), 1);
@@ -523,7 +521,9 @@ internal sealed class AudioBarRenderer
                 {
                     SolidColorBrush brush = isPartial
                         ? MeasureBrushError
-                        : (sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB;
+                        : (sectionColor + groupInSection) % 2 == 0
+                            ? TimelineResources.MeasureBrushA
+                            : TimelineResources.MeasureBrushB;
                     double clippedStart = Math.Max(xStart, visiblePixelStart);
                     double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
                     context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));

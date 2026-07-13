@@ -11,12 +11,12 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="Just Dance Editor">
 
-	<Border Background="{DynamicResource JdeWindowBackgroundBrush}">
+	<Border Background="{DynamicResource WindowBackgroundBrush}">
 	<Grid RowDefinitions="32, *">
 		<!-- Title Bar / Menu Area -->
 		<Grid Grid.Row="0"
 		      ColumnDefinitions="Auto, *"
-		      Margin="{DynamicResource JdeMainWindowTitleBarContentMargin}">
+		      Margin="{DynamicResource MainWindowTitleBarContentMargin}">
 
 			<!-- Menu: Placed in the TitleBar area -->
 			<Menu Grid.Column="0"

@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+using KevInc.Avalonia.Timeline;
 
 using System;
 using System.Collections.Generic;
@@ -16,12 +17,10 @@ using TimelineResources = KevInc.Avalonia.Timeline.TimelineResources;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
-public class TimeRulerControl : Control
+public class TimeRulerControl : ThemedTimelineControl
 {
     private const double ViewportRenderPadding = 64;
     private const double MinimumLabelSpacing = 48;
-    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
-    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
     private static readonly Comparison<SignatureSegment> CompareSignaturesByMarker =
         static (left, right) => left.Marker.CompareTo(right.Marker);
@@ -262,7 +261,11 @@ public class TimeRulerControl : Control
                         double xEnd = (gEnd - offset) * ppb;
                         if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
                         {
-                            SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                            SolidColorBrush brush = isPartial
+                                ? MeasureBrushError
+                                : (sectionColor + groupInSection) % 2 == 0
+                                    ? TimelineResources.MeasureBrushA
+                                    : TimelineResources.MeasureBrushB;
                             double clippedStart = Math.Max(xStart, visiblePixelStart);
                             double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
                             context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));
@@ -279,13 +282,13 @@ public class TimeRulerControl : Control
             // 2. Draw Ticks and Labels
             Pen mainPen = TimelineResources.MainPen;
             Pen tickPen = TimelineResources.TickPen;
-            IImmutableSolidColorBrush labelBrush = (IImmutableSolidColorBrush)TimelineResources.LabelBrush;
+            IBrush labelBrush = TimelineResources.LabelBrush;
 
             context.DrawLine(mainPen, new Point(0, bounds.Height), new Point(bounds.Width, bounds.Height));
 
             int firstBeat = Math.Max(0, (int)Math.Floor(visiblePixelStart / Math.Max(1.0, ppb)) - 1);
             int lastBeat = Math.Min((int)Math.Ceiling(max), (int)Math.Ceiling(visiblePixelEnd / Math.Max(1.0, ppb)) + 1);
-            int labelGroupInterval = GetLabelGroupInterval(ppb);
+            int labelBeatInterval = GetLabelBeatInterval(ppb);
 
             for (int i = firstBeat; i <= lastBeat; i++)
             {
@@ -295,14 +298,16 @@ public class TimeRulerControl : Control
                 if (x > visiblePixelEnd)
                     break;
 
-                bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(i + offset, sectionStarts);
-                double tickHeight = isMajor ? 12 : 6;
+                int beat = i + offset;
+                bool shouldDrawLabel = ShouldDrawBeatLabel(beat, labelBeatInterval);
+                bool isMajor = TimelineRenderHelper.IsBaseGroupBeat(beat, sectionStarts);
+                double tickHeight = isMajor || shouldDrawLabel ? 12 : 6;
 
                 context.DrawLine(tickPen, new Point(x, bounds.Height), new Point(x, bounds.Height - tickHeight));
 
-                if (isMajor && ShouldDrawBeatLabel(i + offset, sectionStarts, labelGroupInterval))
+                if (shouldDrawLabel)
                 {
-                    FormattedText text = GetBeatLabelText(i + offset, labelBrush);
+                    FormattedText text = GetBeatLabelText(beat, labelBrush);
                     context.DrawText(text, new Point(x + 3, bounds.Height - tickHeight - 12));
                 }
             }
@@ -313,29 +318,16 @@ public class TimeRulerControl : Control
         }
     }
 
-    private static int GetLabelGroupInterval(double pixelsPerBeat)
+    internal static int GetLabelBeatInterval(double pixelsPerBeat)
     {
         const double baseGroupBeats = 4;
         double pixelsPerGroup = Math.Max(1, pixelsPerBeat * baseGroupBeats);
-        return Math.Max(1, (int)Math.Ceiling(MinimumLabelSpacing / pixelsPerGroup));
+        int groupInterval = Math.Max(1, (int)Math.Ceiling(MinimumLabelSpacing / pixelsPerGroup));
+        return groupInterval * (int)baseGroupBeats;
     }
 
-    private static bool ShouldDrawBeatLabel(int beat, List<double> sectionStarts, int labelGroupInterval)
-    {
-        const double baseGroupBeats = 4;
-        double sectionStart = 0;
-        for (int i = sectionStarts.Count - 1; i >= 0; i--)
-        {
-            if (beat >= sectionStarts[i] - 0.01)
-            {
-                sectionStart = sectionStarts[i];
-                break;
-            }
-        }
-
-        int groupIndex = (int)Math.Round((beat - sectionStart) / baseGroupBeats);
-        return groupIndex % labelGroupInterval == 0;
-    }
+    internal static bool ShouldDrawBeatLabel(int beat, int labelBeatInterval) =>
+        beat % Math.Max(1, labelBeatInterval) == 0;
 
     private FormattedText GetBeatLabelText(int beat, IBrush labelBrush)
     {

@@ -13,7 +13,7 @@
 		<TextBlock Text="No selection"
 				   HorizontalAlignment="Center"
 				   VerticalAlignment="Center"
-				   Foreground="{DynamicResource JdeTextMutedBrush}"
+				   Foreground="{DynamicResource TextMutedBrush}"
 				   IsVisible="{Binding !Categories.Count}"/>
 
 		<ScrollViewer IsVisible="{Binding Categories.Count}">
@@ -21,11 +21,11 @@
 				<ItemsControl.ItemTemplate>
 					<DataTemplate>
 						<StackPanel Margin="0,0,0,8">
-							<Border Background="{DynamicResource JdeSurfaceBrush}" Padding="8,6">
+							<Border Background="{DynamicResource SurfaceBrush}" Padding="8,6">
 								<TextBlock Text="{Binding Name}"
 										   FontSize="12"
 										   FontWeight="SemiBold"
-										   Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+										   Foreground="{DynamicResource TextPrimaryBrush}"/>
 							</Border>
 							<ItemsControl ItemsSource="{Binding Properties}">
 								<ItemsControl.ItemTemplate>
@@ -34,14 +34,14 @@
 											<TextBlock Text="{Binding Name}"
 													   VerticalAlignment="Center"
 													   FontSize="12"
-													   Foreground="{DynamicResource JdeTextSecondaryBrush}"
+													   Foreground="{DynamicResource TextSecondaryBrush}"
 													   TextTrimming="CharacterEllipsis"/>
 
 											<Panel Grid.Column="1">
 												<TextBlock Text="{Binding DisplayValue}"
 														   IsVisible="{Binding ShowReadOnlyText}"
 														   VerticalAlignment="Center"
-														   Foreground="{DynamicResource JdeTextPrimaryBrush}"
+														   Foreground="{DynamicResource TextPrimaryBrush}"
 														   TextTrimming="CharacterEllipsis"/>
 
 												<!-- Text/Number -->
@@ -69,7 +69,7 @@
 													<TextBlock Grid.Row="1"
 															   Text="{Binding SliderRangeText}"
 															   FontSize="10"
-															   Foreground="{DynamicResource JdeTextMutedBrush}"/>
+															   Foreground="{DynamicResource TextMutedBrush}"/>
 												</Grid>
 
 												<!-- ComboBox for options -->

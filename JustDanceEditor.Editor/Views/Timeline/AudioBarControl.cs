@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Formats.JDI.Timelines;
+using KevInc.Avalonia.Timeline;
 
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,7 @@ using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
-public class AudioBarControl : Control
+public class AudioBarControl : ThemedTimelineControl
 {
     private const double ViewportRenderPadding = 64;
 

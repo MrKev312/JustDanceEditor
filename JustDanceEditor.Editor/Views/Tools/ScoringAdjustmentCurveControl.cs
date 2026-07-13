@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
-public sealed class ScoringAdjustmentCurveControl : Control
+public sealed class ScoringAdjustmentCurveControl : ThemeAwareGraphControl
 {
     internal const double MaxDistance = ScoringAdjustmentPreviewAnalyzer.CurveMaxDistance;
 
@@ -21,27 +21,7 @@ public sealed class ScoringAdjustmentCurveControl : Control
     public static readonly StyledProperty<string> EmptyTextProperty =
         AvaloniaProperty.Register<ScoringAdjustmentCurveControl, string>(nameof(EmptyText), "No scoring curve yet");
 
-    private static readonly Color[] SeriesColors =
-    [
-        Color.FromRgb(88, 204, 255),
-        Color.FromRgb(255, 198, 92),
-        Color.FromRgb(154, 222, 113),
-        Color.FromRgb(255, 128, 170),
-        Color.FromRgb(190, 155, 255),
-        Color.FromRgb(255, 150, 96),
-        Color.FromRgb(113, 233, 207),
-        Color.FromRgb(250, 139, 255)
-    ];
-
-    private static readonly SolidColorBrush AxisBrush = new(Color.FromArgb(175, 220, 224, 232));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(215, 236, 239, 245));
-    private static readonly SolidColorBrush MutedTextBrush = new(Color.FromArgb(140, 236, 239, 245));
-    private static readonly SolidColorBrush GridBrush = new(Color.FromArgb(38, 255, 255, 255));
-    private static readonly SolidColorBrush CurveBrush = new(Color.FromRgb(255, 255, 255));
     private static readonly SolidColorBrush SampleOutlineBrush = new(Color.FromArgb(165, 12, 16, 24));
-    private static readonly Pen AxisPen = new(AxisBrush, 1);
-    private static readonly Pen GridPen = new(GridBrush, 1);
-    private static readonly Pen CurvePen = new(CurveBrush, 2.6);
     private static readonly Pen SampleOutlinePen = new(SampleOutlineBrush, 1);
     private static readonly CultureInfo Culture = CultureInfo.CurrentCulture;
 
@@ -86,7 +66,7 @@ public sealed class ScoringAdjustmentCurveControl : Control
         DrawCurrentSamples(context, plot, curve.Samples, MaxDistance);
     }
 
-    private static void DrawGridAndAxes(DrawingContext context, Rect plot, double maxDistance)
+    private void DrawGridAndAxes(DrawingContext context, Rect plot, double maxDistance)
     {
         for (int i = 0; i <= 4; i++)
         {
@@ -94,7 +74,7 @@ public sealed class ScoringAdjustmentCurveControl : Control
             double value = 100.0 * ratio;
 
             double y = plot.Bottom - (plot.Height * ratio);
-            context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+            context.DrawLine(new Pen(GridBrush, 1), new Point(plot.Left, y), new Point(plot.Right, y));
             DrawText(context, value.ToString("0", CultureInfo.InvariantCulture), 10, TextBrush, new Point(6, y - 7));
         }
 
@@ -103,27 +83,28 @@ public sealed class ScoringAdjustmentCurveControl : Control
             double ratio = i / 4.0;
             double value = maxDistance * ratio;
             double x = plot.Left + (plot.Width * ratio);
-            context.DrawLine(GridPen, new Point(x, plot.Top), new Point(x, plot.Bottom));
+            context.DrawLine(new Pen(GridBrush, 1), new Point(x, plot.Top), new Point(x, plot.Bottom));
             double labelOffset = i == 0 ? 0 : i == 4 ? 20 : 10;
             DrawText(context, FormatDistanceLabel(value), 10, MutedTextBrush, new Point(x - labelOffset, plot.Bottom + 5));
         }
 
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
+        Pen axisPen = new(AxisBrush, 1);
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
         DrawText(context, "distance", 10, MutedTextBrush, new Point(plot.Right - 42, plot.Bottom + 20));
         DrawText(context, "score %", 10, MutedTextBrush, new Point(plot.Left + 8, plot.Top + 4));
     }
 
-    private static void DrawCurve(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentCurvePoint> points, double maxDistance)
+    private void DrawCurve(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentCurvePoint> points, double maxDistance)
     {
         if (points.Count == 0)
             return;
 
         List<Point> screenPoints = [.. points.Select(point => ToScreenPoint(plot, point.StatisticalDistance, point.PercentageScore, maxDistance))];
-        DrawPolyline(context, screenPoints, CurvePen);
+        DrawPolyline(context, screenPoints, new Pen(TextBrush, 2.6));
     }
 
-    private static void DrawCurrentSamples(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentCurveSample> samples, double maxDistance)
+    private void DrawCurrentSamples(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentCurveSample> samples, double maxDistance)
     {
         foreach (ScoringAdjustmentCurveSample sample in samples)
         {
@@ -174,13 +155,6 @@ public sealed class ScoringAdjustmentCurveControl : Control
             return 0.0;
 
         return Math.Clamp(score, 0.0f, 100.0f);
-    }
-
-    private static Color GetSeriesColor(int seriesIndex, byte alpha)
-    {
-        int index = Math.Abs(seriesIndex) % SeriesColors.Length;
-        Color color = SeriesColors[index];
-        return Color.FromArgb(alpha, color.R, color.G, color.B);
     }
 
     private static string FormatDistanceLabel(double value)

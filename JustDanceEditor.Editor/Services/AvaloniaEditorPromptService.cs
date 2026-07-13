@@ -148,8 +148,8 @@ public sealed class AvaloniaEditorPromptService(IWindowService windows) : IEdito
         panel.Children.AddRange(children);
         return new Border
         {
-            Background = FindBrush(owner, "JdeWindowBackgroundBrush", "#D820242A"),
-            BorderBrush = FindBrush(owner, "JdeSurfaceBorderBrush", "#66FFFFFF"),
+            Background = FindBrush(owner, "WindowBackgroundBrush", "#D820242A"),
+            BorderBrush = FindBrush(owner, "SurfaceBorderBrush", "#66FFFFFF"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(16),

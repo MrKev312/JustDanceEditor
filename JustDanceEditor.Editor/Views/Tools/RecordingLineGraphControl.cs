@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
-public sealed class RecordingLineGraphControl : Control
+public sealed class RecordingLineGraphControl : ThemeAwareGraphControl
 {
     public static readonly StyledProperty<IReadOnlyList<RecordingGraphPoint>?> PointsProperty =
         AvaloniaProperty.Register<RecordingLineGraphControl, IReadOnlyList<RecordingGraphPoint>?>(nameof(Points));
@@ -31,16 +31,6 @@ public sealed class RecordingLineGraphControl : Control
     public static readonly StyledProperty<string> EmptyTextProperty =
         AvaloniaProperty.Register<RecordingLineGraphControl, string>(nameof(EmptyText), "No graph data");
 
-    private static readonly SolidColorBrush AxisBrush = new(Color.FromArgb(180, 220, 224, 232));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(210, 236, 239, 245));
-    private static readonly SolidColorBrush GridBrush = new(Color.FromArgb(40, 255, 255, 255));
-    private static readonly SolidColorBrush MarkerBrush = new(Color.FromArgb(28, 255, 255, 255));
-    private static readonly SolidColorBrush LineBrush = new(Color.FromRgb(92, 202, 255));
-    private static readonly SolidColorBrush PointBrush = new(Color.FromRgb(255, 235, 126));
-    private static readonly Pen AxisPen = new(AxisBrush, 1);
-    private static readonly Pen GridPen = new(GridBrush, 1);
-    private static readonly Pen MarkerPen = new(MarkerBrush, 1);
-    private static readonly Pen LinePen = new(LineBrush, 2);
     private static readonly CultureInfo Culture = CultureInfo.CurrentCulture;
 
     static RecordingLineGraphControl()
@@ -99,8 +89,9 @@ public sealed class RecordingLineGraphControl : Control
             return;
 
         Rect plot = new(52, 12, Math.Max(1, bounds.Width - 66), Math.Max(1, bounds.Height - 42));
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
+        Pen axisPen = new(AxisBrush, 1);
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
 
         IReadOnlyList<RecordingGraphPoint> points = Points ?? [];
         double maxValue = Math.Max(1.0, MaxValue);
@@ -135,7 +126,7 @@ public sealed class RecordingLineGraphControl : Control
 
         if (screenPoints.Count == 1)
         {
-            context.DrawEllipse(PointBrush, null, screenPoints[0], 3, 3);
+            context.DrawEllipse(new SolidColorBrush(GetSeriesColor(1, byte.MaxValue)), null, screenPoints[0], 3, 3);
             return;
         }
 
@@ -147,10 +138,11 @@ public sealed class RecordingLineGraphControl : Control
                 g.LineTo(screenPoints[i]);
         }
 
-        context.DrawGeometry(null, LinePen, geometry);
+        context.DrawGeometry(null, new Pen(AccentBrush, 2), geometry);
 
+        SolidColorBrush pointBrush = new(GetSeriesColor(1, byte.MaxValue));
         foreach (Point point in screenPoints)
-            context.DrawEllipse(PointBrush, null, point, 2.5, 2.5);
+            context.DrawEllipse(pointBrush, null, point, 2.5, 2.5);
     }
 
     private void DrawHorizontalGrid(DrawingContext context, Rect plot, double maxValue)
@@ -159,7 +151,7 @@ public sealed class RecordingLineGraphControl : Control
         {
             double ratio = i / 4.0;
             double y = plot.Bottom - (plot.Height * ratio);
-            context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+            context.DrawLine(new Pen(GridBrush, 1), new Point(plot.Left, y), new Point(plot.Right, y));
             DrawText(
                 context,
                 (maxValue * ratio).ToString(maxValue > 1000 ? "0" : "0.#", CultureInfo.InvariantCulture),
@@ -183,7 +175,7 @@ public sealed class RecordingLineGraphControl : Control
             double x = GetX(plot, minBeat, maxBeat, marker.BeatLabel);
             if (x - lastGridX >= 18)
             {
-                context.DrawLine(MarkerPen, new Point(x, plot.Top), new Point(x, plot.Bottom));
+                context.DrawLine(new Pen(GridBrush, 1), new Point(x, plot.Top), new Point(x, plot.Bottom));
                 lastGridX = x;
             }
 

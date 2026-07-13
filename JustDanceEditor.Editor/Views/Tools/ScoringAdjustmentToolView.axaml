@@ -14,10 +14,10 @@
                     <TextBlock Text="{Binding SelectedMoveId}"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="{Binding AssetKindText}"
                                FontSize="12"
-                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </StackPanel>
 
                 <TextBlock Grid.Column="1"
@@ -26,7 +26,7 @@
                            VerticalAlignment="Center"
                            TextAlignment="Center"
                            ToolTip.Tip="{Binding PointCountToolTip}"
-                           Foreground="{DynamicResource JdeTextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            IsVisible="{Binding ShowMsmEditor}"/>
 
                 <StackPanel Grid.Column="2"
@@ -55,23 +55,23 @@
             <TextBlock Text="Select a hand MSM move in Library or on the timeline."
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource JdeTextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        IsVisible="{Binding ShowNoSelection}"/>
 
             <Border Margin="12"
                     Padding="12"
                     BorderThickness="1"
                     BorderBrush="{DynamicResource JdeBorderBrush}"
-                    Background="{DynamicResource JdeSurfaceBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
                     IsVisible="{Binding ShowGestureInfo}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Full-body gesture selected"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Text="Gesture assets use the full-body gesture pipeline. This panel adjusts hand MSM scoring headers only."
                                TextWrapping="Wrap"
-                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
             </Border>
 
@@ -79,13 +79,13 @@
                     Padding="12"
                     BorderThickness="1"
                     BorderBrush="{DynamicResource JdeBorderBrush}"
-                    Background="{DynamicResource JdeSurfaceBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
                     IsVisible="{Binding ShowMissingAsset}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Missing scoring asset"
                                FontSize="14"
                                FontWeight="SemiBold"
-                               Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </StackPanel>
             </Border>
 
@@ -103,13 +103,13 @@
                         <Border Padding="10"
                                 BorderThickness="1"
                                 BorderBrush="{DynamicResource JdeBorderBrush}"
-                                Background="{DynamicResource JdeSurfaceBrush}">
+                                Background="{DynamicResource SurfaceBrush}">
                             <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                   RowSpacing="10">
                                 <TextBlock Text="Recommended tuning"
                                            FontSize="13"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                                 <Grid Grid.Row="1"
                                       ColumnDefinitions="*,*,Auto"
@@ -118,20 +118,20 @@
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding RecommendedPerfectDistanceText}"
                                                    FontSize="11"
-                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         <TextBlock Text="{Binding RecommendedFailDistanceText}"
                                                    FontSize="11"
-                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1"
                                                 Spacing="4"
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding RecommendedShakeSensitivityText}"
                                                    FontSize="11"
-                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                         <TextBlock Text="{Binding RecommendedDirectionSensitivityText}"
                                                    FontSize="11"
-                                                   Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
                                     <Button Grid.Column="2"
                                             Content="Use recommended values"
@@ -151,7 +151,7 @@
                                                TextAlignment="Center"
                                                TextWrapping="NoWrap"
                                                FontSize="11"
-                                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                                               Foreground="{DynamicResource TextMutedBrush}"/>
                                 </Grid>
 
                                 <Border Grid.Row="3"
@@ -163,7 +163,7 @@
                                     <TextBlock Name="LowThresholdLabel"
                                                Text="Perfect distance"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                Cursor="Hand"
                                                PointerPressed="OnParameterControlPointerPressed"/>
                                     <CheckBox Name="LowThresholdDefaultGuidedCheckBox"
@@ -206,7 +206,7 @@
                                     <TextBlock Name="HighThresholdLabel"
                                                Text="Fail distance"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                Cursor="Hand"
                                                PointerPressed="OnParameterControlPointerPressed"/>
                                     <CheckBox Name="HighThresholdDefaultGuidedCheckBox"
@@ -249,7 +249,7 @@
                                     <TextBlock Name="AutoCorrelationThresholdLabel"
                                                Text="Shake sensitivity"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                Cursor="Hand"
                                                PointerPressed="OnParameterControlPointerPressed"/>
                                     <CheckBox Name="AutoCorrelationThresholdDefaultGuidedCheckBox"
@@ -292,7 +292,7 @@
                                     <TextBlock Name="DirectionImpactFactorLabel"
                                                Text="Direction sensitivity"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                Cursor="Hand"
                                                PointerPressed="OnParameterControlPointerPressed"/>
                                     <CheckBox Name="DirectionImpactFactorDefaultGuidedCheckBox"
@@ -331,14 +331,14 @@
                         <Border Padding="10"
                                 BorderThickness="1"
                                 BorderBrush="{DynamicResource JdeBorderBrush}"
-                                Background="{DynamicResource JdeSurfaceBrush}"
+                                Background="{DynamicResource SurfaceBrush}"
                                 IsVisible="False">
                             <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                   RowSpacing="9">
                                 <TextBlock Text="Advanced raw MSM settings"
                                            FontSize="13"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                                 <Grid Grid.Row="1"
                                       ColumnDefinitions="136,54,62,*,82"
@@ -346,12 +346,12 @@
                                     <TextBlock Grid.Column="1"
                                                Text="Ignore"
                                                HorizontalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                FontSize="11"/>
                                     <TextBlock Grid.Column="2"
                                                Text="Default"
                                                HorizontalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                FontSize="11"/>
                                 </Grid>
 
@@ -361,7 +361,7 @@
                                       ToolTip.Tip="{Binding LowThresholdToolTip}">
                                     <TextBlock Text="Perfect distance"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <CheckBox Name="LowThresholdDefaultCheckBox"
                                               Grid.Column="2"
                                               IsChecked="{Binding LowThresholdDefault, Mode=TwoWay}"
@@ -398,7 +398,7 @@
                                       ToolTip.Tip="{Binding HighThresholdToolTip}">
                                     <TextBlock Text="Fail distance"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <CheckBox Name="HighThresholdDefaultCheckBox"
                                               Grid.Column="2"
                                               IsChecked="{Binding HighThresholdDefault, Mode=TwoWay}"
@@ -435,7 +435,7 @@
                                       ToolTip.Tip="{Binding AutoCorrelationThresholdToolTip}">
                                     <TextBlock Text="Shake sensitivity"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <CheckBox Name="AutoCorrelationThresholdIgnoreCheckBox"
                                               Grid.Column="1"
                                               IsChecked="{Binding IgnoreAutocorrelation, Mode=TwoWay}"
@@ -481,7 +481,7 @@
                                       ToolTip.Tip="{Binding DirectionImpactFactorToolTip}">
                                     <TextBlock Text="Direction sensitivity"
                                                VerticalAlignment="Center"
-                                               Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <CheckBox Name="DirectionImpactFactorIgnoreCheckBox"
                                               Grid.Column="1"
                                               IsChecked="{Binding IgnoreDirection, Mode=TwoWay}"
@@ -532,14 +532,14 @@
                             MinHeight="320"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource JdeBorderBrush}"
-                            Background="{DynamicResource JdeSurfaceBrush}">
+                            Background="{DynamicResource SurfaceBrush}">
                         <Grid RowDefinitions="Auto,220,Auto,220"
                               RowSpacing="8">
                             <StackPanel>
                                 <TextBlock Text="Scoring curve"
                                            FontSize="13"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
 
                             <local:ScoringAdjustmentCurveControl Grid.Row="1"
@@ -551,11 +551,11 @@
                                 <TextBlock Text="{Binding SelectedParameterTitle}"
                                            FontSize="13"
                                            FontWeight="SemiBold"
-                                           Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="{Binding SelectedParameterGuidanceText}"
                                            Margin="0,4,0,0"
                                            FontSize="11"
-                                           Foreground="{DynamicResource JdeTextSecondaryBrush}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
 
@@ -592,8 +592,8 @@
             <Setter Property="CornerRadius" Value="4"/>
         </Style>
         <Style Selector="Border.parameterRow.active">
-            <Setter Property="BorderBrush" Value="#669560FA"/>
-            <Setter Property="Background" Value="#1F9560FA"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorderBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
         </Style>
     </UserControl.Styles>
 </UserControl>

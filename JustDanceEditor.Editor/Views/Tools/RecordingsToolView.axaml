@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
              x:Class="JustDanceEditor.Editor.Views.Tools.RecordingsToolView"
              x:DataType="vm:RecordingsToolViewModel">
-    <Border Background="{DynamicResource JdeSurfaceBrush}" Padding="10">
+    <Border Background="{DynamicResource SurfaceBrush}" Padding="10">
         <Panel>
             <Grid IsVisible="{Binding ShowBrowserPage}" RowDefinitions="Auto,*" RowSpacing="8">
                 <StackPanel Spacing="8">
@@ -35,7 +35,7 @@
                               MinHeight="30"
                               HorizontalAlignment="Stretch"/>
 
-                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource JdeTextMutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <Panel Grid.Row="1" ClipToBounds="True">
@@ -43,19 +43,19 @@
                                IsVisible="{Binding ShowNoTimeline}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
 
                     <TextBlock Text="No recordings"
                                IsVisible="{Binding ShowNoRecordings}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
 
                     <TextBlock Text="Select a recording"
                                IsVisible="{Binding ShowNoAnalysis}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
 
                     <ScrollViewer IsVisible="{Binding ShowSummary}"
                                   HorizontalScrollBarVisibility="Disabled"
@@ -64,8 +64,8 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:RecordingStatItemViewModel">
                                     <Grid ColumnDefinitions="170,*" Margin="0,2">
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource JdeTextMutedBrush}"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -122,7 +122,7 @@
                     <Grid IsVisible="{Binding ShowPointsGraph}" RowDefinitions="Auto,*" RowSpacing="6">
                         <TextBlock Text="{Binding GraphTotalScoreText}"
                                    HorizontalAlignment="Right"
-                                   Foreground="{DynamicResource JdeTextPrimaryBrush}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                    FontWeight="SemiBold"/>
                         <local:RecordingLineGraphControl Grid.Row="1"
                                                          Points="{Binding ScoreGraphPoints}"
@@ -250,23 +250,23 @@
                         </StackPanel>
 
                         <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4">
-                            <TextBlock Text="Samples" Foreground="{DynamicResource JdeTextMutedBrush}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding SampleCount}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                            <TextBlock Text="Samples" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SampleCount}" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-                            <TextBlock Grid.Column="2" Text="Score" Foreground="{DynamicResource JdeTextMutedBrush}"/>
-                            <TextBlock Grid.Column="3" Text="{Binding LiveTotalScore}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                            <TextBlock Grid.Column="2" Text="Score" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="3" Text="{Binding LiveTotalScore}" Foreground="{DynamicResource TextPrimaryBrush}"/>
 
-                            <TextBlock Grid.Row="1" Text="Classifiers" Foreground="{DynamicResource JdeTextMutedBrush}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GeneratedClassifierCount}" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+                            <TextBlock Grid.Row="1" Text="Classifiers" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GeneratedClassifierCount}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                         </Grid>
                     </StackPanel>
 
                     <TextBlock IsVisible="{Binding ShowGestureRecordingSetup}"
                                Text="Gesture recording is not implemented yet"
-                               Foreground="{DynamicResource JdeTextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"/>
 
-                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource JdeTextMutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
         </Panel>

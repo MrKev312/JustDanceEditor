@@ -26,7 +26,7 @@ public partial class MsmTrainingToolViewModel : TimelineToolViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GenerateMsmsCommand))]
-    public partial int SelectedCoachId { get; set; }
+    public partial int? SelectedCoachId { get; set; }
 
     [ObservableProperty]
     public partial bool CompareToExistingMsms { get; set; }
@@ -88,10 +88,10 @@ public partial class MsmTrainingToolViewModel : TimelineToolViewModel
     protected override void OnTimelineDetached(TimelineEditorViewModel? timeline)
         => _matrixController.Clear();
 
-    partial void OnSelectedCoachIdChanged(int value)
+    partial void OnSelectedCoachIdChanged(int? value)
     {
         GenerateMsmsCommand.NotifyCanExecuteChanged();
-        if (ActiveTimeline != null)
+        if (ActiveTimeline != null && value.HasValue)
             _ = _matrixController.RefreshAsync();
     }
 
@@ -111,14 +111,15 @@ public partial class MsmTrainingToolViewModel : TimelineToolViewModel
     private async Task GenerateMsmsAsync()
     {
         TimelineEditorViewModel timeline = ActiveTimeline ?? throw new InvalidOperationException("No active timeline.");
+        int coachId = SelectedCoachId ?? throw new InvalidOperationException("No coach selected.");
 
         try
         {
             StatusText = "Loading recordings...";
-            List<RecordingSelectionItem> recordings = await _recordingLibrary.LoadCoachRecordingSelectionItemsAsync(timeline, SelectedCoachId);
+            List<RecordingSelectionItem> recordings = await _recordingLibrary.LoadCoachRecordingSelectionItemsAsync(timeline, coachId);
             if (recordings.Count == 0)
             {
-                StatusText = $"No recordings found for coach {SelectedCoachId}";
+                StatusText = $"No recordings found for coach {coachId}";
                 return;
             }
 
@@ -141,7 +142,7 @@ public partial class MsmTrainingToolViewModel : TimelineToolViewModel
             MotionClassifierGenerationResult result = await _classifierGenerator.GenerateForCoachAsync(
                 timeline.RootPath,
                 timeline.Package,
-                SelectedCoachId,
+                coachId,
                 selected.Select(static item => item.Recording).ToArray());
 
             timeline.RefreshMoveAssetStatus();
@@ -181,10 +182,12 @@ public partial class MsmTrainingToolViewModel : TimelineToolViewModel
             }
         }
 
-        if (!CoachIds.Contains(SelectedCoachId))
-            SelectedCoachId = CoachIds.FirstOrDefault();
+        if (!SelectedCoachId.HasValue || !CoachIds.Contains(SelectedCoachId.Value))
+            SelectedCoachId = CoachIds.Count == 0 ? null : CoachIds[0];
     }
 
     private bool CanGenerateMsms()
-        => ActiveTimeline != null && CoachIds.Contains(SelectedCoachId);
+        => ActiveTimeline != null
+           && SelectedCoachId is int coachId
+           && CoachIds.Contains(coachId);
 }

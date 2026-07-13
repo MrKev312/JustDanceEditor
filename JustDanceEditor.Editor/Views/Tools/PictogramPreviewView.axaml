@@ -11,7 +11,7 @@
 
         <TextBlock Text="No Active Timeline"
                    IsVisible="{Binding ActiveTimeline, Converter={x:Static ObjectConverters.IsNull}}"
-                   Foreground="Gray"
+                   Foreground="{DynamicResource TextMutedBrush}"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"/>
     </Grid>

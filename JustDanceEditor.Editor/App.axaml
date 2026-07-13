@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="JustDanceEditor.Editor.App"
              xmlns:kev="clr-namespace:KevInc.Avalonia.Templates;assembly=KevInc.Avalonia"
-             RequestedThemeVariant="Dark">
-	<!-- "Default" ThemeVariant follows system theme. "Dark" or "Light" are other available options. -->
+             xmlns:tools="clr-namespace:JustDanceEditor.Editor.Views.Tools"
+             RequestedThemeVariant="Default">
 
 	<Application.Resources>
 		<ResourceDictionary>
@@ -12,6 +12,17 @@
 			</ResourceDictionary.MergedDictionaries>
 		</ResourceDictionary>
 	</Application.Resources>
+	<Application.Styles>
+		<Style Selector=":is(tools|ThemeAwareDrawingControl)">
+			<Setter Property="TextBrush" Value="{DynamicResource TextPrimaryBrush}" />
+			<Setter Property="MutedTextBrush" Value="{DynamicResource TextSecondaryBrush}" />
+		</Style>
+		<Style Selector=":is(tools|ThemeAwareGraphControl)">
+			<Setter Property="AxisBrush" Value="{DynamicResource TextMutedBrush}" />
+			<Setter Property="GridBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+			<Setter Property="AccentBrush" Value="{DynamicResource AccentBrush}" />
+		</Style>
+	</Application.Styles>
 	<Application.DataTemplates>
 		<kev:ConventionViewLocator />
 	</Application.DataTemplates>

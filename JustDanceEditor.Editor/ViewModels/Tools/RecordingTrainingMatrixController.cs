@@ -22,8 +22,13 @@ internal sealed class RecordingTrainingMatrixController(
     {
         int version = Interlocked.Increment(ref _refreshVersion);
         TimelineEditorViewModel? timeline = owner.ActiveTimeline;
-        if (timeline == null)
+        if (timeline == null || owner.SelectedCoachId is not int coachId)
+        {
+            owner.TrainingMatrix = null;
+            owner.IsTrainingMatrixBusy = false;
+            owner.NotifyViewStateChanged();
             return;
+        }
 
         owner.IsTrainingMatrixBusy = true;
         if (!preserveCurrentMatrix)
@@ -31,13 +36,13 @@ internal sealed class RecordingTrainingMatrixController(
         owner.NotifyViewStateChanged();
         try
         {
-            List<RecordingSelectionItem> items = await recordingLibrary.LoadCoachRecordingSelectionItemsAsync(timeline, owner.SelectedCoachId);
+            List<RecordingSelectionItem> items = await recordingLibrary.LoadCoachRecordingSelectionItemsAsync(timeline, coachId);
             MotionTrainingSelectionDocument selection = await _selectionRepository.LoadAsync(timeline.RootPath);
             MotionTrainingMatrixResult result = await Task.Run(
                 () => analyzer.Analyze(
                     timeline.RootPath,
                     timeline.Package,
-                    owner.SelectedCoachId,
+                    coachId,
                     items.Select(static item => item.Recording).ToArray(),
                     selection,
                     owner.CompareToExistingMsms));
@@ -46,7 +51,7 @@ internal sealed class RecordingTrainingMatrixController(
 
             owner.TrainingMatrix = CreatePresentation(result, items);
             owner.StatusText = result.Rows.Count == 0
-                ? $"No recordings found for coach {owner.SelectedCoachId}"
+                ? $"No recordings found for coach {coachId}"
                 : "Click a cell to include or exclude that move sample from MSM generation";
         }
         catch (Exception ex)
@@ -71,7 +76,7 @@ internal sealed class RecordingTrainingMatrixController(
         {
             TimelineEditorViewModel? timeline = owner.ActiveTimeline;
             RecordingTrainingMatrixViewModel? matrix = owner.TrainingMatrix;
-            if (timeline == null || matrix == null ||
+            if (timeline == null || matrix == null || owner.SelectedCoachId is not int coachId ||
                 rowIndex < 0 || rowIndex >= matrix.Rows.Count ||
                 columnIndex < 0 || columnIndex >= matrix.Columns.Count)
             {
@@ -86,7 +91,7 @@ internal sealed class RecordingTrainingMatrixController(
             MotionTrainingSelectionDocument selection = await _selectionRepository.LoadAsync(timeline.RootPath);
             selection.SetExcluded(
                 row.RecordingId,
-                owner.SelectedCoachId,
+                coachId,
                 column.TimelineClipId,
                 column.MoveId,
                 column.MoveOccurrence,

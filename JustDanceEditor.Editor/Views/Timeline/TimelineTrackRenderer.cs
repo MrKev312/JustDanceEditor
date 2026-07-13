@@ -24,8 +24,6 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
     private const double MinimumDetailedClipWidth = 6;
     private const double MinimumImageClipWidth = 28;
     private const double MinimumTextClipWidth = 40;
-    private static readonly SolidColorBrush MeasureBrushA = new(Colors.White, 0.05);
-    private static readonly SolidColorBrush MeasureBrushB = new(Colors.White, 0.02);
     private static readonly SolidColorBrush MeasureBrushError = new(Colors.Red, 0.08);
     private static readonly Comparison<IndexedClip> CompareClipsByStartBeat =
         static (left, right) => left.Clip.StartBeat.CompareTo(right.Clip.StartBeat);
@@ -419,7 +417,11 @@ internal sealed class TimelineTrackRenderer(TimelineTrackPanel owner)
                 double xEnd = (gEnd - offset) * ppb;
                 if (xEnd >= visiblePixelStart && xStart <= visiblePixelEnd)
                 {
-                    SolidColorBrush brush = isPartial ? MeasureBrushError : ((sectionColor + groupInSection) % 2 == 0 ? MeasureBrushA : MeasureBrushB);
+                    SolidColorBrush brush = isPartial
+                        ? MeasureBrushError
+                        : (sectionColor + groupInSection) % 2 == 0
+                            ? TimelineResources.MeasureBrushA
+                            : TimelineResources.MeasureBrushB;
                     double clippedStart = Math.Max(xStart, visiblePixelStart);
                     double clippedEnd = Math.Min(xEnd, visiblePixelEnd);
                     context.FillRectangle(brush, new Rect(clippedStart, 0, clippedEnd - clippedStart, bounds.Height));

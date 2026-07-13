@@ -4,7 +4,7 @@
              xmlns:local="clr-namespace:JustDanceEditor.Editor.Views.Tools"
              x:Class="JustDanceEditor.Editor.Views.Tools.MsmTrainingToolView"
              x:DataType="vm:MsmTrainingToolViewModel">
-    <Border Background="{DynamicResource JdeSurfaceBrush}" Padding="10">
+    <Border Background="{DynamicResource SurfaceBrush}" Padding="10">
         <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
                 <TextBlock Text="Coach" VerticalAlignment="Center"/>
@@ -21,7 +21,7 @@
 
             <TextBlock Grid.Row="1"
                        Text="{Binding ComparisonDescription}"
-                       Foreground="{DynamicResource JdeTextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        TextWrapping="Wrap"/>
 
             <Panel Grid.Row="2" ClipToBounds="True">
@@ -29,17 +29,17 @@
                            IsVisible="{Binding ShowNoTimeline}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                           Foreground="{DynamicResource TextMutedBrush}"/>
                 <TextBlock Text="Analyzing recording samples..."
                            IsVisible="{Binding IsTrainingMatrixBusy}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                           Foreground="{DynamicResource TextMutedBrush}"/>
                 <TextBlock Text="No recording samples are available for this coach."
                            IsVisible="{Binding ShowEmptyTrainingMatrix}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource JdeTextMutedBrush}"/>
+                           Foreground="{DynamicResource TextMutedBrush}"/>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto"
                               IsVisible="{Binding HasTrainingMatrix}">

@@ -3,7 +3,7 @@
              xmlns:prompts="using:JustDanceEditor.GUI.ViewModels.Prompts"
              xmlns:behaviors="clr-namespace:KevInc.Avalonia.Behaviors;assembly=KevInc.Avalonia"
              x:Class="JustDanceEditor.GUI.App"
-             RequestedThemeVariant="Dark">
+             RequestedThemeVariant="Default">
 
 	<Application.DataTemplates>
 		<DataTemplate DataType="{x:Type prompts:TextPromptInputViewModel}" x:DataType="prompts:TextPromptInputViewModel">

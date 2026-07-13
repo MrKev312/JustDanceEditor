@@ -70,12 +70,12 @@
 
 	<Grid RowDefinitions="Auto, *, Auto">
 		<!-- 1. Toolbar -->
-		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="{DynamicResource JdeSurfaceBrush}" Height="44">
+		<StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Background="{DynamicResource SurfaceBrush}" Height="44">
 			
 			<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="6,4">
 <Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}" MinHeight="24" MinWidth="56" Padding="6,2" />
 					<Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding CanRedo}" MinHeight="24" MinWidth="56" Padding="6,2" />
-				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}" FontSize="12"/>
+				<TextBlock Text="Zoom:" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
 				<ButtonSpinner Width="178" Height="28" Spin="ZoomSpinner_OnSpin">
 					<NumericUpDown Value="{Binding ZoomPercentage}"
 							   Minimum="{Binding MinZoomPercentage}"
@@ -91,17 +91,17 @@
 			</StackPanel>
 			
 			<StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="10,4">
-				<CheckBox Content="Snap to beat" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
-				<CheckBox Content="Snap to playhead" IsChecked="{Binding SnapToCurrentTimeMarker}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
-				<CheckBox Content="Snap to clips" IsChecked="{Binding SnapToClips}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}"/>
+				<CheckBox Content="Snap to beat" IsChecked="{Binding SnapToGrid}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+				<CheckBox Content="Snap to playhead" IsChecked="{Binding SnapToCurrentTimeMarker}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+				<CheckBox Content="Snap to clips" IsChecked="{Binding SnapToClips}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
 			</StackPanel>
 
-			<Separator Width="1" Background="{DynamicResource JdeSurfaceBorderBrush}"/>
+			<Separator Width="1" Background="{DynamicResource SurfaceBorderBrush}"/>
 			<ToggleButton IsChecked="{Binding IsMetronomeEnabled}" Content="{Binding MetronomeIcon}" 
 			              ToolTip.Tip="Toggle Metronome" FontSize="16" MinWidth="36" MinHeight="24" Padding="6,2" VerticalAlignment="Center"/>
 
-			<Separator Width="1" Background="{DynamicResource JdeSurfaceBorderBrush}"/>
-			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="{DynamicResource JdeTextPrimaryBrush}" FontSize="12" Margin="6,0"/>
+			<Separator Width="1" Background="{DynamicResource SurfaceBorderBrush}"/>
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Margin="6,0"/>
 		</StackPanel>
 
 		<!-- 2. Timeline Main Area -->
@@ -109,24 +109,24 @@
 		    <Grid ColumnDefinitions="200, *">
 
 			    <!-- LEFT: Fixed Track Headers -->
-			    <StackPanel Grid.Column="0" Background="{DynamicResource JdeSurfaceBrush}" ZIndex="1">
+			    <StackPanel Grid.Column="0" Background="{DynamicResource SurfaceBrush}" ZIndex="1">
 				    <!-- Spacer for Ruler -->
-				    <Border Height="30" BorderBrush="{DynamicResource JdeSurfaceBorderBrush}" BorderThickness="0,0,1,1">
-					    <TextBlock Text="Timeline" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="10"/>
+				    <Border Height="30" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,0,1,1">
+					    <TextBlock Text="Timeline" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource TextMutedBrush}" FontSize="10"/>
 				    </Border>
 
 				    <!-- Spacer for Audio Bar height if needed -->
-				    <Border Height="60" BorderBrush="{DynamicResource JdeSurfaceBorderBrush}" BorderThickness="0,0,1,1">
-					    <TextBlock Text="Audio" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource JdeTextMutedBrush}"/>
+				    <Border Height="60" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,0,1,1">
+					    <TextBlock Text="Audio" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource TextMutedBrush}"/>
 				    </Border>
 
 				    <ItemsControl ItemsSource="{Binding Tracks}">
 					    <ItemsControl.ItemTemplate>
 						    <DataTemplate x:DataType="vm:TrackViewModel">
-							    <Border Height="{StaticResource TrackHeight}" BorderBrush="{DynamicResource JdeSurfaceBorderBrush}" BorderThickness="0,0,1,1" Background="{DynamicResource JdeSurfaceBrush}">
+							    <Border Height="{StaticResource TrackHeight}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,0,1,1" Background="{DynamicResource SurfaceBrush}">
 								    <Grid ColumnDefinitions="5, *">
 									    <Border Background="{Binding TrackColor}" Width="5"/>
-									    <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource JdeTextSecondaryBrush}"/>
+									    <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
 								    </Grid>
 							    </Border>
 						    </DataTemplate>
@@ -141,7 +141,7 @@
 					      VerticalScrollBarVisibility="Disabled">
 			    <Grid Name="TimelineContentGrid" HorizontalAlignment="Left" Width="{Binding TimelineWidth}">
 				    <StackPanel Name="TracksStack"
-					    Background="{DynamicResource JdeWindowBackgroundBrush}"
+					    Background="{DynamicResource WindowBackgroundBrush}"
 					    HorizontalAlignment="Stretch"
 					    Classes.timeline-overview-cache="{Binding UseTimelineBitmapCache}">
 
@@ -176,7 +176,7 @@
 								      MaxBeat="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).MaxBeat}"
 								      Signatures="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Signatures}"
 								      Sections="{Binding $parent[UserControl].((vm:TimelineEditorViewModel)DataContext).TimelineStructure.Sections}"
-								      Background="{DynamicResource JdeWindowBackgroundBrush}">
+								      Background="{DynamicResource WindowBackgroundBrush}">
 								    </local:TimelineTrackPanel>
 							    </DataTemplate>
 						    </ItemsControl.ItemTemplate>
@@ -206,8 +206,8 @@
 		</ScrollViewer>
 
 		<!-- 3. Status Bar -->
-		<Border Grid.Row="2" Background="{DynamicResource JdeSurfaceBrush}" Padding="5">
-			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" Foreground="{DynamicResource JdeTextPrimaryBrush}" FontSize="12"/>
+		<Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" Padding="5">
+			<TextBlock Text="{Binding CurrentBeat, StringFormat='Beat: {0:F2}'}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"/>
 		</Border>
 	</Grid>
 </UserControl>

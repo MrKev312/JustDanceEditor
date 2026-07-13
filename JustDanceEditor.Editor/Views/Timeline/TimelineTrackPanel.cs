@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using JustDanceEditor.Editor.ViewModels.Timeline;
 using JustDanceEditor.Editor.Views.Timeline.Interactions;
 using JustDanceEditor.Formats.JDI.Timelines;
+using KevInc.Avalonia.Timeline;
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,7 @@ using System.ComponentModel;
 
 namespace JustDanceEditor.Editor.Views.Timeline;
 
-public class TimelineTrackPanel : Control
+public class TimelineTrackPanel : ThemedTimelineControl
 {
     // --- Dependency Properties ---
 

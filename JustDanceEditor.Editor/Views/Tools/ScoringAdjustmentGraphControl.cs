@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace JustDanceEditor.Editor.Views.Tools;
 
-public sealed class ScoringAdjustmentGraphControl : Control
+public sealed class ScoringAdjustmentGraphControl : ThemeAwareGraphControl
 {
     public static readonly StyledProperty<IReadOnlyList<ScoringAdjustmentSweepSeries>?> SeriesProperty =
         AvaloniaProperty.Register<ScoringAdjustmentGraphControl, IReadOnlyList<ScoringAdjustmentSweepSeries>?>(nameof(Series));
@@ -34,33 +34,12 @@ public sealed class ScoringAdjustmentGraphControl : Control
     public static readonly StyledProperty<string> AxisValueSuffixProperty =
         AvaloniaProperty.Register<ScoringAdjustmentGraphControl, string>(nameof(AxisValueSuffix), string.Empty);
 
-    private static readonly Color[] SeriesColors =
-    [
-        Color.FromRgb(88, 204, 255),
-        Color.FromRgb(255, 198, 92),
-        Color.FromRgb(154, 222, 113),
-        Color.FromRgb(255, 128, 170),
-        Color.FromRgb(190, 155, 255),
-        Color.FromRgb(255, 150, 96),
-        Color.FromRgb(113, 233, 207),
-        Color.FromRgb(250, 139, 255)
-    ];
-
-    private static readonly SolidColorBrush AxisBrush = new(Color.FromArgb(175, 220, 224, 232));
-    private static readonly SolidColorBrush TextBrush = new(Color.FromArgb(215, 236, 239, 245));
-    private static readonly SolidColorBrush MutedTextBrush = new(Color.FromArgb(140, 236, 239, 245));
-    private static readonly SolidColorBrush GridBrush = new(Color.FromArgb(38, 255, 255, 255));
-    private static readonly SolidColorBrush DefaultBackgroundBrush = new(Color.FromArgb(22, 255, 198, 92));
-    private static readonly SolidColorBrush AverageBrush = new(Color.FromRgb(255, 255, 255));
-    private static readonly SolidColorBrush SavedBrush = new(Color.FromArgb(135, 180, 188, 202));
-    private static readonly SolidColorBrush MarkerBrush = new(Color.FromRgb(255, 255, 255));
-    private static readonly SolidColorBrush MarkerStrokeBrush = new(Color.FromRgb(88, 204, 255));
-    private static readonly Pen AxisPen = new(AxisBrush, 1);
-    private static readonly Pen GridPen = new(GridBrush, 1);
-    private static readonly Pen AveragePen = new(AverageBrush, 2.5);
-    private static readonly Pen SavedPen = new(SavedBrush, 1);
-    private static readonly Pen MarkerPen = new(MarkerStrokeBrush, 2);
     private static readonly CultureInfo Culture = CultureInfo.CurrentCulture;
+
+    private IBrush DefaultBackgroundBrush => new SolidColorBrush(
+        ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light
+            ? Color.FromArgb(24, 133, 81, 0)
+            : Color.FromArgb(22, 255, 198, 92));
 
     static ScoringAdjustmentGraphControl()
     {
@@ -128,8 +107,9 @@ public sealed class ScoringAdjustmentGraphControl : Control
         Rect defaultStrip = new(plot.Left + 5, plot.Top, 42, plot.Height);
         Rect rangePlot = new(plot.Left + 66, plot.Top, Math.Max(1, plot.Width - 66), plot.Height);
 
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
-        context.DrawLine(AxisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
+        Pen axisPen = new(AxisBrush, 1);
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Top), new Point(plot.Left, plot.Bottom));
+        context.DrawLine(axisPen, new Point(plot.Left, plot.Bottom), new Point(plot.Right, plot.Bottom));
         DrawHorizontalGrid(context, plot);
 
         IReadOnlyList<ScoringAdjustmentSweepSeries> series = Series ?? [];
@@ -147,18 +127,18 @@ public sealed class ScoringAdjustmentGraphControl : Control
         DrawMarkers(context, plot, defaultStrip, rangePlot, series);
     }
 
-    private static void DrawSavedBaseline(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentSweepSeries> series)
+    private void DrawSavedBaseline(DrawingContext context, Rect plot, IReadOnlyList<ScoringAdjustmentSweepSeries> series)
     {
         float savedAverage = series.Average(static item => item.SavedAccuracy);
         double y = GetY(plot, savedAverage);
-        context.DrawLine(SavedPen, new Point(plot.Left, y), new Point(plot.Right, y));
+        context.DrawLine(new Pen(MutedTextBrush, 1), new Point(plot.Left, y), new Point(plot.Right, y));
         DrawText(context, "saved", 10, MutedTextBrush, new Point(plot.Right - 34, y - 14));
     }
 
-    private static void DrawDefaultStrip(DrawingContext context, Rect strip, IReadOnlyList<ScoringAdjustmentSweepSeries> series)
+    private void DrawDefaultStrip(DrawingContext context, Rect strip, IReadOnlyList<ScoringAdjustmentSweepSeries> series)
     {
         context.DrawRectangle(DefaultBackgroundBrush, null, strip);
-        context.DrawLine(GridPen, new Point(strip.Right + 8, strip.Top), new Point(strip.Right + 8, strip.Bottom));
+        context.DrawLine(new Pen(GridBrush, 1), new Point(strip.Right + 8, strip.Top), new Point(strip.Right + 8, strip.Bottom));
 
         List<float> defaultValues = [];
         foreach (ScoringAdjustmentSweepSeries item in series)
@@ -178,12 +158,12 @@ public sealed class ScoringAdjustmentGraphControl : Control
         if (defaultValues.Count > 0)
         {
             double y = GetY(strip, defaultValues.Average());
-            context.DrawLine(AveragePen, new Point(strip.Left + 5, y), new Point(strip.Right - 5, y));
-            context.DrawEllipse(AverageBrush, null, new Point(strip.Left + (strip.Width / 2.0), y), 3.5, 3.5);
+            context.DrawLine(new Pen(TextBrush, 2.5), new Point(strip.Left + 5, y), new Point(strip.Right - 5, y));
+            context.DrawEllipse(TextBrush, null, new Point(strip.Left + (strip.Width / 2.0), y), 3.5, 3.5);
         }
     }
 
-    private static void DrawRangeLines(
+    private void DrawRangeLines(
         DrawingContext context,
         Rect rangePlot,
         IReadOnlyList<ScoringAdjustmentSweepSeries> series)
@@ -202,7 +182,7 @@ public sealed class ScoringAdjustmentGraphControl : Control
         }
     }
 
-    private static void DrawAverageRangeLine(
+    private void DrawAverageRangeLine(
         DrawingContext context,
         Rect rangePlot,
         IReadOnlyList<ScoringAdjustmentSweepSeries> series)
@@ -213,7 +193,7 @@ public sealed class ScoringAdjustmentGraphControl : Control
 
         (double min, double max) = ResolveRange(series);
         List<Point> screenPoints = [.. averagePoints.Select(point => new Point(GetX(rangePlot, min, max, point.Value), GetY(rangePlot, point.Accuracy)))];
-        DrawPolyline(context, screenPoints, AveragePen);
+        DrawPolyline(context, screenPoints, new Pen(TextBrush, 2.5));
     }
 
     private void DrawMarkers(
@@ -224,11 +204,11 @@ public sealed class ScoringAdjustmentGraphControl : Control
         IReadOnlyList<ScoringAdjustmentSweepSeries> series)
     {
         Point savedMarker = GetAverageMarker(plot, defaultStrip, rangePlot, series, SavedValue, SavedIsDefault, useSavedAverage: true);
-        context.DrawEllipse(SavedBrush, null, savedMarker, 3.5, 3.5);
+        context.DrawEllipse(MutedTextBrush, null, savedMarker, 3.5, 3.5);
 
         Point currentMarker = GetAverageMarker(plot, defaultStrip, rangePlot, series, CurrentValue, CurrentIsDefault, useSavedAverage: false);
-        context.DrawLine(new Pen(MarkerBrush, 1), new Point(currentMarker.X, plot.Top), new Point(currentMarker.X, plot.Bottom));
-        context.DrawEllipse(MarkerBrush, MarkerPen, currentMarker, 5.0, 5.0);
+        context.DrawLine(new Pen(TextBrush, 1), new Point(currentMarker.X, plot.Top), new Point(currentMarker.X, plot.Bottom));
+        context.DrawEllipse(TextBrush, new Pen(AccentBrush, 2), currentMarker, 5.0, 5.0);
     }
 
     private static Point GetAverageMarker(
@@ -263,18 +243,18 @@ public sealed class ScoringAdjustmentGraphControl : Control
         return new Point(GetRangeX(rangePlot, series, value), GetY(rangePlot, average));
     }
 
-    private static void DrawHorizontalGrid(DrawingContext context, Rect plot)
+    private void DrawHorizontalGrid(DrawingContext context, Rect plot)
     {
         for (int i = 0; i <= 4; i++)
         {
             double ratio = i / 4.0;
             double y = plot.Bottom - (plot.Height * ratio);
-            context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+            context.DrawLine(new Pen(GridBrush, 1), new Point(plot.Left, y), new Point(plot.Right, y));
             DrawText(context, (100.0 * ratio).ToString("0", CultureInfo.InvariantCulture), 10, TextBrush, new Point(6, y - 7));
         }
     }
 
-    private static void DrawAxisLabels(
+    private void DrawAxisLabels(
         DrawingContext context,
         Rect plot,
         Rect defaultStrip,
@@ -393,12 +373,6 @@ public sealed class ScoringAdjustmentGraphControl : Control
 
     private static double GetY(Rect plot, double value)
         => plot.Bottom - (Math.Clamp(value, 0.0, 100.0) / 100.0 * plot.Height);
-
-    private static Color GetSeriesColor(int seriesIndex, byte alpha)
-    {
-        Color color = SeriesColors[Math.Abs(seriesIndex) % SeriesColors.Length];
-        return Color.FromArgb(alpha, color.R, color.G, color.B);
-    }
 
     private static void DrawText(DrawingContext context, string text, double size, IBrush brush, Point point)
     {

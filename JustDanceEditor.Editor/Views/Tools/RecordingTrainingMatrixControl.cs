@@ -16,7 +16,7 @@ public sealed class RecordingTrainingCellClickedEventArgs(int rowIndex, int colu
     public int ColumnIndex { get; } = columnIndex;
 }
 
-public sealed class RecordingTrainingMatrixControl : Control
+public sealed class RecordingTrainingMatrixControl : ThemeAwareDrawingControl
 {
     private const double LabelWidth = 176;
     private const double HeaderHeight = 116;
@@ -26,8 +26,6 @@ public sealed class RecordingTrainingMatrixControl : Control
     public static readonly StyledProperty<RecordingTrainingMatrixViewModel?> MatrixProperty =
         AvaloniaProperty.Register<RecordingTrainingMatrixControl, RecordingTrainingMatrixViewModel?>(nameof(Matrix));
 
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.FromRgb(226, 225, 232));
-    private static readonly IBrush MutedTextBrush = new SolidColorBrush(Color.FromRgb(174, 171, 184));
     private static readonly IBrush ExcludedBrush = new SolidColorBrush(Color.FromRgb(12, 12, 14));
     private static readonly IBrush MissingBrush = new SolidColorBrush(Color.FromRgb(74, 72, 79));
     private static readonly Pen BorderPen = new(new SolidColorBrush(Color.FromArgb(75, 255, 255, 255)), 1);
@@ -156,7 +154,7 @@ public sealed class RecordingTrainingMatrixControl : Control
     private static void DrawText(DrawingContext context, string text, double size, IBrush brush, Point point)
         => context.DrawText(new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, Typeface.Default, size, brush), point);
 
-    private static void DrawMoveHeader(DrawingContext context, string moveId, double x)
+    private void DrawMoveHeader(DrawingContext context, string moveId, double x)
     {
         FormattedText formatted = new(
             moveId.Length <= 24 ? moveId : moveId[..21] + "...",

@@ -26,7 +26,7 @@
         </StackPanel>
 
         <!-- Step content area -->
-        <Border Grid.Row="1" BorderBrush="{DynamicResource JdeSurfaceBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
+        <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="16">
             <Panel>
 
                 <!-- STEP 0: Metadata -->
@@ -52,7 +52,7 @@
                 <!-- STEP 1: Beat Alignment -->
                 <Grid IsVisible="{Binding IsStep1}" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
                     <TextBlock Grid.Row="0" Text="Adjust BPM and beat alignment. Click on the waveform to set where beat 0 is. Ctrl+click to set the playhead."
-                               Foreground="{DynamicResource JdeTextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                     <Grid Grid.Row="1" ColumnDefinitions="80,130,100,130" Margin="0,0,0,6">
                         <TextBlock Grid.Column="0" Text="BPM:" VerticalAlignment="Center"/>
@@ -104,7 +104,7 @@
             <Button Content="⏹" Command="{Binding StopPreviewCommand}"
                     FontSize="16" MinWidth="40" HorizontalContentAlignment="Center"/>
             <TextBlock Text="Playback with beat clicks (measure + section beeps)"
-                       FontSize="11" Foreground="{DynamicResource JdeTextMutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
         </StackPanel>
 
         <!-- Navigation buttons -->
