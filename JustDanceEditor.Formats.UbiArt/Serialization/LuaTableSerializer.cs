@@ -27,6 +27,7 @@ public static partial class LuaTableSerializer
 
     private static void InitializeLua(Lua lua)
     {
+        lua.State.Encoding = Encoding.UTF8;
         lua.DoString("function includeReference(path) end");
         lua.DoString("NumCoach = { Solo = 1, Duo = 2, Trio = 3, Quatuor = 4 }");
         lua.DoString("SongDifficulty = { Easy = 1, Normal = 2, Hard = 3, Extreme = 4 }");

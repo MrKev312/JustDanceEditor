@@ -1,4 +1,5 @@
 using JustDanceEditor.Formats.UbiArt.Model;
+using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization;
 
 using Xunit;
@@ -7,6 +8,41 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public sealed class LuaTableSerializerTests
 {
+    [Fact]
+    public void DeserializeKaraokeTape_PreservesUnicodeLyrics()
+    {
+        const string lua = """
+            params = {
+                NAME = "Tape",
+                Tape = {
+                    Clips = {
+                        {
+                            NAME = "KaraokeClip",
+                            KaraokeClip = {
+                                Id = 1,
+                                TrackId = 0,
+                                IsActive = 1,
+                                StartTime = 0,
+                                Duration = 24,
+                                Lyrics = "Olé, sí",
+                                Pitch = 8.5,
+                                IsEndOfLine = 1,
+                                ContentType = 1,
+                                StartTimeTolerance = 4,
+                                EndTimeTolerance = 4,
+                                SemitoneTolerance = 5.0
+                            }
+                        }
+                    }
+                }
+            }
+            """;
+
+        ClipTape tape = LuaTableSerializer.Deserialize<ClipTape>(lua);
+
+        Assert.Equal("Olé, sí", Assert.IsType<KaraokeClip>(Assert.Single(tape.Clips)).Lyrics);
+    }
+
     [Fact]
     public void DeserializeSongDesc_NormalizesUncookedEntryTables()
     {
