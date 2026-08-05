@@ -24,19 +24,19 @@
 		<PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
-		<PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Controls.DataGrid" Version="$(AvaloniaDataGridVersion)" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 
 		<!-- Dock Packages -->
-		<PackageReference Include="Dock.Avalonia" Version="12.0.0.2" />
-		<PackageReference Include="Dock.Model.Mvvm" Version="12.0.0.2" />
-		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="12.0.0.2" />
+		<PackageReference Include="Dock.Avalonia" Version="12.1.0" />
+		<PackageReference Include="Dock.Model.Mvvm" Version="12.1.0" />
+		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="12.1.0" />
 		<PackageReference Include="Dock.Serializer" Version="11.3.0.12" />
 		<PackageReference Include="KevInc.Avalonia" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaProject)')" />
 		<PackageReference Include="KevInc.Avalonia.Dock" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaDockProject)')" />
 		<PackageReference Include="KevInc.Avalonia.Timeline" Version="$(KevIncAvaloniaPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAvaloniaTimelineProject)')" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
 		<PackageReference Include="Concentus" Version="2.2.2" />
 		<PackageReference Include="Concentus.OggFile" Version="1.0.7" />
 		<PackageReference Include="NAudio" Version="2.3.0" />

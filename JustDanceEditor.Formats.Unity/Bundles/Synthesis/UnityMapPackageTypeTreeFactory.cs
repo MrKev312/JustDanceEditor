@@ -54,6 +54,8 @@ internal static class UnityMapPackageTypeTreeFactory
             ScriptTypeIndex = scriptTypeIndex,
             ScriptIdHash = CreateHash(scriptHash),
             TypeHash = CreateHash(typeHash),
+            TypeBlobIsDefinition = true,
+            TypeBlob = new TypeTreeBlob(),
             Nodes = nodes,
             StringBufferBytes = [.. stringBuffer],
             IsRefType = false,

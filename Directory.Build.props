@@ -4,8 +4,9 @@
     <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
     <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
     <KevIncLocalTargetFramework Condition="'$(KevIncLocalTargetFramework)' == ''">net10.0</KevIncLocalTargetFramework>
-    <AvaloniaVersion>12.1.0</AvaloniaVersion>
-    <SkiaSharpVersion>3.119.4</SkiaSharpVersion>
+    <AvaloniaVersion>12.1.1</AvaloniaVersion>
+    <AvaloniaDataGridVersion>12.1.2</AvaloniaDataGridVersion>
+    <SkiaSharpVersion>4.151.0</SkiaSharpVersion>
 
     <KevIncAvaloniaRoot Condition="'$(KevIncAvaloniaRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Avalonia'))</KevIncAvaloniaRoot>
     <KevIncAvaloniaPackageVersion>0.2.6</KevIncAvaloniaPackageVersion>
@@ -37,7 +38,7 @@
     <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
 
     <KevIncUbiArtRoot Condition="'$(KevIncUbiArtRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.UbiArt'))</KevIncUbiArtRoot>
-    <KevIncUbiArtPackageVersion>0.2.4</KevIncUbiArtPackageVersion>
+    <KevIncUbiArtPackageVersion>0.2.5</KevIncUbiArtPackageVersion>
     <KevIncUbiArtIpkProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Ipk\KevInc.UbiArt.Ipk.csproj</KevIncUbiArtIpkProject>
     <KevIncUbiArtFileSystemProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.FileSystem\KevInc.UbiArt.FileSystem.csproj</KevIncUbiArtFileSystemProject>
     <KevIncUbiArtRakiProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Raki\KevInc.UbiArt.Raki.csproj</KevIncUbiArtRakiProject>
@@ -48,7 +49,7 @@
   <ItemGroup>
     <PackageReference Include="Nerdbank.GitVersioning">
       <PrivateAssets>all</PrivateAssets>
-      <Version>3.9.50</Version>
+      <Version>3.10.91</Version>
     </PackageReference>
   </ItemGroup>
 </Project>

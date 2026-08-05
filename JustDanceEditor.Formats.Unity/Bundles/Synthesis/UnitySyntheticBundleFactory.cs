@@ -261,7 +261,7 @@ internal static class UnitySyntheticBundleFactory
 
     private static void AddTypeTree(AssetsFile assetsFile, ClassDatabaseFile classDatabase, int typeId)
     {
-        assetsFile.Metadata.TypeTreeTypes.Add(ClassDatabaseToTypeTree.Convert(classDatabase, typeId, preferEditor: false));
+        assetsFile.Metadata.TypeTreeTypes.Add(ClassDatabaseTypeTreeConverter.Convert(classDatabase, typeId, preferEditor: false));
     }
 
     private static AssetTypeValueField CreateDefaultField(ClassDatabaseFile classDatabase, int typeId)

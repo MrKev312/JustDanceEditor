@@ -16,7 +16,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="KevInc.UbiArt.Ipk" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtIpkProject)')" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
 	</ItemGroup>
 </Project>
