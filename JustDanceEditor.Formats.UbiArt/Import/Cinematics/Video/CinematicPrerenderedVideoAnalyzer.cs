@@ -9,14 +9,14 @@ using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
-using SixLabors.ImageSharp;
-
 namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 
 internal readonly record struct CinematicSingleVideoScene(
     string SourceVideoPath,
     string OutputActorKey,
-    Rectangle OutputBounds);
+    ProjectedQuad OutputQuad,
+    int OutputWidth,
+    int OutputHeight);
 
 internal static class CinematicPrerenderedVideoAnalyzer
 {
@@ -44,7 +44,10 @@ internal static class CinematicPrerenderedVideoAnalyzer
         }
 
         if (scene.Actors.Count == 0)
+        {
+            logger.LogDebug("Pre-rendered video fast path rejected because the cinematic scene contains no actors.");
             return false;
+        }
 
         CinematicTapeData tapeData = ReadTapeDataOrEmpty(fileSystem, scene, outputDurationSeconds, logger);
         if (tapeData.SpawnActorClips.Count > 0 || HasMeaningfulPropertyClips(tapeData.PropertyClips))
@@ -58,7 +61,12 @@ internal static class CinematicPrerenderedVideoAnalyzer
 
         IReadOnlyList<CinematicActor> videoOutputs = CinematicActorBuilder.SelectVideoOutputActors(scene.Actors);
         if (videoOutputs.Count != 1)
+        {
+            logger.LogDebug(
+                "Pre-rendered video fast path rejected because the scene contains {VideoOutputCount} video output actor(s).",
+                videoOutputs.Count);
             return false;
+        }
 
         CinematicActor videoOutput = videoOutputs[0];
         CinematicActor[] visualActors = [.. scene.Actors.Where(IsSceneVisualActor)];
@@ -80,12 +88,23 @@ internal static class CinematicPrerenderedVideoAnalyzer
         ];
         string sceneSourceVideoPath = NormalizeVideoPath(sourceFile.RelativePath);
         if (pleoVideoPaths.Length > 1)
+        {
+            logger.LogDebug(
+                "Pre-rendered video fast path rejected because the scene references multiple Pleo videos: {PleoVideoPaths}.",
+                string.Join(", ", pleoVideoPaths));
             return false;
+        }
 
         if (pleoVideoPaths.Length == 1)
         {
             if (!MatchesSourceVideo(sourceFile, pleoVideoPaths[0]))
+            {
+                logger.LogDebug(
+                    "Pre-rendered video fast path rejected because scene Pleo video '{SceneVideoPath}' does not match selected source '{SourceVideoPath}'.",
+                    pleoVideoPaths[0],
+                    sourceFile.RelativePath);
                 return false;
+            }
 
             sceneSourceVideoPath = pleoVideoPaths[0];
         }
@@ -97,7 +116,18 @@ internal static class CinematicPrerenderedVideoAnalyzer
             PropertyClipIndex.Empty,
             frame: 0);
         if (!IsPlainOpaqueVideoOutput(state))
+        {
+            logger.LogDebug(
+                "Pre-rendered video fast path rejected because output actor '{OutputActorKey}' is not a plain opaque axis-aligned video: alpha={Alpha}, tint={Tint}, angle={Angle}, rotation=({RotationX}, {RotationY}), flipped={XFlipped}.",
+                videoOutput.Key,
+                state.Alpha,
+                state.Tint,
+                state.Angle,
+                state.RotationX,
+                state.RotationY,
+                state.XFlipped);
             return false;
+        }
 
         ProjectedQuad quad = CinematicGeometryProjector.ProjectQuad(
             CinematicGeometryProjector.CreatePleoVideoGeometry(),
@@ -108,12 +138,49 @@ internal static class CinematicPrerenderedVideoAnalyzer
             videoOutput.CustomAnchorY,
             videoOutput.Anchor);
         if (!CoversOutputFrame(quad, AnalysisOutputWidth, AnalysisOutputHeight))
+        {
+            logger.LogDebug(
+                "Pre-rendered video fast path rejected because output actor '{OutputActorKey}' projects to {OutputBounds} with corners TL={TopLeft}, TR={TopRight}, BR={BottomRight}, BL={BottomLeft}, which does not cover {OutputWidth}x{OutputHeight}. State position=({PositionX}, {PositionY}, {PositionZ}), scale=({ScaleX}, {ScaleY}, {ScaleZ}).",
+                videoOutput.Key,
+                quad.Bounds,
+                quad.TopLeft,
+                quad.TopRight,
+                quad.BottomRight,
+                quad.BottomLeft,
+                AnalysisOutputWidth,
+                AnalysisOutputHeight,
+                state.PositionX,
+                state.PositionY,
+                state.PositionZ,
+                state.ScaleX,
+                state.ScaleY,
+                state.ScaleZ);
             return false;
+        }
+
+        logger.LogDebug(
+            "Pre-rendered video output actor '{OutputActorKey}' projects to {OutputBounds} for {OutputWidth}x{OutputHeight}. State position=({PositionX}, {PositionY}, {PositionZ}), scale=({ScaleX}, {ScaleY}, {ScaleZ}); scene video '{SceneVideoPath}', template '{TemplatePath}', material '{MaterialPath}', texture '{TexturePath}'.",
+            videoOutput.Key,
+            quad.Bounds,
+            AnalysisOutputWidth,
+            AnalysisOutputHeight,
+            state.PositionX,
+            state.PositionY,
+            state.PositionZ,
+            state.ScaleX,
+            state.ScaleY,
+            state.ScaleZ,
+            sceneSourceVideoPath,
+            videoOutput.TemplatePath,
+            videoOutput.MaterialPath,
+            videoOutput.TexturePath);
 
         result = new CinematicSingleVideoScene(
             sceneSourceVideoPath,
             videoOutput.Key,
-            quad.Bounds);
+            quad,
+            AnalysisOutputWidth,
+            AnalysisOutputHeight);
         return true;
     }
 
@@ -173,17 +240,21 @@ internal static class CinematicPrerenderedVideoAnalyzer
             CinematicActorBuilder.UsesImplicitPleoTargetMaterial(actor);
     }
 
-    private static bool MatchesSourceVideo(CookedFile sourceFile, string pleoVideoPath)
+    internal static bool MatchesSourceVideo(CookedFile sourceFile, string pleoVideoPath)
     {
         string normalizedSource = NormalizeVideoPath(sourceFile.RelativePath);
         string normalizedPleo = NormalizeVideoPath(pleoVideoPath);
         if (string.Equals(normalizedSource, normalizedPleo, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        return string.Equals(
-            Path.GetFileNameWithoutExtension(normalizedSource),
-            Path.GetFileNameWithoutExtension(normalizedPleo),
-            StringComparison.OrdinalIgnoreCase);
+        string sourceName = Path.GetFileName(normalizedSource);
+        string pleoName = Path.GetFileName(normalizedPleo);
+        if (string.Equals(sourceName, pleoName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        string logicalName = Path.GetFileNameWithoutExtension(pleoName);
+        return Path.GetExtension(sourceName).Equals(Path.GetExtension(pleoName), StringComparison.OrdinalIgnoreCase) &&
+            sourceName.StartsWith(logicalName + ".", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeVideoPath(string path)

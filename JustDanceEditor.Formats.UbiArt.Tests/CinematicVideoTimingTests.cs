@@ -3,6 +3,13 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 
+using KevInc.UbiArt.Cinematics.Timeline;
+using KevInc.UbiArt.FileSystem;
+
+using SixLabors.ImageSharp;
+
+using System.Numerics;
+
 using Xunit;
 
 namespace JustDanceEditor.Formats.UbiArt.Tests;
@@ -49,6 +56,36 @@ public sealed class CinematicVideoTimingTests
         int frameCount = CinematicVisualRenderer.GetRenderFrameCount(0.001);
 
         Assert.Equal(1, frameCount);
+    }
+
+    [Fact]
+    public void GraphVideoFilter_CoverCropsDanDanViewportWithoutStretching()
+    {
+        ProjectedQuad outputQuad = new(
+            new Vector2(0, -1),
+            new Vector2(1920, -1),
+            new Vector2(1920, 1081),
+            new Vector2(0, 1081),
+            new Rectangle(0, -1, 1920, 1082));
+        CinematicSingleVideoScene scene = new("world/maps/dandandubizuba/videoscoach/dandandubizuba.webm", "video/videooutput", outputQuad, 1920, 1080);
+
+        Rectangle crop = IntermediateAssetWriter.CalculateGraphSourceCrop(1216, 720, scene);
+        string filter = IntermediateAssetWriter.BuildGraphVideoFilter(1216, 720, scene);
+
+        Assert.Equal(new Rectangle(0, 18, 1216, 684), crop);
+        Assert.Equal("crop=1216:684:0:18,setsar=1", filter);
+    }
+
+    [Fact]
+    public void SceneVideoMatch_AcceptsPlatformQualitySuffix()
+    {
+        CookedFile source = new("world/maps/DanDanDubiZuba/videoscoach/dandandubizuba.vp9.720.webm");
+
+        bool matches = CinematicPrerenderedVideoAnalyzer.MatchesSourceVideo(
+            source,
+            "world/maps/dandandubizuba/videoscoach/dandandubizuba.webm");
+
+        Assert.True(matches);
     }
 
     private static TimelineStructureDocument CreateTimelineStructure() => new()

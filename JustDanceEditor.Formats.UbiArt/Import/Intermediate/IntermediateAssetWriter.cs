@@ -13,6 +13,7 @@ using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 
 using KevInc.Audio.NAudio;
+using KevInc.UbiArt.Cinematics.Timeline;
 using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
@@ -608,7 +609,7 @@ internal static class IntermediateAssetWriter
         if (songData.LegacyMashup != null)
         {
             io.CreateDirectory(destinationFolder);
-            string mashupDestination = io.Combine(destinationFolder, $"{songData.Name}{GetRenderedVideoExtension(renderVideoSpeedTest)}");
+            string mashupDestination = io.Combine(destinationFolder, $"master{GetRenderedVideoExtension(renderVideoSpeedTest)}");
             await MashupVideoRenderer.RenderAsync(
                 fileSystem,
                 songData,
@@ -621,34 +622,30 @@ internal static class IntermediateAssetWriter
             return;
         }
 
-        CookedFile[] sourceFiles = GetVideoFiles(fileSystem);
-        if (sourceFiles.Length == 0)
+        CookedFile? sourceFile = GetVideoFile(fileSystem);
+        if (sourceFile == null)
         {
             logger.LogWarning("No video file found in UbiArt input; skipping video copy.");
             return;
         }
 
-        if (sourceFiles.Length == 1)
-            logger.LogInformation("Selected UbiArt master video '{VideoPath}'.", sourceFiles[0].RelativePath);
-        else
-            logger.LogInformation("Selected {Count} UbiArt master video variants: {VideoPaths}.", sourceFiles.Length, string.Join(", ", sourceFiles.Select(file => file.RelativePath)));
+        logger.LogInformation("Selected UbiArt master video '{VideoPath}'.", sourceFile.RelativePath);
 
         io.CreateDirectory(destinationFolder);
-        foreach (CookedFile sourceFile in sourceFiles)
-            await CopyMasterVideoFileAsync(fileSystem, sourceFile, package, destinationFolder, logger, textureService, io, renderVideoSpeedTest);
+        string destination = io.Combine(destinationFolder, $"master{GetRenderedVideoExtension(renderVideoSpeedTest)}");
+        await CopyMasterVideoFileAsync(fileSystem, sourceFile, package, destination, logger, textureService, io, renderVideoSpeedTest);
     }
 
     private static async Task CopyMasterVideoFileAsync(
         JustDanceUbiArtFileSystem fileSystem,
         CookedFile sourceFile,
         IntermediateSongPackage package,
-        string destinationFolder,
+        string destination,
         ILogger logger,
         ITextureService textureService,
         IFileSystem io,
         bool renderVideoSpeedTest)
     {
-        string destination = io.Combine(destinationFolder, Path.GetFileName(sourceFile.RelativePath));
         string? tempSource = null;
         try
         {
@@ -681,7 +678,7 @@ internal static class IntermediateAssetWriter
                 return;
             }
 
-            if (await TryNormalizeSingleVideoSceneTo16By9Async(fileSystem, sourceFile, package, tempSource, destination, logger, io))
+            if (await TryApplySingleVideoSceneCropWithFfmpegAsync(fileSystem, sourceFile, package, tempSource, destination, logger, io))
                 return;
 
             await CopyCookedFileAsync(fileSystem, sourceFile, destination);
@@ -697,7 +694,7 @@ internal static class IntermediateAssetWriter
         }
     }
 
-    private static async Task<bool> TryNormalizeSingleVideoSceneTo16By9Async(
+    private static async Task<bool> TryApplySingleVideoSceneCropWithFfmpegAsync(
         JustDanceUbiArtFileSystem fileSystem,
         CookedFile sourceFile,
         IntermediateSongPackage package,
@@ -714,11 +711,6 @@ internal static class IntermediateAssetWriter
             if (videoInfo == null || videoInfo.Width <= 0 || videoInfo.Height <= 0)
                 return false;
 
-            double aspect = videoInfo.Width / (double)videoInfo.Height;
-            const double targetAspect = 16.0 / 9.0;
-            if (Math.Abs(aspect - targetAspect) < 0.001)
-                return false;
-
             double outputDurationSeconds = GetCinematicRenderDurationSeconds(package, videoInfo.Duration.TotalSeconds);
             if (!CinematicPrerenderedVideoAnalyzer.TryAnalyzeSingleVideoScene(
                 fileSystem,
@@ -730,8 +722,16 @@ internal static class IntermediateAssetWriter
                 return false;
             }
 
-            string cropFilter = BuildCenterCrop16By9Filter(videoInfo.Width, videoInfo.Height);
-            string filter = $"{cropFilter},setsar=1";
+            Rectangle crop = CalculateGraphSourceCrop(videoInfo.Width, videoInfo.Height, singleVideoScene);
+            if (crop == new Rectangle(0, 0, videoInfo.Width, videoInfo.Height))
+            {
+                logger.LogDebug(
+                    "Pre-rendered single-video scene '{Video}' maps the complete native source into its graph viewport; preserving the source without transcoding.",
+                    Path.GetFileName(sourceFile.RelativePath));
+                return false;
+            }
+
+            string filter = BuildGraphVideoFilter(videoInfo.Width, videoInfo.Height, singleVideoScene);
             string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync();
             string tempOutput = Path.Combine(Path.GetDirectoryName(destination) ?? fileSystem.TempFolders.MapFolder, $"{Path.GetFileNameWithoutExtension(destination)}_{Guid.NewGuid():N}.webm");
 
@@ -761,11 +761,14 @@ internal static class IntermediateAssetWriter
                 File.Delete(destination);
             File.Move(tempOutput, destination);
             logger.LogInformation(
-                "Normalized pre-rendered single-video scene '{Video}' from {SourceWidth}x{SourceHeight} to native-cropped 16:9 using {Filter}; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
+                "Applied graph-authored native crop to pre-rendered single-video scene '{Video}', from {SourceWidth}x{SourceHeight} to {CropWidth}x{CropHeight} at ({CropX}, {CropY}), without scaling; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
                 Path.GetFileName(sourceFile.RelativePath),
                 videoInfo.Width,
                 videoInfo.Height,
-                filter,
+                crop.Width,
+                crop.Height,
+                crop.X,
+                crop.Y,
                 singleVideoScene.SourceVideoPath,
                 singleVideoScene.OutputActorKey);
             return true;
@@ -788,20 +791,84 @@ internal static class IntermediateAssetWriter
             ? destination
             : Path.ChangeExtension(destination, GetRenderedVideoExtension(renderVideoSpeedTest));
 
-    private static string BuildCenterCrop16By9Filter(int width, int height)
+    internal static string BuildGraphVideoFilter(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene)
     {
-        const double targetAspect = 16.0 / 9.0;
-        double aspect = width / (double)height;
-        if (aspect < targetAspect)
+        Rectangle crop = CalculateGraphSourceCrop(sourceWidth, sourceHeight, scene);
+        return $"crop={crop.Width}:{crop.Height}:{crop.X}:{crop.Y},setsar=1";
+    }
+
+    internal static Rectangle CalculateGraphSourceCrop(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceHeight);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scene.OutputWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scene.OutputHeight);
+
+        ProjectedQuad quad = scene.OutputQuad;
+        double quadLeft = Math.Min(Math.Min(quad.TopLeft.X, quad.TopRight.X), Math.Min(quad.BottomLeft.X, quad.BottomRight.X));
+        double quadTop = Math.Min(Math.Min(quad.TopLeft.Y, quad.TopRight.Y), Math.Min(quad.BottomLeft.Y, quad.BottomRight.Y));
+        double quadRight = Math.Max(Math.Max(quad.TopLeft.X, quad.TopRight.X), Math.Max(quad.BottomLeft.X, quad.BottomRight.X));
+        double quadBottom = Math.Max(Math.Max(quad.TopLeft.Y, quad.TopRight.Y), Math.Max(quad.BottomLeft.Y, quad.BottomRight.Y));
+        double quadWidth = quadRight - quadLeft;
+        double quadHeight = quadBottom - quadTop;
+        if (quadWidth <= 0 || quadHeight <= 0)
+            return new Rectangle(0, 0, RoundToEven(sourceWidth), RoundToEven(sourceHeight));
+
+        double sourceAspect = sourceWidth / (double)sourceHeight;
+        double quadAspect = quadWidth / quadHeight;
+        double coverX = 0;
+        double coverY = 0;
+        double coverWidth = sourceWidth;
+        double coverHeight = sourceHeight;
+        if (sourceAspect > quadAspect)
         {
-            int cropHeight = RoundToEven((int)Math.Floor(width * 9.0 / 16.0));
-            int y = Math.Max(0, (height - cropHeight) / 2);
-            return $"crop={width}:{cropHeight}:0:{y}";
+            coverWidth = sourceHeight * quadAspect;
+            coverX = (sourceWidth - coverWidth) * 0.5;
+        }
+        else if (sourceAspect < quadAspect)
+        {
+            coverHeight = sourceWidth / quadAspect;
+            coverY = (sourceHeight - coverHeight) * 0.5;
         }
 
-        int cropWidth = RoundToEven((int)Math.Floor(height * 16.0 / 9.0));
-        int x = Math.Max(0, (width - cropWidth) / 2);
-        return $"crop={cropWidth}:{height}:{x}:0";
+        double visibleLeft = Math.Clamp((0 - quadLeft) / quadWidth, 0, 1);
+        double visibleTop = Math.Clamp((0 - quadTop) / quadHeight, 0, 1);
+        double visibleRight = Math.Clamp((scene.OutputWidth - quadLeft) / quadWidth, 0, 1);
+        double visibleBottom = Math.Clamp((scene.OutputHeight - quadTop) / quadHeight, 0, 1);
+
+        double cropX = coverX + (coverWidth * visibleLeft);
+        double cropY = coverY + (coverHeight * visibleTop);
+        double cropWidth = coverWidth * (visibleRight - visibleLeft);
+        double cropHeight = coverHeight * (visibleBottom - visibleTop);
+        return CreateEvenCropRectangle(sourceWidth, sourceHeight, cropX, cropY, cropWidth, cropHeight);
+    }
+
+    private static Rectangle CreateEvenCropRectangle(
+        int sourceWidth,
+        int sourceHeight,
+        double desiredX,
+        double desiredY,
+        double desiredWidth,
+        double desiredHeight)
+    {
+        int width = Math.Clamp(RoundToNearestEven(desiredWidth), 2, RoundToEven(sourceWidth));
+        int height = Math.Clamp(RoundToNearestEven(desiredHeight), 2, RoundToEven(sourceHeight));
+        int x = Math.Clamp(RoundToNearestEven(desiredX), 0, sourceWidth - width);
+        int y = Math.Clamp(RoundToNearestEven(desiredY), 0, sourceHeight - height);
+        x = RoundToEven(x);
+        y = RoundToEven(y);
+        return new Rectangle(x, y, width, height);
+    }
+
+    private static int RoundToNearestEven(double value)
+    {
+        int rounded = (int)Math.Round(value, MidpointRounding.AwayFromZero);
+        if ((rounded & 1) == 0)
+            return rounded;
+
+        int lower = rounded - 1;
+        int upper = rounded + 1;
+        return Math.Abs(value - lower) <= Math.Abs(upper - value) ? lower : upper;
     }
 
     private static async Task RunFfmpegAsync(string ffmpegPath, IReadOnlyList<string> args, ILogger logger)
@@ -999,8 +1066,8 @@ internal static class IntermediateAssetWriter
     private readonly record struct LegacyCutoutVideoLayout(int Width, int Height, int VisibleHeight, int AlphaHeight, int OutputWidth, int OutputHeight, double DurationSeconds);
     private readonly record struct UbiArtGestureFolderSource(string SourceRelativeFolder, string PackageRelativeFolder);
 
-    private static CookedFile[] GetVideoFiles(JustDanceUbiArtFileSystem fileSystem) =>
-        UbiArtVideoFileSelector.FindPreferredVideoFiles(fileSystem);
+    private static CookedFile? GetVideoFile(JustDanceUbiArtFileSystem fileSystem) =>
+        UbiArtVideoFileSelector.FindPreferredVideoFile(fileSystem);
 
     private static string EnsureFolder(string packageRoot, string relativeFolder, IFileSystem io)
     {
