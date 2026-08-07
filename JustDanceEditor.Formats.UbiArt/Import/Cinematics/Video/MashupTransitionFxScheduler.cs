@@ -3,8 +3,6 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Timeline;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using JustDanceEditor.Formats.UbiArt.Serialization.Legacy.Cinematics;
-
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Timeline;
 
@@ -110,7 +108,7 @@ internal static class MashupTransitionFxScheduler
         HashSet<uint> nameIds = [];
         foreach (TapeClip clip in localFxClips)
         {
-            if (!LegacyBinarySerializer.IsTypeId<CinematicFxClipBinary>(clip.TypeId) ||
+            if (clip.TypeId != CinematicClipIds.Fx ||
                 !CinematicFxIds.IsValid(clip.FxNameId))
             {
                 continue;

@@ -2,6 +2,8 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
+    <KevIncSourceReposRoot>$([MSBuild]::NormalizeDirectory('$(UserProfile)', 'source', 'repos'))</KevIncSourceReposRoot>
+    <KevIncReposRoot Condition="'$(KevIncReposRoot)' == '' And Exists('$(KevIncSourceReposRoot)KevInc.UbiArt')">$(KevIncSourceReposRoot)</KevIncReposRoot>
     <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
     <KevIncLocalTargetFramework Condition="'$(KevIncLocalTargetFramework)' == ''">net10.0</KevIncLocalTargetFramework>
     <AvaloniaVersion>12.1.1</AvaloniaVersion>
@@ -38,11 +40,12 @@
     <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
 
     <KevIncUbiArtRoot Condition="'$(KevIncUbiArtRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.UbiArt'))</KevIncUbiArtRoot>
-    <KevIncUbiArtPackageVersion>0.2.5</KevIncUbiArtPackageVersion>
+    <KevIncUbiArtPackageVersion>0.3.0</KevIncUbiArtPackageVersion>
     <KevIncUbiArtIpkProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Ipk\KevInc.UbiArt.Ipk.csproj</KevIncUbiArtIpkProject>
     <KevIncUbiArtFileSystemProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.FileSystem\KevInc.UbiArt.FileSystem.csproj</KevIncUbiArtFileSystemProject>
     <KevIncUbiArtRakiProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Raki\KevInc.UbiArt.Raki.csproj</KevIncUbiArtRakiProject>
     <KevIncUbiArtTextureProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Texture\KevInc.UbiArt.Texture.csproj</KevIncUbiArtTextureProject>
+    <KevIncUbiArtSerializationProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Serialization\KevInc.UbiArt.Serialization.csproj</KevIncUbiArtSerializationProject>
     <KevIncUbiArtCinematicsProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Cinematics\KevInc.UbiArt.Cinematics.csproj</KevIncUbiArtCinematicsProject>
   </PropertyGroup>
 

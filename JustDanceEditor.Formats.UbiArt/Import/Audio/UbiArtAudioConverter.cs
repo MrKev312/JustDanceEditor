@@ -18,6 +18,8 @@ using System.Globalization;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Audio;
 
+using static UbiArtAudioPrimitives;
+
 public sealed record UbiArtAudioClipSource(SoundSetClip Clip, CookedFile File);
 
 public sealed record UbiArtAudioConversionRequest(
@@ -343,34 +345,6 @@ public static class UbiArtAudioConverter
         yield return "-ac";
         yield return "2";
         yield return "pipe:1";
-    }
-
-    private static string? BuildAudioOffsetFilter(float offsetSeconds)
-    {
-        if (Math.Abs(offsetSeconds) <= 0.000001f)
-            return null;
-
-        if (offsetSeconds > 0)
-        {
-            int delayMs = (int)Math.Round(offsetSeconds * 1000, MidpointRounding.AwayFromZero);
-            return string.Create(CultureInfo.InvariantCulture, $"adelay={delayMs}:all=1");
-        }
-
-        return string.Create(CultureInfo.InvariantCulture, $"atrim=start={-offsetSeconds},asetpts=PTS-STARTPTS");
-    }
-
-    private static int IndexOf(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
-    {
-        if (needle.IsEmpty)
-            return 0;
-
-        for (int i = 0; i <= haystack.Length - needle.Length; i++)
-        {
-            if (haystack.Slice(i, needle.Length).SequenceEqual(needle))
-                return i;
-        }
-
-        return -1;
     }
 
     private static ISampleProvider MergeAudioStreams(

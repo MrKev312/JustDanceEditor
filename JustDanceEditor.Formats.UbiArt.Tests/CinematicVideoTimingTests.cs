@@ -77,6 +77,24 @@ public sealed class CinematicVideoTimingTests
     }
 
     [Fact]
+    public void GraphVideoFilter_ScalesSimpleFourByThreeFillTo1080p()
+    {
+        ProjectedQuad outputQuad = new(
+            new Vector2(0, 0),
+            new Vector2(1920, 0),
+            new Vector2(1920, 1080),
+            new Vector2(0, 1080),
+            new Rectangle(0, 0, 1920, 1080));
+        CinematicSingleVideoScene scene = new("world/maps/7rings/videoscoach/7rings.wii.webm", "video/videooutput", outputQuad, 1920, 1080);
+
+        Rectangle crop = IntermediateAssetWriter.CalculateGraphSourceCrop(512, 384, scene);
+        string filter = IntermediateAssetWriter.BuildGraphVideoFilter(512, 384, scene);
+
+        Assert.Equal(new Rectangle(0, 48, 512, 288), crop);
+        Assert.Equal("crop=512:288:0:48,scale=1920:1080,setsar=1", filter);
+    }
+
+    [Fact]
     public void SceneVideoMatch_AcceptsPlatformQualitySuffix()
     {
         CookedFile source = new("world/maps/DanDanDubiZuba/videoscoach/dandandubizuba.vp9.720.webm");

@@ -9,20 +9,12 @@ using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 
-namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
+using System.Diagnostics.CodeAnalysis;
 
-internal readonly record struct CinematicSingleVideoScene(
-    string SourceVideoPath,
-    string OutputActorKey,
-    ProjectedQuad OutputQuad,
-    int OutputWidth,
-    int OutputHeight);
+namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 
 internal static class CinematicPrerenderedVideoAnalyzer
 {
-    private const int AnalysisOutputWidth = 1920;
-    private const int AnalysisOutputHeight = 1080;
-
     public static bool TryAnalyzeSingleVideoScene(
         JustDanceUbiArtFileSystem fileSystem,
         CookedFile sourceFile,
@@ -39,257 +31,46 @@ internal static class CinematicPrerenderedVideoAnalyzer
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogDebug(ex, "Could not read cinematic scene graph for pre-rendered video fast path.");
+            logger.LogDebug(ex, "Could not read the scene graph; the pre-rendered video fast path is unsafe.");
             return false;
         }
 
-        if (scene.Actors.Count == 0)
-        {
-            logger.LogDebug("Pre-rendered video fast path rejected because the cinematic scene contains no actors.");
+        if (!TryReadTapeData(fileSystem, scene, outputDurationSeconds, logger, out CinematicTapeData? tapeData))
             return false;
-        }
 
-        CinematicTapeData tapeData = ReadTapeDataOrEmpty(fileSystem, scene, outputDurationSeconds, logger);
-        if (tapeData.SpawnActorClips.Count > 0 || HasMeaningfulPropertyClips(tapeData.PropertyClips))
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because cinematic tapes add scene changes: spawn clips={SpawnClipCount}, property clips={PropertyClipCount}.",
-                tapeData.SpawnActorClips.Count,
-                tapeData.PropertyClips.Count);
-            return false;
-        }
-
-        IReadOnlyList<CinematicActor> videoOutputs = CinematicActorBuilder.SelectVideoOutputActors(scene.Actors);
-        if (videoOutputs.Count != 1)
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because the scene contains {VideoOutputCount} video output actor(s).",
-                videoOutputs.Count);
-            return false;
-        }
-
-        CinematicActor videoOutput = videoOutputs[0];
-        CinematicActor[] visualActors = [.. scene.Actors.Where(IsSceneVisualActor)];
-        if (visualActors.Any(actor => !string.Equals(actor.Key, videoOutput.Key, StringComparison.OrdinalIgnoreCase)))
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because the scene contains {VisualActorCount} cinematic visual actor(s).",
-                visualActors.Length);
-            return false;
-        }
-
-        string[] pleoVideoPaths =
-        [
-            .. scene.Actors
-                .Select(actor => actor.PleoVideoPath)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(path => path!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-        ];
-        string sceneSourceVideoPath = NormalizeVideoPath(sourceFile.RelativePath);
-        if (pleoVideoPaths.Length > 1)
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because the scene references multiple Pleo videos: {PleoVideoPaths}.",
-                string.Join(", ", pleoVideoPaths));
-            return false;
-        }
-
-        if (pleoVideoPaths.Length == 1)
-        {
-            if (!MatchesSourceVideo(sourceFile, pleoVideoPaths[0]))
-            {
-                logger.LogDebug(
-                    "Pre-rendered video fast path rejected because scene Pleo video '{SceneVideoPath}' does not match selected source '{SourceVideoPath}'.",
-                    pleoVideoPaths[0],
-                    sourceFile.RelativePath);
-                return false;
-            }
-
-            sceneSourceVideoPath = pleoVideoPaths[0];
-        }
-
-        CinematicRenderRuntime runtime = new(scene);
-        ResolvedActorState state = CinematicActorStateResolver.ResolveActorState(
-            videoOutput,
-            runtime,
-            PropertyClipIndex.Empty,
-            frame: 0);
-        if (!IsPlainOpaqueVideoOutput(state))
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because output actor '{OutputActorKey}' is not a plain opaque axis-aligned video: alpha={Alpha}, tint={Tint}, angle={Angle}, rotation=({RotationX}, {RotationY}), flipped={XFlipped}.",
-                videoOutput.Key,
-                state.Alpha,
-                state.Tint,
-                state.Angle,
-                state.RotationX,
-                state.RotationY,
-                state.XFlipped);
-            return false;
-        }
-
-        ProjectedQuad quad = CinematicGeometryProjector.ProjectQuad(
-            CinematicGeometryProjector.CreatePleoVideoGeometry(),
-            state,
-            AnalysisOutputWidth,
-            AnalysisOutputHeight,
-            videoOutput.CustomAnchorX,
-            videoOutput.CustomAnchorY,
-            videoOutput.Anchor);
-        if (!CoversOutputFrame(quad, AnalysisOutputWidth, AnalysisOutputHeight))
-        {
-            logger.LogDebug(
-                "Pre-rendered video fast path rejected because output actor '{OutputActorKey}' projects to {OutputBounds} with corners TL={TopLeft}, TR={TopRight}, BR={BottomRight}, BL={BottomLeft}, which does not cover {OutputWidth}x{OutputHeight}. State position=({PositionX}, {PositionY}, {PositionZ}), scale=({ScaleX}, {ScaleY}, {ScaleZ}).",
-                videoOutput.Key,
-                quad.Bounds,
-                quad.TopLeft,
-                quad.TopRight,
-                quad.BottomRight,
-                quad.BottomLeft,
-                AnalysisOutputWidth,
-                AnalysisOutputHeight,
-                state.PositionX,
-                state.PositionY,
-                state.PositionZ,
-                state.ScaleX,
-                state.ScaleY,
-                state.ScaleZ);
-            return false;
-        }
-
-        logger.LogDebug(
-            "Pre-rendered video output actor '{OutputActorKey}' projects to {OutputBounds} for {OutputWidth}x{OutputHeight}. State position=({PositionX}, {PositionY}, {PositionZ}), scale=({ScaleX}, {ScaleY}, {ScaleZ}); scene video '{SceneVideoPath}', template '{TemplatePath}', material '{MaterialPath}', texture '{TexturePath}'.",
-            videoOutput.Key,
-            quad.Bounds,
-            AnalysisOutputWidth,
-            AnalysisOutputHeight,
-            state.PositionX,
-            state.PositionY,
-            state.PositionZ,
-            state.ScaleX,
-            state.ScaleY,
-            state.ScaleZ,
-            sceneSourceVideoPath,
-            videoOutput.TemplatePath,
-            videoOutput.MaterialPath,
-            videoOutput.TexturePath);
-
-        result = new CinematicSingleVideoScene(
-            sceneSourceVideoPath,
-            videoOutput.Key,
-            quad,
-            AnalysisOutputWidth,
-            AnalysisOutputHeight);
-        return true;
+        return CinematicSingleVideoSceneAnalyzer.TryAnalyze(
+            scene,
+            tapeData,
+            sourceFile.RelativePath,
+            CinematicJustDanceActorFilter.ShouldRenderActor,
+            logger,
+            out result);
     }
 
-    private static CinematicTapeData ReadTapeDataOrEmpty(
+    internal static bool MatchesSourceVideo(CookedFile sourceFile, string pleoVideoPath) =>
+        CinematicSingleVideoSceneAnalyzer.MatchesSourceVideo(sourceFile.RelativePath, pleoVideoPath);
+
+    private static bool TryReadTapeData(
         JustDanceUbiArtFileSystem fileSystem,
         CinematicScene scene,
         double outputDurationSeconds,
-        ILogger logger)
+        ILogger logger,
+        [NotNullWhen(true)] out CinematicTapeData? tapeData)
     {
         try
         {
-            return CinematicTapeReader.ReadCinematicTapes(
+            tapeData = CinematicTapeReader.ReadCinematicTapes(
                 fileSystem,
                 outputDurationSeconds,
                 logger,
                 scene: scene);
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogDebug(ex, "Could not read cinematic tapes while checking pre-rendered video fast path.");
-            return new CinematicTapeData(
-                PropertyClips: [],
-                SourceEvaluationClips: [],
-                SpawnActorClips: [],
-                RenderStartFrame: 0,
-                MaterialTimeStartFrame: 0);
+            logger.LogDebug(ex, "Could not read cinematic tapes; the pre-rendered video fast path is unsafe.");
+            tapeData = null;
+            return false;
         }
-    }
-
-    private static bool HasMeaningfulPropertyClips(IEnumerable<PropertyClip> propertyClips) =>
-        propertyClips.Any(clip =>
-            clip.State.Transform != null ||
-            clip.State.Material != null ||
-            clip.State.LayerEnable != null ||
-            clip.State.MaterialGraphic != null ||
-            clip.State.Pivot != null ||
-            clip.State.Animation != null);
-
-    private static bool IsSceneVisualActor(CinematicActor actor)
-    {
-        if (!CinematicJustDanceActorFilter.ShouldRenderActor(actor))
-            return false;
-
-        if (CinematicActorBuilder.IsVideoOutputActor(actor))
-            return true;
-
-        return actor.VisualComponentTypeId != null ||
-            actor.TexturePath != null ||
-            actor.TexturePaths.Count > 0 ||
-            actor.MaterialPath != null ||
-            actor.MeshPath != null ||
-            actor.ParticleTemplate != null ||
-            actor.FxTemplate != null ||
-            actor.AnimLightTemplate != null ||
-            actor.GeometryOverride != null ||
-            CinematicActorBuilder.UsesDynamicPleoTexture(actor) ||
-            CinematicActorBuilder.UsesImplicitPleoTargetMaterial(actor);
-    }
-
-    internal static bool MatchesSourceVideo(CookedFile sourceFile, string pleoVideoPath)
-    {
-        string normalizedSource = NormalizeVideoPath(sourceFile.RelativePath);
-        string normalizedPleo = NormalizeVideoPath(pleoVideoPath);
-        if (string.Equals(normalizedSource, normalizedPleo, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        string sourceName = Path.GetFileName(normalizedSource);
-        string pleoName = Path.GetFileName(normalizedPleo);
-        if (string.Equals(sourceName, pleoName, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        string logicalName = Path.GetFileNameWithoutExtension(pleoName);
-        return Path.GetExtension(sourceName).Equals(Path.GetExtension(pleoName), StringComparison.OrdinalIgnoreCase) &&
-            sourceName.StartsWith(logicalName + ".", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeVideoPath(string path)
-    {
-        string normalized = CinematicNames.NormalizePath(path);
-        return normalized.EndsWith(".ckd", StringComparison.OrdinalIgnoreCase)
-            ? normalized[..^4]
-            : normalized;
-    }
-
-    private static bool IsPlainOpaqueVideoOutput(ResolvedActorState state) =>
-        Math.Abs(state.Alpha - 1.0f) <= 0.001f &&
-        state.Tint.IsWhite &&
-        Math.Abs(state.Angle) <= 0.001f &&
-        Math.Abs(state.RotationX) <= 0.001f &&
-        Math.Abs(state.RotationY) <= 0.001f &&
-        !state.XFlipped;
-
-    private static bool CoversOutputFrame(ProjectedQuad quad, int outputWidth, int outputHeight)
-    {
-        if (quad.Bounds.IsEmpty)
-            return false;
-
-        const float edgeTolerance = 1.5f;
-        bool axisAligned =
-            Math.Abs(quad.TopLeft.Y - quad.TopRight.Y) <= edgeTolerance &&
-            Math.Abs(quad.BottomLeft.Y - quad.BottomRight.Y) <= edgeTolerance &&
-            Math.Abs(quad.TopLeft.X - quad.BottomLeft.X) <= edgeTolerance &&
-            Math.Abs(quad.TopRight.X - quad.BottomRight.X) <= edgeTolerance;
-        if (!axisAligned)
-            return false;
-
-        return quad.Bounds.Left <= 1 &&
-            quad.Bounds.Top <= 1 &&
-            quad.Bounds.Right >= outputWidth - 1 &&
-            quad.Bounds.Bottom >= outputHeight - 1;
     }
 }

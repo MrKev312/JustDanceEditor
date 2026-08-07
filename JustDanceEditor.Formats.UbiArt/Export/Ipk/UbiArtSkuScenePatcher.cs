@@ -7,6 +7,8 @@ using System.Xml.Linq;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
 
+using static UbiArtSkuBinaryPrimitives;
+
 internal sealed record UbiArtSkuScenePatchContext(
     string MapName,
     string MapNameLower,
@@ -448,121 +450,4 @@ internal static class UbiArtSkuScenePatcher
         return stream.ToArray();
     }
 
-    private static byte[] WithNullTerminator(byte[] bytes)
-    {
-        if (bytes.Length > 0 && bytes[^1] == 0)
-            return bytes;
-
-        byte[] result = new byte[bytes.Length + 1];
-        Buffer.BlockCopy(bytes, 0, result, 0, bytes.Length);
-        return result;
-    }
-
-    private static string ReadString(byte[] bytes, ref int offset)
-    {
-        int length = ReadInt32BigEndian(bytes, ref offset);
-        if (length < 0 || offset + length > bytes.Length)
-            throw new InvalidDataException("Invalid UbiArt string length.");
-
-        string value = Encoding.UTF8.GetString(bytes, offset, length).TrimEnd('\0');
-        offset += length;
-        return value;
-    }
-
-    private static void SkipString(byte[] bytes, ref int offset)
-    {
-        int length = ReadInt32BigEndian(bytes, ref offset);
-        if (length < 0 || offset + length > bytes.Length)
-            throw new InvalidDataException("Invalid UbiArt string length.");
-
-        offset += length;
-    }
-
-    private static int ReadInt32BigEndian(byte[] bytes, ref int offset)
-    {
-        uint value = ReadUInt32BigEndian(bytes, ref offset);
-        return unchecked((int)value);
-    }
-
-    private static uint ReadUInt32BigEndian(byte[] bytes, ref int offset)
-    {
-        if (offset < 0 || offset + 4 > bytes.Length)
-            throw new InvalidDataException("Unexpected end of binary skuscene.");
-
-        uint value =
-            ((uint)bytes[offset] << 24) |
-            ((uint)bytes[offset + 1] << 16) |
-            ((uint)bytes[offset + 2] << 8) |
-            bytes[offset + 3];
-        offset += 4;
-        return value;
-    }
-
-    private static void SkipUInt32BigEndian(byte[] bytes, ref int offset)
-    {
-        if (offset < 0 || offset + 4 > bytes.Length)
-            throw new InvalidDataException("Unexpected end of binary skuscene.");
-
-        offset += 4;
-    }
-
-    private static void WriteInt32BigEndian(byte[] bytes, int offset, int value)
-    {
-        bytes[offset] = unchecked((byte)(value >> 24));
-        bytes[offset + 1] = unchecked((byte)(value >> 16));
-        bytes[offset + 2] = unchecked((byte)(value >> 8));
-        bytes[offset + 3] = unchecked((byte)value);
-    }
-
-    private static uint ComputeLegacyResourceId(string resourcePath)
-        => Crc32.HashToUInt32(Encoding.UTF8.GetBytes(UbiArtIpkArchiveIndex.NormalizePath(resourcePath)));
-
-    private static bool IsZeroPadding(byte[] bytes, int offset, int count)
-    {
-        for (int index = 0; index < count; index++)
-        {
-            if (bytes[offset + index] != 0)
-                return false;
-        }
-
-        return true;
-    }
-
-    private static string GetFileName(string path)
-    {
-        string normalized = UbiArtIpkArchiveIndex.NormalizePath(path);
-        int slash = normalized.LastIndexOf('/');
-        return slash < 0 ? normalized : normalized[(slash + 1)..];
-    }
-
-    private static string GetFolder(string path)
-    {
-        string normalized = UbiArtIpkArchiveIndex.NormalizePath(path);
-        int slash = normalized.LastIndexOf('/');
-        return slash < 0 ? string.Empty : normalized[..(slash + 1)];
-    }
-
-    private sealed record LegacySkuActor(
-        string Name,
-        string FirstPathPart,
-        string SecondPathPart,
-        uint ResourceId,
-        int ResourceIdOffset)
-    {
-        public bool IsSongDescActor =>
-            FirstPathPart.Contains("songdesc", StringComparison.OrdinalIgnoreCase) ||
-            SecondPathPart.Contains("songdesc", StringComparison.OrdinalIgnoreCase);
-
-        public bool FolderFirstPath => LooksLikeFolder(FirstPathPart) && !LooksLikeFolder(SecondPathPart);
-
-        public string FullPath => FolderFirstPath
-            ? FirstPathPart + SecondPathPart
-            : SecondPathPart + FirstPathPart;
-
-        private static bool LooksLikeFolder(string value)
-            => value.EndsWith('/') || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
-    }
-
-    private static bool LooksLikeFolder(string value)
-        => value.EndsWith('/') || !Path.HasExtension(value.Replace("/", Path.DirectorySeparatorChar.ToString()));
 }

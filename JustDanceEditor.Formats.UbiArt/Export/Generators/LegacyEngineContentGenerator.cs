@@ -19,6 +19,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
     private static float F(uint bits) => BitConverter.Int32BitsToSingle(unchecked((int)bits));
     private LegacyPathContext Paths { get; } = CreatePathContext(EngineVersion);
     private bool UsesLegacyConvertedData => EngineVersion >= UbiArtEngineVersion.JD2016;
+    private LegacySceneContentBuilder SceneBuilder => new(EngineVersion, Platform, Paths);
 
     private static LegacyPathContext CreatePathContext(UbiArtEngineVersion engineVersion)
     {
@@ -286,7 +287,7 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
             }
 
             actors.Add(SubSceneDefinition(mapName, mapNameLower, suffix, folder, endValue));
-            actors.Add(EmbeddedSubSceneContent(package, mapNameLower, suffix));
+            actors.Add(SceneBuilder.EmbeddedSubSceneContent(package, mapNameLower, suffix));
         }
 
         return new LegacySceneFile(0x0004905D, actors, new LegacyMainSceneFooter(), scenes.Length);
@@ -299,48 +300,12 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
 
         return new LegacySceneFile(
             0x0004905D,
-            AudioSceneActors(package, mapName, mapNameLower));
+            SceneBuilder.AudioSceneActors(package, mapName, mapNameLower));
     }
 
-    public object GenerateTimelineScene(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
+    public object GenerateTimelineScene(IntermediateSongPackage package) => SceneBuilder.TimelineScene(package);
 
-        if (EngineVersion == UbiArtEngineVersion.JD2014)
-        {
-            return new LegacySceneFile(
-                0,
-                [
-                    new LegacyJd2014TimelineSceneActor(GenerateJd2014TimelineActorName(package), mapNameLower, Paths)
-                ]);
-        }
-
-        return new LegacySceneFile(
-            0x0003C5B6,
-            [
-                TimelineActor($"{mapName}_tml_dance", $"{mapNameLower}_tml_dance.tpl", mapNameLower, false),
-                TimelineActor($"{mapName}_tml_karaoke", $"{mapNameLower}_tml_karaoke.tpl", mapNameLower, true)
-            ]);
-    }
-
-    public object GenerateCinematicsScene(IntermediateSongPackage package)
-    {
-        string mapName = package.Metadata.MapName;
-        string mapNameLower = mapName.ToLowerInvariant();
-
-        return new LegacySceneFile(
-            0x0003C5B6,
-            [
-                ComponentActor(
-                $"{mapName}_MainSequence",
-                S(0, 1.0f, 1.0f, 0),
-                S(0, 0, 0, 0, 0),
-                $"{mapNameLower}_mainsequence.tpl",
-                Paths.MapSubFolder(mapNameLower, "cinematics"),
-                    S(0, 0, 1, 0x677B269Bu, Z(16)))
-            ]);
-    }
+    public object GenerateCinematicsScene(IntermediateSongPackage package) => SceneBuilder.CinematicsScene(package.Metadata.MapName);
 
     public object GenerateMenuArtScene(IntermediateSongPackage package)
     {
@@ -364,23 +329,13 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
 
         return new LegacySceneFile(
             0x0003C5B6,
-            actors.Select(actor => MenuArtSceneActor(mapName, mapNameLower, actor.Suffix, actor.Bounds0, actor.Bounds1)));
+            actors.Select(actor => SceneBuilder.MenuArtSceneActor(mapName, mapNameLower, actor.Suffix, actor.Bounds0, actor.Bounds1)));
     }
 
     public object GenerateAutodanceScene(IntermediateSongPackage package) =>
         GenerateSingleActorScene(package.Metadata.MapName, "autodance", "autodance");
 
-    public object GenerateGraphScene(string mapName) => new LegacySceneFile(
-        0x00026CD2,
-        [
-            ComponentActor(
-                "Camera_JD_Dummy",
-                S(10.0f, 1.0f, 1.0f, 0),
-                S(0, 0, 0, 0, 0),
-                "tpl_emptyactor.tpl",
-                "enginedata/actortemplates/",
-                Z(28))
-        ]);
+    public object GenerateGraphScene(string mapName) => SceneBuilder.GraphScene();
 
     public object GenerateVideoScene(string mapName)
     {
@@ -389,8 +344,8 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
         return new LegacySceneFile(
             0x0003C5B6,
             [
-                VideoScreenActor(mapNameLower),
-                VideoOutputActor()
+                SceneBuilder.VideoScreenActor(mapNameLower),
+                SceneBuilder.VideoOutputActor()
             ]);
     }
 
@@ -412,182 +367,6 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
 
     private object SongDescSceneActor(string mapName, string mapNameLower) =>
         new LegacySongDescSceneActor(mapName, mapNameLower, Paths, EngineVersion >= UbiArtEngineVersion.JD2016);
-
-    private object EmbeddedSubSceneContent(IntermediateSongPackage package, string mapNameLower, string suffix)
-    {
-        string mapName = package.Metadata.MapName;
-        int coachCount = package.Metadata.CoachCount;
-
-        return suffix switch
-        {
-            "_AUDIO" => new LegacySceneFile(
-                0x0004905D,
-                AudioSceneActors(package, mapName, mapNameLower)),
-            "_CINE" => new LegacySceneFile(
-                0x0004905D,
-                [
-                ComponentActor(
-                $"{mapName}_MainSequence",
-                S(0, 1.0f, 1.0f, 0),
-                S(0, 0, 0, 0, 0),
-                $"{mapNameLower}_mainsequence.tpl",
-                Paths.MapSubFolder(mapNameLower, "cinematics"),
-                S(2, 0, 1, 0x677B269Bu, Z(16)))
-                ]),
-            "_GRAPH" => new LegacySceneFile(
-                0x0004905D,
-                [
-                ComponentActor(
-                "Camera_JD_Dummy",
-                S(0, 1.0f, 1.0f, 0),
-                S(10.0f, 1.0f, 1.0f, 0, Z(3)),
-                "tpl_emptyactor.tpl",
-                "enginedata/actortemplates/",
-                S(2, 0, Z(21)))
-                ]),
-            "_TML" => new LegacySceneFile(
-                0x0004905D,
-                EngineVersion == UbiArtEngineVersion.JD2014
-                    ? [new LegacyJd2014TimelineSceneActor(GenerateJd2014TimelineActorName(package), mapNameLower, Paths)]
-                    : [
-                        TimelineActor($"{mapName}_tml_dance", $"{mapNameLower}_tml_dance.tpl", mapNameLower, false, 2),
-                    TimelineActor($"{mapName}_tml_karaoke", $"{mapNameLower}_tml_karaoke.tpl", mapNameLower, true, 2)
-                    ]),
-            "_VIDEO" => new LegacySceneFile(
-                0x0004905D,
-                [
-                VideoScreenActor(mapNameLower, true),
-            VideoOutputActor(true)
-                ]),
-            "_menuart" => GenerateEmbeddedMenuArtScene(mapName, mapNameLower, coachCount),
-            _ => S()
-        };
-    }
-
-    private object GenerateEmbeddedMenuArtScene(string mapName, string mapNameLower, int coachCount)
-    {
-        List<object> actors = [];
-
-        if (EngineVersion != UbiArtEngineVersion.JD2014)
-            actors.Add(CoverActor($"{mapName}_cover_generic", mapNameLower, $"{mapNameLower}_cover_generic.tga", CoverPreData(), null, false));
-
-        actors.Add(CoverActor($"{mapName}_cover_albumcoach", mapNameLower, $"{mapNameLower}_cover_albumcoach.tga", CoverPreData(), null, false));
-        actors.Add(CoverActor($"{mapName}_cover_albumbkg", mapNameLower, $"{mapNameLower}_cover_albumbkg.tga", CoverPreData(), null, false));
-
-        if (Platform == UbiArtPlatform.Revolution && EngineVersion != UbiArtEngineVersion.JD2014)
-            actors.Add(CoverActor($"{mapName}_map_bkg", mapNameLower, $"{mapNameLower}_map_bkg.tga", MapBackgroundPreData(), MapBackgroundPostData(), false));
-
-        for (int coachIndex = 1; coachIndex <= Math.Max(1, coachCount); coachIndex++)
-        {
-            actors.Add(CoverActor($"{mapName}_coach_{coachIndex}", mapNameLower, $"{mapNameLower}_coach_{coachIndex}.tga", CoachPreData(), CoachPostData(), true));
-        }
-
-        return new LegacySceneFile(0x0004905D, actors);
-    }
-
-    private static string GenerateJd2014TimelineActorName(IntermediateSongPackage package)
-    {
-        int pictogramCount = package.Pictograms.Clips.Count;
-        int handMotionCount = package.CoachTimelines.Sum(timeline => timeline.Clips.Count);
-        int fullBodyMotionCount = package.FullBodyCoachTimelines.Sum(timeline => timeline.Clips.Count);
-        int lyricCount = package.Lyrics.Clips.Count;
-
-        return $"timeline: {package.Metadata.MapName} ({pictogramCount} P ; {handMotionCount}/{fullBodyMotionCount} M ; {lyricCount} L)";
-    }
-
-    private IReadOnlyList<object> AudioSceneActors(IntermediateSongPackage package, string mapName, string mapNameLower)
-    {
-        List<object> actors =
-        [
-            MusicTrackActor(mapNameLower)
-        ];
-
-        if (EngineVersion != UbiArtEngineVersion.JD2014 && HasSoundSequence(package))
-            actors.Add(EmbeddedSubScene($"{mapName}_sequence", $"{mapNameLower}_sequence.tpl", Paths.MapSubFolder(mapNameLower, "audio")));
-
-        return actors;
-    }
-
-    private static bool HasSoundSequence(IntermediateSongPackage package)
-    {
-        bool hasIntroAmbience = package.TimelineStructure.StartBeat < 0 && package.TimelineStructure.Markers.Count > 1;
-        return hasIntroAmbience ||
-               package.Vibrations.Clips.Count > 0 ||
-               package.HideUserInterface.Clips.Count > 0;
-    }
-
-    private object MusicTrackActor(string mapNameLower) => ComponentActor(
-        "MusicTrack",
-        S(0, 1.0f, 1.0f, 0),
-        S(F(0x3F901F86u), F(0xBED6581Du), 0, 0, 0),
-        UsesLegacyConvertedData ? $"{mapNameLower}_musictrack.main_legacy.tpl" : $"{mapNameLower}_musictrack.tpl",
-        UsesLegacyConvertedData ? $"cache/legacyconverteddata/{mapNameLower}/audio/" : Paths.MapSubFolder(mapNameLower, "audio"),
-        S(2, 0, 1, 0x7A7C235Bu, 0x97CA628Bu, 0x358637BDu));
-
-    private object TimelineActor(string name, string tpl, string mapNameLower, bool karaoke, int tailPrefix = 0) => ComponentActor(
-        name,
-        S(0x358637BDu, 1.0f, 1.0f, 0),
-        S(0xBF9430D3u, F(0x3BC9C90Cu), 0, 0, 0),
-        tpl,
-        Paths.MapSubFolder(mapNameLower, "timeline"),
-        karaoke
-            ? S(tailPrefix, 0, 1, 0x231F27DEu, Z(16))
-            : S(tailPrefix, 0, 1, 0x231F27DEu));
-
-    private static object ComponentActor(
-        string name,
-        object preData,
-        object postData,
-        string tpl,
-        string path,
-        object tail) => new LegacyComponentActor(name, preData, postData, tpl, path, tail);
-
-    private static object EmbeddedSubScene(string name, string tpl, string path) =>
-        new LegacyEmbeddedSubSceneActor(name, tpl, path);
-
-    private object VideoScreenActor(string mapNameLower, bool embedded = false) => new LegacyVideoScreenActor(mapNameLower, Paths, embedded);
-
-    private object VideoOutputActor(bool embedded = false) => new LegacyVideoOutputActor(Paths, embedded);
-
-    private object MenuArtSceneActor(string mapName, string mapNameLower, string suffix, uint bounds0, uint bounds1) =>
-        new LegacyMenuArtSceneActor(mapName, mapNameLower, suffix, bounds0, bounds1, Paths);
-
-    private object CoverActor(
-        string name,
-        string mapNameLower,
-        string textureFile,
-        object preData,
-        object? specificPostData,
-        bool coachFooter) => new LegacyCoverActor(
-            name,
-            mapNameLower,
-            textureFile,
-            preData,
-            specificPostData ?? S(0x43850B35u, 0x4345A145u, 0, 0, 0, uint.MaxValue, 0),
-            coachFooter ? S(0, 0, 0x00060000, 0x00010000, 0x00020000, 0, 0, 0, Z(2)) : S(0, 0, 1),
-            Paths);
-
-    private static LegacyBinarySequence CoverPreData() => S(0, 0.3f, 0.3f, 0);
-    private static LegacyBinarySequence MapBackgroundPreData() => S(0, 256.0f, 128.0f, 0);
-    private static LegacyBinarySequence CoachPreData() => S(0, F(0x3E949689u), F(0x3E949689u), 0);
-
-    private static LegacyBinarySequence MapBackgroundPostData() => S(
-        0x44B9ED1Fu,
-        350.0f,
-        0,
-        0,
-        0,
-        uint.MaxValue,
-        0);
-
-    private static LegacyBinarySequence CoachPostData() => S(
-        0x4354C8D5u,
-        0x4425EB88u,
-        0,
-        0,
-        0,
-        uint.MaxValue,
-        0);
 
     private static LegacyAbgrColor ConvertColorToAbgr(string hexColor)
     {

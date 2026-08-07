@@ -2,7 +2,8 @@ using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Scene;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using JustDanceEditor.Formats.UbiArt.Serialization.Legacy.Cinematics;
+
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using KevInc.UbiArt.Cinematics.Core;
 
@@ -193,6 +194,32 @@ public sealed class LegacyBinarySerializerTests
         Assert.Equal(12.0f, pickable.PositionY);
         Assert.Equal(0.5f, pickable.Angle);
         Assert.Equal("world/maps/test/template.tpl", pickable.TemplatePath);
+    }
+
+    [Fact]
+    public void Deserialize_Jd2015CinematicPickable_RetainsDefaultEnableField()
+    {
+        using MemoryStream stream = new();
+        WriteUInt32(stream, LegacyBinarySerializer.GetTypeId<CinematicSubSceneActorBinary>());
+        WriteSingle(stream, 0.0f);
+        WriteSingle(stream, 1.0f);
+        WriteSingle(stream, 1.0f);
+        WriteUInt32(stream, 0);
+        WriteString(stream, "actor");
+        WriteUInt32(stream, uint.MaxValue);
+        WriteSingle(stream, 0.0f);
+        WriteSingle(stream, 0.0f);
+        WriteSingle(stream, 0.0f);
+        WritePathFileFirst(stream, "", "", 0);
+        WriteUInt32(stream, 0);
+        WritePathFileFirst(stream, "subscene.tpl", "enginedata/actortemplates/", 0x69934BE0);
+
+        CinematicSubSceneActorBinary actor = LegacyBinarySerializer.Deserialize<CinematicSubSceneActorBinary>(
+            stream.ToArray(),
+            new LegacyBinarySerializerContext(2015));
+
+        Assert.True(actor.Pickable.ToRuntime().DefaultEnabled);
+        Assert.Equal("enginedata/actortemplates/subscene.tpl", actor.Pickable.TemplatePath.FullPath);
     }
 
     [Fact]

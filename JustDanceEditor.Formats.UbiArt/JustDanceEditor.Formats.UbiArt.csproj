@@ -24,6 +24,7 @@
 		<PackageReference Include="KevInc.UbiArt.FileSystem" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Raki" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtRakiProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Texture" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtTextureProject)')" />
+		<PackageReference Include="KevInc.UbiArt.Serialization" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtSerializationProject)')" />
 		<PackageReference Include="KevInc.UbiArt.Cinematics" Version="$(KevIncUbiArtPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncUbiArtCinematicsProject)')" />
 	</ItemGroup>
 	<ItemGroup>
@@ -48,7 +49,8 @@
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtFileSystemProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtFileSystemProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtRakiProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtRakiProject)')" />
 		<KevIncLocalProjectReference Include="$(KevIncUbiArtTextureProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtTextureProject)')" />
-		<KevIncLocalProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtSerializationProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtSerializationProject)')" />
+		<ProjectReference Include="$(KevIncUbiArtCinematicsProject)" Condition="'$(UseLocalKevIncProjects)' == 'true' And Exists('$(KevIncUbiArtCinematicsProject)')" />
 		<ProjectReference Include="..\JustDanceEditor.Conversion.Abstractions\JustDanceEditor.Conversion.Abstractions.csproj" />
 		<ProjectReference Include="..\JustDanceEditor.Formats.JDI\JustDanceEditor.Formats.JDI.csproj" />
 	</ItemGroup>

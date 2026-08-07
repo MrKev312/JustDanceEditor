@@ -1,4 +1,4 @@
-using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Particles;
+using KevInc.UbiArt.Cinematics.Particles;
 
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Particles;

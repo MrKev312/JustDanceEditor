@@ -5,7 +5,7 @@ using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Layouts;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using JustDanceEditor.Formats.UbiArt.Serialization.Legacy.Cinematics;
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Materials;
@@ -273,6 +273,7 @@ public sealed class CinematicSceneReaderTests
             WriteFloat(stream, 1);
             WriteUInt(stream, 0);
             WriteString(stream, name);
+            WriteUInt(stream, 1);
             WriteFloat(stream, 0);
             WriteFloat(stream, 0);
             WriteFloat(stream, 0);
