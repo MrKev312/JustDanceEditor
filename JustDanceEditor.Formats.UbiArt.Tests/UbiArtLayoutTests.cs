@@ -23,8 +23,7 @@ public class UbiArtLayoutTests
         UbiArtEngineVersion version = UbiArtEngineVersion.JD2014;
 
         string path = layout.GetMapWorldFolder("/root", "SongName", style, version);
-        // Should be world/maps/jd5/SongName
-        Assert.Contains("jd5", path);
+        Assert.Equal(Path.Combine("world", "jd5", "SongName"), path);
     }
 
     [Fact]
@@ -302,7 +301,7 @@ public class UbiArtLayoutTests
             UbiArtAssetWriter writer = new(NullLogger<UbiArtAssetWriter>.Instance);
             await writer.ExportAsync(CreatePackage(), materializedRoot, outputRoot, UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2015);
 
-            string mapRoot = Path.Combine(outputRoot, "world", "maps", "jd2015", "song");
+            string mapRoot = Path.Combine(outputRoot, "world", "jd2015", "song");
             Assert.Equal(videoBytes, File.ReadAllBytes(Path.Combine(mapRoot, "videoscoach", "song.mp4")));
             Assert.Contains("song.mp4", await File.ReadAllTextAsync(Path.Combine(mapRoot, "videoscoach", "video_player_main.act"), TestContext.Current.CancellationToken));
             Assert.True(File.Exists(Path.Combine(mapRoot, "timeline", "moves", "wiiu", "move_a.msm")));

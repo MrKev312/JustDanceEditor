@@ -42,7 +42,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         _logger.LogInformation("Starting UbiArt -> JDI conversion from '{InputPath}'", ubiRequest.InputPath);
 
-        UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath);
+        UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath, ubiRequest.SongName);
         _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.Platform, profile.EngineVersion);
 
         JustDanceUbiArtFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);

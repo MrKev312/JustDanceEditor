@@ -378,6 +378,6 @@ public class MultipleSongsSelectionTests
 
     class DummyEngineDetector : IUbiArtEngineDetector
     {
-        public UbiArtVersionProfile Detect(string inputPath) => new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
+        public UbiArtVersionProfile Detect(string inputPath, string? mapName = null) => new(UbiArtPlatform.Uncooked, UbiArtEngineVersion.JD2022, new UbiArtLayoutResolver(), new LuaUbiArtSerializer());
     }
 }

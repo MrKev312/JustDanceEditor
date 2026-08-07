@@ -150,7 +150,7 @@ public sealed class UbiArtJdiFormatTests
 
     private sealed class FakeEngineDetector(UbiArtVersionProfile profile) : IUbiArtEngineDetector
     {
-        public UbiArtVersionProfile Detect(string inputPath) => profile;
+        public UbiArtVersionProfile Detect(string inputPath, string? mapName = null) => profile;
     }
 
     private sealed class ThrowingAudioConverter : IAudioConverter

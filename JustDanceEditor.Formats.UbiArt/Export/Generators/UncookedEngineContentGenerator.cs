@@ -653,8 +653,8 @@ public class UncookedEngineContentGenerator(UbiArtEngineVersion version = UbiArt
 
     private string GetMapRoot(string mapNameLower) => version switch
     {
-        UbiArtEngineVersion.JD2014 => $"world/maps/jd5/{mapNameLower}",
-        UbiArtEngineVersion.JD2015 => $"world/maps/jd2015/{mapNameLower}",
+        UbiArtEngineVersion.JD2014 => $"world/jd5/{mapNameLower}",
+        UbiArtEngineVersion.JD2015 => $"world/jd2015/{mapNameLower}",
         _ => $"world/maps/{mapNameLower}"
     };
 

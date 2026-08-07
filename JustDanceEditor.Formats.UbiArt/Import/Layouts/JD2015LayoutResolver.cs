@@ -6,9 +6,7 @@ public sealed class JD2015LayoutResolver : UbiArtLayoutResolver
 {
     public override string GetMapWorldFolder(string inputPath, string songName, UbiArtPlatform platform, UbiArtEngineVersion engineVersion)
     {
-        string engineFolder = platform == UbiArtPlatform.Uncooked
-            ? Path.Combine("world", "maps", "jd2015")
-            : Path.Combine("world", "jd2015");
+        string engineFolder = Path.Combine("world", "jd2015");
 
         if (string.IsNullOrWhiteSpace(songName))
             return engineFolder;

@@ -30,13 +30,15 @@ public class JustDanceUbiArtFileSystem : IDisposable
         ArgumentNullException.ThrowIfNull(io);
         ArgumentNullException.ThrowIfNull(tempManager);
 
-        _fileSystem = new(new UbiArtLayeredFileSystemOptions
-        {
-            InputPath = ConversionRequest.InputPath,
-            Platform = VersionProfile.Platform,
-            IsUncooked = ConversionRequest.Type == CookedType.Uncooked,
-            AdditionalSearchRoots = GetAdditionalSearchRoots(ConversionRequest.InputPath, VersionProfile.Platform, io)
-        }, new JdiUbiArtFileSystemAdapter(io));
+        _fileSystem = UbiArtLayeredFileSystemFactory.Create(
+            new UbiArtLayeredFileSystemOptions
+            {
+                InputPath = ConversionRequest.InputPath,
+                Platform = VersionProfile.Platform,
+                IsUncooked = ConversionRequest.Type == CookedType.Uncooked,
+                AdditionalSearchRoots = GetAdditionalSearchRoots(ConversionRequest.InputPath, VersionProfile.Platform, io)
+            },
+            new JdiUbiArtFileSystemAdapter(io));
 
         TempFolders = new(this, _logger, tempManager);
         InputFolders = new(this);

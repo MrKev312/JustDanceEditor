@@ -59,7 +59,7 @@ public sealed class UbiArtSongPreviewProvider(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        UbiArtVersionProfile profile = _engineDetector.Detect(request.InputPath);
+        UbiArtVersionProfile profile = _engineDetector.Detect(request.InputPath, request.SongName);
         UbiArtConversionRequest conversionRequest = new(request.InputPath, request.WorkingRoot, request.SongName)
         {
             Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked
