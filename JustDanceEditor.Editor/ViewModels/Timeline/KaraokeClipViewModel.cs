@@ -54,8 +54,7 @@ public class KaraokeClipViewModel : ClipViewModel
     {
         // If we have a parent timeline, subscribe to timeline PropertyChanged so
         // we can refresh rendering when the lyrics definition color changes.
-        if (_parentTimeline != null)
-            _parentTimeline.PropertyChanged += OnParentTimelinePropertyChanged;
+        _parentTimeline?.PropertyChanged += OnParentTimelinePropertyChanged;
     }
 
     protected override int GetDurationFrames() => KaraokeClip.Duration;
@@ -101,8 +100,8 @@ public class KaraokeClipViewModel : ClipViewModel
 
     public override void Dispose()
     {
-        if (_parentTimeline != null)
-            _parentTimeline.PropertyChanged -= OnParentTimelinePropertyChanged;
+        _parentTimeline?.PropertyChanged -= OnParentTimelinePropertyChanged;
         base.Dispose();
+        System.GC.SuppressFinalize(this);
     }
 }

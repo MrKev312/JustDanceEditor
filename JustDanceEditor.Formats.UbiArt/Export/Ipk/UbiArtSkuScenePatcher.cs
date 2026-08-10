@@ -5,10 +5,9 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
+using static KevInc.UbiArt.Serialization.UbiArtSkuBinaryPrimitives;
+
 namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
-
-using static UbiArtSkuBinaryPrimitives;
-
 internal sealed record UbiArtSkuScenePatchContext(
     string MapName,
     string MapNameLower,
@@ -449,5 +448,4 @@ internal static class UbiArtSkuScenePatcher
         writer.Write(0);
         return stream.ToArray();
     }
-
 }

@@ -19,10 +19,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
+using static JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video.CinematicRawVideoEncoder;
+
 namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
-
-using static CinematicRawVideoEncoder;
-
 internal static class CinematicVisualRenderer
 {
     public static async Task RenderCutoutVideoAsync(
@@ -267,6 +266,7 @@ internal static class CinematicVisualRenderer
                 PropertyClips = [.. tapeData.PropertyClips, .. additionalPropertyClips]
             };
         }
+
         scene = CinematicSceneReader.AddSpawnedActors(
             scene,
             fileSystem,
@@ -393,5 +393,4 @@ internal static class CinematicVisualRenderer
             markerIndex);
         return seconds;
     }
-
 }

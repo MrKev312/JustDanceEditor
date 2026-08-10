@@ -4,8 +4,8 @@ using JustDanceEditor.Formats.UbiArt.Import.Assets;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
-using KevInc.UbiArt.FileSystem;
 using KevInc.UbiArt.Cinematics.Serialization;
+using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
 

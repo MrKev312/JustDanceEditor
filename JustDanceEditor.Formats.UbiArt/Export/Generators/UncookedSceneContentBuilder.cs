@@ -120,7 +120,6 @@ internal sealed class UncookedSceneContentBuilder(UbiArtEngineVersion version, s
         return GenerateVideoScene(mapName);
     }
 
-
     public object GenerateVideoPlayerActor(string mapName, bool isPreview)
     {
         string mapNameLower = mapName.ToLowerInvariant();
@@ -169,7 +168,6 @@ internal sealed class UncookedSceneContentBuilder(UbiArtEngineVersion version, s
         };
         return LuaDocumentWriter.Write(Actor("enginedata/actortemplates/tpl_materialgraphiccomponent2d.tpl", component));
     }
-
 
     private string GetMapRoot(string mapNameLower) => version switch
     {
@@ -288,5 +286,4 @@ internal sealed class UncookedSceneContentBuilder(UbiArtEngineVersion version, s
                 new { activeSceneConfig = 0 },
                 UbiArtXmlDocumentWriter.Node("sceneConfigs", new { NAME = "JD_MapSceneConfig" }, config)));
     }
-
 }

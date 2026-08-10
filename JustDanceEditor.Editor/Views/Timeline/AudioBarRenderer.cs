@@ -134,8 +134,6 @@ internal sealed class AudioBarRenderer
             audioEndBeat,
             offset,
             ppb,
-            audioStartX,
-            audioEndX,
             request.TimelineStructure);
 
         int visibleStartX = Math.Max(0, (int)visiblePixelStart);
@@ -201,8 +199,6 @@ internal sealed class AudioBarRenderer
         double audioEndBeat,
         double offset,
         double ppb,
-        double audioStartX,
-        double audioEndX,
         TimelineStructureDocument? timelineStructure)
     {
         bool cacheStale = !ReferenceEquals(_envelopeCacheSamples, samples)

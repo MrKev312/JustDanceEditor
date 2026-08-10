@@ -31,7 +31,7 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithSingleCoach_CentersCoach()
     {
         // Arrange
-        using Image<Bgra32> coach = CreateTestCoachImage(1, Color.Red);
+        using Image<Bgra32> coach = CreateTestCoachImage(Color.Red);
         List<Image<Bgra32>> coaches = [coach];
 
         // Act
@@ -49,8 +49,8 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithTwoCoaches_PlacesSideBySide()
     {
         // Arrange
-        using Image<Bgra32> coach1 = CreateTestCoachImage(1, Color.Red);
-        using Image<Bgra32> coach2 = CreateTestCoachImage(2, Color.Blue);
+        using Image<Bgra32> coach1 = CreateTestCoachImage(Color.Red);
+        using Image<Bgra32> coach2 = CreateTestCoachImage(Color.Blue);
         List<Image<Bgra32>> coaches = [coach1, coach2];
 
         // Act
@@ -71,8 +71,8 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithTwoMaxHeightCoaches_MovesThemToNearTenPixelGap()
     {
         // Arrange
-        using Image<Bgra32> coach1 = CreateTestCoachImage(1, Color.Red);
-        using Image<Bgra32> coach2 = CreateTestCoachImage(2, Color.Blue);
+        using Image<Bgra32> coach1 = CreateTestCoachImage(Color.Red);
+        using Image<Bgra32> coach2 = CreateTestCoachImage(Color.Blue);
         List<Image<Bgra32>> coaches = [coach1, coach2];
 
         // Act
@@ -90,9 +90,9 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithThreeCoaches_PlacesTwoBackOneFront()
     {
         // Arrange
-        using Image<Bgra32> coach1 = CreateTestCoachImage(1, Color.Red);
-        using Image<Bgra32> coach2 = CreateTestCoachImage(2, Color.Green);
-        using Image<Bgra32> coach3 = CreateTestCoachImage(3, Color.Blue);
+        using Image<Bgra32> coach1 = CreateTestCoachImage(Color.Red);
+        using Image<Bgra32> coach2 = CreateTestCoachImage(Color.Green);
+        using Image<Bgra32> coach3 = CreateTestCoachImage(Color.Blue);
         List<Image<Bgra32>> coaches = [coach1, coach2, coach3];
 
         // Act
@@ -110,10 +110,10 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithFourCoaches_PlacesTwoBackTwoFront()
     {
         // Arrange
-        using Image<Bgra32> coach1 = CreateTestCoachImage(1, Color.Red);
-        using Image<Bgra32> coach2 = CreateTestCoachImage(2, Color.Green);
-        using Image<Bgra32> coach3 = CreateTestCoachImage(3, Color.Blue);
-        using Image<Bgra32> coach4 = CreateTestCoachImage(4, Color.Yellow);
+        using Image<Bgra32> coach1 = CreateTestCoachImage(Color.Red);
+        using Image<Bgra32> coach2 = CreateTestCoachImage(Color.Green);
+        using Image<Bgra32> coach3 = CreateTestCoachImage(Color.Blue);
+        using Image<Bgra32> coach4 = CreateTestCoachImage(Color.Yellow);
         List<Image<Bgra32>> coaches = [coach1, coach2, coach3, coach4];
 
         // Act
@@ -131,7 +131,7 @@ public class CoverComposerTests
     public void ComposeAlbumCoach_WithCustomSize_ReturnsCorrectSize()
     {
         // Arrange
-        using Image<Bgra32> coach = CreateTestCoachImage(1, Color.Red);
+        using Image<Bgra32> coach = CreateTestCoachImage(Color.Red);
         List<Image<Bgra32>> coaches = [coach];
         int customSize = 512;
 
@@ -278,7 +278,7 @@ public class CoverComposerTests
     {
         // Arrange
         using Image<Bgra32> background = new(2048, 1024, Color.Blue);
-        using Image<Bgra32> albumCoach = CreateTestCoachImage(1, Color.Red);
+        using Image<Bgra32> albumCoach = CreateTestCoachImage(Color.Red);
 
         // Act
         using Image<Bgra32> result = CoverComposer.ComposeSquareCover(background, albumCoach);
@@ -297,7 +297,7 @@ public class CoverComposerTests
     /// Creates a test coach image with a colored vertical stripe in the center
     /// to simulate a person-shaped image with transparent edges.
     /// </summary>
-    private static Image<Bgra32> CreateTestCoachImage(int coachId, Color color)
+    private static Image<Bgra32> CreateTestCoachImage(Color color)
     {
         Image<Bgra32> image = new(1024, 1024, new Bgra32(0, 0, 0, 0));
 

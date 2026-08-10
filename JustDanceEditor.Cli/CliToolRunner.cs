@@ -53,7 +53,7 @@ internal sealed class CliToolRunner(
         return merged;
     }
 
-    private PromptAnswerSet BuildToolAnswers(CliOptions options, ToolDefinition tool)
+    private static PromptAnswerSet BuildToolAnswers(CliOptions options, ToolDefinition tool)
     {
         PromptAnswerSet answers = new();
 

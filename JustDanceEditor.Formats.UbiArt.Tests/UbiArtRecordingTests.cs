@@ -51,6 +51,7 @@ public sealed class UbiArtRecordingTests
                     }
                 }, RecMotionFormat.Modern);
             }
+
             await File.WriteAllTextAsync(
                 Path.Combine(snippingFolder, "Moves2_TestMap_validation.csv"),
                 $";move_a;move_b\nMarker;24;48\n{recordingName};1;0\n",

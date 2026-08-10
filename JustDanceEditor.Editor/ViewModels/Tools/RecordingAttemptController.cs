@@ -230,15 +230,13 @@ internal sealed class RecordingAttemptController(
         _liveScoreSession = null;
         _scoringRunId++;
         _sampleClock.Reset();
-        if (timeline != null)
-            timeline.Playback.IsInteractionLocked = false;
+        timeline?.Playback.IsInteractionLocked = false;
 
         lock (_recordingGate)
         {
             MotionRecordingDocument? recording = _currentRecording;
             _currentRecording = null;
-            if (recording != null)
-                recording.TimelineEndSeconds = endSeconds;
+            recording?.TimelineEndSeconds = endSeconds;
             return recording;
         }
     }

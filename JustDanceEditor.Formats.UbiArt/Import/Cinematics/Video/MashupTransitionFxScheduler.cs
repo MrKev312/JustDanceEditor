@@ -3,6 +3,7 @@ using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Timeline;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
+
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Timeline;
 
@@ -76,7 +77,7 @@ internal static class MashupTransitionFxScheduler
             AddVisitPair(
                 visits,
                 fxTapePath,
-                MashupTiming.GetLocalTapeFrame(timelineStructure, block.AbsoluteStartBeat) -
+                MashupTiming.GetLocalTapeFrame(block.AbsoluteStartBeat) -
                     MashupTransitionTapeTiming.Jd2014TransitionLeadFrames,
                 fxTapeDurationFrames);
         }

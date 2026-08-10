@@ -1,5 +1,6 @@
 using JustDanceEditor.Formats.UbiArt.FileSystem;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
+
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Scene;
 using KevInc.UbiArt.Cinematics.Timeline;
@@ -148,6 +149,7 @@ internal static class CinematicSceneReader
                 "Loaded the JD-configured CMU stage '{StagePath}' without a local song video scene; the remix video is externally bound by the game.",
                 readStage ? stageMainScenePath : stageGraphScenePath);
         }
+
         return CinematicTemplateVisualResolver.ResolveTemplateVisuals(
             new CinematicScene([.. actors], viewFamily),
             fileSystem,

@@ -245,7 +245,7 @@ public sealed class TimelinePictogramGenerator(IPictogramImageGenerator? imageGe
         return string.IsNullOrWhiteSpace(result) ? "move" : result;
     }
 
-    private static string EnsureUniqueId(string baseId, ISet<string> usedIds)
+    private static string EnsureUniqueId(string baseId, HashSet<string> usedIds)
     {
         if (!usedIds.Contains(baseId))
             return baseId;
@@ -431,7 +431,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
         return new TextLayoutSelection(fontSize, wrappedLines, lineHeight);
     }
 
-    private static IEnumerable<string> WrapSingleLine(string line, double fontSize, double maxWidth)
+    private static List<string> WrapSingleLine(string line, double fontSize, double maxWidth)
     {
         string text = string.IsNullOrWhiteSpace(line) ? " " : line.Trim();
         string[] words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -475,7 +475,7 @@ public sealed class PictogramImageGenerator : IPictogramImageGenerator
         return finalized;
     }
 
-    private static IEnumerable<string> SplitLongToken(string token, double fontSize, double maxWidth)
+    private static List<string> SplitLongToken(string token, double fontSize, double maxWidth)
     {
         List<string> parts = [];
         string current = string.Empty;

@@ -236,3 +236,12 @@ dotnet_diagnostic.CS8604.severity = error
 
 # CS8625: Cannot convert null literal to non-nullable reference type.
 dotnet_diagnostic.CS8625.severity = error
+
+# These public instance properties are the legacy binary schema. The serializer
+# discovers them with BindingFlags.Instance; making constants static drops fields.
+[JustDanceEditor.Formats.UbiArt/Export/Generators/Legacy/LegacyBinary*Models.cs]
+dotnet_diagnostic.CA1822.severity = none
+
+# This Lua/XML actor model is likewise serialized through public instance members.
+[JustDanceEditor.Formats.UbiArt/Export/Generators/UbiArtMenuArtActorFile.cs]
+dotnet_diagnostic.CA1822.severity = none

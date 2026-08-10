@@ -65,7 +65,7 @@ internal static class CoverGeneratorOptionService
     }
 
     private static void AddCoverGeneratorOptions(
-        ICollection<CoverGeneratorItemViewModel> target,
+        List<CoverGeneratorItemViewModel> target,
         CoverVariant variant,
         CoverAssetInventory inventory,
         bool addStretchOption,
@@ -105,8 +105,8 @@ internal static class CoverGeneratorOptionService
         CoverGeneratorKind? previousKind)
     {
         return previousKind is null
-            ? generators.FirstOrDefault()
-            : generators.FirstOrDefault(generator => generator.Kind == previousKind) ?? generators.FirstOrDefault();
+            ? GetFirstOrDefault(generators)
+            : generators.FirstOrDefault(generator => generator.Kind == previousKind) ?? GetFirstOrDefault(generators);
     }
 
     private static CoverAssetSourceItemViewModel? SelectAssetSource(
@@ -114,9 +114,12 @@ internal static class CoverGeneratorOptionService
         CoverAssetSourceKind? previousKind)
     {
         return previousKind is null
-            ? sources.FirstOrDefault()
-            : sources.FirstOrDefault(source => source.Kind == previousKind) ?? sources.FirstOrDefault();
+            ? GetFirstOrDefault(sources)
+            : sources.FirstOrDefault(source => source.Kind == previousKind) ?? GetFirstOrDefault(sources);
     }
+
+    private static T? GetFirstOrDefault<T>(IReadOnlyList<T> items) where T : class
+        => items.Count > 0 ? items[0] : null;
 }
 
 internal sealed record CoverGeneratorOptionRequest(

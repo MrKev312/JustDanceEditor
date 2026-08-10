@@ -183,10 +183,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             _ = RefreshCurrentPreviewAssetAsync();
         };
 
-        SourcePage.SelectedSongUpdated += (_, _) =>
-        {
-            _ = LoadPreviewAsync(resetSongSelection: false);
-        };
+        SourcePage.SelectedSongUpdated += (_, _) => _ = LoadPreviewAsync(resetSongSelection: false);
 
         TargetPage.SelectedTargetUpdated += (_, _) =>
         {
@@ -194,10 +191,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             _ = RefreshCurrentPreviewAssetAsync();
         };
 
-        TargetPage.CoverOptionsUpdated += (_, _) =>
-        {
-            _ = RefreshCurrentPreviewAssetAsync();
-        };
+        TargetPage.CoverOptionsUpdated += (_, _) => _ = RefreshCurrentPreviewAssetAsync();
     }
 
     partial void OnIsLogDrawerVisibleChanged(bool value)

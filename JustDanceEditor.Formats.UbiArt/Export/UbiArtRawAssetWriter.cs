@@ -70,12 +70,20 @@ internal sealed class UbiArtRawAssetWriter(ILogger logger)
         plan.Context.IO.CreateDirectory(Path.GetDirectoryName(fullDestination) ?? throw new InvalidOperationException($"Could not determine the directory for '{fullDestination}'."));
         plan.Context.IO.Copy(sourceFile, fullDestination, true);
 
-        logger.LogInformation(
-            plan.Platform == UbiArtPlatform.Uncooked
-                ? "Video copied unchanged to {Path} (Input: {Input})"
-                : "Video exported to {Path} (Input: {Input})",
-            destinationFileName,
-            Path.GetFileName(sourceFile));
+        if (plan.Platform == UbiArtPlatform.Uncooked)
+        {
+            logger.LogInformation(
+                "Video copied unchanged to {Path} (Input: {Input})",
+                destinationFileName,
+                Path.GetFileName(sourceFile));
+        }
+        else
+        {
+            logger.LogInformation(
+                "Video exported to {Path} (Input: {Input})",
+                destinationFileName,
+                Path.GetFileName(sourceFile));
+        }
     }
 
     private static string? FindVideoSource(IFileSystem io, string videoSourceFolder, string mapNameLower)

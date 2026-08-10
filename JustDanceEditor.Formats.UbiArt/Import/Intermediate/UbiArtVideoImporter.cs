@@ -194,6 +194,7 @@ internal static class UbiArtVideoImporter
             if (fileSystem.GetFilePath(activationPath, out _))
                 activationVisits = [new KevInc.UbiArt.Cinematics.Timeline.TapeVisit(activationPath, 0)];
         }
+
         double duration = IntermediateVideoTiming.GetCinematicRenderDurationSeconds(
             package,
             videoInfo.Duration.TotalSeconds);

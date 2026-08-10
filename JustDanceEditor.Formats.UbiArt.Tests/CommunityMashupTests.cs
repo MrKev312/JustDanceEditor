@@ -1,5 +1,5 @@
-using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
+using JustDanceEditor.Formats.UbiArt.Model;
 
 using KevInc.UbiArt.Cinematics.Core;
 

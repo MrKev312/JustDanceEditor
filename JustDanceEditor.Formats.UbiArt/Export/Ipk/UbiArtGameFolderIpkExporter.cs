@@ -6,10 +6,9 @@ using KevInc.UbiArt.Ipk;
 
 using Microsoft.Extensions.Logging;
 
+using static JustDanceEditor.Formats.UbiArt.Export.Ipk.UbiArtIpkOwnershipIndex;
+
 namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
-
-using static UbiArtIpkOwnershipIndex;
-
 internal sealed class UbiArtGameFolderIpkExporter
 {
     private readonly ILogger _logger;

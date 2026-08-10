@@ -185,10 +185,8 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     {
         previewRunner = new(previewAnalyzer);
         this.editorSettings = editorSettings;
-        if (editorSettings != null)
-            editorSettings.PropertyChanged += EditorSettings_PropertyChanged;
-        if (TimelineContext != null)
-            TimelineContext.PropertyChanged += TimelineContext_PropertyChanged;
+        editorSettings?.PropertyChanged += EditorSettings_PropertyChanged;
+        TimelineContext?.PropertyChanged += TimelineContext_PropertyChanged;
     }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline) => RefreshSelection();
@@ -401,6 +399,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
         {
             applyingDraft = false;
         }
+
         SyncGuidedControls();
     }
 
@@ -412,6 +411,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             SetParameterValue(parameter, clamped);
             return;
         }
+
         if (!applyingDraft)
         {
             SelectedParameter = parameter;
@@ -460,6 +460,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             AutoCorrelationSensitivity = sensitivity;
             return;
         }
+
         applyingDraft = true;
         AutoCorrelationThresholdDefault = false;
         IgnoreAutocorrelation = sensitivity <= 0.000001;
@@ -478,6 +479,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             DirectionSensitivity = sensitivity;
             return;
         }
+
         applyingDraft = true;
         DirectionImpactFactorDefault = false;
         IgnoreDirection = sensitivity <= 0.000001;
@@ -528,6 +530,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
                 ? ScoringAdjustmentPreviewAnalyzer.ProjectThresholdSweep(preview.Samples, draft, SelectedParameter, PreviewScoringProfile)
                 : preview.Sweeps.GetValueOrDefault(SelectedParameter);
         }
+
         SweepSeries = ProjectSweepForDisplay(SelectedParameter, rawSeries ?? []);
         SelectedParameterGuidanceText = ScoringAdjustmentPresentation.ParameterGuidance(SelectedParameter);
         PointCountText = preview == null
@@ -584,6 +587,7 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
             RecommendedShakeSensitivityText = $"Shake sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.AutoCorrelationSensitivity)}";
             RecommendedDirectionSensitivityText = $"Direction sensitivity: {ScoringAdjustmentPresentation.Percent(recommendation.DirectionSensitivity)}";
         }
+
         ApplyAutoTuneCommand.NotifyCanExecuteChanged();
     }
 
@@ -700,10 +704,9 @@ public partial class ScoringAdjustmentToolViewModel : TimelineToolViewModel, IDi
     {
         previewRunner.Dispose();
         IsBusy = false;
-        if (editorSettings != null)
-            editorSettings.PropertyChanged -= EditorSettings_PropertyChanged;
-        if (TimelineContext != null)
-            TimelineContext.PropertyChanged -= TimelineContext_PropertyChanged;
+        editorSettings?.PropertyChanged -= EditorSettings_PropertyChanged;
+        TimelineContext?.PropertyChanged -= TimelineContext_PropertyChanged;
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

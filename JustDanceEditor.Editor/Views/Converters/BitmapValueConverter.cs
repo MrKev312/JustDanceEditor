@@ -65,7 +65,7 @@ public class BitmapValueConverter : IValueConverter
         return null;
     }
 
-    private static Bitmap CreateRedBitmap(int width, int height)
+    private static RenderTargetBitmap CreateRedBitmap(int width, int height)
     {
         RenderTargetBitmap bmp = new(new PixelSize(width, height));
         using (DrawingContext ctx = bmp.CreateDrawingContext())

@@ -31,6 +31,7 @@ internal sealed class RecordingLibraryService(IMotionRecordingRepository reposit
                 recording.MapName = timeline.Package.Metadata.MapName;
             paths.Add(await repository.SaveAsync(timeline.RootPath, recording));
         }
+
         return paths;
     }
 

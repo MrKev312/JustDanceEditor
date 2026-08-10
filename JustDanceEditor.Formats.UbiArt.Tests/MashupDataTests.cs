@@ -57,7 +57,7 @@ public sealed class MashupDataTests
             Markers = [0, 48000, 96000, 144000, 192000]
         };
 
-        Assert.Equal(48, MashupTiming.GetLocalTapeFrame(timeline, absoluteBeat: 2));
+        Assert.Equal(48, MashupTiming.GetLocalTapeFrame(absoluteBeat: 2));
         AssertClose(2.0, MashupTiming.GetOutputSeconds(timeline, absoluteBeat: 2));
     }
 
@@ -160,8 +160,9 @@ public sealed class MashupDataTests
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[1].Path);
         Assert.Equal(144, fxVisits[1].TimeOffsetFrames);
         Assert.Null(fxVisits[1].DurationFrames);
-        Assert.Contains("x_lines_2x5", fxVisits[1].TargetFilter!.ExcludeKeyContains);
-        Assert.Contains("x_mashup_godrayscreen", fxVisits[1].TargetFilter.ExcludeKeyContains);
+        TapeVisitTargetFilter secondFxFilter = Assert.IsType<TapeVisitTargetFilter>(fxVisits[1].TargetFilter);
+        Assert.Contains("x_lines_2x5", secondFxFilter.ExcludeKeyContains);
+        Assert.Contains("x_mashup_godrayscreen", secondFxFilter.ExcludeKeyContains);
         Assert.EndsWith(Path.Combine("cinematics", "fx.tape"), fxVisits[2].Path);
         Assert.Equal(528, fxVisits[2].TimeOffsetFrames);
         Assert.Null(fxVisits[2].DurationFrames);
@@ -171,6 +172,8 @@ public sealed class MashupDataTests
         Assert.Null(fxVisits[3].DurationFrames);
         Assert.Contains("x_lines_2x5", fxVisits[3].TargetFilter!.ExcludeKeyContains);
     }
+
+    private static readonly int[] ExpectedCoachMoveOffsets = [144, 912];
 
     [Fact]
     public void MashupTransitionVisitsSkipConsecutiveLegacyBlocks()
@@ -222,7 +225,7 @@ public sealed class MashupDataTests
                 .Where(visit => Path.GetFileName(visit.Path).StartsWith("coach_move_", StringComparison.OrdinalIgnoreCase))
                 .Select(visit => visit.TimeOffsetFrames)
         ];
-        Assert.Equal(new[] { 144, 912 }, coachMoveOffsets);
+        Assert.Equal(ExpectedCoachMoveOffsets, coachMoveOffsets);
         Assert.DoesNotContain(visits, visit => visit.TimeOffsetFrames == 528);
 
         Assert.Equal(4, fxVisits.Count);

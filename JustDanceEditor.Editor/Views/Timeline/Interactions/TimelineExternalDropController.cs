@@ -138,6 +138,7 @@ internal sealed class TimelineExternalDropController(
             originalBackground = panel.Background;
             highlighting = true;
         }
+
         panel.Background = new SolidColorBrush(valid.Value ? Colors.ForestGreen : Colors.DarkRed) { Opacity = 0.2 };
         panel.Cursor = new Cursor(valid.Value ? StandardCursorType.Hand : StandardCursorType.No);
     }

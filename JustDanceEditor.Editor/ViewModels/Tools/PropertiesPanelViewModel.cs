@@ -37,10 +37,10 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel, IDisposabl
 
     public override void Dispose()
     {
-        if (TimelineContext != null)
-            TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        TimelineContext?.PropertyChanged -= Context_PropertyChanged;
         ClearProperties();
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void Context_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -67,9 +67,11 @@ public partial class PropertiesToolViewModel : TimelineToolViewModel, IDisposabl
                 PropertyItemViewModel property = new(
                     [.. item.Targets],
                     item.Descriptor,
-                    timeline.UndoService);
-                property.Options = item.Options;
-                property.IsEditable = item.IsEditable;
+                    timeline.UndoService)
+                {
+                    Options = item.Options,
+                    IsEditable = item.IsEditable
+                };
                 category.Properties.Add(property);
             }
 

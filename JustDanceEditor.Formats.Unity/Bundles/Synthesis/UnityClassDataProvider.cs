@@ -6,10 +6,7 @@ internal static class UnityClassDataProvider
 
     public static Stream OpenClassPackageStream()
     {
-        Stream? stream = typeof(UnityClassDataProvider).Assembly.GetManifestResourceStream(ClassDataResourceName);
-        if (stream == null)
-            throw new FileNotFoundException($"Embedded Unity class database resource '{ClassDataResourceName}' was not found.");
-
+        Stream? stream = typeof(UnityClassDataProvider).Assembly.GetManifestResourceStream(ClassDataResourceName) ?? throw new FileNotFoundException($"Embedded Unity class database resource '{ClassDataResourceName}' was not found.");
         return stream;
     }
 }

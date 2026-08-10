@@ -18,7 +18,7 @@ public class DefaultMediaProcessorTests
             FadeOutDuration = TimeSpan.FromSeconds(1)
         };
 
-        string[] inputArguments = [.. DefaultMediaProcessor.BuildAudioInputArguments(request)];
+        string[] inputArguments = [.. DefaultMediaProcessor.BuildAudioInputArguments()];
         string[] encodeArguments = [.. DefaultMediaProcessor.BuildAudioEncodeArguments(request)];
 
         Assert.Empty(inputArguments);
@@ -52,7 +52,7 @@ public class DefaultMediaProcessorTests
             Duration = TimeSpan.FromSeconds(5)
         };
 
-        string[] inputArguments = [.. DefaultMediaProcessor.BuildAudioInputArguments(request)];
+        string[] inputArguments = [.. DefaultMediaProcessor.BuildAudioInputArguments()];
         string[] encodeArguments = [.. DefaultMediaProcessor.BuildAudioEncodeArguments(request)];
 
         Assert.Empty(inputArguments);

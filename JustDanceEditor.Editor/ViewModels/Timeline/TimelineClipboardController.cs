@@ -213,11 +213,8 @@ internal sealed class TimelineClipboardController(TimelineEditorViewModel timeli
         foreach (ClipViewModel clip in timeline.Tracks.SelectMany(t => t.Clips))
             clip.IsSelected = selectedSet.Contains(clip);
 
-        if (timeline.Services.TimelineContext != null)
-        {
-            timeline.Services.TimelineContext.SelectedObjects =
+        timeline.Services.TimelineContext?.SelectedObjects =
                 [.. timeline.Tracks.SelectMany(t => t.Clips).Where(c => c.IsSelected).Cast<object>()];
-        }
     }
 
     private ClipViewModel ClampAndCreate(ClipViewModel clip, double desiredStartBeat)

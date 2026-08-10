@@ -591,8 +591,10 @@ public class JDNextPCJdiFormatTests
 
         public async Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default)
         {
-            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken));
-            output.Position = 0;
+            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken))
+            {
+                Position = 0
+            };
             return output;
         }
 
@@ -642,8 +644,10 @@ public class JDNextPCJdiFormatTests
         public async Task<MemoryStream> EncodeAudioToMemoryAsync(JdiAudioEncodeRequest request, CancellationToken cancellationToken = default)
         {
             Calls.Add(new MediaCall(request.SourcePath, $"memory:{request.OutputFormat ?? request.Codec}", [], AudioRequest: request));
-            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken));
-            output.Position = 0;
+            MemoryStream output = new(await File.ReadAllBytesAsync(request.SourcePath, cancellationToken))
+            {
+                Position = 0
+            };
             return output;
         }
 

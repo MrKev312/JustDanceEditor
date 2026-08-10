@@ -102,7 +102,7 @@ public sealed class UbiArtAssetWriter(
         logger.LogInformation("Export completed.");
     }
 
-    private static IUbiArtLayout CreateDefaultLayout(UbiArtEngineVersion engineVersion)
+    private static UbiArtLayoutResolver CreateDefaultLayout(UbiArtEngineVersion engineVersion)
         => engineVersion switch
         {
             UbiArtEngineVersion.JD2014 => new JD2014LayoutResolver(),

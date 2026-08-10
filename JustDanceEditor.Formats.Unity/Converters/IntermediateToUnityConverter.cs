@@ -226,7 +226,7 @@ internal sealed class IntermediateToUnityConverter
         }
     }
 
-    private async Task<string?> SelectBestOfflineCacheVideoSourceAsync(string[] sources)
+    private static async Task<string?> SelectBestOfflineCacheVideoSourceAsync(string[] sources)
     {
         if (sources.Length == 0)
             return null;

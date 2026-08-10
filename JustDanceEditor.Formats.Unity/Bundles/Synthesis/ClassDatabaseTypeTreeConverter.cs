@@ -1,7 +1,7 @@
-using System.Text;
-
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+
+using System.Text;
 
 namespace JustDanceEditor.Formats.Unity.Bundles.Synthesis;
 

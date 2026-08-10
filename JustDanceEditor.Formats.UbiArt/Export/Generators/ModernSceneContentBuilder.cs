@@ -153,8 +153,6 @@ internal sealed class ModernSceneContentBuilder
             pleo));
     }
 
-
-
     public object GenerateVideoPlayerActor(string mapName, bool isPreview)
     {
         return new UbiArtVideoPlayerActorFile(mapName, isPreview);
@@ -298,6 +296,5 @@ internal sealed class ModernSceneContentBuilder
                 new { activeSceneConfig = 0 },
                 UbiArtXmlDocumentWriter.Node("sceneConfigs", new { NAME = "JD_MapSceneConfig" }, mapConfig)));
     }
-
 }
 

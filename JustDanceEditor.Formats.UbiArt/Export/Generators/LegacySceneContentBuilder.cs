@@ -125,7 +125,7 @@ internal sealed class LegacySceneContentBuilder(
     public object MenuArtSceneActor(string mapName, string mapNameLower, string suffix, uint bounds0, uint bounds1) =>
         new LegacyMenuArtSceneActor(mapName, mapNameLower, suffix, bounds0, bounds1, paths);
 
-    private object GenerateEmbeddedMenuArtScene(string mapName, string mapNameLower, int coachCount)
+    private LegacySceneFile GenerateEmbeddedMenuArtScene(string mapName, string mapNameLower, int coachCount)
     {
         List<object> actors = [];
         if (engineVersion != UbiArtEngineVersion.JD2014)
@@ -143,7 +143,7 @@ internal sealed class LegacySceneContentBuilder(
         return new LegacySceneFile(0x0004905D, actors);
     }
 
-    private object MusicTrackActor(string mapNameLower) => ComponentActor(
+    private LegacyComponentActor MusicTrackActor(string mapNameLower) => ComponentActor(
         "MusicTrack",
         S(0, 1.0f, 1.0f, 0),
         S(F(0x3F901F86u), F(0xBED6581Du), 0, 0, 0),
@@ -151,7 +151,7 @@ internal sealed class LegacySceneContentBuilder(
         UsesLegacyConvertedData ? $"cache/legacyconverteddata/{mapNameLower}/audio/" : paths.MapSubFolder(mapNameLower, "audio"),
         S(2, 0, 1, 0x7A7C235Bu, 0x97CA628Bu, 0x358637BDu));
 
-    private object TimelineActor(string name, string tpl, string mapNameLower, bool karaoke, int tailPrefix) => ComponentActor(
+    private LegacyComponentActor TimelineActor(string name, string tpl, string mapNameLower, bool karaoke, int tailPrefix) => ComponentActor(
         name,
         S(0x358637BDu, 1.0f, 1.0f, 0),
         S(0xBF9430D3u, F(0x3BC9C90Cu), 0, 0, 0),
@@ -159,16 +159,16 @@ internal sealed class LegacySceneContentBuilder(
         paths.MapSubFolder(mapNameLower, "timeline"),
         karaoke ? S(tailPrefix, 0, 1, 0x231F27DEu, Z(16)) : S(tailPrefix, 0, 1, 0x231F27DEu));
 
-    private static object ComponentActor(string name, object preData, object postData, string tpl, string path, object tail) =>
-        new LegacyComponentActor(name, preData, postData, tpl, path, tail);
+    private static LegacyComponentActor ComponentActor(string name, object preData, object postData, string tpl, string path, object tail) =>
+        new(name, preData, postData, tpl, path, tail);
 
-    private object CoverActor(
+    private LegacyCoverActor CoverActor(
         string name,
         string mapNameLower,
         string textureFile,
         object preData,
         object? specificPostData,
-        bool coachFooter) => new LegacyCoverActor(
+        bool coachFooter) => new(
             name,
             mapNameLower,
             textureFile,

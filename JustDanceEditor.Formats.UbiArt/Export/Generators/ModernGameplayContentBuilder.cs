@@ -291,6 +291,5 @@ internal sealed class ModernGameplayContentBuilder(UbiArtEngineVersion EngineVer
             Convert.ToInt32(hex.Substring(4, 2), 16) / 255.0
         ];
     }
-
 }
 

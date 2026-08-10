@@ -267,7 +267,7 @@ public static class JdiVideoConverter
             await RunTwoPassEncodingAsync(sourceVideo, targetPath, filter, codecArgs, start, duration, logger, token);
         });
 
-        WriteManifest(scratchFolder, profiles, type, logger);
+        WriteManifest(scratchFolder, profiles, type);
         logger.LogInformation("{Type} generation complete.", type);
     }
 
@@ -523,7 +523,7 @@ public static class JdiVideoConverter
         return codec;
     }
 
-    private static void WriteManifest(string folder, VideoQualityProfile[] profiles, string type, ILogger log)
+    private static void WriteManifest(string folder, VideoQualityProfile[] profiles, string type)
     {
         IEnumerable<string> lines = profiles.Select(p => $"{p.FileName}|{p.Width}x{p.Height}|{p.Bitrate}|{p.MaxBitrate}|{p.BufferSize}");
         File.WriteAllLines(Path.Combine(folder, $"manifest_{type}.txt"), lines);

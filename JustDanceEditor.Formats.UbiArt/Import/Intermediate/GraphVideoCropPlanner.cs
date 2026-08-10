@@ -68,19 +68,35 @@ internal static class GraphVideoCropPlanner
         File.Move(tempOutput, destination);
 
         bool scaledTo1080p = ShouldScaleSimpleStretchTo1080p(videoInfo.Width, videoInfo.Height, crop);
-        logger.LogInformation(
-            scaledTo1080p
-                ? "Applied graph-authored 16:9 fill crop to pre-rendered single-video scene '{Video}', from {SourceWidth}x{SourceHeight} to {CropWidth}x{CropHeight} at ({CropX}, {CropY}), then scaled to 1920x1080; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'."
-                : "Applied graph-authored native crop to pre-rendered single-video scene '{Video}', from {SourceWidth}x{SourceHeight} to {CropWidth}x{CropHeight} at ({CropX}, {CropY}), without scaling; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
-            Path.GetFileName(sourceFile.RelativePath),
-            videoInfo.Width,
-            videoInfo.Height,
-            crop.Width,
-            crop.Height,
-            crop.X,
-            crop.Y,
-            scene.SourceVideoPath,
-            scene.OutputActorKey);
+        if (scaledTo1080p)
+        {
+            logger.LogInformation(
+                "Applied graph-authored 16:9 fill crop to pre-rendered single-video scene '{Video}', from {SourceWidth}x{SourceHeight} to {CropWidth}x{CropHeight} at ({CropX}, {CropY}), then scaled to 1920x1080; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
+                Path.GetFileName(sourceFile.RelativePath),
+                videoInfo.Width,
+                videoInfo.Height,
+                crop.Width,
+                crop.Height,
+                crop.X,
+                crop.Y,
+                scene.SourceVideoPath,
+                scene.OutputActorKey);
+        }
+        else
+        {
+            logger.LogInformation(
+                "Applied graph-authored native crop to pre-rendered single-video scene '{Video}', from {SourceWidth}x{SourceHeight} to {CropWidth}x{CropHeight} at ({CropX}, {CropY}), without scaling; scene source '{SceneVideoPath}', output actor '{OutputActorKey}'.",
+                Path.GetFileName(sourceFile.RelativePath),
+                videoInfo.Width,
+                videoInfo.Height,
+                crop.Width,
+                crop.Height,
+                crop.X,
+                crop.Y,
+                scene.SourceVideoPath,
+                scene.OutputActorKey);
+        }
+
         return GraphVideoImportResult.AppliedTransform;
     }
 
@@ -119,8 +135,8 @@ internal static class GraphVideoCropPlanner
         return CreateEvenCropRectangle(
             sourceWidth,
             sourceHeight,
-            coverX + coverWidth * visibleLeft,
-            coverY + coverHeight * visibleTop,
+            coverX + (coverWidth * visibleLeft),
+            coverY + (coverHeight * visibleTop),
             coverWidth * (visibleRight - visibleLeft),
             coverHeight * (visibleBottom - visibleTop));
     }

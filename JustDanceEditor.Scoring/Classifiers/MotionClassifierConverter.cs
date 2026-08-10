@@ -173,6 +173,7 @@ public static class MotionClassifierConverter
                 result[targetOffset + targetPart] = (float)value;
             }
         }
+
         return result;
     }
 
@@ -192,9 +193,11 @@ public static class MotionClassifierConverter
                     double sourceVariance = invertedVariance > 0.0 ? 1.0 / invertedVariance : VarianceFloor;
                     variance += weight * weight * sourceVariance;
                 }
+
                 result[targetOffset + targetPart] = (float)(1.0 / Math.Max(variance, VarianceFloor));
             }
         }
+
         return result;
     }
 

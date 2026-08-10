@@ -361,7 +361,7 @@ public static class CoverComposer
             {
                 BannerColorMode.Main => (color1A, color1B),
                 BannerColorMode.Alternate => (color2A, color2B),
-                BannerColorMode.Gradient => GetGradientColors(y, height, color1A, color1B, color2A, color2B),
+                BannerColorMode.Gradient => GetGradientColors(y, height, color1A, color1B),
                 _ => (color1A, color1B)
             };
 
@@ -395,9 +395,7 @@ public static class CoverComposer
         int y,
         int height,
         Bgra32 color1A,
-        Bgra32 color1B,
-        Bgra32 color2A,
-        Bgra32 color2B)
+        Bgra32 color1B)
     {
         float position = (float)y / height;
         Bgra32 white = new(255, 255, 255, 255);
@@ -645,7 +643,6 @@ public static class CoverComposer
                 ref xRight,
                 scaledH,
                 canvasSize,
-                minXLeft,
                 maxXLeft,
                 minXRight,
                 scale);
@@ -663,7 +660,6 @@ public static class CoverComposer
         ref int xRight,
         int scaledHeight,
         int canvasSize,
-        int minXLeft,
         int maxXLeft,
         int minXRight,
         float scale)

@@ -33,8 +33,7 @@ internal static partial class RecMotionRecordingCodec
         ArgumentNullException.ThrowIfNull(stream);
         if (!stream.CanRead)
             throw new ArgumentException("The REC stream must be readable.", nameof(stream));
-        if (firstCoachId < 0)
-            throw new ArgumentOutOfRangeException(nameof(firstCoachId));
+        ArgumentOutOfRangeException.ThrowIfNegative(firstCoachId);
         if (!stream.CanSeek)
         {
             using MemoryStream buffered = new();
@@ -151,7 +150,7 @@ internal static partial class RecMotionRecordingCodec
         uint version = ReadUInt32(stream);
         string mapName = ReadFixedString(stream, MapNameLength);
         uint headerFieldCount = ReadUInt32(stream);
-        if (headerFieldCount == 0 || headerFieldCount > 128)
+        if (headerFieldCount is 0 or > 128)
             throw new InvalidDataException($"Invalid REC field count {headerFieldCount}.");
 
         List<RecField> fields = [];
@@ -224,6 +223,7 @@ internal static partial class RecMotionRecordingCodec
                         inputs.Add(new InputDescription(ReadUInt32(stream), ReadUInt32(stream), ReadUInt32(stream)));
                         _ = ReadUInt32(stream);
                     }
+
                     break;
 
                 case RecFieldKind.Float:

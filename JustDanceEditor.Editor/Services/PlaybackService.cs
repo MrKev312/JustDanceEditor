@@ -18,7 +18,7 @@ public class PlaybackService : IPlaybackService, IDisposable
     private readonly Func<IPcmPlaybackEngine> _pcmPlaybackEngineFactory;
     private readonly bool _useWindowsAudio;
     private readonly IWindowService? _windows;
-    private IWavePlayer? _outputDevice;
+    private WasapiOut? _outputDevice;
     private PcmWaveSampleProvider? _audioSource;
     private EndlessSampleProvider? _endless;
     private VariableMetronomeSampleProvider? _metronome;
@@ -269,8 +269,7 @@ public class PlaybackService : IPlaybackService, IDisposable
         set
         {
             _metronome?.Enabled = value;
-            if (_pcmPlayer != null)
-                _pcmPlayer.IsMetronomeEnabled = value;
+            _pcmPlayer?.IsMetronomeEnabled = value;
         }
     }
 

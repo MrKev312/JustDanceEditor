@@ -18,10 +18,10 @@ public class NewSongCommand(IWindowService windows, IEditorPromptService prompts
 
     public void Run(ITimelineContextService? timelineContext)
     {
-        _ = RunAsync(timelineContext);
+        _ = RunAsync();
     }
 
-    private async Task RunAsync(ITimelineContextService? timelineContext)
+    private async Task RunAsync()
     {
         try
         {

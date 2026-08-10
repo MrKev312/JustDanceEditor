@@ -19,10 +19,10 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
     private int BeatOffset => owner.BeatOffset;
     private IBrush? Background { get => owner.Background; set => owner.Background = value; }
     private Cursor? Cursor { get => owner.Cursor; set => owner.Cursor = value; }
-    private ClipDragHandler? _dragHandler => owner.DragHandler;
-    private ClipResizeHandler? _resizeHandler => owner.ResizeHandler;
-    private BoxSelectionHandler? _boxSelectionHandler => owner.BoxSelectionHandler;
-    private TimelineExternalDropController _externalDropController => owner.ExternalDropController;
+    private ClipDragHandler? DragHandler => owner.DragHandler;
+    private ClipResizeHandler? ResizeHandler => owner.ResizeHandler;
+    private BoxSelectionHandler? BoxSelectionHandler => owner.BoxSelectionHandler;
+    private TimelineExternalDropController ExternalDropController => owner.ExternalDropController;
     private readonly TimelineTrackContextMenuController _contextMenus = new(owner);
     private ClipViewModel? _lastSelectedClip;
 
@@ -115,7 +115,7 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
         // Empty space: Start box selection
         if (clickedClip == null)
         {
-            _boxSelectionHandler?.StartSelection(point, e);
+            BoxSelectionHandler?.StartSelection(point, e);
             e.Handled = true;
             return;
         }
@@ -161,7 +161,7 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
 
         if (selectedClips.Count > 1 && selectedClips.Contains(clickedClip))
         {
-            _dragHandler?.StartMultiDrag(selectedClips, point, e);
+            DragHandler?.StartMultiDrag(selectedClips, point, e);
             e.Handled = true;
             return;
         }
@@ -184,20 +184,20 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
 
         if (isResizableType && nearLeft)
         {
-            _resizeHandler?.StartResizeLeft(clickedClip, point, e);
+            ResizeHandler?.StartResizeLeft(clickedClip, point, e);
             e.Handled = true;
             return;
         }
 
         if (isResizableType && nearRight)
         {
-            _resizeHandler?.StartResizeRight(clickedClip, point, e);
+            ResizeHandler?.StartResizeRight(clickedClip, point, e);
             e.Handled = true;
             return;
         }
 
         // Default: Start drag
-        _dragHandler?.StartSingleDrag(clickedClip, point, e);
+        DragHandler?.StartSingleDrag(clickedClip, point, e);
         e.Handled = true;
     }
 
@@ -216,24 +216,24 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
         TimelineEditorViewModel? vm = GetTimelineVM();
 
         // Delegate to active handlers
-        if (_resizeHandler?.IsActive == true)
+        if (ResizeHandler?.IsActive == true)
         {
-            _resizeHandler.UpdateResize(point, ppb, vm);
+            ResizeHandler.UpdateResize(point, ppb, vm);
             return;
         }
 
-        if (_dragHandler?.IsActive == true)
+        if (DragHandler?.IsActive == true)
         {
-            _dragHandler.UpdateDrag(point, ppb, vm);
+            DragHandler.UpdateDrag(point, ppb, vm);
             InvalidateMeasure();
             InvalidateVisual();
             e.Handled = true;
             return;
         }
 
-        if (_boxSelectionHandler?.IsActive == true)
+        if (BoxSelectionHandler?.IsActive == true)
         {
-            _boxSelectionHandler.UpdateSelection(point);
+            BoxSelectionHandler.UpdateSelection(point);
             e.Handled = true;
             return;
         }
@@ -248,23 +248,23 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
         bool ctrl = (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control;
 
         // Delegate to active handlers
-        if (_resizeHandler?.IsActive == true)
+        if (ResizeHandler?.IsActive == true)
         {
-            _resizeHandler.Complete(vm, e);
+            ResizeHandler.Complete(vm, e);
             e.Handled = true;
             return;
         }
 
-        if (_dragHandler?.IsActive == true)
+        if (DragHandler?.IsActive == true)
         {
-            _dragHandler.Complete(vm, e);
+            DragHandler.Complete(vm, e);
             e.Handled = true;
             return;
         }
 
-        if (_boxSelectionHandler?.IsActive == true)
+        if (BoxSelectionHandler?.IsActive == true)
         {
-            _boxSelectionHandler.Complete(vm, e, addToSelection: ctrl);
+            BoxSelectionHandler.Complete(vm, e, addToSelection: ctrl);
             e.Handled = true;
             return;
         }
@@ -273,12 +273,12 @@ internal sealed class TimelineTrackInputController(TimelineTrackPanel owner)
     public void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         // Cancel any active interactions in handlers
-        _dragHandler?.Cancel();
-        _resizeHandler?.Cancel();
-        _boxSelectionHandler?.Cancel();
+        DragHandler?.Cancel();
+        ResizeHandler?.Cancel();
+        BoxSelectionHandler?.Cancel();
 
         Cursor = new Cursor(StandardCursorType.Arrow);
-        _externalDropController.ClearFeedback();
+        ExternalDropController.ClearFeedback();
     }
 
     public void OpenAddClipMenu(PointerPressedEventArgs? e)

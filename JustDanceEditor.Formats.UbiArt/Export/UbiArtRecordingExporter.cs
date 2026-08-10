@@ -53,6 +53,7 @@ internal sealed class UbiArtRecordingExporter(ILogger logger)
                 coachRecordings = [];
                 byCoach.Add(recording.CoachId, coachRecordings);
             }
+
             coachRecordings.Add((fileName, recording));
         }
 
@@ -141,7 +142,7 @@ internal sealed class UbiArtRecordingExporter(ILogger logger)
     private static string SanitizeFilePart(string value)
     {
         HashSet<char> invalid = [.. Path.GetInvalidFileNameChars()];
-        string sanitized = new(value.Select(character => invalid.Contains(character) || character is ';' or '\r' or '\n' ? '_' : character).ToArray());
+        string sanitized = new([.. value.Select(character => invalid.Contains(character) || character is ';' or '\r' or '\n' ? '_' : character)]);
         return string.IsNullOrWhiteSpace(sanitized) ? "recording" : sanitized;
     }
 }

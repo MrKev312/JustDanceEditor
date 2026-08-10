@@ -18,7 +18,7 @@ public class ModernEngineContentGenerator(UbiArtEngineVersion EngineVersion) : I
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
+    private static byte[] ToBytes(string content) => Encoding.UTF8.GetBytes(content);
 
     #region JSON/Lua Generators
 

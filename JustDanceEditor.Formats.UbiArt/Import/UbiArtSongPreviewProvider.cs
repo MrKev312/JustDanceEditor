@@ -104,7 +104,7 @@ public sealed class UbiArtSongPreviewProvider(
         IntermediatePackageSerializer.WriteToFolder(package, packageRoot);
         TryWriteCoverAssets(fileSystem, packageRoot, info.MapName, cancellationToken);
         TryWriteBackgroundAssets(fileSystem, packageRoot, info.MapName, cancellationToken);
-        TryWriteAlbumCoachAsset(fileSystem, packageRoot, info.MapName, cancellationToken);
+        TryWriteAlbumCoachAsset(fileSystem, packageRoot, cancellationToken);
 
         return Task.FromResult(new SongPreviewResult(
             package,
@@ -211,7 +211,7 @@ public sealed class UbiArtSongPreviewProvider(
             TryWriteImage(fileSystem, banner, IntermediatePackageLayout.Resolve(packageRoot, IntermediatePackageLayout.Assets.BannerFile), PreviewImageKind.Raw, cancellationToken);
     }
 
-    private void TryWriteAlbumCoachAsset(JustDanceUbiArtFileSystem fileSystem, string packageRoot, string songName, CancellationToken cancellationToken)
+    private void TryWriteAlbumCoachAsset(JustDanceUbiArtFileSystem fileSystem, string packageRoot, CancellationToken cancellationToken)
     {
         CookedFile? albumCoach = fileSystem.AssetResolver?.GetAlbumCoach();
         if (albumCoach is null)

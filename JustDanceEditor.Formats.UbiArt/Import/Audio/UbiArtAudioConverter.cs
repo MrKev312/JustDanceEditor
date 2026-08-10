@@ -16,10 +16,9 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 
+using static JustDanceEditor.Formats.UbiArt.Import.Audio.UbiArtAudioPrimitives;
+
 namespace JustDanceEditor.Formats.UbiArt.Import.Audio;
-
-using static UbiArtAudioPrimitives;
-
 public sealed record UbiArtAudioClipSource(SoundSetClip Clip, CookedFile File);
 
 public sealed record UbiArtAudioConversionRequest(
@@ -347,7 +346,7 @@ public static class UbiArtAudioConverter
         yield return "pipe:1";
     }
 
-    private static ISampleProvider MergeAudioStreams(
+    private static MixingSampleProvider MergeAudioStreams(
         UbiArtAudioConversionRequest request,
         WaveStream mainSongStream,
         ConcurrentDictionary<string, WaveStream> clipStreams,
@@ -436,7 +435,7 @@ public static class UbiArtAudioConverter
         return normalized;
     }
 
-    private static ISampleProvider ApplyOffset(ISampleProvider provider, float offsetSeconds)
+    private static OffsetSampleProvider ApplyOffset(ISampleProvider provider, float offsetSeconds)
     {
         OffsetSampleProvider offsetProvider = new(provider);
 

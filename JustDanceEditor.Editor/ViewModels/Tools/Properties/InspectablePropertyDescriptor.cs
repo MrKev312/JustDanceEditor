@@ -38,45 +38,31 @@ public sealed record ResolvedInspectableProperty(
     IReadOnlyList<object>? Options,
     bool IsEditable);
 
-public sealed class InspectablePropertyDescriptor<TTarget, TValue> : IInspectablePropertyDescriptor
+public sealed class InspectablePropertyDescriptor<TTarget, TValue>(
+    string key,
+    string displayName,
+    string category,
+    Func<TTarget, TValue> getter,
+    Action<TTarget, TValue>? setter = null,
+    NumericPropertyRange? numericRange = null,
+    Func<TTarget, TimelineEditorViewModel, IEnumerable<object>?>? options = null,
+    bool isEditable = true,
+    PropertyColorEncoding colorEncoding = PropertyColorEncoding.Argb) : IInspectablePropertyDescriptor
     where TTarget : class
 {
-    private readonly Func<TTarget, TValue> _getter;
-    private readonly Action<TTarget, TValue>? _setter;
-    private readonly Func<TTarget, TimelineEditorViewModel, IEnumerable<object>?>? _options;
+    private readonly Func<TTarget, TValue> _getter = getter;
+    private readonly Action<TTarget, TValue>? _setter = setter;
+    private readonly Func<TTarget, TimelineEditorViewModel, IEnumerable<object>?>? _options = options;
 
-    public InspectablePropertyDescriptor(
-        string key,
-        string displayName,
-        string category,
-        Func<TTarget, TValue> getter,
-        Action<TTarget, TValue>? setter = null,
-        NumericPropertyRange? numericRange = null,
-        Func<TTarget, TimelineEditorViewModel, IEnumerable<object>?>? options = null,
-        bool isEditable = true,
-        PropertyColorEncoding colorEncoding = PropertyColorEncoding.Argb)
-    {
-        Key = key;
-        NotificationPropertyName = key;
-        DisplayName = displayName;
-        Category = category;
-        _getter = getter;
-        _setter = setter;
-        NumericRange = numericRange;
-        _options = options;
-        IsEditable = isEditable;
-        ColorEncoding = colorEncoding;
-    }
-
-    public string Key { get; }
-    public string NotificationPropertyName { get; }
-    public string DisplayName { get; }
-    public string Category { get; }
+    public string Key { get; } = key;
+    public string NotificationPropertyName { get; } = key;
+    public string DisplayName { get; } = displayName;
+    public string Category { get; } = category;
     public Type PropertyType => typeof(TValue);
     public bool IsReadOnly => _setter == null;
-    public NumericPropertyRange? NumericRange { get; }
-    public bool IsEditable { get; }
-    public PropertyColorEncoding ColorEncoding { get; }
+    public NumericPropertyRange? NumericRange { get; } = numericRange;
+    public bool IsEditable { get; } = isEditable;
+    public PropertyColorEncoding ColorEncoding { get; } = colorEncoding;
 
     public object? GetValue(object target) => _getter(RequireTarget(target));
 
@@ -108,42 +94,30 @@ public sealed class InspectablePropertyDescriptor<TTarget, TValue> : IInspectabl
             ?? throw new ArgumentException($"Expected a target of type {typeof(TTarget).FullName}.", nameof(target));
 }
 
-internal sealed class MappedInspectablePropertyDescriptor<TSelection, TTarget, TValue> : IInspectablePropertyDescriptor
+internal sealed class MappedInspectablePropertyDescriptor<TSelection, TTarget, TValue>(
+    string key,
+    string notificationPropertyName,
+    string displayName,
+    string category,
+    Func<TSelection, TimelineEditorViewModel, TTarget?> targetResolver,
+    Func<TTarget, TValue> getter,
+    Action<TTarget, TValue>? setter,
+    PropertyColorEncoding colorEncoding = PropertyColorEncoding.Argb) : IInspectablePropertyDescriptor
     where TSelection : class
     where TTarget : class
 {
-    private readonly Func<TSelection, TimelineEditorViewModel, TTarget?> _targetResolver;
-    private readonly Func<TTarget, TValue> _getter;
-    private readonly Action<TTarget, TValue>? _setter;
+    private readonly Func<TSelection, TimelineEditorViewModel, TTarget?> _targetResolver = targetResolver;
+    private readonly Func<TTarget, TValue> _getter = getter;
+    private readonly Action<TTarget, TValue>? _setter = setter;
 
-    public MappedInspectablePropertyDescriptor(
-        string key,
-        string notificationPropertyName,
-        string displayName,
-        string category,
-        Func<TSelection, TimelineEditorViewModel, TTarget?> targetResolver,
-        Func<TTarget, TValue> getter,
-        Action<TTarget, TValue>? setter,
-        PropertyColorEncoding colorEncoding = PropertyColorEncoding.Argb)
-    {
-        Key = key;
-        NotificationPropertyName = notificationPropertyName;
-        DisplayName = displayName;
-        Category = category;
-        _targetResolver = targetResolver;
-        _getter = getter;
-        _setter = setter;
-        ColorEncoding = colorEncoding;
-    }
-
-    public string Key { get; }
-    public string NotificationPropertyName { get; }
-    public string DisplayName { get; }
-    public string Category { get; }
+    public string Key { get; } = key;
+    public string NotificationPropertyName { get; } = notificationPropertyName;
+    public string DisplayName { get; } = displayName;
+    public string Category { get; } = category;
     public Type PropertyType => typeof(TValue);
     public bool IsReadOnly => _setter == null;
     public NumericPropertyRange? NumericRange => null;
-    public PropertyColorEncoding ColorEncoding { get; }
+    public PropertyColorEncoding ColorEncoding { get; } = colorEncoding;
 
     public object? GetValue(object target) => _getter(RequireTarget(target));
 

@@ -7,15 +7,10 @@ using JustDanceEditor.Editor.ViewModels.Timeline;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Pictogram Preview", "View/Preview")]
-public partial class PictogramPreviewViewModel : TimelineToolViewModel
+public partial class PictogramPreviewViewModel(ITimelineContextService? timelineContext = null) : TimelineToolViewModel(timelineContext)
 {
     [ObservableProperty]
     public partial double CurrentBeat { get; set; }
-
-    public PictogramPreviewViewModel(ITimelineContextService? timelineContext = null)
-        : base(timelineContext)
-    {
-    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {

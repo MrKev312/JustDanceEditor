@@ -263,7 +263,5 @@ internal sealed class LegacyMashupApplicator(ILogger logger)
     
         return remappedClip != null;
     }
-    
-    
 }
 

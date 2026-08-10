@@ -178,17 +178,17 @@ internal sealed class SkiaLyricLineLayout : IDisposable
         float x,
         float baseline)
     {
-        SKPath path = new();
+        using SKPathBuilder pathBuilder = new();
         foreach (SkiaLyricTextRun run in runs)
         {
             using SKFont font = CreateFont(run.Typeface, fontSize);
             using SKPath? runPath = font.GetTextPath(run.Text, new SKPoint(x, baseline));
             if (runPath != null)
-                path.AddPath(runPath);
+                pathBuilder.AddPath(runPath, SKPathAddMode.Append);
             x += font.MeasureText(run.Text, paint);
         }
 
-        return path;
+        return pathBuilder.Detach();
     }
 
     private static SKPaint CreateMeasurePaint()

@@ -1,8 +1,8 @@
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Materials;
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 using KevInc.UbiArt.Cinematics.Timeline;
 
 using System;

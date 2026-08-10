@@ -252,7 +252,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         return ProcessMediaFiles(paths, path => ConvertAudioFile(path, ResolveBatchOutputPath(path, options.OutputPath, target.Extension, batch), options.Force, target));
     }
 
-    private int ProcessDroppedTextureFiles(IReadOnlyList<string> paths, DroppedPathOptions options, bool batch)
+    private static int ProcessDroppedTextureFiles(IReadOnlyList<string> paths, DroppedPathOptions options, bool batch)
     {
         if (paths.Count == 0)
             return 0;
@@ -340,7 +340,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         return true;
     }
 
-    private bool ConvertTextureFile(string inputPath, string? outputPath, bool force, TextureTargetEncoding target)
+    private static bool ConvertTextureFile(string inputPath, string? outputPath, bool force, TextureTargetEncoding target)
     {
         string resolvedOutput = outputPath ?? ChangeMediaExtension(inputPath, target.Extension);
         if (Path.GetFullPath(inputPath).Equals(Path.GetFullPath(resolvedOutput), StringComparison.OrdinalIgnoreCase))
@@ -567,7 +567,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         }
     }
 
-    private IDisposable? OpenWaveStream(string inputPath, out WaveStream waveStream)
+    private FileStream? OpenWaveStream(string inputPath, out WaveStream waveStream)
     {
         if (HasRakiMagic(inputPath))
         {
@@ -601,7 +601,7 @@ internal sealed class DroppedPathProcessor(ILogger<DroppedPathProcessor> logger,
         return null;
     }
 
-    private static WaveStream ConvertToWaveStream(string inputPath)
+    private static WaveFileReader ConvertToWaveStream(string inputPath)
     {
         using MemoryStream wavStream = new DefaultMediaProcessor()
             .EncodeAudioToMemoryAsync(

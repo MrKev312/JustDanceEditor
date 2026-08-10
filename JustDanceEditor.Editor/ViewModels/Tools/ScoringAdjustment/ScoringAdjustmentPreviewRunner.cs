@@ -12,7 +12,7 @@ namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 internal sealed class ScoringAdjustmentPreviewRunner(IScoringAdjustmentPreviewAnalyzer analyzer) : IDisposable
 {
-    private readonly object gate = new();
+    private readonly Lock gate = new();
     private PreviewJob? pending;
     private int latestRequestId;
     private bool workerRunning;
@@ -69,6 +69,7 @@ internal sealed class ScoringAdjustmentPreviewRunner(IScoringAdjustmentPreviewAn
             skipped = pending;
             pending = null;
         }
+
         skipped?.Complete();
     }
 
@@ -85,6 +86,7 @@ internal sealed class ScoringAdjustmentPreviewRunner(IScoringAdjustmentPreviewAn
             skipped = pending;
             pending = null;
         }
+
         skipped?.Complete();
     }
 

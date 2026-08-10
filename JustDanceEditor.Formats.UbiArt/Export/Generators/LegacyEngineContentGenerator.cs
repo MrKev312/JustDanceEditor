@@ -359,14 +359,14 @@ public class LegacyEngineContentGenerator(UbiArtEngineVersion EngineVersion, Ubi
 
     public object GenerateMenuArtActor(string textureName, string mapName) => new LegacyMenuArtActorFile(textureName, mapName, Paths);
 
-    private object GenerateSingleActorScene(string mapName, string suffix, string folder, string extension = "act") =>
-        new LegacySingleActorSceneFile(mapName, suffix, folder, extension, Paths);
+    private LegacySingleActorSceneFile GenerateSingleActorScene(string mapName, string suffix, string folder, string extension = "act") =>
+        new(mapName, suffix, folder, extension, Paths);
 
-    private object SubSceneDefinition(string mapName, string mapNameLower, string suffix, string folder, int endValue) =>
-        new LegacySubSceneDefinitionActor(mapName, mapNameLower, suffix, folder, endValue, Paths);
+    private LegacySubSceneDefinitionActor SubSceneDefinition(string mapName, string mapNameLower, string suffix, string folder, int endValue) =>
+        new(mapName, mapNameLower, suffix, folder, endValue, Paths);
 
-    private object SongDescSceneActor(string mapName, string mapNameLower) =>
-        new LegacySongDescSceneActor(mapName, mapNameLower, Paths, EngineVersion >= UbiArtEngineVersion.JD2016);
+    private LegacySongDescSceneActor SongDescSceneActor(string mapName, string mapNameLower) =>
+        new(mapName, mapNameLower, Paths, EngineVersion >= UbiArtEngineVersion.JD2016);
 
     private static LegacyAbgrColor ConvertColorToAbgr(string hexColor)
     {

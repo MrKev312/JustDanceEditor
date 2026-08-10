@@ -338,7 +338,7 @@ public partial class TimelineEditorViewModel : Document, IDisposable
         if (_viewportWidth <= 0 || MaxBeat <= 0)
             return;
 
-        PixelsPerBeat = (_viewportWidth / MaxBeat) * (ZoomPercentage / 100.0);
+        PixelsPerBeat = _viewportWidth / MaxBeat * (ZoomPercentage / 100.0);
     }
 
     [RelayCommand]

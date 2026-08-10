@@ -421,8 +421,7 @@ internal sealed class FfplayPcmPlaybackEngine(string ffplayPath) : IPcmPlaybackE
             playback = _playback;
             _playback = null;
             _isPlaying = false;
-            if (playback != null)
-                playback.StopRequested = true;
+            playback?.StopRequested = true;
         }
 
         if (playback == null)

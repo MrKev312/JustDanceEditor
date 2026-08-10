@@ -116,7 +116,7 @@ public sealed class ScoringAdjustmentPreviewRunnerTests
 
     private sealed class BlockingAnalyzer : IScoringAdjustmentPreviewAnalyzer
     {
-        private readonly object gate = new();
+        private readonly Lock gate = new();
         private readonly TaskCompletionSource firstStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource releaseFirst = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<double> analyzedHighThresholds = [];

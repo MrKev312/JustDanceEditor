@@ -456,9 +456,6 @@ public class ClipInteractionHandlerTests
             StartBeat = timeline.TimelineStructure.EndBeat - 2.0,  // Near the end
             DurationBeats = 2.0
         };
-
-        double originalEnd = clip.StartBeat + clip.DurationBeats;
-
         ClipResizeHandler handler = CreateClipResizeHandler();
         SetPrivateField(handler, "_resizingClip", clip);
         SetPrivateField(handler, "_resizeStartPointerX", 100.0);

@@ -9,15 +9,21 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class ClipConverterTests
 {
-    [Fact]
-    public void Read_UnknownJsonClip_ReturnsUnknownClipWithTiming()
+    private static readonly JsonSerializerOptions ClipJsonOptions = CreateClipJsonOptions();
+
+    private static JsonSerializerOptions CreateClipJsonOptions()
     {
         JsonSerializerOptions options = new()
         {
             PropertyNameCaseInsensitive = true
         };
         options.Converters.Add(new ClipConverter());
+        return options;
+    }
 
+    [Fact]
+    public void Read_UnknownJsonClip_ReturnsUnknownClipWithTiming()
+    {
         Clip clip = JsonSerializer.Deserialize<Clip>(
             """
             {
@@ -29,7 +35,7 @@ public class ClipConverterTests
               "Duration": 14400
             }
             """,
-            options) ?? throw new InvalidOperationException("Expected a clip.");
+            ClipJsonOptions) ?? throw new InvalidOperationException("Expected a clip.");
 
         UnknownClip unknown = Assert.IsType<UnknownClip>(clip);
         Assert.Equal("ColorClip", unknown.OriginalClass);

@@ -143,7 +143,7 @@ public static class UbiArtPictoConverter
                     continue;
                 }
 
-                SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger, textureService, fs, writtenPictograms, fileSystem.VersionProfile.PictoNameComparer);
+            SplitAndSaveMontageParts(pictoImage, songData, pictoTempFolder, logger, fs, writtenPictograms, fileSystem.VersionProfile.PictoNameComparer);
             }
             catch (FileNotFoundException)
             {
@@ -188,7 +188,7 @@ public static class UbiArtPictoConverter
         pictoImage.Save(fs.Combine(pictoTempFolder, name + ".webp"), Encoder);
     }
 
-    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, ITextureService textureService, IFileSystem fs, ConcurrentDictionary<string, byte> writtenPictograms, IComparer<string>? comparer = null)
+    private static void SplitAndSaveMontageParts(Image<Bgra32> montageImage, JDUbiArtSong songData, string pictoTempFolder, ILogger logger, IFileSystem fs, ConcurrentDictionary<string, byte> writtenPictograms, IComparer<string>? comparer = null)
     {
         // Sort pictograms using a comparer supplied by the caller; if none supplied, fall back to
         // the existing AlphanumericTextFirstComparer to preserve historic behaviour.

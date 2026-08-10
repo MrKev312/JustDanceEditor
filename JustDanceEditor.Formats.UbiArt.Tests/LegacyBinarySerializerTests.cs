@@ -3,10 +3,9 @@ using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
-using KevInc.UbiArt.Cinematics.Serialization.Legacy;
-
 using KevInc.UbiArt.Cinematics.Core;
 using KevInc.UbiArt.Cinematics.Scene;
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using System;
 using System.Buffers.Binary;

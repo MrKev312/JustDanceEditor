@@ -109,8 +109,7 @@ public class SongPreviewPlayer : IDisposable
         if (CurrentTime >= Duration)
             Seek(TimeSpan.Zero);
 
-        if (_audioSource != null)
-            _audioSource.CurrentTime = CurrentTime;
+        _audioSource?.CurrentTime = CurrentTime;
 
         if (_outputDevice == null && _pcmPlayer == null)
             return;
@@ -168,8 +167,7 @@ public class SongPreviewPlayer : IDisposable
         _stopwatch.Reset();
         IsPlaying = false;
 
-        if (_audioSource != null)
-            _audioSource.CurrentTime = TimeSpan.Zero;
+        _audioSource?.CurrentTime = TimeSpan.Zero;
         _metronome?.ResetPosition(0);
     }
 
@@ -184,8 +182,7 @@ public class SongPreviewPlayer : IDisposable
 
         if (IsPlaying)
         {
-            if (_audioSource != null)
-                _audioSource.CurrentTime = time;
+            _audioSource?.CurrentTime = time;
 
             _metronome?.ResetPosition(time.TotalSeconds);
             try
@@ -243,8 +240,7 @@ public class SongPreviewPlayer : IDisposable
 
         _audioSource = null;
         _metronome = null;
-        if (_pcmPlayer != null)
-            _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
+        _pcmPlayer?.PlaybackCompleted -= OnPcmPlaybackCompleted;
         _pcmPlayer?.Dispose();
         _pcmPlayer = null;
         _audio = null;
@@ -255,8 +251,7 @@ public class SongPreviewPlayer : IDisposable
     {
         EditorLog.Unexpected(ex, "Song preview playback");
 
-        if (_pcmPlayer != null)
-            _pcmPlayer.PlaybackCompleted -= OnPcmPlaybackCompleted;
+        _pcmPlayer?.PlaybackCompleted -= OnPcmPlaybackCompleted;
 
         try
         {

@@ -416,7 +416,7 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
                     await using Stream stream = await file.OpenReadAsync();
                     IReadOnlyList<string> importedPaths = await _recordingLibrary.ImportRecAsync(timeline, stream, file.Name, coachId.Value);
                     imported += importedPaths.Count;
-                    lastPath = importedPaths.LastOrDefault() ?? lastPath;
+                    lastPath = importedPaths.Count > 0 ? importedPaths[^1] : lastPath;
                 }
                 catch (Exception ex) when (ex is InvalidDataException or IOException or OverflowException or ArgumentException)
                 {
@@ -551,10 +551,12 @@ public partial class RecordingsToolViewModel : TimelineToolViewModel, IDisposabl
         _deviceConnection.Detach();
         await _motionClient.DisposeAsync();
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public override void Dispose()
     {
         DisposeAsync().AsTask().GetAwaiter().GetResult();
+        GC.SuppressFinalize(this);
     }
 }

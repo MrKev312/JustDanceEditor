@@ -361,5 +361,4 @@ internal sealed class UncookedGameplayContentBuilder(UbiArtEngineVersion version
 
         return 0;
     }
-
 }
