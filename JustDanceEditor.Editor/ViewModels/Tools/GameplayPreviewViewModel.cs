@@ -18,7 +18,9 @@ using System.Linq;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Gameplay Preview", "View/Preview")]
-public partial class GameplayPreviewViewModel : VideoToolViewModel
+public partial class GameplayPreviewViewModel(
+    MotionRecordingScoreHudService? scoreHud = null,
+    ITimelineContextService? timelineContext = null) : VideoToolViewModel(timelineContext)
 {
     private const double HudFadeSeconds = 1.0;
     private const double BeatEpsilon = 0.0001;
@@ -41,7 +43,7 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
     [ObservableProperty]
     public partial double HudOpacity { get; set; } = 1.0;
 
-    public MotionRecordingScoreHudService ScoreHud { get; }
+    public MotionRecordingScoreHudService ScoreHud { get; } = scoreHud ?? new MotionRecordingScoreHudService();
 
     private readonly List<LyricLineViewModel> _allLines = [];
     private readonly Dictionary<ClipViewModel, PropertyChangedEventHandler> _lyricsClipHandlers = [];
@@ -50,14 +52,6 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
     private TrackViewModel? _hideHudTrack;
     private int _lineIndex = -1;
     private bool _rebuildPending;
-
-    public GameplayPreviewViewModel(
-        MotionRecordingScoreHudService? scoreHud = null,
-        ITimelineContextService? timelineContext = null)
-        : base(timelineContext)
-    {
-        ScoreHud = scoreHud ?? new MotionRecordingScoreHudService();
-    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
@@ -131,8 +125,7 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
 
     private void UnsubscribeLyricsTrack()
     {
-        if (_lyricsTrack != null)
-            _lyricsTrack.Clips.CollectionChanged -= LyricsClips_CollectionChanged;
+        _lyricsTrack?.Clips.CollectionChanged -= LyricsClips_CollectionChanged;
 
         foreach ((ClipViewModel clip, PropertyChangedEventHandler handler) in _lyricsClipHandlers.ToList())
         {
@@ -145,8 +138,7 @@ public partial class GameplayPreviewViewModel : VideoToolViewModel
 
     private void UnsubscribeHideHudTrack()
     {
-        if (_hideHudTrack != null)
-            _hideHudTrack.Clips.CollectionChanged -= HideHudClips_CollectionChanged;
+        _hideHudTrack?.Clips.CollectionChanged -= HideHudClips_CollectionChanged;
 
         foreach ((ClipViewModel clip, PropertyChangedEventHandler handler) in _hideHudClipHandlers.ToList())
         {

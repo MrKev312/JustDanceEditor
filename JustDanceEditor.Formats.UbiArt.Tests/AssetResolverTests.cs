@@ -222,6 +222,41 @@ public class AssetResolverTests
     }
 
     [Fact]
+    public void VideoSelector_CanRejectBaseMapVideoFallback_ForExternallyBoundRemix()
+    {
+        string root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        string baseVideoFolder = Path.Combine(root, "world", "jd2015", "ILoveIt", "videoscoach");
+        Directory.CreateDirectory(baseVideoFolder);
+        File.WriteAllText(Path.Combine(baseVideoFolder, "iloveit.wii.webm"), "WEBM");
+
+        UbiArtVersionProfile profile = new(
+            UbiArtPlatform.Revolution,
+            UbiArtEngineVersion.JD2015,
+            new JD2015LayoutResolver(),
+            new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015));
+        UbiArtConversionRequest request = new(root, Path.GetTempPath(), "ILoveItSR")
+        {
+            Type = CookedType.Cooked
+        };
+        using JustDanceUbiArtFileSystem fileSystem = new(
+            request,
+            profile,
+            NullLogger<JustDanceUbiArtFileSystem>.Instance);
+        fileSystem.Initialize();
+        fileSystem.UseAuthoredBaseMap("ILoveIt");
+
+        Assert.Empty(UbiArtVideoFileSelector.FindPreferredVideoFiles(
+            fileSystem,
+            allowContentSongFallback: false));
+        Assert.EndsWith(
+            "iloveit.wii.webm",
+            Assert.Single(UbiArtVideoFileSelector.FindPreferredVideoFiles(fileSystem)).RelativePath,
+            System.StringComparison.OrdinalIgnoreCase);
+
+        Directory.Delete(root, true);
+    }
+
+    [Fact]
     public void VideoSelector_Prefers_QualitySet_When_MoreThanFourVideosExist()
     {
         CookedFile[] selected = UbiArtVideoFileSelector.ChoosePreferredVideoFiles(

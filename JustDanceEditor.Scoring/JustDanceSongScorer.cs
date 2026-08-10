@@ -39,8 +39,8 @@ public sealed class JustDanceSongScorer
 
         MoveSpaceScorer moveSpaceScorer = new();
         MoveSpaceScoreResult[] moveSpaces = request.TimelineSamples.Count == 0
-            ? ScorePerMoveWindows(request.Moves, moveSpaceOptions, options, moveSpaceScorer)
-            : ScoreNativeTimelineWindows(request, moveSpaceOptions, options, moveSpaceScorer);
+            ? ScorePerMoveWindows(request.Moves, moveSpaceOptions, moveSpaceScorer)
+            : ScoreNativeTimelineWindows(request, moveSpaceOptions, moveSpaceScorer);
 
         return BuildSongScore(request.Moves, moveSpaces, options);
     }
@@ -59,7 +59,7 @@ public sealed class JustDanceSongScorer
         {
             SongMoveScoringInput move = moves[moveIndex];
             MoveSpaceScoreResult moveSpace = moveSpaces[moveIndex];
-            float finalMoveScore = SanitizeRatio(ComputeJdNowFinalMoveScore(moveSpace, options));
+            float finalMoveScore = SanitizeRatio(ComputeJdNowFinalMoveScore(moveSpace));
             DanceMoveFeedback feedback = GetJdNowFeedback(move.IsGoldMove, finalMoveScore);
 
             float onFireFactor = onFireLevel >= options.OnFireThreshold ? options.OnFireFactor : 1.0f;
@@ -100,7 +100,6 @@ public sealed class JustDanceSongScorer
     private static MoveSpaceScoreResult[] ScoreNativeTimelineWindows(
         SongScoringRequest request,
         MoveScoringOptions moveSpaceOptions,
-        SongScoringOptions songOptions,
         MoveSpaceScorer moveSpaceScorer)
     {
         TimelineWindow[] windows = [.. request.Moves.Select(static move => new TimelineWindow(move))];
@@ -124,11 +123,9 @@ public sealed class JustDanceSongScorer
                 && transformedSample.Time != windows[previousMoveIndex].WindowEndTime)
             {
                 moveSpaces[previousMoveIndex] = ScoreTimelineWindow(
-                    previousMoveIndex,
                     request.Moves[previousMoveIndex],
                     windows[previousMoveIndex],
                     moveSpaceOptions,
-                    songOptions,
                     moveSpaceScorer,
                     ref windowPointer);
             }
@@ -141,11 +138,9 @@ public sealed class JustDanceSongScorer
             if (!windows[moveIndex].Scored)
             {
                 moveSpaces[moveIndex] = ScoreTimelineWindow(
-                    moveIndex,
                     request.Moves[moveIndex],
                     windows[moveIndex],
                     moveSpaceOptions,
-                    songOptions,
                     moveSpaceScorer,
                     ref windowPointer);
             }
@@ -166,22 +161,18 @@ public sealed class JustDanceSongScorer
     }
 
     private static MoveSpaceScoreResult ScoreTimelineWindow(
-        int moveIndex,
         SongMoveScoringInput move,
         TimelineWindow window,
         MoveScoringOptions moveSpaceOptions,
-        SongScoringOptions songOptions,
         MoveSpaceScorer moveSpaceScorer,
         ref float windowPointer)
     {
         window.Scored = true;
         return ScorePointedSubwindows(
-            moveIndex,
             move,
             window.NativeDuration,
             window.Subwindows,
             moveSpaceOptions,
-            songOptions,
             moveSpaceScorer,
             ref windowPointer);
     }
@@ -189,7 +180,6 @@ public sealed class JustDanceSongScorer
     private static MoveSpaceScoreResult[] ScorePerMoveWindows(
         IReadOnlyList<SongMoveScoringInput> moves,
         MoveScoringOptions moveSpaceOptions,
-        SongScoringOptions songOptions,
         MoveSpaceScorer moveSpaceScorer)
     {
         MoveSpaceScoreResult[] moveSpaces = new MoveSpaceScoreResult[moves.Count];
@@ -202,12 +192,10 @@ public sealed class JustDanceSongScorer
             List<MotionSample> transformedSamples = TransformSamples(move.Samples, ref maxPositiveAccel);
             List<SubwindowSamples> subwindows = BuildRelativeSubwindows(move, transformedSamples);
             moveSpaces[moveIndex] = ScorePointedSubwindows(
-                moveIndex,
                 move,
                 ToNativeSeconds(move.Duration),
                 subwindows,
                 moveSpaceOptions,
-                songOptions,
                 moveSpaceScorer,
                 ref windowPointer);
         }
@@ -216,12 +204,10 @@ public sealed class JustDanceSongScorer
     }
 
     private static MoveSpaceScoreResult ScorePointedSubwindows(
-        int moveIndex,
         SongMoveScoringInput move,
         float scoringDuration,
         IReadOnlyList<SubwindowSamples> subwindows,
         MoveScoringOptions options,
-        SongScoringOptions songOptions,
         MoveSpaceScorer scorer,
         ref float windowPointer)
     {
@@ -246,7 +232,7 @@ public sealed class JustDanceSongScorer
         float bestFinalScore = float.NegativeInfinity;
         for (int i = 0; i < scores.Length; i++)
         {
-            float finalScore = ComputeJdNowFinalMoveScore(scores[i], songOptions);
+            float finalScore = ComputeJdNowFinalMoveScore(scores[i]);
             if (finalScore > bestFinalScore)
             {
                 bestFinalScore = finalScore;
@@ -352,7 +338,7 @@ public sealed class JustDanceSongScorer
         return scale * value;
     }
 
-    private static float ComputeJdNowFinalMoveScore(MoveSpaceScoreResult moveSpace, SongScoringOptions options)
+    private static float ComputeJdNowFinalMoveScore(MoveSpaceScoreResult moveSpace)
     {
         float ratioScore = SanitizeRatio(moveSpace.RatioScore);
         float energyAmount = SanitizeFinite(moveSpace.EnergyAmount, 0.0f);

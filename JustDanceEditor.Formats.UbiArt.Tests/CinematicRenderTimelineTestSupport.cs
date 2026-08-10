@@ -1,7 +1,7 @@
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using JustDanceEditor.Formats.UbiArt.Serialization.Legacy.Cinematics;
 
 using KevInc.UbiArt.Cinematics.Core;
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 using KevInc.UbiArt.Cinematics.Timeline;
 
 using SixLabors.ImageSharp;

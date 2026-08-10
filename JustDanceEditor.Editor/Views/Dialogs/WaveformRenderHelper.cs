@@ -144,7 +144,7 @@ internal static class WaveformRenderHelper
     /// This is independent of the signature value — signatures control color block size,
     /// while grid lines always mark every 4 beats.
     /// </summary>
-    public static bool IsMeasureBeat(int beatIndex, int beatsPerMeasure, IReadOnlyList<double> sectionStartBeats)
+    public static bool IsMeasureBeat(int beatIndex, IReadOnlyList<double> sectionStartBeats)
     {
         // Grid lines always mark every 4 beats (base group), regardless of signature
         const int baseGroup = 4;
@@ -169,7 +169,7 @@ internal static class WaveformRenderHelper
     /// Shows a track and a proportionally-sized thumb indicating the visible range.
     /// </summary>
     public static void DrawScrollbar(
-        DrawingContext context, double width, double totalHeight,
+        DrawingContext context, double width,
         double waveformHeight, double scrollBarHeight,
         double duration, double viewStart, double viewEnd,
         IBrush trackBrush, IBrush thumbBrush)

@@ -26,14 +26,13 @@ public class ClipResizeHandler(TimelineTrackPanel? panel) : TimelineInteractionH
     /// <summary>
     /// Clamps a clip's position and size to timeline bounds.
     /// </summary>
-    private static (double clampedStart, double clampedDuration) ClampToTimelineBounds(ClipViewModel clip, double newStart, double newDuration, TimelineEditorViewModel? vm)
+    private static (double clampedStart, double clampedDuration) ClampToTimelineBounds(double newStart, double newDuration, TimelineEditorViewModel? vm)
     {
         if (vm?.TimelineStructure == null)
             return (newStart, newDuration);
 
         double minStart = vm.TimelineStructure.StartBeat;
         double maxEnd = vm.TimelineStructure.EndBeat;
-        double availableSpan = maxEnd - minStart;
 
         // Clamp start to minimum
         newStart = Math.Max(newStart, minStart);
@@ -130,7 +129,7 @@ public class ClipResizeHandler(TimelineTrackPanel? panel) : TimelineInteractionH
 
             if (newDuration >= 0.5)
             {
-                (_, newDuration) = ClampToTimelineBounds(_resizingClip, _resizeOriginalStart, newDuration, vm);
+                (_, newDuration) = ClampToTimelineBounds(_resizeOriginalStart, newDuration, vm);
                 _resizingClip.DurationBeats = newDuration;
             }
         }

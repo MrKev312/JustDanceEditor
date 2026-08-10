@@ -88,13 +88,10 @@ internal sealed class TimelineTrackContextMenuController(TimelineTrackPanel owne
 
     private void PublishSelection(TimelineEditorViewModel timeline)
     {
-        if (timeline.Services.TimelineContext != null)
-        {
-            timeline.Services.TimelineContext.SelectedObjects = [.. timeline.Tracks
+        timeline.Services.TimelineContext?.SelectedObjects = [.. timeline.Tracks
                 .SelectMany(static track => track.Clips)
                 .Where(static clip => clip.IsSelected)
                 .Cast<object>()];
-        }
         owner.InvalidateVisual();
     }
 

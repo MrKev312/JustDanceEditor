@@ -8,6 +8,30 @@ public class InputFolders(JustDanceUbiArtFileSystem fileSystem)
         ? fileSystem.SongName
         : fileSystem.ContentSongName;
 
+    public string SelectedMapWorldFolder => fileSystem.VersionProfile.Layout != null
+        ? fileSystem.VersionProfile.Layout.GetMapWorldFolder(
+            fileSystem.ConversionRequest.InputPath,
+            fileSystem.SongName,
+            fileSystem.VersionProfile.Platform,
+            fileSystem.VersionProfile.EngineVersion)
+        : Path.Combine("world", "maps", fileSystem.SongName);
+
+    public string SelectedMediaFolder => fileSystem.VersionProfile.Layout != null
+        ? fileSystem.VersionProfile.Layout.GetMediaFolder(
+            fileSystem.ConversionRequest.InputPath,
+            fileSystem.SongName,
+            fileSystem.VersionProfile.Platform,
+            fileSystem.VersionProfile.EngineVersion)
+        : Path.Combine(SelectedMapWorldFolder, "media");
+
+    public string SelectedTimelineFolder => fileSystem.VersionProfile.Layout != null
+        ? fileSystem.VersionProfile.Layout.GetTimelineFolder(
+            fileSystem.ConversionRequest.InputPath,
+            fileSystem.SongName,
+            fileSystem.VersionProfile.Platform,
+            fileSystem.VersionProfile.EngineVersion)
+        : Path.Combine(SelectedMapWorldFolder, "timeline");
+
     public string MapWorldFolder => fileSystem.VersionProfile.Layout != null
         ? fileSystem.VersionProfile.Layout.GetMapWorldFolder(fileSystem.ConversionRequest.InputPath, ContentSongName, fileSystem.VersionProfile.Platform, fileSystem.VersionProfile.EngineVersion)
         : Path.Combine("world", "maps", ContentSongName);

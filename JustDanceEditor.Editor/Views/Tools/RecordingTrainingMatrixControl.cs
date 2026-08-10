@@ -133,7 +133,7 @@ public sealed class RecordingTrainingMatrixControl : ThemeAwareDrawingControl
         return row >= 0 && row < matrix.Rows.Count && column >= 0 && column < matrix.Columns.Count;
     }
 
-    private static IBrush CreateOutlierBrush(float differenceFromAverage)
+    private static SolidColorBrush CreateOutlierBrush(float differenceFromAverage)
     {
         double amount = Math.Clamp(differenceFromAverage / 35.0, 0, 1);
         Color color = amount < 0.5

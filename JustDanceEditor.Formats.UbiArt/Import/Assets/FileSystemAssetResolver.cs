@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Assets;
 
-public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSystem fileSystem, JDI.Services.IFileSystem? io = null) : IUbiArtAssetResolver
+public partial class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSystem fileSystem, JDI.Services.IFileSystem? io = null) : IUbiArtAssetResolver
 {
     private readonly IUbiArtLayout _layout = layout ?? throw new ArgumentNullException(nameof(layout));
     private readonly JustDanceUbiArtFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
@@ -324,7 +324,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
 
     private static int GetCoachOrdinal(CookedFile file)
     {
-        Match match = Regex.Match(GetLogicalMenuArtName(file), @"coach_?(\d+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        Match match = CoachOrdinalRegex().Match(GetLogicalMenuArtName(file));
         return match.Success && int.TryParse(match.Groups[1].Value, out int ordinal)
             ? ordinal
             : int.MaxValue;
@@ -335,4 +335,7 @@ public class FileSystemAssetResolver(IUbiArtLayout layout, JustDanceUbiArtFileSy
         string relativePath = file.RelativePath.Replace('\\', '/');
         return relativePath.Contains("/media/", StringComparison.OrdinalIgnoreCase);
     }
+
+    [GeneratedRegex(@"coach_?(\d+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CoachOrdinalRegex();
 }

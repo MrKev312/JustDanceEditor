@@ -153,7 +153,7 @@ public class OnlineAssetDownloader(ILogger? logger = null)
         return new OnlineAssetAvailability(await Task.WhenAll(probes));
     }
 
-    private async Task<OnlineAssetAvailabilityEntry> ProbeAssetAsync(
+    private static async Task<OnlineAssetAvailabilityEntry> ProbeAssetAsync(
         string mapName,
         OnlineAssetDefinition asset,
         Lazy<Task<string?>> codenameLookup,

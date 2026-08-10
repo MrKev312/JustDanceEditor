@@ -457,7 +457,7 @@ internal sealed class TimelinePictogramActions(
         return Path.Combine(timeline.RootPath, "assets", "pictograms", pictogramId + ".webp");
     }
 
-    private static string EnsureUniquePictogramId(string baseId, ISet<string> usedIds)
+    private static string EnsureUniquePictogramId(string baseId, HashSet<string> usedIds)
     {
         if (!usedIds.Contains(baseId))
             return baseId;

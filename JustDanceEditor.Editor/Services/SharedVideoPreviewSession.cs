@@ -426,7 +426,7 @@ internal sealed class SharedVideoPreviewSession : IDisposable
             CopyPixelsToBitmap(frameBytes, bitmap, info.OutputWidth, info.OutputHeight);
             FrameVersion++;
             RaiseStateChanged();
-        }, DispatcherPriority.Render);
+        }, DispatcherPriority.Render, cancellationToken);
     }
 
     private void EnsureCurrentFrame(FfmpegVideoFrameInfo info)

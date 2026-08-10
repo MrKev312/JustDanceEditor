@@ -24,6 +24,7 @@ public sealed class UbiArtIpkGameFolderExportTests
     private const string NxSkuScenePath = "cache/itf_cooked/nx/world/skuscenes/skuscene_maps_nx_all.isc.ckd";
     private const string NxPcSkuScenePath = "cache/itf_cooked/nx/world/skuscenes/skuscene_maps_pc_all.isc.ckd";
     private const string NxCarouselRulesPath = "cache/itf_cooked/nx/enginedata/gameconfig/gc_carousel_rules.json.ckd";
+    private static readonly string[] ExpectedBundleNames = ["bundle", "bundle_0", "bundlelogic"];
 
     [Fact]
     public void LooksLikeGameFolder_OnlyAcceptsFolderThatDirectlyContainsPlatformArchives()
@@ -177,7 +178,7 @@ public sealed class UbiArtIpkGameFolderExportTests
             IReadOnlyList<string> updatedOrder = ReadIpkEntryOrder(bundle);
 
             Assert.Equal(originalOrder, updatedOrder.Take(originalOrder.Count));
-            Assert.Equal(newSongDescPath, updatedOrder.Last(), StringComparer.OrdinalIgnoreCase);
+            Assert.Equal(newSongDescPath, updatedOrder[^1], StringComparer.OrdinalIgnoreCase);
             Assert.Contains("NewSong", ReadIpkText(bundle, WiiSkuScenePath), StringComparison.OrdinalIgnoreCase);
         }
         finally
@@ -472,7 +473,7 @@ public sealed class UbiArtIpkGameFolderExportTests
             SecureFatFileId duplicateEntry = secureFat.FileIds.Single(entry => entry.FileId == duplicateFileId);
 
             Assert.Equal(new byte[] { 1, 0 }, duplicateEntry.BundleIds);
-            Assert.Equal(new[] { "bundle", "bundle_0", "bundlelogic" }, secureFat.Bundles.Select(bundle => bundle.Name));
+            Assert.Equal(ExpectedBundleNames, secureFat.Bundles.Select(bundle => bundle.Name));
             Assert.Equal(new byte[] { 1, 24, 0 }, secureFat.Bundles.Select(bundle => bundle.Id));
         }
         finally

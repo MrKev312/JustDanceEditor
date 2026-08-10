@@ -15,10 +15,13 @@ using System.Collections.ObjectModel;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Library", "View/Tools")]
-public partial class LibraryToolViewModel : TimelineToolViewModel
+public partial class LibraryToolViewModel(
+    ITimelineContextService? timelineContext = null,
+    IDialogService? dialogs = null,
+    TimelineLibraryCatalogBuilder? catalog = null) : TimelineToolViewModel(timelineContext)
 {
-    private readonly TimelineLibraryCatalogBuilder _catalog;
-    internal IDialogService? Dialogs { get; }
+    private readonly TimelineLibraryCatalogBuilder _catalog = catalog ?? new TimelineLibraryCatalogBuilder();
+    internal IDialogService? Dialogs { get; } = dialogs;
     public ObservableCollection<LibraryItemViewModel> Items { get; } = [];
 
     public ObservableCollection<LibraryItemViewModel> Pictograms { get; } = [];
@@ -33,16 +36,6 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
 
     [ObservableProperty]
     public partial LibraryItemViewModel? SelectedFullBodyMove { get; set; }
-
-    public LibraryToolViewModel(
-        ITimelineContextService? timelineContext = null,
-        IDialogService? dialogs = null,
-        TimelineLibraryCatalogBuilder? catalog = null)
-        : base(timelineContext)
-    {
-        Dialogs = dialogs;
-        _catalog = catalog ?? new TimelineLibraryCatalogBuilder();
-    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
@@ -231,7 +224,7 @@ public partial class LibraryToolViewModel : TimelineToolViewModel
         if (timeline == null)
             return;
 
-        foreach (LibraryCatalogEntry entry in _catalog.Build(timeline))
+        foreach (LibraryCatalogEntry entry in TimelineLibraryCatalogBuilder.Build(timeline))
         {
             Bitmap? thumbnail = null;
             IBrush icon = entry.MoveDefinition != null

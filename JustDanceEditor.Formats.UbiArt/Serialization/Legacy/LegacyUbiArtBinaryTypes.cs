@@ -42,5 +42,8 @@ internal sealed class LegacyVibrationClipBinary;
 [LegacyBinaryTypeId(0x0E1E8158)]
 internal sealed class LegacyTapeReferenceClipBinary;
 
+[LegacyBinaryTypeId(0x0F95B841)]
+internal sealed class LegacyCommunityDancerClipBinary;
+
 [LegacyBinaryTypeId(0x3DF2D605)]
 internal sealed class LegacyJd2014SkippedEventBinary;

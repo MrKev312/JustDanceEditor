@@ -91,7 +91,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
             null,
             logger);
 
-    private async Task<Image<Bgra32>> GenerateSquareCoverPreviewAsync(
+    private static async Task<Image<Bgra32>> GenerateSquareCoverPreviewAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,
@@ -107,7 +107,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
         };
     }
 
-    private async Task<Image<Bgra32>> GenerateWideCoverPreviewAsync(
+    private static async Task<Image<Bgra32>> GenerateWideCoverPreviewAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,
@@ -123,7 +123,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
         };
     }
 
-    private async Task<Image<Bgra32>> GenerateAutomaticCoverAsync(
+    private static async Task<Image<Bgra32>> GenerateAutomaticCoverAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverVariant variant,
@@ -176,7 +176,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
             cancellationToken);
     }
 
-    private async Task<Image<Bgra32>> GetMapBackgroundForCompositionAsync(
+    private static async Task<Image<Bgra32>> GetMapBackgroundForCompositionAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,
@@ -193,7 +193,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
         return await imageService.GetMapBackgroundAsync(cancellationToken: cancellationToken);
     }
 
-    private async Task<Image<Bgra32>?> GetAlbumCoachForCompositionAsync(
+    private static async Task<Image<Bgra32>?> GetAlbumCoachForCompositionAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,
@@ -282,7 +282,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown cover asset source.")
         };
 
-    private async Task<Image<Bgra32>> ComposeSquareFromMapBackgroundAsync(
+    private static async Task<Image<Bgra32>> ComposeSquareFromMapBackgroundAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,
@@ -293,7 +293,7 @@ internal sealed class CoverPreviewBuilder(ILogger logger)
         return CoverComposer.ComposeSquareCover(background, albumCoach, 512);
     }
 
-    private async Task<Image<Bgra32>> ComposeWideFromMapBackgroundAsync(
+    private static async Task<Image<Bgra32>> ComposeWideFromMapBackgroundAsync(
         IntermediateImageService imageService,
         string packageRoot,
         CoverPreviewOptions options,

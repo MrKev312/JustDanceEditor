@@ -21,7 +21,7 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
 
         IConversion conversion = FFmpeg.Conversions.New();
         conversion.SetOverwriteOutput(request.OverwriteOutput);
-        AddAudioInputParameters(conversion, request);
+        AddAudioInputParameters(conversion);
         conversion.AddParameter($"-i \"{request.SourcePath}\"");
         AddAudioEncodeParameters(conversion, request);
         conversion.SetOutput(outputPath);
@@ -40,7 +40,7 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
         object outputLock = new();
 
         IConversion conversion = FFmpeg.Conversions.New();
-        AddAudioInputParameters(conversion, request);
+        AddAudioInputParameters(conversion);
         conversion.AddParameter($"-i \"{request.SourcePath}\"");
         AddAudioEncodeParameters(conversion, request);
         conversion.AddParameter($"-f {outputFormat}");
@@ -70,9 +70,9 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
     public Task<string?> GetOrCreateVideoAsync(JdiVideoEncodeRequest request, ILogger logger, CancellationToken cancellationToken = default)
         => JdiVideoConverter.GetOrCreateVideoAsync(request, logger, cancellationToken);
 
-    private static void AddAudioInputParameters(IConversion conversion, JdiAudioEncodeRequest request)
+    private static void AddAudioInputParameters(IConversion conversion)
     {
-        foreach (string argument in BuildAudioInputArguments(request))
+        foreach (string argument in BuildAudioInputArguments())
             conversion.AddParameter(argument);
     }
 
@@ -82,7 +82,7 @@ public sealed class DefaultMediaProcessor(IFileSystem? io = null) : IMediaProces
             conversion.AddParameter(argument);
     }
 
-    internal static IEnumerable<string> BuildAudioInputArguments(JdiAudioEncodeRequest request)
+    internal static IEnumerable<string> BuildAudioInputArguments()
     {
         yield break;
     }

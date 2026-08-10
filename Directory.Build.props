@@ -2,6 +2,8 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <UseLocalKevIncProjects Condition="'$(UseLocalKevIncProjects)' == ''">true</UseLocalKevIncProjects>
+    <KevIncSourceReposRoot>$([MSBuild]::NormalizeDirectory('$(UserProfile)', 'source', 'repos'))</KevIncSourceReposRoot>
+    <KevIncReposRoot Condition="'$(KevIncReposRoot)' == '' And Exists('$(KevIncSourceReposRoot)KevInc.UbiArt')">$(KevIncSourceReposRoot)</KevIncReposRoot>
     <KevIncReposRoot Condition="'$(KevIncReposRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</KevIncReposRoot>
     <KevIncLocalTargetFramework Condition="'$(KevIncLocalTargetFramework)' == ''">net10.0</KevIncLocalTargetFramework>
     <AvaloniaVersion>12.1.1</AvaloniaVersion>
@@ -9,13 +11,13 @@
     <SkiaSharpVersion>4.151.0</SkiaSharpVersion>
 
     <KevIncAvaloniaRoot Condition="'$(KevIncAvaloniaRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Avalonia'))</KevIncAvaloniaRoot>
-    <KevIncAvaloniaPackageVersion>0.2.6</KevIncAvaloniaPackageVersion>
+    <KevIncAvaloniaPackageVersion>0.2.7</KevIncAvaloniaPackageVersion>
     <KevIncAvaloniaProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia\KevInc.Avalonia.csproj</KevIncAvaloniaProject>
     <KevIncAvaloniaDockProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Dock\KevInc.Avalonia.Dock.csproj</KevIncAvaloniaDockProject>
     <KevIncAvaloniaTimelineProject>$(KevIncAvaloniaRoot)src\KevInc.Avalonia.Timeline\KevInc.Avalonia.Timeline.csproj</KevIncAvaloniaTimelineProject>
 
     <KevIncAudioRoot Condition="'$(KevIncAudioRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Audio'))</KevIncAudioRoot>
-    <KevIncAudioPackageVersion>0.2.3</KevIncAudioPackageVersion>
+    <KevIncAudioPackageVersion>0.2.4</KevIncAudioPackageVersion>
     <KevIncAudioCafeProject>$(KevIncAudioRoot)src\KevInc.Audio.Cafe\KevInc.Audio.Cafe.csproj</KevIncAudioCafeProject>
     <KevIncAudioNxProject>$(KevIncAudioRoot)src\KevInc.Audio.Nx\KevInc.Audio.Nx.csproj</KevIncAudioNxProject>
     <KevIncAudioNAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.NAudio\KevInc.Audio.NAudio.csproj</KevIncAudioNAudioProject>
@@ -25,7 +27,7 @@
     <KevIncAudioXma2NAudioProject>$(KevIncAudioRoot)src\KevInc.Audio.Xma2.NAudio\KevInc.Audio.Xma2.NAudio.csproj</KevIncAudioXma2NAudioProject>
 
     <KevIncTextureRoot Condition="'$(KevIncTextureRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.Texture'))</KevIncTextureRoot>
-    <KevIncTexturePackageVersion>0.2.3</KevIncTexturePackageVersion>
+    <KevIncTexturePackageVersion>0.2.4</KevIncTexturePackageVersion>
     <KevIncCrnLibProject>$(KevIncTextureRoot)src\KevInc.CrnLib\KevInc.CrnLib.csproj</KevIncCrnLibProject>
     <KevIncCrnLibImageSharpProject>$(KevIncTextureRoot)src\KevInc.CrnLib.ImageSharp\KevInc.CrnLib.ImageSharp.csproj</KevIncCrnLibImageSharpProject>
     <KevIncTextureProject>$(KevIncTextureRoot)src\KevInc.Texture\KevInc.Texture.csproj</KevIncTextureProject>
@@ -38,11 +40,12 @@
     <KevIncTextureXboxImageSharpProject>$(KevIncTextureRoot)src\KevInc.Texture.Xbox.ImageSharp\KevInc.Texture.Xbox.ImageSharp.csproj</KevIncTextureXboxImageSharpProject>
 
     <KevIncUbiArtRoot Condition="'$(KevIncUbiArtRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(KevIncReposRoot)', 'KevInc.UbiArt'))</KevIncUbiArtRoot>
-    <KevIncUbiArtPackageVersion>0.2.5</KevIncUbiArtPackageVersion>
+    <KevIncUbiArtPackageVersion>0.3.2</KevIncUbiArtPackageVersion>
     <KevIncUbiArtIpkProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Ipk\KevInc.UbiArt.Ipk.csproj</KevIncUbiArtIpkProject>
     <KevIncUbiArtFileSystemProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.FileSystem\KevInc.UbiArt.FileSystem.csproj</KevIncUbiArtFileSystemProject>
     <KevIncUbiArtRakiProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Raki\KevInc.UbiArt.Raki.csproj</KevIncUbiArtRakiProject>
     <KevIncUbiArtTextureProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Texture\KevInc.UbiArt.Texture.csproj</KevIncUbiArtTextureProject>
+    <KevIncUbiArtSerializationProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Serialization\KevInc.UbiArt.Serialization.csproj</KevIncUbiArtSerializationProject>
     <KevIncUbiArtCinematicsProject>$(KevIncUbiArtRoot)src\KevInc.UbiArt.Cinematics\KevInc.UbiArt.Cinematics.csproj</KevIncUbiArtCinematicsProject>
   </PropertyGroup>
 

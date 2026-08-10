@@ -571,6 +571,7 @@ public sealed class UnityAssetMaterializer(ILogger logger)
                 {
                     assetWriter(safeName, data);
                 }
+
                 exported++;
             }
         }

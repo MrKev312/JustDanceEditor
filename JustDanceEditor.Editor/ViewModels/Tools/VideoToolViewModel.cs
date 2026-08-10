@@ -14,7 +14,7 @@ using System.IO;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Video Preview", "View/Preview")]
-public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
+public partial class VideoToolViewModel(ITimelineContextService? timelineContext = null) : TimelineToolViewModel(timelineContext), IDisposable
 {
     private SharedVideoPreviewLease? _sessionLease;
     private SharedVideoPreviewSession? _session;
@@ -29,11 +29,6 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
     [ObservableProperty]
     public partial string VideoStatusText { get; set; } = "No active timeline";
-
-    public VideoToolViewModel(ITimelineContextService? timelineContext = null)
-        : base(timelineContext)
-    {
-    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {
@@ -128,8 +123,7 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
     private void DetachSession(string statusText)
     {
-        if (_session != null)
-            _session.StateChanged -= Session_StateChanged;
+        _session?.StateChanged -= Session_StateChanged;
 
         _session = null;
         _loadedVideoPath = null;
@@ -165,5 +159,6 @@ public partial class VideoToolViewModel : TimelineToolViewModel, IDisposable
 
         DetachSession("No active timeline");
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

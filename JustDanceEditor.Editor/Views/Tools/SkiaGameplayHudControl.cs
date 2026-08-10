@@ -139,7 +139,7 @@ public sealed class SkiaGameplayHudControl : Control
             hudOpacity));
     }
 
-    private SkiaLyricLineLayout? EnsureLyricLayout(ref SkiaLyricLineLayout? layout, LyricLineViewModel? line, Rect bounds)
+    private static SkiaLyricLineLayout? EnsureLyricLayout(ref SkiaLyricLineLayout? layout, LyricLineViewModel? line, Rect bounds)
     {
         if (line == null || line.Clips.Count == 0)
         {
@@ -296,8 +296,7 @@ public sealed class SkiaGameplayHudControl : Control
 
     private void UnsubscribeTrack()
     {
-        if (_pictogramTrack != null)
-            _pictogramTrack.Clips.CollectionChanged -= OnPictogramClipsChanged;
+        _pictogramTrack?.Clips.CollectionChanged -= OnPictogramClipsChanged;
 
         foreach ((ClipViewModel clip, PropertyChangedEventHandler handler) in _clipHandlers)
             clip.PropertyChanged -= handler;

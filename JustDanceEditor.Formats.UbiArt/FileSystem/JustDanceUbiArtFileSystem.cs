@@ -4,6 +4,7 @@ using JustDanceEditor.Formats.UbiArt.Import.Assets;
 using JustDanceEditor.Formats.UbiArt.Serialization.Binary;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 
+using KevInc.UbiArt.Cinematics.Serialization;
 using KevInc.UbiArt.FileSystem;
 
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace JustDanceEditor.Formats.UbiArt.FileSystem;
 
-public class JustDanceUbiArtFileSystem : IDisposable
+public class JustDanceUbiArtFileSystem : IDisposable, IUbiArtSceneReadContext
 {
     private readonly ILogger<JustDanceUbiArtFileSystem> _logger;
     private readonly UbiArtLayeredFileSystem _fileSystem;
@@ -58,6 +59,17 @@ public class JustDanceUbiArtFileSystem : IDisposable
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
     public IUbiArtAssetResolver? AssetResolver => new FileSystemAssetResolver(VersionProfile.Layout, this);
+    public UbiArtPlatform Platform => VersionProfile.Platform;
+    public int EngineVersion => (int)VersionProfile.EngineVersion;
+    public int SerializationVersion => Math.Min(EngineVersion, (int)UbiArtEngineVersion.JD2015);
+
+    public bool TryResolve(string authoredPath, [NotNullWhen(true)] out CookedFile? resource) =>
+        GetFilePath(authoredPath, out resource);
+
+    public Stream Open(CookedFile resource) => GetFileStream(resource);
+
+    public IReadOnlyList<CookedFile> Enumerate(string authoredFolder, string pattern = "*") =>
+        GetAllFiles(authoredFolder, pattern);
 
     public void Initialize()
     {
@@ -189,6 +201,12 @@ public class JustDanceUbiArtFileSystem : IDisposable
         SongName = newSongName;
         ConversionRequest.SongName = newSongName;
         UpdateSongRouting(newSongName);
+    }
+
+    public void UseAuthoredBaseMap(string? baseMapName)
+    {
+        if (!string.IsNullOrWhiteSpace(baseMapName))
+            ContentSongName = baseMapName;
     }
 
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath) => _fileSystem.GetFilePath(relativeFilePath, out filePath);

@@ -103,7 +103,7 @@ internal sealed class UbiArtSongDescriptorResolver : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private IEnumerable<string> GetDirectMapDirectories()
+    private HashSet<string> GetDirectMapDirectories()
     {
         string[] roots = _cookedPlatformRoot == null ? [_basePath] : [_basePath, _cookedPlatformRoot];
         HashSet<string> directories = new(StringComparer.OrdinalIgnoreCase);

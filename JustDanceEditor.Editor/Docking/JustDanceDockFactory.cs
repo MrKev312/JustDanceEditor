@@ -209,7 +209,7 @@ public class JustDanceDockFactory(
             VisibleDockables = CreateList<IDockable>()
         };
 
-    private IRootDock? CreateWindowRoot(SavedDockNode? savedLayout)
+    private RootDock? CreateWindowRoot(SavedDockNode? savedLayout)
     {
         if (savedLayout == null)
             return null;
@@ -286,7 +286,7 @@ public class JustDanceDockFactory(
         return children;
     }
 
-    private IDockable? CreateTool(SavedDockNode node)
+    private Tool? CreateTool(SavedDockNode node)
     {
         Type? toolType = ResolveToolType(node.ToolType);
         if (toolType == null || objects.Create(toolType) is not Tool tool)

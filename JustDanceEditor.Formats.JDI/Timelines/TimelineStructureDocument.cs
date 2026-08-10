@@ -149,7 +149,7 @@ public class TimelineStructureDocument
         return Math.Max(0, GetPlaybackSecondsAtBeat(PreviewLoopStartBeat));
     }
 
-    private TimeSpan GetPreviewDuration() => TimeSpan.FromSeconds(30);
+    private static TimeSpan GetPreviewDuration() => TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Converts a timeline beat into seconds in the materialized JDI master audio.

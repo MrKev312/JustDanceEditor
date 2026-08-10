@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
 
-internal sealed class UbiArtIpkArchiveIndex
+internal sealed partial class UbiArtIpkArchiveIndex
 {
     private static readonly byte[] Magic = [0x50, 0xEC, 0x12, 0xBA];
 
@@ -58,7 +58,7 @@ internal sealed class UbiArtIpkArchiveIndex
 
     public bool IsPatch => NameWithoutExtension.StartsWith("patch_", StringComparison.OrdinalIgnoreCase);
 
-    public bool IsNumberedBundle => Regex.IsMatch(NameWithoutExtension, @"^bundle_\d+_", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    public bool IsNumberedBundle => NumberedBundleNameRegex().IsMatch(NameWithoutExtension);
 
     public bool IsSharedBundle
     {
@@ -156,10 +156,7 @@ internal sealed class UbiArtIpkArchiveIndex
 
     public static string? TryGetMapName(string relativePath)
     {
-        Match match = Regex.Match(
-            NormalizePath(relativePath),
-            @"(?:^|/)world/maps/([^/]+)/",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        Match match = MapPathRegex().Match(NormalizePath(relativePath));
 
         return match.Success ? match.Groups[1].Value : null;
     }
@@ -226,4 +223,10 @@ internal sealed class UbiArtIpkArchiveIndex
     }
 
     private sealed record RawEntry(string Path, string Name, uint Crc);
+
+    [GeneratedRegex(@"^bundle_\d+_", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NumberedBundleNameRegex();
+
+    [GeneratedRegex(@"(?:^|/)world/maps/([^/]+)/", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex MapPathRegex();
 }

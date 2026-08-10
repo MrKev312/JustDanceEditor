@@ -15,13 +15,36 @@ namespace JustDanceEditor.Formats.UbiArt.Serialization;
 
 public static partial class LuaTableSerializer
 {
+    private static readonly JsonSerializerOptions CaseInsensitiveJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+    private static readonly JsonSerializerOptions ClipTapeJsonOptions = CreateClipTapeJsonOptions();
     private static readonly JsonSerializerOptions SongDescJsonOptions = CreateSongDescJsonOptions();
+    private static readonly JsonSerializerOptions TrackDataJsonOptions = CreateTrackDataJsonOptions();
+
+    private static JsonSerializerOptions CreateClipTapeJsonOptions()
+    {
+        JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new Model.Clips.ClipConverter());
+        options.Converters.Add(new FloatArrayFlexibleJsonConverter());
+        return options;
+    }
 
     private static JsonSerializerOptions CreateSongDescJsonOptions()
     {
         JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
         options.Converters.Add(new ArgbFloatArrayJsonConverter());
         options.Converters.Add(new ArgbIntArrayJsonConverter());
+        return options;
+    }
+
+    private static JsonSerializerOptions CreateTrackDataJsonOptions()
+    {
+        JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new FloatArrayFlexibleJsonConverter());
+        options.Converters.Add(new StructureJsonConverter());
+        options.Converters.Add(new Model.Clips.ClipConverter());
         return options;
     }
 
@@ -96,7 +119,7 @@ public static partial class LuaTableSerializer
             return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
-        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+        return JsonSerializer.Deserialize<T>(json, CaseInsensitiveJsonOptions)
             ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
     }
 
@@ -162,7 +185,7 @@ public static partial class LuaTableSerializer
                             if (mtdObj is LuaTable mtdTable)
                             {
                                 // Convert mtdTable to JSON via LuaTableToDictionary and then to TrackData
-                                IDictionary<string, object> mtdDict = LuaTableToDictionary(mtdTable);
+                                Dictionary<string, object> mtdDict = LuaTableToDictionary(mtdTable);
 
                                 // If structure is a LuaTable at top-level, replace it with converted object
                                 if (mtdTable["structure"] is LuaTable structureTable)
@@ -171,12 +194,7 @@ public static partial class LuaTableSerializer
                                 }
 
                                 string mtdJson = JsonSerializer.Serialize(mtdDict);
-                                JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
-                                options.Converters.Add(new FloatArrayFlexibleJsonConverter());
-                                options.Converters.Add(new StructureJsonConverter());
-                                options.Converters.Add(new Model.Clips.ClipConverter());
-
-                                TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, options)
+                                TrackData trackData = JsonSerializer.Deserialize<TrackData>(mtdJson, TrackDataJsonOptions)
                                     ?? throw new JsonException("Failed to deserialize TrackData from Lua content.");
                                 TrackDataHolder holder = new() { Class = "MusicTrackComponent_Template", TrackData = trackData };
                                 MusicTrack musicTrack = new() { Class = "MusicTrack", Components = [holder] };
@@ -208,7 +226,7 @@ public static partial class LuaTableSerializer
             return (T)(object)MapToMusicTrack(JsonSerializer.Deserialize<JsonElement>(json));
         }
 
-        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+        return JsonSerializer.Deserialize<T>(json, CaseInsensitiveJsonOptions)
             ?? throw new JsonException($"Failed to deserialize Lua content to {typeof(T).Name}.");
     }
 
@@ -321,11 +339,7 @@ public static partial class LuaTableSerializer
                 }
             }
 
-            JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
-            options.Converters.Add(new Model.Clips.ClipConverter());
-            options.Converters.Add(new FloatArrayFlexibleJsonConverter());
-
-            return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), options)
+            return JsonSerializer.Deserialize<ClipTape>(resultTape.ToJsonString(), ClipTapeJsonOptions)
                 ?? throw new JsonException("Failed to deserialize ClipTape from Lua content.");
         }
 
@@ -362,18 +376,13 @@ public static partial class LuaTableSerializer
                                     musicTrackData = trackData;
                                 }
 
-                                // Create options with necessary converters
-                                JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
-                                options.Converters.Add(new StructureJsonConverter());
-                                options.Converters.Add(new FloatArrayFlexibleJsonConverter());
-
                                 // Create a wrapper MusicTrack with a single component
                                 TrackDataHolder trackDataHolder = new()
                                 {
                                     Class = "MusicTrackComponent_Template",
                                     TrackData = JsonSerializer.Deserialize<TrackData>(
                                         musicTrackData.GetRawText(),
-                                        options
+                                        TrackDataJsonOptions
                                     ) ?? throw new JsonException("Failed to deserialize TrackData from music track Lua content.")
                                 };
 
@@ -396,7 +405,7 @@ public static partial class LuaTableSerializer
 
     public static string Serialize<T>(T obj) => LuaDocumentWriter.Write(obj);
 
-    private static IDictionary<string, object> LuaTableToDictionary(LuaTable table)
+    private static Dictionary<string, object> LuaTableToDictionary(LuaTable table)
     {
         Dictionary<string, object> dict = [];
         foreach (object? key in table.Keys)
@@ -420,7 +429,7 @@ public static partial class LuaTableSerializer
         return dict;
     }
 
-    private static IList LuaTableToList(LuaTable table)
+    private static ArrayList LuaTableToList(LuaTable table)
     {
         ArrayList list = [];
         foreach (object? value in table.Values)

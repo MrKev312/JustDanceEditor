@@ -43,14 +43,10 @@ public class NewSongResult
 ///   Step 2: Beat alignment (select the 0th beat in the waveform, set padding)
 ///   Step 3: Save location
 /// </summary>
-public partial class NewSongViewModel : ObservableObject, IDialogResult<NewSongResult>, ISongEditorViewModel, IDisposable
+public partial class NewSongViewModel(IWindowService? windows = null) : ObservableObject, IDialogResult<NewSongResult>, ISongEditorViewModel, IDisposable
 {
-    private readonly IWindowService? windows;
+    private readonly IWindowService? windows = windows;
 
-    public NewSongViewModel(IWindowService? windows = null)
-    {
-        this.windows = windows;
-    }
     // Step tracking
     public const int TotalSteps = 4;
 

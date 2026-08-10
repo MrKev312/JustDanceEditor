@@ -62,8 +62,7 @@ public abstract partial class TimelineToolViewModel : Tool, IDisposable
 
     public virtual void Dispose()
     {
-        if (TimelineContext != null)
-            TimelineContext.PropertyChanged -= Context_PropertyChanged;
+        TimelineContext?.PropertyChanged -= Context_PropertyChanged;
         ActiveTimeline = null;
         GC.SuppressFinalize(this);
     }

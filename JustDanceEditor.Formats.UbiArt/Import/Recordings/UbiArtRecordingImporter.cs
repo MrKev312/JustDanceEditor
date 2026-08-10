@@ -129,6 +129,7 @@ internal static class UbiArtRecordingImporter
                 logger.LogWarning(ex, "Failed to import recording snipping table '{SnippingPath}'.", file.RelativePath);
             }
         }
+
         return result;
     }
 

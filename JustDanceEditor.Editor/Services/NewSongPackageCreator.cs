@@ -221,6 +221,7 @@ public static class NewSongPackageCreator
             string fullPath = Path.Combine(rootPath, dir.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(fullPath);
         }
+
         JdiMotionClassifierStorage.EnsureVersionFolders(rootPath);
 
         // Create simple placeholder WebP images using a minimal 1x1 magenta WebP

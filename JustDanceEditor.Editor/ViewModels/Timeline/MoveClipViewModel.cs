@@ -203,5 +203,6 @@ public class MoveClipViewModel : ClipViewModel
         Definition?.PropertyChanged -= OnDefinitionPropertyChanged;
         Definition = null;
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

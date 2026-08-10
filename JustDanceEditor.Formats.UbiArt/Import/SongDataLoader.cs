@@ -13,7 +13,6 @@ using Microsoft.Extensions.Logging;
 
 using NLua.Exceptions;
 
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 
@@ -21,26 +20,6 @@ namespace JustDanceEditor.Formats.UbiArt.Import;
 
 public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSystem? io = null) : ISongDataLoader
 {
-    private static readonly HashSet<string> RenderOnlyCinematicClipClasses = new(StringComparer.Ordinal)
-    {
-        "ActorEnableClip",
-        "AlphaClip",
-        "ColorClip",
-        "MaterialGraphicDiffuseAlphaClip",
-        "MaterialGraphicDiffuseColorClip",
-        "MaterialGraphicEnableLayerClip",
-        "MaterialGraphicUVRotationClip",
-        "MaterialGraphicUVScaleClip",
-        "MaterialGraphicUVScrollClip",
-        "MaterialGraphicUVTranslationClip",
-        "Proportion3DClip",
-        "ProportionClip",
-        "RotationClip",
-        "ScaleClip",
-        "SecondaryTransformClip",
-        "TranslationClip"
-    };
-
     private readonly ILogger<SongDataLoader> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly JDI.Services.IFileSystem _io = io ?? new JDI.Services.SystemFileSystem();
 
@@ -64,16 +43,21 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         if (songData.SongDesc == null || songData.SongDesc.Components.Length == 0)
             throw new InvalidDataException("SongDesc loaded but is invalid or empty.");
 
-        songData.Name = songData.SongDesc.Components[0].MapName;
+        InfoComponent songInfo = songData.SongDesc.Components[0];
+        songData.Name = songInfo.MapName;
+        fileSystem.UseAuthoredBaseMap(songInfo.BaseMapName);
+        string resourceSongName = string.IsNullOrWhiteSpace(fileSystem.ContentSongName)
+            ? songData.Name
+            : fileSystem.ContentSongName;
 
         // Preserve original numeric version from source; normalization to consumer (Unity) is performed in the Unity pipeline
-        uint originalJDVersion = songData.SongDesc.Components[0].OriginalJDVersion;
+        uint originalJDVersion = songInfo.OriginalJDVersion;
         songData.JDVersion = originalJDVersion;
 
-        _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songData.SongDesc.Components[0].JDVersion, songData.JDVersion);
+        _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songInfo.JDVersion, songData.JDVersion);
 
         _logger.LogInformation("Loading MusicTrack");
-        CookedFile musicTrackPath = GetMusicTrackPath(songData.Name, fileSystem);
+        CookedFile musicTrackPath = LegacySongResourceLocator.GetMusicTrackPath(resourceSongName, fileSystem);
         using Stream musicStream = fileSystem.GetFileStream(musicTrackPath);
 
         if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
@@ -108,7 +92,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer;
 
         _logger.LogInformation("Loading MainSequence");
-        string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
+        string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{resourceSongName}_mainsequence.tape");
         if (fileSystem.GetFilePath(mainSeqRelativePath, out CookedFile? mainSeqPath))
         {
             try
@@ -142,8 +126,8 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         }
 
         _logger.LogInformation("Loading DanceTape");
-        string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
-        string danceTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.tpl");
+        string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_dance.dtape");
+        string danceTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_dance.tpl");
         string jd2014TimelineTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, "timeline.tpl");
         bool karaokeAlreadyLoaded = false;
 
@@ -156,7 +140,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             {
                 return DeserializeClipTape(fileSystem, danceTapeStream, options);
             }
-            catch (Exception ex) when (CanSkipLegacyCommunityMashupGameplayTape(songData.Name, fileSystem, ex))
+            catch (Exception ex) when (LegacySongResourceLocator.CanSkipCommunityMashupGameplayTape(songData.Name, fileSystem, ex))
             {
                 _logger.LogWarning(
                     "Skipping legacy community mashup DanceTape '{TapePath}' for '{SongName}' because it contains unsupported gameplay clip data: {Message}",
@@ -256,11 +240,12 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             }
 
             songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
+            LoadCommunityMashupPresentationClips(songData, fileSystem, options);
         }
 
-        string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
-        string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.ktape");
-        string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.tpl");
+        string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml.isc");
+        string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_karaoke.ktape");
+        string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_karaoke.tpl");
 
         if (karaokeAlreadyLoaded)
         {
@@ -313,7 +298,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             {
                 CookedFile timelineFile = timelineFileResult;
 
-                if (ISC.GetActorPath(timelineFile, $"{songData.Name}_tml_karaoke", out string? karaokeActorRelativePath, fileSystem) &&
+                if (ISC.GetActorPath(timelineFile, $"{resourceSongName}_tml_karaoke", out string? karaokeActorRelativePath, fileSystem) &&
                     fileSystem.GetFilePath(karaokeActorRelativePath, out CookedFile? karaokeActorFile))
                 {
                     // Read karaoke actor using generic serializer if possible
@@ -445,7 +430,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             ? (MusicTrack)fileSystem.VersionProfile.Serializer.Deserialize<LegacyMusicTrack>(stream, options)
             : fileSystem.VersionProfile.Serializer!.Deserialize<MusicTrack>(stream, options);
 
-    private static ClipTape DeserializeClipTape(
+    internal static ClipTape DeserializeClipTape(
         JustDanceUbiArtFileSystem fileSystem,
         Stream stream,
         JsonSerializerOptions options) =>
@@ -453,196 +438,50 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             ? (ClipTape)fileSystem.VersionProfile.Serializer.Deserialize<LegacyClipTape>(stream, options)
             : fileSystem.VersionProfile.Serializer!.Deserialize<ClipTape>(stream, options);
 
-    private static LegacyJd2014Timeline DeserializeJd2014Timeline(
+    internal static LegacyJd2014Timeline DeserializeJd2014Timeline(
         JustDanceUbiArtFileSystem fileSystem,
         Stream stream) =>
         fileSystem.VersionProfile.Serializer!.Deserialize<LegacyJd2014Timeline>(stream);
 
-    private static LegacyBlockFlow DeserializeBlockFlow(
+    internal static LegacyBlockFlow DeserializeBlockFlow(
         JustDanceUbiArtFileSystem fileSystem,
         Stream stream) =>
         fileSystem.VersionProfile.Serializer!.Deserialize<LegacyBlockFlow>(stream);
 
-    private void ApplyLegacyMashupIfNeeded(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem)
+    private void ApplyLegacyMashupIfNeeded(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem) =>
+        new LegacyMashupApplicator(_logger).Apply(songData, fileSystem);
+
+    private void LoadCommunityMashupPresentationClips(
+        JDUbiArtSong songData,
+        JustDanceUbiArtFileSystem fileSystem,
+        JsonSerializerOptions options)
     {
-        if (!fileSystem.IsLegacyMashupSelection ||
-            string.IsNullOrWhiteSpace(fileSystem.LegacyMashupBaseSongName))
+        if (!songData.IsCommunityMashup ||
+            string.Equals(fileSystem.SongName, fileSystem.ContentSongName, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
-        if (fileSystem.VersionProfile.Platform == UbiArtPlatform.Uncooked ||
-            fileSystem.VersionProfile.Serializer is not BinaryUbiArtSerializer)
+        string selectedTimelineFolder = fileSystem.InputFolders.SelectedTimelineFolder;
+        string[] candidates =
+        [
+            Path.Combine(selectedTimelineFolder, $"{fileSystem.SongName}_tml_dance.dtape"),
+            Path.Combine(selectedTimelineFolder, $"{fileSystem.SongName}_tml_dance.tpl")
+        ];
+        foreach (string candidate in candidates)
         {
-            throw new NotSupportedException("Legacy mashup blockflow export is only supported for cooked JD2014/JD2015 inputs.");
-        }
-
-        if (!fileSystem.TryGetLegacyMashupTemplatePath(fileSystem.SongName, out CookedFile? blockFlowPath))
-            throw new FileNotFoundException($"Legacy mashup blockflow template not found for '{fileSystem.SongName}'.");
-
-        using Stream blockFlowStream = fileSystem.GetFileStream(blockFlowPath);
-        LegacyBlockFlow blockFlow = DeserializeBlockFlow(fileSystem, blockFlowStream);
-        if (blockFlow.ComponentCount == 0 ||
-            blockFlow.Component.IsMashUp == 0 ||
-            blockFlow.Component.BlockDescriptorVector.Length == 0)
-        {
-            throw new InvalidDataException($"Legacy mashup blockflow template '{blockFlowPath.RelativePath}' does not contain any mashup blocks.");
-        }
-
-        bool isJd2014LegacyMashup = fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014;
-        LegacyMashupData mashup = blockFlow.ToMashupData(fileSystem.SongName, fileSystem.LegacyMashupBaseSongName, isJd2014LegacyMashup);
-        songData.LegacyMashup = mashup;
-        songData.Name = fileSystem.SongName;
-        songData.SongDesc.Components[0].MapName = songData.Name;
-        if (isJd2014LegacyMashup)
-        {
-            songData.SongDesc.Components[0].NumCoach = 1;
-            songData.SongDesc.Components[0].MainCoach = 0;
-        }
-
-        Structure structure = songData.MusicTrack.Components[0].TrackData.Structure;
-        if (mashup.DurationBeats > 0)
-            structure.EndBeat = mashup.DurationBeats;
-
-        ApplyLegacyMashupCoachClips(songData, fileSystem, mashup, forceSingleCoachTimeline: isJd2014LegacyMashup);
-
-        _logger.LogInformation(
-            "Loaded legacy mashup blockflow '{MashupName}' over base map '{BaseSongName}' with {BlockCount} block(s), {DurationBeats} beat(s).",
-            mashup.MapName,
-            mashup.BaseSongName,
-            mashup.Blocks.Count,
-            mashup.DurationBeats);
-    }
-
-    private void ApplyLegacyMashupCoachClips(
-        JDUbiArtSong songData,
-        JustDanceUbiArtFileSystem fileSystem,
-        LegacyMashupData mashup,
-        bool forceSingleCoachTimeline)
-    {
-        int removed = songData.Clips.RemoveAll(IsCoachGameplayClip);
-        List<Clip> remappedClips = [];
-        long nextId = 1;
-
-        foreach (LegacyMashupBlock block in mashup.Blocks)
-        {
-            if ((!forceSingleCoachTimeline && !block.UsesAlternativeBlock) ||
-                block.DurationBeats <= 0 ||
-                block.SourceBlock.IsEmptyBlock)
-            {
-                continue;
-            }
-
-            if (!TryLoadSourceBlockGameplayClips(fileSystem, block.SourceBlock, out IReadOnlyList<Clip> sourceClips))
-            {
-                _logger.LogWarning(
-                    "Legacy mashup block {BlockIndex} references '{SourceSongName}', but no source timeline was found for pictograms/moves.",
-                    block.Index,
-                    block.SourceBlock.SongName);
-                continue;
-            }
-
-            foreach (Clip sourceClip in sourceClips.Where(IsCoachGameplayClip))
-            {
-                if (TryRemapMashupCoachClip(sourceClip, block, nextId, forceSingleCoachTimeline, out Clip? remappedClip) &&
-                    remappedClip != null)
-                {
-                    remappedClips.Add(remappedClip);
-                    nextId++;
-                }
-            }
-        }
-
-        songData.Clips.AddRange(remappedClips);
-        _logger.LogInformation(
-            "Rebuilt legacy mashup coach timeline clips from source blocks: removed {RemovedCount}, added {AddedCount}.",
-            removed,
-            remappedClips.Count);
-    }
-
-    private static bool IsCoachGameplayClip(Clip clip) =>
-        clip is PictogramClip or MotionClip or GoldEffectClip;
-
-    private bool TryLoadSourceBlockGameplayClips(
-        JustDanceUbiArtFileSystem fileSystem,
-        LegacyMashupBlockDescriptor source,
-        out IReadOnlyList<Clip> clips)
-    {
-        foreach (string candidate in EnumerateSourceTimelineCandidates(fileSystem, source).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (!fileSystem.GetFilePath(candidate, out CookedFile? timelineFile))
+            if (!fileSystem.GetFilePath(candidate, out CookedFile? presentationTapePath))
                 continue;
 
-            try
-            {
-                using Stream stream = fileSystem.GetFileStream(timelineFile);
-                if (Path.GetFileName(candidate).Equals("timeline.tpl", StringComparison.OrdinalIgnoreCase) &&
-                    fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014)
-                {
-                    LegacyJd2014Timeline timeline = DeserializeJd2014Timeline(fileSystem, stream);
-                    clips = [.. timeline.DanceTape.Clips];
-                    return true;
-                }
-
-                JsonSerializerOptions options = new()
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                    PropertyNameCaseInsensitive = true
-                };
-                options.Converters.Add(new ClipConverter());
-                options.Converters.Add(new IntFlexibleJsonConverter());
-                options.Converters.Add(new BoolFlexibleJsonConverter());
-                ClipTape tape = DeserializeClipTape(fileSystem, stream, options);
-                clips = [.. ExpandClips(tape.Clips, fileSystem, options)];
-                return true;
-            }
-            catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException or IOException)
-            {
-                _logger.LogDebug(ex, "Could not load legacy mashup source timeline '{TimelinePath}'.", candidate);
-            }
-        }
-
-        clips = [];
-        return false;
-    }
-
-    private static IEnumerable<string> EnumerateSourceTimelineCandidates(
-        JustDanceUbiArtFileSystem fileSystem,
-        LegacyMashupBlockDescriptor source)
-    {
-        string songName = source.SongName;
-        if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2014 &&
-            source.DatabaseGameId is { } databaseGameId)
-        {
-            string databaseTimelineFolder = Path.Combine("world", "database", $"jd{databaseGameId}", songName, "timeline");
-            yield return Path.Combine(databaseTimelineFolder, "timeline.tpl");
-            yield return Path.Combine(databaseTimelineFolder, $"{songName}_tml_dance.tpl");
-            yield return Path.Combine(databaseTimelineFolder, $"{songName}_tml_dance.dtape");
-        }
-
-        string? layoutTimelineFolder = fileSystem.VersionProfile.Layout?.GetTimelineFolder(
-            fileSystem.ConversionRequest.InputPath,
-            songName,
-            fileSystem.VersionProfile.Platform,
-            fileSystem.VersionProfile.EngineVersion);
-        if (!string.IsNullOrWhiteSpace(layoutTimelineFolder))
-        {
-            yield return Path.Combine(layoutTimelineFolder, "timeline.tpl");
-            yield return Path.Combine(layoutTimelineFolder, $"{songName}_tml_dance.tpl");
-            yield return Path.Combine(layoutTimelineFolder, $"{songName}_tml_dance.dtape");
-        }
-
-        foreach (string root in new[]
-        {
-            Path.Combine("world", "jdblocks", songName, "timeline"),
-            Path.Combine("world", "maps", songName, "timeline"),
-            Path.Combine("world", "jd5", songName, "timeline"),
-            Path.Combine("world", "jd2015", songName, "timeline")
-        })
-        {
-            yield return Path.Combine(root, "timeline.tpl");
-            yield return Path.Combine(root, $"{songName}_tml_dance.tpl");
-            yield return Path.Combine(root, $"{songName}_tml_dance.dtape");
+            using Stream stream = fileSystem.GetFileStream(presentationTapePath);
+            ClipTape tape = DeserializeClipTape(fileSystem, stream, options);
+            CommunityDancerClip[] dancers = [.. tape.Clips.OfType<CommunityDancerClip>()];
+            songData.Clips.AddRange(dancers);
+            _logger.LogInformation(
+                "Loaded {DancerCount} community-dancer presentation clip(s) from '{TapePath}'.",
+                dancers.Length,
+                candidate);
+            return;
         }
     }
 
@@ -651,229 +490,14 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         LegacyMashupBlock block,
         long id,
         bool forceSingleCoachTimeline,
-        out Clip? remappedClip)
-    {
-        remappedClip = null;
-        double sourceStartBeat = sourceClip.StartTime / CinematicConstants.TapeFramesPerBeat;
-        double sourceDurationBeats = Math.Max(0, sourceClip.Duration) / CinematicConstants.TapeFramesPerBeat;
-        double sourceEndBeat = sourceDurationBeats > 0
-            ? sourceStartBeat + sourceDurationBeats
-            : sourceStartBeat;
-        double blockStartBeat = block.SourceBlock.FirstBeat;
-        double blockEndBeat = block.SourceBlock.LastBeat;
-
-        if (sourceDurationBeats <= 0)
-        {
-            if (sourceStartBeat < blockStartBeat || sourceStartBeat >= blockEndBeat)
-                return false;
-        }
-        else
-        {
-            if (sourceStartBeat >= blockEndBeat || sourceEndBeat <= blockStartBeat)
-                return false;
-        }
-
-        double trimmedSourceStartBeat = Math.Max(sourceStartBeat, blockStartBeat);
-        double trimmedSourceEndBeat = sourceDurationBeats <= 0
-            ? trimmedSourceStartBeat
-            : Math.Min(sourceEndBeat, blockEndBeat);
-        int startTime = LegacyGameplayBinaryHelpers.RoundBeatsToFrames(
-            (float)(block.AbsoluteStartBeat + (trimmedSourceStartBeat - blockStartBeat)));
-        int duration = sourceDurationBeats <= 0
-            ? 0
-            : Math.Max(1, LegacyGameplayBinaryHelpers.RoundBeatsToFrames((float)(trimmedSourceEndBeat - trimmedSourceStartBeat)));
-
-        remappedClip = sourceClip switch
-        {
-            PictogramClip pictogram => pictogram with
-            {
-                Id = id,
-                StartTime = startTime,
-                Duration = duration
-            },
-            MotionClip motion => motion with
-            {
-                Id = id,
-                StartTime = startTime,
-                Duration = duration,
-                CoachId = forceSingleCoachTimeline ? 0 : motion.CoachId,
-                Color = [.. motion.Color]
-            },
-            GoldEffectClip gold => gold with
-            {
-                Id = id,
-                StartTime = startTime,
-                Duration = duration
-            },
-            _ => null
-        };
-
-        return remappedClip != null;
-    }
-
-    private static CookedFile GetMusicTrackPath(string songName, JustDanceUbiArtFileSystem fileSystem)
-    {
-        List<string> musicTrackSongNames = [songName];
-        if (TryGetLegacyCommunityMashupBaseSongName(songName, out string? communityMashupBaseSongName))
-            musicTrackSongNames.Add(communityMashupBaseSongName);
-
-        foreach (string musicTrackSongName in musicTrackSongNames.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            string musicTrackSongNameLower = musicTrackSongName.ToLowerInvariant();
-            string audioFolder = string.Equals(musicTrackSongName, songName, StringComparison.OrdinalIgnoreCase)
-                ? fileSystem.InputFolders.AudioFolder
-                : Path.Combine(
-                    fileSystem.VersionProfile.Layout?.GetMapWorldFolder(
-                        fileSystem.ConversionRequest.InputPath,
-                        musicTrackSongName,
-                        fileSystem.VersionProfile.Platform,
-                        fileSystem.VersionProfile.EngineVersion) ?? Path.Combine("world", "maps", musicTrackSongName),
-                    "audio");
-            string[] candidates =
-            [
-                Path.Combine(audioFolder, $"{musicTrackSongName}_musictrack.tpl"),
-                Path.Combine("cache", "legacyconverteddata", musicTrackSongName, "audio", $"{musicTrackSongName}_musictrack.main_legacy.tpl"),
-                Path.Combine("cache", "legacyconverteddata", musicTrackSongNameLower, "audio", $"{musicTrackSongNameLower}_musictrack.main_legacy.tpl")
-            ];
-
-            foreach (string candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                if (fileSystem.GetFilePath(candidate, out CookedFile? found))
-                    return found;
-            }
-        }
-
-        throw new FileNotFoundException($"MusicTrack not found for '{songName}'.");
-    }
-
-    private static bool CanSkipLegacyCommunityMashupGameplayTape(
-        string songName,
-        JustDanceUbiArtFileSystem fileSystem,
-        Exception exception) =>
-        IsLegacyCommunityMashupName(songName) &&
-        fileSystem.VersionProfile.Platform != UbiArtPlatform.Uncooked &&
-        fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer &&
-        exception is InvalidDataException or EndOfStreamException or IOException;
-
-    private static bool TryGetLegacyCommunityMashupBaseSongName(string songName, [MaybeNullWhen(false)] out string baseSongName)
-    {
-        baseSongName = null;
-        if (!IsLegacyCommunityMashupName(songName))
-            return false;
-
-        string candidate = songName[..^3];
-        if (string.IsNullOrWhiteSpace(candidate))
-            return false;
-
-        baseSongName = candidate;
-        return true;
-    }
-
-    private static bool IsLegacyCommunityMashupName(string songName) =>
-        !string.IsNullOrWhiteSpace(songName) &&
-        songName.EndsWith("CMU", StringComparison.OrdinalIgnoreCase);
-
-    private IEnumerable<Clip> ExpandClips(IEnumerable<Clip> clips, JustDanceUbiArtFileSystem fileSystem, JsonSerializerOptions options)
-    {
-        HashSet<string> recursionGuard = new(StringComparer.OrdinalIgnoreCase);
-        return ExpandClipsInternal(clips, fileSystem, options, recursionGuard, 0);
-    }
-
-    private IEnumerable<Clip> ExpandClipsInternal(
+        out Clip? remappedClip) =>
+        LegacyMashupApplicator.TryRemapMashupCoachClip(sourceClip, block, id, forceSingleCoachTimeline, out remappedClip);
+    private IEnumerable<Clip> ExpandClips(
         IEnumerable<Clip> clips,
         JustDanceUbiArtFileSystem fileSystem,
-        JsonSerializerOptions options,
-        HashSet<string> recursionGuard,
-        int timeOffset)
-    {
-        foreach (Clip clip in clips)
-        {
-            if (clip is UnknownClip unknown)
-            {
-                if (IsRenderOnlyCinematicClipClass(unknown.OriginalClass))
-                {
-                    _logger.LogDebug(
-                        "Ignoring render-only cinematic clip type {ClipClass} at start {StartTime}, duration {Duration}.",
-                        unknown.OriginalClass,
-                        unknown.StartTime,
-                        unknown.Duration);
-                    continue;
-                }
-
-                if (!string.IsNullOrWhiteSpace(unknown.OriginalClass))
-                {
-                    _logger.LogWarning(
-                        "Skipping unknown clip type {ClipClass} at start {StartTime}, duration {Duration}.",
-                        unknown.OriginalClass,
-                        unknown.StartTime,
-                        unknown.Duration);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Skipping unknown legacy clip type 0x{ClipTypeId:X8} at start {StartTime}, duration {Duration}.",
-                        unknown.TypeId,
-                        unknown.StartTime,
-                        unknown.Duration);
-                }
-
-                continue;
-            }
-
-            if (clip is TapeReferenceClip reference)
-            {
-                foreach (Clip nested in LoadReferenceClips(reference, fileSystem, options, recursionGuard, timeOffset))
-                    yield return nested;
-                continue;
-            }
-
-            if (timeOffset != 0)
-                clip.StartTime += timeOffset;
-            yield return clip;
-        }
-    }
+        JsonSerializerOptions options) =>
+        new CinematicClipReferenceExpander(_logger).Expand(clips, fileSystem, options);
 
     internal static bool IsRenderOnlyCinematicClipClass(string? className) =>
-        !string.IsNullOrWhiteSpace(className) &&
-        RenderOnlyCinematicClipClasses.Contains(className);
-
-    private IEnumerable<Clip> LoadReferenceClips(
-        TapeReferenceClip reference,
-        JustDanceUbiArtFileSystem fileSystem,
-        JsonSerializerOptions options,
-        HashSet<string> recursionGuard,
-        int parentOffset)
-    {
-        if (string.IsNullOrWhiteSpace(reference.Path))
-            yield break;
-
-        string normalizedPath = reference.Path.Replace('\\', '/');
-        bool added = recursionGuard.Add(normalizedPath);
-        if (!added)
-        {
-            _logger.LogWarning("Detected recursive tape reference '{Path}', skipping to avoid infinite loop.", reference.Path);
-            yield break;
-        }
-
-        try
-        {
-            if (!fileSystem.GetFilePath(reference.Path, out CookedFile? tapePath))
-            {
-                _logger.LogWarning("Referenced tape '{Path}' was not found.", reference.Path);
-                yield break;
-            }
-
-            using Stream tapeStream = fileSystem.GetFileStream(tapePath);
-            ClipTape tape = fileSystem.VersionProfile.Serializer != null
-                ? DeserializeClipTape(fileSystem, tapeStream, options)
-                : throw new InvalidOperationException("Serializer not configured on FileSystem.");
-            int offset = parentOffset + reference.StartTime;
-            foreach (Clip clip in ExpandClipsInternal(tape.Clips, fileSystem, options, recursionGuard, offset))
-                yield return clip;
-        }
-        finally
-        {
-            recursionGuard.Remove(normalizedPath);
-        }
-    }
+        CinematicClipReferenceExpander.IsRenderOnlyClipClass(className);
 }

@@ -6,30 +6,44 @@ namespace JustDanceEditor.Formats.UbiArt.Import.Assets;
 
 internal static class UbiArtVideoFileSelector
 {
-    public static CookedFile? FindPreferredVideoFile(JustDanceUbiArtFileSystem fileSystem)
-        => FindPreferredVideoFiles(fileSystem).FirstOrDefault();
+    public static CookedFile? FindPreferredVideoFile(
+        JustDanceUbiArtFileSystem fileSystem,
+        bool allowContentSongFallback = true)
+        => FindPreferredVideoFiles(fileSystem, allowContentSongFallback).FirstOrDefault();
 
-    public static CookedFile[] FindPreferredVideoFiles(JustDanceUbiArtFileSystem fileSystem)
+    public static CookedFile[] FindPreferredVideoFiles(
+        JustDanceUbiArtFileSystem fileSystem,
+        bool allowContentSongFallback = true)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
 
-        CookedFile[] physicalMediaFiles = FindPhysicalMediaFiles(fileSystem);
-        if (physicalMediaFiles.Length > 0)
-            return ChoosePreferredVideoFiles(physicalMediaFiles, fileSystem.SongName);
-
-        if (fileSystem.GetFolderPath(fileSystem.InputFolders.MediaFolder, out _))
+        foreach ((string MediaFolder, string SongName) in EnumerateMediaSources(fileSystem, allowContentSongFallback))
         {
-            CookedFile[] mediaFiles = fileSystem.GetAllFiles(fileSystem.InputFolders.MediaFolder, "*.webm");
+            CookedFile[] physicalMediaFiles = FindPhysicalMediaFiles(fileSystem, MediaFolder);
+            if (physicalMediaFiles.Length > 0)
+                return ChoosePreferredVideoFiles(physicalMediaFiles, SongName);
+
+            if (!fileSystem.GetFolderPath(MediaFolder, out _))
+                continue;
+
+            CookedFile[] mediaFiles = fileSystem.GetAllFiles(MediaFolder, "*.webm");
             if (mediaFiles.Length > 0)
-                return ChoosePreferredVideoFiles(mediaFiles, fileSystem.SongName);
+                return ChoosePreferredVideoFiles(mediaFiles, SongName);
         }
 
-        string videosCoachFolder = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "videoscoach");
-        List<VideoCandidate> candidates = [];
-        foreach (CookedFile file in fileSystem.GetAllFiles(videosCoachFolder, "*.webm"))
-            candidates.Add(new(file, 0));
+        foreach ((string MapWorldFolder, string SongName) in EnumerateMapSources(fileSystem, allowContentSongFallback))
+        {
+            string videosCoachFolder = Path.Combine(MapWorldFolder, "videoscoach");
+            List<VideoCandidate> candidates = [];
+            foreach (CookedFile file in fileSystem.GetAllFiles(videosCoachFolder, "*.webm"))
+                candidates.Add(new(file, 0));
 
-        return [.. ChoosePreferredVideoCandidates(candidates, fileSystem.SongName).Select(candidate => candidate.File)];
+            VideoCandidate[] preferred = [.. ChoosePreferredVideoCandidates(candidates, SongName)];
+            if (preferred.Length > 0)
+                return [.. preferred.Select(candidate => candidate.File)];
+        }
+
+        return [];
     }
 
     internal static CookedFile? ChoosePreferredVideoFile(IEnumerable<CookedFile> files, string songName) =>
@@ -166,18 +180,51 @@ internal static class UbiArtVideoFileSelector
         return 2;
     }
 
-    private static CookedFile[] FindPhysicalMediaFiles(JustDanceUbiArtFileSystem fileSystem)
+    private static CookedFile[] FindPhysicalMediaFiles(
+        JustDanceUbiArtFileSystem fileSystem,
+        string mediaFolder)
     {
-        string mediaFolder = Path.Combine(fileSystem.ConversionRequest.InputPath, fileSystem.InputFolders.MediaFolder);
-        if (!Directory.Exists(mediaFolder))
+        string physicalMediaFolder = Path.Combine(fileSystem.ConversionRequest.InputPath, mediaFolder);
+        if (!Directory.Exists(physicalMediaFolder))
             return [];
 
         return
         [
-            .. Directory.GetFiles(mediaFolder, "*.webm", SearchOption.TopDirectoryOnly)
+            .. Directory.GetFiles(physicalMediaFolder, "*.webm", SearchOption.TopDirectoryOnly)
                 .Select(path => Path.GetRelativePath(fileSystem.ConversionRequest.InputPath, path).Replace('\\', Path.DirectorySeparatorChar))
                 .Select(relative => new CookedFile(relative))
         ];
+    }
+
+    private static IEnumerable<(string MediaFolder, string SongName)> EnumerateMediaSources(
+        JustDanceUbiArtFileSystem fileSystem,
+        bool allowContentSongFallback) =>
+        allowContentSongFallback
+            ? EnumerateDistinctSources(
+                (fileSystem.InputFolders.SelectedMediaFolder, fileSystem.SongName),
+                (fileSystem.InputFolders.MediaFolder, fileSystem.ContentSongName))
+            : EnumerateDistinctSources(
+                (fileSystem.InputFolders.SelectedMediaFolder, fileSystem.SongName));
+
+    private static IEnumerable<(string MapWorldFolder, string SongName)> EnumerateMapSources(
+        JustDanceUbiArtFileSystem fileSystem,
+        bool allowContentSongFallback) =>
+        allowContentSongFallback
+            ? EnumerateDistinctSources(
+                (fileSystem.InputFolders.SelectedMapWorldFolder, fileSystem.SongName),
+                (fileSystem.InputFolders.MapWorldFolder, fileSystem.ContentSongName))
+            : EnumerateDistinctSources(
+                (fileSystem.InputFolders.SelectedMapWorldFolder, fileSystem.SongName));
+
+    private static IEnumerable<(string Folder, string SongName)> EnumerateDistinctSources(
+        params (string Folder, string SongName)[] sources)
+    {
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((string folder, string songName) in sources)
+        {
+            if (!string.IsNullOrWhiteSpace(folder) && seen.Add(folder))
+                yield return (folder, string.IsNullOrWhiteSpace(songName) ? string.Empty : songName);
+        }
     }
 
     private static readonly string[] PreferredVideoQualities = ["ULTRA", "HIGH", "MID", "LOW"];

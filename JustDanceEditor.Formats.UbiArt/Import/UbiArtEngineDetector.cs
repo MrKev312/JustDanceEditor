@@ -20,7 +20,7 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
         return DetectWithFileSystem(inputPath, _io, inputPath, mapName);
     }
 
-    private UbiArtVersionProfile DetectWithFileSystem(
+    private static UbiArtVersionProfile DetectWithFileSystem(
         string basePath,
         IUbiArtFileSystem fs,
         string sourcePath,
@@ -180,6 +180,6 @@ public class UbiArtEngineDetector(IUbiArtFileSystem? io = null) : IUbiArtEngineD
     }
 
     private static bool UsesLegacyBinarySerializer(UbiArtPlatform platform, UbiArtEngineVersion engineVersion) =>
-        platform is (UbiArtPlatform.Revolution or UbiArtPlatform.Cell or UbiArtPlatform.Xenon) &&
+        platform is UbiArtPlatform.Revolution or UbiArtPlatform.Cell or UbiArtPlatform.Xenon &&
         engineVersion is >= UbiArtEngineVersion.JD2016 and <= UbiArtEngineVersion.JD2020;
 }

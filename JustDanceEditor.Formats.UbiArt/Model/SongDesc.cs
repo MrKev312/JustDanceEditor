@@ -34,6 +34,7 @@ public class InfoComponent
     [JsonPropertyName("__class")]
     public string Class { get; set; } = string.Empty;
     public string MapName { get; set; } = string.Empty;
+    public string BaseMapName { get; set; } = string.Empty;
     public uint JDVersion { get; set; }
     public uint OriginalJDVersion { get; set; }
     public string Artist { get; set; } = string.Empty;

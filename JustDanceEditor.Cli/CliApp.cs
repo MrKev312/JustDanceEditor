@@ -52,7 +52,7 @@ internal sealed class CliApp(
         }
     }
 
-    internal int ExecuteCommand(Func<int> action)
+    internal static int ExecuteCommand(Func<int> action)
     {
         try
         {

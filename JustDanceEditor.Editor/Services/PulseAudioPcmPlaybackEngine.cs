@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace JustDanceEditor.Editor.Services;
 
-internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioClockPlaybackEngine
+internal sealed partial class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioClockPlaybackEngine
 {
     private const int FramesPerBuffer = 512;
     private const double TargetLatencySeconds = 0.055;
@@ -331,7 +332,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
         }
     }
 
-    private IntPtr OpenStream(PcmWaveAudioData audio)
+    private static IntPtr OpenStream(PcmWaveAudioData audio)
     {
         PulseNative.SampleSpec sampleSpec = new()
         {
@@ -362,8 +363,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             playback = _playback;
             _playback = null;
             _isPlaying = false;
-            if (playback != null)
-                playback.StopRequested = true;
+            playback?.StopRequested = true;
         }
 
         if (playback == null)
@@ -438,8 +438,11 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
         _disposed = true;
     }
 
-    private static class PulseNative
+    private static partial class PulseNative
     {
+        private const string PulseLibrary = "libpulse.so.0";
+        private const string PulseSimpleLibrary = "libpulse-simple.so.0";
+
         public const int SampleS16Le = 3;
         private const int StreamPlayback = 1;
 
@@ -463,7 +466,7 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
 
         public static IntPtr New(string applicationName, string streamName, SampleSpec sampleSpec, BufferAttr bufferAttr)
         {
-            IntPtr stream = pa_simple_new(
+            IntPtr stream = PaSimpleNew(
                 null,
                 applicationName,
                 StreamPlayback,
@@ -480,23 +483,29 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             return stream;
         }
 
-        public static void Write(IntPtr stream, byte[] bytes, int byteCount)
+        public static unsafe void Write(IntPtr stream, byte[] bytes, int byteCount)
         {
-            int result = pa_simple_write(stream, bytes, (UIntPtr)byteCount, out int error);
-            if (result < 0)
-                throw new AudioPlaybackUnavailableException($"PulseAudio write failed: {GetError(error)}");
+            ArgumentOutOfRangeException.ThrowIfNegative(byteCount);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(byteCount, bytes.Length);
+
+            fixed (byte* data = bytes)
+            {
+                int result = PaSimpleWrite(stream, data, (nuint)byteCount, out int error);
+                if (result < 0)
+                    throw new AudioPlaybackUnavailableException($"PulseAudio write failed: {GetError(error)}");
+            }
         }
 
         public static void Drain(IntPtr stream)
         {
-            int result = pa_simple_drain(stream, out int error);
+            int result = PaSimpleDrain(stream, out int error);
             if (result < 0)
                 throw new AudioPlaybackUnavailableException($"PulseAudio drain failed: {GetError(error)}");
         }
 
         public static TimeSpan GetLatency(IntPtr stream)
         {
-            ulong latencyUsec = pa_simple_get_latency(stream, out int error);
+            ulong latencyUsec = PaSimpleGetLatency(stream, out int error);
             if (latencyUsec == ulong.MaxValue)
                 throw new AudioPlaybackUnavailableException($"PulseAudio latency query failed: {GetError(error)}");
 
@@ -507,7 +516,9 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
         {
             try
             {
-                pa_simple_flush(stream, out int error);
+                int result = PaSimpleFlush(stream, out int error);
+                if (result < 0)
+                    throw new AudioPlaybackUnavailableException($"PulseAudio flush failed: {GetError(error)}");
             }
             catch (Exception ex)
             {
@@ -517,17 +528,18 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
 
         public static void Free(IntPtr stream)
         {
-            pa_simple_free(stream);
+            PaSimpleFree(stream);
         }
 
         private static string GetError(int error)
         {
-            IntPtr text = pa_strerror(error);
-            return Marshal.PtrToStringAnsi(text) ?? $"error {error}";
+            IntPtr text = PaStrError(error);
+            return Marshal.PtrToStringUTF8(text) ?? $"error {error}";
         }
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr pa_simple_new(
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_new", StringMarshalling = StringMarshalling.Utf8)]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial IntPtr PaSimpleNew(
             string? server,
             string name,
             int direction,
@@ -538,22 +550,28 @@ internal sealed class PulseAudioPcmPlaybackEngine : IPcmPlaybackEngine, IAudioCl
             ref BufferAttr bufferAttr,
             out int error);
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int pa_simple_write(IntPtr stream, byte[] data, UIntPtr bytes, out int error);
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_write")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static unsafe partial int PaSimpleWrite(IntPtr stream, byte* data, nuint bytes, out int error);
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int pa_simple_drain(IntPtr stream, out int error);
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_drain")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial int PaSimpleDrain(IntPtr stream, out int error);
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern int pa_simple_flush(IntPtr stream, out int error);
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_flush")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial int PaSimpleFlush(IntPtr stream, out int error);
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern ulong pa_simple_get_latency(IntPtr stream, out int error);
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_get_latency")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial ulong PaSimpleGetLatency(IntPtr stream, out int error);
 
-        [DllImport("libpulse-simple.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void pa_simple_free(IntPtr stream);
+        [LibraryImport(PulseSimpleLibrary, EntryPoint = "pa_simple_free")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial void PaSimpleFree(IntPtr stream);
 
-        [DllImport("libpulse.so.0", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr pa_strerror(int error);
+        [LibraryImport(PulseLibrary, EntryPoint = "pa_strerror")]
+        [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+        private static partial IntPtr PaStrError(int error);
     }
 }

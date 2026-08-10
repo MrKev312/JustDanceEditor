@@ -2,9 +2,10 @@ using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Scene;
 using JustDanceEditor.Formats.UbiArt.Model;
 using JustDanceEditor.Formats.UbiArt.Model.Clips;
 using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
-using JustDanceEditor.Formats.UbiArt.Serialization.Legacy.Cinematics;
 
 using KevInc.UbiArt.Cinematics.Core;
+using KevInc.UbiArt.Cinematics.Scene;
+using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using System;
 using System.Buffers.Binary;
@@ -110,6 +111,45 @@ public sealed class LegacyBinarySerializerTests
     }
 
     [Fact]
+    public void Deserialize_Jd2015BaseMapSongDesc_ReadsPopulatedPreview()
+    {
+        LegacyModernSongDescComponent source = new()
+        {
+            MapName = "DancingQueenCMU",
+            RawEngineVersion = 2015,
+            OriginalVersion = uint.MaxValue,
+            HasBaseMap = 1,
+            BaseMapName = "DancingQueen",
+            Artist = "ABBA",
+            Title = "Dancing Queen",
+            CoachCount = 1,
+            Preview = new LegacySongDescPreview
+            {
+                PreviewCount = 1,
+                PreviewEntrySize = 0x14,
+                PreviewEntryTypeId = 0x6F4037D0,
+                PreviewEntryBeat = 48,
+                PreviewLoopSize = 0x18,
+                PreviewLoopTypeId = 0xEF70A59D,
+                PreviewLoopStartBeat = 48,
+                PreviewLoopEndBeat = 96
+            }
+        };
+        byte[] bytes = LegacyBinarySerializer.Serialize(source);
+
+        LegacyModernSongDescComponent parsed = LegacyBinarySerializer.Deserialize<LegacyModernSongDescComponent>(
+            bytes,
+            new LegacyBinarySerializerContext(2015));
+
+        Assert.Equal("DancingQueen", parsed.BaseMapName);
+        Assert.Equal("DancingQueen", Assert.Single(((SongDesc)parsed).Components).BaseMapName);
+        Assert.Equal(1, parsed.Preview.PreviewCount);
+        Assert.Equal(0x6F4037D0u, parsed.Preview.PreviewEntryTypeId);
+        Assert.Equal(48, parsed.Preview.PreviewEntryBeat);
+        Assert.Equal(96, parsed.Preview.PreviewLoopEndBeat);
+    }
+
+    [Fact]
     public void Deserialize_Jd2014BetaTimelineEvent_UsesInlineGeneratedEventBody()
     {
         using MemoryStream stream = new();
@@ -181,8 +221,12 @@ public sealed class LegacyBinarySerializerTests
         WriteUInt32(stream, 0);
         WritePathFileFirst(stream, "template.tpl", "world/maps/test/", 0x11223344);
 
-        CinematicSceneActorBinary actor = LegacyBinarySerializer.Deserialize<CinematicSceneActorBinary>(stream.ToArray());
-        CinematicPickableFields pickable = actor.Pickable.ToRuntime();
+        CinematicBinaryReader reader = new(stream.ToArray());
+        Assert.True(LegacyBinarySerializer.IsTypeId<CinematicSceneActorBinary>(reader.ReadUInt32()));
+        CinematicPickableFields pickable = CinematicPickableReader.Read(
+            reader,
+            new LegacyBinarySerializerContext(2014),
+            hasTemplatePathPrefix: true);
 
         Assert.Equal("actor", pickable.Name);
         Assert.Equal(3.5f, pickable.RelativeZ);
@@ -193,6 +237,66 @@ public sealed class LegacyBinarySerializerTests
         Assert.Equal(12.0f, pickable.PositionY);
         Assert.Equal(0.5f, pickable.Angle);
         Assert.Equal("world/maps/test/template.tpl", pickable.TemplatePath);
+    }
+
+    [Fact]
+    public void Deserialize_Jd2015CinematicPickable_ReadsTransformWithoutNewerEnableField()
+    {
+        using MemoryStream stream = new();
+        WriteUInt32(stream, LegacyBinarySerializer.GetTypeId<CinematicSubSceneActorBinary>());
+        WriteSingle(stream, 0.0f);
+        WriteSingle(stream, 1.0f);
+        WriteSingle(stream, 1.0f);
+        WriteUInt32(stream, 0);
+        WriteString(stream, "actor");
+        WriteSingle(stream, -262.97263f);
+        WriteSingle(stream, -2.323281f);
+        WriteSingle(stream, 6.021383f);
+        WritePathFileFirst(stream, "", "", 0);
+        WriteUInt32(stream, 0);
+        WritePathFileFirst(stream, "subscene.tpl", "enginedata/actortemplates/", 0x69934BE0);
+
+        CinematicBinaryReader reader = new(stream.ToArray());
+        Assert.True(LegacyBinarySerializer.IsTypeId<CinematicSubSceneActorBinary>(reader.ReadUInt32()));
+        CinematicPickableFields pickable = CinematicPickableReader.Read(
+            reader,
+            new LegacyBinarySerializerContext(2015),
+            hasTemplatePathPrefix: true);
+
+        Assert.True(pickable.DefaultEnabled);
+        Assert.Equal(-262.97263f, pickable.PositionX);
+        Assert.Equal(-2.323281f, pickable.PositionY);
+        Assert.Equal(6.021383f, pickable.Angle);
+        Assert.Equal("enginedata/actortemplates/subscene.tpl", pickable.TemplatePath);
+    }
+
+    [Fact]
+    public void Deserialize_Jd2015CommunityDancerClip_RetainsHudEventData()
+    {
+        using MemoryStream stream = new();
+        WriteUInt32(stream, 0x0F95B841);
+        WriteUInt32(stream, 0x34);
+        WriteUInt32(stream, 12);
+        WriteUInt32(stream, 34);
+        WriteUInt32(stream, 1);
+        WriteUInt32(stream, 120);
+        WriteUInt32(stream, 100);
+        WriteString(stream, "US");
+        WriteUInt32(stream, 45);
+        WriteString(stream, "Carl_Natassia");
+
+        LegacyCommunityDancerGameplayClip legacy = LegacyBinarySerializer.Deserialize<LegacyCommunityDancerGameplayClip>(
+            stream.ToArray(),
+            new LegacyBinarySerializerContext(2015));
+        CommunityDancerClip clip = (CommunityDancerClip)legacy;
+
+        Assert.Equal(12, clip.Id);
+        Assert.Equal(34, clip.TrackId);
+        Assert.Equal(120, clip.StartTime);
+        Assert.Equal(100, clip.Duration);
+        Assert.Equal("US", clip.DancerCountryCode);
+        Assert.Equal(45, clip.DancerAvatarId);
+        Assert.Equal("Carl_Natassia", clip.DancerName);
     }
 
     [Fact]

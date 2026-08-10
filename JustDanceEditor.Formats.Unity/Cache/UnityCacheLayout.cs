@@ -9,10 +9,10 @@ using System.Text.RegularExpressions;
 
 namespace JustDanceEditor.Formats.Unity.Cache;
 
-public static class UnityCacheLayout
+public static partial class UnityCacheLayout
 {
     private const int DefaultMaxSearchDepth = 5;
-    private static readonly Regex CacheFolderPattern = new(@"^SD_Cache\.[0-9A-Fa-f]{4}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex CacheFolderPattern = CacheFolderRegex();
 
     public static string GetCacheFolderName(uint cacheNumber) => $"SD_Cache.{cacheNumber:X4}";
 
@@ -137,4 +137,7 @@ public static class UnityCacheLayout
         File.WriteAllText(path, contents);
         logger?.LogInformation("Created {Path}", path);
     }
+
+    [GeneratedRegex(@"^SD_Cache\.[0-9A-Fa-f]{4}$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex CacheFolderRegex();
 }

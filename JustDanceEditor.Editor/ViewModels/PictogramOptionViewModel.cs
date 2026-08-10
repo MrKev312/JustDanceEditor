@@ -58,7 +58,7 @@ public sealed class PictogramOptionViewModel : IDisposable
         return _redPlaceholder;
     }
 
-    private static Bitmap CreateRedBitmap(int w, int h)
+    private static RenderTargetBitmap CreateRedBitmap(int w, int h)
     {
         RenderTargetBitmap bmp = new(new Avalonia.PixelSize(w, h));
         using (DrawingContext ctx = bmp.CreateDrawingContext())

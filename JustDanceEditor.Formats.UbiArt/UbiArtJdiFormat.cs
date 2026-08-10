@@ -112,7 +112,7 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         {
             _logger.LogDebug("Writing JDI package metadata to '{OutputFolder}'", outputFolder);
             IntermediatePackageSerializer.WriteToFolder(context.IntermediatePackage, outputFolder);
-        });
+        }, cancellationToken);
 
         await Task.WhenAll(assetTask, metadataTask);
 

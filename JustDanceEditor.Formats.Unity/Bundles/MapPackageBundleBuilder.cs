@@ -126,7 +126,7 @@ public sealed class MapPackageBundleBuilder(ILogger logger) : UnityBundleBuilder
         }
     }
 
-    private void ValidateInput(UnityMapPackageRequest request)
+    private static void ValidateInput(UnityMapPackageRequest request)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SongName);
         ArgumentNullException.ThrowIfNull(request.UnityData);

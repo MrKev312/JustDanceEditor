@@ -17,7 +17,7 @@ internal sealed record LibraryCatalogEntry(
 
 public sealed class TimelineLibraryCatalogBuilder
 {
-    internal IReadOnlyList<LibraryCatalogEntry> Build(TimelineEditorViewModel timeline)
+    internal static IReadOnlyList<LibraryCatalogEntry> Build(TimelineEditorViewModel timeline)
     {
         Dictionary<(ItemType Type, string Id), int> usage = CountUsage(timeline);
         List<LibraryCatalogEntry> entries = [];
@@ -42,6 +42,7 @@ public sealed class TimelineLibraryCatalogBuilder
             if (key is { } value && !string.IsNullOrWhiteSpace(value.Id))
                 counts[value] = counts.GetValueOrDefault(value) + 1;
         }
+
         return counts;
     }
 
@@ -93,7 +94,7 @@ public sealed class TimelineLibraryCatalogBuilder
 
     private static Dictionary<string, string> FindPictogramAssets(string directory)
     {
-        Dictionary<string, string> assets = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> assets = [with(StringComparer.OrdinalIgnoreCase)];
         if (!Directory.Exists(directory))
             return assets;
 
@@ -102,6 +103,7 @@ public sealed class TimelineLibraryCatalogBuilder
             string id = Path.GetFileNameWithoutExtension(path);
             assets.TryAdd(id, path);
         }
+
         return assets;
     }
 }

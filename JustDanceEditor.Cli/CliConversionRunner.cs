@@ -227,7 +227,7 @@ internal sealed class CliConversionRunner(
         }
     }
 
-    private PromptAnswerSet BuildAnswers(CliOptions options, string outputPath)
+    private static PromptAnswerSet BuildAnswers(CliOptions options, string outputPath)
     {
         PromptAnswerSet answers = new();
         answers.Set(ConversionPromptIds.OutputPath, outputPath);

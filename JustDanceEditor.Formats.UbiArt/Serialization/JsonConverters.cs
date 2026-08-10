@@ -243,6 +243,11 @@ public class FloatArrayFlexibleJsonConverter : JsonConverter<float[]>
 /// </summary>
 public class StructureJsonConverter : JsonConverter<Structure>
 {
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     public override Structure? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType == JsonTokenType.Null)
@@ -254,14 +259,14 @@ public class StructureJsonConverter : JsonConverter<Structure>
         // Check if wrapped in MusicTrackStructure
         if (root.TryGetProperty("MusicTrackStructure", out JsonElement innerStructure))
         {
-            return DeserializeStructure(innerStructure, options);
+                        return DeserializeStructure(innerStructure);
         }
 
         // Not wrapped, deserialize directly
-        return DeserializeStructure(root, options);
+            return DeserializeStructure(root);
     }
 
-    private static Structure DeserializeStructure(JsonElement element, JsonSerializerOptions options)
+        private static Structure DeserializeStructure(JsonElement element)
     {
         Structure structure = new();
 
@@ -337,6 +342,6 @@ public class StructureJsonConverter : JsonConverter<Structure>
     public override void Write(Utf8JsonWriter writer, Structure value, JsonSerializerOptions options)
     {
         // Write without the wrapper
-        JsonSerializer.Serialize(writer, value, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        JsonSerializer.Serialize(writer, value, WriteOptions);
     }
 }

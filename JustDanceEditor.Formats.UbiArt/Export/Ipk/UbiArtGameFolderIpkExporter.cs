@@ -6,8 +6,9 @@ using KevInc.UbiArt.Ipk;
 
 using Microsoft.Extensions.Logging;
 
-namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
+using static JustDanceEditor.Formats.UbiArt.Export.Ipk.UbiArtIpkOwnershipIndex;
 
+namespace JustDanceEditor.Formats.UbiArt.Export.Ipk;
 internal sealed class UbiArtGameFolderIpkExporter
 {
     private readonly ILogger _logger;
@@ -230,61 +231,6 @@ internal sealed class UbiArtGameFolderIpkExporter
             fileName.StartsWith($"{mapNameLower}_cover_phone.", StringComparison.OrdinalIgnoreCase) ||
             (fileName.StartsWith($"{mapNameLower}_coach_", StringComparison.OrdinalIgnoreCase) &&
             fileName.EndsWith("_phone.png", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static IEnumerable<UbiArtIpkArchiveIndex> SelectEffectiveExactOwners(
-        IEnumerable<UbiArtIpkArchiveIndex> exactOwners,
-        string normalizedPath,
-        string mapNameLower)
-    {
-        List<UbiArtIpkArchiveIndex> owners = [.. exactOwners.DistinctBy(archive => archive.Path, StringComparer.OrdinalIgnoreCase)];
-
-        List<UbiArtIpkArchiveIndex> patchOwners = [.. owners.Where(archive => archive.IsPatch)];
-
-        if (patchOwners.Count > 0 || owners.Count <= 1)
-            return patchOwners.Count > 0 ? patchOwners : owners;
-
-        string? mapName = UbiArtIpkArchiveIndex.TryGetMapName(normalizedPath);
-        if (mapName is not null)
-        {
-            string pattern = UbiArtIpkArchiveIndex.ToSongPattern(normalizedPath, mapName);
-            return [SelectDominantPatternOwner(owners, pattern)];
-        }
-
-        if (!string.IsNullOrWhiteSpace(mapNameLower) &&
-            normalizedPath.Contains($"/{mapNameLower}/", StringComparison.OrdinalIgnoreCase))
-        {
-            string pattern = UbiArtIpkArchiveIndex.ToSongPattern(normalizedPath, mapNameLower);
-            return [SelectDominantPatternOwner(owners, pattern)];
-        }
-
-        return owners;
-    }
-
-    private static UbiArtIpkArchiveIndex SelectDominantPatternOwner(
-        IReadOnlyCollection<UbiArtIpkArchiveIndex> owners,
-        string pattern)
-        => owners
-            .OrderByDescending(archive => CountPatternEntries(archive, pattern))
-            .ThenBy(archive => archive.IsPatch)
-            .ThenBy(archive => archive.FileName, StringComparer.OrdinalIgnoreCase)
-            .First();
-
-    private static int CountPatternEntries(UbiArtIpkArchiveIndex archive, string pattern)
-    {
-        int count = 0;
-        foreach (string entry in archive.Entries)
-        {
-            string? mapName = UbiArtIpkArchiveIndex.TryGetMapName(entry);
-            if (mapName is null)
-                continue;
-
-            string entryPattern = UbiArtIpkArchiveIndex.ToSongPattern(entry, mapName);
-            if (string.Equals(entryPattern, pattern, StringComparison.OrdinalIgnoreCase))
-                count++;
-        }
-
-        return count;
     }
 
     private string ResolveSongContentArchivePath(string mapNameLower)
@@ -522,52 +468,6 @@ internal sealed class UbiArtGameFolderIpkExporter
                 UbiArtPlatform.Revolution or
                 UbiArtPlatform.Cell or
                 UbiArtPlatform.Xenon);
-
-    private static Dictionary<string, List<UbiArtIpkArchiveIndex>> BuildExactOwners(IEnumerable<UbiArtIpkArchiveIndex> archives)
-    {
-        Dictionary<string, List<UbiArtIpkArchiveIndex>> owners = new(StringComparer.OrdinalIgnoreCase);
-        foreach (UbiArtIpkArchiveIndex archive in archives)
-        {
-            foreach (string entry in archive.Entries)
-            {
-                if (!owners.TryGetValue(entry, out List<UbiArtIpkArchiveIndex>? archiveOwners))
-                {
-                    archiveOwners = [];
-                    owners[entry] = archiveOwners;
-                }
-
-                archiveOwners.Add(archive);
-            }
-        }
-
-        return owners;
-    }
-
-    private static Dictionary<string, List<UbiArtIpkArchiveIndex>> BuildPatternOwners(IEnumerable<UbiArtIpkArchiveIndex> archives)
-    {
-        Dictionary<string, List<UbiArtIpkArchiveIndex>> owners = new(StringComparer.OrdinalIgnoreCase);
-        foreach (UbiArtIpkArchiveIndex archive in archives)
-        {
-            foreach (string entry in archive.Entries)
-            {
-                string? mapName = UbiArtIpkArchiveIndex.TryGetMapName(entry);
-                if (mapName is null)
-                    continue;
-
-                string pattern = UbiArtIpkArchiveIndex.ToSongPattern(entry, mapName);
-                if (!owners.TryGetValue(pattern, out List<UbiArtIpkArchiveIndex>? archiveOwners))
-                {
-                    archiveOwners = [];
-                    owners[pattern] = archiveOwners;
-                }
-
-                if (!archiveOwners.Any(owner => string.Equals(owner.Path, archive.Path, StringComparison.OrdinalIgnoreCase)))
-                    archiveOwners.Add(archive);
-            }
-        }
-
-        return owners;
-    }
 
     private sealed record StagedFile(string FullPath, string RelativePath);
 }

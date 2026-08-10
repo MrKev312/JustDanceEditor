@@ -54,7 +54,7 @@ internal sealed class FfmpegVideoFrameReader
     {
         string ffmpegPath = await JdiFfmpegResolver.GetFfmpegPathAsync(cancellationToken);
         using Process process = StartFfmpeg(ffmpegPath, videoPath, startSeconds, info);
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
         int frameByteCount = GetFrameByteCount(info);
         byte[] frameBytes = new byte[frameByteCount];

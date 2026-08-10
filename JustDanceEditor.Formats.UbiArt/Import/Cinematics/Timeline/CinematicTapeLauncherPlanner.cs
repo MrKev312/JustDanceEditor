@@ -9,13 +9,10 @@ using KevInc.UbiArt.FileSystem;
 using Microsoft.Extensions.Logging;
 
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Cinematics.Timeline;
-
-internal sealed record CinematicTapeCaseDefinition(IReadOnlyDictionary<string, string> PathsByLabel);
 
 internal static class CinematicTapeLauncherPlanner
 {
@@ -27,51 +24,14 @@ internal static class CinematicTapeLauncherPlanner
         TapeVisit parentVisit,
         TapeClip clip,
         ILogger logger)
-    {
-        CinematicTapeLauncherClip launcher = clip.TapeLauncher!;
-        if (launcher.Action != 0 ||
-            launcher.EffectiveTapeLabels.Count == 0 ||
-            targetResolver == null ||
-            tapeCasesByActorKey.Count == 0)
-        {
-            yield break;
-        }
-
-        IReadOnlyList<string> labels = ResolvePlayLabels(launcher, parentVisit, clip, sequenceIndices);
-        if (labels.Count == 0)
-            yield break;
-
-        HashSet<string> yieldedPaths = new(StringComparer.OrdinalIgnoreCase);
-        foreach (ActorTargetPath target in clip.Targets)
-        {
-            foreach (string actorKey in targetResolver.ResolveActorKeys(target))
-            {
-                if (!tapeCasesByActorKey.TryGetValue(actorKey, out CinematicTapeCaseDefinition? tapeCase))
-                    continue;
-
-                foreach (string label in labels)
-                {
-                    if (!TryResolveTapePath(fileSystem, tapeCase, label, out string? tapePath) ||
-                        !yieldedPaths.Add(tapePath))
-                    {
-                        continue;
-                    }
-
-                    logger.LogDebug(
-                        "Resolved TapeLauncher label '{Label}' on '{TargetKey}' to '{TapePath}' at frame {StartFrame}.",
-                        label,
-                        actorKey,
-                        tapePath,
-                        clip.StartFrame);
-                    yield return new TapeVisit(
-                        tapePath,
-                        clip.StartFrame,
-                        TargetFilter: parentVisit.TargetFilter,
-                        PersistentMaterialState: parentVisit.PersistentMaterialState);
-                }
-            }
-        }
-    }
+        => CinematicTapeLauncherResolver.GetLauncherVisits(
+            tapeCasesByActorKey,
+            targetResolver,
+            sequenceIndices,
+            parentVisit,
+            clip,
+            label => ResolveFallbackTapePath(fileSystem, label),
+            logger);
 
     internal static IReadOnlyDictionary<string, CinematicTapeCaseDefinition> BuildTapeCaseDefinitions(
         JustDanceUbiArtFileSystem fileSystem,
@@ -117,59 +77,39 @@ internal static class CinematicTapeLauncherPlanner
         return definitions;
     }
 
-    private static IReadOnlyList<string> ResolvePlayLabels(
-        CinematicTapeLauncherClip launcher,
-        TapeVisit parentVisit,
-        TapeClip clip,
-        Dictionary<string, int> sequenceIndices)
+    internal static IReadOnlyList<TapeVisit> FindSequenceVisits(
+        JustDanceUbiArtFileSystem fileSystem,
+        CinematicScene scene,
+        string label,
+        ILogger logger)
     {
-        if (launcher.TapeChoice == 2)
-            return launcher.EffectiveTapeLabels;
-
-        if (launcher.EffectiveTapeLabels.Count == 1)
-            return launcher.EffectiveTapeLabels;
-
-        string sequenceKey = BuildSequenceKey(parentVisit, clip, launcher);
-        if (!sequenceIndices.TryGetValue(sequenceKey, out int index))
-            index = 0;
-
-        sequenceIndices[sequenceKey] = index + 1;
-        string label = launcher.EffectiveTapeLabels[index % launcher.EffectiveTapeLabels.Count];
-        return [label];
+        return
+        [
+            .. BuildTapeCaseDefinitions(fileSystem, scene, logger)
+                .Values
+                .SelectMany(definition => definition.PathsByLabel)
+                .Where(entry => entry.Key.Equals(label, StringComparison.OrdinalIgnoreCase))
+                .Select(entry => CinematicNames.NormalizePath(entry.Value))
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(path => new TapeVisit(path, 0))
+        ];
     }
 
-    private static string BuildSequenceKey(
-        TapeVisit parentVisit,
-        TapeClip clip,
-        CinematicTapeLauncherClip launcher) =>
-        string.Join(
-            "|",
-            parentVisit.Path,
-            clip.DurationFrames.ToString(CultureInfo.InvariantCulture),
-            string.Join(";", clip.Targets.Select(target => target.Key)),
-            string.Join(";", launcher.EffectiveTapeLabels));
-
-    private static bool TryResolveTapePath(
+    private static string? ResolveFallbackTapePath(
         JustDanceUbiArtFileSystem fileSystem,
-        CinematicTapeCaseDefinition tapeCase,
-        string label,
-        [NotNullWhen(true)] out string? tapePath)
+        string label)
     {
-        tapePath = null;
         if (string.IsNullOrWhiteSpace(label))
-            return false;
-
-        if (tapeCase.PathsByLabel.TryGetValue(label, out tapePath))
-            return true;
+            return null;
 
         string candidate = CinematicNames.NormalizePath(label.EndsWith(".tape", StringComparison.OrdinalIgnoreCase)
             ? label
             : Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{label}.tape"));
         if (!fileSystem.GetFilePath(candidate, out _))
-            return false;
+            return null;
 
-        tapePath = candidate;
-        return true;
+        return candidate;
     }
 
     private static void AddLabel(Dictionary<string, string> pathsByLabel, string? label, string path)

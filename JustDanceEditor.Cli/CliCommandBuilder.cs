@@ -24,7 +24,7 @@ internal sealed class CliCommandBuilder(
         AddOptions(rootCommand, symbols, CliOptionProfile.DroppedPath);
         rootCommand.Arguments.Add(symbols.PathsArgument);
 
-        rootCommand.SetAction(parseResult => app.ExecuteCommand(() =>
+        rootCommand.SetAction(parseResult => CliApp.ExecuteCommand(() =>
         {
             CliOptions options = CreateOptions(parseResult, symbols);
             string[] paths = parseResult.GetValue(symbols.PathsArgument) ?? [];
@@ -69,7 +69,7 @@ internal sealed class CliCommandBuilder(
         return rootCommand;
     }
 
-    private Command CreateCommand(string name, string description, CliCommandSymbols symbols, CliOptionProfile options, Func<CliOptions, int> action, params string[] aliases)
+    private static Command CreateCommand(string name, string description, CliCommandSymbols symbols, CliOptionProfile options, Func<CliOptions, int> action, params string[] aliases)
     {
         Command command = new(name, description);
         foreach (string alias in aliases)
@@ -77,7 +77,7 @@ internal sealed class CliCommandBuilder(
 
         AddHelp(command);
         AddOptions(command, symbols, options);
-        command.SetAction(parseResult => app.ExecuteCommand(() => action(CreateOptions(parseResult, symbols))));
+        command.SetAction(parseResult => CliApp.ExecuteCommand(() => action(CreateOptions(parseResult, symbols))));
         return command;
     }
 
@@ -104,7 +104,7 @@ internal sealed class CliCommandBuilder(
             command.Options.Add(promptOption);
         }
 
-        command.SetAction(parseResult => app.ExecuteCommand(() => app.RunToolCommand(parseResult, symbols)));
+        command.SetAction(parseResult => CliApp.ExecuteCommand(() => app.RunToolCommand(parseResult, symbols)));
         return command;
     }
 

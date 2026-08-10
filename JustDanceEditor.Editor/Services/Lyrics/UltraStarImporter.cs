@@ -159,7 +159,7 @@ public sealed class UltraStarImporter : ILyricImporter
             // First tilde: split the last char off the previous note proportionally.
             if (prevText.Length > 1 && results.Count > 0)
             {
-                (double StartSec, double EndSec, string Text, bool IsEol) = results[^1];
+                (double StartSec, double EndSec, _, bool IsEol) = results[^1];
                 double splitPoint = StartSec + ((EndSec - StartSec)
                     * (prevText.Length - 1) / prevText.Length);
 

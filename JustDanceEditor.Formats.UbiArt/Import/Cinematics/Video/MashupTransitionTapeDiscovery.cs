@@ -168,7 +168,7 @@ internal static class MashupTransitionTapeDiscovery
         return entries;
     }
 
-    private static IEnumerable<string> EnumerateGenericTapeTemplatePaths(
+    private static List<string> EnumerateGenericTapeTemplatePaths(
         JustDanceUbiArtFileSystem fileSystem,
         ILogger logger)
     {

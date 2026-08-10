@@ -278,12 +278,6 @@ public class SectionWaveformEditor : Control
                     _isDraggingSection = false;
                     _dragSection = null;
 
-                    double beat = PixelToBeat(pt.Position.X);
-                    if (!double.IsNaN(beat))
-                    {
-                        beat = Math.Round(beat);
-                        AddOrUpdateSection(beat, PaintType);
-                    }
                 }
             }
 
@@ -291,13 +285,6 @@ public class SectionWaveformEditor : Control
         }
         else if (pt.Properties.IsRightButtonPressed)
         {
-            double beat = PixelToBeat(pt.Position.X);
-            if (!double.IsNaN(beat))
-            {
-                beat = Math.Round(beat);
-                RemoveSection(beat);
-            }
-
             e.Handled = true;
         }
     }
@@ -334,7 +321,6 @@ public class SectionWaveformEditor : Control
             double beat = PixelToBeat(pt.Position.X);
             if (!double.IsNaN(beat))
             {
-                beat = Math.Round(beat);
                 if (DataContext is ISongEditorViewModel)
                 {
                     // Section editing moved to timeline; this control is no longer used.
@@ -449,18 +435,6 @@ public class SectionWaveformEditor : Control
             vm.SeekTo(time);
     }
 
-    // --- Section manipulation ---
-
-    private void AddOrUpdateSection(double beat, SongSectionType type)
-    {
-        // Section editing moved to timeline; this control is no longer used.
-    }
-
-    private void RemoveSection(double beat)
-    {
-        // Section editing moved to timeline; this control is no longer used.
-    }
-
     // --- Coordinate helpers ---
 
     private double PixelToBeat(double x)
@@ -506,7 +480,7 @@ public class SectionWaveformEditor : Control
         double duration = AudioDuration;
         if (samples == null || samples.Length == 0 || duration <= 0 || width < 2)
         {
-            DrawScrollbar(context, width, totalHeight, height, duration);
+            DrawScrollbar(context, width, height, duration);
             return;
         }
 
@@ -574,7 +548,7 @@ public class SectionWaveformEditor : Control
                 {
                     double x = (t - visibleStart) / visibleDuration * width;
                     bool isMeasure = bpMeasure > 0
-                        && WaveformRenderHelper.IsMeasureBeat(beatIndex, bpMeasure, sectionBeats);
+                        && WaveformRenderHelper.IsMeasureBeat(beatIndex, sectionBeats);
                     Pen pen = isMeasure ? _measurePen : _beatPen;
                     context.DrawLine(pen, new Point(x, 0), new Point(x, height));
                 }
@@ -641,12 +615,11 @@ public class SectionWaveformEditor : Control
         }
 
         // Draw scrollbar
-        DrawScrollbar(context, width, totalHeight, height, duration);
+        DrawScrollbar(context, width, height, duration);
     }
 
-    private void DrawScrollbar(DrawingContext context, double width, double totalHeight, double waveformHeight, double duration)
+    private void DrawScrollbar(DrawingContext context, double width, double waveformHeight, double duration)
     {
-        WaveformRenderHelper.DrawScrollbar(context, width, totalHeight, waveformHeight, ScrollBarHeight, duration, ViewStart, GetVisibleEnd(), _scrollTrackBrush, _scrollbarDragging ? _scrollThumbHoverBrush : _scrollThumbBrush);
+        WaveformRenderHelper.DrawScrollbar(context, width, waveformHeight, ScrollBarHeight, duration, ViewStart, GetVisibleEnd(), _scrollTrackBrush, _scrollbarDragging ? _scrollThumbHoverBrush : _scrollThumbBrush);
     }
-
 }

@@ -28,7 +28,7 @@ internal static class MashupTiming
         };
     }
 
-    internal static int GetLocalTapeFrame(TimelineStructureDocument timeline, int absoluteBeat) =>
+    internal static int GetLocalTapeFrame(int absoluteBeat) =>
         (int)Math.Round(absoluteBeat * CinematicConstants.TapeFramesPerBeat);
 
     internal static double GetOutputSeconds(TimelineStructureDocument timeline, int absoluteBeat) =>

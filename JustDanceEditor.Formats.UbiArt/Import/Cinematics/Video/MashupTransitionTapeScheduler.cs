@@ -85,8 +85,8 @@ internal static class MashupTransitionTapeScheduler
         int firstSelectedStartBeat = selectedBlocks.Count > 0
             ? selectedBlocks[0].AbsoluteStartBeat
             : mashup.DurationBeats;
-        int initialStateDuration = MashupTiming.GetLocalTapeFrame(timelineStructure, firstSelectedStartBeat) -
-            MashupTiming.GetLocalTapeFrame(timelineStructure, 0);
+        int initialStateDuration = MashupTiming.GetLocalTapeFrame(firstSelectedStartBeat) -
+            MashupTiming.GetLocalTapeFrame(0);
         int initialColorDuration = Math.Max(1, initialStateDuration);
         string resolvedInitialColorTape = string.IsNullOrWhiteSpace(initialColorTapeName)
             ? FallbackInitialColorTape
@@ -96,29 +96,29 @@ internal static class MashupTransitionTapeScheduler
             : FallbackTransitionColorTapes;
         visits.Add(new TapeVisit(
             MashupTransitionTapeDiscovery.BuildCinematicsTapePath(cinematicsFolder, InitTape),
-            MashupTiming.GetLocalTapeFrame(timelineStructure, 0),
+            MashupTiming.GetLocalTapeFrame(0),
             PersistentMaterialState: true));
         visits.Add(new TapeVisit(
             MashupTransitionTapeDiscovery.BuildCinematicsTapePath(cinematicsFolder, resolvedInitialColorTape),
-            MashupTiming.GetLocalTapeFrame(timelineStructure, 0),
+            MashupTiming.GetLocalTapeFrame(0),
             initialColorDuration));
         if (initialStateDuration > 0)
         {
             stateIntervals.Add(new MashupTapeInterval(
-                MashupTiming.GetLocalTapeFrame(timelineStructure, 0),
+                MashupTiming.GetLocalTapeFrame(0),
                 initialStateDuration));
         }
 
         for (int transitionIndex = 0; transitionIndex < selectedBlocks.Count; transitionIndex++)
         {
             LegacyMashupBlock block = selectedBlocks[transitionIndex];
-            int timeOffsetFrames = MashupTiming.GetLocalTapeFrame(timelineStructure, block.AbsoluteStartBeat);
+            int timeOffsetFrames = MashupTiming.GetLocalTapeFrame(block.AbsoluteStartBeat);
             int nextStateStartBeat = transitionIndex + 1 < selectedBlocks.Count
                 ? selectedBlocks[transitionIndex + 1].AbsoluteStartBeat
                 : mashup.DurationBeats;
             int colorDurationFrames = Math.Max(
                 1,
-                MashupTiming.GetLocalTapeFrame(timelineStructure, nextStateStartBeat) - timeOffsetFrames);
+                MashupTiming.GetLocalTapeFrame(nextStateStartBeat) - timeOffsetFrames);
             string colorTape = resolvedTransitionColorTapes[transitionIndex % resolvedTransitionColorTapes.Count];
             visits.Add(new TapeVisit(MashupTransitionTapeDiscovery.BuildCinematicsTapePath(cinematicsFolder, colorTape), timeOffsetFrames, colorDurationFrames));
             stateIntervals.Add(new MashupTapeInterval(timeOffsetFrames, colorDurationFrames));

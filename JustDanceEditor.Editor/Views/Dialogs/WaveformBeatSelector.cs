@@ -313,7 +313,7 @@ public class WaveformBeatSelector : Control
         double duration = AudioDuration;
         if (samples == null || samples.Length == 0 || duration <= 0 || width < 2)
         {
-            DrawScrollbar(context, width, totalHeight, height, duration);
+            DrawScrollbar(context, width, height, duration);
             return;
         }
 
@@ -376,7 +376,7 @@ public class WaveformBeatSelector : Control
                 {
                     double x = (t - visibleStart) / visibleDuration * width;
                     bool isMeasure = bpMeasure > 0
-                        && WaveformRenderHelper.IsMeasureBeat(beatIndex, bpMeasure, sectionBeats);
+                        && WaveformRenderHelper.IsMeasureBeat(beatIndex, sectionBeats);
                     Pen pen = isMeasure ? _measurePen : _beatPen;
                     context.DrawLine(pen, new Point(x, 0), new Point(x, height));
                 }
@@ -456,11 +456,11 @@ public class WaveformBeatSelector : Control
         }
 
         // Draw scrollbar
-        DrawScrollbar(context, width, totalHeight, height, duration);
+        DrawScrollbar(context, width, height, duration);
     }
 
-    private void DrawScrollbar(DrawingContext context, double width, double totalHeight, double waveformHeight, double duration)
+    private void DrawScrollbar(DrawingContext context, double width, double waveformHeight, double duration)
     {
-        WaveformRenderHelper.DrawScrollbar(context, width, totalHeight, waveformHeight, ScrollBarHeight, duration, ViewStart, GetVisibleEnd(), _scrollTrackBrush, _scrollbarDragging ? _scrollThumbHoverBrush : _scrollThumbBrush);
+        WaveformRenderHelper.DrawScrollbar(context, width, waveformHeight, ScrollBarHeight, duration, ViewStart, GetVisibleEnd(), _scrollTrackBrush, _scrollbarDragging ? _scrollThumbHoverBrush : _scrollThumbBrush);
     }
 }

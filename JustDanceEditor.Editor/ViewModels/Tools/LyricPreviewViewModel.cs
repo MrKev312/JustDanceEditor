@@ -15,7 +15,7 @@ using System.Linq;
 namespace JustDanceEditor.Editor.ViewModels.Tools;
 
 [RunCommand("Lyrics Preview", "View/Preview")]
-public partial class LyricPreviewViewModel : TimelineToolViewModel
+public partial class LyricPreviewViewModel(ITimelineContextService? timelineContext = null) : TimelineToolViewModel(timelineContext)
 {
     [ObservableProperty]
     public partial LyricLineViewModel? CurrentLine { get; set; }
@@ -37,11 +37,6 @@ public partial class LyricPreviewViewModel : TimelineToolViewModel
 
     // Coalesces rapid bursts of ClipDataChangedMessages into a single rebuild
     private bool _rebuildPending;
-
-    public LyricPreviewViewModel(ITimelineContextService? timelineContext = null)
-        : base(timelineContext)
-    {
-    }
 
     protected override void OnTimelineAttached(TimelineEditorViewModel? timeline)
     {

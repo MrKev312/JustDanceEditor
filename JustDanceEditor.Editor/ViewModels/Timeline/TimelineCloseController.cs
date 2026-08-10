@@ -42,6 +42,7 @@ internal sealed class TimelineCloseController(TimelineEditorViewModel timeline, 
                     $"Failed to save map:\n{ex.Message}",
                     ex);
             }
+
             return false;
         }
     }

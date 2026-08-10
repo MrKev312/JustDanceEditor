@@ -234,8 +234,7 @@ public sealed class SkiaPictogramPreviewControl : Control
 
     private void UnsubscribeTrack()
     {
-        if (_pictogramTrack != null)
-            _pictogramTrack.Clips.CollectionChanged -= OnPictogramClipsChanged;
+        _pictogramTrack?.Clips.CollectionChanged -= OnPictogramClipsChanged;
 
         foreach ((ClipViewModel clip, PropertyChangedEventHandler handler) in _clipHandlers)
             clip.PropertyChanged -= handler;
@@ -369,8 +368,7 @@ public sealed class SkiaPictogramPreviewControl : Control
 
     private void CancelDrag()
     {
-        if (_draggingClip != null)
-            _draggingClip.StartBeat = _dragOriginalStartBeat;
+        _draggingClip?.StartBeat = _dragOriginalStartBeat;
 
         ResetDrag();
     }
