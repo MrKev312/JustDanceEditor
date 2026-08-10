@@ -77,6 +77,25 @@ internal static class CinematicTapeLauncherPlanner
         return definitions;
     }
 
+    internal static IReadOnlyList<TapeVisit> FindSequenceVisits(
+        JustDanceUbiArtFileSystem fileSystem,
+        CinematicScene scene,
+        string label,
+        ILogger logger)
+    {
+        return
+        [
+            .. BuildTapeCaseDefinitions(fileSystem, scene, logger)
+                .Values
+                .SelectMany(definition => definition.PathsByLabel)
+                .Where(entry => entry.Key.Equals(label, StringComparison.OrdinalIgnoreCase))
+                .Select(entry => CinematicNames.NormalizePath(entry.Value))
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(path => new TapeVisit(path, 0))
+        ];
+    }
+
     private static string? ResolveFallbackTapePath(
         JustDanceUbiArtFileSystem fileSystem,
         string label)

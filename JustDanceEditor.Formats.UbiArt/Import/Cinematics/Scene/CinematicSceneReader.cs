@@ -52,6 +52,124 @@ internal static class CinematicSceneReader
         return CinematicTemplateVisualResolver.ResolveTemplateVisuals(new CinematicScene([.. actors]), fileSystem, logger);
     }
 
+    public static CinematicScene ReadCommunityMashupSceneGraph(
+        JustDanceUbiArtFileSystem fileSystem,
+        ILogger logger)
+    {
+        string? mapsFolder = Path.GetDirectoryName(fileSystem.InputFolders.SelectedMapWorldFolder);
+        if (string.IsNullOrWhiteSpace(mapsFolder))
+            throw new InvalidDataException("The map folder has no parent from which to resolve the CMU generic stage.");
+
+        string stageFolder = Path.Combine(mapsFolder, "_communitymashup");
+        string stageMainScenePath = fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015
+            ? Path.Combine("world", "jd2015", "_ui", "screens", "cmu_ingame", "pag_cmu_ingame.isc")
+            : Path.Combine(stageFolder, "_communitymashup_main_scene.isc");
+        string stageGraphScenePath = Path.Combine(stageFolder, "graph", "_communitymashup_graph.isc");
+        string selectedVideoScenePath = Path.Combine(
+            fileSystem.InputFolders.SelectedMapWorldFolder,
+            "videoscoach",
+            $"{fileSystem.SongName}_video.isc");
+        List<CinematicActor> actors = [];
+        CinematicViewFamily viewFamily = CinematicViewFamily.World;
+
+        bool readStage = false;
+        try
+        {
+            readStage = TryReadSceneFile(
+                fileSystem,
+                stageMainScenePath,
+                [],
+                actors,
+                out viewFamily,
+                logger);
+        }
+        catch (InvalidDataException ex)
+        {
+            actors.Clear();
+            logger.LogDebug(
+                ex,
+                "Could not decode the generic CMU stage wrapper '{StagePath}'; loading its graph scene directly.",
+                stageMainScenePath);
+        }
+
+        if (!readStage || actors.Count == 0)
+        {
+            try
+            {
+                if (TryReadSceneFile(
+                    fileSystem,
+                    stageGraphScenePath,
+                    ["_CommunityMashup_GRAPH"],
+                    actors,
+                    out CinematicViewFamily graphViewFamily,
+                    logger))
+                {
+                    viewFamily = graphViewFamily;
+                }
+            }
+            catch (InvalidDataException ex)
+            {
+                logger.LogError(ex, "Could not decode the generic CMU graph '{StagePath}'.", stageGraphScenePath);
+                throw;
+            }
+        }
+
+        if (actors.Count == 0)
+            throw new FileNotFoundException("The JD generic CMU stage could not be loaded.", stageMainScenePath);
+
+        if (fileSystem.VersionProfile.EngineVersion == UbiArtEngineVersion.JD2015)
+            AppendJd2015CommunityDancerCardActors(fileSystem, actors, logger);
+        else
+            TryReadSceneFile(
+                fileSystem,
+                Path.Combine("world", "ui", "objects", "cmr_dancercard_ingame", "cmr_dancercard_ingame.isc"),
+                ["cmr_dancercard_ingame"],
+                actors,
+                logger);
+
+        bool readVideoScene = TryReadSceneFile(
+            fileSystem,
+            selectedVideoScenePath,
+            [$"{fileSystem.SongName}_VIDEO"],
+            actors,
+            logger);
+
+        AddJustDanceRuntimeCameras(actors);
+        if (readVideoScene)
+        {
+            logger.LogInformation(
+                "Loaded the JD-configured CMU stage '{StagePath}' with authored song video scene '{VideoPath}'.",
+                readStage ? stageMainScenePath : stageGraphScenePath,
+                selectedVideoScenePath);
+        }
+        else
+        {
+            logger.LogInformation(
+                "Loaded the JD-configured CMU stage '{StagePath}' without a local song video scene; the remix video is externally bound by the game.",
+                readStage ? stageMainScenePath : stageGraphScenePath);
+        }
+        return CinematicTemplateVisualResolver.ResolveTemplateVisuals(
+            new CinematicScene([.. actors], viewFamily),
+            fileSystem,
+            logger);
+    }
+
+    private static void AppendJd2015CommunityDancerCardActors(
+        JustDanceUbiArtFileSystem fileSystem,
+        List<CinematicActor> actors,
+        ILogger logger)
+    {
+        const string profileFolder = "world/jd2015/_ui/screens/cmu_ingame/grp_profile_info";
+        CinematicScene hierarchy = CinematicActorDocumentReader.ReadHierarchy(
+            fileSystem,
+            $"{profileFolder}/grp_profile_info.act",
+            "grp_profile_info",
+            parentPath: [],
+            logger,
+            siblingOrder: actors.Count);
+        actors.AddRange(hierarchy.Actors.Skip(1).Select(actor => actor with { DefaultEnabled = false }));
+    }
+
     private static bool HasRootVideoOutputActor(
         IReadOnlyList<CinematicActor> actors,
         JustDanceUbiArtFileSystem fileSystem,
@@ -137,6 +255,21 @@ internal static class CinematicSceneReader
     {
         return CinematicSceneDocumentReader.TryRead(fileSystem, relativePath, parentPath, actors, logger);
     }
+
+    internal static bool TryReadSceneFile(
+        JustDanceUbiArtFileSystem fileSystem,
+        string relativePath,
+        IReadOnlyList<string> parentPath,
+        List<CinematicActor> actors,
+        out CinematicViewFamily viewFamily,
+        ILogger logger) =>
+        CinematicSceneDocumentReader.TryRead(
+            fileSystem,
+            relativePath,
+            parentPath,
+            actors,
+            out viewFamily,
+            logger);
 
     private static bool TryAppendUniqueSceneFile(
         JustDanceUbiArtFileSystem fileSystem,

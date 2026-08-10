@@ -223,7 +223,9 @@ internal static class CinematicVisualRenderer
         int pleoAlphaHeight = 1,
         IReadOnlyList<CinematicExternalPleoTrack>? externalPleoTracks = null,
         Func<RenderableCinematicActor, RenderableCinematicActor>? actorMap = null,
-        IPleoFrameProvider? pleoFrameProvider = null)
+        IPleoFrameProvider? pleoFrameProvider = null,
+        CinematicScene? sceneOverride = null,
+        IReadOnlyList<PropertyClip>? additionalPropertyClips = null)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentException.ThrowIfNullOrWhiteSpace(tempFolder);
@@ -248,7 +250,7 @@ internal static class CinematicVisualRenderer
             outputHeight,
             outputDurationSeconds);
 
-        CinematicScene scene = CinematicSceneReader.ReadSceneGraph(fileSystem, logger);
+        CinematicScene scene = sceneOverride ?? CinematicSceneReader.ReadSceneGraph(fileSystem, logger);
         if (scene.Actors.Count == 0)
             throw new InvalidOperationException("No cinematic scene actors were loaded.");
 
@@ -258,6 +260,13 @@ internal static class CinematicVisualRenderer
             logger,
             additionalTapeVisits,
             scene);
+        if (additionalPropertyClips is { Count: > 0 })
+        {
+            tapeData = tapeData with
+            {
+                PropertyClips = [.. tapeData.PropertyClips, .. additionalPropertyClips]
+            };
+        }
         scene = CinematicSceneReader.AddSpawnedActors(
             scene,
             fileSystem,

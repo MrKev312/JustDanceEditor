@@ -138,11 +138,7 @@ internal sealed class LegacyModernSongDescComponent : LegacySongDescComponent
     public int Status { get; set; }
     public int LocaleId { get; set; }
     public float TagScale { get; set; }
-    [LegacyBinaryCondition(nameof(HasBaseMap), 1, Invert = true)]
-    public LegacySongDescPreview? Preview { get; set; } = new();
-
-    [LegacyBinaryCondition(nameof(HasBaseMap), 1)]
-    public LegacySongDescEmptyPreview? EmptyPreview { get; set; }
+    public LegacySongDescPreview Preview { get; set; } = new();
 
     public uint LyricColorIntensity { get; set; }
     public LegacyTypedAbgrColor LyricColor { get; set; } = new();
@@ -156,6 +152,7 @@ internal sealed class LegacyModernSongDescComponent : LegacySongDescComponent
             {
                 Class = "JD_SongDescTemplate",
                 MapName = value.MapName,
+                BaseMapName = value.BaseMapName ?? string.Empty,
                 JDVersion = value.RawEngineVersion,
                 OriginalJDVersion = value.OriginalVersion,
                 Artist = value.Artist,
@@ -210,6 +207,7 @@ internal sealed class LegacyGeneratedModernSongDescComponent : LegacySongDescCom
             {
                 Class = "JD_SongDescTemplate",
                 MapName = value.MapName,
+                BaseMapName = value.BaseMapName ?? string.Empty,
                 JDVersion = value.RawEngineVersion,
                 OriginalJDVersion = value.OriginalVersion,
                 Artist = value.Artist,
@@ -316,11 +314,6 @@ internal sealed class LegacySongDescPreview
 
     [LegacyBinaryCondition(nameof(PreviewCount), 0, Invert = true)]
     public int PreviewLoopEndBeat { get; set; }
-}
-
-internal sealed class LegacySongDescEmptyPreview
-{
-    public int PreviewCount { get; set; }
 }
 
 internal sealed class LegacySongDescVersionBlock

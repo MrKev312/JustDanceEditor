@@ -3,11 +3,13 @@ using JustDanceEditor.Formats.UbiArt.Serialization.Legacy;
 using KevInc.UbiArt.Cinematics.Serialization.Legacy;
 
 using KevInc.UbiArt.Cinematics.Core;
+using KevInc.UbiArt.Cinematics.Materials;
 using KevInc.UbiArt.Cinematics.Rendering;
 using KevInc.UbiArt.Cinematics.Timeline;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 using Xunit;
@@ -19,6 +21,62 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public sealed class CinematicMaterialReaderTests
 {
+    [Fact]
+    public void UiTextGeometry_FirstLineHeightCancelsBeforeGlyphOffset()
+    {
+        CinematicUiText text = new(
+            "A",
+            StyleIndex: 0,
+            FontSize: 100,
+            OffsetX: 0,
+            OffsetY: 0,
+            ScaleX: 1,
+            ScaleY: 1,
+            AreaWidth: -1,
+            AreaHeight: -1,
+            MaxWidth: -1,
+            MaxHeight: -1,
+            AnchorOverride: 2);
+        CinematicUiTextStyle style = new(
+            "font.tfn",
+            FontSize: 100,
+            Red: 1,
+            Green: 1,
+            Blue: 1,
+            Alpha: 1,
+            BlendMode: 2,
+            Anchor: 0,
+            HorizontalAlignment: 0,
+            VerticalAlignment: 0);
+        CinematicBitmapGlyph glyph = new(
+            'A',
+            X: 0,
+            Y: 0,
+            Width: 20,
+            Height: 20,
+            OffsetX: 0,
+            OffsetY: 10,
+            AdvanceX: 20,
+            Page: 0,
+            Channel: 0);
+        CinematicBitmapFont font = new(
+            LineHeight: 100,
+            Baseline: 0,
+            TextureWidth: 64,
+            TextureHeight: 64,
+            PagePath: "font.png",
+            Glyphs: new Dictionary<int, CinematicBitmapGlyph> { ['A'] = glyph });
+
+        RenderGeometry geometry = CinematicUiTextGeometryBuilder.Create(
+            text,
+            style,
+            font,
+            CinematicViewFamily.Ui);
+
+        Assert.Equal(40.0, geometry.Vertices.Max(vertex => vertex.Y), 5);
+        Assert.Equal(20.0, geometry.Vertices.Min(vertex => vertex.Y), 5);
+    }
+
     [Fact]
     public void MaterialReader_ReadsSourceAnimatedUvTranslation()
     {

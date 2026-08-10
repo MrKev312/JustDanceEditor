@@ -20,6 +20,36 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 
 public class MultipleSongsSelectionTests
 {
+    [Fact]
+    public void UseAuthoredBaseMap_KeepsSelectedMapSceneFolderSeparateFromContentFolder()
+    {
+        UbiArtConversionRequest request = new(Path.GetTempPath(), Path.GetTempPath(), "ILoveItSR")
+        {
+            Type = CookedType.Cooked
+        };
+        UbiArtVersionProfile profile = new(
+            UbiArtPlatform.Cell,
+            UbiArtEngineVersion.JD2015,
+            new JD2015LayoutResolver(),
+            new BinaryUbiArtSerializer(UbiArtEngineVersion.JD2015));
+        using JustDanceUbiArtFileSystem fileSystem = new(
+            request,
+            profile,
+            NullLogger<JustDanceUbiArtFileSystem>.Instance);
+
+        fileSystem.UpdateSongName("ILoveItSR");
+        fileSystem.UseAuthoredBaseMap("ILoveIt");
+
+        Assert.EndsWith(
+            Path.Combine("world", "jd2015", "iloveitsr"),
+            fileSystem.InputFolders.SelectedMapWorldFolder,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(
+            Path.Combine("world", "jd2015", "iloveit"),
+            fileSystem.InputFolders.MapWorldFolder,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(UbiArtPlatform.Revolution, "WII")]
     [InlineData(UbiArtPlatform.Cafe, "WIIU")]

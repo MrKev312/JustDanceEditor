@@ -217,7 +217,8 @@ public sealed class CinematicSceneReaderTests
         byte[] sceneBytes = CreateRootSceneBytes(
             declaredActorCount: 1,
             CreateJd2015SceneActorBytes("FirstActor"),
-            CreateJd2015SceneActorBytes("TrailingActor"));
+            CreateJd2015SceneActorBytes("TrailingActor"),
+            CreateJd2015SceneActorBytes("InitiallyDisabledActor", defaultEnabled: false));
 
         SceneReadResult result = CinematicSceneReader.ReadScene(
             fileSystem,
@@ -229,6 +230,8 @@ public sealed class CinematicSceneReaderTests
 
         Assert.Contains(result.Actors, actor => actor.Key == "test_graph/firstactor");
         Assert.Contains(result.Actors, actor => actor.Key == "test_graph/trailingactor");
+        Assert.True(Assert.Single(result.Actors, actor =>
+            actor.Key == "test_graph/initiallydisabledactor").DefaultEnabled);
 
         static JustDanceUbiArtFileSystem CreateJd2015TestFileSystem()
         {
@@ -264,7 +267,7 @@ public sealed class CinematicSceneReaderTests
             return stream.ToArray();
         }
 
-        static byte[] CreateJd2015SceneActorBytes(string name)
+        static byte[] CreateJd2015SceneActorBytes(string name, bool defaultEnabled = true)
         {
             using MemoryStream stream = new();
             WriteUInt(stream, LegacyBinarySerializer.GetTypeId<CinematicSceneActorBinary>());
@@ -273,7 +276,7 @@ public sealed class CinematicSceneReaderTests
             WriteFloat(stream, 1);
             WriteUInt(stream, 0);
             WriteString(stream, name);
-            WriteUInt(stream, 1);
+            WriteUInt(stream, defaultEnabled ? 1u : 0u);
             WriteFloat(stream, 0);
             WriteFloat(stream, 0);
             WriteFloat(stream, 0);

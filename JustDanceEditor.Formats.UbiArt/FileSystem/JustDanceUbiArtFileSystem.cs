@@ -59,6 +59,7 @@ public class JustDanceUbiArtFileSystem : IDisposable, IUbiArtSceneReadContext
     public TempFolders TempFolders { get; private set; }
     public InputFolders InputFolders { get; private set; }
     public IUbiArtAssetResolver? AssetResolver => new FileSystemAssetResolver(VersionProfile.Layout, this);
+    public UbiArtPlatform Platform => VersionProfile.Platform;
     public int EngineVersion => (int)VersionProfile.EngineVersion;
     public int SerializationVersion => Math.Min(EngineVersion, (int)UbiArtEngineVersion.JD2015);
 
@@ -200,6 +201,12 @@ public class JustDanceUbiArtFileSystem : IDisposable, IUbiArtSceneReadContext
         SongName = newSongName;
         ConversionRequest.SongName = newSongName;
         UpdateSongRouting(newSongName);
+    }
+
+    public void UseAuthoredBaseMap(string? baseMapName)
+    {
+        if (!string.IsNullOrWhiteSpace(baseMapName))
+            ContentSongName = baseMapName;
     }
 
     public bool GetFilePath(string relativeFilePath, [MaybeNullWhen(false)] out CookedFile filePath) => _fileSystem.GetFilePath(relativeFilePath, out filePath);

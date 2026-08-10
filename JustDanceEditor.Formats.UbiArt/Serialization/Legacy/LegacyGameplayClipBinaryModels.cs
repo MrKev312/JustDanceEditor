@@ -35,6 +35,7 @@ internal abstract class LegacyGameplayClip
         LegacyHideUserInterfaceGameplayClip hideHud => (HideUserInterfaceClip)hideHud,
         LegacyVibrationGameplayClip vibration => (VibrationClip)vibration,
         LegacyTapeReferenceGameplayClip tapeReference => (TapeReferenceClip)tapeReference,
+        LegacyCommunityDancerGameplayClip communityDancer => (CommunityDancerClip)communityDancer,
         _ => throw new InvalidDataException($"Unsupported legacy gameplay clip '{value.GetType().Name}'.")
     };
 }
@@ -161,6 +162,26 @@ internal sealed class LegacyTapeReferenceGameplayClip : LegacyGameplayClip
     {
         Id = value.Id, TrackId = value.TrackId, IsActive = value.IsActive,
         StartTime = value.StartTime, Duration = value.Duration, Path = value.Path.FullPath, Loop = value.Loop
+    };
+}
+
+[LegacyBinaryTypeId(0x0F95B841)]
+internal sealed class LegacyCommunityDancerGameplayClip : LegacyGameplayClip
+{
+    public string DancerCountryCode { get; set; } = string.Empty;
+    public int DancerAvatarId { get; set; }
+    public string DancerName { get; set; } = string.Empty;
+
+    public static explicit operator CommunityDancerClip(LegacyCommunityDancerGameplayClip value) => new()
+    {
+        Id = value.Id,
+        TrackId = value.TrackId,
+        IsActive = value.IsActive,
+        StartTime = value.StartTime,
+        Duration = value.Duration,
+        DancerCountryCode = value.DancerCountryCode,
+        DancerAvatarId = value.DancerAvatarId,
+        DancerName = value.DancerName
     };
 }
 

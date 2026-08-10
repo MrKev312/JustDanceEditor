@@ -43,16 +43,21 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         if (songData.SongDesc == null || songData.SongDesc.Components.Length == 0)
             throw new InvalidDataException("SongDesc loaded but is invalid or empty.");
 
-        songData.Name = songData.SongDesc.Components[0].MapName;
+        InfoComponent songInfo = songData.SongDesc.Components[0];
+        songData.Name = songInfo.MapName;
+        fileSystem.UseAuthoredBaseMap(songInfo.BaseMapName);
+        string resourceSongName = string.IsNullOrWhiteSpace(fileSystem.ContentSongName)
+            ? songData.Name
+            : fileSystem.ContentSongName;
 
         // Preserve original numeric version from source; normalization to consumer (Unity) is performed in the Unity pipeline
-        uint originalJDVersion = songData.SongDesc.Components[0].OriginalJDVersion;
+        uint originalJDVersion = songInfo.OriginalJDVersion;
         songData.JDVersion = originalJDVersion;
 
-        _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songData.SongDesc.Components[0].JDVersion, songData.JDVersion);
+        _logger.LogInformation("Loaded engine JDVersion: {JDVersion}, original version: {OriginalVersion}", songInfo.JDVersion, songData.JDVersion);
 
         _logger.LogInformation("Loading MusicTrack");
-        CookedFile musicTrackPath = LegacySongResourceLocator.GetMusicTrackPath(songData.Name, fileSystem);
+        CookedFile musicTrackPath = LegacySongResourceLocator.GetMusicTrackPath(resourceSongName, fileSystem);
         using Stream musicStream = fileSystem.GetFileStream(musicTrackPath);
 
         if (fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer)
@@ -87,7 +92,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             fileSystem.VersionProfile.Serializer is BinaryUbiArtSerializer;
 
         _logger.LogInformation("Loading MainSequence");
-        string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{songData.Name}_mainsequence.tape");
+        string mainSeqRelativePath = Path.Combine(fileSystem.InputFolders.MapWorldFolder, "cinematics", $"{resourceSongName}_mainsequence.tape");
         if (fileSystem.GetFilePath(mainSeqRelativePath, out CookedFile? mainSeqPath))
         {
             try
@@ -121,8 +126,8 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
         }
 
         _logger.LogInformation("Loading DanceTape");
-        string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.dtape");
-        string danceTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_dance.tpl");
+        string danceTapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_dance.dtape");
+        string danceTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_dance.tpl");
         string jd2014TimelineTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, "timeline.tpl");
         bool karaokeAlreadyLoaded = false;
 
@@ -235,11 +240,12 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             }
 
             songData.Clips.AddRange(ExpandClips(danceTape.Clips, fileSystem, options));
+            LoadCommunityMashupPresentationClips(songData, fileSystem, options);
         }
 
-        string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml.isc");
-        string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.ktape");
-        string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{songData.Name}_tml_karaoke.tpl");
+        string timelineIscPath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml.isc");
+        string karaokeKtapeRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_karaoke.ktape");
+        string karaokeTplRelativePath = Path.Combine(fileSystem.InputFolders.TimelineFolder, $"{resourceSongName}_tml_karaoke.tpl");
 
         if (karaokeAlreadyLoaded)
         {
@@ -292,7 +298,7 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
             {
                 CookedFile timelineFile = timelineFileResult;
 
-                if (ISC.GetActorPath(timelineFile, $"{songData.Name}_tml_karaoke", out string? karaokeActorRelativePath, fileSystem) &&
+                if (ISC.GetActorPath(timelineFile, $"{resourceSongName}_tml_karaoke", out string? karaokeActorRelativePath, fileSystem) &&
                     fileSystem.GetFilePath(karaokeActorRelativePath, out CookedFile? karaokeActorFile))
                 {
                     // Read karaoke actor using generic serializer if possible
@@ -444,6 +450,40 @@ public class SongDataLoader(ILogger<SongDataLoader> logger, JDI.Services.IFileSy
 
     private void ApplyLegacyMashupIfNeeded(JDUbiArtSong songData, JustDanceUbiArtFileSystem fileSystem) =>
         new LegacyMashupApplicator(_logger).Apply(songData, fileSystem);
+
+    private void LoadCommunityMashupPresentationClips(
+        JDUbiArtSong songData,
+        JustDanceUbiArtFileSystem fileSystem,
+        JsonSerializerOptions options)
+    {
+        if (!songData.IsCommunityMashup ||
+            string.Equals(fileSystem.SongName, fileSystem.ContentSongName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        string selectedTimelineFolder = fileSystem.InputFolders.SelectedTimelineFolder;
+        string[] candidates =
+        [
+            Path.Combine(selectedTimelineFolder, $"{fileSystem.SongName}_tml_dance.dtape"),
+            Path.Combine(selectedTimelineFolder, $"{fileSystem.SongName}_tml_dance.tpl")
+        ];
+        foreach (string candidate in candidates)
+        {
+            if (!fileSystem.GetFilePath(candidate, out CookedFile? presentationTapePath))
+                continue;
+
+            using Stream stream = fileSystem.GetFileStream(presentationTapePath);
+            ClipTape tape = DeserializeClipTape(fileSystem, stream, options);
+            CommunityDancerClip[] dancers = [.. tape.Clips.OfType<CommunityDancerClip>()];
+            songData.Clips.AddRange(dancers);
+            _logger.LogInformation(
+                "Loaded {DancerCount} community-dancer presentation clip(s) from '{TapePath}'.",
+                dancers.Length,
+                candidate);
+            return;
+        }
+    }
 
     internal static bool TryRemapMashupCoachClip(
         Clip sourceClip,
