@@ -1,6 +1,5 @@
-using SixLabors.Fonts;
+using SkiaSharp;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
@@ -52,6 +51,13 @@ public static class CoverComposer
     public const int AlbumCoachSize = 1024;
 
     private const int AlbumCoachMaxHeightGap = 10;
+    private static readonly Lazy<SKTypeface> PlaceholderTypeface = new(() =>
+        SKTypeface.FromFamilyName(
+            "Segoe UI",
+            SKFontStyleWeight.Normal,
+            SKFontStyleWidth.Normal,
+            SKFontStyleSlant.Upright)
+        ?? SKTypeface.Default);
 
     /// <summary>
     /// Banner dimensions.
@@ -171,34 +177,11 @@ public static class CoverComposer
     /// <param name="assetName">Name of the missing asset to display.</param>
     /// <param name="width">Width of the placeholder image.</param>
     /// <param name="height">Height of the placeholder image.</param>
-    /// <returns>A purple placeholder image with "Missing: {assetName}" text.</returns>
+    /// <returns>A magenta placeholder image with "Missing: {assetName}" text.</returns>
     public static Image<Bgra32> CreatePlaceholder(string assetName, int width, int height)
     {
-        Image<Bgra32> placeholder = new(width, height);
-        placeholder.Mutate(x => x.BackgroundColor(Color.Magenta));
-
         string message = $"Missing: {assetName}";
-
-        try
-        {
-            // Scale font size based on image dimensions
-            float fontSize = Math.Min(width, height) / 8f;
-            fontSize = Math.Max(fontSize, 12f); // Minimum readable size
-            Font font = SystemFonts.CreateFont("Segoe UI", fontSize, FontStyle.Regular);
-
-            // Center the text
-            FontRectangle textBounds = TextMeasurer.MeasureSize(message, new TextOptions(font));
-            float x = (width - textBounds.Width) / 2;
-            float y = (height - textBounds.Height) / 2;
-
-            placeholder.Mutate(ctx => ctx.DrawText(message, font, Color.FloralWhite, new PointF(x, y)));
-        }
-        catch
-        {
-            // Font may not be available on all systems - that's okay
-        }
-
-        return placeholder;
+        return CreateTextPlaceholder(message, width, height, SKColors.Magenta, new SKColor(255, 250, 240));
     }
 
     /// <summary>
@@ -216,26 +199,50 @@ public static class CoverComposer
     /// </summary>
     public static Image<Bgra32> CreateMissingBackground(int width = BackgroundWidth, int height = BackgroundHeight)
     {
-        Image<Bgra32> background = new(width, height);
-        background.Mutate(x => x.BackgroundColor(Color.Purple));
+        return CreateTextPlaceholder("Missing Background", width, height, SKColors.Purple, SKColors.Black);
+    }
 
+    private static Image<Bgra32> CreateTextPlaceholder(
+        string message,
+        int width,
+        int height,
+        SKColor backgroundColor,
+        SKColor textColor)
+    {
         try
         {
-            const string message = "Missing Background";
-            float fontSize = Math.Max(Math.Min(width, height) / 8f, 12f);
-            Font font = SystemFonts.CreateFont("Segoe UI", fontSize, FontStyle.Regular);
-            FontRectangle textBounds = TextMeasurer.MeasureSize(message, new TextOptions(font));
-            float x = (width - textBounds.Width) / 2;
-            float y = (height - textBounds.Height) / 2;
+            SKImageInfo imageInfo = new(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using SKBitmap bitmap = new(imageInfo);
+            using SKCanvas canvas = new(bitmap);
 
-            background.Mutate(ctx => ctx.DrawText(message, font, Color.Black, new PointF(x, y)));
+            canvas.Clear(backgroundColor);
+
+            float fontSize = Math.Max(Math.Min(width, height) / 8f, 12f);
+            using SKFont font = new(PlaceholderTypeface.Value, fontSize);
+            using SKPaint paint = new()
+            {
+                Color = textColor,
+                IsAntialias = true
+            };
+
+            font.MeasureText(message, out SKRect textBounds, paint);
+            float x = (width / 2f) - textBounds.MidX;
+            float y = (height / 2f) - textBounds.MidY;
+
+            canvas.DrawText(message, x, y, SKTextAlign.Left, font, paint);
+            canvas.Flush();
+
+            return Image.LoadPixelData<Bgra32>(bitmap.Bytes, width, height);
         }
         catch
         {
-            // Font availability varies; the purple fallback still makes the missing source obvious.
+            Bgra32 fallbackColor = new(
+                backgroundColor.Red,
+                backgroundColor.Green,
+                backgroundColor.Blue,
+                backgroundColor.Alpha);
+            return new Image<Bgra32>(width, height, fallbackColor);
         }
-
-        return background;
     }
 
     /// <summary>

@@ -179,6 +179,16 @@ public class CoverComposerTests
     }
 
     [Fact]
+    public void CreatePlaceholder_RendersText()
+    {
+        // Act
+        using Image<Bgra32> result = CoverComposer.CreatePlaceholder("Test", 320, 180);
+
+        // Assert
+        Assert.True(HasAnyPixelDifferentFrom(result, new Bgra32(255, 0, 255, 255)));
+    }
+
+    [Fact]
     public void CreateMissingBackground_HasPurpleBackground()
     {
         // Act
@@ -636,6 +646,27 @@ public class CoverComposerTests
                 for (int x = 0; x < row.Length; x++)
                 {
                     if (row[x].R != 0 || row[x].G != 0 || row[x].B != 0)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        });
+        return found;
+    }
+
+    private static bool HasAnyPixelDifferentFrom(Image<Bgra32> image, Bgra32 expected)
+    {
+        bool found = false;
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height && !found; y++)
+            {
+                Span<Bgra32> row = accessor.GetRowSpan(y);
+                foreach (Bgra32 pixel in row)
+                {
+                    if (pixel != expected)
                     {
                         found = true;
                         break;

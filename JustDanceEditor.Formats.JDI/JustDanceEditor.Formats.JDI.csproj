@@ -9,9 +9,9 @@
 		<ProjectReference Include="..\JustDanceEditor.Scoring\JustDanceEditor.Scoring.csproj" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-		<PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
+		<PackageReference Include="SkiaSharp" Version="$(SkiaSharpVersion)" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="$(SkiaSharpVersion)" />
 		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
 		<PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
