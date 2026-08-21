@@ -39,8 +39,9 @@ public sealed class UbiArtSongPreviewProvider(
 
         try
         {
-            UbiArtVersionProfile profile = _engineDetector.Detect(path);
-            UbiArtConversionRequest request = new(path, Path.GetTempPath(), null)
+            UbiArtInputLocation input = UbiArtInputLocation.Resolve(path);
+            UbiArtVersionProfile profile = _engineDetector.Detect(input.RootPath, input.SongName);
+            UbiArtConversionRequest request = new(input.RootPath, Path.GetTempPath(), input.SongName)
             {
                 Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked
             };
@@ -59,8 +60,9 @@ public sealed class UbiArtSongPreviewProvider(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        UbiArtVersionProfile profile = _engineDetector.Detect(request.InputPath, request.SongName);
-        UbiArtConversionRequest conversionRequest = new(request.InputPath, request.WorkingRoot, request.SongName)
+        UbiArtInputLocation input = UbiArtInputLocation.Resolve(request.InputPath, request.SongName);
+        UbiArtVersionProfile profile = _engineDetector.Detect(input.RootPath, input.SongName);
+        UbiArtConversionRequest conversionRequest = new(input.RootPath, request.WorkingRoot, input.SongName)
         {
             Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked
         };

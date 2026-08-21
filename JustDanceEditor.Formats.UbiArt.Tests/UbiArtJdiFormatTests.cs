@@ -28,6 +28,41 @@ namespace JustDanceEditor.Formats.UbiArt.Tests;
 public sealed class UbiArtJdiFormatTests
 {
     [Fact]
+    public void Check_DirectMapFolder_IsDetectedAsUbiArt()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string mapRoot = Path.Combine(root, "world", "maps", "SayMyName");
+            Directory.CreateDirectory(mapRoot);
+            File.WriteAllText(Path.Combine(mapRoot, "SongDesc.tpl"), """
+                params = {
+                    Actor_Template = {
+                        COMPONENTS = {
+                            { JD_SongDescTemplate = { MapName = "SayMyName", JDVersion = 2021, PhoneImages = {} } }
+                        }
+                    }
+                }
+                """);
+
+            UbiArtJdiFormat format = new(
+                new FakeSongDataLoader(CreateSong("SayMyName")),
+                (request, profile) => new JustDanceUbiArtFileSystem(request, profile, NullLogger<JustDanceUbiArtFileSystem>.Instance),
+                new UbiArtEngineDetector(),
+                audioConverter: null,
+                textureService: null,
+                assetWriter: null,
+                NullLogger<UbiArtJdiFormat>.Instance);
+
+            Assert.True(format.Check(mapRoot));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task ImportAsync_WhenOutputParentIsInputParent_RedirectsMaterializedRootAndPreservesSource()
     {
         string parentRoot = CreateTempDirectory();

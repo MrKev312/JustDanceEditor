@@ -119,6 +119,35 @@ public sealed class LuaTableSerializerTests
     }
 
     [Fact]
+    public void DeserializeSongDesc_AcceptsEmptyObjectTables()
+    {
+        const string lua = """
+            params = {
+                Actor_Template = {
+                    COMPONENTS = {
+                        {
+                            JD_SongDescTemplate = {
+                                MapName = "SayMyName",
+                                JDVersion = 2021,
+                                PhoneImages = {},
+                                DefaultColors = {},
+                                Tags = {}
+                            }
+                        }
+                    }
+                }
+            }
+            """;
+
+        InfoComponent info = Assert.Single(LuaTableSerializer.Deserialize<SongDesc>(lua).Components);
+
+        Assert.Equal("SayMyName", info.MapName);
+        Assert.NotNull(info.PhoneImages);
+        Assert.NotNull(info.DefaultColors);
+        Assert.Empty(info.Tags);
+    }
+
+    [Fact]
     public void DeserializeTapeEntryPaths_ReadsTapeCaseReferences()
     {
         const string lua = """

@@ -40,9 +40,11 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
         if (request is not UbiArtConversionRequest ubiRequest)
             throw new ArgumentException("UbiArt import expects a UbiArtConversionRequest.", nameof(request));
 
+        NormalizeDirectMapRequest(ubiRequest);
         _logger.LogInformation("Starting UbiArt -> JDI conversion from '{InputPath}'", ubiRequest.InputPath);
 
         UbiArtVersionProfile profile = _engineDetector.Detect(ubiRequest.InputPath, ubiRequest.SongName);
+        ubiRequest.Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked;
         _logger.LogInformation("Detected engine container: {Container}, engine version: {Version}", profile.Platform, profile.EngineVersion);
 
         JustDanceUbiArtFileSystem fileSystem = _fileSystemFactory(ubiRequest, profile);
@@ -236,8 +238,9 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
 
         try
         {
-            UbiArtVersionProfile profile = _engineDetector.Detect(path);
-            UbiArtConversionRequest req = new(path, _io.GetTempPath(), null) { Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked };
+            UbiArtInputLocation input = UbiArtInputLocation.Resolve(path);
+            UbiArtVersionProfile profile = _engineDetector.Detect(input.RootPath, input.SongName);
+            UbiArtConversionRequest req = new(input.RootPath, _io.GetTempPath(), input.SongName) { Type = profile.Platform == UbiArtPlatform.Uncooked ? CookedType.Uncooked : CookedType.Cooked };
             JustDanceUbiArtFileSystem fs = _fileSystemFactory(req, profile);
             fs.Initialize();
 
@@ -259,6 +262,21 @@ public sealed class UbiArtJdiFormat(ISongDataLoader songDataLoader, Func<UbiArtC
             _logger.LogWarning("UbiArt detection failed: {Message}", ex.Message);
             return false;
         }
+    }
+
+    private void NormalizeDirectMapRequest(UbiArtConversionRequest request)
+    {
+        UbiArtInputLocation input = UbiArtInputLocation.Resolve(request.InputPath, request.SongName);
+        if (!input.IsDirectMap)
+            return;
+
+        _logger.LogInformation(
+            "Resolved direct UbiArt map folder '{MapFolder}' as song '{SongName}' under content root '{ContentRoot}'.",
+            request.InputPath,
+            input.SongName,
+            input.RootPath);
+        request.InputPath = input.RootPath;
+        request.SongName = input.SongName;
     }
 
     private bool ContainsFileRecursive(string root, string fileName, JustDanceUbiArtFileSystem fs)

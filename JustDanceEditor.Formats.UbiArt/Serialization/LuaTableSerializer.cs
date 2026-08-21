@@ -254,6 +254,7 @@ public static partial class LuaTableSerializer
                         {
                             JsonNode normalizedComponent = LuaEntryTableJsonNormalizer.Normalize(prop.Value)
                                 ?? throw new JsonException("SongDesc component was null.");
+                            NormalizeEmptySongDescObjects(normalizedComponent);
                             InfoComponent info = normalizedComponent.Deserialize<InfoComponent>(SongDescJsonOptions)
                                 ?? throw new JsonException("Failed to deserialize InfoComponent from Lua content.");
 
@@ -265,6 +266,23 @@ public static partial class LuaTableSerializer
         }
 
         throw new InvalidDataException("Could not find JD_SongDescTemplate in SongDesc LUA.");
+    }
+
+    private static void NormalizeEmptySongDescObjects(JsonNode component)
+    {
+        if (component is not JsonObject componentObject)
+            return;
+
+        NormalizeEmptyObjectProperty(componentObject, nameof(InfoComponent.PhoneImages));
+        NormalizeEmptyObjectProperty(componentObject, nameof(InfoComponent.DefaultColors));
+    }
+
+    private static void NormalizeEmptyObjectProperty(JsonObject parent, string propertyName)
+    {
+        KeyValuePair<string, JsonNode?> property = parent.FirstOrDefault(entry =>
+            entry.Key.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
+        if (property.Key != null && property.Value is JsonArray { Count: 0 })
+            parent[property.Key] = new JsonObject();
     }
 
     private static ClipTape MapToClipTape(JsonElement root)
