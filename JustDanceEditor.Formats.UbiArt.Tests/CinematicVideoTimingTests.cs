@@ -3,11 +3,11 @@ using JustDanceEditor.Formats.JDI.Timelines;
 using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 
-using KevInc.UbiArt.Cinematics.Timeline;
 using KevInc.UbiArt.FileSystem;
 
 using SixLabors.ImageSharp;
 
+using System;
 using System.Numerics;
 
 using Xunit;
@@ -59,7 +59,7 @@ public sealed class CinematicVideoTimingTests
     }
 
     [Fact]
-    public void GraphVideoFilter_CoverCropsDanDanViewportWithoutStretching()
+    public void GraphVideoFilter_MapsEntireTextureInsteadOfInferringCoverCrop()
     {
         ProjectedQuad outputQuad = new(
             new Vector2(0, -1),
@@ -69,15 +69,14 @@ public sealed class CinematicVideoTimingTests
             new Rectangle(0, -1, 1920, 1082));
         CinematicSingleVideoScene scene = new("world/maps/dandandubizuba/videoscoach/dandandubizuba.webm", "video/videooutput", outputQuad, 1920, 1080);
 
-        Rectangle crop = IntermediateAssetWriter.CalculateGraphSourceCrop(1216, 720, scene);
         string filter = IntermediateAssetWriter.BuildGraphVideoFilter(1216, 720, scene);
 
-        Assert.Equal(new Rectangle(0, 18, 1216, 684), crop);
-        Assert.Equal("crop=1216:684:0:18,setsar=1", filter);
+        Assert.Equal("scale=1280:720:flags=bilinear,setsar=1", filter);
+        Assert.DoesNotContain("crop", filter, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void GraphVideoFilter_ScalesSimpleFourByThreeFillTo1080p()
+    public void GraphVideoFilter_StretchesWiiTextureAtItsNativeHeight()
     {
         ProjectedQuad outputQuad = new(
             new Vector2(0, 0),
@@ -87,11 +86,62 @@ public sealed class CinematicVideoTimingTests
             new Rectangle(0, 0, 1920, 1080));
         CinematicSingleVideoScene scene = new("world/maps/7rings/videoscoach/7rings.wii.webm", "video/videooutput", outputQuad, 1920, 1080);
 
-        Rectangle crop = IntermediateAssetWriter.CalculateGraphSourceCrop(512, 384, scene);
         string filter = IntermediateAssetWriter.BuildGraphVideoFilter(512, 384, scene);
 
-        Assert.Equal(new Rectangle(0, 48, 512, 288), crop);
-        Assert.Equal("crop=512:288:0:48,scale=1920:1080,setsar=1", filter);
+        Assert.Equal("scale=682:384:flags=bilinear,setsar=1", filter);
+    }
+
+    [Fact]
+    public void GraphVideoFilter_StretchesWiiUTextureTo720p()
+    {
+        ProjectedQuad outputQuad = new(
+            new Vector2(0, 0),
+            new Vector2(1920, 0),
+            new Vector2(1920, 1080),
+            new Vector2(0, 1080),
+            new Rectangle(0, 0, 1920, 1080));
+        CinematicSingleVideoScene scene = new("world/maps/pocoloco/videoscoach/pocoloco.webm", "video/videooutput", outputQuad, 1920, 1080);
+
+        (int width, int height) = IntermediateAssetWriter.CalculateGraphVideoOutputSize(1216, 720, scene);
+        string filter = IntermediateAssetWriter.BuildGraphVideoFilter(1216, 720, scene);
+
+        Assert.Equal((1280, 720), (width, height));
+        Assert.Equal("scale=1280:720:flags=bilinear,setsar=1", filter);
+    }
+
+    [Fact]
+    public void GraphVideoFilter_MapsAuthoredOverscanThroughFixedFramebuffer()
+    {
+        ProjectedQuad outputQuad = new(
+            new Vector2(-96, -54),
+            new Vector2(2016, -54),
+            new Vector2(2016, 1134),
+            new Vector2(-96, 1134),
+            new Rectangle(-96, -54, 2112, 1188));
+        CinematicSingleVideoScene scene = new("world/maps/example/videoscoach/example.webm", "video/videooutput", outputQuad, 1920, 1080);
+
+        string filter = IntermediateAssetWriter.BuildGraphVideoFilter(1280, 720, scene);
+
+        Assert.Equal(
+            "scale=1920:1080:flags=bilinear,perspective=x0=-96:y0=-54:x1=2016:y1=-54:x2=-96:y2=1134:x3=2016:y3=1134:sense=destination:interpolation=linear,setsar=1",
+            filter);
+    }
+
+    [Fact]
+    public void GraphVideoTransform_PreservesAnyFullscreenSourceAlreadyAtOutputAspect()
+    {
+        ProjectedQuad outputQuad = new(
+            new Vector2(0, -0.75f),
+            new Vector2(1920, -0.75f),
+            new Vector2(1920, 1080.75f),
+            new Vector2(0, 1080.75f),
+            new Rectangle(0, -1, 1920, 1082));
+        CinematicSingleVideoScene scene = new("world/maps/example/videoscoach/example.webm", "video/videooutput", outputQuad, 1920, 1080);
+
+        Assert.True(IntermediateAssetWriter.CanUseGraphVideoSourceDirectly(1920, 1080, scene));
+        Assert.True(IntermediateAssetWriter.CanUseGraphVideoSourceDirectly(1280, 720, scene));
+        Assert.False(IntermediateAssetWriter.CanUseGraphVideoSourceDirectly(1216, 720, scene));
+        Assert.False(IntermediateAssetWriter.CanUseGraphVideoSourceDirectly(512, 384, scene));
     }
 
     [Fact]

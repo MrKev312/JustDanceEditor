@@ -1,7 +1,6 @@
 using JustDanceEditor.Formats.JDI;
 using JustDanceEditor.Formats.JDI.Services;
 using JustDanceEditor.Formats.UbiArt.Import.Audio;
-using JustDanceEditor.Formats.UbiArt.Import.Cinematics.Video;
 using JustDanceEditor.Formats.UbiArt.Import.Core;
 using JustDanceEditor.Formats.UbiArt.Import.Recordings;
 using JustDanceEditor.Formats.UbiArt.Model;
@@ -9,8 +8,6 @@ using JustDanceEditor.Formats.UbiArt.Model;
 using KevInc.Audio.NAudio;
 
 using Microsoft.Extensions.Logging;
-
-using SixLabors.ImageSharp;
 
 namespace JustDanceEditor.Formats.UbiArt.Import.Intermediate;
 
@@ -62,10 +59,13 @@ internal static class IntermediateAssetWriter
     }
 
     internal static string BuildGraphVideoFilter(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene) =>
-        GraphVideoCropPlanner.BuildFilter(sourceWidth, sourceHeight, scene);
+        GraphVideoTransformPlanner.BuildFilter(sourceWidth, sourceHeight, scene);
 
-    internal static Rectangle CalculateGraphSourceCrop(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene) =>
-        GraphVideoCropPlanner.CalculateSourceCrop(sourceWidth, sourceHeight, scene);
+    internal static bool CanUseGraphVideoSourceDirectly(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene) =>
+        GraphVideoTransformPlanner.CanUseSourceDirectly(sourceWidth, sourceHeight, scene);
+
+    internal static (int Width, int Height) CalculateGraphVideoOutputSize(int sourceWidth, int sourceHeight, CinematicSingleVideoScene scene) =>
+        GraphVideoTransformPlanner.CalculateOutputSize(sourceWidth, sourceHeight, scene);
 
     internal static double GetMasterVideoDurationSeconds(IntermediateSongPackage package, double fallbackDurationSeconds) =>
         IntermediateVideoTiming.GetMasterDurationSeconds(package, fallbackDurationSeconds);

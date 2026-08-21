@@ -14,6 +14,7 @@
 		<PackageReference Include="NLayer.NAudioSupport" Version="1.4.0" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 		<PackageReference Include="System.IO.Hashing" Version="10.0.10" />
+		<PackageReference Include="Xabe.FFmpeg" Version="6.0.2" />
 		<PackageReference Include="KevInc.Audio.NAudio" Version="$(KevIncAudioPackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncAudioNAudioProject)')" />
 		<PackageReference Include="KevInc.Texture.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureImageSharpProject)')" />
 		<PackageReference Include="KevInc.Texture.Nintendo.ImageSharp" Version="$(KevIncTexturePackageVersion)" Condition="'$(UseLocalKevIncProjects)' != 'true' Or !Exists('$(KevIncTextureNintendoImageSharpProject)')" />

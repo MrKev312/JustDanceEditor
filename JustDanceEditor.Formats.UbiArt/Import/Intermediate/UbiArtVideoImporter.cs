@@ -104,7 +104,7 @@ internal static class UbiArtVideoImporter
                 return;
             }
 
-            GraphVideoImportResult graphResult = await GraphVideoCropPlanner.TryApplyAsync(
+            GraphVideoImportResult graphResult = await GraphVideoTransformPlanner.TryApplyAsync(
                 fileSystem,
                 sourceFile,
                 package,
